@@ -38,6 +38,9 @@ services:
       HOME: /tmp
       KASTEN_DATABASE_URL: postgresql+psycopg://kasten:kasten@db:5432/kasten_dev
       KASTEN_VAULT_PATH: /app/vault
+    # Loopback only, same reasoning as the frontend below.
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - .:/app
       # Bind mounts rather than named volumes: `mise run dev:up` creates these
@@ -72,6 +75,12 @@ services:
       # the HMR websocket at wss://<host>:443 so hot reload survives Caddy.
       KASTEN_DEV_PUBLIC_HOST: kasten-dev.pascalkraus.com
       KASTEN_DEV_BACKEND: http://backend-dev:8000
+    # Loopback only. The real route in is Caddy on the `web` network; this is
+    # for a local browser on the box, which cannot pass the OAuth gate. Never
+    # drop the 127.0.0.1 prefix: Docker publishes ports with DNAT rules that
+    # ufw never sees, so a bare "5173:5173" would face the internet.
+    ports:
+      - "127.0.0.1:5173:5173"
     volumes:
       - .:/app
       # Keep the container's node_modules off the host's, which is built for a

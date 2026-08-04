@@ -13,7 +13,9 @@ const PUBLIC_HOST = process.env.KASTEN_DEV_PUBLIC_HOST;
 const hosted = PUBLIC_HOST
   ? {
       // Vite rejects unknown Host headers, so the public name must be listed.
-      allowedHosts: [PUBLIC_HOST],
+      // localhost stays allowed for a browser running on the box itself, which
+      // cannot pass the OAuth gate in front of the public name.
+      allowedHosts: [PUBLIC_HOST, "localhost", "127.0.0.1"],
       // Caddy terminates TLS on 443. Without this the HMR client dials the raw
       // dev port over ws:// and hot reload silently stops working.
       hmr: { host: PUBLIC_HOST, protocol: "wss" as const, clientPort: 443 },

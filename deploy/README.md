@@ -100,6 +100,14 @@ mise run dev:up
 
 Container dependency trees live in `.container/`, deliberately separate from the host's `.venv` and `frontend/node_modules`. Sharing them breaks both: a venv holds absolute paths that are wrong inside the container.
 
+**Every published port binds `127.0.0.1` explicitly.** Docker publishes ports with DNAT rules that ufw never sees, so a bare `"5434:5432"` faces the open internet regardless of firewall rules. Do not drop the prefix.
+
+## Looking at dev in a browser
+
+`kasten-dev.pascalkraus.com` is behind the OAuth gate, so a browser on the box cannot reach it without signing in. For a quick visual check, load `http://127.0.0.1:5173` instead: the dev ports are published on loopback for exactly this.
+
+One known wart. Vite's HMR socket is pinned to the public host so hot reload survives Caddy, and that host is OAuth-gated, so loading via localhost logs a failed websocket handshake in the console. Rendering is unaffected. Use the public URL when you want working hot reload.
+
 Vite blocks unknown `Host` headers and its HMR client guesses the wrong websocket URL behind a TLS terminator. `KASTEN_DEV_PUBLIC_HOST` in the frontend unit fixes both. Unset it and vite goes back to plain localhost behaviour.
 
 The deploy job refuses to start if `.env.prod` or the vault directory is missing, rather than letting compose invent an empty vault and bring the notebook up blank.
