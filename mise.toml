@@ -29,34 +29,35 @@ dir = "{{config_root}}/frontend"
 run = "pnpm dev"
 
 # ─── Hosted dev environment ─────────────────────────────────────────────────
-# Live-reload backend and frontend as systemd user units, reached through Caddy
-# at kasten-dev.pascalkraus.com. Nothing about dev goes through GitHub Actions.
-# Production is the opposite: images only, built in CI. See deploy/README.md.
+# Reload servers in containers with the working tree bind-mounted, reached
+# through Caddy at kasten-dev.pascalkraus.com. Editing a file reloads the
+# running service. Nothing about dev goes through GitHub Actions; production is
+# the opposite, images only, built in CI. See deploy/README.md.
 
-[tasks."dev:install"]
-description = "Install and start the dev systemd user units"
-run = """
-mkdir -p ~/.config/systemd/user
-cp deploy/systemd/kasten-dev-backend.service deploy/systemd/kasten-dev-frontend.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now kasten-dev-backend kasten-dev-frontend
-"""
+[tasks."dev:up"]
+description = "Start the hosted dev environment (db + reload servers)"
+# The mkdir matters: these are bind mounts, and Docker would otherwise create
+# them as root, leaving the non-root containers unable to write.
+run = [
+  "mkdir -p .container/venv .container/node_modules vault",
+  "docker compose -f compose.yaml -f compose.dev.yml up -d",
+]
+
+[tasks."dev:down"]
+description = "Stop the hosted dev environment (keeps the db volume)"
+run = "docker compose -f compose.yaml -f compose.dev.yml down"
 
 [tasks."dev:restart"]
-description = "Restart the hosted dev services"
-run = "systemctl --user restart kasten-dev-backend kasten-dev-frontend"
-
-[tasks."dev:stop"]
-description = "Stop the hosted dev services"
-run = "systemctl --user stop kasten-dev-backend kasten-dev-frontend"
+description = "Restart the dev reload servers (after a dependency change)"
+run = "docker compose -f compose.yaml -f compose.dev.yml restart backend-dev frontend-dev"
 
 [tasks."dev:status"]
-description = "Show hosted dev service status"
-run = "systemctl --user --no-pager status kasten-dev-backend kasten-dev-frontend"
+description = "Show hosted dev container status"
+run = "docker compose -f compose.yaml -f compose.dev.yml ps"
 
 [tasks."dev:logs"]
-description = "Follow hosted dev service logs"
-run = "journalctl --user -u kasten-dev-backend -u kasten-dev-frontend -f"
+description = "Follow the dev reload server logs"
+run = "docker compose -f compose.yaml -f compose.dev.yml logs -f backend-dev frontend-dev"
 
 # ─── Database ───────────────────────────────────────────────────────────────
 

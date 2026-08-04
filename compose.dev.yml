@@ -1,0 +1,88 @@
+# compose.dev.yml — the hosted dev environment, layered on compose.yaml:
+#
+#   docker compose -f compose.yaml -f compose.dev.yml up -d
+#
+# or just `mise run dev:up`, which is the same thing plus the directory
+# pre-creation these bind mounts need.
+#
+# These run the ordinary reload servers, uvicorn --reload and vite dev, with
+# the working tree bind-mounted. Editing a file on the host reloads the running
+# service; nothing is rebuilt and nothing goes through GitHub Actions.
+#
+# They run as containers rather than host processes because a host firewall
+# drops traffic from the Docker bridge to arbitrary host ports, so Caddy cannot
+# reach a dev server bound to the host. On the `web` network Caddy reaches them
+# by name, which needs no firewall rule and cannot break when one changes.
+#
+# Production shares none of this. See deploy/compose.yaml.
+
+services:
+  backend-dev:
+    image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+    container_name: kasten-backend-dev
+    working_dir: /app
+    # Run as you, not root. This container writes into the bind-mounted vault,
+    # and root-owned notes on the host would need sudo to edit.
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    command:
+      - sh
+      - -c
+      - "uv sync --frozen && exec uv run uvicorn kasten_backend.main:app --reload --host 0.0.0.0 --port 8000"
+    environment:
+      # A separate venv path so the container never touches the host's .venv,
+      # which holds absolute paths that are wrong inside the container.
+      UV_PROJECT_ENVIRONMENT: /venv
+      UV_LINK_MODE: copy
+      UV_CACHE_DIR: /tmp/uv-cache
+      # uid 1000 has no home directory in this image.
+      HOME: /tmp
+      KASTEN_DATABASE_URL: postgresql+psycopg://kasten:kasten@db:5432/kasten_dev
+      KASTEN_VAULT_PATH: /app/vault
+    volumes:
+      - .:/app
+      # Bind mounts rather than named volumes: `mise run dev:up` creates these
+      # directories as you first, so the non-root container can write to them.
+      # Docker would create a named volume owned by root.
+      - ./.container/venv:/venv
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - default
+      - web
+
+  frontend-dev:
+    image: node:22-slim
+    container_name: kasten-frontend-dev
+    working_dir: /app/frontend
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    command:
+      - sh
+      - -c
+      # corepack needs the install directory to exist, and it must be somewhere
+      # uid 1000 can write, which rules out the image's /usr/local/bin.
+      - "mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin && export PATH=/tmp/bin:$$PATH && pnpm install --frozen-lockfile && exec pnpm dev"
+    environment:
+      HOME: /tmp
+      # Bind every interface inside the container. No port is published to the
+      # host, so the only route in is Caddy on the `web` network.
+      KASTEN_DEV_BIND: 0.0.0.0
+      # Switches vite into hosted mode: accept the public Host header and point
+      # the HMR websocket at wss://<host>:443 so hot reload survives Caddy.
+      KASTEN_DEV_PUBLIC_HOST: kasten-dev.pascalkraus.com
+      KASTEN_DEV_BACKEND: http://backend-dev:8000
+    volumes:
+      - .:/app
+      # Keep the container's node_modules off the host's, which is built for a
+      # different environment and would be clobbered by the bind mount.
+      - ./.container/node_modules:/app/frontend/node_modules
+    restart: unless-stopped
+    networks:
+      - default
+      - web
+
+networks:
+  web:
+    external: true
+    name: web

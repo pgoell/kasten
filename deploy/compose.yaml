@@ -23,6 +23,9 @@ services:
   kasten-backend-prod:
     image: ghcr.io/pgoell/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
     container_name: kasten-backend-prod
+    # Run as pascal, not root. This container writes the vault through a bind
+    # mount, and root-owned notes on the host would need sudo to edit or back up.
+    user: "1000:1000"
     env_file:
       - .env.prod
     volumes:

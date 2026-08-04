@@ -6,8 +6,8 @@ import { defineConfig } from "vitest/config";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
 
-// Set by the kasten-dev-frontend systemd unit when this dev server sits behind
-// Caddy. Unset means plain localhost work, so the default stays untouched.
+// Set by compose.dev.yml when this dev server sits behind Caddy. Unset means
+// plain localhost work, so the default stays untouched.
 const PUBLIC_HOST = process.env.KASTEN_DEV_PUBLIC_HOST;
 
 const hosted = PUBLIC_HOST
@@ -28,8 +28,9 @@ export default defineConfig({
     },
   },
   server: {
-    // Defaults to loopback. The dev units override it with the `web` bridge
-    // gateway so Caddy can reach the server without exposing it publicly.
+    // Defaults to loopback. compose.dev.yml sets 0.0.0.0 because inside a
+    // container the only route in is Caddy on the `web` network; no port is
+    // published to the host.
     host: process.env.KASTEN_DEV_BIND ?? "127.0.0.1",
     port: 5173,
     strictPort: true,
