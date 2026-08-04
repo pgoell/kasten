@@ -1,0 +1,105 @@
+name: Deploy production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing image tag to redeploy (e.g. 1.2.0). Skips the build."
+        required: true
+
+# Never cancel a running deploy: a half-applied migration is worse than a queue.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    name: Publish ${{ matrix.component }} image
+    # A dispatch redeploys an existing tag, so there is nothing to build.
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
+          tags: |
+            type=raw,value=${{ github.event.release.tag_name }}
+            type=raw,value=latest
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.component }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,scope=${{ matrix.component }},mode=max
+
+  deploy:
+    name: Deploy to VPS
+    needs: [images]
+    # `always()` plus the explicit result check lets a workflow_dispatch
+    # redeploy run even though the skipped build job would otherwise block it.
+    if: always() && (needs.images.result == 'success' || needs.images.result == 'skipped')
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Pull images and restart services
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_DIR: /home/pascal/kasten-deploy
+          KASTEN_IMAGE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$DEPLOY_DIR"
+          cp deploy/compose.yaml "$DEPLOY_DIR/compose.yaml"
+
+          if [ ! -f "$DEPLOY_DIR/.env.prod" ]; then
+            echo "::error::Missing $DEPLOY_DIR/.env.prod. Follow the bootstrap in deploy/README.md."
+            exit 1
+          fi
+          # Refuse to start if the vault mount is missing. Compose would happily
+          # create an empty directory and the notebook would come up blank.
+          if [ ! -d /home/pascal/kasten-data/vault ]; then
+            echo "::error::Missing /home/pascal/kasten-data/vault. Follow the bootstrap in deploy/README.md."
+            exit 1
+          fi
+
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          cd "$DEPLOY_DIR"
+          docker compose pull
+          docker compose up -d
+          docker logout ghcr.io
+
+      - name: Wait for the backend to report healthy
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 30); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' kasten-backend-prod 2>/dev/null || echo starting)
+            if [ "$status" = "healthy" ]; then
+              echo "backend healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::kasten-backend-prod did not become healthy"
+          docker logs --tail 50 kasten-backend-prod
+          exit 1

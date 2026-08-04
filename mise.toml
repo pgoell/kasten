@@ -28,6 +28,36 @@ description = "Run the frontend dev server on :5173"
 dir = "{{config_root}}/frontend"
 run = "pnpm dev"
 
+# ─── Hosted dev environment ─────────────────────────────────────────────────
+# Live-reload backend and frontend as systemd user units, reached through Caddy
+# at kasten-dev.pascalkraus.com. Nothing about dev goes through GitHub Actions.
+# Production is the opposite: images only, built in CI. See deploy/README.md.
+
+[tasks."dev:install"]
+description = "Install and start the dev systemd user units"
+run = """
+mkdir -p ~/.config/systemd/user
+cp deploy/systemd/kasten-dev-backend.service deploy/systemd/kasten-dev-frontend.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now kasten-dev-backend kasten-dev-frontend
+"""
+
+[tasks."dev:restart"]
+description = "Restart the hosted dev services"
+run = "systemctl --user restart kasten-dev-backend kasten-dev-frontend"
+
+[tasks."dev:stop"]
+description = "Stop the hosted dev services"
+run = "systemctl --user stop kasten-dev-backend kasten-dev-frontend"
+
+[tasks."dev:status"]
+description = "Show hosted dev service status"
+run = "systemctl --user --no-pager status kasten-dev-backend kasten-dev-frontend"
+
+[tasks."dev:logs"]
+description = "Follow hosted dev service logs"
+run = "journalctl --user -u kasten-dev-backend -u kasten-dev-frontend -f"
+
 # ─── Database ───────────────────────────────────────────────────────────────
 
 [tasks."db:up"]

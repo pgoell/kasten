@@ -1,0 +1,63 @@
+# deploy/compose.yaml
+#
+# Production only. Copied to /home/pascal/kasten-deploy/compose.yaml by the
+# self-hosted runner on every release deploy, and run against the external
+# `web` network declared by /home/pascal/Code/server-infra/docker-compose.yml.
+# Caddy and the shared Postgres live in that compose file, not this one.
+#
+# Nothing here is ever built on the server. Images come from GHCR, built by
+# .github/workflows/deploy-prod.yml. The dev environment does not use this
+# file at all; see deploy/README.md.
+
+services:
+  kasten-migrate-prod:
+    image: ghcr.io/pgoell/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
+    container_name: kasten-migrate-prod
+    command: ["alembic", "-c", "/app/backend/alembic.ini", "upgrade", "head"]
+    env_file:
+      - .env.prod
+    restart: "no"
+    networks:
+      - web
+
+  kasten-backend-prod:
+    image: ghcr.io/pgoell/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
+    container_name: kasten-backend-prod
+    env_file:
+      - .env.prod
+    volumes:
+      # The vault is the only irreplaceable state in this system. A bind mount
+      # to a host path, never a named volume, so it survives every container
+      # and image change and stays readable over ssh and by git.
+      - /home/pascal/kasten-data/vault:/vault
+    depends_on:
+      kasten-migrate-prod:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - web
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c 'import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(\"http://127.0.0.1:8000/api/health\").status == 200 else 1)'"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  kasten-frontend-prod:
+    image: ghcr.io/pgoell/kasten-frontend:${KASTEN_IMAGE_TAG:-latest}
+    container_name: kasten-frontend-prod
+    restart: unless-stopped
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+networks:
+  web:
+    external: true
+    name: web
