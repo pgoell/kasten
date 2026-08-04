@@ -1,0 +1,16 @@
+# Git hooks. Installed by `mise run install`.
+#
+# pre-commit stays fast (lint and format only). Anything slow enough to make
+# you reach for --no-verify belongs in pre-push instead.
+
+pre-commit:
+  commands:
+    lint:
+      run: mise run lint
+
+pre-push:
+  commands:
+    test:
+      run: mise run test
+    typecheck-frontend:
+      run: mise run fe:typecheck

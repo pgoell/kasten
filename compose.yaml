@@ -1,0 +1,28 @@
+# compose.yaml — local dev services for kasten. Currently just Postgres.
+# The vault itself is a plain directory on the host, not a container volume.
+
+# Pinned so container names do not follow the checkout directory name.
+name: kasten
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: kasten
+      POSTGRES_PASSWORD: kasten
+      POSTGRES_DB: kasten_dev
+    # Host port 5434: 5432 is taken by the box's shared Postgres and 5433 by
+    # the Klassenzeit dev DB. The container-internal port stays 5432.
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kasten -d kasten_dev"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  pgdata:
+    name: kasten_pgdata

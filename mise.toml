@@ -1,0 +1,127 @@
+# mise.toml — toolchain pins and task definitions
+
+[tools]
+python = "3.14"
+uv     = "latest"
+node   = "22"
+"aqua:pnpm/pnpm"            = "10.33.2"
+"ubi:evilmartians/lefthook" = "1.11.14"
+
+# ─── Bootstrap ──────────────────────────────────────────────────────────────
+
+[tasks.install]
+description = "Bootstrap dev environment (git hooks + backend + frontend deps)"
+depends = ["fe:install"]
+run = [
+  "lefthook install",
+  "uv sync",
+]
+
+# ─── Dev loop ───────────────────────────────────────────────────────────────
+
+[tasks.dev]
+description = "Run the backend with auto-reload on :8000"
+run = "uv run uvicorn kasten_backend.main:app --reload --port 8000"
+
+[tasks."fe:dev"]
+description = "Run the frontend dev server on :5173"
+dir = "{{config_root}}/frontend"
+run = "pnpm dev"
+
+# ─── Database ───────────────────────────────────────────────────────────────
+
+[tasks."db:up"]
+description = "Start the dev Postgres"
+run = "docker compose up -d db"
+
+[tasks."db:stop"]
+description = "Stop the dev DB (keeps the volume)"
+run = "docker compose stop db"
+
+[tasks."db:reset"]
+description = "Destroy the dev DB volume and start fresh (DANGEROUS)"
+run = [
+  "docker compose rm -sf db",
+  # `|| true` — `volume rm` exits non-zero when the volume is already gone,
+  # which happens on fresh clones. Swallow it so this task is idempotent.
+  "docker volume rm kasten_pgdata || true",
+  "docker compose up -d db",
+]
+
+[tasks."db:migrate"]
+description = "Apply migrations to the dev DB"
+dir = "{{config_root}}/backend"
+run = "uv run alembic upgrade head"
+
+[tasks."db:revision"]
+description = "Autogenerate a migration (usage: mise run db:revision -- -m 'message')"
+dir = "{{config_root}}/backend"
+run = "uv run alembic revision --autogenerate"
+
+[tasks."db:downgrade"]
+description = "Roll back the last migration"
+dir = "{{config_root}}/backend"
+run = "uv run alembic downgrade -1"
+
+# ─── Testing ────────────────────────────────────────────────────────────────
+
+[tasks.test]
+description = "Run all tests (backend + frontend)"
+depends = ["test:py", "fe:test"]
+
+[tasks."test:py"]
+description = "Run backend tests"
+run = "uv run pytest"
+
+[tasks."fe:test"]
+description = "Run frontend tests"
+run = "pnpm -C frontend test"
+
+# ─── Lint & format ──────────────────────────────────────────────────────────
+
+[tasks.lint]
+description = "Run the fast linters (pre-commit gate)"
+depends = ["lint:py", "fe:lint"]
+
+[tasks."lint:py"]
+description = "Lint, format-check and type-check the backend"
+run = [
+  "uv run ruff check",
+  "uv run ruff format --check",
+  "uv run ty check",
+]
+
+[tasks.fmt]
+description = "Auto-format everything"
+depends = ["fe:fmt"]
+run = "uv run ruff format"
+
+# ─── Frontend ───────────────────────────────────────────────────────────────
+
+[tasks."fe:install"]
+description = "Install frontend dependencies"
+run = "pnpm -C frontend install"
+
+[tasks."fe:build"]
+description = "Build the frontend for production"
+dir = "{{config_root}}/frontend"
+run = "pnpm build"
+
+[tasks."fe:lint"]
+description = "Lint the frontend (Biome)"
+run = "pnpm -C frontend lint"
+
+[tasks."fe:fmt"]
+description = "Format the frontend (Biome)"
+run = "pnpm -C frontend fmt"
+
+[tasks."fe:typecheck"]
+description = "Type-check the frontend with tsc --noEmit"
+# Depends on the build because the TanStack Router plugin emits the gitignored
+# routeTree.gen.ts, which tsc needs to resolve the route graph.
+depends = ["fe:build"]
+run = "pnpm -C frontend typecheck"
+
+[tasks."fe:types"]
+description = "Regenerate the OpenAPI-derived types for the frontend"
+run = "bash scripts/gen_frontend_types.sh"
