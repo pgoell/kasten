@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-mise
+      - name: Ruff and Biome
+        run: mise run lint
+      - name: Ty (with GitHub annotations)
+        run: mise exec -- uv run ty check --output-format github --error-on-warning
+      - name: Frontend typecheck
+        run: mise run fe:typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      # Mirrors compose.yaml so backend/.env.example resolves without overrides.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: kasten
+          POSTGRES_PASSWORD: kasten
+          POSTGRES_DB: kasten_dev
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U kasten -d kasten_dev"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-mise
+      # Proves the Alembic wiring against a real database, which the unit
+      # tests deliberately do not touch.
+      - name: Apply migrations
+        run: mise run db:migrate
+      - name: Backend tests
+        run: mise run test:py
+      - name: Frontend tests
+        run: mise run fe:test

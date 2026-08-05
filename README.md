@@ -1,22 +1,39 @@
-# Sieve
+# kasten
 
-A personal newsletter digest platform. Subscribe to the things you care about (newsletters, blogs, RSS feeds, later on YouTube and podcasts). Get scheduled briefs that filter what matters and point you at what to read yourself. Full archive with semantic search. API for agents.
+A self-hosted markdown notebook with wikilinks and backlinks, in the shape of
+Obsidian but served as a web page.
 
-**Status:** Concept. This repo currently contains design documents only. No implementation yet.
+## Design rules
 
-## Docs map
+The vault is a directory of `.md` files. That directory is the source of truth.
+Postgres holds a derived index only (documents, links, tags, full-text), and you
+must be able to drop the schema and rebuild it from the vault. Nothing that only
+exists in the database is allowed to matter.
 
-- [Vision](docs/vision.md): the product idea, who it's for, why it exists.
-- [Design spec](docs/superpowers/specs/2026-04-23-sieve-platform-design.md): the main reference.
-- [Open things](docs/superpowers/OPEN_THINGS.md): running catalog of work, tech debt, and follow-ups. This is where tracking lives; the spec is stable, this list evolves.
-- Architecture
-  - [Overview](docs/architecture/overview.md)
-  - [Data model](docs/architecture/data-model.md)
-  - [Ingestion](docs/architecture/ingestion.md)
-  - [Digest pipeline](docs/architecture/digest-pipeline.md)
-  - [Security](docs/architecture/security.md)
-- [ADRs](docs/adr/): decision records.
+## Stack
 
-## Audience
+- Backend: Python 3.14, FastAPI, SQLAlchemy 2 async, Alembic, uv
+- Frontend: React 19, Vite, TanStack Router and Query, Tailwind, CodeMirror 6
+- Toolchain: mise pins everything; `mise tasks` lists the commands
 
-Sieve is designed for a small trusted group of known users, not public signup. Invite-only. See the design spec for the full scoping rationale.
+## Getting started
+
+```sh
+mise install     # toolchain
+mise run install # backend + frontend dependencies
+mise run db:up   # dev Postgres on :5434
+cp backend/.env.example backend/.env
+mise run db:migrate
+
+mise run dev     # backend on :8000
+mise run fe:dev  # frontend on :5173, proxying /api to the backend
+```
+
+## Layout
+
+```
+backend/    FastAPI service and Alembic migrations
+frontend/   Vite SPA
+scripts/    OpenAPI type generation
+compose.yaml  dev Postgres
+```

@@ -1,17 +1,22 @@
-.DS_Store
-.env
-.env.local
-*.log
-.idea/
-.vscode/
-node_modules/
+# Python
+.venv/
 __pycache__/
 *.pyc
-.venv/
-venv/
-.mypy_cache/
-.ruff_cache/
 .pytest_cache/
-target/
-dist/
-build/
+.ruff_cache/
+.ty_cache/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Local env files
+backend/.env
+backend/.env.local
+
+# The dev vault — notes are yours, not the repo's
+vault/
+
+# Editors / OS
+.DS_Store
+.idea/

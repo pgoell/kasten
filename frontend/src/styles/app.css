@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* CodeMirror sizes itself to its content by default; make it fill the pane. */
+.cm-editor {
+  height: 100%;
+}
