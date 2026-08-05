@@ -1,9 +1,27 @@
 @import "tailwindcss";
 
+/* The One Dark palette CodeMirror's `oneDark` theme paints the editor with.
+   Repeated here so the chrome around the editor matches it exactly rather
+   than approximately. Values copied from @codemirror/theme-one-dark. */
+@theme {
+  --color-one-bg: #282c34;
+  --color-one-panel: #21252b;
+  --color-one-hover: #2c313a;
+  --color-one-selection: #3e4451;
+  --color-one-fg: #abb2bf;
+  --color-one-muted: #7d8799;
+  --color-one-accent: #61afef;
+  --color-one-line: #181a1f;
+}
+
 html,
 body,
 #root {
   height: 100%;
+}
+
+body {
+  background: var(--color-one-bg);
 }
 
 /* CodeMirror sizes itself to its content by default; make it fill the pane. */
