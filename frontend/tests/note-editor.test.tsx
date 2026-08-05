@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { useMemo } from "react";
+import { Editor } from "@/components/editor";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
+import type { EditorCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
 
 // The api module builds its client at import time and captures `fetch` there,
@@ -10,6 +13,14 @@ import { useAutosave } from "@/lib/use-autosave";
 // the remount, not the HTTP.
 const { fetchNote, saveNote } = vi.hoisted(() => ({ fetchNote: vi.fn(), saveNote: vi.fn() }));
 vi.mock("@/lib/api", () => ({ fetchNote, saveNote }));
+
+// Render counters for the two components below. `spy: true` keeps the real
+// implementation and only records the calls, so counting costs the tree
+// nothing: no extra element, no changed props identity, no memo defeated. A
+// wrapper component would count its own renders instead, which is the wrong
+// number the moment anything below it stops re-rendering.
+vi.mock("@/components/editor", { spy: true });
+vi.mock("@/components/status-bar", { spy: true });
 
 // Single-line notes on purpose: CodeMirror's text content runs the lines
 // together, so anything longer makes the assertions unreadable. No markdown
@@ -31,23 +42,25 @@ function serveVault() {
 /** What the route puts around an open note: autosave, the editor, the bar. */
 function OpenNote({ path }: { path: string }) {
   const { status, change, save } = useAutosave(path);
+  // Held across renders because the route holds it across renders too. A fresh
+  // literal here would hand the editor a new prop on every keystroke, and the
+  // render-count test below would then be measuring this harness rather than
+  // the components it names.
+  const commands = useMemo<EditorCommands>(
+    () => ({
+      toggleTree: () => {},
+      togglePreview: () => {},
+      closeNote: () => {},
+      showHelp: () => {},
+      createNote: () => {},
+      focusTree: () => {},
+    }),
+    [],
+  );
 
   return (
     <>
-      <NoteEditor
-        path={path}
-        commands={{
-          toggleTree: () => {},
-          togglePreview: () => {},
-          closeNote: () => {},
-          showHelp: () => {},
-          createNote: () => {},
-          focusTree: () => {},
-        }}
-        preview
-        onChange={change}
-        onSave={save}
-      />
+      <NoteEditor path={path} commands={commands} preview onChange={change} onSave={save} />
       <StatusBar status={status} />
     </>
   );
@@ -169,6 +182,44 @@ describe("an open note", () => {
     await waitFor(() => expect(note.status()).toBe("Could not save"));
     expect(note.errorIcon()).not.toBeNull();
     expect(note.spinner()).toBeNull();
+  });
+
+  /**
+   * The components that must not render again while a note is typed into.
+   *
+   * `Editor` owns the CodeMirror view, and the note at the top of that file
+   * says it plainly: re-rendering the React tree around it on every keystroke
+   * is where this pattern's performance goes. `NoteEditor` is the component
+   * directly above it, and with the note open it renders `Editor` and nothing
+   * else, with no memo of its own. So one counter answers for both: `Editor`
+   * cannot render without `NoteEditor` having rendered first.
+   *
+   * `StatusBar` is deliberately not on that list. The bar reports whether the
+   * vault holds what the screen holds, and the first keystroke of an edit
+   * turns that from saved to unsaved, so a render there is the bar doing its
+   * job. Its count is asserted to move instead, which is what proves the
+   * keystrokes reached React state at all and that the zero above is a fact
+   * rather than a harness that swallowed the input.
+   */
+  it("renders nothing around the editor again while the note is typed into", async () => {
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    // Both counters stand at 1 from the mount, so clearing them is what makes
+    // the assertion below reachable at all.
+    vi.mocked(Editor).mockClear();
+    vi.mocked(StatusBar).mockClear();
+
+    // `x` in vim normal mode deletes the character under the cursor, so five
+    // presses are five document changes. Insert mode is not an option here:
+    // typed text reaches CodeMirror through beforeinput on a contenteditable,
+    // which jsdom does not produce from a synthetic keydown.
+    for (let i = 0; i < 5; i += 1) note.press("x");
+
+    // Five characters gone off the front, so all five presses landed.
+    expect(note.text()).toBe("ndex note");
+    expect(vi.mocked(StatusBar).mock.calls.length).toBeGreaterThan(0);
+    expect(vi.mocked(Editor).mock.calls.length).toBe(0);
   });
 
   it("says so when the note cannot be read", async () => {

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project perf",
     "test:watch": "vitest",
     "lint": "biome check .",
     "fmt": "biome format --write .",
@@ -41,10 +41,13 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/browser": "4.1.10",
+    "@vitest/browser-playwright": "4.1.10",
     "jsdom": "^30.0.1",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.2.0",
-    "vitest": "^4.1.10"
+    "vitest": "4.1.10"
   }
 }

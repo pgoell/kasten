@@ -56,7 +56,19 @@ through Caddy. See [Two environments](/explanation/environments.md).
 |---|---|
 | `test` | Backend and frontend tests |
 | `test:py` | Backend tests only |
-| `fe:test` | Frontend tests only |
+| `fe:test` | Frontend tests only, the `unit` and `perf` projects |
+| `fe:frame` | The end-to-end frame gates, in Chromium |
+| `fe:bench` | Record the frontend benchmark numbers on this machine |
+
+`fe:test` names its two projects rather than running every project, because the
+third one boots a real browser. CI's Test job and lefthook's pre-push hook
+install none, so `fe:frame` runs in its own CI job, after a
+`playwright install chromium --with-deps`. Run it locally the same way, once.
+
+`fe:bench` gates nothing. It prints a mean per benchmark and exits zero
+whatever the number, because `vitest bench` has no threshold to fail against.
+The thresholds are assertions in the test files instead. See
+[Note prompt performance](/reference/note-prompt-performance.md).
 
 ## Lint, format and types
 
@@ -85,3 +97,4 @@ through Caddy. See [Two environments](/explanation/environments.md).
 ## Related
 
 * [Run the checks](/how-to/run-the-checks.md) - which of these CI runs, and what to do when the hooks misbehave
+* [Note prompt performance](/reference/note-prompt-performance.md) - what `fe:test`, `fe:frame` and `fe:bench` measure, and every recorded number

@@ -2,6 +2,7 @@ import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
+import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
@@ -48,7 +49,65 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
-    setupFiles: ["./tests/setup.ts"],
+    // `vitest bench` resolves benchmark.include per project and ignores
+    // test.include, so a bench file left unpinned runs once per project and
+    // prints the same benchmark under several labels. Off here rather than per
+    // project, so a project added later has to ask for benchmarks rather than
+    // inherit vitest's default include and fan them out again.
+    benchmark: { include: [] },
+    // vitest is pinned to an exact version in package.json for two reasons:
+    // benchmarking prints "Breaking changes might not follow SemVer, please pin
+    // Vitest's version when using it", and @vitest/browser-playwright peer
+    // depends on exactly the vitest it ships with. A range widens both.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "jsdom",
+          setupFiles: ["./tests/setup.ts"],
+          // Tests live in tests/ and end in .test.ts or .test.tsx. Anything
+          // co-located under src/, and anything named .spec, is outside that
+          // convention and deliberately not collected.
+          include: ["tests/**/*.test.{ts,tsx}"],
+          exclude: ["tests/perf/**", "tests/frame/**"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "perf",
+          environment: "node",
+          // Without this the gate measures a contended machine: one worker pool
+          // shared with the jsdom project oversubscribes the box, and the same
+          // code then reads 1.6x slower inside the full suite than it does
+          // alone. A number that moves with whatever else is in the run is not
+          // a baseline, and slices 3, 6 and 11 read these back.
+          sequence: { groupOrder: 1 },
+          include: ["tests/perf/**/*.test.{ts,tsx}"],
+          benchmark: { include: ["bench/**/*.bench.ts"] },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "frame",
+          // jsdom lays nothing out and paints nothing, so the only honest
+          // answer to "did this keystroke land inside a frame" comes from a
+          // real browser. `fe:test` names its projects rather than running them
+          // all, because CI's Test job and lefthook install no browser.
+          //
+          // No groupOrder here, unlike perf: `fe:frame` is the only task that
+          // names this project, so it never shares a worker pool with the jsdom
+          // suite and has nothing to be sequenced away from.
+          include: ["tests/frame/**/*.test.tsx"],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium", headless: true }],
+          },
+        },
+      },
+    ],
   },
 });

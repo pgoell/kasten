@@ -40,7 +40,7 @@ type TreeNode = FolderNode | FileNode;
  * The backend deliberately serves a flat, sorted list and never models
  * folders, so the nesting is reconstructed here.
  */
-function buildTree(paths: string[]): TreeNode[] {
+export function buildTree(paths: string[]): TreeNode[] {
   const root: TreeNode[] = [];
 
   for (const path of paths) {

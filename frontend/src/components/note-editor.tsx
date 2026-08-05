@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { memo } from "react";
 import { Editor } from "@/components/editor";
 import { fetchNote } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -20,8 +21,19 @@ const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-m
  * The `key` is what makes opening a second note replace the first one's text.
  * The editor reads its document once, on mount, and a note that is already in
  * the cache arrives with no loading gap to remount across.
+ *
+ * Memoised because the save status lives above this component and the first
+ * keystroke of an edit moves it, which re-rendered this whole subtree for a
+ * reading only the status bar shows. None of these props change while a note
+ * is typed into, so the memo turns that into nothing at all.
  */
-export function NoteEditor({ path, commands, preview, onChange, onSave }: NoteEditorProps) {
+export const NoteEditor = memo(function NoteEditor({
+  path,
+  commands,
+  preview,
+  onChange,
+  onSave,
+}: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
     queryFn: () => fetchNote(path),
@@ -40,4 +52,4 @@ export function NoteEditor({ path, commands, preview, onChange, onSave }: NoteEd
       onSave={onSave}
     />
   );
-}
+});

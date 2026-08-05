@@ -55,3 +55,20 @@ jobs:
         run: mise run test:py
       - name: Frontend tests
         run: mise run fe:test
+
+  perf:
+    name: Perf
+    runs-on: ubuntu-latest
+    # No Postgres service: the frame gate mounts React over a synthetic vault
+    # and never reaches the backend, let alone the database.
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-mise
+      # setup-mise runs `mise run install`, which puts the playwright CLI in
+      # frontend/node_modules, but the browser it drives is a separate download
+      # the runner image does not carry. `--with-deps` adds the shared
+      # libraries Chromium needs, which a bare runner is also missing.
+      - name: Install Chromium
+        run: frontend/node_modules/.bin/playwright install chromium --with-deps
+      - name: Frame gate
+        run: mise run fe:frame

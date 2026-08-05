@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NotePrompt } from "@/components/note-prompt";
+import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
@@ -8,6 +9,14 @@ import { NotePrompt } from "@/components/note-prompt";
 // and what it does with the answer, not the HTTP.
 const { createNote } = vi.hoisted(() => ({ createNote: vi.fn() }));
 vi.mock("@/lib/api", () => ({ createNote }));
+
+// Call counters for the two halves of the ranking. `spy: true` keeps the real
+// implementations, so the prompt still ranks for real and the only thing that
+// changes is that the calls are recorded. Which half runs how often is
+// behaviour here, not an implementation detail: deriving the folder set is the
+// larger half and follows the vault, so a keystroke that walks every path again
+// is the regression the memo exists to prevent.
+vi.mock("@/lib/fuzzy", { spy: true });
 
 // Sorted the way the backend serves it, and holding three folders: `daily/`,
 // `projects/` and `projects/kasten/`.
@@ -18,7 +27,20 @@ const PATHS = [
   "projects/kasten/api-design.md",
 ];
 
-function renderPrompt(startPath = "") {
+// Twenty-five folders, five more than the list will mount, so the cap has
+// something to cut. The `notes-` five sort last of the twenty-five and rank
+// first against `no`, because the query opens their name rather than landing
+// mid-way through it. So rank-then-cut and cut-then-rank disagree on this
+// vault, which is what makes the assertion below able to fail.
+const MANY_PATHS = [
+  ...Array.from(
+    { length: 20 },
+    (_, index) => `archive-notes-${String(index).padStart(2, "0")}/entry.md`,
+  ),
+  ...Array.from({ length: 5 }, (_, index) => `notes-${index}/entry.md`),
+];
+
+function renderPrompt(startPath = "", vault = PATHS) {
   const onOpen = vi.fn();
   const onClose = vi.fn();
   const queryClient = new QueryClient();
@@ -29,7 +51,7 @@ function renderPrompt(startPath = "") {
     </QueryClientProvider>
   );
 
-  const { rerender, unmount } = render(tree(PATHS));
+  const { rerender, unmount } = render(tree(vault));
   const input = screen.getByLabelText("new note") as HTMLInputElement;
 
   return {
@@ -73,6 +95,57 @@ describe("the new note prompt", () => {
     prompt.type("daily");
 
     expect(prompt.rows()).toEqual(["daily/"]);
+  });
+
+  it("mounts the twenty best-ranked folders and no more", () => {
+    // Ranking the whole vault and showing the head of it, not ranking a head of
+    // the vault: the twenty on screen have to be the best twenty of the 25.
+    const ranked = rankFolders(MANY_PATHS, "no");
+    expect(ranked).toHaveLength(25);
+
+    const prompt = renderPrompt("", MANY_PATHS);
+    prompt.type("no");
+
+    // The five best sit last in the vault's own order, so a cap taken before
+    // the ranking shows none of them. Written out rather than sliced off
+    // `ranked`, so the row that has to be at the top is stated here.
+    expect(prompt.rows().slice(0, 5)).toEqual([
+      "notes-0/",
+      "notes-1/",
+      "notes-2/",
+      "notes-3/",
+      "notes-4/",
+    ]);
+    expect(prompt.rows()).toEqual(ranked.slice(0, 20));
+  });
+
+  it("derives the vault's folders once, however much is typed", () => {
+    // The whole of slice 6: the folder set follows the vault, so typing ranks
+    // again and derives nothing. Nothing else in the suite can see the
+    // difference, because both ways of doing it show the same rows.
+    const prompt = renderPrompt("", MANY_PATHS);
+
+    // Derivation already ran once on the mount, which is the one time it should
+    // run, so clearing is what makes a zero below reachable.
+    vi.mocked(folderPrefixes).mockClear();
+    vi.mocked(rankFolderPrefixes).mockClear();
+
+    const queries = ["n", "no", "not", "note"];
+    for (const query of queries) prompt.type(query);
+
+    // Ranking once per keystroke is what proves the keystrokes landed at all,
+    // so the zero above it is a fact rather than a prompt that stopped reading
+    // its input.
+    expect(rankFolderPrefixes).toHaveBeenCalledTimes(queries.length);
+    expect(folderPrefixes).not.toHaveBeenCalled();
+  });
+
+  it("keeps the highlight inside the capped list", () => {
+    const prompt = renderPrompt("", MANY_PATHS);
+
+    for (let press = 0; press < 25; press += 1) prompt.press("ArrowDown");
+
+    expect(prompt.highlighted()).toBe(rankFolders(MANY_PATHS, "")[19]);
   });
 
   it("folds the highlighted folder into the input on tab", () => {
