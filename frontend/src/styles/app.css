@@ -59,19 +59,21 @@ body {
 }
 
 /* The marks are gone from the text, so the marker and the indent are drawn
-   rather than typed. */
-.cm-blockquote {
+   rather than typed. Both selectors name .cm-line as well, because CodeMirror
+   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade:
+   the bullet then hangs at a negative offset and is clipped away. */
+.cm-line.cm-blockquote {
   border-left: 3px solid var(--color-one-muted);
   padding-left: 0.75em;
   color: var(--color-one-muted);
 }
 
-.cm-bullet {
-  padding-left: 1.2em;
-  text-indent: -1.2em;
+.cm-line.cm-bullet {
+  padding-left: 1.6em;
+  text-indent: -1.1em;
 }
 
-.cm-bullet::before {
+.cm-line.cm-bullet::before {
   content: "• ";
   color: var(--color-one-accent);
 }
