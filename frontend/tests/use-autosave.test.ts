@@ -38,6 +38,14 @@ function renderAutosave(path = "index.md") {
   return {
     change: (doc: string) => act(() => result.current.change(doc)),
     save: () => act(() => result.current.save()),
+    /** Save, and report whether the vault ended up holding the text. */
+    saved: async () => {
+      let outcome: boolean | undefined;
+      await act(async () => {
+        outcome = await result.current.save();
+      });
+      return outcome;
+    },
     status: () => result.current.status,
     open: (next: string) => act(() => rerender({ open: next })),
     unmount: () => act(() => unmount()),
@@ -171,6 +179,29 @@ describe("useAutosave", () => {
     await write.finish();
 
     expect(note.status()).toBe("unsaved");
+  });
+
+  it("reports success when there was nothing to write", async () => {
+    const note = renderAutosave();
+
+    expect(await note.saved()).toBe(true);
+  });
+
+  it("reports success once the write lands", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+
+    expect(await note.saved()).toBe(true);
+  });
+
+  it("reports failure when the write is refused", async () => {
+    const note = renderAutosave();
+    saveNote.mockRejectedValueOnce(new Error("PUT /api/files/index.md failed with 500"));
+
+    note.change("# edited");
+
+    expect(await note.saved()).toBe(false);
   });
 
   it("keeps the text when the write fails, and retries on the next save", async () => {

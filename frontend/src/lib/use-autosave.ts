@@ -22,29 +22,34 @@ export function useAutosave(path: string | undefined) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
-  const save = useCallback(() => {
+  /** Resolves to whether the vault holds the text, so `<leader>q` can refuse. */
+  const save = useCallback((): Promise<boolean> => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
 
     const content = pending.current;
-    if (path === undefined || content === null) return;
+    // Nothing waiting means disk is already up to date, which counts as saved.
+    if (path === undefined || content === null) return Promise.resolve(true);
     pending.current = null;
     setStatus("saving");
 
-    saveNote(path, content)
-      .then(() => {
+    return saveNote(path, content).then(
+      () => {
         // Reopening a note reads the cache, so leaving the old text there
         // would show the edit being undone.
         queryClient.setQueryData(["note", path], content);
         // Typing during the write leaves newer text behind us, and that is
         // not saved however this one went.
         if (pending.current === null) setStatus("saved");
-      })
-      .catch(() => {
+        return true;
+      },
+      () => {
         // Hold on to the text: the next keystroke or `:w` tries again.
         pending.current ??= content;
         setStatus("error");
-      });
+        return false;
+      },
+    );
   }, [path, queryClient]);
 
   const change = useCallback(
@@ -59,8 +64,14 @@ export function useAutosave(path: string | undefined) {
 
   // React runs a cleanup with the render's own closure, so opening another
   // note writes what is pending to the note it was typed into, not to the one
-  // that just replaced it. Unmounting flushes for the same reason.
-  useEffect(() => save, [save]);
+  // that just replaced it. Unmounting flushes for the same reason. Nobody is
+  // left to hear how the write went, so the promise is dropped on purpose.
+  useEffect(
+    () => () => {
+      void save();
+    },
+    [save],
+  );
 
   return { status, change, save };
 }

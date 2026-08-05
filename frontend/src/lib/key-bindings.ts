@@ -12,6 +12,7 @@ import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-com
 export interface EditorCommands {
   toggleTree(): void;
   togglePreview(): void;
+  closeNote(): void;
 }
 
 export interface LeaderBinding {
@@ -24,6 +25,7 @@ export interface LeaderBinding {
 export const LEADER: readonly LeaderBinding[] = [
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
+  { key: "q", label: "Save and close the note", command: "closeNote" },
 ];
 
 export interface FormatBinding {

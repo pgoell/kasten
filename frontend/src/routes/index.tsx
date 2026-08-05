@@ -41,8 +41,14 @@ function Home() {
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
       togglePreview: () => setPreview((previous) => !previous),
+      // Only leave once the vault has the text. A failed write keeps the note
+      // on screen with the warning already in the status bar, because closing
+      // unmounts the editor and the only copy of the edit goes with it.
+      closeNote: async () => {
+        if (await save()) navigate({ search: {} });
+      },
     }),
-    [],
+    [navigate, save],
   );
 
   return (

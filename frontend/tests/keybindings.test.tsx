@@ -4,7 +4,11 @@ import { Editor } from "@/components/editor";
 import type { EditorCommands } from "@/lib/key-bindings";
 
 function stubCommands() {
-  return { toggleTree: vi.fn(), togglePreview: vi.fn() } satisfies EditorCommands;
+  return {
+    toggleTree: vi.fn(),
+    togglePreview: vi.fn(),
+    closeNote: vi.fn(),
+  } satisfies EditorCommands;
 }
 
 function content(container: HTMLElement): string {
@@ -36,6 +40,16 @@ describe("the leader key", () => {
     expect(commands.toggleTree).toHaveBeenCalledTimes(1);
   });
 
+  it("runs the close command on space then q", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "q" });
+
+    expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
   it("stops space from moving the cursor", () => {
     const { container, editor } = open("plain");
 
@@ -56,6 +70,7 @@ function PreviewHarness() {
     () => ({
       toggleTree: () => {},
       togglePreview: () => setPreview((previous) => !previous),
+      closeNote: () => {},
     }),
     [],
   );
