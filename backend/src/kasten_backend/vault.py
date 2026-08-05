@@ -30,8 +30,8 @@ def list_markdown_files(root: Path) -> list[str]:
     return sorted(found)
 
 
-def resolve_note(root: Path, relative: str) -> Path | None:
-    """Return the real path of one note under `root`, or None when there is none.
+def resolve_path(root: Path, relative: str) -> Path | None:
+    """Return the real path of a legal note location under `root`, or None.
 
     `relative` arrives from the URL and is therefore hostile. Both sides are
     resolved before they are compared, so `..`, an absolute path and a symlink
@@ -39,8 +39,8 @@ def resolve_note(root: Path, relative: str) -> Path | None:
     the listing would not show is refused too, so the tree and this function
     agree on what a note is.
 
-    Reading and writing share this, because two copies of these rules would
-    drift and the looser copy would be the write.
+    Reading, writing and creating share this, because two copies of these rules
+    would drift and the looser copy would be the write.
     """
     # Checked before anything touches the filesystem, because an embedded null
     # makes every call raise rather than return.
@@ -58,7 +58,17 @@ def resolve_note(root: Path, relative: str) -> Path | None:
         return None
     if any(part.startswith(".") for part in parts):
         return None
-    if not path.is_file():
+
+    return path
+
+
+def resolve_note(root: Path, relative: str) -> Path | None:
+    """Return the real path of one note under `root`, or None when there is none.
+
+    `resolve_path`, and a file is there.
+    """
+    path = resolve_path(root, relative)
+    if path is None or not path.is_file():
         return None
 
     return path
@@ -84,6 +94,18 @@ def read_note(root: Path, relative: str) -> str | None:
         return None
 
     return path.read_text(encoding="utf-8")
+
+
+def create_note(path: Path) -> None:
+    """Write an empty note at a path `resolve_path` returned.
+
+    Straight to the target rather than through `write_note`. The temp file
+    there protects text that is already on disk, and a create has none.
+
+    Empty because the file name is the note's title, so anything written here
+    would be a word in the vault the user did not type.
+    """
+    path.write_text("", encoding="utf-8")
 
 
 def write_note(path: Path, content: str) -> None:
