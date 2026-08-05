@@ -8,9 +8,9 @@
  * and paints nothing, so a number out of it would not be true.
  *
  * The design target is 16ms end to end, one frame, about 4ms of it JS. The
- * threshold below is not that target. It is a regression gate set far above
- * today's cost, so a change of the wrong order turns red and ordinary runner
- * noise does not. Slice 11 retightens it against whatever slices 5 and 6 reach.
+ * threshold below is not that target. It is a regression gate set well above
+ * what the keystroke costs today, so a change of the wrong order turns red and
+ * ordinary runner noise does not.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,17 +18,20 @@ import { createRoot } from "react-dom/client";
 import { NotePrompt } from "@/components/note-prompt";
 import { syntheticVault } from "../../bench/fixtures";
 
-// Six times the 16.8ms synchronous median `mise run fe:frame` recorded at
-// 78c7851 on this machine. Six rather than three because the gate runs on
-// ubuntu-latest, and that runner is about 2.0x slower than this machine, so
-// three times a local median would leave only 1.5x of headroom where it
-// actually gates. The gate is on the synchronous half alone: the two-rAF
-// window cannot resolve in under two refresh periods, so it reads about 33ms
-// however cheap the keystroke is and steps to about 50ms the moment the work
-// overruns its frame. A threshold between those steps flips on one dropped
-// frame rather than on a regression, and on the slower runner it would sit
-// past the step and be red today.
-const COMMIT_LIMIT_MS = 100;
+// Six times the 5.1ms synchronous median `mise run fe:frame` measures on this
+// machine, three runs reading 5.1, 5.1 and 4.9ms. That is down from the 16.8ms
+// this file first recorded, which the old 100ms literal came from. Six is two
+// factors: three carries a real regression, and two carries the runner, which
+// is about 2.0x slower than this machine, so three times a local median would
+// leave only 1.5x of headroom where it actually gates.
+//
+// The gate is on the synchronous half alone: the two-rAF window cannot resolve
+// in under two refresh periods, so it reads about 33ms however cheap the
+// keystroke is and steps to about 50ms the moment the work overruns its frame.
+// A threshold between those steps flips on one dropped frame rather than on a
+// regression, and on the slower runner it would sit past the step and be red
+// today.
+const COMMIT_LIMIT_MS = 30;
 
 /**
  * The cap `note-prompt.tsx` mounts to. Written out here rather than imported,

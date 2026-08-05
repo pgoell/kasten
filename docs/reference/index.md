@@ -8,3 +8,4 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [HTTP API](http-api.md) - every endpoint the backend serves, with its response shape
 * [Configuration](configuration.md) - every backend setting, its default, and where the values come from
 * [Editor keys](editor-keys.md) - every keyboard binding kasten adds, and the mode each one applies in
+* [Note prompt performance](note-prompt-performance.md) - the bar a keystroke in the new note prompt is held to, the harnesses that measure it, and every recorded number
