@@ -68,9 +68,31 @@ export interface paths {
          *     Only over a note that is already there. Everything the read refuses is
          *     refused here too, and for the same reason, so a note you cannot open is a
          *     note you cannot overwrite.
+         *
+         *     The jj change is started before the write and the snapshot taken after, so
+         *     the edit is bracketed by the history rather than trailing it. A vault that
+         *     is not a jj repo skips both.
          */
         put: operations["save_file_api_files__path__put"];
-        post?: never;
+        /**
+         * Create File
+         * @description Start a new, empty note in the vault.
+         *
+         *     This one says why it refused, unlike the read and the write: a 409 for a
+         *     path already taken and a 400 for one the vault will not have. The user is
+         *     about to retype the path and has to know which it was, and the one user
+         *     behind oauth2-proxy learns nothing from a 409 that `GET /api/files` did not
+         *     already hand them.
+         *
+         *     The path that comes back is the canonical spelling, not the URL's, because
+         *     the client navigates to it and `ideas/./kasten.md` must not end up in the
+         *     address bar.
+         *
+         *     The new note gets its own jj change, bracketed the way a save is. Both
+         *     refusals return before any of that, so a bounced create leaves no change
+         *     behind.
+         */
+        post: operations["create_file_api_files__path__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -222,6 +244,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_file_api_files__path__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

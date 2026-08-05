@@ -86,6 +86,16 @@ function sortTree(nodes: TreeNode[]): TreeNode[] {
   return nodes;
 }
 
+/** Where a new note goes when the cursor is on this row: "" at the vault root. */
+function startFolder(node: TreeNode | undefined): string {
+  if (!node) return "";
+  if (node.kind === "folder") return `${node.path}/`;
+
+  // A note names the folder it sits in, and a note at the root names none.
+  const cut = node.path.lastIndexOf("/");
+  return cut === -1 ? "" : node.path.slice(0, cut + 1);
+}
+
 interface Row {
   node: TreeNode;
   /** Index of the row holding this one, or -1 at the vault root. */
@@ -296,6 +306,14 @@ function Grip({ width, dragging, onResizeStart, onResizeBy, onReset }: GripProps
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="currentColor">
+      <path d="M7.25 3h1.5v4.25H13v1.5H8.75V13h-1.5V8.75H3v-1.5h4.25V3z" />
+    </svg>
+  );
+}
+
 function PanelIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="currentColor">
@@ -325,8 +343,8 @@ export function FileExplorer({
   const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
   /** Which row the vim keys act on. */
   const [active, setActive] = useState(0);
-  /** The first half of a two-key sequence, `g` or the leader, once pressed. */
-  const [pending, setPending] = useState<string | null>(null);
+  /** The keys of an unfinished sequence, `g` or the leader and what follows it. */
+  const [pending, setPending] = useState("");
   const nav = useRef<HTMLElement>(null);
   /** The signal already answered, so the first render answers nothing. */
   const answered = useRef(focusSignal);
@@ -380,25 +398,40 @@ export function FileExplorer({
     };
   }, [drag]);
 
+  /** The prompt opens on the folder the cursor is on, not the focused row: a
+   * click puts the focus on the button itself. */
+  function newNote() {
+    commands.createNote(startFolder(rows[cursor]?.node));
+  }
+
   /**
    * The vim keys, resolved in the order vim resolves them.
    *
-   * A pending key comes first, because `gg` and a leader sequence both mean the
-   * second press is not a command of its own. Anything unrecognised is left
+   * A pending sequence comes first, because `gg` and a leader sequence both
+   * mean the press is not a command of its own. Anything unrecognised is left
    * alone rather than swallowed, so the browser keeps its own shortcuts.
    */
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
     if (pending) {
-      setPending(null);
-      if (pending === " ") {
-        const binding = LEADER.find((entry) => entry.key === key);
-        if (binding) {
-          event.preventDefault();
-          commands[binding.command]();
-        }
-      } else if (key === "g") {
+      const sequence = pending + key;
+      const typed = sequence.slice(1);
+      const leader = sequence.startsWith(" ");
+      const binding = leader ? LEADER.find((entry) => entry.key === typed) : undefined;
+      // A leader key can be more than one letter, so a sequence that still
+      // prefixes one waits for the rest instead of being dropped. The exact
+      // match is taken first, the way vim takes it.
+      const partial = !binding && leader && LEADER.some((entry) => entry.key.startsWith(typed));
+      setPending(partial ? sequence : "");
+
+      if (binding) {
+        event.preventDefault();
+        // Only the tree knows which folder the cursor sits in, and only this
+        // command asks for it.
+        if (binding.command === "createNote") newNote();
+        else commands[binding.command]();
+      } else if (sequence === "gg") {
         event.preventDefault();
         setActive(0);
       }
@@ -483,7 +516,18 @@ export function FileExplorer({
     >
       <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3">
         <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
-        {toggle}
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={newNote}
+            aria-label="New note"
+            title="New note (Space C F)"
+            className="cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent"
+          >
+            <PlusIcon />
+          </button>
+          {toggle}
+        </div>
       </header>
 
       {/* The handler sits on the panel, not the rows: the keys act on the row

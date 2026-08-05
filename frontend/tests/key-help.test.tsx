@@ -2,14 +2,27 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
 import { FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
 
+/** The panel spaces the letters of a key, so each one reads as a press. */
+function leaderKey(key: string) {
+  return `Space ${[...key].join(" ")}`;
+}
+
 describe("KeyHelp", () => {
   it("lists every leader key and what it does", () => {
     render(<KeyHelp onClose={() => {}} />);
 
     for (const { key, label } of LEADER) {
-      expect(screen.getByText(`Space ${key}`)).toBeInTheDocument();
+      expect(screen.getByText(leaderKey(key))).toBeInTheDocument();
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+  });
+
+  it("spells a two letter leader key as the two presses it takes", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    // Written out rather than derived, because `Space cf` reads like one key
+    // and is the mistake this spacing exists to prevent.
+    expect(screen.getByText("Space c f").nextElementSibling).toHaveTextContent("Create a note");
   });
 
   it("lists every formatting key", () => {
@@ -77,7 +90,14 @@ describe("the key tables", () => {
   it("names a command for every leader key that the editor can run", () => {
     // The panel and the docs both read these tables. A leader entry naming a
     // command nothing provides would show a key that does nothing.
-    const commands = new Set(["toggleTree", "togglePreview", "closeNote", "showHelp", "focusTree"]);
+    const commands = new Set([
+      "toggleTree",
+      "togglePreview",
+      "closeNote",
+      "showHelp",
+      "focusTree",
+      "createNote",
+    ]);
 
     for (const { command } of LEADER) {
       expect(commands).toContain(command);

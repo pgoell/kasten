@@ -22,10 +22,13 @@ function folderContents(name: string) {
   return within(item);
 }
 
-type TreeProps = Partial<ComponentProps<typeof FileExplorer>>;
+type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
+  /** The one command these tests drive, wired into the harness's own set. */
+  onCreateNote?: (startPath?: string) => void;
+};
 
 /** Holds the open state the route holds in the app, so folding still works. */
-function Harness(props: TreeProps) {
+function Harness({ onCreateNote, ...props }: TreeProps) {
   const [open, setOpen] = useState(true);
   // The route folds the panel from two directions, `q` in the tree and the
   // leader from anywhere, and both land on the same callback.
@@ -44,6 +47,7 @@ function Harness(props: TreeProps) {
         closeNote: () => {},
         showHelp: () => {},
         focusTree: () => {},
+        createNote: onCreateNote ?? (() => {}),
       }}
     />
   );
@@ -184,6 +188,33 @@ describe("the tree keyboard", () => {
     expect(cursor()).toHaveTextContent("daily");
   });
 
+  it("holds the cursor still when a leader sequence ends in g", () => {
+    // `gg` is the whole sequence, not whatever key arrives last. A leader
+    // sequence that dies on a `g` reaches the same branch, and reading the key
+    // alone would send the cursor to the top of the tree.
+    renderTree();
+
+    press("j");
+    press(" ");
+    press("c");
+    press("g");
+
+    expect(cursor()).toHaveTextContent("2026-08-04");
+  });
+
+  it("drops a g followed by a leader letter rather than waiting on it", () => {
+    // Only a leader sequence waits for more letters. `gc` prefixes `<leader>cf`
+    // by its letters alone, and a pending buffer that took it would grow
+    // forever and swallow every key after it.
+    renderTree();
+
+    press("g");
+    press("c");
+    press("j");
+
+    expect(cursor()).toHaveTextContent("2026-08-04");
+  });
+
   it("closes the panel on q", () => {
     const onOpenChange = vi.fn();
     renderTree({ onOpenChange });
@@ -201,6 +232,43 @@ describe("the tree keyboard", () => {
     press("b");
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("opens the note prompt on the leader, c, then f", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    expect(cursor()).toHaveTextContent("daily");
+    press(" ");
+    press("c");
+    press("f");
+
+    expect(onCreateNote).toHaveBeenCalledWith("daily/");
+  });
+
+  it("waits for the second letter rather than acting on the leader and c", () => {
+    const onCreateNote = vi.fn();
+    const onOpenChange = vi.fn();
+    renderTree({ onCreateNote, onOpenChange });
+
+    press(" ");
+    press("c");
+
+    expect(onCreateNote).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("drops a sequence that reaches no binding, keeping the keys after it", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    press(" ");
+    press("c");
+    press("x");
+    press("j");
+
+    expect(onCreateNote).not.toHaveBeenCalled();
+    expect(cursor()).toHaveTextContent("2026-08-04");
   });
 
   it("hands focus back to the editor on escape", () => {
@@ -237,6 +305,55 @@ describe("the tree keyboard", () => {
     rerender(<Harness focusSignal={2} />);
 
     expect(cursor()).not.toHaveFocus();
+  });
+});
+
+describe("the new note button", () => {
+  // Rows in display order, with `daily` and `projects` unfolded:
+  // daily, 2026-08-04, 2026-08-05, projects, kasten, api-design, kasten.md, index
+  function newNote() {
+    return screen.getByRole("button", { name: "New note" });
+  }
+
+  it("sits in the panel header", () => {
+    renderTree();
+
+    expect(within(panel()).getByRole("button", { name: "New note" })).toBeInTheDocument();
+  });
+
+  it("starts the note in the folder the cursor is on", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    fireEvent.click(newNote());
+
+    expect(onCreateNote).toHaveBeenCalledWith("daily/");
+  });
+
+  it("starts the note in the folder holding the note the cursor is on", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    press("G");
+    press("k");
+    // By title, not by name: the folder `projects/kasten/` reads the same.
+    expect(cursor()).toHaveAttribute("title", "projects/kasten.md");
+
+    fireEvent.click(newNote());
+
+    expect(onCreateNote).toHaveBeenCalledWith("projects/");
+  });
+
+  it("starts the note at the vault root when the cursor is on a note there", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    press("G");
+    expect(cursor()).toHaveTextContent("index");
+
+    fireEvent.click(newNote());
+
+    expect(onCreateNote).toHaveBeenCalledWith("");
   });
 });
 

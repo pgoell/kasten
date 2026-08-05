@@ -54,7 +54,12 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
   }, []);
 
   const groups: Group[] = [
-    { title: "Leader", keys: LEADER.map(({ key, label }) => ({ key: `Space ${key}`, label })) },
+    {
+      title: "Leader",
+      // A leader key can be more than one letter, and the letters are spaced so
+      // that `cf` reads as the two presses it is rather than as one key.
+      keys: LEADER.map(({ key, label }) => ({ key: `Space ${[...key].join(" ")}`, label })),
+    },
     {
       title: "Editor",
       keys: [...FORMAT.map(({ key, label }) => ({ key: readable(key), label })), ...INDENT],

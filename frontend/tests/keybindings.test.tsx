@@ -9,6 +9,7 @@ function stubCommands() {
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
     showHelp: vi.fn(),
+    createNote: vi.fn(),
     focusTree: vi.fn(),
   } satisfies EditorCommands;
 }
@@ -72,6 +73,31 @@ describe("the leader key", () => {
     expect(commands.focusTree).toHaveBeenCalledTimes(1);
   });
 
+  it("runs the create command on space then c then f", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "c" });
+    fireEvent.keyDown(editor, { key: "f" });
+
+    expect(commands.createNote).toHaveBeenCalledTimes(1);
+    // The editor names no folder, so the prompt opens on the vault root.
+    expect(commands.createNote).toHaveBeenCalledWith(undefined);
+  });
+
+  it("waits for the second letter rather than acting on space then c", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "c" });
+
+    for (const command of Object.values(commands)) {
+      expect(command).not.toHaveBeenCalled();
+    }
+  });
+
   it("stops space from moving the cursor", () => {
     const { container, editor } = open("plain");
 
@@ -94,6 +120,7 @@ function PreviewHarness() {
       togglePreview: () => setPreview((previous) => !previous),
       closeNote: () => {},
       showHelp: () => {},
+      createNote: () => {},
       focusTree: () => {},
     }),
     [],

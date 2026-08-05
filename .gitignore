@@ -20,6 +20,11 @@ vault/
 # Dependency trees belonging to the dev containers, kept out of the host's.
 .container/
 
+# Brainstorms and plans, which are working notes rather than the repo's record.
+# Ignored rather than merely untracked so ruff stops formatting the python in
+# them and failing the pre-commit hook.
+.workbench/
+
 # Editors / OS
 .DS_Store
 .idea/

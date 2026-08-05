@@ -41,6 +41,7 @@ function OpenNote({ path }: { path: string }) {
           togglePreview: () => {},
           closeNote: () => {},
           showHelp: () => {},
+          createNote: () => {},
           focusTree: () => {},
         }}
         preview

@@ -7,10 +7,12 @@ from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.vault import (
+    create_note,
     list_markdown_files,
     read_note,
     relative_path,
     resolve_note,
+    resolve_path,
     write_note,
 )
 from kasten_backend.vcs import begin_change, snapshot
@@ -67,6 +69,39 @@ async def read_file(path: str, settings: Annotated[Settings, Depends(get_setting
         raise HTTPException(status_code=404, detail="No such note")
 
     return Note(path=path, content=content)
+
+
+@app.post("/api/files/{path:path}", status_code=201)
+async def create_file(path: str, settings: Annotated[Settings, Depends(get_settings)]) -> Note:
+    """Start a new, empty note in the vault.
+
+    This one says why it refused, unlike the read and the write: a 409 for a
+    path already taken and a 400 for one the vault will not have. The user is
+    about to retype the path and has to know which it was, and the one user
+    behind oauth2-proxy learns nothing from a 409 that `GET /api/files` did not
+    already hand them.
+
+    The path that comes back is the canonical spelling, not the URL's, because
+    the client navigates to it and `ideas/./kasten.md` must not end up in the
+    address bar.
+
+    The new note gets its own jj change, bracketed the way a save is. Both
+    refusals return before any of that, so a bounced create leaves no change
+    behind.
+    """
+    note = resolve_path(settings.vault_path, path)
+    if note is None:
+        raise HTTPException(status_code=400, detail="The vault will not take that path")
+    if note.exists():
+        raise HTTPException(status_code=409, detail="A note is already there")
+
+    relative = relative_path(settings.vault_path, note)
+
+    await begin_change(settings.vault_path, relative)
+    create_note(note)
+    await snapshot(settings.vault_path)
+
+    return Note(path=relative, content="")
 
 
 @app.put("/api/files/{path:path}")

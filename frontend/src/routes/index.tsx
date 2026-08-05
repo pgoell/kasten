@@ -5,6 +5,7 @@ import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
+import { NotePrompt } from "@/components/note-prompt";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -38,6 +39,9 @@ function Home() {
   // rendering off stays off until you turn it back on.
   const [preview, setPreview] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+  // The folder the prompt opens on, and null while it is closed. The folder is
+  // part of the request, so an empty string still means open.
+  const [promptStart, setPromptStart] = useState<string | null>(null);
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
@@ -53,6 +57,7 @@ function Home() {
         if (await save()) navigate({ search: {} });
       },
       showHelp: () => setHelpOpen(true),
+      createNote: (startPath = "") => setPromptStart(startPath),
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -92,6 +97,17 @@ function Home() {
       </div>
       <StatusBar status={note ? status : undefined} />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
+      {promptStart !== null && (
+        <NotePrompt
+          paths={data ?? []}
+          startPath={promptStart}
+          onOpen={(path) => {
+            setPromptStart(null);
+            navigate({ search: { note: path } });
+          }}
+          onClose={() => setPromptStart(null)}
+        />
+      )}
     </main>
   );
 }

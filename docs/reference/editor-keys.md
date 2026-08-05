@@ -25,10 +25,19 @@ move-right, because the leader is registered in normal mode only.
 | Key | Does |
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
+| `<leader>cf` | Open the new note prompt |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Write the note and close it |
 | `<leader>?` | Show every binding on this page, in the app |
+
+`<leader>cf` takes two keys after the leader, `c` then `f`, and is the first
+binding here to take more than one. The `<leader>?` panel spells it
+`Space c f`, one letter per press. From the editor it opens an empty prompt.
+From the file tree it opens one already holding the folder the tree cursor sits
+in, or the folder holding the note it sits on. The `＋` in the panel header
+does the same with the mouse, reading the tree cursor the same way. [The new
+note prompt](#the-new-note-prompt) covers the keys inside it.
 
 `<leader>e` unfolds the tree first if it was folded away, and lands on the row
 the tree cursor is already on. Escape in the tree comes back to the editor.
@@ -117,6 +126,42 @@ cursor is on, and these keys move it from there.
 | Escape | Back to the editor |
 
 Leader sequences work here too, so `<leader>b` closes the tree from inside it.
+
+## The new note prompt
+
+`<leader>cf` opens a prompt over the editor. Type where the note goes, relative
+to the vault root, and `.md` is added unless you typed it. Under the input sits
+the list of the vault's folders, ranked against what you have typed, best
+first.
+
+| Key | Does |
+| --- | --- |
+| Down / Up | Move the highlight through the folders |
+| Ctrl+N / Ctrl+P | The same two, the way vim's completion moves |
+| Tab | Take the highlighted folder, leaving the caret after its slash |
+| Enter | Make the note, or open the one already at that path |
+| Escape | Close the prompt and give the focus back |
+
+Clicking a folder does what Tab does. Either way the folder replaces the whole
+input rather than joining what is there, because the whole input was the query
+it was ranked against.
+
+That same rule is what empties the list once you have typed the note's own
+name: `reading` matches `reading/`, and `reading/borges` matches no folder at
+all. Tab is for before you name the note, not after.
+
+The line under the list says what Enter will do, and Enter does what it says.
+It reads `creates folder reading/` for a folder the vault does not have yet,
+`already exists, Enter opens it` for a path a note is already at, or why the
+path is refused, so `name the note` for one ending in a slash. It says nothing
+for a plain create in a folder that is there. An input naming no note leaves
+Enter with nothing to do. A create the vault refused leaves the typed path
+where it is and says `could not create the note`, so the next Enter tries
+again.
+
+Escape hands the focus back where it came from, the editor or the tree.
+Opening a note is the exception: the focus goes to the editor, in normal mode,
+so you can type into a new note at once.
 
 ## Saving
 

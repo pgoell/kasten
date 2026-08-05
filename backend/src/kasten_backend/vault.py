@@ -9,6 +9,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+_NAME_LIMIT_BYTES = 255
+"""The longest one path segment may be, in UTF-8 bytes.
+
+Every filesystem kasten runs on enforces this, and a name over it makes the
+write raise rather than answer.
+"""
+
 
 def list_markdown_files(root: Path) -> list[str]:
     """Return every markdown file under `root`, as sorted relative POSIX paths.
@@ -30,8 +37,8 @@ def list_markdown_files(root: Path) -> list[str]:
     return sorted(found)
 
 
-def resolve_note(root: Path, relative: str) -> Path | None:
-    """Return the real path of one note under `root`, or None when there is none.
+def resolve_path(root: Path, relative: str) -> Path | None:
+    """Return the real path of a legal note location under `root`, or None.
 
     `relative` arrives from the URL and is therefore hostile. Both sides are
     resolved before they are compared, so `..`, an absolute path and a symlink
@@ -39,8 +46,8 @@ def resolve_note(root: Path, relative: str) -> Path | None:
     the listing would not show is refused too, so the tree and this function
     agree on what a note is.
 
-    Reading and writing share this, because two copies of these rules would
-    drift and the looser copy would be the write.
+    Reading, writing and creating share this, because two copies of these rules
+    would drift and the looser copy would be the write.
     """
     # Checked before anything touches the filesystem, because an embedded null
     # makes every call raise rather than return.
@@ -53,12 +60,52 @@ def resolve_note(root: Path, relative: str) -> Path | None:
     if not path.is_relative_to(base):
         return None
 
+    # The rules about the name alone, so nothing below this asks the filesystem
+    # a question a name has already answered. The length rule sits here rather
+    # than in a catch around the write, which would read a full disk as a bad
+    # path, and refusing before mkdir runs is what keeps a refused note from
+    # leaving its folder behind.
     parts = path.relative_to(base).parts
-    if not parts or path.suffix != ".md":
+    if (
+        not parts
+        or path.suffix != ".md"
+        or any(
+            part.startswith(".") or len(part.encode("utf-8")) > _NAME_LIMIT_BYTES for part in parts
+        )
+    ):
         return None
-    if any(part.startswith(".") for part in parts):
+
+    # A path that is still a link after `resolve` is a link `resolve` could not
+    # follow, which means a loop. Refused here because the write raises on one
+    # rather than refusing; a read already sees it as absent.
+    if path.is_symlink():
         return None
-    if not path.is_file():
+
+    # A note cannot live inside a file, nor inside a link that leads nowhere:
+    # `exists` follows a looping link, gives up and answers False, so asking
+    # after the link itself is what catches one. A link to a real folder is a
+    # folder and passes. Refused where the other rules live, because mkdir
+    # raises on these rather than refusing, and `base` itself is a directory so
+    # including it costs nothing.
+    if any(
+        not p.is_dir() and (p.exists() or p.is_symlink())
+        for p in path.parents
+        if p.is_relative_to(base)
+    ):
+        return None
+
+    return path
+
+
+def resolve_note(root: Path, relative: str) -> Path | None:
+    """Return the real path of one note under `root`, or None when there is none.
+
+    `resolve_path` decides whether the vault will take the path at all. Reading
+    and writing want one thing more, a file actually being there, and creating
+    is the caller that does not.
+    """
+    path = resolve_path(root, relative)
+    if path is None or not path.is_file():
         return None
 
     return path
@@ -84,6 +131,24 @@ def read_note(root: Path, relative: str) -> str | None:
         return None
 
     return path.read_text(encoding="utf-8")
+
+
+def create_note(path: Path) -> None:
+    """Write an empty note at a path `resolve_path` returned.
+
+    Straight to the target rather than through `write_note`. The temp file
+    there protects text that is already on disk, and a create has none.
+
+    The folders on the way are made first, so a note names its folder into
+    being, the vault root included. `resolve_path` has already refused the
+    paths `mkdir` would raise on rather than answer: an ancestor that is a file
+    or a link leading nowhere, and a name too long for the filesystem.
+
+    Empty because the file name is the note's title, so anything written here
+    would be a word in the vault the user did not type.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("", encoding="utf-8")
 
 
 def write_note(path: Path, content: str) -> None:
