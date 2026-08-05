@@ -34,7 +34,13 @@ function OpenNote({ path }: { path: string }) {
 
   return (
     <>
-      <NoteEditor path={path} commands={{ toggleTree: () => {} }} onChange={change} onSave={save} />
+      <NoteEditor
+        path={path}
+        commands={{ toggleTree: () => {}, togglePreview: () => {} }}
+        preview
+        onChange={change}
+        onSave={save}
+      />
       <StatusBar status={status} />
     </>
   );

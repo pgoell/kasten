@@ -1,9 +1,10 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
 import type { EditorCommands } from "@/lib/key-bindings";
 
 function stubCommands() {
-  return { toggleTree: vi.fn() } satisfies EditorCommands;
+  return { toggleTree: vi.fn(), togglePreview: vi.fn() } satisfies EditorCommands;
 }
 
 function content(container: HTMLElement): string {
@@ -45,6 +46,62 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "x" });
 
     expect(content(container)).toBe("plain");
+  });
+});
+
+/** What the route does with `<leader>p`: hold the flag, hand down the toggle. */
+function PreviewHarness() {
+  const [preview, setPreview] = useState(true);
+  const commands = useMemo<EditorCommands>(
+    () => ({
+      toggleTree: () => {},
+      togglePreview: () => setPreview((previous) => !previous),
+    }),
+    [],
+  );
+
+  return <Editor initialDoc="## Notes" commands={commands} preview={preview} />;
+}
+
+describe("the live preview toggle", () => {
+  it("reveals every mark on space then p, and hides them again", async () => {
+    const { container } = render(<PreviewHarness />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    expect(content(container)).toBe("Notes");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "p" });
+    await waitFor(() => expect(content(container)).toBe("## Notes"));
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "p" });
+    await waitFor(() => expect(content(container)).toBe("Notes"));
+  });
+
+  it("keeps the undo history across the toggle", async () => {
+    const { container } = render(<PreviewHarness />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    // Off first, so the text on screen is the text in the document and `x`
+    // lands somewhere the hidden marks cannot move it.
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "p" });
+    await waitFor(() => expect(content(container)).toBe("## Notes"));
+
+    fireEvent.keyDown(editor, { key: "x" });
+    await waitFor(() => expect(content(container)).toBe("# Notes"));
+
+    // Back on and off again. A rebuilt view would lose the edit above.
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "p" });
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "p" });
+    await waitFor(() => expect(content(container)).toBe("# Notes"));
+
+    fireEvent.keyDown(editor, { key: "u" });
+
+    await waitFor(() => expect(content(container)).toBe("## Notes"));
   });
 });
 

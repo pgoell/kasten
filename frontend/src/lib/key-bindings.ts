@@ -11,6 +11,7 @@ import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-com
 /** What the leader keys reach for. The route supplies these. */
 export interface EditorCommands {
   toggleTree(): void;
+  togglePreview(): void;
 }
 
 export interface LeaderBinding {
@@ -22,6 +23,7 @@ export interface LeaderBinding {
 
 export const LEADER: readonly LeaderBinding[] = [
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
+  { key: "p", label: "Toggle live preview", command: "togglePreview" },
 ];
 
 export interface FormatBinding {

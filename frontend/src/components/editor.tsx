@@ -1,6 +1,6 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { EditorState, Facet } from "@codemirror/state";
+import { Compartment, EditorState, Facet } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
@@ -31,11 +31,23 @@ function save(view: EditorView): boolean {
 
 Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
 
+/**
+ * Holds live preview so `<leader>p` can swap it out.
+ *
+ * A compartment rather than a rebuilt view: rebuilding throws away the undo
+ * history and the cursor, and turning the rendering off is not meant to cost
+ * either. One instance for the module is right, because a compartment is only
+ * an identity, and each state configures it separately.
+ */
+const preview = new Compartment();
+
 interface EditorProps {
   /** The document to open. Only read on mount; pass a `key` to open another note. */
   initialDoc: string;
   /** What the leader keys reach for. Absent leaves them inert. */
   commands?: EditorCommands;
+  /** Whether markdown is rendered. Held by the route, so it outlives a remount. */
+  preview?: boolean;
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
@@ -48,12 +60,20 @@ interface EditorProps {
  * re-rendering the tree on every keystroke is where CodeMirror-in-React
  * performance dies.
  */
-export function Editor({ initialDoc, commands, onChange, onSave }: EditorProps) {
+export function Editor({
+  initialDoc,
+  commands,
+  preview: rendered = true,
+  onChange,
+  onSave,
+}: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
   // Every prop lives in a ref so the mount effect depends on nothing. Rebuilding
   // the view throws away undo history and cursor position, so it must happen
   // exactly once: to open a different note, remount with a `key`.
   const initialDocRef = useRef(initialDoc);
+  const renderedRef = useRef(rendered);
   const commandsRef = useRef(commands);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
@@ -83,6 +103,7 @@ export function Editor({ initialDoc, commands, onChange, onSave }: EditorProps) 
           // re-render never has to rebuild the view to refresh a callback.
           editorCommands.of({
             toggleTree: () => commandsRef.current?.toggleTree(),
+            togglePreview: () => commandsRef.current?.togglePreview(),
           }),
           basicSetup,
           markdown({
@@ -90,7 +111,7 @@ export function Editor({ initialDoc, commands, onChange, onSave }: EditorProps) 
             codeLanguages: languages,
             extensions: [Highlight],
           }),
-          livePreview(),
+          preview.of(renderedRef.current ? livePreview() : []),
           oneDark,
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {
@@ -102,9 +123,21 @@ export function Editor({ initialDoc, commands, onChange, onSave }: EditorProps) 
       }),
       parent,
     });
+    viewRef.current = view;
 
-    return () => view.destroy();
+    return () => {
+      viewRef.current = null;
+      view.destroy();
+    };
   }, []);
+
+  // Swapping the extension out is all this takes: the same `livePreview()`
+  // pieces come back by identity, so nothing below them is rebuilt.
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: preview.reconfigure(rendered ? livePreview() : []),
+    });
+  }, [rendered]);
 
   return <div ref={host} className="h-full overflow-auto" />;
 }

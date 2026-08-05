@@ -33,9 +33,15 @@ function Home() {
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
   const [treeOpen, setTreeOpen] = useState(true);
+  // Above the remount that opening another note causes, so turning the
+  // rendering off stays off until you turn it back on.
+  const [preview, setPreview] = useState(true);
 
   const commands = useMemo<EditorCommands>(
-    () => ({ toggleTree: () => setTreeOpen((previous) => !previous) }),
+    () => ({
+      toggleTree: () => setTreeOpen((previous) => !previous),
+      togglePreview: () => setPreview((previous) => !previous),
+    }),
     [],
   );
 
@@ -53,9 +59,15 @@ function Home() {
         {/* min-w-0 lets the editor shrink instead of pushing the panel off-screen. */}
         <div className="min-w-0 flex-1">
           {note ? (
-            <NoteEditor path={note} commands={commands} onChange={change} onSave={save} />
+            <NoteEditor
+              path={note}
+              commands={commands}
+              preview={preview}
+              onChange={change}
+              onSave={save}
+            />
           ) : (
-            <Editor initialDoc={SAMPLE} commands={commands} />
+            <Editor initialDoc={SAMPLE} commands={commands} preview={preview} />
           )}
         </div>
       </div>
