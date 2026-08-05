@@ -60,6 +60,25 @@ The filter is also why the decorations live in a `StateField` rather than the
 filter runs at state level and can only read state. Decorations in a view plugin
 would be invisible to it, and the filter would have nothing to consult.
 
+## The mode arrives one microtask late
+
+Vim keeps its mode on `cm.state.vim.mode`, a mutable property hanging off the
+view, so state-level code cannot see it. A small view plugin turns each
+`vim-mode-change` event into a `StateEffect`, and it waits for a microtask
+before dispatching one.
+
+That wait is load bearing. Leaving visual mode announces the change from inside
+vim's own dispatch, because `exitVisualMode` moves the cursor before it says
+anything. Answering an event raised in there by dispatching again re-enters the
+update, CodeMirror responds by killing the plugin that did it, and the plugin it
+kills is vim's own: the editor is left with no vim at all and no way back to
+normal mode. The vim package defers out of its own event handlers the same way.
+
+The cost is that the reveal lands a microtask after the keystroke rather than in
+the same tick. Microtasks run before the browser paints, so nothing flickers,
+but a test that presses `i` and reads the text on the next line will read it too
+early. The tests wait.
+
 ## What that costs
 
 Two consequences follow, and neither is worth code to work around at the size a

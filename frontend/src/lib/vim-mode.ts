@@ -32,18 +32,29 @@ const bridge = ViewPlugin.fromClass(
   class {
     private readonly cm: ReturnType<typeof getCM>;
     private readonly onChange: (event: { mode: string }) => void;
+    private destroyed = false;
 
     constructor(view: EditorView) {
       this.cm = getCM(view);
       this.onChange = ({ mode }) => {
-        if (MODES.includes(mode)) {
+        if (!MODES.includes(mode)) return;
+        // Deferred, and this is load bearing. Leaving visual mode signals from
+        // inside vim's own dispatch, because `exitVisualMode` moves the cursor
+        // before it announces the mode. Dispatching from in there re-enters the
+        // update, CodeMirror answers by killing the plugin that did it, and the
+        // plugin it kills is vim's: the editor is left with no vim at all. The
+        // vim package defers out of its own handlers the same way.
+        queueMicrotask(() => {
+          if (this.destroyed) return;
+          if (view.state.field(vimModeField) === mode) return;
           view.dispatch({ effects: setVimMode.of(mode as VimMode) });
-        }
+        });
       };
       this.cm?.on("vim-mode-change", this.onChange);
     }
 
     destroy() {
+      this.destroyed = true;
       this.cm?.off("vim-mode-change", this.onChange);
     }
   },

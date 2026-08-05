@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 
 function content(container: HTMLElement): string {
@@ -13,22 +13,26 @@ describe("live preview", () => {
     expect(content(container)).not.toContain("##");
   });
 
-  it("reveals the cursor's line on entering insert mode", () => {
+  it("reveals the cursor's line on entering insert mode", async () => {
     const { container } = render(<Editor initialDoc={"## Notes\n\nplain"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
-    expect(content(container)).toContain("## Notes");
+    await waitFor(() => expect(content(container)).toContain("## Notes"));
   });
 
-  it("re-hides the marks on escape back to normal", () => {
+  it("re-hides the marks on escape back to normal", async () => {
     const { container } = render(<Editor initialDoc={"## Notes\n\nplain"} />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
+    // Waited for on the way in as well, so the re-hide is a round trip rather
+    // than a reveal that never happened.
     fireEvent.keyDown(editor, { key: "i" });
+    await waitFor(() => expect(content(container)).toContain("##"));
+
     fireEvent.keyDown(editor, { key: "Escape" });
 
-    expect(content(container)).not.toContain("##");
+    await waitFor(() => expect(content(container)).not.toContain("##"));
   });
 
   it("renders inline emphasis with the marks hidden", () => {
@@ -39,20 +43,20 @@ describe("live preview", () => {
     expect(content(container)).toBe("bold and italic and code and gone");
   });
 
-  it("reveals inline marks on the cursor's line in insert mode", () => {
+  it("reveals inline marks on the cursor's line in insert mode", async () => {
     const { container } = render(<Editor initialDoc="**bold**" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
-    expect(content(container)).toBe("**bold**");
+    await waitFor(() => expect(content(container)).toBe("**bold**"));
   });
 
-  it("reveals inline marks in visual mode", () => {
+  it("reveals inline marks in visual mode", async () => {
     const { container } = render(<Editor initialDoc="**bold**" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "v" });
 
-    expect(content(container)).toBe("**bold**");
+    await waitFor(() => expect(content(container)).toBe("**bold**"));
   });
 
   it("renders a link as its text alone", () => {
@@ -61,12 +65,30 @@ describe("live preview", () => {
     expect(content(container)).toBe("see the docs now");
   });
 
-  it("reveals the whole link on the cursor's line in insert mode", () => {
+  it("reveals the whole link on the cursor's line in insert mode", async () => {
     const { container } = render(<Editor initialDoc="see [the docs](https://example.com) now" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
-    expect(content(container)).toBe("see [the docs](https://example.com) now");
+    await waitFor(() => expect(content(container)).toBe("see [the docs](https://example.com) now"));
+  });
+
+  it("returns to normal mode when escape leaves visual mode", async () => {
+    // vim signals this mode change from inside its own dispatch, so answering
+    // it synchronously re-enters the update, CodeMirror kills the plugin that
+    // did it, and the editor is left with no vim at all.
+    const { container } = render(<Editor initialDoc={"## Notes\nbeta"} />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "v" });
+    fireEvent.keyDown(editor, { key: "Escape" });
+    await waitFor(() => expect(content(container)).not.toContain("##"));
+
+    // Still vim: `dd` is a command, not two characters of text.
+    fireEvent.keyDown(editor, { key: "d" });
+    fireEvent.keyDown(editor, { key: "d" });
+
+    expect(content(container)).toBe("beta");
   });
 
   it("renders blockquotes and list bullets", () => {
@@ -108,12 +130,12 @@ describe("live preview", () => {
     expect(content(container)).toBe("otes");
   });
 
-  it("leaves other lines rendered while one is revealed", () => {
+  it("leaves other lines rendered while one is revealed", async () => {
     const { container } = render(<Editor initialDoc={"## One\n\n## Two"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
-    expect(content(container)).toContain("## One");
+    await waitFor(() => expect(content(container)).toContain("## One"));
     expect(content(container)).not.toContain("## Two");
   });
 });
