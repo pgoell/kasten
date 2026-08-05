@@ -67,51 +67,19 @@ mkdir -p /home/pascal/kasten-deploy
 cp deploy/.env.prod.example /home/pascal/kasten-deploy/.env.prod
 ```
 
-**6. Self-hosted runner.** Runners are per repository for a user account, so the Klassenzeit and website runners cannot serve this repo. Register a third one on the same box. Unpack and register first, no sudo needed:
+**6. Self-hosted runner.** Runners are per repository for a user account, so the Klassenzeit and website runners on this box cannot serve kasten. Add a third:
 
 ```sh
-mkdir -p ~/actions-runner-kasten && cd ~/actions-runner-kasten
-tar xzf ~/actions-runner/actions-runner-linux-x64-2.321.0.tar.gz
-
-# The registration token is one-shot and expires in about an hour, so mint it
-# in the same command that consumes it.
-./config.sh \
-  --url https://github.com/pgoell/kasten \
-  --token "$(gh api -X POST /repos/pgoell/kasten/actions/runners/registration-token --jq .token)" \
-  --name iuno-kasten \
-  --labels self-hosted,Linux,X64 \
-  --unattended --replace
+./scripts/setup-runner.sh
 ```
 
-Then keep it running, either way:
+It unpacks the runner, registers it as `iuno-kasten`, installs a systemd user unit, and waits for GitHub to report it online. No sudo: lingering is already enabled for pascal, so a user unit survives logout and reboot. Re-running it is safe, it skips whatever is already done.
 
-```sh
-# As a system service, matching the other two runners on this box.
-sudo ./svc.sh install pascal && sudo ./svc.sh start
-```
+The runner inherits pascal's group membership, which includes `docker`, so the deploy job can drive compose.
 
-```sh
-# Or as a systemd user unit, which needs no sudo. Lingering is already
-# enabled for pascal, so this survives logout and reboot.
-tee ~/.config/systemd/user/actions-runner-kasten.service >/dev/null <<'UNIT'
-[Unit]
-Description=GitHub Actions runner (kasten)
-After=network-online.target
+To match the other two runners as system services instead, register with `config.sh` as the script does, then `sudo ./svc.sh install pascal && sudo ./svc.sh start` in `~/actions-runner-kasten`.
 
-[Service]
-ExecStart=%h/actions-runner-kasten/run.sh
-WorkingDirectory=%h/actions-runner-kasten
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-UNIT
-systemctl --user daemon-reload
-systemctl --user enable --now actions-runner-kasten
-```
-
-Either way the runner inherits pascal's group membership, which includes `docker`, so the deploy job can drive compose. Confirm it registered:
+Check status any time:
 
 ```sh
 gh api /repos/pgoell/kasten/actions/runners --jq '.runners[] | .name + " " + .status'
