@@ -9,6 +9,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+_NAME_LIMIT_BYTES = 255
+"""The longest one path segment may be, in UTF-8 bytes.
+
+Every filesystem kasten runs on enforces this, and a name over it makes the
+write raise rather than answer.
+"""
+
 
 def list_markdown_files(root: Path) -> list[str]:
     """Return every markdown file under `root`, as sorted relative POSIX paths.
@@ -54,9 +61,18 @@ def resolve_path(root: Path, relative: str) -> Path | None:
         return None
 
     # The rules about the name alone, so nothing below this asks the filesystem
-    # a question a name has already answered.
+    # a question a name has already answered. The length rule sits here rather
+    # than in a catch around the write, which would read a full disk as a bad
+    # path, and refusing before mkdir runs is what keeps a refused note from
+    # leaving its folder behind.
     parts = path.relative_to(base).parts
-    if not parts or path.suffix != ".md" or any(part.startswith(".") for part in parts):
+    if (
+        not parts
+        or path.suffix != ".md"
+        or any(
+            part.startswith(".") or len(part.encode("utf-8")) > _NAME_LIMIT_BYTES for part in parts
+        )
+    ):
         return None
 
     # A path that is still a link after `resolve` is a link `resolve` could not
@@ -65,10 +81,17 @@ def resolve_path(root: Path, relative: str) -> Path | None:
     if path.is_symlink():
         return None
 
-    # A note cannot live inside a file. Refused where the other rules live,
-    # because mkdir raises on this rather than refusing, and `base` itself is a
-    # directory so including it costs nothing.
-    if any(p.exists() and not p.is_dir() for p in path.parents if p.is_relative_to(base)):
+    # A note cannot live inside a file, nor inside a link that leads nowhere:
+    # `exists` follows a looping link, gives up and answers False, so asking
+    # after the link itself is what catches one. A link to a real folder is a
+    # folder and passes. Refused where the other rules live, because mkdir
+    # raises on these rather than refusing, and `base` itself is a directory so
+    # including it costs nothing.
+    if any(
+        not p.is_dir() and (p.exists() or p.is_symlink())
+        for p in path.parents
+        if p.is_relative_to(base)
+    ):
         return None
 
     return path
@@ -117,8 +140,9 @@ def create_note(path: Path) -> None:
     there protects text that is already on disk, and a create has none.
 
     The folders on the way are made first, so a note names its folder into
-    being. `resolve_path` has already refused the one path `mkdir` would raise
-    on, an ancestor that is a file.
+    being, the vault root included. `resolve_path` has already refused the
+    paths `mkdir` would raise on rather than answer: an ancestor that is a file
+    or a link leading nowhere, and a name too long for the filesystem.
 
     Empty because the file name is the note's title, so anything written here
     would be a word in the vault the user did not type.
