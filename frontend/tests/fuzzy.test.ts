@@ -1,4 +1,4 @@
-import { rankFolders } from "@/lib/fuzzy";
+import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
 
 // The list the file tree's tests run on, so the folders ranked here are the
 // ones a real vault listing yields.
@@ -93,5 +93,32 @@ describe("rankFolders", () => {
       "📁notes/",
       "my📁notes/",
     ]);
+  });
+});
+
+describe("folderPrefixes", () => {
+  it("takes every folder on the way to a note, once each, in the order first seen", () => {
+    // The fixture is deliberately out of order, so the expectation pins the
+    // order the paths arrive in rather than a sorted one. A real listing is
+    // sorted already, ranking decides what the prompt shows, and a sort here
+    // would be work every open pays for nothing.
+    expect(folderPrefixes(["zettel/inbox/seed.md", "archive/2025.md", "zettel/today.md"])).toEqual([
+      "zettel/",
+      "zettel/inbox/",
+      "archive/",
+    ]);
+  });
+});
+
+describe("rankFolderPrefixes", () => {
+  it("ranks derived prefixes exactly as rankFolders ranks the paths they came from", () => {
+    // `rankFolders` is these two applied in turn, so every case above rides on
+    // this holding: for the empty query the prompt opens with, for one that
+    // matches, and for one that reads into nothing.
+    const prefixes = folderPrefixes(PATHS);
+
+    expect(rankFolderPrefixes(prefixes, "")).toEqual(rankFolders(PATHS, ""));
+    expect(rankFolderPrefixes(prefixes, "pk")).toEqual(rankFolders(PATHS, "pk"));
+    expect(rankFolderPrefixes(prefixes, "zz")).toEqual(rankFolders(PATHS, "zz"));
   });
 });

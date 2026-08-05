@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createNote } from "@/lib/api";
-import { rankFolders } from "@/lib/fuzzy";
+import { folderPrefixes, rankFolderPrefixes } from "@/lib/fuzzy";
 import { describeNotePath, type NotePathVerdict } from "@/lib/note-path";
 
 interface NotePromptProps {
@@ -56,13 +56,17 @@ export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProp
   const queryClient = useQueryClient();
 
   const typed = input.trim();
+  // Two memos rather than one, because the folder set follows the vault and not
+  // the query. Keyed on `paths` alone it survives every keystroke, which takes
+  // walking 10,000 paths for 842 folders off the typing path entirely.
+  const prefixes = useMemo(() => folderPrefixes(paths), [paths]);
   // Ranked over every folder and cut afterwards, so the rows on screen are the
   // best of the vault rather than the first slice of it. An empty query matches
   // everything, so without the cut a keystroke reconciles one button per folder
   // in the vault, which is most of what it costs.
   const folders = useMemo(
-    () => rankFolders(paths, typed).slice(0, VISIBLE_FOLDERS),
-    [paths, typed],
+    () => rankFolderPrefixes(prefixes, typed).slice(0, VISIBLE_FOLDERS),
+    [prefixes, typed],
   );
   const verdict = describeNotePath(input, paths);
   // A fresh listing from the tree can shorten the list under the highlight.

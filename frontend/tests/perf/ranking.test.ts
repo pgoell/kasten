@@ -9,7 +9,7 @@
  * is a later job.
  */
 
-import { rankFolders } from "@/lib/fuzzy";
+import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
 
 /** The size the bar is set at. 842 folders, which is what the cost tracks. */
@@ -29,6 +29,12 @@ const QUERY = "notes";
 // headroom where it actually gates, which one noisy minute turns red.
 const EMPTY_LIMIT_MS = 30;
 const TYPED_LIMIT_MS = 45;
+
+// Six times the 0.33ms median this file measured on this machine once the
+// derivation moved out of the keystroke: three runs read 0.321, 0.327 and
+// 0.334. Six for the same two reasons as above, three for a real regression and
+// two for ubuntu-latest being about half this machine's speed.
+const PREFIX_LIMIT_MS = 2;
 
 /** Median milliseconds of `runs` timed calls, after `warmup` untimed ones. */
 function medianMs(fn: () => unknown, runs: number, warmup: number): number {
@@ -61,5 +67,17 @@ describe(`rankFolders at ${NOTES} notes`, () => {
 
     console.log(`rankFolders, typed query: ${median.toFixed(3)}ms median`);
     expect(median).toBeLessThan(TYPED_LIMIT_MS);
+  });
+
+  // The prompt derives the prefixes once per vault and ranks them once per
+  // keystroke, so this is the half a keystroke actually pays. Gated apart from
+  // `rankFolders` above, which still carries the derivation and would hide a
+  // regression in either half behind the other.
+  it("ranks derived prefixes within six times their recorded cost", () => {
+    const prefixes = folderPrefixes(paths);
+    const median = medianMs(() => rankFolderPrefixes(prefixes, ""), 25, 5);
+
+    console.log(`rankFolderPrefixes, empty query: ${median.toFixed(3)}ms median`);
+    expect(median).toBeLessThan(PREFIX_LIMIT_MS);
   });
 });
