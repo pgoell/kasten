@@ -18,20 +18,22 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Four
-  endpoints, `/api/health`, `/api/files`, and `GET` and `PUT` on
-  `/api/files/{path}`. A write is recorded in the vault's jj repo, one change
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Five
+  endpoints, `/api/health`, `/api/files`, and `GET`, `POST` and `PUT` on
+  `/api/files/{path}`. A create starts an empty note and makes the folders on
+  the way to it. Both writes are recorded in the vault's jj repo, one change
   per note, and skipped when the vault has none. Settings via pydantic-settings
   with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
   that opens the note you click and writes it back as you type, or on `:w`.
-  The open note lives in the URL as `?note=`.
+  A prompt behind `Space c f` makes a note at a path you type, completing the
+  vault's folders. The open note lives in the URL as `?note=`.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 
-Not built yet: creating and deleting notes, wikilinks, backlinks, search, and
+Not built yet: renaming and deleting notes, wikilinks, backlinks, search, and
 anything that writes to Postgres. The database schema is empty beyond Alembic's
 own table. Do not document these as though they exist.
 

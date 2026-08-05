@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves four endpoints. Three read, one writes. The interactive
+The backend serves five endpoints. Three read, two write. The interactive
 schema is at `/docs` while the backend runs, and the machine-readable one at
 `/openapi.json`.
 
@@ -77,8 +77,8 @@ because the vault is the source of truth.
 
 Only a note that is already there can be written. Everything the read refuses
 is refused here for the same reasons, and a note that does not exist is a `404`
-as well: a path with no file behind it is not created. Creating notes is a
-separate job and there is no endpoint for it yet.
+as well: a path with no file behind it is not created. Making one is the `POST`
+below.
 
 The write goes to a hidden temp file beside the target and is then renamed over
 it. The rename is atomic, so a crash halfway through leaves the old note whole
@@ -99,6 +99,57 @@ A vault that is not a jj repo is written to just the same and no history is
 kept. jj failing, or missing from the box, never fails a save: the note matters
 more than the record of it. See
 [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md).
+
+## POST /api/files/{path}
+
+Starts a new note. There is no body: the URL carries the path, and a new note
+has nothing else to say.
+
+```json
+{ "path": "reading/borges.md", "content": "" }
+```
+
+The status is `201` and the shape is the one `GET` returns, so the client can
+open what it just made.
+
+The note is empty. The file name is the note's title in a vault with
+wikilinks, so a `# Borges` heading would say it twice, and empty is the only
+text that puts no word in the vault the user did not type.
+
+`path` in the reply is the vault's spelling, not the URL's, which is the one
+place this differs from `PUT`. `ideas/./kasten.md` comes back as
+`ideas/kasten.md`. The client navigates to what it gets back, and two spellings
+of one note must not end up in the address bar.
+
+The folders on the way are made, the vault directory included, so a note names
+its folders into being and a fresh checkout takes its first note with no
+`mkdir` first.
+
+### What a create refuses
+
+It answers `409` or `400` where the read and the write answer `404` to
+everything:
+
+* `409` when a note is already at that path. Its text is left alone.
+* `400` when the vault will not take the path at all: a climb out with `..`, an
+  absolute path, a symlink whose target sits outside the vault or one that
+  loops back on itself, a suffix that is not `.md`, a hidden name, an embedded
+  null byte, an ancestor that is a file rather than a folder, or a path segment
+  over 255 bytes.
+
+The user is about to retype the path and has to know which of the two it was.
+The two answers separate "a note is already there" from "the vault will not
+have that path" and no more: every entry in the `400` list reads the same, so a
+typo still cannot be told from an attempt to climb out. All the `409` adds is
+that one note exists, which `GET /api/files` hands the same reader anyway.
+
+Both refusals return before anything is written, so a create that bounced
+leaves no folder and no jj change behind.
+
+A create that lands is recorded the way a save is, a change started before it
+and a snapshot after, so a new note arrives as its own `vault: <path>` change.
+A vault that is not a jj repo takes the note just the same and keeps no
+history.
 
 ## Related
 

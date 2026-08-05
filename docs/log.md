@@ -30,3 +30,6 @@
 * **Update**: [Editor keys](/reference/editor-keys.md) gained a section on backticks, which close themselves singly and open a whole fence in threes.
 * **Update**: [Getting started](/tutorials/getting-started.md) no longer lists fenced code blocks among what live preview leaves as syntax.
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says a horizontal rule is painted across the row with its dashes hidden, and that a setext underline is left alone because the parser already tells the two apart.
+* **Update**: [HTTP API](/reference/http-api.md) gained `POST /api/files/{path}`, which starts an empty note and makes the folders on the way to it, and says why this one names its refusal while the read and the write answer `404` to everything. The `PUT` section no longer says there is no endpoint for creating notes.
+* **Update**: [Editor keys](/reference/editor-keys.md) gained `<leader>cf` and a section on the new note prompt it opens. It is the first binding on the page to take two keys after the leader.
+* **Update**: [Getting started](/tutorials/getting-started.md) gained a step that makes a note from the browser, and its description now promises notes of your own rather than a list of them. Its "what you cannot do yet" section no longer says a new note is a file you make yourself.

@@ -1,16 +1,16 @@
 ---
 type: Tutorial
 title: Getting started
-description: Take a fresh clone to a running notebook that lists your notes.
+description: Take a fresh clone to a running notebook with notes of your own in it.
 tags: [setup, dev, first-run]
 status: stable
 ---
 
 # Getting started
 
-By the end of this page you have kasten running on your own machine, with a
-note of your own showing in the file tree. It takes about ten minutes, most of
-it downloads.
+By the end of this page you have kasten running on your own machine, with two
+notes of your own in the file tree: one you write on the shell, and one you
+make from the browser. It takes about ten minutes, most of it downloads.
 
 You need Docker and [mise](https://mise.jdx.dev). mise installs everything
 else, so you do not need Python, bun or Postgres up front.
@@ -84,7 +84,33 @@ Space then `e` moves the cursor into the tree, where `j`, `k`, `h` and `l` move
 around it the way they move around a note, and Escape comes back to the editor.
 [Editor keys](/reference/editor-keys.md) lists the lot.
 
-## 6. Open it and edit it
+## 6. Make a note without leaving the browser
+
+A note does not have to come from the shell. Press space, then `c`, then `f`.
+A prompt opens over the editor. Type `reading/borges` into it.
+
+The line under the input reads `creates folder reading/`, because your vault
+has no `reading` yet. Press Enter. The note opens, empty, with the cursor
+already in it, and the tree has grown both the folder and the note. Nothing
+reloaded.
+
+The prompt added the `.md` for you. While you type it lists the folders the
+vault already has, ranked against the whole input, and Tab takes the
+highlighted one, so `d` then Tab is the whole of `daily/`. The list empties
+once you type the note's own name, which is the same ranking rather than a
+fault: no folder is called `reading/borges`. The `＋` at the top of the panel
+opens the same prompt for the mouse.
+
+Look at what landed:
+
+```sh
+ls vault/reading
+```
+
+`borges.md` is there and it is empty. The folder was made because the note
+needed one, and neither of them went near Postgres.
+
+## 7. Open a note and edit it
 
 Click `today` in the tree. The note opens, and the URL gains
 `?note=daily/today.md`, so a reload keeps your place.
@@ -108,7 +134,7 @@ cat vault/daily/today.md
 
 Your edit is in it. It went to the file, and again nothing went to Postgres.
 
-## 7. Give the vault a history
+## 8. Give the vault a history
 
 Every save writes over what was there. Make the vault a
 [jj](https://jj-vcs.github.io/jj/) repo and the old text stays reachable:
@@ -135,10 +161,10 @@ and keeps no history, so an overwrite is final.
 
 ## What you cannot do yet
 
-Notes can be opened and edited but not created or deleted from the browser, so
-a new note is still a file you make yourself. Wikilinks, backlinks and search
-are not built. Tables and images keep their syntax on screen, because live
-preview does not render them yet.
+Notes can be made, opened and edited but not renamed or deleted from the
+browser, so getting rid of one is still a file you delete yourself. Wikilinks,
+backlinks and search are not built. Tables and images keep their syntax on
+screen, because live preview does not render them yet.
 
 ## Next
 
