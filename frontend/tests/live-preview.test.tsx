@@ -55,6 +55,20 @@ describe("live preview", () => {
     expect(content(container)).toBe("**bold**");
   });
 
+  it("renders a link as its text alone", () => {
+    const { container } = render(<Editor initialDoc="see [the docs](https://example.com) now" />);
+
+    expect(content(container)).toBe("see the docs now");
+  });
+
+  it("reveals the whole link on the cursor's line in insert mode", () => {
+    const { container } = render(<Editor initialDoc="see [the docs](https://example.com) now" />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    expect(content(container)).toBe("see [the docs](https://example.com) now");
+  });
+
   it("settles rather than bouncing between two touching hidden ranges", () => {
     // The heading mark ends at 3 and the bold mark starts there, so a cursor
     // pushed out of the first lands straight inside the second.

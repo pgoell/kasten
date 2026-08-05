@@ -63,7 +63,8 @@ function build(state: EditorState): Live {
     enter(node) {
       const heading = HEADING.exec(node.name);
       const inline = INLINE[node.name];
-      if (!heading && !inline) return;
+      const isLink = node.name === "Link";
+      if (!heading && !inline && !isLink) return;
 
       const line = state.doc.lineAt(node.from);
       const revealed = isLineRevealed(state, line);
@@ -84,6 +85,27 @@ function build(state: EditorState): Live {
         hide(mark.from, to);
         return;
       }
+
+      if (isLink) {
+        // A link carries four marks, `[`, `]`, `(` and `)`. The first two
+        // bracket the text worth showing; everything from the second to the end
+        // of the node is `](url)` and goes.
+        const marks: { from: number; to: number }[] = [];
+        for (let child = node.node.firstChild; child; child = child.nextSibling) {
+          if (child.name === "LinkMark") marks.push({ from: child.from, to: child.to });
+        }
+        const [open, close] = marks;
+        if (!open || !close) return;
+
+        if (open.to < close.from) {
+          decorations.push(Decoration.mark({ class: "cm-link" }).range(open.to, close.from));
+        }
+        if (revealed) return;
+        hide(open.from, open.to);
+        hide(close.from, node.to);
+        return;
+      }
+
       if (!inline) return;
 
       let open: { from: number; to: number } | null = null;

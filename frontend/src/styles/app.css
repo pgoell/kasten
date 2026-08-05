@@ -58,6 +58,11 @@ body {
   color: var(--color-one-muted);
 }
 
+.cm-link {
+  color: var(--color-one-accent);
+  text-decoration: underline;
+}
+
 .cm-inline-code {
   background: var(--color-one-panel);
   color: var(--color-one-green);
