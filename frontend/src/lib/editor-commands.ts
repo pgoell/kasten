@@ -1,7 +1,7 @@
 import { Facet } from "@codemirror/state";
-import type { EditorView } from "@codemirror/view";
-import { Vim } from "@replit/codemirror-vim";
-import { type EditorCommands, LEADER } from "@/lib/key-bindings";
+import { type CodeMirrorV, Vim } from "@replit/codemirror-vim";
+import { toggleMark } from "@/lib/format-commands";
+import { type EditorCommands, FORMAT, LEADER } from "@/lib/key-bindings";
 
 /**
  * Carries the app's commands on the editor state.
@@ -14,9 +14,6 @@ export const editorCommands = Facet.define<EditorCommands, EditorCommands | unde
   combine: (handlers) => handlers[0],
 });
 
-/** The CodeMirror 5 shim vim hands its actions. `cm6` on it is typed `any`. */
-type VimCm = { cm6: EditorView };
-
 // Vim ships `<Space>` bound to `l`, and its dispatcher takes a full match over
 // a partial one, so `<Space>b` can never begin a sequence while the built-in
 // stands. `unmap` matches on `context === ctx`, and the built-in carries no
@@ -28,8 +25,21 @@ Vim.map("<Space>", "l", "visual");
 
 for (const { key, command } of LEADER) {
   const name = `kastenLeader:${command}`;
-  Vim.defineAction(name, (cm: VimCm) => {
+  Vim.defineAction(name, (cm: CodeMirrorV) => {
     cm.cm6.state.facet(editorCommands)?.[command]();
   });
   Vim.mapCommand(`<Space>${key}`, "action", name, {}, { context: "normal" });
+}
+
+for (const { key, spec } of FORMAT) {
+  const name = `kastenFormat:${spec.node}`;
+  Vim.defineAction(name, (cm: CodeMirrorV, _args, vim) => {
+    toggleMark(cm.cm6, spec);
+    // An operator applied to a selection ends the selection. Formatting is an
+    // action rather than an operator, so it has to say so itself.
+    if (vim.visualMode) Vim.exitVisualMode(cm);
+  });
+  for (const context of ["insert", "visual"]) {
+    Vim.mapCommand(key, "action", name, {}, { context });
+  }
 }

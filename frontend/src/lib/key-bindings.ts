@@ -1,3 +1,5 @@
+import { BOLD, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-commands";
+
 /**
  * Every binding the app owns, in one table.
  *
@@ -20,4 +22,24 @@ export interface LeaderBinding {
 
 export const LEADER: readonly LeaderBinding[] = [
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
+];
+
+export interface FormatBinding {
+  /** Vim's spelling of the key, not the browser's. */
+  key: string;
+  label: string;
+  spec: MarkSpec;
+}
+
+/**
+ * Formatting is bound in insert and visual mode only.
+ *
+ * Vim owns all three of these in normal mode, where they page up, walk the
+ * jump list and decrement a number. Ours carry a context and the built-ins do
+ * not, so normal mode keeps every one of them.
+ */
+export const FORMAT: readonly FormatBinding[] = [
+  { key: "<C-b>", label: "Bold", spec: BOLD },
+  { key: "<C-i>", label: "Italic", spec: ITALIC },
+  { key: "<C-S-x>", label: "Strikethrough", spec: STRIKE },
 ];

@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import type { EditorCommands } from "@/lib/key-bindings";
 
@@ -10,11 +10,17 @@ function content(container: HTMLElement): string {
   return (container.querySelector(".cm-content") as HTMLElement).textContent ?? "";
 }
 
-function open(doc: string, commands: EditorCommands) {
-  const { container } = render(<Editor initialDoc={doc} commands={commands} />);
+function open(initialDoc: string, commands: EditorCommands = stubCommands()) {
+  const onChange = vi.fn();
+  const { container } = render(
+    <Editor initialDoc={initialDoc} commands={commands} onChange={onChange} />,
+  );
+
   return {
     container,
     editor: container.querySelector(".cm-content") as HTMLElement,
+    /** The document itself, which the rendered text hides the marks of. */
+    doc: () => (onChange.mock.lastCall?.[0] as string | undefined) ?? initialDoc,
   };
 }
 
@@ -30,8 +36,7 @@ describe("the leader key", () => {
   });
 
   it("stops space from moving the cursor", () => {
-    const commands = stubCommands();
-    const { container, editor } = open("plain", commands);
+    const { container, editor } = open("plain");
 
     // Vim ships `<Space>` bound to `l`. Were it still bound, the space would
     // step onto the `l` and `x` would cut it, leaving "pain". Read through a
@@ -40,5 +45,55 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "x" });
 
     expect(content(container)).toBe("plain");
+  });
+});
+
+describe("the formatting keys", () => {
+  it("bolds the word under the cursor in insert mode", () => {
+    const { editor, doc } = open("word");
+
+    fireEvent.keyDown(editor, { key: "i" });
+    fireEvent.keyDown(editor, { key: "b", ctrlKey: true });
+
+    expect(doc()).toBe("**word**");
+  });
+
+  it("italicises in insert mode", () => {
+    const { editor, doc } = open("word");
+
+    fireEvent.keyDown(editor, { key: "i" });
+    fireEvent.keyDown(editor, { key: "i", ctrlKey: true });
+
+    expect(doc()).toBe("*word*");
+  });
+
+  it("strikes through in insert mode", () => {
+    const { editor, doc } = open("word");
+
+    fireEvent.keyDown(editor, { key: "i" });
+    fireEvent.keyDown(editor, { key: "x", ctrlKey: true, shiftKey: true });
+
+    expect(doc()).toBe("~~word~~");
+  });
+
+  it("leaves the document alone in normal mode, where vim owns the key", () => {
+    const { editor, doc } = open("word");
+
+    fireEvent.keyDown(editor, { key: "b", ctrlKey: true });
+
+    expect(doc()).toBe("word");
+  });
+
+  it("wraps the selection and drops back to normal mode", async () => {
+    const { container, editor, doc } = open("word");
+
+    fireEvent.keyDown(editor, { key: "v" });
+    fireEvent.keyDown(editor, { key: "$" });
+    fireEvent.keyDown(editor, { key: "b", ctrlKey: true });
+
+    expect(doc()).toBe("**word**");
+    // Normal mode is what hides the marks again, so the rendered text is the
+    // readable proof that visual mode was left behind.
+    await waitFor(() => expect(content(container)).toBe("word"));
   });
 });
