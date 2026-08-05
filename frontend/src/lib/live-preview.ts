@@ -99,7 +99,8 @@ function build(state: EditorState): Live {
       const isQuote = node.name === "QuoteMark";
       const isBullet = node.name === "ListMark" && node.node.parent?.parent?.name === "BulletList";
       const isFence = node.name === "FencedCode";
-      if (!heading && !inline && !isLink && !isQuote && !isBullet && !isFence) return;
+      const isRule = node.name === "HorizontalRule";
+      if (!heading && !inline && !isLink && !isQuote && !isBullet && !isFence && !isRule) return;
 
       // Every line of the block, so the run reads as one surface with the code
       // in a monospaced face. Nothing is hidden: the language and the backticks
@@ -118,6 +119,17 @@ function build(state: EditorState): Live {
 
       const line = state.doc.lineAt(node.from);
       const revealed = isLineRevealed(state, line);
+
+      // The line is drawn, so the dashes asking for it go. Like the bullet and
+      // unlike the blockquote's bar, the drawing stands in for characters, so
+      // it leaves when they come back. `---` under a paragraph is a setext
+      // heading rather than a rule, and the parser has already told them apart.
+      if (isRule) {
+        if (revealed) return;
+        decorations.push(Decoration.line({ class: "cm-rule" }).range(line.from));
+        hide(line.from, line.to);
+        return;
+      }
 
       if (heading) {
         // The size stays put while the marks come and go, so revealing a line

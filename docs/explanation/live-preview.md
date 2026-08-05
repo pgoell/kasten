@@ -72,6 +72,12 @@ A bullet draws a dot where the `-` used to be. Leave that dot in place while the
 line is revealed and the line carries two bullets, one real and one drawn. So
 the whole decoration goes and the revealed line renders as plain text.
 
+A horizontal rule goes the same way as the bullet. `---` on a line of its own is
+hidden and a line is painted across the row instead, and both the painting and
+the hiding stop while you are editing it. `---` directly under a paragraph is a
+setext heading rather than a rule, and the parser has already told the two
+apart, so nothing here has to.
+
 The indent works the same way. The spaces that nest a list item are hidden along
 with the dash, which leaves nothing in the text carrying the nesting, so the
 padding is computed from how many lists the item sits inside. An ordered list is

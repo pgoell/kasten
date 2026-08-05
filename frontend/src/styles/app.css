@@ -111,6 +111,16 @@ body {
   text-decoration: underline;
 }
 
+/* The dashes are hidden, so the row is empty and the rule is painted into its
+   background: a one pixel band held at the middle. A border would sit at the
+   foot of the row instead, leaving the gap above it and below it uneven. */
+.cm-line.cm-rule {
+  background-image: linear-gradient(var(--color-one-selection), var(--color-one-selection));
+  background-size: 100% 1px;
+  background-position: 0 50%;
+  background-repeat: no-repeat;
+}
+
 /* The two places monospace survives, because both are code rather than prose.
    The size is knocked back because a monospaced face at the same point size
    reads larger than the proportional one beside it. */

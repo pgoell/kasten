@@ -29,3 +29,4 @@
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) counts a fenced code block among what it renders rather than what it does not, now that every line of one takes a line decoration and needs no widget.
 * **Update**: [Editor keys](/reference/editor-keys.md) gained a section on backticks, which close themselves singly and open a whole fence in threes.
 * **Update**: [Getting started](/tutorials/getting-started.md) no longer lists fenced code blocks among what live preview leaves as syntax.
+* **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says a horizontal rule is painted across the row with its dashes hidden, and that a setext underline is left alone because the parser already tells the two apart.

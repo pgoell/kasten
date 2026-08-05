@@ -154,6 +154,30 @@ describe("live preview", () => {
     expect(container.querySelectorAll(".cm-code-close")).toHaveLength(1);
   });
 
+  it("draws a divider in place of the three dashes", () => {
+    const { container } = render(<Editor initialDoc={"above\n\n---\n\nbelow"} />);
+
+    expect(container.querySelectorAll(".cm-rule")).toHaveLength(1);
+    // Drawn rather than typed, so the dashes themselves are off the screen.
+    expect(content(container)).toBe("abovebelow");
+  });
+
+  it("hands the dashes back on the line being edited", async () => {
+    const { container } = render(<Editor initialDoc={"---\n\nbelow"} />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    // The drawn line goes with them, or the row carries a rule and its source.
+    await waitFor(() => expect(content(container)).toContain("---"));
+    expect(container.querySelectorAll(".cm-rule")).toHaveLength(0);
+  });
+
+  it("leaves a setext underline alone, that being a heading and not a rule", () => {
+    const { container } = render(<Editor initialDoc={"Title\n---\n\nbody"} />);
+
+    expect(container.querySelectorAll(".cm-rule")).toHaveLength(0);
+  });
+
   it("leaves prose outside the fence alone", () => {
     const { container } = render(<Editor initialDoc={"prose\n```\ncode\n```"} />);
     const first = container.querySelector(".cm-line");
