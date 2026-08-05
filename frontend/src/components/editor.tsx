@@ -6,6 +6,8 @@ import { EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
+import { editorCommands } from "@/lib/editor-commands";
+import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 
 type SaveHandler = (doc: string) => void;
@@ -31,6 +33,8 @@ Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
 interface EditorProps {
   /** The document to open. Only read on mount; pass a `key` to open another note. */
   initialDoc: string;
+  /** What the leader keys reach for. Absent leaves them inert. */
+  commands?: EditorCommands;
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
@@ -43,19 +47,21 @@ interface EditorProps {
  * re-rendering the tree on every keystroke is where CodeMirror-in-React
  * performance dies.
  */
-export function Editor({ initialDoc, onChange, onSave }: EditorProps) {
+export function Editor({ initialDoc, commands, onChange, onSave }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   // Every prop lives in a ref so the mount effect depends on nothing. Rebuilding
   // the view throws away undo history and cursor position, so it must happen
   // exactly once: to open a different note, remount with a `key`.
   const initialDocRef = useRef(initialDoc);
+  const commandsRef = useRef(commands);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
 
   useEffect(() => {
+    commandsRef.current = commands;
     onChangeRef.current = onChange;
     onSaveRef.current = onSave;
-  }, [onChange, onSave]);
+  }, [commands, onChange, onSave]);
 
   useEffect(() => {
     const parent = host.current;
@@ -72,6 +78,11 @@ export function Editor({ initialDoc, onChange, onSave }: EditorProps) {
           // rather than open the browser's save dialog.
           keymap.of([{ key: "Mod-s", run: save, preventDefault: true }]),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
+          // Each one reads the ref rather than closing over the prop, so a
+          // re-render never has to rebuild the view to refresh a callback.
+          editorCommands.of({
+            toggleTree: () => commandsRef.current?.toggleTree(),
+          }),
           basicSetup,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           livePreview(),

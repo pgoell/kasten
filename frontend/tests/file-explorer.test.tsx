@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { type ComponentProps, useState } from "react";
 import { FileExplorer } from "@/components/file-explorer";
 
 // Sorted the way the backend serves it. `projects/kasten.md` and the folder
@@ -22,8 +22,25 @@ function folderContents(name: string) {
   return within(item);
 }
 
-function renderTree(props: Partial<ComponentProps<typeof FileExplorer>> = {}) {
-  return render(<FileExplorer paths={PATHS} onOpenFile={() => {}} {...props} />);
+type TreeProps = Partial<ComponentProps<typeof FileExplorer>>;
+
+/** Holds the open state the route holds in the app, so folding still works. */
+function Harness(props: TreeProps) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <FileExplorer
+      paths={PATHS}
+      onOpenFile={() => {}}
+      open={open}
+      onOpenChange={setOpen}
+      {...props}
+    />
+  );
+}
+
+function renderTree(props: TreeProps = {}) {
+  return render(<Harness {...props} />);
 }
 
 function panel() {
@@ -173,15 +190,5 @@ describe("FileExplorer", () => {
 
     fireEvent.keyDown(grip(), { key: "ArrowLeft" });
     expect(panel()).toHaveStyle({ width: DEFAULT_WIDTH });
-  });
-
-  it("folds the panel away and back on ctrl+b, wherever the focus sits", () => {
-    renderTree();
-
-    fireEvent.keyDown(document.body, { key: "b", ctrlKey: true });
-    expect(screen.queryByText("index")).toBeNull();
-
-    fireEvent.keyDown(document.body, { key: "b", metaKey: true });
-    expect(screen.getByText("index")).toBeInTheDocument();
   });
 });

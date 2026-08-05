@@ -6,6 +6,10 @@ interface FileExplorerProps {
   /** Vault-relative path of the open note, absent while none is open. */
   openPath?: string;
   onOpenFile: (path: string) => void;
+  /** Whether the panel is unfolded. Held by the route, because `<leader>b`
+   * reaches it from inside the editor. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 interface FolderNode {
@@ -237,8 +241,13 @@ function PanelIcon() {
  * Clicking a note reports its path and nothing more. Which note is open is the
  * caller's business, and it keeps that in the URL.
  */
-export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps) {
-  const [open, setOpen] = useState(true);
+export function FileExplorer({
+  paths,
+  openPath,
+  onOpenFile,
+  open,
+  onOpenChange,
+}: FileExplorerProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   /** Where the pointer went down, and how wide the panel was then. */
@@ -273,20 +282,6 @@ export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps)
     };
   }, [drag]);
 
-  // Captured on the way down and stopped there, because CodeMirror's vim mode
-  // would otherwise page up on the same key.
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "b") return;
-      event.preventDefault();
-      event.stopPropagation();
-      setOpen((previous) => !previous);
-    }
-
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, []);
-
   function toggleFolder(path: string) {
     setCollapsed((previous) => {
       const next = new Set(previous);
@@ -299,9 +294,9 @@ export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps)
   const toggle = (
     <button
       type="button"
-      onClick={() => setOpen(!open)}
+      onClick={() => onOpenChange(!open)}
       aria-label={open ? "Hide file tree" : "Show file tree"}
-      title={`${open ? "Hide" : "Show"} file tree (Ctrl+B)`}
+      title={`${open ? "Hide" : "Show"} file tree (Space B)`}
       className="cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent"
     >
       <PanelIcon />
