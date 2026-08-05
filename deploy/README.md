@@ -107,6 +107,8 @@ mise run dev:up
 
 Container dependency trees live in `.container/`, deliberately separate from the host's `.venv` and `frontend/node_modules`. Sharing them breaks both: a venv holds absolute paths that are wrong inside the container.
 
+**`.container/node_modules` outlives a restart, and a stale one breaks dev quietly.** It is the tree the frontend container installs into, so `dev:restart` cannot clear it. After the move from pnpm to bun it held both layouts at once, and dev served the page with a 500 on the stylesheet, `ENOENT` on a path under `node_modules/.pnpm/`. Wipe it and let the container reinstall. [Run the checks](../docs/how-to/run-the-checks.md) has the commands, and the reason you recreate the directory yourself rather than letting Docker do it.
+
 **Every published port binds `127.0.0.1` explicitly.** Docker publishes ports with DNAT rules that ufw never sees, so a bare `"5434:5432"` faces the open internet regardless of firewall rules. Do not drop the prefix.
 
 ## Looking at dev in a browser

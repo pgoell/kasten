@@ -1,0 +1,47 @@
+---
+type: Reference
+title: Configuration
+description: Every backend setting, its default, and where the values come from.
+resource: backend/src/kasten_backend/config.py
+tags: [config, environment, backend]
+status: stable
+---
+
+# Configuration
+
+Settings are read from the environment and from `backend/.env`, in that order
+of precedence. Every field takes the `KASTEN_` prefix. Unknown variables are
+ignored.
+
+Every value below is already the default, so a fresh clone runs without a
+`.env` file at all. `backend/.env.example` exists to give your own overrides an
+obvious home.
+
+## KASTEN_DATABASE_URL
+
+```
+postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev
+```
+
+The SQLAlchemy URL for the derived index. It never holds note content.
+
+Dev points at kasten's own compose Postgres, published on the host at 5434. It
+cannot use the shared `postgres` container on the VPS: that one publishes no
+host port, and the dev backend runs on the host rather than in a container.
+
+## KASTEN_VAULT_PATH
+
+```
+vault
+```
+
+The directory of markdown files that is the source of truth.
+
+A relative path resolves against the working directory, so start the app from
+the repo root. Production overrides this with the absolute container path
+`/vault`.
+
+## Related
+
+* [The vault and the derived index](/explanation/vault-and-derived-index.md) - what these two settings mean to each other
+* [Two environments](/explanation/environments.md) - the values dev and prod actually run with

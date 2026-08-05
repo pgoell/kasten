@@ -1,0 +1,87 @@
+---
+type: Reference
+title: mise tasks
+description: Every task defined in mise.toml, by group.
+resource: mise.toml
+tags: [commands, tooling, mise]
+status: stable
+---
+
+# mise tasks
+
+mise owns every command in this repo. `mise tasks` prints this list from
+`mise.toml`; the descriptions here are the ones defined there.
+
+## Bootstrap
+
+| Task | What it does |
+|---|---|
+| `install` | Install git hooks, backend dependencies and frontend dependencies |
+| `fe:install` | Install frontend dependencies only |
+
+## Dev loop
+
+| Task | What it does |
+|---|---|
+| `dev` | Run the backend with auto-reload on :8000 |
+| `fe:dev` | Run the frontend dev server on :5173 |
+
+## Hosted dev environment
+
+Reload servers in containers with the working tree bind-mounted, reached
+through Caddy. See [Two environments](/explanation/environments.md).
+
+| Task | What it does |
+|---|---|
+| `dev:up` | Start the hosted dev environment, database included |
+| `dev:down` | Stop it, keeping the database volume |
+| `dev:restart` | Restart the reload servers, after a dependency change |
+| `dev:status` | Show container status |
+| `dev:logs` | Follow the reload server logs |
+
+## Database
+
+| Task | What it does |
+|---|---|
+| `db:up` | Start the dev Postgres on :5434 |
+| `db:stop` | Stop it, keeping the volume |
+| `db:reset` | Destroy the volume and start fresh. Destructive |
+| `db:migrate` | Apply migrations to the dev database |
+| `db:revision` | Autogenerate a migration. Takes `-- -m "message"` |
+| `db:downgrade` | Roll back the last migration |
+
+## Testing
+
+| Task | What it does |
+|---|---|
+| `test` | Backend and frontend tests |
+| `test:py` | Backend tests only |
+| `fe:test` | Frontend tests only |
+
+## Lint, format and types
+
+| Task | What it does |
+|---|---|
+| `lint` | ruff, ty and Biome. The pre-commit gate |
+| `lint:py` | Backend lint, format check and type check |
+| `fe:lint` | Biome on the frontend |
+| `fmt` | Format everything |
+| `fe:fmt` | Format the frontend |
+| `fe:typecheck` | Build the frontend, then `tsc --noEmit` |
+| `fe:build` | Build the frontend for production |
+| `fe:types` | Regenerate the OpenAPI-derived frontend types |
+
+`fe:typecheck` depends on `fe:build` because the TanStack Router plugin emits
+`routeTree.gen.ts` during the build, and that file is gitignored. Without it
+`tsc` cannot resolve the route graph.
+
+## Repo automation
+
+| Task | What it does |
+|---|---|
+| `repo:apply-settings` | Apply GitHub repo and branch-protection settings from `.github/*.json` |
+| `repo:check-settings` | Diff live branch protection against the checked-in file |
+
+## Related
+
+* [Run the checks](/how-to/run-the-checks.md) - which of these CI runs, and what to do when the hooks misbehave
