@@ -61,6 +61,7 @@ function Home() {
           onOpenFile={(path) => navigate({ search: { note: path } })}
           open={treeOpen}
           onOpenChange={setTreeOpen}
+          commands={commands}
         />
         {/* min-w-0 lets the editor shrink instead of pushing the panel off-screen. */}
         <div className="min-w-0 flex-1">

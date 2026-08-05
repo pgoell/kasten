@@ -27,14 +27,22 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>>;
 /** Holds the open state the route holds in the app, so folding still works. */
 function Harness(props: TreeProps) {
   const [open, setOpen] = useState(true);
+  // The route folds the panel from two directions, `q` in the tree and the
+  // leader from anywhere, and both land on the same callback.
+  const onOpenChange = props.onOpenChange ?? setOpen;
 
   return (
     <FileExplorer
       paths={PATHS}
       onOpenFile={() => {}}
-      open={open}
-      onOpenChange={setOpen}
       {...props}
+      open={props.open ?? open}
+      onOpenChange={onOpenChange}
+      commands={{
+        toggleTree: () => onOpenChange(!open),
+        togglePreview: () => {},
+        closeNote: () => {},
+      }}
     />
   );
 }
@@ -57,6 +65,155 @@ function dragGrip(from: number, to: number) {
   fireEvent.pointerMove(window, { clientX: to });
   fireEvent.pointerUp(window);
 }
+
+/** The tree itself, which is what the vim keys are typed into. */
+function tree() {
+  return screen.getByRole("navigation", { name: "Vault" });
+}
+
+/** The row the cursor is on: the only one reachable with a single tab. */
+function cursor() {
+  const row = within(tree())
+    .getAllByRole("button")
+    .find((item) => item.getAttribute("tabindex") === "0");
+  if (!row) throw new Error("No row holds the cursor");
+  return row;
+}
+
+function press(key: string) {
+  fireEvent.keyDown(tree(), { key });
+}
+
+describe("the tree keyboard", () => {
+  // Rows in display order, with `daily` and `projects` unfolded:
+  // daily, 2026-08-04, 2026-08-05, projects, kasten, api-design, kasten.md, index
+  it("starts the cursor on the first row", () => {
+    renderTree();
+
+    expect(cursor()).toHaveTextContent("daily");
+  });
+
+  it("moves the cursor down on j and up on k", () => {
+    renderTree();
+
+    press("j");
+    expect(cursor()).toHaveTextContent("2026-08-04");
+
+    press("j");
+    expect(cursor()).toHaveTextContent("2026-08-05");
+
+    press("k");
+    expect(cursor()).toHaveTextContent("2026-08-04");
+  });
+
+  it("stops at the top rather than wrapping", () => {
+    renderTree();
+
+    press("k");
+
+    expect(cursor()).toHaveTextContent("daily");
+  });
+
+  it("stops at the bottom rather than wrapping", () => {
+    renderTree();
+
+    press("G");
+    press("j");
+
+    expect(cursor()).toHaveTextContent("index");
+  });
+
+  it("collapses a folder on h and expands it again on l", () => {
+    renderTree();
+
+    press("h");
+    expect(screen.queryByText("2026-08-04")).toBeNull();
+
+    press("l");
+    expect(screen.getByText("2026-08-04")).toBeInTheDocument();
+  });
+
+  it("jumps to the parent on h when the row is not an open folder", () => {
+    renderTree();
+
+    press("j");
+    press("h");
+
+    expect(cursor()).toHaveTextContent("daily");
+  });
+
+  it("opens the note under the cursor on enter", () => {
+    const onOpenFile = vi.fn();
+    renderTree({ onOpenFile });
+
+    press("j");
+    press("Enter");
+
+    expect(onOpenFile).toHaveBeenCalledWith("daily/2026-08-04.md");
+  });
+
+  it("opens the note under the cursor on l", () => {
+    const onOpenFile = vi.fn();
+    renderTree({ onOpenFile });
+
+    press("j");
+    press("l");
+
+    expect(onOpenFile).toHaveBeenCalledWith("daily/2026-08-04.md");
+  });
+
+  it("goes to the last row on G and back to the first on gg", () => {
+    renderTree();
+
+    press("G");
+    expect(cursor()).toHaveTextContent("index");
+
+    press("g");
+    press("g");
+    expect(cursor()).toHaveTextContent("daily");
+  });
+
+  it("ignores a g that is not followed by another one", () => {
+    renderTree();
+
+    press("g");
+    press("j");
+
+    expect(cursor()).toHaveTextContent("daily");
+  });
+
+  it("closes the panel on q", () => {
+    const onOpenChange = vi.fn();
+    renderTree({ onOpenChange });
+
+    press("q");
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("closes the panel on the leader key too", () => {
+    const onOpenChange = vi.fn();
+    renderTree({ onOpenChange });
+
+    press(" ");
+    press("b");
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("hands focus back to the editor on escape", () => {
+    renderTree();
+    const editor = document.createElement("div");
+    editor.className = "cm-content";
+    editor.tabIndex = 0;
+    document.body.append(editor);
+
+    tree().focus();
+    press("Escape");
+
+    expect(document.activeElement).toBe(editor);
+  });
+});
 
 describe("FileExplorer", () => {
   it("nests each note under the folders in its path", () => {
