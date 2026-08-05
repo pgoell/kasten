@@ -20,7 +20,7 @@ export interface EditorCommands {
 }
 
 export interface LeaderBinding {
-  /** The key pressed after the leader. */
+  /** The keys pressed after the leader, in order. Usually one. */
   key: string;
   label: string;
   command: keyof EditorCommands;
@@ -28,6 +28,10 @@ export interface LeaderBinding {
 
 export const LEADER: readonly LeaderBinding[] = [
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
+  // Two letters, the way Obsidian and every vim config spell a create: `c` for
+  // the group and `f` for the thing. Both readers of this table handle the
+  // sequence, so nothing else has to be single-key from here on.
+  { key: "cf", label: "Create a note", command: "createNote" },
   // Tab used to be the way into the tree, and binding it to indent took that
   // away. This is the way back in, and it unfolds the panel first.
   { key: "e", label: "Focus the file tree", command: "focusTree" },

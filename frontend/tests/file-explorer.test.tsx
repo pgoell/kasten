@@ -207,6 +207,43 @@ describe("the tree keyboard", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it("opens the note prompt on the leader, c, then f", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    expect(cursor()).toHaveTextContent("daily");
+    press(" ");
+    press("c");
+    press("f");
+
+    expect(onCreateNote).toHaveBeenCalledWith("daily/");
+  });
+
+  it("waits for the second letter rather than acting on the leader and c", () => {
+    const onCreateNote = vi.fn();
+    const onOpenChange = vi.fn();
+    renderTree({ onCreateNote, onOpenChange });
+
+    press(" ");
+    press("c");
+
+    expect(onCreateNote).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("drops a sequence that reaches no binding, keeping the keys after it", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    press(" ");
+    press("c");
+    press("x");
+    press("j");
+
+    expect(onCreateNote).not.toHaveBeenCalled();
+    expect(cursor()).toHaveTextContent("2026-08-04");
+  });
+
   it("hands focus back to the editor on escape", () => {
     renderTree();
     const editor = document.createElement("div");
