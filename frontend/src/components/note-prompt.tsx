@@ -14,6 +14,9 @@ interface NotePromptProps {
   onClose: () => void;
 }
 
+/** Rows the list will mount. Beyond this, another keystroke narrows faster than a scroll. */
+const VISIBLE_FOLDERS = 20;
+
 /** What the line under the list says, and nothing where it has nothing to say. */
 function hint(verdict: NotePathVerdict): string {
   switch (verdict.kind) {
@@ -53,7 +56,14 @@ export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProp
   const queryClient = useQueryClient();
 
   const typed = input.trim();
-  const folders = useMemo(() => rankFolders(paths, typed), [paths, typed]);
+  // Ranked over every folder and cut afterwards, so the rows on screen are the
+  // best of the vault rather than the first slice of it. An empty query matches
+  // everything, so without the cut a keystroke reconciles one button per folder
+  // in the vault, which is most of what it costs.
+  const folders = useMemo(
+    () => rankFolders(paths, typed).slice(0, VISIBLE_FOLDERS),
+    [paths, typed],
+  );
   const verdict = describeNotePath(input, paths);
   // A fresh listing from the tree can shorten the list under the highlight.
   // Typing cannot: it puts the highlight back on the first row.

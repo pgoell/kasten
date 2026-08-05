@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NotePrompt } from "@/components/note-prompt";
+import { rankFolders } from "@/lib/fuzzy";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
@@ -18,7 +19,14 @@ const PATHS = [
   "projects/kasten/api-design.md",
 ];
 
-function renderPrompt(startPath = "") {
+// Twenty-five folders, five more than the list will mount, so the cap has
+// something to cut.
+const MANY_PATHS = Array.from(
+  { length: 25 },
+  (_, index) => `folder-${String(index).padStart(2, "0")}/note.md`,
+);
+
+function renderPrompt(startPath = "", vault = PATHS) {
   const onOpen = vi.fn();
   const onClose = vi.fn();
   const queryClient = new QueryClient();
@@ -29,7 +37,7 @@ function renderPrompt(startPath = "") {
     </QueryClientProvider>
   );
 
-  const { rerender, unmount } = render(tree(PATHS));
+  const { rerender, unmount } = render(tree(vault));
   const input = screen.getByLabelText("new note") as HTMLInputElement;
 
   return {
@@ -73,6 +81,25 @@ describe("the new note prompt", () => {
     prompt.type("daily");
 
     expect(prompt.rows()).toEqual(["daily/"]);
+  });
+
+  it("mounts the twenty best-ranked folders and no more", () => {
+    // Ranking the whole vault and showing the head of it, not ranking a head of
+    // the vault: the twenty on screen have to be the best twenty of the 25.
+    const ranked = rankFolders(MANY_PATHS, "");
+    expect(ranked).toHaveLength(25);
+
+    const prompt = renderPrompt("", MANY_PATHS);
+
+    expect(prompt.rows()).toEqual(ranked.slice(0, 20));
+  });
+
+  it("keeps the highlight inside the capped list", () => {
+    const prompt = renderPrompt("", MANY_PATHS);
+
+    for (let press = 0; press < 25; press += 1) prompt.press("ArrowDown");
+
+    expect(prompt.highlighted()).toBe(rankFolders(MANY_PATHS, "")[19]);
   });
 
   it("folds the highlighted folder into the input on tab", () => {

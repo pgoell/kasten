@@ -30,6 +30,12 @@ import { syntheticVault } from "../../bench/fixtures";
 // past the step and be red today.
 const COMMIT_LIMIT_MS = 100;
 
+/**
+ * The cap `note-prompt.tsx` mounts to. Written out here rather than imported,
+ * so a cap that grew back would turn this red instead of following it.
+ */
+const VISIBLE_FOLDERS = 20;
+
 /** Untimed keystrokes, so the first timed one pays no warm-up cost. */
 const WARMUPS = 3;
 
@@ -100,8 +106,10 @@ interface Measurement {
   commit: number;
   /** Options mounted on open, where the query is empty and every folder matches. */
   onOpen: number;
-  /** Distinct option counts seen across the runs. One of them means nothing re-ranked. */
+  /** Distinct option counts seen across the runs, which the cap holds at its own number. */
   counts: Set<number>;
+  /** The best-ranked row after each keystroke. One of them means nothing re-ranked. */
+  tops: Set<string>;
 }
 
 async function measure(noteCount: number): Promise<Measurement> {
@@ -130,6 +138,7 @@ async function measure(noteCount: number): Promise<Measurement> {
   const times: number[] = [];
   const commits: number[] = [];
   const counts = new Set<number>();
+  const tops = new Set<string>();
 
   for (const [index, key] of [...KEYS].entries()) {
     let commit = 0;
@@ -141,6 +150,7 @@ async function measure(noteCount: number): Promise<Measurement> {
       commit = performance.now() - start;
     });
     counts.add(optionCount());
+    tops.add(document.querySelector('[role="option"]')?.textContent ?? "");
     if (index >= WARMUPS) {
       times.push(elapsed);
       commits.push(commit);
@@ -149,23 +159,28 @@ async function measure(noteCount: number): Promise<Measurement> {
 
   root.unmount();
   container.remove();
-  return { cost: median(times), commit: median(commits), onOpen, counts };
+  return { cost: median(times), commit: median(commits), onOpen, counts, tops };
 }
 
 describe("one keystroke in the note prompt", () => {
   // The default five seconds does not cover eighteen keystrokes over a vault
   // this size, and the point of the slice is the number, not a fast run.
   it("commits within six times its recorded cost at 10,000 notes", async () => {
-    const { cost, commit, onOpen, counts } = await measure(10000);
+    const { cost, commit, onOpen, counts, tops } = await measure(10000);
 
     console.log(
       `10,000 notes: ${cost.toFixed(1)}ms median keystroke, ${commit.toFixed(1)}ms of it before the paint`,
     );
     console.log(`10,000 notes: ${onOpen} options on open, ${[...counts].join("/")} while typing`);
-    // Eighteen different queries producing one option count would mean the
+    // Eighteen different queries agreeing on the best row would mean the
     // keystrokes never reached the component, and the medians above would
-    // belong to a render that did nothing.
-    expect(counts.size).toBeGreaterThan(1);
+    // belong to a render that did nothing. The option count used to carry this
+    // check and cannot any more: the cap holds it at 20 whatever is typed.
+    expect(tops.size).toBeGreaterThan(1);
+    // What the cap is for. 842 folders match an empty query at this size, and
+    // mounting a button for each is most of what the keystroke used to cost.
+    expect(onOpen).toBeLessThanOrEqual(VISIBLE_FOLDERS);
+    expect(Math.max(...counts)).toBeLessThanOrEqual(VISIBLE_FOLDERS);
     expect(commit).toBeLessThan(COMMIT_LIMIT_MS);
   }, 120_000);
 
