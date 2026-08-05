@@ -27,8 +27,14 @@ import { syntheticVault, VAULT_SIZES } from "./fixtures";
 const QUERY = "notes";
 
 /** A folder that exists and a note name that does not, which is where the
- * prompt sits for most of the typing. */
-const TYPED = "archive/client-work/a new note";
+ * prompt sits for most of the typing. `projects` is the middle of the eight top
+ * folders in sort order, and that choice is load-bearing: `describeNotePath`
+ * decides a folder exists by scanning the sorted paths for the first one
+ * carrying the prefix, so the top folder's name sets how far the scan runs.
+ * `archive` sorts first and stops almost at once, `templates` sorts last and
+ * reads nearly the whole vault, and at 10,000 notes those two ends are 2x
+ * apart. A middle folder records what a typical keystroke pays. */
+const TYPED = "projects/client-work/a new note";
 
 for (const notes of VAULT_SIZES) {
   const { paths, folderCount } = syntheticVault(notes);

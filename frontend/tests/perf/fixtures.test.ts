@@ -8,8 +8,8 @@ const D1 = 167;
 const D2 = 167;
 const D3 = 166;
 
-/** How many folders the paths name at each depth, top level first. */
-function foldersByDepth(paths: string[]): number[] {
+/** Every folder the paths name, deduped, each ending in "/". */
+function folderPrefixes(paths: string[]): string[] {
   const prefixes = new Set<string>();
 
   for (const path of paths) {
@@ -19,9 +19,14 @@ function foldersByDepth(paths: string[]): number[] {
       prefixes.add(prefix);
     }
   }
+  return [...prefixes];
+}
 
+/** How many folders the paths name at each depth, top level first. */
+function foldersByDepth(paths: string[]): number[] {
   const counts = [0, 0, 0];
-  for (const prefix of prefixes) {
+
+  for (const prefix of folderPrefixes(paths)) {
     const depth = prefix.split("/").length - 2;
     counts[depth] = (counts[depth] ?? 0) + 1;
   }
@@ -90,16 +95,36 @@ describe("syntheticVault", () => {
     ]);
   });
 
+  it("names folders as long as a real vault's at every size", () => {
+    // The folder count above is only half of what a ranking benchmark costs.
+    // `score` in src/lib/fuzzy.ts walks the whole candidate, so the length of
+    // these names is the other half. An earlier generator wrote `t3/s2/`,
+    // averaging 8.6 characters, and held every recorded number well under what
+    // a real vault pays. Shortening the word pools would do that again with
+    // the rest of this file green, so the length is pinned as well. The band
+    // is the four measured means, 21.10 to 26.95, with room on both sides.
+    for (const notes of VAULT_SIZES) {
+      const prefixes = folderPrefixes(syntheticVault(notes).paths);
+      const mean = prefixes.reduce((total, folder) => total + folder.length, 0) / prefixes.length;
+
+      expect(mean).toBeGreaterThan(18);
+      expect(mean).toBeLessThan(30);
+    }
+  });
+
   it("serves the paths sorted, as the vault listing does", () => {
     const { paths } = syntheticVault(N);
 
     expect(paths).toEqual([...paths].sort());
   });
 
-  it("gives every note a path of its own", () => {
-    const { paths } = syntheticVault(N);
-
-    expect(new Set(paths).size).toBe(N);
+  it("gives every note a path of its own at every size", () => {
+    // A word pool only laps at the larger sizes, and a lap that repeated a
+    // name rather than suffixing it is how a collision would arrive. Five
+    // hundred notes never lap the note pool far enough to see one.
+    for (const notes of VAULT_SIZES) {
+      expect(new Set(syntheticVault(notes).paths).size).toBe(notes);
+    }
   });
 
   it("returns the same vault for the same count", () => {
