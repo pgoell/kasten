@@ -132,7 +132,7 @@ Leader sequences work here too, so `<leader>b` closes the tree from inside it.
 `<leader>cf` opens a prompt over the editor. Type where the note goes, relative
 to the vault root, and `.md` is added unless you typed it. Under the input sits
 the list of the vault's folders, ranked against what you have typed, best
-first.
+first, and never more than twenty rows.
 
 | Key | Does |
 | --- | --- |

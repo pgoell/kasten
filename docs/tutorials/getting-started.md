@@ -95,11 +95,11 @@ already in it, and the tree has grown both the folder and the note. Nothing
 reloaded.
 
 The prompt added the `.md` for you. While you type it lists the folders the
-vault already has, ranked against the whole input, and Tab takes the
-highlighted one, so `d` then Tab is the whole of `daily/`. The list empties
-once you type the note's own name, which is the same ranking rather than a
-fault: no folder is called `reading/borges`. The `＋` at the top of the panel
-opens the same prompt for the mouse.
+vault already has, at most twenty, ranked against the whole input, and Tab
+takes the highlighted one, so `d` then Tab is the whole of `daily/`. The list
+empties once you type the note's own name, which is the same ranking rather
+than a fault: no folder is called `reading/borges`. The `＋` at the top of the
+panel opens the same prompt for the mouse.
 
 Look at what landed:
 

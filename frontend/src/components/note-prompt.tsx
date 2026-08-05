@@ -58,7 +58,10 @@ export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProp
   const typed = input.trim();
   // Two memos rather than one, because the folder set follows the vault and not
   // the query. Keyed on `paths` alone it survives every keystroke, which takes
-  // walking 10,000 paths for 842 folders off the typing path entirely.
+  // walking 10,000 paths for 842 folders off the typing path entirely. That
+  // asks one thing of the caller: hand over the same array each render. The
+  // route passes what the query cache holds, and a listing filtered or sorted
+  // at the call site would be a new array every time and undo all of this.
   const prefixes = useMemo(() => folderPrefixes(paths), [paths]);
   // Ranked over every folder and cut afterwards, so the rows on screen are the
   // best of the vault rather than the first slice of it. An empty query matches
