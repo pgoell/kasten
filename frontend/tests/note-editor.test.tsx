@@ -36,7 +36,12 @@ function OpenNote({ path }: { path: string }) {
     <>
       <NoteEditor
         path={path}
-        commands={{ toggleTree: () => {}, togglePreview: () => {}, closeNote: () => {} }}
+        commands={{
+          toggleTree: () => {},
+          togglePreview: () => {},
+          closeNote: () => {},
+          showHelp: () => {},
+        }}
         preview
         onChange={change}
         onSave={save}

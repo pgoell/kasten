@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
+import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
@@ -36,6 +37,7 @@ function Home() {
   // Above the remount that opening another note causes, so turning the
   // rendering off stays off until you turn it back on.
   const [preview, setPreview] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const commands = useMemo<EditorCommands>(
     () => ({
@@ -47,6 +49,7 @@ function Home() {
       closeNote: async () => {
         if (await save()) navigate({ search: {} });
       },
+      showHelp: () => setHelpOpen(true),
     }),
     [navigate, save],
   );
@@ -79,6 +82,7 @@ function Home() {
         </div>
       </div>
       <StatusBar status={note ? status : undefined} />
+      {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
     </main>
   );
 }

@@ -42,6 +42,7 @@ function Harness(props: TreeProps) {
         toggleTree: () => onOpenChange(!open),
         togglePreview: () => {},
         closeNote: () => {},
+        showHelp: () => {},
       }}
     />
   );

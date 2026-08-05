@@ -8,6 +8,7 @@ function stubCommands() {
     toggleTree: vi.fn(),
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
+    showHelp: vi.fn(),
   } satisfies EditorCommands;
 }
 
@@ -50,6 +51,16 @@ describe("the leader key", () => {
     expect(commands.closeNote).toHaveBeenCalledTimes(1);
   });
 
+  it("runs the help command on space then question mark", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "?" });
+
+    expect(commands.showHelp).toHaveBeenCalledTimes(1);
+  });
+
   it("stops space from moving the cursor", () => {
     const { container, editor } = open("plain");
 
@@ -71,6 +82,7 @@ function PreviewHarness() {
       toggleTree: () => {},
       togglePreview: () => setPreview((previous) => !previous),
       closeNote: () => {},
+      showHelp: () => {},
     }),
     [],
   );

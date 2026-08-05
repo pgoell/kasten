@@ -13,6 +13,7 @@ export interface EditorCommands {
   toggleTree(): void;
   togglePreview(): void;
   closeNote(): void;
+  showHelp(): void;
 }
 
 export interface LeaderBinding {
@@ -26,6 +27,7 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
   { key: "q", label: "Save and close the note", command: "closeNote" },
+  { key: "?", label: "Show the keys", command: "showHelp" },
 ];
 
 export interface FormatBinding {
@@ -49,4 +51,21 @@ export const FORMAT: readonly FormatBinding[] = [
   // history window and a page cannot reliably take back.
   { key: "<C-S-h>", label: "Highlight", spec: HIGHLIGHT },
   { key: "<C-S-x>", label: "Strikethrough", spec: STRIKE },
+];
+
+/**
+ * What the keys do inside the file tree.
+ *
+ * Display only. The panel resolves its keys by name in one switch, so there is
+ * nothing here for it to read; this exists so the help panel and the reference
+ * page describe the same tree the code implements.
+ */
+export const TREE: readonly { key: string; label: string }[] = [
+  { key: "j / k", label: "Move the cursor down or up" },
+  { key: "h", label: "Collapse the folder, or go to its parent" },
+  { key: "l", label: "Expand the folder, or open the note" },
+  { key: "Enter", label: "Open the note under the cursor" },
+  { key: "gg / G", label: "Go to the first or last row" },
+  { key: "q", label: "Close the file tree" },
+  { key: "Escape", label: "Back to the editor" },
 ];

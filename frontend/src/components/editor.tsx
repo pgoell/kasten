@@ -105,6 +105,7 @@ export function Editor({
             toggleTree: () => commandsRef.current?.toggleTree(),
             togglePreview: () => commandsRef.current?.togglePreview(),
             closeNote: () => commandsRef.current?.closeNote(),
+            showHelp: () => commandsRef.current?.showHelp(),
           }),
           basicSetup,
           markdown({
