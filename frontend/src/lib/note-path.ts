@@ -27,6 +27,15 @@ export function describeNotePath(input: string, paths: string[]): NotePathVerdic
   if (typed.split("/").some((segment) => segment.startsWith("."))) {
     return { kind: "blocked", reason: "a name cannot start with a dot" };
   }
+  // A note cannot live inside a file, which `resolve_path` in
+  // backend/src/kasten_backend/vault.py refuses for every ancestor of the path.
+  // The listing already names the notes, so say it here rather than promise a
+  // folder and hand back the vault's 400.
+  let ancestor = "";
+  for (const segment of typed.split("/").slice(0, -1)) {
+    ancestor += ancestor === "" ? segment : `/${segment}`;
+    if (paths.includes(ancestor)) return { kind: "blocked", reason: "a note cannot be a folder" };
+  }
 
   const path = typed.endsWith(SUFFIX) ? typed : `${typed}${SUFFIX}`;
   if (paths.includes(path)) return { kind: "open", path };

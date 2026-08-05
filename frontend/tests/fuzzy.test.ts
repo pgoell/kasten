@@ -33,12 +33,34 @@ describe("rankFolders", () => {
     ]);
   });
 
+  it("prefers a run of letters to the same letters scattered", () => {
+    // Both folders open on `k`, so only the `n` right behind it tells them
+    // apart. Leave the run unpaid and `kanban/` takes the tie on name.
+    expect(rankFolders(["knowledge/graphs.md", "kanban/board.md"], "kn")).toEqual([
+      "knowledge/",
+      "kanban/",
+    ]);
+  });
+
+  it("reads the query where it fits best, not where it first fits", () => {
+    // `n` sits inside `reading` on the way to `notes`, and the match that
+    // passes that one by to open `notes/` is the one worth ranking on.
+    expect(rankFolders(["reading/notes/x.md", "runes/y.md"], "rn")).toEqual([
+      "reading/notes/",
+      "reading/",
+      "runes/",
+    ]);
+  });
+
   it("drops a folder the query does not read into", () => {
     expect(rankFolders(PATHS, "zz")).toEqual([]);
   });
 
-  it("puts the shorter of two equally good folders first", () => {
-    expect(rankFolders(PATHS, "projects")).toEqual(["projects/", "projects/kasten/"]);
+  it("orders two equally good folders by name", () => {
+    // An empty query, which is what the prompt opens with, ties every folder,
+    // and a list by name is the one a reader can find a folder in. Length is
+    // not: `archive/` comes first though `z/` is shorter.
+    expect(rankFolders(["archive/x.md", "z/y.md"], "")).toEqual(["archive/", "z/"]);
   });
 
   it("ignores the case of the query", () => {

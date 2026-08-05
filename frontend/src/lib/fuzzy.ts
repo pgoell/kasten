@@ -26,29 +26,45 @@ function folders(paths: string[]): string[] {
  * How well `query` reads as a subsequence of `candidate`, or null when it does
  * not read as one at all.
  *
- * Matching is greedy from the left, so a query that could land in two places
- * takes the first. The bonuses pay for a run of letters and for a letter that
- * opens a folder name, which is what makes `pk` mean `projects/kasten/` rather
- * than any folder carrying the two letters.
+ * A query that could land in two places is scored where it lands best, not
+ * where it lands first. The bonuses pay for a run of letters and for a letter
+ * that opens a folder name, which is what makes `pk` mean `projects/kasten/`
+ * rather than any folder carrying the two letters.
  */
 function score(candidate: string, query: string): number | null {
   const haystack = candidate.toLowerCase();
-  let total = 0;
-  let from = 0;
-  // Two before the first index, so the opening match cannot read as a run.
-  let previous = -2;
+  const NONE = Number.NEGATIVE_INFINITY;
+  // `row[j]` is the best score of the query read so far ending on
+  // `haystack[j]`, and NONE where it cannot end there. One pass over the
+  // haystack takes one more query character, so every alignment is weighed and
+  // the best cell of the last row is the answer. Folders are short and few, so
+  // the cost of weighing them all is beneath notice.
+  let row = new Array<number>(haystack.length).fill(0);
+  // The seed row stands for the empty query, which reads into anything and pays
+  // nothing. It ends nowhere, so the first character can start no run off it.
+  let first = true;
 
   for (const char of query) {
-    const at = haystack.indexOf(char, from);
-    if (at === -1) return null;
+    const next = new Array<number>(haystack.length).fill(NONE);
+    // The best cell left of `j`, which is what a match starting no run pays.
+    let left = first ? 0 : NONE;
+    // The cell at `j - 1`, which is where a run of letters carries on from.
+    let behind = NONE;
 
-    total += 1;
-    if (at === previous + 1) total += 2;
-    if (at === 0 || haystack[at - 1] === "/") total += 3;
-    previous = at;
-    from = at + 1;
+    for (const [j, cell] of row.entries()) {
+      if (haystack[j] === char) {
+        const opens = j === 0 || haystack[j - 1] === "/" ? 3 : 0;
+        next[j] = 1 + opens + Math.max(left, first ? NONE : behind + 2);
+      }
+      if (!first) left = Math.max(left, cell);
+      behind = cell;
+    }
+    row = next;
+    first = false;
   }
-  return total;
+
+  const best = Math.max(...row);
+  return best === NONE ? null : best;
 }
 
 /** Folder prefixes of `paths`, each ending in "/", ranked against `query`. */
@@ -61,11 +77,8 @@ export function rankFolders(paths: string[], query: string): string[] {
     if (points !== null) ranked.push({ folder, points });
   }
 
-  // The shorter of two equal folders first, because it is the one the typed
-  // letters cover more of.
-  ranked.sort(
-    (a, b) =>
-      b.points - a.points || a.folder.length - b.folder.length || a.folder.localeCompare(b.folder),
-  );
+  // Two equal folders go in name order, which is where a reader looks for one.
+  // A folder sorts before the folders inside it anyway, being their prefix.
+  ranked.sort((a, b) => b.points - a.points || a.folder.localeCompare(b.folder));
   return ranked.map((entry) => entry.folder);
 }

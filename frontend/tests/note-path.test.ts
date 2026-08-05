@@ -44,6 +44,27 @@ describe("describeNotePath", () => {
     });
   });
 
+  it("blocks a dot below a folder, not only at the front", () => {
+    expect(describeNotePath("notes/.draft", PATHS)).toEqual({
+      kind: "blocked",
+      reason: "a name cannot start with a dot",
+    });
+  });
+
+  it("blocks a note asked for inside a note", () => {
+    expect(describeNotePath("index.md/note", PATHS)).toEqual({
+      kind: "blocked",
+      reason: "a note cannot be a folder",
+    });
+  });
+
+  it("blocks a note inside a note deeper in the vault", () => {
+    expect(describeNotePath("daily/2026-08-05.md/note", PATHS)).toEqual({
+      kind: "blocked",
+      reason: "a note cannot be a folder",
+    });
+  });
+
   it("appends .md to a bare name", () => {
     expect(describeNotePath("kasten", PATHS)).toEqual({ kind: "create", path: "kasten.md" });
   });
@@ -87,8 +108,14 @@ describe("describeNotePath", () => {
     });
   });
 
-  it("names no folder for a note at the vault root", () => {
-    expect(describeNotePath("kasten", PATHS)).not.toHaveProperty("newFolder");
+  it("names a new folder another folder's name only starts with", () => {
+    // `readings/` is not `reading/`, and the trailing slash on the folder is
+    // what keeps the prefix test on a segment boundary.
+    expect(describeNotePath("reading/borges", ["readings/kant.md"])).toEqual({
+      kind: "create",
+      path: "reading/borges.md",
+      newFolder: "reading/",
+    });
   });
 
   it("reads a doubled slash as the folder the vault already has", () => {
