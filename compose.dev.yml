@@ -68,6 +68,15 @@ services:
       - "mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin && export PATH=/tmp/bin:$$PATH && pnpm install --frozen-lockfile && exec pnpm dev"
     environment:
       HOME: /tmp
+      # Keep the package store beside the container's node_modules. Left to
+      # itself pnpm puts it at /app/.pnpm-store, the bind-mounted repo root,
+      # where a root-owned directory from an earlier run blocks uid 1000 from
+      # writing. Installs that only reuse the store still work, so this fails
+      # the first time a new dependency has to be downloaded.
+      npm_config_store_dir: /app/.container/pnpm-store
+      # Nothing here has a TTY, and pnpm otherwise stops to ask before it
+      # rebuilds node_modules against a different store.
+      CI: "true"
       # Bind every interface inside the container. No port is published to the
       # host, so the only route in is Caddy on the `web` network.
       KASTEN_DEV_BIND: 0.0.0.0

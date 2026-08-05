@@ -23,6 +23,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.7
         version: 6.43.7
+      '@replit/codemirror-vim':
+        specifier: ^6.4.0
+        version: 6.4.0(@codemirror/commands@6.10.4)(@codemirror/language@6.12.4)(@codemirror/search@6.7.1)(@codemirror/state@6.7.1)(@codemirror/view@6.43.7)
       '@tanstack/react-query':
         specifier: ^5.101.4
         version: 5.101.4(react@19.2.8)
@@ -453,6 +456,18 @@ packages:
   '@redocly/openapi-core@1.34.18':
     resolution: {integrity: sha512-UyKIm0wTPw5BcY7Z2PkbK1Ma260um96LSBWXHrdSMe+ZV0EPMyDfAcUcjjm3qEiGST9OK/1TriekdPCZkn4Q3A==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
+
+  '@replit/codemirror-vim-core@0.1.0':
+    resolution: {integrity: sha512-1i6EBKpcNfDKvTmTh6N6g9lL6udD5t+uFNh4JCqozRnVlvUGOps7h/QzS2ne4zcvPUjvApKpmcP7Grc3fNbZiQ==}
+
+  '@replit/codemirror-vim@6.4.0':
+    resolution: {integrity: sha512-t9UMDNhkmeAkl0uRbiJVotv97bGD6mf4GyJJoEbrjUqa/Pov0s9eL+4AaI0Xto3OGri17i9qwIpT0JbVlVXt8A==}
+    peerDependencies:
+      '@codemirror/commands': 6.x.x
+      '@codemirror/language': 6.x.x
+      '@codemirror/search': 6.x.x
+      '@codemirror/state': 6.x.x
+      '@codemirror/view': 6.x.x
 
   '@rolldown/binding-android-arm64@1.2.2':
     resolution: {integrity: sha512-l7x215OGvo1s52JWmR8U/DAVzEDWBCIbTm28aeJV/WDTSHgcKXaZTuBT0hJMs5NggilfJTW3clZVvd24yfKJxA==}
@@ -2290,6 +2305,17 @@ snapshots:
       yaml-ast-parser: 0.0.43
     transitivePeerDependencies:
       - supports-color
+
+  '@replit/codemirror-vim-core@0.1.0': {}
+
+  '@replit/codemirror-vim@6.4.0(@codemirror/commands@6.10.4)(@codemirror/language@6.12.4)(@codemirror/search@6.7.1)(@codemirror/state@6.7.1)(@codemirror/view@6.43.7)':
+    dependencies:
+      '@codemirror/commands': 6.10.4
+      '@codemirror/language': 6.12.4
+      '@codemirror/search': 6.7.1
+      '@codemirror/state': 6.7.1
+      '@codemirror/view': 6.43.7
+      '@replit/codemirror-vim-core': 0.1.0
 
   '@rolldown/binding-android-arm64@1.2.2':
     optional: true

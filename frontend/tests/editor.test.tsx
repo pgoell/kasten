@@ -1,7 +1,18 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 
 describe("Editor", () => {
+  it("starts in vim normal mode, so keys act as commands", () => {
+    const { container } = render(<Editor initialDoc={"line one\nline two"} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    // `dd` in normal mode deletes the line the cursor sits on.
+    fireEvent.keyDown(content, { key: "d" });
+    fireEvent.keyDown(content, { key: "d" });
+
+    expect(content.textContent).toBe("line two");
+  });
+
   it("mounts a CodeMirror view holding the initial document", () => {
     const { container } = render(<Editor initialDoc="# hello" />);
 
