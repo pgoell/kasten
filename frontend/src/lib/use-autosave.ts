@@ -11,9 +11,10 @@ export type SaveStatus = "saved" | "unsaved" | "saving" | "error";
  * Writes one note back to the vault as it is edited.
  *
  * Text goes out once the typing stops, or at once on `save()`. Nothing is
- * written until the document changes, so opening a note never touches disk.
+ * written until the document changes, so opening a note never touches disk,
+ * and nothing is written at all while no note is open.
  */
-export function useAutosave(path: string) {
+export function useAutosave(path: string | undefined) {
   const [status, setStatus] = useState<SaveStatus>("saved");
   // The text waiting to go out, or null when disk is up to date. A ref, not
   // state: a keystroke must not re-render the tree around CodeMirror.
@@ -26,7 +27,7 @@ export function useAutosave(path: string) {
     timer.current = null;
 
     const content = pending.current;
-    if (content === null) return;
+    if (path === undefined || content === null) return;
     pending.current = null;
     setStatus("saving");
 

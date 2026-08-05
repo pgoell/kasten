@@ -84,9 +84,11 @@ Fold the tree away with Ctrl+B, or drag its right edge to resize it.
 Click `today` in the tree. The note opens, and the URL gains
 `?note=daily/today.md`, so a reload keeps your place.
 
-The editor starts in vim's normal mode, so press `i` before you type. The bar
-under the editor reads "Unsaved changes" while you type and "Saved" about a
-second after you stop. `:w` and Ctrl+S write at once instead of waiting.
+The editor starts in vim's normal mode, so press `i` before you type. The ring
+at the right of the bar along the foot of the window turns while you type and
+settles, green, about a second after you stop. `:w` and Ctrl+S write at once
+instead of waiting. Should a write fail, the ring gives way to a red warning
+sign.
 
 Read the file back:
 
@@ -95,6 +97,31 @@ cat vault/daily/today.md
 ```
 
 Your edit is in it. It went to the file, and again nothing went to Postgres.
+
+## 7. Give the vault a history
+
+Every save writes over what was there. Make the vault a
+[jj](https://jj-vcs.github.io/jj/) repo and the old text stays reachable:
+
+```sh
+jj git init --colocate vault
+jj -R vault config set --repo user.name  "Your Name"
+jj -R vault config set --repo user.email "you@example.com"
+```
+
+Edit the note again, then look:
+
+```sh
+jj -R vault log
+```
+
+There is a change named after the note you edited. Saving that note again
+amends it; opening another note starts the next one.
+[Recover an earlier version of a note](/how-to/recover-an-earlier-version.md)
+covers getting the old text back.
+
+This step is optional. A vault with no repo in it is saved to just the same,
+and keeps no history, so an overwrite is final.
 
 ## What you cannot do yet
 

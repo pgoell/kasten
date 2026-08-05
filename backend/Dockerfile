@@ -19,9 +19,21 @@ COPY backend/ backend/
 # exist in the runtime stage, so imports would fail there.
 RUN uv sync --frozen --no-dev --no-editable --package kasten-backend
 
+# jj records every vault write, so the backend needs the binary beside it. The
+# release build is static, which is why it can be lifted into another image.
+# Version and checksum are pinned together, and the version has to match the
+# one in mise.toml: host and container work on the same repo.
+FROM debian:bookworm-slim AS jj
+ARG JJ_VERSION=0.37.0
+ARG JJ_SHA256=7fd8e28d65106768054becbc1e0b929bed7c4c963d598f9f9a629bfa92eb7171
+ADD https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/jj.tar.gz
+RUN echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
+
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS runtime
 WORKDIR /app
 
+COPY --from=jj /usr/local/bin/jj /usr/local/bin/jj
 COPY --from=builder /app/.venv /app/.venv
 # The wheel carries the backend source, so the runtime only needs the Alembic
 # config and migration scripts for the migrate container.

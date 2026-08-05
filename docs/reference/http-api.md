@@ -86,7 +86,19 @@ rather than half a new one.
 
 There is no conflict detection. One user, and the last write wins. A note
 edited by hand or by `git pull` while it is open in the browser is overwritten
-by the browser.
+by the browser. What makes that safe to live with is the history below.
+
+### What the write records
+
+If the vault is a jj repo, the write is bracketed by two jj commands: a change
+is started before it and a snapshot taken after. Changes are one per note, not
+one per save, and named `vault: <path>`, so `jj log` reads as the list of notes
+you worked on while `jj op log` still holds every individual save.
+
+A vault that is not a jj repo is written to just the same and no history is
+kept. jj failing, or missing from the box, never fails a save: the note matters
+more than the record of it. See
+[Recover an earlier version of a note](/how-to/recover-an-earlier-version.md).
 
 ## Related
 

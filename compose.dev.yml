@@ -47,6 +47,9 @@ services:
       # directories as you first, so the non-root container can write to them.
       # Docker would create a named volume owned by root.
       - ./.container/venv:/venv
+      # jj, which the backend runs on every save. `dev:up` puts mise's copy
+      # here; production builds it into the image instead.
+      - ./.container/bin/jj:/usr/local/bin/jj:ro
     depends_on:
       db:
         condition: service_healthy

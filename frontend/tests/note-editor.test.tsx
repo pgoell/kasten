@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { NoteEditor } from "@/components/note-editor";
+import { StatusBar } from "@/components/status-bar";
+import { useAutosave } from "@/lib/use-autosave";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
@@ -24,13 +26,25 @@ function serveVault() {
   });
 }
 
+/** What the route puts around an open note: autosave, the editor, the bar. */
+function OpenNote({ path }: { path: string }) {
+  const { status, change, save } = useAutosave(path);
+
+  return (
+    <>
+      <NoteEditor path={path} onChange={change} onSave={save} />
+      <StatusBar status={status} />
+    </>
+  );
+}
+
 function renderNote(path: string) {
   // One client across the rerenders, so the second visit to a note is a cache
   // hit. Retries would only drag out the deliberate 404.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const tree = (open: string) => (
     <QueryClientProvider client={queryClient}>
-      <NoteEditor path={open} />
+      <OpenNote path={open} />
     </QueryClientProvider>
   );
 
@@ -40,13 +54,16 @@ function renderNote(path: string) {
     text: () => container.querySelector(".cm-content")?.textContent,
     body: () => container.textContent,
     open: (next: string) => rerender(tree(next)),
-    status: () => container.querySelector("[data-testid='save-status']")?.textContent,
+    status: () =>
+      container.querySelector("[data-testid='save-status']")?.getAttribute("aria-label"),
+    spinner: () => container.querySelector("[data-testid='save-spinner']"),
+    errorIcon: () => container.querySelector("[data-testid='save-error']"),
     press: (key: string, init?: KeyboardEventInit) =>
       fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key, ...init }),
   };
 }
 
-describe("NoteEditor", () => {
+describe("an open note", () => {
   beforeEach(() => {
     serveVault();
     saveNote.mockResolvedValue(undefined);
@@ -90,16 +107,17 @@ describe("NoteEditor", () => {
     await waitFor(() => expect(note.text()).toBe("# the index note"));
   });
 
-  it("says the note is saved when it has only just been opened", async () => {
+  it("rests the spinner when the note has only just been opened", async () => {
     const note = renderNote("index.md");
 
     await waitFor(() => expect(note.text()).toBe("# the index note"));
 
     expect(note.status()).toBe("Saved");
+    expect(note.spinner()?.classList).not.toContain("animate-spin");
     expect(saveNote).not.toHaveBeenCalled();
   });
 
-  it("says an edited note is unsaved before the write goes out", async () => {
+  it("spins the spinner while an edit is waiting to go out", async () => {
     const note = renderNote("index.md");
     await waitFor(() => expect(note.text()).toBe("# the index note"));
 
@@ -108,9 +126,10 @@ describe("NoteEditor", () => {
     note.press("d");
 
     expect(note.status()).toBe("Unsaved changes");
+    expect(note.spinner()?.classList).toContain("animate-spin");
   });
 
-  it("writes the note on ctrl+s and says so", async () => {
+  it("writes the note on ctrl+s and rests the spinner again", async () => {
     const note = renderNote("index.md");
     await waitFor(() => expect(note.text()).toBe("# the index note"));
 
@@ -120,9 +139,10 @@ describe("NoteEditor", () => {
 
     await waitFor(() => expect(saveNote).toHaveBeenCalledWith("index.md", ""));
     await waitFor(() => expect(note.status()).toBe("Saved"));
+    expect(note.spinner()?.classList).not.toContain("animate-spin");
   });
 
-  it("says so when the note cannot be written", async () => {
+  it("shows the warning sign when the note cannot be written", async () => {
     saveNote.mockRejectedValue(new Error("PUT /api/files/index.md failed with 500"));
     const note = renderNote("index.md");
     await waitFor(() => expect(note.text()).toBe("# the index note"));
@@ -132,6 +152,8 @@ describe("NoteEditor", () => {
     note.press("s", { ctrlKey: true });
 
     await waitFor(() => expect(note.status()).toBe("Could not save"));
+    expect(note.errorIcon()).not.toBeNull();
+    expect(note.spinner()).toBeNull();
   });
 
   it("says so when the note cannot be read", async () => {

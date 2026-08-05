@@ -6,7 +6,14 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.vault import list_markdown_files, read_note, write_note
+from kasten_backend.vault import (
+    list_markdown_files,
+    read_note,
+    relative_path,
+    resolve_note,
+    write_note,
+)
+from kasten_backend.vcs import begin_change, snapshot
 
 app = FastAPI(title="kasten", version="0.1.0")
 
@@ -71,8 +78,17 @@ async def save_file(
     Only over a note that is already there. Everything the read refuses is
     refused here too, and for the same reason, so a note you cannot open is a
     note you cannot overwrite.
+
+    The jj change is started before the write and the snapshot taken after, so
+    the edit is bracketed by the history rather than trailing it. A vault that
+    is not a jj repo skips both.
     """
-    if not write_note(settings.vault_path, path, edit.content):
+    note = resolve_note(settings.vault_path, path)
+    if note is None:
         raise HTTPException(status_code=404, detail="No such note")
+
+    await begin_change(settings.vault_path, relative_path(settings.vault_path, note))
+    write_note(note, edit.content)
+    await snapshot(settings.vault_path)
 
     return Note(path=path, content=edit.content)

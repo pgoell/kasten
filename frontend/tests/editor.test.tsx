@@ -67,6 +67,19 @@ describe("Editor", () => {
     expect(onSave).toHaveBeenCalledWith("line two");
   });
 
+  it("reports an undo like any other edit, so what you undo is written too", () => {
+    const onChange = vi.fn();
+    const { container } = render(<Editor initialDoc={"line one\nline two"} onChange={onChange} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "d" });
+    fireEvent.keyDown(content, { key: "d" });
+    fireEvent.keyDown(content, { key: "u" });
+
+    expect(content.textContent).toBe("line oneline two");
+    expect(onChange).toHaveBeenLastCalledWith("line one\nline two");
+  });
+
   it("tears the view down on unmount", () => {
     const { container, unmount } = render(<Editor initialDoc="# hello" />);
 
