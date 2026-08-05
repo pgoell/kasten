@@ -15,6 +15,14 @@ describe("describeNotePath", () => {
     expect(describeNotePath("  kasten  ", PATHS)).toEqual({ kind: "create", path: "kasten.md" });
   });
 
+  it("takes a lone slash for an empty input", () => {
+    expect(describeNotePath("/", [])).toEqual({ kind: "empty" });
+  });
+
+  it("takes a pair of slashes for an empty input", () => {
+    expect(describeNotePath("//", [])).toEqual({ kind: "empty" });
+  });
+
   it("waits for a name when the input ends in a slash", () => {
     expect(describeNotePath("reading/", PATHS)).toEqual({
       kind: "blocked",
@@ -81,5 +89,24 @@ describe("describeNotePath", () => {
 
   it("names no folder for a note at the vault root", () => {
     expect(describeNotePath("kasten", PATHS)).not.toHaveProperty("newFolder");
+  });
+
+  it("reads a doubled slash as the folder the vault already has", () => {
+    expect(describeNotePath("ideas//note", ["ideas/x.md"])).toEqual({
+      kind: "create",
+      path: "ideas/note.md",
+    });
+  });
+
+  it("drops a leading slash from a note at the vault root", () => {
+    expect(describeNotePath("/kasten", [])).toEqual({ kind: "create", path: "kasten.md" });
+  });
+
+  it("names the new folder once the slashes are tidied", () => {
+    expect(describeNotePath("/reading//borges", [])).toEqual({
+      kind: "create",
+      path: "reading/borges.md",
+      newFolder: "reading/",
+    });
   });
 });

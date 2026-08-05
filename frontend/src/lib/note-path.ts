@@ -15,7 +15,10 @@ const SUFFIX = ".md";
 
 /** What the typed input means, given every path in the vault. */
 export function describeNotePath(input: string, paths: string[]): NotePathVerdict {
-  const typed = input.trim();
+  // A vault path is relative and its separator is a single slash, so a doubled
+  // or leading slash is a typo the vault would swallow anyway. Absorb it here
+  // and the prompt names the folder the note really lands in.
+  const typed = input.trim().replace(/\/+/g, "/").replace(/^\//, "");
 
   if (typed === "") return { kind: "empty" };
   if (typed.endsWith("/")) return { kind: "blocked", reason: "name the note" };
