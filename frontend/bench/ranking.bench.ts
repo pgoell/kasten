@@ -1,10 +1,17 @@
 /**
- * What the note prompt pays per keystroke, recorded across vault sizes.
+ * What a vault of a given size costs the code that reads all of it, recorded
+ * across four sizes.
+ *
+ * `rankFolders` and `describeNotePath` are what the note prompt pays per
+ * keystroke. `buildTree` belongs to the file explorer and runs on load, not on
+ * a keystroke; it is here because it reads the same paths and its cost sets
+ * what the vault size does to first paint.
  *
  * These numbers gate nothing. `vitest bench` has no threshold and no way to
  * exit non-zero, so the assertions live in `tests/perf/` and this file only
- * records. Run it with `mise run fe:bench`, which pins the perf project;
- * unpinned, `benchmark.include` fans the same file out across every project.
+ * records. Run it with `mise run fe:bench`, which pins the perf project: it is
+ * the only one that turns `benchmark.include` on, and it is the node one, so
+ * every recorded number comes from the same environment.
  */
 
 import { bench, describe } from "vitest";
@@ -13,13 +20,15 @@ import { rankFolders } from "@/lib/fuzzy";
 import { describeNotePath } from "@/lib/note-path";
 import { syntheticVault, VAULT_SIZES } from "./fixtures";
 
-/** Eight characters, and a word no synthetic folder carries, so the scorer
- * walks every candidate to its end rather than stopping early. */
-const QUERY = "projects";
+/** A query about a quarter of the folders match at every size: 10 of 50, 40 of
+ * 176, 194 of 842 and 1110 of 4176. A query matching nothing would measure
+ * scoring alone, because the sort and the map that follow it would never see an
+ * entry, and those are the expensive tail of a real keystroke. */
+const QUERY = "notes";
 
 /** A folder that exists and a note name that does not, which is where the
  * prompt sits for most of the typing. */
-const TYPED = "t3/s2/a new note";
+const TYPED = "archive/client-work/a new note";
 
 for (const notes of VAULT_SIZES) {
   const { paths, folderCount } = syntheticVault(notes);
@@ -29,7 +38,7 @@ for (const notes of VAULT_SIZES) {
       rankFolders(paths, "");
     });
 
-    bench("rankFolders, 8 characters", () => {
+    bench("rankFolders, typed query", () => {
       rankFolders(paths, QUERY);
     });
 

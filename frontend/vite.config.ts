@@ -50,8 +50,14 @@ export default defineConfig({
     globals: true,
     // `vitest bench` resolves benchmark.include per project and ignores
     // test.include, so a bench file left unpinned runs once per project and
-    // prints the same benchmark under several labels. Only `perf` names one,
-    // and every bench invocation passes --project perf.
+    // prints the same benchmark under several labels. Off here rather than per
+    // project, so a project added later has to ask for benchmarks rather than
+    // inherit vitest's default include and fan them out again.
+    benchmark: { include: [] },
+    // vitest is pinned to an exact version in package.json for two reasons:
+    // benchmarking prints "Breaking changes might not follow SemVer, please pin
+    // Vitest's version when using it", and @vitest/browser-playwright peer
+    // depends on exactly the vitest it ships with. A range widens both.
     projects: [
       {
         extends: true,
@@ -59,9 +65,11 @@ export default defineConfig({
           name: "unit",
           environment: "jsdom",
           setupFiles: ["./tests/setup.ts"],
+          // Tests live in tests/ and end in .test.ts or .test.tsx. Anything
+          // co-located under src/, and anything named .spec, is outside that
+          // convention and deliberately not collected.
           include: ["tests/**/*.test.{ts,tsx}"],
           exclude: ["tests/perf/**", "tests/frame/**"],
-          benchmark: { include: [] },
         },
       },
       {
@@ -69,7 +77,7 @@ export default defineConfig({
         test: {
           name: "perf",
           environment: "node",
-          include: ["tests/perf/**/*.test.ts"],
+          include: ["tests/perf/**/*.test.{ts,tsx}"],
           benchmark: { include: ["bench/**/*.bench.ts"] },
         },
       },

@@ -1,15 +1,15 @@
-import { syntheticVault } from "../../bench/fixtures";
+import { syntheticVault, VAULT_SIZES } from "../../bench/fixtures";
 
 const N = 500;
 
-// The generator's own split, restated here so the test fails when the shape
-// drifts rather than mirroring whatever the implementation happens to do.
-const D1 = Math.ceil(N / 3);
-const D2 = Math.ceil((N - D1) / 2);
-const D3 = N - D1 - D2;
+// The split at N = 500, as numbers rather than the generator's own formulas,
+// so a change to the shape has to be admitted here instead of followed.
+const D1 = 167;
+const D2 = 167;
+const D3 = 166;
 
-/** Every directory prefix of `paths`, deduped, each ending in "/". */
-function directoryPrefixes(paths: string[]): Set<string> {
+/** How many folders the paths name at each depth, top level first. */
+function foldersByDepth(paths: string[]): number[] {
   const prefixes = new Set<string>();
 
   for (const path of paths) {
@@ -19,7 +19,13 @@ function directoryPrefixes(paths: string[]): Set<string> {
       prefixes.add(prefix);
     }
   }
-  return prefixes;
+
+  const counts = [0, 0, 0];
+  for (const prefix of prefixes) {
+    const depth = prefix.split("/").length - 2;
+    counts[depth] = (counts[depth] ?? 0) + 1;
+  }
+  return counts;
 }
 
 /** How many notes sit directly in each folder, keyed by the folder's prefix. */
@@ -57,28 +63,43 @@ describe("syntheticVault", () => {
     expect(depths.filter((depth) => depth === 4)).toHaveLength(D3);
   });
 
-  it("opens a new nested folder every eight notes", () => {
-    const counts = notesPerFolder(syntheticVault(N).paths);
-
-    for (const [folder, count] of counts) {
-      // Top folders take a third of the vault between the eight of them. The
-      // fan-out rule is about the folders below them, which is where the folder
-      // count the prompt pays for actually grows.
-      const nested = /\/[su]\d+\/$/.test(folder);
-      if (nested) expect(count).toBeLessThanOrEqual(8);
-    }
+  it("opens twenty-one folders at each nested level for five hundred notes", () => {
+    // 167 notes at depth two and 166 at depth three, eight to a folder, so 21
+    // folders at each level. A wider or narrower fan-out lands elsewhere.
+    expect(foldersByDepth(syntheticVault(N).paths)).toEqual([8, 21, 21]);
   });
 
-  it("counts the folders the paths actually name", () => {
-    const vault = syntheticVault(N);
+  it("opens a new folder every eight notes below the top level", () => {
+    const counts = notesPerFolder(syntheticVault(N).paths);
+    // Top folders take a third of the vault between the eight of them. The
+    // fan-out rule is about the folders below them, which is where the folder
+    // count the prompt pays for actually grows. Depth picks them out rather
+    // than their names, so renaming a folder cannot empty this list and leave
+    // the assertion below with nothing to say.
+    const nested = [...counts].filter(([folder]) => folder.split("/").length > 2);
 
-    expect(vault.folderCount).toBe(directoryPrefixes(vault.paths).size);
+    expect(nested).toHaveLength(42);
+    for (const [, count] of nested) expect(count).toBeLessThanOrEqual(8);
+  });
+
+  it("counts the folders the fan-out predicts at every vault size", () => {
+    // 500, 2000, 10000 and 50000 notes. These are the numbers every recorded
+    // table's folders column carries, so they are stated rather than derived.
+    expect(VAULT_SIZES.map((notes) => syntheticVault(notes).folderCount)).toEqual([
+      50, 176, 842, 4176,
+    ]);
   });
 
   it("serves the paths sorted, as the vault listing does", () => {
     const { paths } = syntheticVault(N);
 
     expect(paths).toEqual([...paths].sort());
+  });
+
+  it("gives every note a path of its own", () => {
+    const { paths } = syntheticVault(N);
+
+    expect(new Set(paths).size).toBe(N);
   });
 
   it("returns the same vault for the same count", () => {
