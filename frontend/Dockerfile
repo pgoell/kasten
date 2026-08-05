@@ -2,21 +2,20 @@
 #
 # frontend/Dockerfile
 #
-# Build context: repo root. Node builder with pnpm via corepack, then
-# nginx:alpine serving the static bundle on port 3000.
+# Build context: repo root. Bun builder, then nginx:alpine serving the static
+# bundle on port 3000.
 
-FROM node:22-alpine AS builder
+FROM oven/bun:1.3.8-alpine AS builder
 WORKDIR /app/frontend
 
-RUN corepack enable
-RUN corepack prepare pnpm@10.33.2 --activate
-
 # Install from the manifests alone so the dependency layer survives source edits.
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY frontend/package.json frontend/bun.lock ./
+RUN bun install --frozen-lockfile
 
 COPY frontend/ ./
-RUN pnpm run build
+# Vite and the plugins it loads still carry `#!/usr/bin/env node` shebangs.
+# There is no node in this image; `bun run` shims one that is bun itself.
+RUN bun run build
 
 FROM nginx:1.27-alpine AS runtime
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf

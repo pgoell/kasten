@@ -56,27 +56,20 @@ services:
       - web
 
   frontend-dev:
-    image: node:22-slim
+    image: oven/bun:1.3.8-alpine
     container_name: kasten-frontend-dev
     working_dir: /app/frontend
     user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
     command:
       - sh
       - -c
-      # corepack needs the install directory to exist, and it must be somewhere
-      # uid 1000 can write, which rules out the image's /usr/local/bin.
-      - "mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin && export PATH=/tmp/bin:$$PATH && pnpm install --frozen-lockfile && exec pnpm dev"
+      - "bun install --frozen-lockfile && exec bun run dev"
     environment:
       HOME: /tmp
-      # Keep the package store beside the container's node_modules. Left to
-      # itself pnpm puts it at /app/.pnpm-store, the bind-mounted repo root,
-      # where a root-owned directory from an earlier run blocks uid 1000 from
-      # writing. Installs that only reuse the store still work, so this fails
-      # the first time a new dependency has to be downloaded.
-      npm_config_store_dir: /app/.container/pnpm-store
-      # Nothing here has a TTY, and pnpm otherwise stops to ask before it
-      # rebuilds node_modules against a different store.
-      CI: "true"
+      # Keep the package cache beside the container's node_modules. It defaults
+      # to $HOME/.bun/install/cache, and HOME is /tmp here, so every restart
+      # would otherwise throw the cache away and refetch the whole tree.
+      BUN_INSTALL_CACHE_DIR: /app/.container/bun-cache
       # Bind every interface inside the container. No port is published to the
       # host, so the only route in is Caddy on the `web` network.
       KASTEN_DEV_BIND: 0.0.0.0

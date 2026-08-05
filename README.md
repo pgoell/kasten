@@ -13,7 +13,7 @@ exists in the database is allowed to matter.
 ## Stack
 
 - Backend: Python 3.14, FastAPI, SQLAlchemy 2 async, Alembic, uv
-- Frontend: React 19, Vite, TanStack Router and Query, Tailwind, CodeMirror 6
+- Frontend: React 19, Vite, TanStack Router and Query, Tailwind, CodeMirror 6, bun
 - Toolchain: mise pins everything; `mise tasks` lists the commands
 
 ## Getting started

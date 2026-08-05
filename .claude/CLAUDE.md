@@ -74,7 +74,7 @@ If every quality item in OPEN_THINGS.md is blocked or out of scope for one PR, f
 
 ### Prerequisites
 
-- **mise** pins Python, Node, uv, pnpm, cocogitto, lefthook. `mise install` on fresh clones.
+- **mise** pins Python, uv, bun, cocogitto, lefthook. `mise install` on fresh clones.
 - **Git hook runner:** [Lefthook](https://github.com/evilmartians/lefthook). Config at `.config/lefthook.yaml`.
 - **Commit-message enforcement:** [Cocogitto](https://docs.cocogitto.io) (`cog`). `commit-msg` hook runs `cog verify`.
 - **Pre-push runs the full test suite.** Even docs-only pushes pay the cost. Broken builds never reach the remote. Use `mise exec -- git push` so the pinned lefthook runs.
