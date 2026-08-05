@@ -7,6 +7,23 @@ import { describeNotePath, type NotePathVerdict } from "@/lib/note-path";
 /** Which note the prompt is naming: one that does not exist yet, or one that does. */
 export type PromptMode = "create" | "rename";
 
+/**
+ * Whether the editor should move to the path the prompt landed on.
+ *
+ * A create always opens what it made: there was nothing to leave. A rename only
+ * follows the note that was open, and then it must, because `?note=` would
+ * otherwise point at a path the vault no longer has. Renaming any other note,
+ * which is what the file tree does with its cursor on a row you are not
+ * editing, leaves the editor where it is.
+ */
+export function editorFollows(
+  mode: PromptMode,
+  startPath: string,
+  openNote: string | undefined,
+): boolean {
+  return mode === "create" || startPath === openNote;
+}
+
 interface NotePromptProps {
   mode: PromptMode;
   /** Every path in the vault, for ranking and for spotting a collision. */

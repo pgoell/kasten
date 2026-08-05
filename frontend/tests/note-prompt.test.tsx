@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { NotePrompt, type PromptMode } from "@/components/note-prompt";
+import { editorFollows, NotePrompt, type PromptMode } from "@/components/note-prompt";
 import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
 
 // The api module builds its client at import time and captures `fetch` there,
@@ -570,5 +570,27 @@ describe("the rename prompt", () => {
     prompt.type("proj");
 
     expect(prompt.rows()).toEqual(["projects/", "projects/kasten/"]);
+  });
+});
+
+describe("what the editor follows", () => {
+  it("opens the note a create made", () => {
+    expect(editorFollows("create", "daily/", undefined)).toBe(true);
+  });
+
+  it("follows the note it renamed when that was the note being written", () => {
+    // `?note=` has to move with it, or the editor is left pointing at a path
+    // the vault no longer has.
+    expect(editorFollows("rename", "inbox/borges.md", "inbox/borges.md")).toBe(true);
+  });
+
+  it("stays on the open note when another one was renamed", () => {
+    // The tree renames the note under its cursor, which is not always the one
+    // being written. Following it would take the editor off mid-sentence.
+    expect(editorFollows("rename", "daily/2026-08-05.md", "inbox/borges.md")).toBe(false);
+  });
+
+  it("stays put when no note is open at all", () => {
+    expect(editorFollows("rename", "daily/2026-08-05.md", undefined)).toBe(false);
   });
 });

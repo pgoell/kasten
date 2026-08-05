@@ -5,7 +5,7 @@ import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
-import { NotePrompt, type PromptMode } from "@/components/note-prompt";
+import { editorFollows, NotePrompt, type PromptMode } from "@/components/note-prompt";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -116,8 +116,9 @@ function Home() {
           paths={data ?? []}
           startPath={prompt.startPath}
           onOpen={(path) => {
+            const follow = editorFollows(prompt.mode, prompt.startPath, note);
             setPrompt(null);
-            navigate({ search: { note: path } });
+            if (follow) navigate({ search: { note: path } });
           }}
           onClose={() => setPrompt(null)}
         />
