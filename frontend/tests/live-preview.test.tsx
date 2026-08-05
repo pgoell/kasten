@@ -133,13 +133,33 @@ describe("live preview", () => {
     expect(nested?.style.paddingLeft).toBe("3.2em");
   });
 
-  it("leaves tables and code fences untouched", () => {
-    // The boundary of what this feature covers. Both need widget decorations,
-    // which is a mechanism live preview deliberately does not have yet.
+  it("leaves the text of tables and code fences untouched", () => {
+    // A fence is drawn as a block but nothing in it is hidden: the language and
+    // the backticks are part of what you came to read. A table gets neither,
+    // needing widget decorations that live preview does not have yet.
     const lines = ["```js", "const x = 1;", "```", "| a | b |", "| - | - |", "| 1 | 2 |"];
     const { container } = render(<Editor initialDoc={lines.join("\n")} />);
 
     expect(content(container)).toBe(lines.join(""));
+  });
+
+  it("draws a fenced block as one surface, top and bottom marked", () => {
+    const lines = ["before", "```js", "const x = 1;", "const y = 2;", "```", "after"];
+    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+
+    // Every line of the fence, the two backtick lines included.
+    expect(container.querySelectorAll(".cm-code-block")).toHaveLength(4);
+    // The corners are rounded on the outside only, so the run reads as a box.
+    expect(container.querySelectorAll(".cm-code-open")).toHaveLength(1);
+    expect(container.querySelectorAll(".cm-code-close")).toHaveLength(1);
+  });
+
+  it("leaves prose outside the fence alone", () => {
+    const { container } = render(<Editor initialDoc={"prose\n```\ncode\n```"} />);
+    const first = container.querySelector(".cm-line");
+
+    expect(first?.textContent).toBe("prose");
+    expect(first?.classList.contains("cm-code-block")).toBe(false);
   });
 
   it("settles rather than bouncing between two touching hidden ranges", () => {

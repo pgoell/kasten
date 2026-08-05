@@ -114,9 +114,16 @@ prose, so the cursor sometimes stops earlier than the count suggests.
 
 ## What it does not render
 
-Tables, images and fenced code blocks keep their syntax. All three need widget
-decorations, which means DOM this code owns and rebuilds as you type, and images
-would additionally need an endpoint that serves files out of the vault. None of
-that exists yet. Wikilinks are not rendered either, because the app does not have
-them at all; see [The vault and the derived index](vault-and-derived-index.md)
-for what does and does not live in the database.
+Tables and images keep their syntax. Both need widget decorations, which means
+DOM this code owns and rebuilds as you type, and images would additionally need
+an endpoint that serves files out of the vault. Neither exists yet. Wikilinks
+are not rendered either, because the app does not have them at all; see
+[The vault and the derived index](vault-and-derived-index.md) for what does and
+does not live in the database.
+
+A fenced code block is the exception among the three, because it needs none of
+that. Every line of it takes a line decoration, which paints the block's
+surface and sets it in the monospaced face, and the highlighting inside comes
+from whichever parser the language named. Nothing in a fence is hidden: the
+backticks and the language are part of what the block says, and the code inside
+is not prose that marks would clutter.

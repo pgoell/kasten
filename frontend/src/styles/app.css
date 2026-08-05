@@ -38,8 +38,17 @@ body {
   height: 100%;
 }
 
+/* A note is prose, so it is set in the proportional face. Monospace is kept for
+   the things that are actually code: the two rules at the foot of this file. */
 .cm-editor .cm-scroller {
+  font-family: var(--font-sans);
+}
+
+/* Line numbers stay monospaced, so the column keeps its width as it counts up
+   rather than shuffling sideways between 9 and 10. */
+.cm-editor .cm-gutters {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Live preview. The syntax marks are hidden in normal mode, so these styles are
@@ -102,9 +111,43 @@ body {
   text-decoration: underline;
 }
 
+/* The two places monospace survives, because both are code rather than prose.
+   The size is knocked back because a monospaced face at the same point size
+   reads larger than the proportional one beside it. */
 .cm-inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
   background: var(--color-one-panel);
   color: var(--color-one-green);
   border-radius: 3px;
   padding: 0.1em 0.3em;
+}
+
+/* A fenced block, drawn as one surface a line at a time. CodeMirror gives every
+   line its own element and there is no wrapper to put a border on, so the
+   background runs the full width and only the ends are rounded. */
+.cm-line.cm-code-block {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-one-panel);
+  padding-left: 0.75em;
+  padding-right: 0.75em;
+}
+
+.cm-line.cm-code-open {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  padding-top: 0.35em;
+}
+
+.cm-line.cm-code-close {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  padding-bottom: 0.35em;
+}
+
+/* The backticks and the language stay readable but stand back from the code. */
+.cm-code-open,
+.cm-code-close {
+  color: var(--color-one-muted);
 }

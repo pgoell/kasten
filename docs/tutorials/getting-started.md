@@ -137,8 +137,8 @@ and keeps no history, so an overwrite is final.
 
 Notes can be opened and edited but not created or deleted from the browser, so
 a new note is still a file you make yourself. Wikilinks, backlinks and search
-are not built. Tables, images and fenced code blocks keep their syntax on
-screen, because live preview does not render them yet.
+are not built. Tables and images keep their syntax on screen, because live
+preview does not render them yet.
 
 ## Next
 

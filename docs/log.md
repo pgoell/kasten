@@ -26,3 +26,6 @@
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says why a drawn bullet leaves with the dash it stands in for while a drawn blockquote bar stays, and where a nested item's indent comes from once its spaces are hidden.
 * **Update**: [Getting started](/tutorials/getting-started.md) says the editor holds the cursor from the moment the page loads, and reaches the tree with space then `e` rather than by clicking it.
 * **Update**: [Getting started](/tutorials/getting-started.md) says the foot of the window carries the weekday, date, calendar week and time beside the save ring.
+* **Update**: [Live preview and the vim mode](/explanation/live-preview.md) counts a fenced code block among what it renders rather than what it does not, now that every line of one takes a line decoration and needs no widget.
+* **Update**: [Editor keys](/reference/editor-keys.md) gained a section on backticks, which close themselves singly and open a whole fence in threes.
+* **Update**: [Getting started](/tutorials/getting-started.md) no longer lists fenced code blocks among what live preview leaves as syntax.

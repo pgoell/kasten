@@ -68,6 +68,24 @@ history window.
 opens only when a non-space follows it and closes only when a non-space
 precedes it, which keeps `a == b` out of it.
 
+## Backticks
+
+A backtick closes itself, the way a bracket and a quote already did. Markdown
+ships no bracket list of its own, so the editor was using the default set from
+`@codemirror/autocomplete`, and a backtick was not in it.
+
+| Typed | You get |
+| --- | --- |
+| `` ` `` | `` `` `` with the cursor between the pair |
+| `` `` `` | The cursor steps over the closing one |
+| ``` ``` ``` | A whole fenced block, with the cursor on the empty line inside |
+
+The third backtick is handled separately, because closing brackets alone would
+leave four of them on the line: one pair from the first keystroke, the second
+stepping over it, and the third opening a pair of its own. It only fires when
+the line holds the pair and nothing else, so a backtick typed mid-sentence
+still just opens a pair.
+
 ## Indenting
 
 | Key | Does |

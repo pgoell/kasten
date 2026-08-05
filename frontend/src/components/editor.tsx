@@ -7,6 +7,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
+import { backticks } from "@/lib/backticks";
 import { editorCommands } from "@/lib/editor-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
@@ -118,6 +119,9 @@ export function Editor({
           // Vim maps no tab of its own, in any mode, so this is the only
           // handler the key reaches.
           keymap.of([indentWithTab]),
+          // Ahead of basicSetup, whose closeBrackets would otherwise answer the
+          // third backtick with a pair before the fence handler sees it.
+          backticks(),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           // Each one reads the ref rather than closing over the prop, so a
           // re-render never has to rebuild the view to refresh a callback.

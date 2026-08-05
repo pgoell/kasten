@@ -98,7 +98,23 @@ function build(state: EditorState): Live {
       const isLink = node.name === "Link";
       const isQuote = node.name === "QuoteMark";
       const isBullet = node.name === "ListMark" && node.node.parent?.parent?.name === "BulletList";
-      if (!heading && !inline && !isLink && !isQuote && !isBullet) return;
+      const isFence = node.name === "FencedCode";
+      if (!heading && !inline && !isLink && !isQuote && !isBullet && !isFence) return;
+
+      // Every line of the block, so the run reads as one surface with the code
+      // in a monospaced face. Nothing is hidden: the language and the backticks
+      // are part of what the block says, and the code inside is already
+      // highlighted by whichever parser the language named.
+      if (isFence) {
+        const first = state.doc.lineAt(node.from).number;
+        const last = state.doc.lineAt(node.to).number;
+        for (let number = first; number <= last; number++) {
+          const edge = number === first ? " cm-code-open" : number === last ? " cm-code-close" : "";
+          const at = state.doc.line(number).from;
+          decorations.push(Decoration.line({ class: `cm-code-block${edge}` }).range(at));
+        }
+        return;
+      }
 
       const line = state.doc.lineAt(node.from);
       const revealed = isLineRevealed(state, line);
