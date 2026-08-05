@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -148,6 +148,59 @@ function NodeList({ nodes, depth, collapsed, onToggleFolder }: NodeListProps) {
   );
 }
 
+/** Panel widths, in pixels. The default is the `w-64` the panel used to be. */
+const DEFAULT_WIDTH = 256;
+const MIN_WIDTH = 160;
+const MAX_WIDTH = 480;
+/** How far one arrow key press moves the grip. */
+const KEY_STEP = 16;
+
+function clampWidth(width: number) {
+  return Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH);
+}
+
+interface GripProps {
+  width: number;
+  dragging: boolean;
+  onResizeStart: (clientX: number) => void;
+  onResizeBy: (delta: number) => void;
+  onReset: () => void;
+}
+
+/**
+ * The drag handle on the panel's right edge.
+ *
+ * It straddles the border rather than taking layout space of its own, so the
+ * tree keeps the full width the panel reports.
+ */
+function Grip({ width, dragging, onResizeStart, onResizeBy, onReset }: GripProps) {
+  function onKeyDown(event: React.KeyboardEvent) {
+    const delta = event.key === "ArrowRight" ? KEY_STEP : event.key === "ArrowLeft" ? -KEY_STEP : 0;
+    if (!delta) return;
+    event.preventDefault();
+    onResizeBy(delta);
+  }
+
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: <hr> is a thematic break in prose, not a handle you can grab.
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize file tree"
+      aria-valuenow={width}
+      aria-valuemin={MIN_WIDTH}
+      aria-valuemax={MAX_WIDTH}
+      tabIndex={0}
+      onPointerDown={(event) => onResizeStart(event.clientX)}
+      onDoubleClick={onReset}
+      onKeyDown={onKeyDown}
+      className={`absolute inset-y-0 -right-0.5 z-10 w-1 cursor-col-resize touch-none focus-visible:outline-none ${
+        dragging ? "bg-one-accent" : "hover:bg-one-accent focus-visible:bg-one-accent"
+      }`}
+    />
+  );
+}
+
 function PanelIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="currentColor">
@@ -164,7 +217,52 @@ function PanelIcon() {
 export function FileExplorer({ paths }: FileExplorerProps) {
   const [open, setOpen] = useState(true);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  /** Where the pointer went down, and how wide the panel was then. */
+  const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
   const tree = useMemo(() => buildTree(paths), [paths]);
+
+  // The pointer leaves the thin grip the moment the drag speeds up, so the rest
+  // of the gesture is followed on the window instead.
+  useEffect(() => {
+    if (!drag) return;
+    const origin = drag;
+
+    function onMove(event: PointerEvent) {
+      setWidth(clampWidth(origin.width + event.clientX - origin.x));
+    }
+    function onUp() {
+      setDrag(null);
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    // Without this the drag selects text and flickers the I-beam over the editor.
+    const { cursor, userSelect } = document.body.style;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = cursor;
+      document.body.style.userSelect = userSelect;
+    };
+  }, [drag]);
+
+  // Captured on the way down and stopped there, because CodeMirror's vim mode
+  // would otherwise page up on the same key.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "b") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen((previous) => !previous);
+    }
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
 
   function toggleFolder(path: string) {
     setCollapsed((previous) => {
@@ -180,6 +278,7 @@ export function FileExplorer({ paths }: FileExplorerProps) {
       type="button"
       onClick={() => setOpen(!open)}
       aria-label={open ? "Hide file tree" : "Show file tree"}
+      title={`${open ? "Hide" : "Show"} file tree (Ctrl+B)`}
       className="cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent"
     >
       <PanelIcon />
@@ -195,7 +294,10 @@ export function FileExplorer({ paths }: FileExplorerProps) {
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-one-line bg-one-panel font-mono">
+    <aside
+      style={{ width }}
+      className="relative flex shrink-0 flex-col border-r border-one-line bg-one-panel font-mono"
+    >
       <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3">
         <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
         {toggle}
@@ -208,6 +310,14 @@ export function FileExplorer({ paths }: FileExplorerProps) {
           <NodeList nodes={tree} depth={0} collapsed={collapsed} onToggleFolder={toggleFolder} />
         )}
       </nav>
+
+      <Grip
+        width={width}
+        dragging={drag !== null}
+        onResizeStart={(x) => setDrag({ x, width })}
+        onResizeBy={(delta) => setWidth(clampWidth(width + delta))}
+        onReset={() => setWidth(DEFAULT_WIDTH)}
+      />
     </aside>
   );
 }

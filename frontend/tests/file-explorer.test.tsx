@@ -11,11 +11,28 @@ const PATHS = [
   "projects/kasten/api-design.md",
 ];
 
+const DEFAULT_WIDTH = "256px";
+
 function folderContents(name: string) {
   const row = screen.getByRole("button", { name });
   const item = row.closest("li");
   if (!item) throw new Error(`No list item around the folder ${name}`);
   return within(item);
+}
+
+function panel() {
+  return screen.getByRole("complementary");
+}
+
+function grip() {
+  return screen.getByRole("separator", { name: "Resize file tree" });
+}
+
+/** Press the grip at `from`, move the pointer to `to`, let go. */
+function dragGrip(from: number, to: number) {
+  fireEvent.pointerDown(grip(), { clientX: from });
+  fireEvent.pointerMove(window, { clientX: to });
+  fireEvent.pointerUp(window);
 }
 
 describe("FileExplorer", () => {
@@ -71,5 +88,63 @@ describe("FileExplorer", () => {
     render(<FileExplorer paths={[]} />);
 
     expect(screen.getByText("No notes yet")).toBeInTheDocument();
+  });
+
+  it("resizes the panel by dragging its grip", () => {
+    render(<FileExplorer paths={PATHS} />);
+
+    dragGrip(256, 340);
+    expect(panel()).toHaveStyle({ width: "340px" });
+
+    dragGrip(340, 300);
+    expect(panel()).toHaveStyle({ width: "300px" });
+  });
+
+  it("keeps the panel between its minimum and maximum width", () => {
+    render(<FileExplorer paths={PATHS} />);
+
+    dragGrip(256, 0);
+    expect(panel()).toHaveStyle({ width: "160px" });
+
+    dragGrip(160, 2000);
+    expect(panel()).toHaveStyle({ width: "480px" });
+  });
+
+  it("stops resizing once the pointer is released", () => {
+    render(<FileExplorer paths={PATHS} />);
+
+    dragGrip(256, 340);
+    fireEvent.pointerMove(window, { clientX: 200 });
+
+    expect(panel()).toHaveStyle({ width: "340px" });
+  });
+
+  it("resets to the default width on a double click", () => {
+    render(<FileExplorer paths={PATHS} />);
+
+    dragGrip(256, 400);
+    fireEvent.doubleClick(grip());
+
+    expect(panel()).toHaveStyle({ width: DEFAULT_WIDTH });
+  });
+
+  it("resizes with the arrow keys", () => {
+    render(<FileExplorer paths={PATHS} />);
+
+    fireEvent.keyDown(grip(), { key: "ArrowRight" });
+    expect(panel()).toHaveStyle({ width: "272px" });
+
+    fireEvent.keyDown(grip(), { key: "ArrowLeft" });
+    expect(panel()).toHaveStyle({ width: DEFAULT_WIDTH });
+  });
+
+  it("folds the panel away and back on ctrl+b, wherever the focus sits", () => {
+    render(<FileExplorer paths={PATHS} />);
+
+    fireEvent.keyDown(document.body, { key: "b", ctrlKey: true });
+    expect(screen.queryByText("index")).toBeNull();
+
+    fireEvent.keyDown(document.body, { key: "b", metaKey: true });
+    expect(screen.getByText("index")).toBeInTheDocument();
   });
 });
