@@ -9,8 +9,10 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.vault import (
     create_note,
     list_markdown_files,
+    prune_empty_folders,
     read_note,
     relative_path,
+    rename_note,
     resolve_note,
     resolve_path,
     write_note,
@@ -40,6 +42,12 @@ class NoteEdit(BaseModel):
     """The new text for a note. The path it belongs to comes from the URL."""
 
     content: str
+
+
+class NoteMove(BaseModel):
+    """Where a note should live from now on. Where it lives today comes from the URL."""
+
+    path: str
 
 
 @app.get("/api/health")
@@ -127,3 +135,45 @@ async def save_file(
     await snapshot(settings.vault_path)
 
     return Note(path=path, content=edit.content)
+
+
+@app.patch("/api/files/{path:path}")
+async def move_file(
+    path: str, move: NoteMove, settings: Annotated[Settings, Depends(get_settings)]
+) -> Note:
+    """Give one note a new path, moving it between folders as well as renaming it.
+
+    `PATCH` rather than a `/rename` route because the path is the note's
+    identity: `POST` starts a note, `PUT` replaces its text, and this changes
+    where it lives. A verb in the URL would be the same thing spelled as a
+    remote procedure call.
+
+    A missing source is a 404, matching the read and the write, so a note you
+    cannot open stays a note you cannot move. The target names its refusal the
+    way a create does, a 400 for a path the vault will not have and a 409 for
+    one already taken, because the user is about to retype it and has to know
+    which it was.
+
+    The text comes back read off disk rather than carried over from the client.
+    Both the URL and the query key change on a move, and seeding the new one
+    from here is what stops a note edited outside kasten arriving stale on the
+    other side.
+    """
+    note = resolve_note(settings.vault_path, path)
+    if note is None:
+        raise HTTPException(status_code=404, detail="No such note")
+
+    target = resolve_path(settings.vault_path, move.path)
+    if target is None:
+        raise HTTPException(status_code=400, detail="The vault will not take that path")
+    if target.exists():
+        raise HTTPException(status_code=409, detail="A note is already there")
+
+    relative = relative_path(settings.vault_path, target)
+
+    await begin_change(settings.vault_path, relative)
+    rename_note(note, target)
+    prune_empty_folders(settings.vault_path, note.parent)
+    await snapshot(settings.vault_path)
+
+    return Note(path=relative, content=target.read_text(encoding="utf-8"))

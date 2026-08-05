@@ -151,6 +151,46 @@ def create_note(path: Path) -> None:
     path.write_text("", encoding="utf-8")
 
 
+def rename_note(source: Path, target: Path) -> None:
+    """Move a note `resolve_note` returned to a path `resolve_path` returned.
+
+    The folders on the way to the target are made first, the way `create_note`
+    makes them, so a note names its folder into being wherever it lands.
+
+    The caller has already refused a target that is taken. `Path.rename`
+    overwrites one without a word, and the check cannot move in here: between it
+    and the rename nothing holds the path, so this would promise an atomicity it
+    does not have. kasten is one user behind oauth2-proxy, and that gap is the
+    accepted cost of not doing the link-and-unlink dance.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source.rename(target)
+
+
+def prune_empty_folders(root: Path, folder: Path) -> None:
+    """Remove `folder` and the folders above it, up to but never including `root`.
+
+    A move leaves its old folder behind, and folders exist here only as the
+    prefix of a note, so an emptied one is invisible to the listing and still on
+    disk. This is what stops the vault filling with directories nothing shows.
+
+    `rmdir` refuses a directory with anything in it, so the refusal is the stop
+    condition and no separate emptiness check is needed. A folder holding only a
+    hidden file is not empty and stays, and so does a symlink, which `rmdir`
+    refuses rather than follows: what is on the other side is not ours to tidy.
+    The first folder that stays keeps every folder above it too.
+    """
+    base = root.resolve()
+    current = folder
+
+    while current != base and current.is_relative_to(base):
+        try:
+            current.rmdir()
+        except OSError:
+            return
+        current = current.parent
+
+
 def write_note(path: Path, content: str) -> None:
     """Write `content` over a note `resolve_note` returned.
 

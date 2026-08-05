@@ -51,6 +51,23 @@ def changed_paths(vault: Path, revision: str) -> list[str]:
     return [line for line in listing.splitlines() if line]
 
 
+def moved_paths(vault: Path, revision: str) -> list[str]:
+    """Every path one change touches, spelled `source -> target`.
+
+    A rename is one entry with two different paths, because jj matches the
+    content across the move rather than recording a delete and an add. Anything
+    else names the same path twice.
+    """
+    template = (
+        'diff.files().map(|file| file.source().path() ++ " -> " ++ file.target().path())'
+        '.join("\\n")'
+    )
+    listing = jj(
+        vault, "--ignore-working-copy", "log", "-r", revision, "--no-graph", "-T", template
+    )
+    return [line for line in listing.splitlines() if line]
+
+
 @pytest.fixture
 def versioned_vault(vault: Path) -> Iterator[Path]:
     """A vault that is a colocated jj repo, the way the runbook sets one up."""
@@ -191,6 +208,66 @@ async def test_records_the_created_note_before_the_request_returns(
         jj(versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@", "root:index.md")
         == ""
     )
+
+
+async def test_names_the_change_after_the_path_a_move_lands_on(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # The new path, so `jj log` names the note as it is now rather than as it
+    # was, and a move reads as a change to the note it produced.
+    (versioned_vault / "inbox").mkdir()
+    (versioned_vault / "inbox" / "typo.md").write_text("# borges")
+
+    await client.patch("/api/files/inbox/typo.md", json={"path": "reading/borges.md"})
+
+    assert descriptions(versioned_vault)[0] == "vault: reading/borges.md"
+
+
+async def test_records_a_move_as_one_rename(client: AsyncClient, versioned_vault: Path) -> None:
+    # Both ends in one entry, which is jj matching the content across the move.
+    # A delete and an add would say the same thing about the working copy and
+    # lose that the note is the note it was.
+    (versioned_vault / "inbox").mkdir()
+    (versioned_vault / "inbox" / "borges.md").write_text("# borges")
+    # The note has to be in a change of its own to have moved out of one.
+    await client.put("/api/files/inbox/borges.md", json={"content": "# borges"})
+
+    await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert moved_paths(versioned_vault, "@") == ["inbox/borges.md -> reading/borges.md"]
+
+
+async def test_leaves_the_note_readable_at_the_path_it_left(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # A move must not be the one write that loses a note. The change before it
+    # still answers at the old path, so a rename you did not mean can be walked
+    # back. This holds because the note was committed before the move rather
+    # than because of how the move is bracketed, which is what the two tests
+    # above cover.
+    (versioned_vault / "inbox").mkdir()
+    (versioned_vault / "inbox" / "borges.md").write_text("# borges\n")
+    await client.put("/api/files/inbox/borges.md", json={"content": "# borges\n"})
+
+    await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert jj(versioned_vault, "file", "show", "-r", "@-", "root:inbox/borges.md") == "# borges\n"
+
+
+async def test_leaves_no_change_behind_when_it_refuses_a_move(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Every refusal returns before the route reaches jj, so a bounced move adds
+    # nothing to the log, empty or otherwise.
+    (versioned_vault / "index.md").write_text("# index")
+    (versioned_vault / "home.md").write_text("# home")
+    before = descriptions(versioned_vault)
+
+    await client.patch("/api/files/index.md", json={"path": "home.md"})
+    await client.patch("/api/files/absent.md", json={"path": "elsewhere.md"})
+    await client.patch("/api/files/index.md", json={"path": "../escape.md"})
+
+    assert descriptions(versioned_vault) == before
 
 
 async def test_leaves_no_change_behind_when_it_refuses_a_create(
