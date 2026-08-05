@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -6,6 +7,12 @@ interface FileExplorerProps {
   /** Vault-relative path of the open note, absent while none is open. */
   openPath?: string;
   onOpenFile: (path: string) => void;
+  /** Whether the panel is unfolded. Held by the route, because `<leader>b`
+   * reaches it from inside the editor. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Reached by leader sequences typed here rather than in the editor. */
+  commands: EditorCommands;
 }
 
 interface FolderNode {
@@ -76,6 +83,41 @@ function sortTree(nodes: TreeNode[]): TreeNode[] {
   return nodes;
 }
 
+interface Row {
+  node: TreeNode;
+  /** Index of the row holding this one, or -1 at the vault root. */
+  parent: number;
+}
+
+/**
+ * Every row a reader can see, in display order.
+ *
+ * The nesting is what the tree renders, but `j` and `k` move down a list, so
+ * the keyboard needs the same rows flattened. Collapsed folders keep their
+ * children out of it, because a cursor cannot sit on a row nobody can see.
+ */
+function flattenRows(nodes: TreeNode[], collapsed: ReadonlySet<string>): Row[] {
+  const rows: Row[] = [];
+
+  function walk(level: TreeNode[], parent: number) {
+    for (const node of level) {
+      const index = rows.length;
+      rows.push({ node, parent });
+      if (node.kind === "folder" && !collapsed.has(node.path)) {
+        walk(node.children, index);
+      }
+    }
+  }
+
+  walk(nodes, -1);
+  return rows;
+}
+
+/** Identifies a row across the tree and the flat list, which share no shape. */
+function rowKey(node: TreeNode) {
+  return `${node.kind}:${node.path}`;
+}
+
 /** Indent one step per level, on top of the row's own padding. */
 function indent(depth: number) {
   return { paddingLeft: `${0.5 + depth * 0.75}rem` };
@@ -101,6 +143,8 @@ interface NodeListProps {
   depth: number;
   collapsed: ReadonlySet<string>;
   openPath?: string;
+  /** The row the keyboard cursor is on, which is the panel's only tab stop. */
+  cursorKey: string;
   onToggleFolder: (path: string) => void;
   onOpenFile: (path: string) => void;
 }
@@ -110,26 +154,34 @@ function NodeList({
   depth,
   collapsed,
   openPath,
+  cursorKey,
   onToggleFolder,
   onOpenFile,
 }: NodeListProps) {
   return (
     <ul>
       {nodes.map((node) => {
+        const key = rowKey(node);
+        // One tab stop for the whole panel: tab reaches the cursor, and the
+        // vim keys move it from there.
+        const tabIndex = key === cursorKey ? 0 : -1;
+
         if (node.kind === "file") {
           const current = node.path === openPath;
 
           return (
-            <li key={`file:${node.path}`}>
+            <li key={key}>
               <button
                 type="button"
+                data-row={key}
+                tabIndex={tabIndex}
                 onClick={() => onOpenFile(node.path)}
                 aria-current={current ? "page" : undefined}
                 style={indent(depth)}
                 title={node.path}
                 className={`${ROW} cursor-pointer ${
                   current ? "bg-one-hover text-one-accent" : "text-one-fg hover:bg-one-hover"
-                }`}
+                } ${tabIndex === 0 ? "outline-1 -outline-offset-1 outline-one-selection" : ""}`}
               >
                 {/* Holds the chevron's column so note names line up with folder names. */}
                 <span className="size-3 shrink-0" />
@@ -142,13 +194,17 @@ function NodeList({
         const open = !collapsed.has(node.path);
 
         return (
-          <li key={`folder:${node.path}`}>
+          <li key={key}>
             <button
               type="button"
+              data-row={key}
+              tabIndex={tabIndex}
               onClick={() => onToggleFolder(node.path)}
               aria-expanded={open}
               style={indent(depth)}
-              className={`${ROW} cursor-pointer text-one-muted hover:bg-one-hover hover:text-one-fg`}
+              className={`${ROW} cursor-pointer text-one-muted hover:bg-one-hover hover:text-one-fg ${
+                tabIndex === 0 ? "outline-1 -outline-offset-1 outline-one-selection" : ""
+              }`}
             >
               <Chevron open={open} />
               <span className="truncate">{node.name}</span>
@@ -159,6 +215,7 @@ function NodeList({
                 depth={depth + 1}
                 collapsed={collapsed}
                 openPath={openPath}
+                cursorKey={cursorKey}
                 onToggleFolder={onToggleFolder}
                 onOpenFile={onOpenFile}
               />
@@ -237,13 +294,36 @@ function PanelIcon() {
  * Clicking a note reports its path and nothing more. Which note is open is the
  * caller's business, and it keeps that in the URL.
  */
-export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps) {
-  const [open, setOpen] = useState(true);
+export function FileExplorer({
+  paths,
+  openPath,
+  onOpenFile,
+  open,
+  onOpenChange,
+  commands,
+}: FileExplorerProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   /** Where the pointer went down, and how wide the panel was then. */
   const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
+  /** Which row the vim keys act on. */
+  const [active, setActive] = useState(0);
+  /** The first half of a two-key sequence, `g` or the leader, once pressed. */
+  const [pending, setPending] = useState<string | null>(null);
+  const nav = useRef<HTMLElement>(null);
   const tree = useMemo(() => buildTree(paths), [paths]);
+  const rows = useMemo(() => flattenRows(tree, collapsed), [tree, collapsed]);
+  // Collapsing a folder can strand the cursor past the end of the list.
+  const cursor = Math.min(active, Math.max(rows.length - 1, 0));
+  const cursorKey = rows[cursor] ? rowKey(rows[cursor].node) : "";
+
+  // Only when the panel already holds the focus. Moving the cursor from inside
+  // the editor, which `<leader>b` does, must not drag the focus along with it.
+  useEffect(() => {
+    const panel = nav.current;
+    if (!panel?.contains(document.activeElement)) return;
+    panel.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`)?.focus();
+  }, [cursorKey]);
 
   // The pointer leaves the thin grip the moment the drag speeds up, so the rest
   // of the gesture is followed on the window instead.
@@ -273,19 +353,72 @@ export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps)
     };
   }, [drag]);
 
-  // Captured on the way down and stopped there, because CodeMirror's vim mode
-  // would otherwise page up on the same key.
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "b") return;
-      event.preventDefault();
-      event.stopPropagation();
-      setOpen((previous) => !previous);
+  /**
+   * The vim keys, resolved in the order vim resolves them.
+   *
+   * A pending key comes first, because `gg` and a leader sequence both mean the
+   * second press is not a command of its own. Anything unrecognised is left
+   * alone rather than swallowed, so the browser keeps its own shortcuts.
+   */
+  function onKeyDown(event: React.KeyboardEvent) {
+    const { key } = event;
+
+    if (pending) {
+      setPending(null);
+      if (pending === " ") {
+        const binding = LEADER.find((entry) => entry.key === key);
+        if (binding) {
+          event.preventDefault();
+          commands[binding.command]();
+        }
+      } else if (key === "g") {
+        event.preventDefault();
+        setActive(0);
+      }
+      return;
     }
 
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, []);
+    const row = rows[cursor];
+    const folder = row?.node.kind === "folder" ? row.node : null;
+    const unfolded = folder !== null && !collapsed.has(folder.path);
+
+    switch (key) {
+      case "j":
+        setActive(Math.min(cursor + 1, rows.length - 1));
+        break;
+      case "k":
+        setActive(Math.max(cursor - 1, 0));
+        break;
+      case "G":
+        setActive(rows.length - 1);
+        break;
+      case "g":
+      case " ":
+        setPending(key);
+        break;
+      case "q":
+        onOpenChange(false);
+        break;
+      case "Escape":
+        // The editor is the only other place focus belongs, and it owns no
+        // React handle here, so the panel finds it the way the user sees it.
+        document.querySelector<HTMLElement>(".cm-content")?.focus();
+        break;
+      case "h":
+        if (unfolded) toggleFolder(folder.path);
+        else if (row && row.parent >= 0) setActive(row.parent);
+        break;
+      case "l":
+      case "Enter":
+        if (folder && !unfolded) toggleFolder(folder.path);
+        else if (folder) setActive(Math.min(cursor + 1, rows.length - 1));
+        else if (row) onOpenFile(row.node.path);
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  }
 
   function toggleFolder(path: string) {
     setCollapsed((previous) => {
@@ -299,9 +432,9 @@ export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps)
   const toggle = (
     <button
       type="button"
-      onClick={() => setOpen(!open)}
+      onClick={() => onOpenChange(!open)}
       aria-label={open ? "Hide file tree" : "Show file tree"}
-      title={`${open ? "Hide" : "Show"} file tree (Ctrl+B)`}
+      title={`${open ? "Hide" : "Show"} file tree (Space B)`}
       className="cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent"
     >
       <PanelIcon />
@@ -326,7 +459,9 @@ export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps)
         {toggle}
       </header>
 
-      <nav aria-label="Vault" className="flex-1 overflow-auto p-1">
+      {/* The handler sits on the panel, not the rows: the keys act on the row
+          the cursor is on, which is not always the one holding focus. */}
+      <nav ref={nav} aria-label="Vault" onKeyDown={onKeyDown} className="flex-1 overflow-auto p-1">
         {tree.length === 0 ? (
           <p className="px-2 py-1 text-[13px] text-one-muted">No notes yet</p>
         ) : (
@@ -335,6 +470,7 @@ export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps)
             depth={0}
             collapsed={collapsed}
             openPath={openPath}
+            cursorKey={cursorKey}
             onToggleFolder={toggleFolder}
             onOpenFile={onOpenFile}
           />

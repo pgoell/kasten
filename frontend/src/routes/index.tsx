@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
+import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
+import type { EditorCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
 
 const SAMPLE = `# kasten
@@ -28,6 +31,28 @@ function Home() {
   // the remount that opening another note causes: text typed into one note is
   // written to it while the next note is already opening.
   const { status, change, save } = useAutosave(note);
+  // Chrome the leader keys reach. It lives up here rather than in the panel
+  // because the key that toggles it is pressed inside the editor.
+  const [treeOpen, setTreeOpen] = useState(true);
+  // Above the remount that opening another note causes, so turning the
+  // rendering off stays off until you turn it back on.
+  const [preview, setPreview] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const commands = useMemo<EditorCommands>(
+    () => ({
+      toggleTree: () => setTreeOpen((previous) => !previous),
+      togglePreview: () => setPreview((previous) => !previous),
+      // Only leave once the vault has the text. A failed write keeps the note
+      // on screen with the warning already in the status bar, because closing
+      // unmounts the editor and the only copy of the edit goes with it.
+      closeNote: async () => {
+        if (await save()) navigate({ search: {} });
+      },
+      showHelp: () => setHelpOpen(true),
+    }),
+    [navigate, save],
+  );
 
   return (
     <main className="flex h-dvh flex-col bg-one-bg">
@@ -37,17 +62,27 @@ function Home() {
           paths={data ?? []}
           openPath={note}
           onOpenFile={(path) => navigate({ search: { note: path } })}
+          open={treeOpen}
+          onOpenChange={setTreeOpen}
+          commands={commands}
         />
         {/* min-w-0 lets the editor shrink instead of pushing the panel off-screen. */}
         <div className="min-w-0 flex-1">
           {note ? (
-            <NoteEditor path={note} onChange={change} onSave={save} />
+            <NoteEditor
+              path={note}
+              commands={commands}
+              preview={preview}
+              onChange={change}
+              onSave={save}
+            />
           ) : (
-            <Editor initialDoc={SAMPLE} />
+            <Editor initialDoc={SAMPLE} commands={commands} preview={preview} />
           )}
         </div>
       </div>
       <StatusBar status={note ? status : undefined} />
+      {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
     </main>
   );
 }

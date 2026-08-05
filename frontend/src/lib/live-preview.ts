@@ -21,6 +21,7 @@ const INLINE: Record<string, { mark: string; class: string }> = {
   Emphasis: { mark: "EmphasisMark", class: "cm-emphasis" },
   InlineCode: { mark: "CodeMark", class: "cm-inline-code" },
   Strikethrough: { mark: "StrikethroughMark", class: "cm-strikethrough" },
+  Highlight: { mark: "HighlightMark", class: "cm-highlight" },
 };
 
 /**

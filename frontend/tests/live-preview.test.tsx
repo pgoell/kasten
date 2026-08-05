@@ -43,6 +43,12 @@ describe("live preview", () => {
     expect(content(container)).toBe("bold and italic and code and gone");
   });
 
+  it("renders a highlight with its equals signs hidden", () => {
+    const { container } = render(<Editor initialDoc="a ==marked== word" />);
+
+    expect(content(container)).toBe("a marked word");
+  });
+
   it("reveals inline marks on the cursor's line in insert mode", async () => {
     const { container } = render(<Editor initialDoc="**bold**" />);
 
