@@ -48,7 +48,31 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
-    setupFiles: ["./tests/setup.ts"],
+    // `vitest bench` resolves benchmark.include per project and ignores
+    // test.include, so a bench file left unpinned runs once per project and
+    // prints the same benchmark under several labels. Only `perf` names one,
+    // and every bench invocation passes --project perf.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "jsdom",
+          setupFiles: ["./tests/setup.ts"],
+          include: ["tests/**/*.test.{ts,tsx}"],
+          exclude: ["tests/perf/**", "tests/frame/**"],
+          benchmark: { include: [] },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "perf",
+          environment: "node",
+          include: ["tests/perf/**/*.test.ts"],
+          benchmark: { include: ["bench/**/*.bench.ts"] },
+        },
+      },
+    ],
   },
 });

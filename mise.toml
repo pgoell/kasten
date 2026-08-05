@@ -172,6 +172,10 @@ description = "Type-check the frontend with tsc --noEmit"
 depends = ["fe:build"]
 run = "bun run --cwd frontend typecheck"
 
+[tasks."fe:bench"]
+description = "Record the frontend benchmark numbers on this machine (gates nothing)"
+run = "bun run --cwd frontend vitest bench --run --project perf"
+
 [tasks."fe:types"]
 description = "Regenerate the OpenAPI-derived types for the frontend"
 run = "bash scripts/gen_frontend_types.sh"
