@@ -151,6 +151,64 @@ and a snapshot after, so a new note arrives as its own `vault: <path>` change.
 A vault that is not a jj repo takes the note just the same and keeps no
 history.
 
+## PATCH /api/files/{path}
+
+Gives a note a new path. The URL says where it lives now, the body where it
+should live from here on.
+
+```json
+{ "path": "reading/2026/borges.md" }
+```
+
+The reply is the note at its new path, in the shape `GET` returns.
+
+```json
+{ "path": "reading/2026/borges.md", "content": "# Borges\n" }
+```
+
+One route, not two: renaming a note and moving it between folders are the same
+thing, a change to the path. `PATCH` rather than `/rename` because the path is
+the note's identity, so `POST` starts a note, `PUT` replaces its text, and this
+changes where it lives.
+
+`path` in the reply is the vault's spelling of the body's, the way `POST`
+answers. The client navigates to it.
+
+`content` is read off disk after the move rather than carried over from the
+client. The move does not need the read; the answer does. Both the URL and the
+client's cache key change here, and filling the new one from disk is what stops
+a note edited outside kasten arriving stale on the other side.
+
+The folders on the way to the new path are made, the way a create makes them.
+
+### What a move leaves behind
+
+Nothing, where it can. The folders the note came out of are removed as far up
+as they are empty, stopping at the vault root and at the first folder that
+still holds anything, a hidden file included. Folders exist here only as the
+prefix of a note, so a folder the move emptied is one nothing would ever show
+again.
+
+### What a move refuses
+
+* `404` when there is no note at the path in the URL. Everything `GET` and
+  `PUT` refuse is refused here too, so a note you cannot open is a note you
+  cannot move.
+* `409` when a note is already at the new path. Both notes are left alone.
+* `400` when the vault will not take the new path at all. The list is the one
+  [a create refuses](#what-a-create-refuses).
+
+The `409` and the `400` are named for the reason the create names them: the
+user is about to retype the path.
+
+Every refusal returns before anything is written, so a move that bounced leaves
+no folder, no half-moved note and no jj change behind.
+
+A move that lands is recorded the way a save is, a change started before it and
+a snapshot after, named `vault: <new path>`. jj matches the content across the
+move and records it as a rename rather than a delete and an add, so the note
+stays reachable at the path it left.
+
 ## Related
 
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md) - push a change here through to the frontend
