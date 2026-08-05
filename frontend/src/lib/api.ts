@@ -18,3 +18,16 @@ export async function fetchFiles(): Promise<string[]> {
 
   return data;
 }
+
+/** The text of one note, read straight off the vault. */
+export async function fetchNote(path: string): Promise<string> {
+  const { data, response } = await client.GET("/api/files/{path}", {
+    params: { path: { path } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/files/${path} failed with ${response.status}`);
+  }
+
+  return data.content;
+}
