@@ -43,14 +43,18 @@ export interface FormatBinding {
  * Vim owns all three of these in normal mode, where they page up, walk the
  * jump list and decrement a number. Ours carry a context and the built-ins do
  * not, so normal mode keeps every one of them.
+ *
+ * The shifted pair name an uppercase letter, because vim builds its key name
+ * from `KeyboardEvent.key` and that is the uppercase letter while shift is
+ * held. `<C-S-h>` looks right and can never fire.
  */
 export const FORMAT: readonly FormatBinding[] = [
   { key: "<C-b>", label: "Bold", spec: BOLD },
   { key: "<C-i>", label: "Italic", spec: ITALIC },
   // Highlight sits on shift-h rather than ctrl+h, which Chrome spends on its
   // history window and a page cannot reliably take back.
-  { key: "<C-S-h>", label: "Highlight", spec: HIGHLIGHT },
-  { key: "<C-S-x>", label: "Strikethrough", spec: STRIKE },
+  { key: "<C-S-H>", label: "Highlight", spec: HIGHLIGHT },
+  { key: "<C-S-X>", label: "Strikethrough", spec: STRIKE },
 ];
 
 /**

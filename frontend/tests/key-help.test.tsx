@@ -58,9 +58,12 @@ describe("the key tables", () => {
     }
   });
 
-  it("spells every formatting key the way vim spells keys", () => {
-    for (const { key } of FORMAT) {
-      expect(key).toMatch(/^<[CS-]*-?[a-zA-Z]>$/);
+  it("spells a shifted formatting key with the letter shift actually produces", () => {
+    // Vim names a key from `KeyboardEvent.key`, which is the uppercase letter
+    // while shift is held. A lowercase letter after `S-` is a binding no
+    // keyboard can reach, and it fails silently rather than loudly.
+    for (const { key } of FORMAT.filter((entry) => entry.key.includes("S-"))) {
+      expect(key).toMatch(/^<C-S-[A-Z]>$/);
     }
   });
 });

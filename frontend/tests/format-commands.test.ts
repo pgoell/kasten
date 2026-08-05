@@ -49,12 +49,24 @@ describe("toggleMark", () => {
     expect(view.state.selection.main.head).toBe(2);
   });
 
-  it("leaves the cursor after the word it just wrapped", () => {
+  it("leaves the cursor inside the marks it just added", () => {
     const view = open("word", 0);
 
     toggleMark(view, BOLD);
 
-    expect(view.state.selection.main.head).toBe(8);
+    // Between the word and the closing `**`, not past it. Landing outside
+    // would put the cursor where the next press cannot see the mark, so the
+    // key would stop being a toggle.
+    expect(view.state.selection.main.head).toBe(6);
+  });
+
+  it("returns the text to what it was when pressed twice", () => {
+    const view = open("hello world", 7);
+
+    toggleMark(view, BOLD);
+    toggleMark(view, BOLD);
+
+    expect(view.state.doc.toString()).toBe("hello world");
   });
 
   it("wraps italics in one asterisk", () => {

@@ -62,11 +62,10 @@ export function toggleMark(view: EditorView, spec: MarkSpec): boolean {
       { from, insert: spec.open },
       { from: to, insert: spec.close },
     ],
-    // An empty pair wants the cursor inside it, a wrapped word wants it past
-    // the end: one is an invitation to type, the other is finished text.
-    selection: {
-      anchor: target ? to + spec.open.length + spec.close.length : from + spec.open.length,
-    },
+    // Inside the marks either way. An empty pair is an invitation to type, and
+    // a wrapped word has to stay where a second press can still see the mark,
+    // or the key stops being a toggle.
+    selection: { anchor: to + spec.open.length },
   });
   return true;
 }

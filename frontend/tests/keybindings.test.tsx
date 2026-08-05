@@ -151,11 +151,14 @@ describe("the formatting keys", () => {
     expect(doc()).toBe("*word*");
   });
 
+  // The letter is uppercase because that is what `KeyboardEvent.key` carries
+  // while shift is held, and vim builds its key name straight off `e.key`.
+  // Sending a lowercase letter here would test a keystroke nobody can type.
   it("strikes through in insert mode", () => {
     const { editor, doc } = open("word");
 
     fireEvent.keyDown(editor, { key: "i" });
-    fireEvent.keyDown(editor, { key: "x", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(editor, { key: "X", ctrlKey: true, shiftKey: true });
 
     expect(doc()).toBe("~~word~~");
   });
@@ -164,7 +167,7 @@ describe("the formatting keys", () => {
     const { editor, doc } = open("word");
 
     fireEvent.keyDown(editor, { key: "i" });
-    fireEvent.keyDown(editor, { key: "h", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(editor, { key: "H", ctrlKey: true, shiftKey: true });
 
     expect(doc()).toBe("==word==");
   });
