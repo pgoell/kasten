@@ -2,6 +2,7 @@ import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
+import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
@@ -85,6 +86,26 @@ export default defineConfig({
           sequence: { groupOrder: 1 },
           include: ["tests/perf/**/*.test.{ts,tsx}"],
           benchmark: { include: ["bench/**/*.bench.ts"] },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "frame",
+          // jsdom lays nothing out and paints nothing, so the only honest
+          // answer to "did this keystroke land inside a frame" comes from a
+          // real browser. `fe:test` names its projects rather than running them
+          // all, because CI's Test job and lefthook install no browser.
+          //
+          // No groupOrder here, unlike perf: `fe:frame` is the only task that
+          // names this project, so it never shares a worker pool with the jsdom
+          // suite and has nothing to be sequenced away from.
+          include: ["tests/frame/**/*.test.tsx"],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium", headless: true }],
+          },
         },
       },
     ],
