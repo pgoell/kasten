@@ -50,3 +50,17 @@ body {
 .cm-heading-4 { font-size: 1.15em; }
 .cm-heading-5 { font-size: 1.05em; }
 .cm-heading-6 { font-size: 1em; }
+
+.cm-strong { font-weight: 700; }
+.cm-emphasis { font-style: italic; }
+.cm-strikethrough {
+  text-decoration: line-through;
+  color: var(--color-one-muted);
+}
+
+.cm-inline-code {
+  background: var(--color-one-panel);
+  color: var(--color-one-green);
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+}

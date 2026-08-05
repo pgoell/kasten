@@ -10,6 +10,20 @@ const HIDDEN = Decoration.replace({});
 const HEADING = /^ATXHeading([1-6])$/;
 
 /**
+ * Inline constructs, by the node that wraps them.
+ *
+ * Keyed by the wrapper rather than the delimiter because the delimiter does not
+ * identify the construct: `EmphasisMark` is both `**` and `*`, and only the
+ * parent says which.
+ */
+const INLINE: Record<string, { mark: string; class: string }> = {
+  StrongEmphasis: { mark: "EmphasisMark", class: "cm-strong" },
+  Emphasis: { mark: "EmphasisMark", class: "cm-emphasis" },
+  InlineCode: { mark: "CodeMark", class: "cm-inline-code" },
+  Strikethrough: { mark: "StrikethroughMark", class: "cm-strikethrough" },
+};
+
+/**
  * What the editor is showing, and which parts of the document it is not.
  *
  * The two travel together because the selection filter has to know where the
@@ -48,22 +62,46 @@ function build(state: EditorState): Live {
   syntaxTree(state).iterate({
     enter(node) {
       const heading = HEADING.exec(node.name);
-      if (!heading) return;
+      const inline = INLINE[node.name];
+      if (!heading && !inline) return;
 
       const line = state.doc.lineAt(node.from);
-      // The size stays put while the marks come and go, so revealing a line
-      // does not make it jump.
-      decorations.push(Decoration.line({ class: `cm-heading-${heading[1]}` }).range(line.from));
-      if (isLineRevealed(state, line)) return;
+      const revealed = isLineRevealed(state, line);
 
-      const mark = node.node.firstChild;
-      if (mark?.name !== "HeaderMark") return;
+      if (heading) {
+        // The size stays put while the marks come and go, so revealing a line
+        // does not make it jump.
+        decorations.push(Decoration.line({ class: `cm-heading-${heading[1]}` }).range(line.from));
+        if (revealed) return;
 
-      // The space after the hashes goes too. Hiding the mark alone would leave
-      // the heading indented by one character against every other line.
-      let to = mark.to;
-      while (to < line.to && state.doc.sliceString(to, to + 1) === " ") to++;
-      hide(mark.from, to);
+        const mark = node.node.firstChild;
+        if (mark?.name !== "HeaderMark") return;
+
+        // The space after the hashes goes too. Hiding the mark alone would
+        // leave the heading indented by one character against every other line.
+        let to = mark.to;
+        while (to < line.to && state.doc.sliceString(to, to + 1) === " ") to++;
+        hide(mark.from, to);
+        return;
+      }
+      if (!inline) return;
+
+      let open: { from: number; to: number } | null = null;
+      let close: { from: number; to: number } | null = null;
+      for (let child = node.node.firstChild; child; child = child.nextSibling) {
+        if (child.name !== inline.mark) continue;
+        open ??= { from: child.from, to: child.to };
+        close = { from: child.from, to: child.to };
+      }
+      // An unclosed delimiter parses as a single mark. Nothing to render.
+      if (!open || !close || open.from === close.from) return;
+
+      if (open.to < close.from) {
+        decorations.push(Decoration.mark({ class: inline.class }).range(open.to, close.from));
+      }
+      if (revealed) return;
+      hide(open.from, open.to);
+      hide(close.from, close.to);
     },
   });
 

@@ -31,6 +31,42 @@ describe("live preview", () => {
     expect(content(container)).not.toContain("##");
   });
 
+  it("renders inline emphasis with the marks hidden", () => {
+    const { container } = render(
+      <Editor initialDoc="**bold** and *italic* and `code` and ~~gone~~" />,
+    );
+
+    expect(content(container)).toBe("bold and italic and code and gone");
+  });
+
+  it("reveals inline marks on the cursor's line in insert mode", () => {
+    const { container } = render(<Editor initialDoc="**bold**" />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    expect(content(container)).toBe("**bold**");
+  });
+
+  it("reveals inline marks in visual mode", () => {
+    const { container } = render(<Editor initialDoc="**bold**" />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "v" });
+
+    expect(content(container)).toBe("**bold**");
+  });
+
+  it("settles rather than bouncing between two touching hidden ranges", () => {
+    // The heading mark ends at 3 and the bold mark starts there, so a cursor
+    // pushed out of the first lands straight inside the second.
+    const { container } = render(<Editor initialDoc="## **bold**" />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "0" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(content(container)).toBe("old");
+  });
+
   it("deletes a visible character, never a hidden mark", () => {
     const { container } = render(<Editor initialDoc="## Notes" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
