@@ -8,3 +8,4 @@
 * **Creation**: Added [Add a database migration](/how-to/add-a-database-migration.md), [Regenerate the API types](/how-to/regenerate-the-api-types.md) and [Run the checks](/how-to/run-the-checks.md).
 * **Creation**: Added [mise tasks](/reference/mise-tasks.md), [HTTP API](/reference/http-api.md) and [Configuration](/reference/configuration.md).
 * **Creation**: Added [The vault and the derived index](/explanation/vault-and-derived-index.md) and [Two environments](/explanation/environments.md).
+* **Update**: [HTTP API](/reference/http-api.md) gained `GET /api/files/{path}`, which reads one note, and lost the line saying note content is not exposed.

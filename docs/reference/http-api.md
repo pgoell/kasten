@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves two endpoints. Both are read-only. The interactive schema is
-at `/docs` while the backend runs, and the machine-readable one at
+The backend serves three endpoints. All of them are read-only. The interactive
+schema is at `/docs` while the backend runs, and the machine-readable one at
 `/openapi.json`.
 
 ## GET /api/health
@@ -36,8 +36,28 @@ and directories are skipped, which keeps `.git` and editor dotfiles out. A
 vault directory that does not exist reads as an empty one, so a fresh checkout
 still serves.
 
-Note content is not exposed yet. There is no endpoint that reads or writes a
-single note.
+## GET /api/files/{path}
+
+Reads one note. `path` is a vault-relative POSIX path, exactly as it appears in
+the list above. A slash inside it may be sent raw or percent-encoded.
+
+```json
+{ "path": "daily/2026-08-05.md", "content": "# 2026-08-05\n" }
+```
+
+`content` is the file's text, unchanged.
+
+Anything that is not a readable markdown file inside the vault is a `404`:
+
+* a note that is not there
+* a path that climbs out of the vault with `..`, or an absolute path
+* a symlink whose target sits outside the vault
+* a file that is not `.md`, a directory, or a hidden file
+
+Every refusal reads the same, because telling a typo apart from an attempt to
+climb out is worth nothing to the one user and something to everyone else.
+
+Nothing writes yet. There is no endpoint that saves a note.
 
 ## Related
 

@@ -3,6 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
   paths: string[];
+  /** Vault-relative path of the open note, absent while none is open. */
+  openPath?: string;
+  onOpenFile: (path: string) => void;
 }
 
 interface FolderNode {
@@ -97,24 +100,41 @@ interface NodeListProps {
   nodes: TreeNode[];
   depth: number;
   collapsed: ReadonlySet<string>;
+  openPath?: string;
   onToggleFolder: (path: string) => void;
+  onOpenFile: (path: string) => void;
 }
 
-function NodeList({ nodes, depth, collapsed, onToggleFolder }: NodeListProps) {
+function NodeList({
+  nodes,
+  depth,
+  collapsed,
+  openPath,
+  onToggleFolder,
+  onOpenFile,
+}: NodeListProps) {
   return (
     <ul>
       {nodes.map((node) => {
         if (node.kind === "file") {
+          const current = node.path === openPath;
+
           return (
-            <li
-              key={`file:${node.path}`}
-              style={indent(depth)}
-              title={node.path}
-              className={`${ROW} text-one-fg hover:bg-one-hover`}
-            >
-              {/* Holds the chevron's column so note names line up with folder names. */}
-              <span className="size-3 shrink-0" />
-              <span className="truncate">{node.name}</span>
+            <li key={`file:${node.path}`}>
+              <button
+                type="button"
+                onClick={() => onOpenFile(node.path)}
+                aria-current={current ? "page" : undefined}
+                style={indent(depth)}
+                title={node.path}
+                className={`${ROW} cursor-pointer ${
+                  current ? "bg-one-hover text-one-accent" : "text-one-fg hover:bg-one-hover"
+                }`}
+              >
+                {/* Holds the chevron's column so note names line up with folder names. */}
+                <span className="size-3 shrink-0" />
+                <span className="truncate">{node.name}</span>
+              </button>
             </li>
           );
         }
@@ -138,7 +158,9 @@ function NodeList({ nodes, depth, collapsed, onToggleFolder }: NodeListProps) {
                 nodes={node.children}
                 depth={depth + 1}
                 collapsed={collapsed}
+                openPath={openPath}
                 onToggleFolder={onToggleFolder}
+                onOpenFile={onOpenFile}
               />
             )}
           </li>
@@ -212,9 +234,10 @@ function PanelIcon() {
 /**
  * The vault's file tree, in a panel that folds away to a narrow rail.
  *
- * Read-only for now: it shows what is in the vault and nothing opens yet.
+ * Clicking a note reports its path and nothing more. Which note is open is the
+ * caller's business, and it keeps that in the URL.
  */
-export function FileExplorer({ paths }: FileExplorerProps) {
+export function FileExplorer({ paths, openPath, onOpenFile }: FileExplorerProps) {
   const [open, setOpen] = useState(true);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -307,7 +330,14 @@ export function FileExplorer({ paths }: FileExplorerProps) {
         {tree.length === 0 ? (
           <p className="px-2 py-1 text-[13px] text-one-muted">No notes yet</p>
         ) : (
-          <NodeList nodes={tree} depth={0} collapsed={collapsed} onToggleFolder={toggleFolder} />
+          <NodeList
+            nodes={tree}
+            depth={0}
+            collapsed={collapsed}
+            openPath={openPath}
+            onToggleFolder={toggleFolder}
+            onOpenFile={onOpenFile}
+          />
         )}
       </nav>
 
