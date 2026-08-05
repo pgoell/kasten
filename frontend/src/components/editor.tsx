@@ -131,6 +131,7 @@ export function Editor({
             closeNote: () => commandsRef.current?.closeNote(),
             showHelp: () => commandsRef.current?.showHelp(),
             focusTree: () => commandsRef.current?.focusTree(),
+            createNote: (startPath) => commandsRef.current?.createNote(startPath),
           }),
           basicSetup,
           markdown({

@@ -9,6 +9,7 @@ function stubCommands() {
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
     showHelp: vi.fn(),
+    createNote: vi.fn(),
     focusTree: vi.fn(),
   } satisfies EditorCommands;
 }
@@ -94,6 +95,7 @@ function PreviewHarness() {
       togglePreview: () => setPreview((previous) => !previous),
       closeNote: () => {},
       showHelp: () => {},
+      createNote: () => {},
       focusTree: () => {},
     }),
     [],

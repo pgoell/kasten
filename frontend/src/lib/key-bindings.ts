@@ -15,6 +15,8 @@ export interface EditorCommands {
   closeNote(): void;
   showHelp(): void;
   focusTree(): void;
+  /** The folder the prompt opens on, which only the file tree knows. */
+  createNote(startPath?: string): void;
 }
 
 export interface LeaderBinding {

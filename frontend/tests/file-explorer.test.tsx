@@ -22,10 +22,13 @@ function folderContents(name: string) {
   return within(item);
 }
 
-type TreeProps = Partial<ComponentProps<typeof FileExplorer>>;
+type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
+  /** The one command these tests drive, wired into the harness's own set. */
+  onCreateNote?: (startPath?: string) => void;
+};
 
 /** Holds the open state the route holds in the app, so folding still works. */
-function Harness(props: TreeProps) {
+function Harness({ onCreateNote, ...props }: TreeProps) {
   const [open, setOpen] = useState(true);
   // The route folds the panel from two directions, `q` in the tree and the
   // leader from anywhere, and both land on the same callback.
@@ -44,6 +47,7 @@ function Harness(props: TreeProps) {
         closeNote: () => {},
         showHelp: () => {},
         focusTree: () => {},
+        createNote: onCreateNote ?? (() => {}),
       }}
     />
   );
@@ -237,6 +241,55 @@ describe("the tree keyboard", () => {
     rerender(<Harness focusSignal={2} />);
 
     expect(cursor()).not.toHaveFocus();
+  });
+});
+
+describe("the new note button", () => {
+  // Rows in display order, with `daily` and `projects` unfolded:
+  // daily, 2026-08-04, 2026-08-05, projects, kasten, api-design, kasten.md, index
+  function newNote() {
+    return screen.getByRole("button", { name: "New note" });
+  }
+
+  it("sits in the panel header", () => {
+    renderTree();
+
+    expect(within(panel()).getByRole("button", { name: "New note" })).toBeInTheDocument();
+  });
+
+  it("starts the note in the folder the cursor is on", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    fireEvent.click(newNote());
+
+    expect(onCreateNote).toHaveBeenCalledWith("daily/");
+  });
+
+  it("starts the note in the folder holding the note the cursor is on", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    press("G");
+    press("k");
+    // By title, not by name: the folder `projects/kasten/` reads the same.
+    expect(cursor()).toHaveAttribute("title", "projects/kasten.md");
+
+    fireEvent.click(newNote());
+
+    expect(onCreateNote).toHaveBeenCalledWith("projects/");
+  });
+
+  it("starts the note at the vault root when the cursor is on a note there", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    press("G");
+    expect(cursor()).toHaveTextContent("index");
+
+    fireEvent.click(newNote());
+
+    expect(onCreateNote).toHaveBeenCalledWith("");
   });
 });
 

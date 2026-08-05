@@ -86,6 +86,16 @@ function sortTree(nodes: TreeNode[]): TreeNode[] {
   return nodes;
 }
 
+/** Where a new note goes when the cursor is on this row: "" at the vault root. */
+function startFolder(node: TreeNode | undefined): string {
+  if (!node) return "";
+  if (node.kind === "folder") return `${node.path}/`;
+
+  // A note names the folder it sits in, and a note at the root names none.
+  const cut = node.path.lastIndexOf("/");
+  return cut === -1 ? "" : node.path.slice(0, cut + 1);
+}
+
 interface Row {
   node: TreeNode;
   /** Index of the row holding this one, or -1 at the vault root. */
@@ -296,6 +306,14 @@ function Grip({ width, dragging, onResizeStart, onResizeBy, onReset }: GripProps
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="currentColor">
+      <path d="M7.25 3h1.5v4.25H13v1.5H8.75V13h-1.5V8.75H3v-1.5h4.25V3z" />
+    </svg>
+  );
+}
+
 function PanelIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="currentColor">
@@ -483,7 +501,20 @@ export function FileExplorer({
     >
       <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3">
         <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
-        {toggle}
+        <div className="flex items-center">
+          <button
+            type="button"
+            // The row the cursor is on, not the one that holds the focus: the
+            // button takes the focus the moment it is clicked.
+            onClick={() => commands.createNote(startFolder(rows[cursor]?.node))}
+            aria-label="New note"
+            title="New note"
+            className="cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent"
+          >
+            <PlusIcon />
+          </button>
+          {toggle}
+        </div>
       </header>
 
       {/* The handler sits on the panel, not the rows: the keys act on the row
