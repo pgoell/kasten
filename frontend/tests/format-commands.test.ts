@@ -1,7 +1,8 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { BOLD, ITALIC, STRIKE, toggleMark } from "@/lib/format-commands";
+import { BOLD, HIGHLIGHT, ITALIC, STRIKE, toggleMark } from "@/lib/format-commands";
+import { Highlight } from "@/lib/markdown-highlight";
 
 /** A view with the same markdown parser the editor uses, and nothing else. */
 function open(doc: string, anchor: number, head = anchor) {
@@ -9,7 +10,7 @@ function open(doc: string, anchor: number, head = anchor) {
     state: EditorState.create({
       doc,
       selection: { anchor, head },
-      extensions: [markdown({ base: markdownLanguage })],
+      extensions: [markdown({ base: markdownLanguage, extensions: [Highlight] })],
     }),
   });
 }
@@ -84,6 +85,22 @@ describe("toggleMark", () => {
     const view = open("~~word~~", 3);
 
     toggleMark(view, STRIKE);
+
+    expect(view.state.doc.toString()).toBe("word");
+  });
+
+  it("wraps a highlight in two equals signs", () => {
+    const view = open("word", 0);
+
+    toggleMark(view, HIGHLIGHT);
+
+    expect(view.state.doc.toString()).toBe("==word==");
+  });
+
+  it("strips a highlight that is already there", () => {
+    const view = open("==word==", 3);
+
+    toggleMark(view, HIGHLIGHT);
 
     expect(view.state.doc.toString()).toBe("word");
   });

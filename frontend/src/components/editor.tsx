@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import { editorCommands } from "@/lib/editor-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
+import { Highlight } from "@/lib/markdown-highlight";
 
 type SaveHandler = (doc: string) => void;
 
@@ -84,7 +85,11 @@ export function Editor({ initialDoc, commands, onChange, onSave }: EditorProps) 
             toggleTree: () => commandsRef.current?.toggleTree(),
           }),
           basicSetup,
-          markdown({ base: markdownLanguage, codeLanguages: languages }),
+          markdown({
+            base: markdownLanguage,
+            codeLanguages: languages,
+            extensions: [Highlight],
+          }),
           livePreview(),
           oneDark,
           EditorView.lineWrapping,

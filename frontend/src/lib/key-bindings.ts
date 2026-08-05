@@ -1,4 +1,4 @@
-import { BOLD, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-commands";
+import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-commands";
 
 /**
  * Every binding the app owns, in one table.
@@ -41,5 +41,8 @@ export interface FormatBinding {
 export const FORMAT: readonly FormatBinding[] = [
   { key: "<C-b>", label: "Bold", spec: BOLD },
   { key: "<C-i>", label: "Italic", spec: ITALIC },
+  // Highlight sits on shift-h rather than ctrl+h, which Chrome spends on its
+  // history window and a page cannot reliably take back.
+  { key: "<C-S-h>", label: "Highlight", spec: HIGHLIGHT },
   { key: "<C-S-x>", label: "Strikethrough", spec: STRIKE },
 ];

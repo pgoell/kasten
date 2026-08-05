@@ -76,6 +76,15 @@ describe("the formatting keys", () => {
     expect(doc()).toBe("~~word~~");
   });
 
+  it("highlights in insert mode", () => {
+    const { editor, doc } = open("word");
+
+    fireEvent.keyDown(editor, { key: "i" });
+    fireEvent.keyDown(editor, { key: "h", ctrlKey: true, shiftKey: true });
+
+    expect(doc()).toBe("==word==");
+  });
+
   it("leaves the document alone in normal mode, where vim owns the key", () => {
     const { editor, doc } = open("word");
 

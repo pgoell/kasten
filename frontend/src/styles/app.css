@@ -57,6 +57,12 @@ body {
   text-decoration: line-through;
   color: var(--color-one-muted);
 }
+/* A wash rather than a block of colour: the text under it still has to read
+   as body text on the dark background. */
+.cm-highlight {
+  background: color-mix(in srgb, var(--color-one-warn) 28%, transparent);
+  border-radius: 2px;
+}
 
 /* The marks are gone from the text, so the marker and the indent are drawn
    rather than typed. Both selectors name .cm-line as well, because CodeMirror

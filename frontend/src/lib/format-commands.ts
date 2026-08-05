@@ -13,6 +13,7 @@ export interface MarkSpec {
 export const BOLD: MarkSpec = { open: "**", close: "**", node: "StrongEmphasis" };
 export const ITALIC: MarkSpec = { open: "*", close: "*", node: "Emphasis" };
 export const STRIKE: MarkSpec = { open: "~~", close: "~~", node: "Strikethrough" };
+export const HIGHLIGHT: MarkSpec = { open: "==", close: "==", node: "Highlight" };
 
 /**
  * The marked node the cursor sits inside, or null.
