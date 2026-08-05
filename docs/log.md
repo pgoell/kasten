@@ -20,3 +20,5 @@
 * **Update**: [Getting started](/tutorials/getting-started.md) says the note is rendered, and that `i` shows the markdown behind the line as well as starting insert mode.
 * **Update**: [Getting started](/tutorials/getting-started.md) says tables, images and code fences keep their syntax, which live preview does not render.
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says why the mode effect is dispatched a microtask late, after a synchronous dispatch was found to kill the vim plugin on leaving visual mode.
+* **Creation**: Added [Editor keys](/reference/editor-keys.md), now that space is the leader key and the editor carries formatting commands and a navigable file tree.
+* **Update**: [Getting started](/tutorials/getting-started.md) folds the tree with space then `b` rather than Ctrl+B, which now means bold, and points at the new keys page.

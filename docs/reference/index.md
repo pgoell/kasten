@@ -7,3 +7,4 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [mise tasks](mise-tasks.md) - every task defined in mise.toml, by group
 * [HTTP API](http-api.md) - every endpoint the backend serves, with its response shape
 * [Configuration](configuration.md) - every backend setting, its default, and where the values come from
+* [Editor keys](editor-keys.md) - every keyboard binding kasten adds, and the mode each one applies in

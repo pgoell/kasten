@@ -77,7 +77,10 @@ Reload the page. `daily` shows in the tree now, with `today` under it. The
 backend read that straight off disk: nothing wrote your note to Postgres, and
 nothing had to.
 
-Fold the tree away with Ctrl+B, or drag its right edge to resize it.
+Fold the tree away with space then `b`, or drag its right edge to resize it.
+Space is the leader key, and space then `?` shows every binding kasten adds.
+Click into the tree and `j`, `k`, `h` and `l` move around it the way they move
+around a note. [Editor keys](/reference/editor-keys.md) lists the lot.
 
 ## 6. Open it and edit it
 
