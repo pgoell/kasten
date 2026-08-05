@@ -59,7 +59,8 @@ mise run fe:dev   # frontend on :5173
 ```
 
 Open http://localhost:5173. The panel on the left says "No notes yet" and the
-editor on the right holds a sample document.
+editor on the right holds a sample document, with the cursor already in it: the
+page hands the editor the focus when nothing else has taken it.
 
 The panel is empty because your notebook is empty. The `vault/` directory is
 gitignored, so a clone brings you the software and none of the notes.
@@ -79,8 +80,9 @@ nothing had to.
 
 Fold the tree away with space then `b`, or drag its right edge to resize it.
 Space is the leader key, and space then `?` shows every binding kasten adds.
-Click into the tree and `j`, `k`, `h` and `l` move around it the way they move
-around a note. [Editor keys](/reference/editor-keys.md) lists the lot.
+Space then `e` moves the cursor into the tree, where `j`, `k`, `h` and `l` move
+around it the way they move around a note, and Escape comes back to the editor.
+[Editor keys](/reference/editor-keys.md) lists the lot.
 
 ## 6. Open it and edit it
 

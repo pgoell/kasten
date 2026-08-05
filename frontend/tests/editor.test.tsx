@@ -90,3 +90,53 @@ describe("Editor", () => {
     expect(container.querySelector(".cm-editor")).toBeNull();
   });
 });
+
+describe("the editor focus", () => {
+  /** Somewhere else on the page that can hold the focus, as the tree does. */
+  function elsewhere() {
+    const button = document.createElement("button");
+    document.body.append(button);
+    return button;
+  }
+
+  it("takes the focus on mount, so the first key lands in the note", () => {
+    const { container } = render(<Editor initialDoc="plain" />);
+
+    expect(container.querySelector(".cm-content")).toHaveFocus();
+  });
+
+  it("leaves the focus alone when something else already holds it", () => {
+    // Opening a note from the tree remounts the editor. Taking the focus on
+    // every mount would end browsing with `j` and Enter after one note.
+    const tree = elsewhere();
+    tree.focus();
+
+    const { container } = render(<Editor initialDoc="plain" />);
+
+    expect(tree).toHaveFocus();
+    expect(container.querySelector(".cm-content")).not.toHaveFocus();
+    tree.remove();
+  });
+
+  it("takes the focus back when the tab returns to nothing focused", () => {
+    const { container } = render(<Editor initialDoc="plain" />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    content.blur();
+
+    fireEvent.focus(window);
+
+    expect(content).toHaveFocus();
+  });
+
+  it("leaves the focus alone when the tab returns to the tree", () => {
+    const { container } = render(<Editor initialDoc="plain" />);
+    const tree = elsewhere();
+    tree.focus();
+
+    fireEvent.focus(window);
+
+    expect(tree).toHaveFocus();
+    expect(container.querySelector(".cm-content")).not.toHaveFocus();
+    tree.remove();
+  });
+});

@@ -42,6 +42,19 @@ Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
  */
 const preview = new Compartment();
 
+/**
+ * Whether nobody on the page holds the focus.
+ *
+ * The editor takes it in that case and only that case. The file tree and the
+ * key map panel are focusable too, and neither is the editor's to take: opening
+ * a note from the tree remounts the editor, and grabbing the focus there would
+ * end a walk down the tree after the first note.
+ */
+function nothingFocused(): boolean {
+  const active = document.activeElement;
+  return !active || active === document.body;
+}
+
 interface EditorProps {
   /** The document to open. Only read on mount; pass a `key` to open another note. */
   initialDoc: string;
@@ -134,11 +147,25 @@ export function Editor({
       parent,
     });
     viewRef.current = view;
+    // A freshly loaded page focuses nothing, and the first thing typed at it
+    // goes nowhere. The editor is what the page is for, so it takes the focus.
+    if (nothingFocused()) view.focus();
 
     return () => {
       viewRef.current = null;
       view.destroy();
     };
+  }, []);
+
+  // Coming back to the tab lands on the body when the page had nothing focused
+  // when you left it, and the cursor is dead again until you click.
+  useEffect(() => {
+    function onWindowFocus() {
+      if (nothingFocused()) viewRef.current?.focus();
+    }
+
+    window.addEventListener("focus", onWindowFocus);
+    return () => window.removeEventListener("focus", onWindowFocus);
   }, []);
 
   // Swapping the extension out is all this takes: the same `livePreview()`
