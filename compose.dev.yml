@@ -27,7 +27,8 @@ services:
     command:
       - sh
       - -c
-      - "uv sync --frozen && exec uv run uvicorn kasten_backend.main:app --reload --host 0.0.0.0 --port 8000"
+      # $$PATH, not $PATH: compose would otherwise substitute the host's.
+      - "export PATH=/opt/kasten-bin:$$PATH && uv sync --frozen && exec uv run uvicorn kasten_backend.main:app --reload --host 0.0.0.0 --port 8000"
     environment:
       # A separate venv path so the container never touches the host's .venv,
       # which holds absolute paths that are wrong inside the container.
@@ -47,9 +48,12 @@ services:
       # directories as you first, so the non-root container can write to them.
       # Docker would create a named volume owned by root.
       - ./.container/venv:/venv
-      # jj, which the backend runs on every save. `dev:up` puts mise's copy
-      # here; production builds it into the image instead.
-      - ./.container/bin/jj:/usr/local/bin/jj:ro
+      # jj, which the backend runs on every save. `dev:up` puts mise's copy in
+      # here; production builds it into the image instead. A directory rather
+      # than the binary itself, so bringing this up without `dev:up` gets an
+      # empty one and no history, rather than a directory named `jj` and a
+      # backend that cannot run it.
+      - ./.container/bin:/opt/kasten-bin:ro
     depends_on:
       db:
         condition: service_healthy
