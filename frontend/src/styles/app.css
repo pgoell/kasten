@@ -13,6 +13,7 @@
   --color-one-accent: #61afef;
   --color-one-green: #98c379;
   --color-one-warn: #e06c75;
+  --color-one-yellow: #e5c07b;
   --color-one-line: #181a1f;
 }
 
@@ -60,26 +61,28 @@ body {
 /* A wash rather than a block of colour: the text under it still has to read
    as body text on the dark background. */
 .cm-highlight {
-  background: color-mix(in srgb, var(--color-one-warn) 28%, transparent);
+  background: color-mix(in srgb, var(--color-one-yellow) 28%, transparent);
   border-radius: 2px;
 }
 
 /* The marks are gone from the text, so the marker and the indent are drawn
-   rather than typed. Both selectors name .cm-line as well, because CodeMirror
-   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade:
-   the bullet then hangs at a negative offset and is clipped away. */
+   rather than typed. The blockquote names .cm-line as well, because CodeMirror
+   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade
+   and clip the bar away. A bullet carries its padding inline instead, one step
+   per level of nesting, and an inline style beats both. */
 .cm-line.cm-blockquote {
   border-left: 3px solid var(--color-one-muted);
   padding-left: 0.75em;
   color: var(--color-one-muted);
 }
 
-.cm-line.cm-bullet {
-  padding-left: 1.6em;
+/* Hangs the dot in the space the padding opens, so a wrapped line puts its
+   text under the text above rather than under the bullet. */
+.cm-bullet {
   text-indent: -1.1em;
 }
 
-.cm-line.cm-bullet::before {
+.cm-bullet::before {
   content: "• ";
   color: var(--color-one-accent);
 }

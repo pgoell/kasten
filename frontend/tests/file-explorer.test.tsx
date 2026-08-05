@@ -43,6 +43,7 @@ function Harness(props: TreeProps) {
         togglePreview: () => {},
         closeNote: () => {},
         showHelp: () => {},
+        focusTree: () => {},
       }}
     />
   );
@@ -213,6 +214,29 @@ describe("the tree keyboard", () => {
     press("Escape");
 
     expect(document.activeElement).toBe(editor);
+  });
+
+  it("takes the focus when the route asks for it", () => {
+    // The other half of escape: `<leader>e` is pressed in the editor, so the
+    // route raises the signal and the panel puts the focus on its cursor row.
+    const { rerender } = render(<Harness focusSignal={0} />);
+    expect(cursor()).not.toHaveFocus();
+
+    rerender(<Harness focusSignal={1} />);
+
+    expect(cursor()).toHaveFocus();
+  });
+
+  it("leaves the focus alone until the signal changes", () => {
+    // Mounting is not a request. A panel that focused on the value rather than
+    // the change would grab the cursor back every time the tree was folded
+    // away and brought out again.
+    const { rerender } = render(<Harness focusSignal={2} />);
+    expect(cursor()).not.toHaveFocus();
+
+    rerender(<Harness focusSignal={2} />);
+
+    expect(cursor()).not.toHaveFocus();
   });
 });
 

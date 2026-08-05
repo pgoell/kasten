@@ -103,6 +103,36 @@ describe("live preview", () => {
     expect(content(container)).toBe("quotedfirstsecond");
   });
 
+  it("stops drawing the bullet on the line that shows its dash", async () => {
+    const { container } = render(<Editor initialDoc={"- first\n- second"} />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    expect(container.querySelectorAll(".cm-bullet")).toHaveLength(2);
+
+    fireEvent.keyDown(editor, { key: "i" });
+
+    // The revealed line puts the real `- ` back on screen, and the drawn dot
+    // beside it would be a second bullet on the same line.
+    await waitFor(() => expect(container.querySelectorAll(".cm-bullet")).toHaveLength(1));
+    expect(content(container)).toContain("- first");
+  });
+
+  it("hides the whitespace that nests a list item", () => {
+    const { container } = render(<Editor initialDoc={"- first\n  - nested"} />);
+
+    expect(content(container)).toBe("firstnested");
+  });
+
+  it("indents a nested bullet past its parent", () => {
+    // The spaces that nest the item are hidden with the dash, so the indent
+    // has to be drawn or the nesting disappears from the render.
+    const { container } = render(<Editor initialDoc={"- first\n  - nested"} />);
+    const [parent, nested] = container.querySelectorAll<HTMLElement>(".cm-bullet");
+
+    expect(parent?.style.paddingLeft).toBe("1.6em");
+    expect(nested?.style.paddingLeft).toBe("3.2em");
+  });
+
   it("leaves tables and code fences untouched", () => {
     // The boundary of what this feature covers. Both need widget decorations,
     // which is a mechanism live preview deliberately does not have yet.

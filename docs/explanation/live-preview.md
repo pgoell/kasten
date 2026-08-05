@@ -12,7 +12,7 @@ The editor renders markdown where you type it. A heading is large and has no
 hashes in front of it, bold text is bold and carries no asterisks. Press `i` and
 the line under the cursor turns back into the markdown you wrote.
 
-Two decisions in that behaviour are worth the explanation, because both were
+Three decisions in that behaviour are worth the explanation, because each was
 picked over an option that looks more obvious.
 
 ## The mode decides, not the cursor
@@ -59,6 +59,24 @@ The filter is also why the decorations live in a `StateField` rather than the
 `ViewPlugin` that CodeMirror's documentation reaches for first. A transaction
 filter runs at state level and can only read state. Decorations in a view plugin
 would be invisible to it, and the filter would have nothing to consult.
+
+## A drawn marker leaves with the text it stands in for
+
+Blockquotes and list items both hide their mark and draw a replacement in CSS,
+and the two part company as soon as a line is revealed.
+
+A blockquote draws a bar down the left edge. It stands in for nothing, so it can
+stay while the `>` is back on screen, and the line keeps its shape as you type.
+
+A bullet draws a dot where the `-` used to be. Leave that dot in place while the
+line is revealed and the line carries two bullets, one real and one drawn. So
+the whole decoration goes and the revealed line renders as plain text.
+
+The indent works the same way. The spaces that nest a list item are hidden along
+with the dash, which leaves nothing in the text carrying the nesting, so the
+padding is computed from how many lists the item sits inside. An ordered list is
+left alone throughout: its number is content rather than decoration, and hiding
+`1.` would lose which item it was.
 
 ## The mode arrives one microtask late
 

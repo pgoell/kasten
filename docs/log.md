@@ -22,3 +22,5 @@
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says why the mode effect is dispatched a microtask late, after a synchronous dispatch was found to kill the vim plugin on leaving visual mode.
 * **Creation**: Added [Editor keys](/reference/editor-keys.md), now that space is the leader key and the editor carries formatting commands and a navigable file tree.
 * **Update**: [Getting started](/tutorials/getting-started.md) folds the tree with space then `b` rather than Ctrl+B, which now means bold, and points at the new keys page.
+* **Update**: [Editor keys](/reference/editor-keys.md) gained `<leader>e`, which moves the focus to the file tree, and a section on Tab and Shift+Tab. The file tree section no longer says Tab reaches the tree, because Tab now indents.
+* **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says why a drawn bullet leaves with the dash it stands in for while a drawn blockquote bar stays, and where a nested item's indent comes from once its spaces are hidden.

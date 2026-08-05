@@ -13,6 +13,9 @@ interface FileExplorerProps {
   onOpenChange: (open: boolean) => void;
   /** Reached by leader sequences typed here rather than in the editor. */
   commands: EditorCommands;
+  /** Raised by the route to ask the panel for the focus. The change is the
+   * request, not the value: mounting must not pull focus out of the editor. */
+  focusSignal?: number;
 }
 
 interface FolderNode {
@@ -301,6 +304,7 @@ export function FileExplorer({
   open,
   onOpenChange,
   commands,
+  focusSignal = 0,
 }: FileExplorerProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -311,11 +315,21 @@ export function FileExplorer({
   /** The first half of a two-key sequence, `g` or the leader, once pressed. */
   const [pending, setPending] = useState<string | null>(null);
   const nav = useRef<HTMLElement>(null);
+  /** The signal already answered, so the first render answers nothing. */
+  const answered = useRef(focusSignal);
   const tree = useMemo(() => buildTree(paths), [paths]);
   const rows = useMemo(() => flattenRows(tree, collapsed), [tree, collapsed]);
   // Collapsing a folder can strand the cursor past the end of the list.
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
   const cursorKey = rows[cursor] ? rowKey(rows[cursor].node) : "";
+
+  // `<leader>e`, arriving from the editor. The cursor row is the panel's only
+  // tab stop, so that is the row the focus lands on.
+  useEffect(() => {
+    if (focusSignal === answered.current) return;
+    answered.current = focusSignal;
+    nav.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+  }, [focusSignal]);
 
   // Only when the panel already holds the focus. Moving the cursor from inside
   // the editor, which `<leader>b` does, must not drag the focus along with it.

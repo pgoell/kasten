@@ -1,3 +1,4 @@
+import { indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { Compartment, EditorState, Facet } from "@codemirror/state";
@@ -98,6 +99,12 @@ export function Editor({
           // Ahead of basicSetup for the same reason: ctrl+s must reach us
           // rather than open the browser's save dialog.
           keymap.of([{ key: "Mod-s", run: save, preventDefault: true }]),
+          // basicSetup leaves tab unbound so the key can move the focus out of
+          // the editor. A note needs it to nest a list item, and `<leader>e`
+          // is the way to the file tree now, so the trade is worth taking.
+          // Vim maps no tab of its own, in any mode, so this is the only
+          // handler the key reaches.
+          keymap.of([indentWithTab]),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           // Each one reads the ref rather than closing over the prop, so a
           // re-render never has to rebuild the view to refresh a callback.
@@ -106,6 +113,7 @@ export function Editor({
             togglePreview: () => commandsRef.current?.togglePreview(),
             closeNote: () => commandsRef.current?.closeNote(),
             showHelp: () => commandsRef.current?.showHelp(),
+            focusTree: () => commandsRef.current?.focusTree(),
           }),
           basicSetup,
           markdown({

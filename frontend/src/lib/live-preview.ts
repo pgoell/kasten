@@ -2,12 +2,31 @@ import { syntaxTree } from "@codemirror/language";
 import type { Extension, Line, Range, Text } from "@codemirror/state";
 import { EditorSelection, EditorState, type RangeSet, StateField } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import type { SyntaxNode } from "@lezer/common";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
 
 /** An empty replacement: the range is in the document but not on the screen. */
 const HIDDEN = Decoration.replace({});
 
 const HEADING = /^ATXHeading([1-6])$/;
+
+/** How far one level of list nesting shifts a rendered item, in `em`. */
+const BULLET_INDENT = 1.6;
+
+/**
+ * How many lists a list item sits inside.
+ *
+ * The spaces that nest an item are hidden along with its `-`, so nothing in
+ * the text carries the nesting any more and the indent has to be drawn from
+ * the depth instead.
+ */
+function listDepth(node: SyntaxNode): number {
+  let depth = 0;
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (parent.name === "BulletList" || parent.name === "OrderedList") depth++;
+  }
+  return depth;
+}
 
 /**
  * Inline constructs, by the node that wraps them.
@@ -96,14 +115,29 @@ function build(state: EditorState): Live {
         return;
       }
 
-      // Both draw their marker in CSS, so the text keeps its indent without a
-      // widget standing in for characters that are no longer there. An ordered
-      // list is left alone: its number is content, not decoration.
-      if (isQuote || isBullet) {
-        const style = isQuote ? "cm-blockquote" : "cm-bullet";
-        decorations.push(Decoration.line({ class: style }).range(line.from));
+      // The bar is drawn in CSS, and unlike the bullet below it stands in for
+      // nothing, so it can stay while the `>` is back on screen.
+      if (isQuote) {
+        decorations.push(Decoration.line({ class: "cm-blockquote" }).range(line.from));
         if (revealed) return;
         hideLeader(node.from, node.to, line);
+        return;
+      }
+
+      // The dot is drawn in CSS, so it has to go the moment the `-` it stands
+      // in for comes back, or the line carries two bullets. An ordered list is
+      // left alone throughout: its number is content, not decoration.
+      if (isBullet) {
+        if (revealed) return;
+        decorations.push(
+          Decoration.line({
+            class: "cm-bullet",
+            attributes: { style: `padding-left: ${BULLET_INDENT * listDepth(node.node)}em` },
+          }).range(line.from),
+        );
+        // From the start of the line, not the mark: the spaces that nest the
+        // item go too, their job now done by the padding above.
+        hideLeader(line.from, node.to, line);
         return;
       }
 

@@ -38,6 +38,9 @@ function Home() {
   // rendering off stays off until you turn it back on.
   const [preview, setPreview] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Raised to ask the tree for the focus. A counter rather than a flag,
+  // because asking twice in a row is two requests and has to read as a change.
+  const [treeFocus, setTreeFocus] = useState(0);
 
   const commands = useMemo<EditorCommands>(
     () => ({
@@ -50,6 +53,11 @@ function Home() {
         if (await save()) navigate({ search: {} });
       },
       showHelp: () => setHelpOpen(true),
+      // Both, and in one render: a folded panel has no row to focus.
+      focusTree: () => {
+        setTreeOpen(true);
+        setTreeFocus((previous) => previous + 1);
+      },
     }),
     [navigate, save],
   );
@@ -65,6 +73,7 @@ function Home() {
           open={treeOpen}
           onOpenChange={setTreeOpen}
           commands={commands}
+          focusSignal={treeFocus}
         />
         {/* min-w-0 lets the editor shrink instead of pushing the panel off-screen. */}
         <div className="min-w-0 flex-1">

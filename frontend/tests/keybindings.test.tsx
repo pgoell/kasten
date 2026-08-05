@@ -9,6 +9,7 @@ function stubCommands() {
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
     showHelp: vi.fn(),
+    focusTree: vi.fn(),
   } satisfies EditorCommands;
 }
 
@@ -61,6 +62,16 @@ describe("the leader key", () => {
     expect(commands.showHelp).toHaveBeenCalledTimes(1);
   });
 
+  it("runs the focus tree command on space then e", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "e" });
+
+    expect(commands.focusTree).toHaveBeenCalledTimes(1);
+  });
+
   it("stops space from moving the cursor", () => {
     const { container, editor } = open("plain");
 
@@ -83,6 +94,7 @@ function PreviewHarness() {
       togglePreview: () => setPreview((previous) => !previous),
       closeNote: () => {},
       showHelp: () => {},
+      focusTree: () => {},
     }),
     [],
   );
@@ -191,5 +203,36 @@ describe("the formatting keys", () => {
     // Normal mode is what hides the marks again, so the rendered text is the
     // readable proof that visual mode was left behind.
     await waitFor(() => expect(content(container)).toBe("word"));
+  });
+});
+
+describe("the tab key", () => {
+  it("nests the list item under the one above it", () => {
+    const { editor, doc } = open("- first\n- second");
+
+    fireEvent.keyDown(editor, { key: "j" });
+    fireEvent.keyDown(editor, { key: "i" });
+    fireEvent.keyDown(editor, { key: "Tab" });
+
+    expect(doc()).toBe("- first\n  - second");
+  });
+
+  it("lifts it back out on shift tab", () => {
+    const { editor, doc } = open("- first\n  - second");
+
+    fireEvent.keyDown(editor, { key: "j" });
+    fireEvent.keyDown(editor, { key: "i" });
+    fireEvent.keyDown(editor, { key: "Tab", shiftKey: true });
+
+    expect(doc()).toBe("- first\n- second");
+  });
+
+  it("indents a plain line too, tab being an indent key and not a list key", () => {
+    const { editor, doc } = open("plain");
+
+    fireEvent.keyDown(editor, { key: "i" });
+    fireEvent.keyDown(editor, { key: "Tab" });
+
+    expect(doc()).toBe("  plain");
   });
 });
