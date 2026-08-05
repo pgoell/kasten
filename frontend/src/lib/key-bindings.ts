@@ -3,9 +3,10 @@ import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-com
 /**
  * Every binding the app owns, in one table.
  *
- * Three things read this: the vim registrations in `editor-commands.ts`, the
- * help panel behind `<leader>?`, and the reference page in `docs/`. Keeping one
- * table is what stops those three drifting apart.
+ * Four things read this: the vim registrations in `editor-commands.ts`, the
+ * file tree in `file-explorer.tsx`, the help panel behind `<leader>?`, and the
+ * reference page in `docs/`. Keeping one table is what stops those four
+ * drifting apart. The first two resolve the keys; the other two describe them.
  */
 
 /** What the leader keys reach for. The route supplies these. */
@@ -29,7 +30,7 @@ export interface LeaderBinding {
 export const LEADER: readonly LeaderBinding[] = [
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
   // Two letters, the way Obsidian and every vim config spell a create: `c` for
-  // the group and `f` for the thing. Both readers of this table handle the
+  // the group and `f` for the thing. Both the editor and the tree resolve a
   // sequence, so nothing else has to be single-key from here on.
   { key: "cf", label: "Create a note", command: "createNote" },
   // Tab used to be the way into the tree, and binding it to indent took that

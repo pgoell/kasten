@@ -188,6 +188,33 @@ describe("the tree keyboard", () => {
     expect(cursor()).toHaveTextContent("daily");
   });
 
+  it("holds the cursor still when a leader sequence ends in g", () => {
+    // `gg` is the whole sequence, not whatever key arrives last. A leader
+    // sequence that dies on a `g` reaches the same branch, and reading the key
+    // alone would send the cursor to the top of the tree.
+    renderTree();
+
+    press("j");
+    press(" ");
+    press("c");
+    press("g");
+
+    expect(cursor()).toHaveTextContent("2026-08-04");
+  });
+
+  it("drops a g followed by a leader letter rather than waiting on it", () => {
+    // Only a leader sequence waits for more letters. `gc` prefixes `<leader>cf`
+    // by its letters alone, and a pending buffer that took it would grow
+    // forever and swallow every key after it.
+    renderTree();
+
+    press("g");
+    press("c");
+    press("j");
+
+    expect(cursor()).toHaveTextContent("2026-08-04");
+  });
+
   it("closes the panel on q", () => {
     const onOpenChange = vi.fn();
     renderTree({ onOpenChange });
