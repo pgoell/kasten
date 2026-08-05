@@ -33,6 +33,24 @@ def descriptions(vault: Path) -> list[str]:
     return [line for line in log.splitlines() if line]
 
 
+def changed_paths(vault: Path, revision: str) -> list[str]:
+    """Every path one change touches, spelled from the vault root."""
+    # `--ignore-working-copy` because every other jj command snapshots the
+    # working copy on the way past, which would record a note the route left
+    # unrecorded and answer the question the test is asking.
+    listing = jj(
+        vault,
+        "--ignore-working-copy",
+        "log",
+        "-r",
+        revision,
+        "--no-graph",
+        "-T",
+        'diff.files().map(|file| file.path()).join("\\n")',
+    )
+    return [line for line in listing.splitlines() if line]
+
+
 @pytest.fixture
 def versioned_vault(vault: Path) -> Iterator[Path]:
     """A vault that is a colocated jj repo, the way the runbook sets one up."""
@@ -134,6 +152,45 @@ async def test_starts_a_new_change_for_each_note_created(
         "vault: daily/2026-08-05.md",
         "vault: index.md",
     ]
+
+
+async def test_puts_the_created_note_in_its_own_change(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Either call order names the change the same way, so the description
+    # proves nothing. The order decides which change holds the note.
+    await client.post("/api/files/index.md")
+
+    assert changed_paths(versioned_vault, "@") == ["index.md"]
+
+
+async def test_keeps_each_created_note_out_of_the_change_before_it(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Write the file before opening the change and jj hands it to the change
+    # already in hand, so every note lands one change too early.
+    await client.post("/api/files/index.md")
+    await client.post("/api/files/daily/2026-08-05.md")
+
+    assert changed_paths(versioned_vault, "@") == ["daily/2026-08-05.md"]
+    assert changed_paths(versioned_vault, "@-") == ["index.md"]
+
+
+async def test_records_the_created_note_before_the_request_returns(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # The snapshot at the end of the create is what records the note. Drop it
+    # and the note only sits on disk until some later jj command notices, which
+    # folds whatever happened in between into the same snapshot.
+    await client.post("/api/files/index.md")
+
+    # `root:` because a bare path is read relative to the working directory,
+    # which is the repo root only by luck. A new note is empty, so the read
+    # coming back at all is the assertion.
+    assert (
+        jj(versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@", "root:index.md")
+        == ""
+    )
 
 
 async def test_leaves_no_change_behind_when_it_refuses_a_create(
