@@ -77,6 +77,12 @@ export default defineConfig({
         test: {
           name: "perf",
           environment: "node",
+          // Without this the gate measures a contended machine: one worker pool
+          // shared with the jsdom project oversubscribes the box, and the same
+          // code then reads 1.6x slower inside the full suite than it does
+          // alone. A number that moves with whatever else is in the run is not
+          // a baseline, and slices 3, 6 and 11 read these back.
+          sequence: { groupOrder: 1 },
           include: ["tests/perf/**/*.test.{ts,tsx}"],
           benchmark: { include: ["bench/**/*.bench.ts"] },
         },
