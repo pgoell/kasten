@@ -30,3 +30,23 @@ body {
 .cm-editor {
   height: 100%;
 }
+
+/* Live preview. The syntax marks are hidden in normal mode, so these styles are
+   the only thing left carrying the structure of the note. */
+.cm-heading-1,
+.cm-heading-2,
+.cm-heading-3,
+.cm-heading-4,
+.cm-heading-5,
+.cm-heading-6 {
+  font-weight: 600;
+  color: var(--color-one-fg);
+  line-height: 1.3;
+}
+
+.cm-heading-1 { font-size: 1.8em; }
+.cm-heading-2 { font-size: 1.5em; }
+.cm-heading-3 { font-size: 1.3em; }
+.cm-heading-4 { font-size: 1.15em; }
+.cm-heading-5 { font-size: 1.05em; }
+.cm-heading-6 { font-size: 1em; }

@@ -12,10 +12,12 @@ const { fetchNote, saveNote } = vi.hoisted(() => ({ fetchNote: vi.fn(), saveNote
 vi.mock("@/lib/api", () => ({ fetchNote, saveNote }));
 
 // Single-line notes on purpose: CodeMirror's text content runs the lines
-// together, so anything longer makes the assertions unreadable.
+// together, so anything longer makes the assertions unreadable. No markdown
+// syntax either, because live preview hides the marks and these tests are about
+// which note is open, not about how one is rendered.
 const VAULT: Record<string, string> = {
-  "index.md": "# the index note",
-  "daily/2026-08-05.md": "# the daily note",
+  "index.md": "the index note",
+  "daily/2026-08-05.md": "the daily note",
 };
 
 function serveVault() {
@@ -80,16 +82,16 @@ describe("an open note", () => {
   it("opens the note's text in the editor", async () => {
     const note = renderNote("index.md");
 
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
   });
 
   it("replaces the document when another note is opened", async () => {
     const note = renderNote("index.md");
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
 
     note.open("daily/2026-08-05.md");
 
-    await waitFor(() => expect(note.text()).toBe("# the daily note"));
+    await waitFor(() => expect(note.text()).toBe("the daily note"));
   });
 
   it("replaces the document even when the note is already cached", async () => {
@@ -97,20 +99,20 @@ describe("an open note", () => {
     // is already in the cache leaves no loading gap to remount across, so this
     // is where a stale document survives.
     const note = renderNote("index.md");
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
 
     note.open("daily/2026-08-05.md");
-    await waitFor(() => expect(note.text()).toBe("# the daily note"));
+    await waitFor(() => expect(note.text()).toBe("the daily note"));
 
     note.open("index.md");
 
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
   });
 
   it("rests the spinner when the note has only just been opened", async () => {
     const note = renderNote("index.md");
 
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
 
     expect(note.status()).toBe("Saved");
     expect(note.spinner()?.classList).not.toContain("animate-spin");
@@ -119,7 +121,7 @@ describe("an open note", () => {
 
   it("spins the spinner while an edit is waiting to go out", async () => {
     const note = renderNote("index.md");
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
 
     // `dd` in vim normal mode deletes the line, which is a document change.
     note.press("d");
@@ -131,7 +133,7 @@ describe("an open note", () => {
 
   it("writes the note on ctrl+s and rests the spinner again", async () => {
     const note = renderNote("index.md");
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
 
     note.press("d");
     note.press("d");
@@ -145,7 +147,7 @@ describe("an open note", () => {
   it("shows the warning sign when the note cannot be written", async () => {
     saveNote.mockRejectedValue(new Error("PUT /api/files/index.md failed with 500"));
     const note = renderNote("index.md");
-    await waitFor(() => expect(note.text()).toBe("# the index note"));
+    await waitFor(() => expect(note.text()).toBe("the index note"));
 
     note.press("d");
     note.press("d");
