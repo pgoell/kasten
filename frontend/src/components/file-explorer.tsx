@@ -128,6 +128,19 @@ function indent(depth: number) {
 
 const ROW = "flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px]";
 
+/**
+ * The keyboard cursor, drawn the way vim draws its own.
+ *
+ * A hollow outline while the tree is idle, filled in and brighter once it holds
+ * the focus, in the same red as the block cursor in the editor. The vim package
+ * makes exactly this distinction for the same reason: a cursor you are about to
+ * type at should not look like one you left behind.
+ */
+const CURSOR = [
+  "outline-1 -outline-offset-1 outline-one-cursor/45",
+  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
+].join(" ");
+
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg
@@ -184,7 +197,7 @@ function NodeList({
                 title={node.path}
                 className={`${ROW} cursor-pointer ${
                   current ? "bg-one-hover text-one-accent" : "text-one-fg hover:bg-one-hover"
-                } ${tabIndex === 0 ? "outline-1 -outline-offset-1 outline-one-selection" : ""}`}
+                } ${tabIndex === 0 ? CURSOR : ""}`}
               >
                 {/* Holds the chevron's column so note names line up with folder names. */}
                 <span className="size-3 shrink-0" />
@@ -206,7 +219,7 @@ function NodeList({
               aria-expanded={open}
               style={indent(depth)}
               className={`${ROW} cursor-pointer text-one-muted hover:bg-one-hover hover:text-one-fg ${
-                tabIndex === 0 ? "outline-1 -outline-offset-1 outline-one-selection" : ""
+                tabIndex === 0 ? CURSOR : ""
               }`}
             >
               <Chevron open={open} />

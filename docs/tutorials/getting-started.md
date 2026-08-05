@@ -97,7 +97,8 @@ why the mode decides that. The ring
 at the right of the bar along the foot of the window turns while you type and
 settles, green, about a second after you stop. `:w` and Ctrl+S write at once
 instead of waiting. Should a write fail, the ring gives way to a red warning
-sign.
+sign. The left of the same bar carries the weekday, the date, the calendar week
+and the time.
 
 Read the file back:
 

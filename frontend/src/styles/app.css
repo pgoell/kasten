@@ -16,6 +16,9 @@
   --color-one-green: #98c379;
   --color-one-warn: #e06c75;
   --color-one-yellow: #e5c07b;
+  /* The red the vim block cursor is painted in, borrowed from
+     @replit/codemirror-vim so the file tree's cursor reads as the same idea. */
+  --color-one-cursor: #ff9696;
   --color-one-line: #181a1f;
 }
 
