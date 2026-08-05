@@ -53,10 +53,22 @@ def resolve_path(root: Path, relative: str) -> Path | None:
     if not path.is_relative_to(base):
         return None
 
+    # The rules about the name alone, so nothing below this asks the filesystem
+    # a question a name has already answered.
     parts = path.relative_to(base).parts
-    if not parts or path.suffix != ".md":
+    if not parts or path.suffix != ".md" or any(part.startswith(".") for part in parts):
         return None
-    if any(part.startswith(".") for part in parts):
+
+    # A path that is still a link after `resolve` is a link `resolve` could not
+    # follow, which means a loop. Refused here because the write raises on one
+    # rather than refusing; a read already sees it as absent.
+    if path.is_symlink():
+        return None
+
+    # A note cannot live inside a file. Refused where the other rules live,
+    # because mkdir raises on this rather than refusing, and `base` itself is a
+    # directory so including it costs nothing.
+    if any(p.exists() and not p.is_dir() for p in path.parents if p.is_relative_to(base)):
         return None
 
     return path
@@ -65,7 +77,9 @@ def resolve_path(root: Path, relative: str) -> Path | None:
 def resolve_note(root: Path, relative: str) -> Path | None:
     """Return the real path of one note under `root`, or None when there is none.
 
-    `resolve_path`, and a file is there.
+    `resolve_path` decides whether the vault will take the path at all. Reading
+    and writing want one thing more, a file actually being there, and creating
+    is the caller that does not.
     """
     path = resolve_path(root, relative)
     if path is None or not path.is_file():
@@ -102,9 +116,14 @@ def create_note(path: Path) -> None:
     Straight to the target rather than through `write_note`. The temp file
     there protects text that is already on disk, and a create has none.
 
+    The folders on the way are made first, so a note names its folder into
+    being. `resolve_path` has already refused the one path `mkdir` would raise
+    on, an ancestor that is a file.
+
     Empty because the file name is the note's title, so anything written here
     would be a word in the vault the user did not type.
     """
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("", encoding="utf-8")
 
 
