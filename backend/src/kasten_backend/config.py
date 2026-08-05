@@ -18,8 +18,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev"
     """Async SQLAlchemy URL for the derived index. Never holds note content."""
 
-    vault_path: Path = Path("../vault")
-    """Directory of markdown files. This is the source of truth."""
+    vault_path: Path = Path("vault")
+    """Directory of markdown files. This is the source of truth.
+
+    Relative paths resolve against the working directory, so the app is always
+    started from the repo root. In production this is overridden with the
+    absolute container path /vault.
+    """
 
 
 @lru_cache

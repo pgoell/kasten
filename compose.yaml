@@ -13,8 +13,12 @@ services:
       POSTGRES_DB: kasten_dev
     # Host port 5434: 5432 is taken by the box's shared Postgres and 5433 by
     # the Klassenzeit dev DB. The container-internal port stays 5432.
+    #
+    # Bound to 127.0.0.1 on purpose. A bare "5434:5432" listens on 0.0.0.0, and
+    # Docker publishes ports with DNAT rules that ufw never sees, so it would
+    # be reachable from the internet with these throwaway credentials.
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

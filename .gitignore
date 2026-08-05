@@ -17,6 +17,9 @@ backend/.env.local
 # The dev vault — notes are yours, not the repo's
 vault/
 
+# Dependency trees belonging to the dev containers, kept out of the host's.
+.container/
+
 # Editors / OS
 .DS_Store
 .idea/

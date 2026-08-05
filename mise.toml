@@ -28,6 +28,37 @@ description = "Run the frontend dev server on :5173"
 dir = "{{config_root}}/frontend"
 run = "pnpm dev"
 
+# ─── Hosted dev environment ─────────────────────────────────────────────────
+# Reload servers in containers with the working tree bind-mounted, reached
+# through Caddy at kasten-dev.pascalkraus.com. Editing a file reloads the
+# running service. Nothing about dev goes through GitHub Actions; production is
+# the opposite, images only, built in CI. See deploy/README.md.
+
+[tasks."dev:up"]
+description = "Start the hosted dev environment (db + reload servers)"
+# The mkdir matters: these are bind mounts, and Docker would otherwise create
+# them as root, leaving the non-root containers unable to write.
+run = [
+  "mkdir -p .container/venv .container/node_modules vault",
+  "docker compose -f compose.yaml -f compose.dev.yml up -d",
+]
+
+[tasks."dev:down"]
+description = "Stop the hosted dev environment (keeps the db volume)"
+run = "docker compose -f compose.yaml -f compose.dev.yml down"
+
+[tasks."dev:restart"]
+description = "Restart the dev reload servers (after a dependency change)"
+run = "docker compose -f compose.yaml -f compose.dev.yml restart backend-dev frontend-dev"
+
+[tasks."dev:status"]
+description = "Show hosted dev container status"
+run = "docker compose -f compose.yaml -f compose.dev.yml ps"
+
+[tasks."dev:logs"]
+description = "Follow the dev reload server logs"
+run = "docker compose -f compose.yaml -f compose.dev.yml logs -f backend-dev frontend-dev"
+
 # ─── Database ───────────────────────────────────────────────────────────────
 
 [tasks."db:up"]
