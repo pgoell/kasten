@@ -6,6 +6,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
+import { livePreview } from "@/lib/live-preview";
 
 type SaveHandler = (doc: string) => void;
 
@@ -73,6 +74,7 @@ export function Editor({ initialDoc, onChange, onSave }: EditorProps) {
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           basicSetup,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
+          livePreview(),
           oneDark,
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {

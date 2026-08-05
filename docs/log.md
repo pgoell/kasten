@@ -16,3 +16,7 @@
 * **Update**: [HTTP API](/reference/http-api.md) says what a write records in jj, and that a vault without a repo is written to just the same.
 * **Update**: [Getting started](/tutorials/getting-started.md) gained an optional step that gives the vault a history.
 * **Update**: [The vault and the derived index](/explanation/vault-and-derived-index.md) gained the consequence that a note's history lives with the note and not in a table.
+* **Creation**: Added [Live preview and the vim mode](/explanation/live-preview.md), now that the editor renders markdown rather than colouring it.
+* **Update**: [Getting started](/tutorials/getting-started.md) says the note is rendered, and that `i` shows the markdown behind the line as well as starting insert mode.
+* **Update**: [Getting started](/tutorials/getting-started.md) says tables, images and code fences keep their syntax, which live preview does not render.
+* **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says why the mode effect is dispatched a microtask late, after a synchronous dispatch was found to kill the vim plugin on leaving visual mode.

@@ -84,7 +84,11 @@ Fold the tree away with Ctrl+B, or drag its right edge to resize it.
 Click `today` in the tree. The note opens, and the URL gains
 `?note=daily/today.md`, so a reload keeps your place.
 
-The editor starts in vim's normal mode, so press `i` before you type. The ring
+The note is rendered, not shown as source: the `#` is gone and the heading is
+large. The editor starts in vim's normal mode, so press `i` before you type,
+and that same keystroke turns the line under the cursor back into the markdown
+behind it. [Live preview and the vim mode](/explanation/live-preview.md) says
+why the mode decides that. The ring
 at the right of the bar along the foot of the window turns while you type and
 settles, green, about a second after you stop. `:w` and Ctrl+S write at once
 instead of waiting. Should a write fail, the ring gives way to a red warning
@@ -127,7 +131,8 @@ and keeps no history, so an overwrite is final.
 
 Notes can be opened and edited but not created or deleted from the browser, so
 a new note is still a file you make yourself. Wikilinks, backlinks and search
-are not built.
+are not built. Tables, images and fenced code blocks keep their syntax on
+screen, because live preview does not render them yet.
 
 ## Next
 

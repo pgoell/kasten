@@ -28,10 +28,12 @@ describe("Editor", () => {
   });
 
   it("mounts a CodeMirror view holding the initial document", () => {
-    const { container } = render(<Editor initialDoc="# hello" />);
+    // No markdown syntax: live preview hides the marks, and what this test is
+    // about is that the view mounted holding the document it was given.
+    const { container } = render(<Editor initialDoc="hello" />);
 
     expect(container.querySelector(".cm-editor")).not.toBeNull();
-    expect(container.querySelector(".cm-content")?.textContent).toBe("# hello");
+    expect(container.querySelector(".cm-content")?.textContent).toBe("hello");
   });
 
   it("saves on ctrl+s, and keeps the browser's own save dialog shut", () => {

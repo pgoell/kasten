@@ -30,3 +30,62 @@ body {
 .cm-editor {
   height: 100%;
 }
+
+/* Live preview. The syntax marks are hidden in normal mode, so these styles are
+   the only thing left carrying the structure of the note. */
+.cm-heading-1,
+.cm-heading-2,
+.cm-heading-3,
+.cm-heading-4,
+.cm-heading-5,
+.cm-heading-6 {
+  font-weight: 600;
+  color: var(--color-one-fg);
+  line-height: 1.3;
+}
+
+.cm-heading-1 { font-size: 1.8em; }
+.cm-heading-2 { font-size: 1.5em; }
+.cm-heading-3 { font-size: 1.3em; }
+.cm-heading-4 { font-size: 1.15em; }
+.cm-heading-5 { font-size: 1.05em; }
+.cm-heading-6 { font-size: 1em; }
+
+.cm-strong { font-weight: 700; }
+.cm-emphasis { font-style: italic; }
+.cm-strikethrough {
+  text-decoration: line-through;
+  color: var(--color-one-muted);
+}
+
+/* The marks are gone from the text, so the marker and the indent are drawn
+   rather than typed. Both selectors name .cm-line as well, because CodeMirror
+   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade:
+   the bullet then hangs at a negative offset and is clipped away. */
+.cm-line.cm-blockquote {
+  border-left: 3px solid var(--color-one-muted);
+  padding-left: 0.75em;
+  color: var(--color-one-muted);
+}
+
+.cm-line.cm-bullet {
+  padding-left: 1.6em;
+  text-indent: -1.1em;
+}
+
+.cm-line.cm-bullet::before {
+  content: "• ";
+  color: var(--color-one-accent);
+}
+
+.cm-link {
+  color: var(--color-one-accent);
+  text-decoration: underline;
+}
+
+.cm-inline-code {
+  background: var(--color-one-panel);
+  color: var(--color-one-green);
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+}
