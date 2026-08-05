@@ -61,7 +61,15 @@ export interface paths {
          *     including paths that try to climb out of it.
          */
         get: operations["read_file_api_files__path__get"];
-        put?: never;
+        /**
+         * Save File
+         * @description Write one note back to the vault.
+         *
+         *     Only over a note that is already there. Everything the read refuses is
+         *     refused here too, and for the same reason, so a note you cannot open is a
+         *     note you cannot overwrite.
+         */
+        put: operations["save_file_api_files__path__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -93,6 +101,14 @@ export interface components {
         Note: {
             /** Path */
             path: string;
+            /** Content */
+            content: string;
+        };
+        /**
+         * NoteEdit
+         * @description The new text for a note. The path it belongs to comes from the URL.
+         */
+        NoteEdit: {
             /** Content */
             content: string;
         };
@@ -168,6 +184,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_file_api_files__path__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteEdit"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

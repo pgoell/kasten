@@ -31,3 +31,15 @@ export async function fetchNote(path: string): Promise<string> {
 
   return data.content;
 }
+
+/** Write one note back to the vault, over the note that is already there. */
+export async function saveNote(path: string, content: string): Promise<void> {
+  const { data, response } = await client.PUT("/api/files/{path}", {
+    params: { path: { path } },
+    body: { content },
+  });
+
+  if (!data) {
+    throw new Error(`PUT /api/files/${path} failed with ${response.status}`);
+  }
+}

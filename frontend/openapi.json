@@ -85,6 +85,54 @@
             }
           }
         }
+      },
+      "put": {
+        "summary": "Save File",
+        "description": "Write one note back to the vault.\n\nOnly over a note that is already there. Everything the read refuses is\nrefused here too, and for the same reason, so a note you cannot open is a\nnote you cannot overwrite.",
+        "operationId": "save_file_api_files__path__put",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -135,6 +183,20 @@
         ],
         "title": "Note",
         "description": "One note, as it sits on disk."
+      },
+      "NoteEdit": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "NoteEdit",
+        "description": "The new text for a note. The path it belongs to comes from the URL."
       },
       "ValidationError": {
         "properties": {

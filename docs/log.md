@@ -9,3 +9,5 @@
 * **Creation**: Added [mise tasks](/reference/mise-tasks.md), [HTTP API](/reference/http-api.md) and [Configuration](/reference/configuration.md).
 * **Creation**: Added [The vault and the derived index](/explanation/vault-and-derived-index.md) and [Two environments](/explanation/environments.md).
 * **Update**: [HTTP API](/reference/http-api.md) gained `GET /api/files/{path}`, which reads one note, and lost the line saying note content is not exposed.
+* **Update**: [HTTP API](/reference/http-api.md) gained `PUT /api/files/{path}`, which writes one note back to the vault, and lost the line saying nothing writes yet.
+* **Update**: [Getting started](/tutorials/getting-started.md) gained a step that opens a note and edits it. Its "what you cannot do yet" section no longer claims that clicking a note does nothing and that saving is missing.

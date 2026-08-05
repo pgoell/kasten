@@ -1,13 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { NoteEditor } from "@/components/note-editor";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
 // module is also the right level: what this component owns is the query and
 // the remount, not the HTTP.
-const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote }));
+const { fetchNote, saveNote } = vi.hoisted(() => ({ fetchNote: vi.fn(), saveNote: vi.fn() }));
+vi.mock("@/lib/api", () => ({ fetchNote, saveNote }));
 
 // Single-line notes on purpose: CodeMirror's text content runs the lines
 // together, so anything longer makes the assertions unreadable.
@@ -40,12 +40,25 @@ function renderNote(path: string) {
     text: () => container.querySelector(".cm-content")?.textContent,
     body: () => container.textContent,
     open: (next: string) => rerender(tree(next)),
+    status: () => container.querySelector("[data-testid='save-status']")?.textContent,
+    press: (key: string, init?: KeyboardEventInit) =>
+      fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key, ...init }),
   };
 }
 
 describe("NoteEditor", () => {
-  beforeEach(serveVault);
-  afterEach(() => fetchNote.mockReset());
+  beforeEach(() => {
+    serveVault();
+    saveNote.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    // By hand and first: closing an edited note writes it, so the automatic
+    // cleanup would otherwise reach a mock that has already been reset.
+    cleanup();
+    fetchNote.mockReset();
+    saveNote.mockReset();
+  });
 
   it("opens the note's text in the editor", async () => {
     const note = renderNote("index.md");
@@ -75,6 +88,50 @@ describe("NoteEditor", () => {
     note.open("index.md");
 
     await waitFor(() => expect(note.text()).toBe("# the index note"));
+  });
+
+  it("says the note is saved when it has only just been opened", async () => {
+    const note = renderNote("index.md");
+
+    await waitFor(() => expect(note.text()).toBe("# the index note"));
+
+    expect(note.status()).toBe("Saved");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("says an edited note is unsaved before the write goes out", async () => {
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("# the index note"));
+
+    // `dd` in vim normal mode deletes the line, which is a document change.
+    note.press("d");
+    note.press("d");
+
+    expect(note.status()).toBe("Unsaved changes");
+  });
+
+  it("writes the note on ctrl+s and says so", async () => {
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("# the index note"));
+
+    note.press("d");
+    note.press("d");
+    note.press("s", { ctrlKey: true });
+
+    await waitFor(() => expect(saveNote).toHaveBeenCalledWith("index.md", ""));
+    await waitFor(() => expect(note.status()).toBe("Saved"));
+  });
+
+  it("says so when the note cannot be written", async () => {
+    saveNote.mockRejectedValue(new Error("PUT /api/files/index.md failed with 500"));
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("# the index note"));
+
+    note.press("d");
+    note.press("d");
+    note.press("s", { ctrlKey: true });
+
+    await waitFor(() => expect(note.status()).toBe("Could not save"));
   });
 
   it("says so when the note cannot be read", async () => {

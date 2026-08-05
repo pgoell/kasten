@@ -1,16 +1,38 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Facet } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { EditorView } from "@codemirror/view";
-import { vim } from "@replit/codemirror-vim";
+import { EditorView, keymap } from "@codemirror/view";
+import { Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
+
+type SaveHandler = (doc: string) => void;
+
+/**
+ * Carries the save callback on the editor state.
+ *
+ * `Vim.defineEx` registers `:w` once for the whole module and cannot close over
+ * one view's props, so the handler has to be reachable from the view it was
+ * typed into. A facet is how CodeMirror hangs a value off a state.
+ */
+const saveHandler = Facet.define<SaveHandler, SaveHandler | undefined>({
+  combine: (handlers) => handlers[0],
+});
+
+function save(view: EditorView): boolean {
+  view.state.facet(saveHandler)?.(view.state.doc.toString());
+  return true;
+}
+
+Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
 
 interface EditorProps {
   /** The document to open. Only read on mount; pass a `key` to open another note. */
   initialDoc: string;
   onChange?: (doc: string) => void;
+  /** Called with the whole document on `:w` or ctrl+s. */
+  onSave?: (doc: string) => void;
 }
 
 /**
@@ -20,17 +42,19 @@ interface EditorProps {
  * re-rendering the tree on every keystroke is where CodeMirror-in-React
  * performance dies.
  */
-export function Editor({ initialDoc, onChange }: EditorProps) {
+export function Editor({ initialDoc, onChange, onSave }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
-  // Both props live in refs so the mount effect depends on nothing. Rebuilding
+  // Every prop lives in a ref so the mount effect depends on nothing. Rebuilding
   // the view throws away undo history and cursor position, so it must happen
   // exactly once: to open a different note, remount with a `key`.
   const initialDocRef = useRef(initialDoc);
   const onChangeRef = useRef(onChange);
+  const onSaveRef = useRef(onSave);
 
   useEffect(() => {
     onChangeRef.current = onChange;
-  }, [onChange]);
+    onSaveRef.current = onSave;
+  }, [onChange, onSave]);
 
   useEffect(() => {
     const parent = host.current;
@@ -43,6 +67,10 @@ export function Editor({ initialDoc, onChange }: EditorProps) {
           // Must come first: whichever keymap is registered earliest wins, and
           // vim's bindings have to beat the ones basicSetup installs.
           vim(),
+          // Ahead of basicSetup for the same reason: ctrl+s must reach us
+          // rather than open the browser's save dialog.
+          keymap.of([{ key: "Mod-s", run: save, preventDefault: true }]),
+          saveHandler.of((doc) => onSaveRef.current?.(doc)),
           basicSetup,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           oneDark,

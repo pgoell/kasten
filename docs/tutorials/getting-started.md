@@ -79,11 +79,28 @@ nothing had to.
 
 Fold the tree away with Ctrl+B, or drag its right edge to resize it.
 
+## 6. Open it and edit it
+
+Click `today` in the tree. The note opens, and the URL gains
+`?note=daily/today.md`, so a reload keeps your place.
+
+The editor starts in vim's normal mode, so press `i` before you type. The bar
+under the editor reads "Unsaved changes" while you type and "Saved" about a
+second after you stop. `:w` and Ctrl+S write at once instead of waiting.
+
+Read the file back:
+
+```sh
+cat vault/daily/today.md
+```
+
+Your edit is in it. It went to the file, and again nothing went to Postgres.
+
 ## What you cannot do yet
 
-Clicking a note does not open it. The tree lists the vault and the editor holds
-a fixed sample document; the two are not wired together. Saving, wikilinks and
-backlinks are not built.
+Notes can be opened and edited but not created or deleted from the browser, so
+a new note is still a file you make yourself. Wikilinks, backlinks and search
+are not built.
 
 ## Next
 
