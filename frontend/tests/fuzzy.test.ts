@@ -56,6 +56,19 @@ describe("rankFolders", () => {
     expect(rankFolders(PATHS, "zz")).toEqual([]);
   });
 
+  it("will not spend one letter of a folder on two letters of the query", () => {
+    // `daily/` carries a single `d`. A match leaves the letter it lands on
+    // behind it, so the second `d` has the rest of the name to read from and
+    // finds no `d` there.
+    expect(rankFolders(PATHS, "dd")).toEqual([]);
+  });
+
+  it("will not read the query out of order", () => {
+    // `projects/` holds both letters, the `s` last and the `p` first, so the
+    // query reads into it backwards or not at all.
+    expect(rankFolders(PATHS, "sp")).toEqual([]);
+  });
+
   it("orders two equally good folders by name", () => {
     // An empty query, which is what the prompt opens with, ties every folder,
     // and a list by name is the one a reader can find a folder in. Length is
@@ -69,5 +82,16 @@ describe("rankFolders", () => {
 
   it("ignores the case of the folder", () => {
     expect(rankFolders(["Reading/borges.md"], "reading")).toEqual(["Reading/"]);
+  });
+
+  it("reads a folder name carrying a character outside the basic plane", () => {
+    // An emoji is one character and two code units. Count the query in one and
+    // the name in the other and the two never meet, so a folder named with one
+    // falls out of the list. `📁notes/` opens on the emoji and `my📁notes/`
+    // buries it, a difference only a name counted in characters can see.
+    expect(rankFolders(["📁notes/a.md", "my📁notes/b.md"], "📁n")).toEqual([
+      "📁notes/",
+      "my📁notes/",
+    ]);
   });
 });

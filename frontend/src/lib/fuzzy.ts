@@ -32,7 +32,11 @@ function folders(paths: string[]): string[] {
  * rather than any folder carrying the two letters.
  */
 function score(candidate: string, query: string): number | null {
-  const haystack = candidate.toLowerCase();
+  // The loop below walks the query by character, so the candidate is held as
+  // characters too. Indexing the string walks code units instead, and a
+  // character written in two of them, an emoji opening a folder name, then
+  // matches neither half of itself.
+  const haystack = Array.from(candidate.toLowerCase());
   const NONE = Number.NEGATIVE_INFINITY;
   // `row[j]` is the best score of the query read so far ending on
   // `haystack[j]`, and NONE where it cannot end there. One pass over the
