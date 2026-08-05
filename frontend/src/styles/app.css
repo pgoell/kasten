@@ -58,6 +58,24 @@ body {
   color: var(--color-one-muted);
 }
 
+/* The marks are gone from the text, so the marker and the indent are drawn
+   rather than typed. */
+.cm-blockquote {
+  border-left: 3px solid var(--color-one-muted);
+  padding-left: 0.75em;
+  color: var(--color-one-muted);
+}
+
+.cm-bullet {
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+
+.cm-bullet::before {
+  content: "• ";
+  color: var(--color-one-accent);
+}
+
 .cm-link {
   color: var(--color-one-accent);
   text-decoration: underline;

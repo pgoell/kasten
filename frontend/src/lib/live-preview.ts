@@ -59,12 +59,26 @@ function build(state: EditorState): Live {
     hidden.push(range);
   };
 
+  /**
+   * Hides a line-leading mark and the space that separates it from the text.
+   *
+   * The space has to go with it. Hiding `#` alone would leave the heading
+   * indented by one character against every other line in the note.
+   */
+  const hideLeader = (from: number, markTo: number, line: Line) => {
+    let to = markTo;
+    while (to < line.to && state.doc.sliceString(to, to + 1) === " ") to++;
+    hide(from, to);
+  };
+
   syntaxTree(state).iterate({
     enter(node) {
       const heading = HEADING.exec(node.name);
       const inline = INLINE[node.name];
       const isLink = node.name === "Link";
-      if (!heading && !inline && !isLink) return;
+      const isQuote = node.name === "QuoteMark";
+      const isBullet = node.name === "ListMark" && node.node.parent?.parent?.name === "BulletList";
+      if (!heading && !inline && !isLink && !isQuote && !isBullet) return;
 
       const line = state.doc.lineAt(node.from);
       const revealed = isLineRevealed(state, line);
@@ -77,12 +91,18 @@ function build(state: EditorState): Live {
 
         const mark = node.node.firstChild;
         if (mark?.name !== "HeaderMark") return;
+        hideLeader(mark.from, mark.to, line);
+        return;
+      }
 
-        // The space after the hashes goes too. Hiding the mark alone would
-        // leave the heading indented by one character against every other line.
-        let to = mark.to;
-        while (to < line.to && state.doc.sliceString(to, to + 1) === " ") to++;
-        hide(mark.from, to);
+      // Both draw their marker in CSS, so the text keeps its indent without a
+      // widget standing in for characters that are no longer there. An ordered
+      // list is left alone: its number is content, not decoration.
+      if (isQuote || isBullet) {
+        const style = isQuote ? "cm-blockquote" : "cm-bullet";
+        decorations.push(Decoration.line({ class: style }).range(line.from));
+        if (revealed) return;
+        hideLeader(node.from, node.to, line);
         return;
       }
 

@@ -69,6 +69,21 @@ describe("live preview", () => {
     expect(content(container)).toBe("see [the docs](https://example.com) now");
   });
 
+  it("renders blockquotes and list bullets", () => {
+    const { container } = render(<Editor initialDoc={"> quoted\n\n- first\n- second"} />);
+
+    expect(content(container)).toBe("quotedfirstsecond");
+  });
+
+  it("leaves tables and code fences untouched", () => {
+    // The boundary of what this feature covers. Both need widget decorations,
+    // which is a mechanism live preview deliberately does not have yet.
+    const lines = ["```js", "const x = 1;", "```", "| a | b |", "| - | - |", "| 1 | 2 |"];
+    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+
+    expect(content(container)).toBe(lines.join(""));
+  });
+
   it("settles rather than bouncing between two touching hidden ranges", () => {
     // The heading mark ends at 3 and the bold mark starts there, so a cursor
     // pushed out of the first lands straight inside the second.
