@@ -3,6 +3,7 @@ import { languages } from "@codemirror/language-data";
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
+import { vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 
@@ -39,6 +40,9 @@ export function Editor({ initialDoc, onChange }: EditorProps) {
       state: EditorState.create({
         doc: initialDocRef.current,
         extensions: [
+          // Must come first: whichever keymap is registered earliest wins, and
+          // vim's bindings have to beat the ones basicSetup installs.
+          vim(),
           basicSetup,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
           oneDark,
