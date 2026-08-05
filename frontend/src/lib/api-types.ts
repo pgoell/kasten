@@ -96,7 +96,27 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Move File
+         * @description Give one note a new path, moving it between folders as well as renaming it.
+         *
+         *     `PATCH` rather than a `/rename` route because the path is the note's
+         *     identity: `POST` starts a note, `PUT` replaces its text, and this changes
+         *     where it lives. A verb in the URL would be the same thing spelled as a
+         *     remote procedure call.
+         *
+         *     A missing source is a 404, matching the read and the write, so a note you
+         *     cannot open stays a note you cannot move. The target names its refusal the
+         *     way a create does, a 400 for a path the vault will not have and a 409 for
+         *     one already taken, because the user is about to retype it and has to know
+         *     which it was.
+         *
+         *     The text comes back read off disk rather than carried over from the client.
+         *     Both the URL and the query key change on a move, and seeding the new one
+         *     from here is what stops a note edited outside kasten arriving stale on the
+         *     other side.
+         */
+        patch: operations["move_file_api_files__path__patch"];
         trace?: never;
     };
 }
@@ -133,6 +153,14 @@ export interface components {
         NoteEdit: {
             /** Content */
             content: string;
+        };
+        /**
+         * NoteMove
+         * @description Where a note should live from now on. Where it lives today comes from the URL.
+         */
+        NoteMove: {
+            /** Path */
+            path: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -275,6 +303,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_file_api_files__path__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

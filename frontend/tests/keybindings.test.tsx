@@ -10,6 +10,7 @@ function stubCommands() {
     closeNote: vi.fn(),
     showHelp: vi.fn(),
     createNote: vi.fn(),
+    renameNote: vi.fn(),
     focusTree: vi.fn(),
   } satisfies EditorCommands;
 }
@@ -86,6 +87,31 @@ describe("the leader key", () => {
     expect(commands.createNote).toHaveBeenCalledWith(undefined);
   });
 
+  it("runs the rename command on space then r then f", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "r" });
+    fireEvent.keyDown(editor, { key: "f" });
+
+    expect(commands.renameNote).toHaveBeenCalledTimes(1);
+    // The editor names no note, so the route renames the one that is open.
+    expect(commands.renameNote).toHaveBeenCalledWith(undefined);
+  });
+
+  it("waits for the second letter rather than acting on space then r", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "r" });
+
+    for (const command of Object.values(commands)) {
+      expect(command).not.toHaveBeenCalled();
+    }
+  });
+
   it("waits for the second letter rather than acting on space then c", () => {
     const commands = stubCommands();
     const { editor } = open("plain", commands);
@@ -121,6 +147,7 @@ function PreviewHarness() {
       closeNote: () => {},
       showHelp: () => {},
       createNote: () => {},
+      renameNote: () => {},
       focusTree: () => {},
     }),
     [],

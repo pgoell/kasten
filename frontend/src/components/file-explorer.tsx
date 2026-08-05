@@ -404,6 +404,17 @@ export function FileExplorer({
     commands.createNote(startFolder(rows[cursor]?.node));
   }
 
+  /** Rename the note the cursor is on, and nothing when it is on a folder.
+   *
+   * Renaming a folder means moving every note under it, which is a different
+   * operation with a different way of failing partway through. Doing nothing is
+   * how the tree says the key does not apply here. */
+  function renameNote() {
+    const node = rows[cursor]?.node;
+    if (node?.kind !== "file") return;
+    commands.renameNote(node.path);
+  }
+
   /**
    * The vim keys, resolved in the order vim resolves them.
    *
@@ -427,9 +438,10 @@ export function FileExplorer({
 
       if (binding) {
         event.preventDefault();
-        // Only the tree knows which folder the cursor sits in, and only this
-        // command asks for it.
+        // Only the tree knows what the cursor sits on, and these two are the
+        // commands that ask for it.
         if (binding.command === "createNote") newNote();
+        else if (binding.command === "renameNote") renameNote();
         else commands[binding.command]();
       } else if (sequence === "gg") {
         event.preventDefault();

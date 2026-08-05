@@ -1,15 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { createNote } from "@/lib/api";
+import { createNote, renameNote } from "@/lib/api";
 import { folderPrefixes, rankFolderPrefixes } from "@/lib/fuzzy";
 import { describeNotePath, type NotePathVerdict } from "@/lib/note-path";
 
+/** Which note the prompt is naming: one that does not exist yet, or one that does. */
+export type PromptMode = "create" | "rename";
+
 interface NotePromptProps {
+  mode: PromptMode;
   /** Every path in the vault, for ranking and for spotting a collision. */
   paths: string[];
-  /** What the input starts with, "" or a folder ending in "/". */
+  /** A create starts on a folder or "", a rename on the note's own path. */
   startPath: string;
-  /** Called with the path to put in `?note=`, for a created note or an existing one. */
+  /** Called with the path to put in `?note=`, for the note the prompt landed on. */
   onOpen: (path: string) => void;
   onClose: () => void;
 }
@@ -18,19 +22,33 @@ interface NotePromptProps {
 const VISIBLE_FOLDERS = 20;
 
 /** What the line under the list says, and nothing where it has nothing to say. */
-function hint(verdict: NotePathVerdict): string {
+function hint(verdict: NotePathVerdict, mode: PromptMode, startPath: string): string {
   switch (verdict.kind) {
     case "blocked":
       return verdict.reason;
+    // The one verdict the two modes read differently. A create opens the note
+    // that is there; a move onto one would overwrite it, and the vault refuses
+    // that, so the prompt says so before the request rather than after. The
+    // note's own path is not a collision, and Enter closes on it.
     case "open":
-      return "already exists, Enter opens it";
-    // A folder the vault does not have yet is the one thing a create does that
+      if (mode === "create") return "already exists, Enter opens it";
+      return verdict.path === startPath ? "" : "a note is already there";
+    // A folder the vault does not have yet is the one thing the write does that
     // the input does not already spell out.
     case "create":
       return verdict.newFolder ? `creates folder ${verdict.newFolder}` : "";
     case "empty":
       return "";
   }
+}
+
+/** Where the name sits inside a path, so a rename opens with it selected. */
+function nameRange(path: string): [number, number] {
+  const start = path.lastIndexOf("/") + 1;
+  const dot = path.lastIndexOf(".");
+  // The folder and the suffix are what a rename usually keeps, so neither is
+  // selected. A name with no suffix is selected to its end.
+  return [start, dot > start ? dot : path.length];
 }
 
 /**
@@ -41,15 +59,15 @@ function hint(verdict: NotePathVerdict): string {
  * Enter obeys. Notes are not ranked: the tree is how you open one, and the
  * prompt has the one job.
  */
-export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProps) {
+export function NotePrompt({ mode, paths, startPath, onOpen, onClose }: NotePromptProps) {
   const [input, setInput] = useState(startPath);
   /** Which folder Tab would take. */
   const [active, setActive] = useState(0);
   /** Set when the vault refused the write, cleared by anything naming another path. */
   const [failed, setFailed] = useState(false);
   const field = useRef<HTMLInputElement>(null);
-  /** Set while a create is in flight, so a held Enter sends the one request. */
-  const creating = useRef(false);
+  /** Set while a write is in flight, so a held Enter sends the one request. */
+  const sending = useRef(false);
   /** Set once a note is on its way open, and the focus then belongs to the editor. */
   const opening = useRef(false);
   const listId = useId();
@@ -84,43 +102,64 @@ export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProp
   // Opening a note is the exception. The editor that mounts behind the prompt
   // takes the focus only when nobody holds it, so handing it back there leaves
   // a new note you have to click before you can write in it.
+  //
+  // A rename opens on the note's whole path and selects the name inside it, so
+  // the common edit is one word of typing and the folder is still there to
+  // change. A create has no name to select and leaves the caret where it lands.
   useEffect(() => {
     const opener = document.activeElement;
     field.current?.focus();
+    if (mode === "rename") field.current?.setSelectionRange(...nameRange(startPath));
     return () => {
       if (opening.current) return;
       if (opener instanceof HTMLElement) opener.focus();
     };
-  }, []);
+    // Neither changes while the prompt is open: the route sets both when it
+    // opens one and unmounts it to close.
+  }, [mode, startPath]);
 
   function accept() {
     if (verdict.kind === "open") {
+      // A create opens the note that is already there. A rename cannot land on
+      // one, and its own path is nothing to do, so Enter just closes.
+      if (mode === "rename") {
+        if (verdict.path === startPath) onClose();
+        return;
+      }
       opening.current = true;
       onOpen(verdict.path);
       return;
     }
     // `empty` and `blocked` name no note, and the hint line already says so.
     if (verdict.kind !== "create") return;
-    // Enter repeats while it is held, and each repeat would be another POST.
+    // Enter repeats while it is held, and each repeat would be another request.
     // The vault refuses the duplicates, but only the first answer opens a note.
-    if (creating.current) return;
-    creating.current = true;
+    if (sending.current) return;
+    sending.current = true;
 
-    void createNote(verdict.path).then(
-      (path) => {
+    const written =
+      mode === "rename" ? renameNote(startPath, verdict.path) : createNote(verdict.path);
+
+    void written.then(
+      (note) => {
         opening.current = true;
         // The vault's spelling of the path, not the typed one, everywhere from
-        // here on. The note was just written empty, so seeding the cache saves
-        // the editor a read of a file we already know the text of.
-        queryClient.setQueryData(["note", path], "");
+        // here on. The text comes from the answer rather than from the cache,
+        // so a create saves the editor a read of a file it already knows and a
+        // rename carries the note across without trusting a copy that a write
+        // outside kasten may have left stale.
+        queryClient.setQueryData(["note", note.path], note.content);
+        // The note is not at the old path any more, so a cache entry there
+        // would answer for a note the vault no longer has.
+        if (mode === "rename") queryClient.removeQueries({ queryKey: ["note", startPath] });
         queryClient.invalidateQueries({ queryKey: ["files"] });
-        onOpen(path);
+        onOpen(note.path);
       },
-      // The prompt stays open with the typed path still in it, so a create that
+      // The prompt stays open with the typed path still in it, so a write that
       // bounced off a stale listing or a dead network costs no typing, and the
       // guard lifts so the next Enter tries again.
       () => {
-        creating.current = false;
+        sending.current = false;
         setFailed(true);
       },
     );
@@ -185,7 +224,7 @@ export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProp
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="New note"
+      aria-label={mode === "rename" ? "Rename note" : "New note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className="fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none"
@@ -196,7 +235,7 @@ export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProp
             htmlFor={`${listId}-path`}
             className="text-[11px] tracking-wider text-one-muted uppercase"
           >
-            new note
+            {mode === "rename" ? "rename note" : "new note"}
           </label>
           <input
             id={`${listId}-path`}
@@ -246,7 +285,9 @@ export function NotePrompt({ paths, startPath, onOpen, onClose }: NotePromptProp
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
         <output className="border-t border-one-line px-3 py-1 text-[11px] text-one-muted">
-          {failed ? "could not create the note" : hint(verdict)}
+          {failed
+            ? `could not ${mode === "rename" ? "rename" : "create"} the note`
+            : hint(verdict, mode, startPath)}
         </output>
       </div>
     </div>

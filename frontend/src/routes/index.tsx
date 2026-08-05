@@ -5,7 +5,7 @@ import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
-import { NotePrompt } from "@/components/note-prompt";
+import { NotePrompt, type PromptMode } from "@/components/note-prompt";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
@@ -39,9 +39,10 @@ function Home() {
   // rendering off stays off until you turn it back on.
   const [preview, setPreview] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
-  // The folder the prompt opens on, and null while it is closed. The folder is
-  // part of the request, so an empty string still means open.
-  const [promptStart, setPromptStart] = useState<string | null>(null);
+  // What the prompt is doing and where it starts, and null while it is closed.
+  // One piece of state for both, because a create opening on the vault root
+  // starts at "" and that still has to read as open.
+  const [prompt, setPrompt] = useState<{ mode: PromptMode; startPath: string } | null>(null);
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
@@ -57,14 +58,26 @@ function Home() {
         if (await save()) navigate({ search: {} });
       },
       showHelp: () => setHelpOpen(true),
-      createNote: (startPath = "") => setPromptStart(startPath),
+      createNote: (startPath = "") => setPrompt({ mode: "create", startPath }),
+      // Save before the prompt opens, not after Enter. `useAutosave` flushes
+      // pending text when its path changes, using the render's own closure, so
+      // text still waiting when the note moves would be written to a path the
+      // vault no longer has. Nothing can be typed into the editor once the
+      // modal holds the focus, so flushing here is enough. A failed write keeps
+      // the prompt shut with the warning already in the status bar, the way
+      // `closeNote` refuses to leave.
+      renameNote: async (startPath) => {
+        const path = startPath ?? note;
+        if (path === undefined) return;
+        if (await save()) setPrompt({ mode: "rename", startPath: path });
+      },
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
         setTreeFocus((previous) => previous + 1);
       },
     }),
-    [navigate, save],
+    [navigate, save, note],
   );
 
   return (
@@ -97,15 +110,16 @@ function Home() {
       </div>
       <StatusBar status={note ? status : undefined} />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
-      {promptStart !== null && (
+      {prompt !== null && (
         <NotePrompt
+          mode={prompt.mode}
           paths={data ?? []}
-          startPath={promptStart}
+          startPath={prompt.startPath}
           onOpen={(path) => {
-            setPromptStart(null);
+            setPrompt(null);
             navigate({ search: { note: path } });
           }}
-          onClose={() => setPromptStart(null)}
+          onClose={() => setPrompt(null)}
         />
       )}
     </main>

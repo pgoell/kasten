@@ -23,6 +23,7 @@ describe("KeyHelp", () => {
     // Written out rather than derived, because `Space cf` reads like one key
     // and is the mistake this spacing exists to prevent.
     expect(screen.getByText("Space c f").nextElementSibling).toHaveTextContent("Create a note");
+    expect(screen.getByText("Space r f").nextElementSibling).toHaveTextContent("Rename the note");
   });
 
   it("lists every formatting key", () => {
@@ -97,6 +98,7 @@ describe("the key tables", () => {
       "showHelp",
       "focusTree",
       "createNote",
+      "renameNote",
     ]);
 
     for (const { command } of LEADER) {
