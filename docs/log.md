@@ -9,3 +9,10 @@
 * **Creation**: Added [mise tasks](/reference/mise-tasks.md), [HTTP API](/reference/http-api.md) and [Configuration](/reference/configuration.md).
 * **Creation**: Added [The vault and the derived index](/explanation/vault-and-derived-index.md) and [Two environments](/explanation/environments.md).
 * **Update**: [HTTP API](/reference/http-api.md) gained `GET /api/files/{path}`, which reads one note, and lost the line saying note content is not exposed.
+* **Update**: [HTTP API](/reference/http-api.md) gained `PUT /api/files/{path}`, which writes one note back to the vault, and lost the line saying nothing writes yet.
+* **Update**: [Getting started](/tutorials/getting-started.md) gained a step that opens a note and edits it. Its "what you cannot do yet" section no longer claims that clicking a note does nothing and that saving is missing.
+* **Update**: [Getting started](/tutorials/getting-started.md) describes the save state as the ring in the status bar rather than the words "Saved" and "Unsaved changes", which the bar no longer carries.
+* **Creation**: Added [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md), now that a save is recorded in the vault's jj repo.
+* **Update**: [HTTP API](/reference/http-api.md) says what a write records in jj, and that a vault without a repo is written to just the same.
+* **Update**: [Getting started](/tutorials/getting-started.md) gained an optional step that gives the vault a history.
+* **Update**: [The vault and the derived index](/explanation/vault-and-derived-index.md) gained the consequence that a note's history lives with the note and not in a table.

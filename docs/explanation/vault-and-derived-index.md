@@ -48,6 +48,7 @@ Anything you cannot recover that way has to go into a file.
 ## What follows from it
 
 * `GET /api/files` reads the filesystem and does not consult Postgres at all. See [HTTP API](/reference/http-api.md).
+* The history of a note lives with the note, in a jj repo inside the vault, and not in a table. A version you cannot recover by reading the vault again would be information the database alone held, which is the one thing that is not allowed. See [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md).
 * The vault is a bind mount to a host path in every environment, never a named Docker volume, so it survives the container lifecycle. See [Two environments](/explanation/environments.md).
 * Dev and prod never point at the same directory. A dev bug that rewrites files would otherwise eat real notes.
 * The vault path is configuration, not a constant. See [Configuration](/reference/configuration.md).

@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves three endpoints. All of them are read-only. The interactive
+The backend serves four endpoints. Three read, one writes. The interactive
 schema is at `/docs` while the backend runs, and the machine-readable one at
 `/openapi.json`.
 
@@ -57,7 +57,48 @@ Anything that is not a readable markdown file inside the vault is a `404`:
 Every refusal reads the same, because telling a typo apart from an attempt to
 climb out is worth nothing to the one user and something to everyone else.
 
-Nothing writes yet. There is no endpoint that saves a note.
+## PUT /api/files/{path}
+
+Writes one note back to the vault. The body carries the new text, the URL
+carries the path:
+
+```json
+{ "content": "# 2026-08-05\n\nEdited.\n" }
+```
+
+The reply is the same shape `GET` returns, so the client can see what landed:
+
+```json
+{ "path": "daily/2026-08-05.md", "content": "# 2026-08-05\n\nEdited.\n" }
+```
+
+`content` is written unchanged. Nothing is stripped, added or normalised,
+because the vault is the source of truth.
+
+Only a note that is already there can be written. Everything the read refuses
+is refused here for the same reasons, and a note that does not exist is a `404`
+as well: a path with no file behind it is not created. Creating notes is a
+separate job and there is no endpoint for it yet.
+
+The write goes to a hidden temp file beside the target and is then renamed over
+it. The rename is atomic, so a crash halfway through leaves the old note whole
+rather than half a new one.
+
+There is no conflict detection. One user, and the last write wins. A note
+edited by hand or by `git pull` while it is open in the browser is overwritten
+by the browser. What makes that safe to live with is the history below.
+
+### What the write records
+
+If the vault is a jj repo, the write is bracketed by two jj commands: a change
+is started before it and a snapshot taken after. Changes are one per note, not
+one per save, and named `vault: <path>`, so `jj log` reads as the list of notes
+you worked on while `jj op log` still holds every individual save.
+
+A vault that is not a jj repo is written to just the same and no history is
+kept. jj failing, or missing from the box, never fails a save: the note matters
+more than the record of it. See
+[Recover an earlier version of a note](/how-to/recover-an-earlier-version.md).
 
 ## Related
 

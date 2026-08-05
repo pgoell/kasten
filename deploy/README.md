@@ -22,7 +22,7 @@ Postgres holds a derived index and can be rebuilt from the vault at any time. Th
 
 - It is a bind mount to a host path, never a named volume, and it lives outside the repo and outside every container lifecycle.
 - Dev and prod never share a directory. A dev bug that rewrites files would otherwise eat your real notes.
-- Make the prod vault a git repo and push it on a schedule. That is backup and file history in one, and it costs nothing because the vault is already plain markdown.
+- Make the prod vault a jj repo, colocated with git, and push it on a schedule. The backend records every save into it, so that is file history and backup in one, and it costs nothing because the vault is already plain markdown. Without it saving still works and nothing is kept, so an overwrite is final.
 
 ## First-time setup
 
@@ -56,9 +56,25 @@ Put that password into `KASTEN_DATABASE_URL` in `/home/pascal/kasten-deploy/.env
 
 ```sh
 mkdir -p /home/pascal/kasten-data/vault
-git -C /home/pascal/kasten-data/vault init      # backup and history
 mkdir -p /home/pascal/Code/kasten/vault          # dev, already gitignored
 ```
+
+Give each vault a history. The backend writes into it on every save, and the
+identity goes on the repo because the backend runs jj from a container that has
+no home directory to read a personal config out of:
+
+```sh
+for v in /home/pascal/kasten-data/vault /home/pascal/Code/kasten/vault; do
+  jj git init --colocate "$v"                    # git repo alongside, so pushes still work
+  jj -R "$v" config set --repo user.name  "Pascal Kraus"
+  jj -R "$v" config set --repo user.email "pascal98kraus@gmail.com"
+done
+```
+
+The prod container owns these files as uid 1000, so run this as `pascal`, not
+as root. jj itself is baked into the backend image, pinned to the version in
+`mise.toml`; both work on the same repo through the bind mount, so the two
+have to agree.
 
 **5. Prod env file.** Copy the template and fill in the password from step 3:
 
