@@ -84,6 +84,10 @@ async def create_file(path: str, settings: Annotated[Settings, Depends(get_setti
     The path that comes back is the canonical spelling, not the URL's, because
     the client navigates to it and `ideas/./kasten.md` must not end up in the
     address bar.
+
+    The new note gets its own jj change, bracketed the way a save is. Both
+    refusals return before any of that, so a bounced create leaves no change
+    behind.
     """
     note = resolve_path(settings.vault_path, path)
     if note is None:
@@ -92,7 +96,10 @@ async def create_file(path: str, settings: Annotated[Settings, Depends(get_setti
         raise HTTPException(status_code=409, detail="A note is already there")
 
     relative = relative_path(settings.vault_path, note)
+
+    await begin_change(settings.vault_path, relative)
     create_note(note)
+    await snapshot(settings.vault_path)
 
     return Note(path=relative, content="")
 

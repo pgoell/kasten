@@ -116,6 +116,42 @@ async def test_records_every_save_in_the_operation_log(
     assert after > before
 
 
+async def test_names_the_change_after_the_note_being_created(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    await client.post("/api/files/index.md")
+
+    assert descriptions(versioned_vault)[0] == "vault: index.md"
+
+
+async def test_starts_a_new_change_for_each_note_created(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    await client.post("/api/files/index.md")
+    await client.post("/api/files/daily/2026-08-05.md")
+
+    assert descriptions(versioned_vault)[:2] == [
+        "vault: daily/2026-08-05.md",
+        "vault: index.md",
+    ]
+
+
+async def test_leaves_no_change_behind_when_it_refuses_a_create(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Both refusals return before the route reaches jj, so a bounced create
+    # adds nothing to the log, empty or otherwise.
+    await client.post("/api/files/index.md")
+    await client.post("/api/files/daily/2026-08-05.md")
+    before = len(jj(versioned_vault, "log", "--no-graph", "-T", '"x\\n"').splitlines())
+
+    assert (await client.post("/api/files/index.md")).status_code == 409
+    assert (await client.post("/api/files/notes.txt")).status_code == 400
+
+    after = len(jj(versioned_vault, "log", "--no-graph", "-T", '"x\\n"').splitlines())
+    assert after == before
+
+
 async def test_writes_the_note_even_when_the_repo_is_broken(
     client: AsyncClient, vault: Path
 ) -> None:
@@ -135,4 +171,13 @@ async def test_leaves_a_vault_that_is_not_a_repo_alone(client: AsyncClient, vaul
 
     await client.put("/api/files/index.md", json={"content": "# edited"})
 
+    assert not (vault / ".jj").exists()
+
+
+async def test_creates_a_note_in_a_vault_that_is_not_a_repo(
+    client: AsyncClient, vault: Path
+) -> None:
+    response = await client.post("/api/files/index.md")
+
+    assert response.status_code == 201
     assert not (vault / ".jj").exists()
