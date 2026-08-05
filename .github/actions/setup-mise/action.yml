@@ -1,7 +1,7 @@
 name: Setup mise toolchain and caches
 description: >
-  Bootstraps mise (Python, node, uv, pnpm, lefthook) and primes the uv and
-  pnpm caches. Assumes the repo has already been checked out by the caller.
+  Bootstraps mise (Python, uv, bun, lefthook) and primes the uv and bun
+  caches. Assumes the repo has already been checked out by the caller.
 
 runs:
   using: composite
@@ -19,13 +19,13 @@ runs:
         restore-keys: |
           uv-${{ runner.os }}-
 
-    - name: Cache pnpm store
+    - name: Cache bun
       uses: actions/cache@v4
       with:
-        path: ~/.local/share/pnpm/store
-        key: pnpm-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
         restore-keys: |
-          pnpm-${{ runner.os }}-
+          bun-${{ runner.os }}-
 
     - name: Bootstrap deps
       shell: bash
