@@ -14,6 +14,7 @@ export interface EditorCommands {
   togglePreview(): void;
   closeNote(): void;
   showHelp(): void;
+  focusTree(): void;
 }
 
 export interface LeaderBinding {
@@ -25,6 +26,9 @@ export interface LeaderBinding {
 
 export const LEADER: readonly LeaderBinding[] = [
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
+  // Tab used to be the way into the tree, and binding it to indent took that
+  // away. This is the way back in, and it unfolds the panel first.
+  { key: "e", label: "Focus the file tree", command: "focusTree" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
   { key: "q", label: "Save and close the note", command: "closeNote" },
   { key: "?", label: "Show the keys", command: "showHelp" },
@@ -55,6 +59,18 @@ export const FORMAT: readonly FormatBinding[] = [
   // history window and a page cannot reliably take back.
   { key: "<C-S-H>", label: "Highlight", spec: HIGHLIGHT },
   { key: "<C-S-X>", label: "Strikethrough", spec: STRIKE },
+];
+
+/**
+ * Indenting, which is a plain CodeMirror binding rather than a vim one.
+ *
+ * Display only, the way TREE is: `indentWithTab` carries the binding itself.
+ * It sits here so the panel and the reference page keep describing every key
+ * the editor answers, and not only the ones registered through vim.
+ */
+export const INDENT: readonly { key: string; label: string }[] = [
+  { key: "Tab", label: "Indent the line, nesting a list item" },
+  { key: "Shift Tab", label: "Lift the line back out" },
 ];
 
 /**

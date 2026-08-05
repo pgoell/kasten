@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FORMAT, LEADER, TREE } from "@/lib/key-bindings";
+import { FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
 
 /** Vim's spelling of a key is for vim. This is the one on the keyboard. */
 function readable(key: string) {
@@ -42,12 +42,23 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
 
   // The panel takes the focus so its own keys reach it, rather than reaching
-  // whatever was focused when it opened.
-  useEffect(() => panel.current?.focus(), []);
+  // whatever was focused when it opened, and hands it back on the way out.
+  // Restoring what held it beats naming the editor: the same key opens this
+  // from the file tree, and closing there belongs back in the tree.
+  useEffect(() => {
+    const opener = document.activeElement;
+    panel.current?.focus();
+    return () => {
+      if (opener instanceof HTMLElement) opener.focus();
+    };
+  }, []);
 
   const groups: Group[] = [
     { title: "Leader", keys: LEADER.map(({ key, label }) => ({ key: `Space ${key}`, label })) },
-    { title: "Editor", keys: FORMAT.map(({ key, label }) => ({ key: readable(key), label })) },
+    {
+      title: "Editor",
+      keys: [...FORMAT.map(({ key, label }) => ({ key: readable(key), label })), ...INDENT],
+    },
     { title: "File tree", keys: TREE },
   ];
 

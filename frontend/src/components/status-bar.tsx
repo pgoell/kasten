@@ -1,4 +1,47 @@
+import { useEffect, useState } from "react";
+import { type Clock as ClockReading, readClock } from "@/lib/clock";
 import type { SaveStatus } from "@/lib/use-autosave";
+
+const MINUTE_MS = 60_000;
+
+/**
+ * The date and time at the foot of the window.
+ *
+ * The tick is lined up with the wall clock rather than set going a minute at a
+ * time from mount, so the minute changes on screen when it changes on the
+ * clock instead of up to a minute later. One re-render a minute, not sixty.
+ */
+function Clock() {
+  const [now, setNow] = useState<ClockReading>(() => readClock(new Date()));
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    function tick() {
+      timer = setTimeout(
+        () => {
+          setNow(readClock(new Date()));
+          tick();
+        },
+        MINUTE_MS - (Date.now() % MINUTE_MS),
+      );
+    }
+
+    tick();
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    // Spaced apart rather than punctuated: the gap separates the four readings
+    // without spending characters on a bar the eye has to step over.
+    <div className="flex items-center gap-3 text-[11px] text-one-muted tabular-nums">
+      <span>{now.weekday}</span>
+      <time dateTime={now.date}>{now.date}</time>
+      <span>CW {now.week}</span>
+      <time dateTime={`${now.date}T${now.time}`}>{now.time}</time>
+    </div>
+  );
+}
 
 const SAVE_LABEL: Record<SaveStatus, string> = {
   saved: "Saved",
@@ -70,17 +113,24 @@ interface StatusBarProps {
  */
 export function StatusBar({ status }: StatusBarProps) {
   return (
-    <footer className="flex h-6 shrink-0 items-center justify-end bg-one-panel px-3">
-      {status && (
-        <span
-          data-testid="save-status"
-          role="img"
-          aria-label={SAVE_LABEL[status]}
-          title={SAVE_LABEL[status]}
-        >
-          {status === "error" ? <Warning /> : <Spinner spinning={status !== "saved"} />}
-        </span>
-      )}
+    // Three columns rather than two: the outer pair share what the clock does
+    // not take, so the reading sits on the middle of the window and does not
+    // shift sideways when the save ring appears beside it.
+    <footer className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center bg-one-panel px-3">
+      <div />
+      <Clock />
+      <div className="justify-self-end">
+        {status && (
+          <span
+            data-testid="save-status"
+            role="img"
+            aria-label={SAVE_LABEL[status]}
+            title={SAVE_LABEL[status]}
+          >
+            {status === "error" ? <Warning /> : <Spinner spinning={status !== "saved"} />}
+          </span>
+        )}
+      </div>
     </footer>
   );
 }

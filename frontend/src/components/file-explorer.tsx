@@ -13,6 +13,9 @@ interface FileExplorerProps {
   onOpenChange: (open: boolean) => void;
   /** Reached by leader sequences typed here rather than in the editor. */
   commands: EditorCommands;
+  /** Raised by the route to ask the panel for the focus. The change is the
+   * request, not the value: mounting must not pull focus out of the editor. */
+  focusSignal?: number;
 }
 
 interface FolderNode {
@@ -125,6 +128,19 @@ function indent(depth: number) {
 
 const ROW = "flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px]";
 
+/**
+ * The keyboard cursor, drawn the way vim draws its own.
+ *
+ * A hollow outline while the tree is idle, filled in and brighter once it holds
+ * the focus, in the same red as the block cursor in the editor. The vim package
+ * makes exactly this distinction for the same reason: a cursor you are about to
+ * type at should not look like one you left behind.
+ */
+const CURSOR = [
+  "outline-1 -outline-offset-1 outline-one-cursor/45",
+  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
+].join(" ");
+
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg
@@ -181,7 +197,7 @@ function NodeList({
                 title={node.path}
                 className={`${ROW} cursor-pointer ${
                   current ? "bg-one-hover text-one-accent" : "text-one-fg hover:bg-one-hover"
-                } ${tabIndex === 0 ? "outline-1 -outline-offset-1 outline-one-selection" : ""}`}
+                } ${tabIndex === 0 ? CURSOR : ""}`}
               >
                 {/* Holds the chevron's column so note names line up with folder names. */}
                 <span className="size-3 shrink-0" />
@@ -203,7 +219,7 @@ function NodeList({
               aria-expanded={open}
               style={indent(depth)}
               className={`${ROW} cursor-pointer text-one-muted hover:bg-one-hover hover:text-one-fg ${
-                tabIndex === 0 ? "outline-1 -outline-offset-1 outline-one-selection" : ""
+                tabIndex === 0 ? CURSOR : ""
               }`}
             >
               <Chevron open={open} />
@@ -301,6 +317,7 @@ export function FileExplorer({
   open,
   onOpenChange,
   commands,
+  focusSignal = 0,
 }: FileExplorerProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -311,11 +328,21 @@ export function FileExplorer({
   /** The first half of a two-key sequence, `g` or the leader, once pressed. */
   const [pending, setPending] = useState<string | null>(null);
   const nav = useRef<HTMLElement>(null);
+  /** The signal already answered, so the first render answers nothing. */
+  const answered = useRef(focusSignal);
   const tree = useMemo(() => buildTree(paths), [paths]);
   const rows = useMemo(() => flattenRows(tree, collapsed), [tree, collapsed]);
   // Collapsing a folder can strand the cursor past the end of the list.
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
   const cursorKey = rows[cursor] ? rowKey(rows[cursor].node) : "";
+
+  // `<leader>e`, arriving from the editor. The cursor row is the panel's only
+  // tab stop, so that is the row the focus lands on.
+  useEffect(() => {
+    if (focusSignal === answered.current) return;
+    answered.current = focusSignal;
+    nav.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+  }, [focusSignal]);
 
   // Only when the panel already holds the focus. Moving the cursor from inside
   // the editor, which `<leader>b` does, must not drag the focus along with it.

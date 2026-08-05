@@ -103,13 +103,87 @@ describe("live preview", () => {
     expect(content(container)).toBe("quotedfirstsecond");
   });
 
-  it("leaves tables and code fences untouched", () => {
-    // The boundary of what this feature covers. Both need widget decorations,
-    // which is a mechanism live preview deliberately does not have yet.
+  it("stops drawing the bullet on the line that shows its dash", async () => {
+    const { container } = render(<Editor initialDoc={"- first\n- second"} />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    expect(container.querySelectorAll(".cm-bullet")).toHaveLength(2);
+
+    fireEvent.keyDown(editor, { key: "i" });
+
+    // The revealed line puts the real `- ` back on screen, and the drawn dot
+    // beside it would be a second bullet on the same line.
+    await waitFor(() => expect(container.querySelectorAll(".cm-bullet")).toHaveLength(1));
+    expect(content(container)).toContain("- first");
+  });
+
+  it("hides the whitespace that nests a list item", () => {
+    const { container } = render(<Editor initialDoc={"- first\n  - nested"} />);
+
+    expect(content(container)).toBe("firstnested");
+  });
+
+  it("indents a nested bullet past its parent", () => {
+    // The spaces that nest the item are hidden with the dash, so the indent
+    // has to be drawn or the nesting disappears from the render.
+    const { container } = render(<Editor initialDoc={"- first\n  - nested"} />);
+    const [parent, nested] = container.querySelectorAll<HTMLElement>(".cm-bullet");
+
+    expect(parent?.style.paddingLeft).toBe("1.6em");
+    expect(nested?.style.paddingLeft).toBe("3.2em");
+  });
+
+  it("leaves the text of tables and code fences untouched", () => {
+    // A fence is drawn as a block but nothing in it is hidden: the language and
+    // the backticks are part of what you came to read. A table gets neither,
+    // needing widget decorations that live preview does not have yet.
     const lines = ["```js", "const x = 1;", "```", "| a | b |", "| - | - |", "| 1 | 2 |"];
     const { container } = render(<Editor initialDoc={lines.join("\n")} />);
 
     expect(content(container)).toBe(lines.join(""));
+  });
+
+  it("draws a fenced block as one surface, top and bottom marked", () => {
+    const lines = ["before", "```js", "const x = 1;", "const y = 2;", "```", "after"];
+    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+
+    // Every line of the fence, the two backtick lines included.
+    expect(container.querySelectorAll(".cm-code-block")).toHaveLength(4);
+    // The corners are rounded on the outside only, so the run reads as a box.
+    expect(container.querySelectorAll(".cm-code-open")).toHaveLength(1);
+    expect(container.querySelectorAll(".cm-code-close")).toHaveLength(1);
+  });
+
+  it("draws a divider in place of the three dashes", () => {
+    const { container } = render(<Editor initialDoc={"above\n\n---\n\nbelow"} />);
+
+    expect(container.querySelectorAll(".cm-rule")).toHaveLength(1);
+    // Drawn rather than typed, so the dashes themselves are off the screen.
+    expect(content(container)).toBe("abovebelow");
+  });
+
+  it("hands the dashes back on the line being edited", async () => {
+    const { container } = render(<Editor initialDoc={"---\n\nbelow"} />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    // The drawn line goes with them, or the row carries a rule and its source.
+    await waitFor(() => expect(content(container)).toContain("---"));
+    expect(container.querySelectorAll(".cm-rule")).toHaveLength(0);
+  });
+
+  it("leaves a setext underline alone, that being a heading and not a rule", () => {
+    const { container } = render(<Editor initialDoc={"Title\n---\n\nbody"} />);
+
+    expect(container.querySelectorAll(".cm-rule")).toHaveLength(0);
+  });
+
+  it("leaves prose outside the fence alone", () => {
+    const { container } = render(<Editor initialDoc={"prose\n```\ncode\n```"} />);
+    const first = container.querySelector(".cm-line");
+
+    expect(first?.textContent).toBe("prose");
+    expect(first?.classList.contains("cm-code-block")).toBe(false);
   });
 
   it("settles rather than bouncing between two touching hidden ranges", () => {

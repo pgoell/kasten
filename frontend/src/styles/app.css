@@ -4,6 +4,8 @@
    Repeated here so the chrome around the editor matches it exactly rather
    than approximately. Values copied from @codemirror/theme-one-dark. */
 @theme {
+  --font-sans: "pgoell Sans Web", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "pgoell Mono Web", ui-monospace, monospace;
   --color-one-bg: #282c34;
   --color-one-panel: #21252b;
   --color-one-hover: #2c313a;
@@ -13,6 +15,10 @@
   --color-one-accent: #61afef;
   --color-one-green: #98c379;
   --color-one-warn: #e06c75;
+  --color-one-yellow: #e5c07b;
+  /* The red the vim block cursor is painted in, borrowed from
+     @replit/codemirror-vim so the file tree's cursor reads as the same idea. */
+  --color-one-cursor: #ff9696;
   --color-one-line: #181a1f;
 }
 
@@ -24,11 +30,25 @@ body,
 
 body {
   background: var(--color-one-bg);
+  font-family: var(--font-sans);
 }
 
 /* CodeMirror sizes itself to its content by default; make it fill the pane. */
 .cm-editor {
   height: 100%;
+}
+
+/* A note is prose, so it is set in the proportional face. Monospace is kept for
+   the things that are actually code: the two rules at the foot of this file. */
+.cm-editor .cm-scroller {
+  font-family: var(--font-sans);
+}
+
+/* Line numbers stay monospaced, so the column keeps its width as it counts up
+   rather than shuffling sideways between 9 and 10. */
+.cm-editor .cm-gutters {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Live preview. The syntax marks are hidden in normal mode, so these styles are
@@ -60,26 +80,28 @@ body {
 /* A wash rather than a block of colour: the text under it still has to read
    as body text on the dark background. */
 .cm-highlight {
-  background: color-mix(in srgb, var(--color-one-warn) 28%, transparent);
+  background: color-mix(in srgb, var(--color-one-yellow) 28%, transparent);
   border-radius: 2px;
 }
 
 /* The marks are gone from the text, so the marker and the indent are drawn
-   rather than typed. Both selectors name .cm-line as well, because CodeMirror
-   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade:
-   the bullet then hangs at a negative offset and is clipped away. */
+   rather than typed. The blockquote names .cm-line as well, because CodeMirror
+   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade
+   and clip the bar away. A bullet carries its padding inline instead, one step
+   per level of nesting, and an inline style beats both. */
 .cm-line.cm-blockquote {
   border-left: 3px solid var(--color-one-muted);
   padding-left: 0.75em;
   color: var(--color-one-muted);
 }
 
-.cm-line.cm-bullet {
-  padding-left: 1.6em;
+/* Hangs the dot in the space the padding opens, so a wrapped line puts its
+   text under the text above rather than under the bullet. */
+.cm-bullet {
   text-indent: -1.1em;
 }
 
-.cm-line.cm-bullet::before {
+.cm-bullet::before {
   content: "• ";
   color: var(--color-one-accent);
 }
@@ -89,9 +111,53 @@ body {
   text-decoration: underline;
 }
 
+/* The dashes are hidden, so the row is empty and the rule is painted into its
+   background: a one pixel band held at the middle. A border would sit at the
+   foot of the row instead, leaving the gap above it and below it uneven. */
+.cm-line.cm-rule {
+  background-image: linear-gradient(var(--color-one-selection), var(--color-one-selection));
+  background-size: 100% 1px;
+  background-position: 0 50%;
+  background-repeat: no-repeat;
+}
+
+/* The two places monospace survives, because both are code rather than prose.
+   The size is knocked back because a monospaced face at the same point size
+   reads larger than the proportional one beside it. */
 .cm-inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
   background: var(--color-one-panel);
   color: var(--color-one-green);
   border-radius: 3px;
   padding: 0.1em 0.3em;
+}
+
+/* A fenced block, drawn as one surface a line at a time. CodeMirror gives every
+   line its own element and there is no wrapper to put a border on, so the
+   background runs the full width and only the ends are rounded. */
+.cm-line.cm-code-block {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-one-panel);
+  padding-left: 0.75em;
+  padding-right: 0.75em;
+}
+
+.cm-line.cm-code-open {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  padding-top: 0.35em;
+}
+
+.cm-line.cm-code-close {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  padding-bottom: 0.35em;
+}
+
+/* The backticks and the language stay readable but stand back from the code. */
+.cm-code-open,
+.cm-code-close {
+  color: var(--color-one-muted);
 }

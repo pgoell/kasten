@@ -25,9 +25,13 @@ move-right, because the leader is registered in normal mode only.
 | Key | Does |
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
+| `<leader>e` | Move the focus to the file tree |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Write the note and close it |
 | `<leader>?` | Show every binding on this page, in the app |
+
+`<leader>e` unfolds the tree first if it was folded away, and lands on the row
+the tree cursor is already on. Escape in the tree comes back to the editor.
 
 `<leader>q` closes the note only once the vault holds the text. A write that
 fails leaves the note open with the warning in the status bar, because closing
@@ -64,10 +68,43 @@ history window.
 opens only when a non-space follows it and closes only when a non-space
 precedes it, which keeps `a == b` out of it.
 
+## Backticks
+
+A backtick closes itself, the way a bracket and a quote already did. Markdown
+ships no bracket list of its own, so the editor was using the default set from
+`@codemirror/autocomplete`, and a backtick was not in it.
+
+| Typed | You get |
+| --- | --- |
+| `` ` `` | `` `` `` with the cursor between the pair |
+| `` `` `` | The cursor steps over the closing one |
+| ``` ``` ``` | A whole fenced block, with the cursor on the empty line inside |
+
+The third backtick is handled separately, because closing brackets alone would
+leave four of them on the line: one pair from the first keystroke, the second
+stepping over it, and the third opening a pair of its own. It only fires when
+the line holds the pair and nothing else, so a backtick typed mid-sentence
+still just opens a pair.
+
+## Indenting
+
+| Key | Does |
+| --- | --- |
+| Tab | Indent the line, which nests a list item under the one above |
+| Shift+Tab | Lift the line back out |
+
+Both act on the line rather than the cursor, so the indent goes in at the front
+of the line wherever in it you are pressing the key. CodeMirror leaves Tab
+unbound by default so the key can move the focus out of the editor. Binding it
+takes that away, which is what `<leader>e` is for.
+
+The unit is two spaces. Neither key is a list key: they indent a plain line the
+same way, and an ordered list the same way as a bulleted one.
+
 ## The file tree
 
-These apply while the tree holds the focus. Tab reaches the row the cursor is
-on, and these keys move it from there.
+These apply while the tree holds the focus. `<leader>e` reaches the row the
+cursor is on, and these keys move it from there.
 
 | Key | Does |
 | --- | --- |

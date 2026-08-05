@@ -1,3 +1,4 @@
+import { indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { Compartment, EditorState, Facet } from "@codemirror/state";
@@ -6,6 +7,7 @@ import { EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
+import { backticks } from "@/lib/backticks";
 import { editorCommands } from "@/lib/editor-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
@@ -40,6 +42,19 @@ Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
  * an identity, and each state configures it separately.
  */
 const preview = new Compartment();
+
+/**
+ * Whether nobody on the page holds the focus.
+ *
+ * The editor takes it in that case and only that case. The file tree and the
+ * key map panel are focusable too, and neither is the editor's to take: opening
+ * a note from the tree remounts the editor, and grabbing the focus there would
+ * end a walk down the tree after the first note.
+ */
+function nothingFocused(): boolean {
+  const active = document.activeElement;
+  return !active || active === document.body;
+}
 
 interface EditorProps {
   /** The document to open. Only read on mount; pass a `key` to open another note. */
@@ -98,6 +113,15 @@ export function Editor({
           // Ahead of basicSetup for the same reason: ctrl+s must reach us
           // rather than open the browser's save dialog.
           keymap.of([{ key: "Mod-s", run: save, preventDefault: true }]),
+          // basicSetup leaves tab unbound so the key can move the focus out of
+          // the editor. A note needs it to nest a list item, and `<leader>e`
+          // is the way to the file tree now, so the trade is worth taking.
+          // Vim maps no tab of its own, in any mode, so this is the only
+          // handler the key reaches.
+          keymap.of([indentWithTab]),
+          // Ahead of basicSetup, whose closeBrackets would otherwise answer the
+          // third backtick with a pair before the fence handler sees it.
+          backticks(),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           // Each one reads the ref rather than closing over the prop, so a
           // re-render never has to rebuild the view to refresh a callback.
@@ -106,6 +130,7 @@ export function Editor({
             togglePreview: () => commandsRef.current?.togglePreview(),
             closeNote: () => commandsRef.current?.closeNote(),
             showHelp: () => commandsRef.current?.showHelp(),
+            focusTree: () => commandsRef.current?.focusTree(),
           }),
           basicSetup,
           markdown({
@@ -126,11 +151,25 @@ export function Editor({
       parent,
     });
     viewRef.current = view;
+    // A freshly loaded page focuses nothing, and the first thing typed at it
+    // goes nowhere. The editor is what the page is for, so it takes the focus.
+    if (nothingFocused()) view.focus();
 
     return () => {
       viewRef.current = null;
       view.destroy();
     };
+  }, []);
+
+  // Coming back to the tab lands on the body when the page had nothing focused
+  // when you left it, and the cursor is dead again until you click.
+  useEffect(() => {
+    function onWindowFocus() {
+      if (nothingFocused()) viewRef.current?.focus();
+    }
+
+    window.addEventListener("focus", onWindowFocus);
+    return () => window.removeEventListener("focus", onWindowFocus);
   }, []);
 
   // Swapping the extension out is all this takes: the same `livePreview()`
