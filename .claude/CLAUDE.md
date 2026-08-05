@@ -1,121 +1,125 @@
-# Sieve: project instructions
+# kasten: project instructions
 
-## Current status
+A self-hosted markdown notebook with wikilinks and backlinks, in the shape of
+Obsidian but served as a web page. Single user, running on a Hetzner VPS behind
+oauth2-proxy.
 
-Sieve is a concept project. The repo currently contains design documents only:
+## The one rule
 
-- [Design spec](../docs/superpowers/specs/2026-04-23-sieve-platform-design.md)
-- [OPEN_THINGS](../docs/superpowers/OPEN_THINGS.md) (work catalog)
-- [Architecture docs](../docs/architecture/) and [ADRs](../docs/adr/)
+The vault is a directory of `.md` files and it is the source of truth. Postgres
+holds a derived index only, and you must be able to drop the schema and rebuild
+it from the vault. Nothing that only exists in the database is allowed to
+matter.
 
-No backend, frontend, or worker code has been written yet. Phase 0 (see OPEN_THINGS) will land the tooling and scaffold. Anything in this file that references build commands, containers, or test runners describes the target state, not what exists today.
+Check any change you make against that rule before you write it. The reasoning
+is in [The vault and the derived index](../docs/explanation/vault-and-derived-index.md).
 
-## Where rules live
+## What exists today
 
-- **This file (`.claude/CLAUDE.md`)**: project-wide architecture, workflow, conventions. Loaded every session.
-- **`backend/CLAUDE.md`** (after Phase 0): Python / FastAPI / SQLAlchemy / pytest rules scoped to backend files.
-- **`frontend/CLAUDE.md`** (after Phase 0): React / Vite / Biome / Vitest rules scoped to frontend files.
-- **`workers/inbound-email/CLAUDE.md`** (after Phase 0): Cloudflare Worker rules scoped to the worker.
-- **`.claude/rules/*.md`** (as needed): rules scoped by file path via `paths:` frontmatter.
+Real, working code, not a plan:
 
-See [Anthropic's memory docs](https://code.claude.com/docs/en/memory) for the loading model.
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Two
+  read-only endpoints, `/api/health` and `/api/files`. Settings via
+  pydantic-settings with the `KASTEN_` prefix.
+- `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
+  CodeMirror 6 with vim mode, bun. A vault file tree and a markdown editor.
+- `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
+  prod pulls GHCR images and deploys from a GitHub release.
+- `vault/`: the notes.
 
-## Architecture (target state)
+Not built yet: opening a note from the tree, saving, wikilinks, backlinks,
+search, and anything that writes to Postgres. The database schema is empty
+beyond Alembic's own table. Do not document these as though they exist.
 
-- **`backend/`**: FastAPI + SQLAlchemy async web container. REST API, magic-link auth, webhook endpoints. Runtime state (engine, session factory, settings) on `app.state` set in `lifespan`.
-- **`backend/`** also hosts the **worker** entry point: APScheduler + DB-backed job queue (`SELECT ... FOR UPDATE SKIP LOCKED`). Packaged as the same Python module, run as a separate container with a different command.
-- **`frontend/`**: Vite + React + TypeScript SPA. Proxies to backend in dev. OpenAPI-codegen types (`mise run fe:types`).
-- **`workers/inbound-email/`**: Cloudflare Email Worker. JS, deployed via Wrangler. POSTs raw RFC822 to the backend's webhook.
-- **`deploy/`**: compose files for staging + production. GHCR images published by GitHub Actions on master. Joins the external `web` network run out of `~/Code/server-infra/`.
-- **Datastores:** Postgres 17 with pgvector (relational + vectors + job queue); S3-compatible object store for blobs (Hetzner Object Storage in staging and production, MinIO in local-dev compose).
-- **LLM:** Anthropic + Google Gemini via pluggable `Summarizer` / `Embedder` interfaces. BYOK per user, platform key for paid users.
+## Commands
 
-Full picture in [`docs/architecture/overview.md`](../docs/architecture/overview.md).
+mise owns every command. `mise tasks` lists them, and
+[the reference page](../docs/reference/mise-tasks.md) explains them by group.
+The ones you need most:
+
+```sh
+mise run dev        # backend on :8000
+mise run fe:dev     # frontend on :5173
+mise run test       # backend and frontend tests
+mise run lint       # ruff, ty, biome
+mise run db:migrate # apply migrations to the dev database
+```
+
+Two failure modes worth knowing before you lose an hour to them:
+
+- A git hook that hangs printing nothing is mise waiting to trust the config.
+  Run `mise trust`. Every fresh clone and every new worktree hits this.
+- Frontend tests failing locally while CI is green usually means `node_modules`
+  is a bun install on top of an old pnpm tree. Delete it and reinstall.
+
+## Documentation
+
+`docs/` is a [Diátaxis](https://diataxis.fr) tree written in
+[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+v0.2. Read [docs/index.md](../docs/index.md) first; it explains the arrangement.
+
+When you add or change a page:
+
+- Every page except `index.md` and `log.md` carries YAML frontmatter, and
+  `type` is required. Use the quadrant as the type: `Tutorial`,
+  `How-to Guide`, `Reference` or `Explanation`. Add `title`, `description`,
+  `tags` and `status` too.
+- Put the page in the quadrant that matches its job. A tutorial teaches a
+  beginner, a how-to serves someone who knows what they want, a reference
+  states what is there, an explanation gives the why. Mixing two of those into
+  one page is the failure this structure exists to prevent.
+- Link between pages with bundle-relative markdown links, `/reference/http-api.md`.
+- Update the `index.md` of the directory you touched, and add a dated entry to
+  `docs/log.md`.
+- Never add AI attribution, so no `generated:` or `verified:` frontmatter.
+
+Deployment stays in `deploy/README.md`, next to the compose files it describes.
+
+Documentation describes what the code does now. If a change makes a page wrong,
+fix the page in the same pull request.
 
 ## Development workflow
 
-Sieve follows the same flow as Klassenzeit.
+Test-driven, red-green-refactor. Write the failing test, watch it fail for the
+right reason, then write the code. The repo has real tests on both sides:
+pytest in `backend/tests/`, vitest in `frontend/tests/`.
 
-**Skills are not optional when a workflow names them.** Slash commands and skill references (notably the ones in this file) call out specific skills by name. "Invoke the skill" means call the `Skill` tool and let it return, then follow what it says. Synthesizing a skill's output freehand, even when it looks right, is skipping the skill and counts as a process violation. If a workflow step names a skill, calling `Skill` is the first action of that step.
+Work happens on a branch and lands through a pull request. Lefthook runs `lint`
+before a commit and the tests plus the frontend typecheck before a push. CI
+runs Lint and Test, and both must pass before main will take the merge. Main
+requires linear history and merge commits are off, so squash or rebase.
 
-Always use TDD with red-green-refactor, driven by `superpowers:test-driven-development`. Development always ends in PRs after docs and ADRs have been reviewed and updated.
-
-Before opening a PR, run `claude-md-management:revise-claude-md` if the session produced learnings worth persisting, and if you ran that, run `claude-md-management:claude-md-improver` right after. Both via the `Skill` tool.
-
-Keep things that are out of scope for a step, or that you notice as tech debt or todos, in [`docs/superpowers/OPEN_THINGS.md`](../docs/superpowers/OPEN_THINGS.md), ordered by importance. Don't add duplicates.
-
-## Work selection: quality first, tidy first
-
-When picking the next item off OPEN_THINGS.md without a more specific directive from the user, prefer **tech debt and quality work over new user-facing features**. Follow Kent Beck's "Tidy First?" heuristic: small structural refactors that make subsequent feature work cheaper and safer come before the features themselves. Concretely:
-
-1. Read OPEN_THINGS.md top to bottom. Skim the "Product capabilities" section last.
-2. Pick the highest-impact item from "Infrastructure", "Testing", "Observability", "Open decisions", or similar quality-adjacent sections that is unblocked and fits a single PR.
-3. Structural refactors that remove duplication, collapse drift between near-identical call sites, or replace ad-hoc patterns with shared primitives count as tidy-first and are preferred over feature work.
-4. A structural change and a behavioral change never ship in the same commit. If a tidy-first refactor uncovers a behavior bug, surface the bug and fix it in a separate commit with its own typed prefix (`fix(...)`), not folded into the refactor.
-5. Behavior must be preserved across a tidy commit: tests that passed before must pass after without modification, except where the only change is a test's import path or a mock signature rendered obsolete by the refactor.
-
-If every quality item in OPEN_THINGS.md is blocked or out of scope for one PR, fall back to the next feature item and note why in the PR body.
-
-## Tooling (target state after Phase 0)
-
-### Commands
-
-- `mise run dev`: backend with auto-reload
-- `mise run fe:dev`: frontend dev server
-- `mise run worker`: worker container locally
-- `mise run test`: all tests
-- `mise run test:py`: Python only
-- `mise run fe:test`: frontend Vitest only
-- `mise run e2e`: Playwright suite
-- `mise run lint`: all linters
-- `mise run fmt`: auto-format
-- `mise run fe:types`: regenerate frontend OpenAPI types from backend
-- `mise run db:up` / `db:stop` / `db:reset` / `db:migrate`: Postgres lifecycle
-
-### Prerequisites
-
-- **mise** pins Python, uv, bun, cocogitto, lefthook. `mise install` on fresh clones.
-- **Git hook runner:** [Lefthook](https://github.com/evilmartians/lefthook). Config at `.config/lefthook.yaml`.
-- **Commit-message enforcement:** [Cocogitto](https://docs.cocogitto.io) (`cog`). `commit-msg` hook runs `cog verify`.
-- **Pre-push runs the full test suite.** Even docs-only pushes pay the cost. Broken builds never reach the remote. Use `mise exec -- git push` so the pinned lefthook runs.
-- **`gh` + `jq`** required for repo automation tasks.
+Verify before you claim. A change is done when you have run the thing, not when
+it looks right.
 
 ## Coding standards
 
-- **No bare catchalls.** No untyped `catch` in TypeScript, no `Result<_, _>` swallowed with `_` in Rust (if ever added), no bare `except:` in Python. Catch the specific error you can handle; let the rest propagate.
-- **No dynamic imports.** All imports static / top-of-file so the dependency graph is analyzable. No `import()` expressions, no `importlib.import_module` in hot paths.
-- **Unique function names globally.** Function names must be unique across the entire codebase, even across classes and files. A pre-commit check enforces this once Phase 0 lands the script.
-- **ADR titles skip the em-dash.** Use a colon: `# NNNN: Title`. The user's global style forbids em-dashes and en-dashes in prose.
-- **SHA-pin third-party GitHub Actions.** `actions/*` and `github/*` can use `@vN`; everything else pins to a full commit SHA with a trailing `# vX.Y.Z` comment.
-- **Conventional Commits.** `<type>(<scope>)?: <subject>`. Subject starts lowercase. Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Append `!` for breaking changes. PR titles follow the same rule.
+- **No bare catchalls.** No untyped `catch` in TypeScript, no bare `except:` in
+  Python. Catch the error you can handle and let the rest propagate.
+- **No dynamic imports.** Keep the dependency graph analyzable.
+- **Comments explain why.** The code already says what it does. A comment earns
+  its place by recording the constraint, the surprise or the reason for a
+  choice that looks odd. Match the density of the surrounding file.
+- **SHA-pin third-party GitHub Actions.** `actions/*` and `github/*` may use
+  `@vN`; everything else pins a full commit SHA with a trailing `# vX.Y.Z`.
+- **Conventional Commits.** `<type>(<scope>)?: <subject>`, subject lowercase.
+  `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
+  `chore`, `revert`. Append `!` for breaking changes. PR titles follow the same
+  rule. Nothing enforces this automatically, so it is on you.
+- **Never add AI attribution** to commits, PRs, code or docs. No "Generated
+  with", no "Co-Authored-By: Claude".
 
-## ADR-first development
+## Writing style
 
-All architectural decisions are documented in [`docs/adr/`](../docs/adr/). The ADRs are the source of truth.
+Applies to all prose: docs, commit messages, PR bodies, code comments.
 
-Before implementing any new feature, structural change, or pattern deviation:
+- No em-dashes (—) or en-dashes (–). Rewrite with commas, periods, colons,
+  semicolons, parentheses, or split the sentence.
+- No hyphens standing in for punctuation mid-sentence. Hyphens inside compound
+  words are fine, and markdown horizontal rules are structural.
+- Short words over long ones, active over passive, and cut what does not earn
+  its place.
 
-1. **Check ADRs**: read relevant ADRs to understand existing decisions.
-2. **Update or create ADR**: if the change contradicts an existing ADR, update it (set old to "Superseded"). If the change introduces a new pattern, create a new ADR with status "Proposed".
-3. **Implement**: follow the ADR.
-4. **Accept the ADR**: once the feature ships and the decision has held in practice, flip `Status: Proposed` to `Status: Accepted`.
-
-Nothing gets implemented without being documented in an ADR first, or pointing at the ADR that already covers it.
-
-## Commit messages
-
-This repo will enforce [Conventional Commits](https://www.conventionalcommits.org/) once Phase 0 lands `cog`.
-
-**Format:** `<type>(<optional scope>): <description>`
-
-**PR titles** must also satisfy `subjectPattern: ^[a-z].+$`. Start the subject with a lowercase letter even when the first word is an acronym: `feat(frontend): crud pages ...`, not `feat(frontend): CRUD pages ...`.
-
-**Never add AI attribution** to commits, PRs, or code. No "Generated with", no "Co-Authored-By: Claude".
-
-## Writing style (enforced via user global, repeated here for clarity)
-
-- No em-dashes (—) or en-dashes (–) in prose. Rewrite with commas, periods, colons, semicolons, parentheses, or separate sentences.
-- No hyphens (-) as sentence punctuation (" - " standing in for a comma or dash). Hyphens in compound words are fine.
-- Markdown horizontal rules (`---`) are structural, not punctuation.
-
-Applies to all prose: commit messages, PR bodies, docs, code comments.
+One exception, and it is deliberate: `index.md` files in `docs/` use the
+`* [Title](url) - description` form because OKF specifies that shape for
+directory listings.

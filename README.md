@@ -34,6 +34,13 @@ mise run fe:dev  # frontend on :5173, proxying /api to the backend
 ```
 backend/    FastAPI service and Alembic migrations
 frontend/   Vite SPA
+docs/       documentation, arranged by Diátaxis
+deploy/     dev and prod compose files, and their runbook
 scripts/    OpenAPI type generation
 compose.yaml  dev Postgres
 ```
+
+## Documentation
+
+[`docs/`](docs/index.md) holds the tutorials, how-to guides, reference and
+explanation. Start with [Getting started](docs/tutorials/getting-started.md).
