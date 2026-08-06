@@ -48,3 +48,28 @@ async def test_reports_an_empty_vault_when_the_directory_is_missing(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+async def test_lists_a_folder_named_like_a_note_as_a_folder(
+    client: AsyncClient, vault: Path
+) -> None:
+    # `resolve_note` refuses a directory, so listing one was a row in the tree
+    # that answered 404 when you opened it. What is inside it still lists.
+    (vault / "archive.md").mkdir()
+    (vault / "archive.md" / "note.md").write_text("# note")
+
+    response = await client.get("/api/files")
+
+    assert response.json() == ["archive.md/note.md"]
+
+
+async def test_does_not_walk_into_a_symlinked_folder(client: AsyncClient, vault: Path) -> None:
+    # A link pointing at an ancestor would otherwise walk forever, and one
+    # pointing out of the vault would list what the reads refuse to open.
+    (vault / "real").mkdir()
+    (vault / "real" / "note.md").write_text("# note")
+    (vault / "loop").symlink_to(vault)
+
+    response = await client.get("/api/files")
+
+    assert response.json() == ["real/note.md"]

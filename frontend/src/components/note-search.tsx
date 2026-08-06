@@ -17,11 +17,23 @@ import {
   ROW,
   STATUS,
 } from "@/lib/overlay-styles";
+import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 interface NoteSearchProps {
   /** Called with the note to open and the line the match sits on. */
   onOpen: (path: string, line: number) => void;
   onClose: () => void;
+  /**
+   * The note to show what links to, instead of searching what is typed.
+   *
+   * The same panel either way: a list of lines from the vault, ranked against
+   * the input, and Enter opens the note on the line. Only where the lines come
+   * from differs, which is why this is a mode of the search rather than a
+   * fourth overlay repeating it.
+   */
+  backlinksOf?: string;
+  /** Every path in the vault, which is what turns a link's name into a path. */
+  paths?: string[];
 }
 
 /** Rows the list will mount. Beyond this, another letter narrows faster than a scroll. */
@@ -63,16 +75,25 @@ function windowAround(text: string, line: number): { lines: string[]; from: numb
   return { lines: all.slice(from, at + CONTEXT_LINES + 1), from };
 }
 
+/** The note's name, which is what every link to it carries. */
+function noteName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
+}
+
 /**
  * What the line under the list says, and nothing where it has nothing to say.
  *
  * Nothing typed is not the same as nothing found, and neither is a scan still
  * running. Saying "no notes match" while the answer is on its way is the lie
  * worth going to this length to avoid.
+ *
+ * Backlinks skip the first of those: the query is the note's own name and was
+ * never waiting to be typed, so there is no state where nothing has been asked.
  */
-function hint(typed: string, pending: boolean, matches: number): string {
-  if (!typed) return "type to search every note";
+function hint(typed: string, pending: boolean, matches: number, backlinks: boolean): string {
   if (pending) return "reading the vault";
+  if (backlinks) return matches === 0 ? "nothing links here" : "";
+  if (!typed) return "type to search every note";
   return matches === 0 ? "no notes match" : "";
 }
 
@@ -90,11 +111,16 @@ function hint(typed: string, pending: boolean, matches: number): string {
  * That split is also why typing narrows without waiting. The lines in hand are
  * ranked against the live query while the scan for it is still running, so the
  * list keeps tightening between answers rather than freezing until the next.
+ *
+ * `backlinksOf` turns the same panel around: the vault is asked once, for the
+ * note's own name, and typing only ranks what came back. That works because the
+ * two stages already split this way. What links to a note is a fixed set the
+ * vault decides, and the input was never choosing the lines here anyway.
  */
-export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
+export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchProps) {
   const [query, setQuery] = useState("");
-  /** What the vault was last asked for, which trails what has been typed. */
-  const [asked, setAsked] = useState("");
+  /** What a typed query settled on, which trails what has been typed. */
+  const [settled, setSettled] = useState("");
   /** Which hit Enter would open. */
   const [active, setActive] = useState(0);
   const field = useRef<HTMLInputElement>(null);
@@ -103,11 +129,19 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
   const listId = useId();
 
   const typed = query.trim();
+  // What the vault is asked for. Backlinks ask for the note's name, and ask
+  // once: every link to a note carries its name, whether it spelled the path
+  // out or not, so the name is the one query no link to it can escape.
+  const name = backlinksOf === undefined ? undefined : noteName(backlinksOf);
+  const asked = name ?? settled;
 
   useEffect(() => {
-    const timer = setTimeout(() => setAsked(typed), SETTLE_MS);
+    // Nothing to settle where the query is fixed, and a timer over it would
+    // only be a second answer to a question already asked.
+    if (name !== undefined) return;
+    const timer = setTimeout(() => setSettled(typed), SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [typed]);
+  }, [typed, name]);
 
   const search = useQuery({
     queryKey: ["search", asked],
@@ -119,7 +153,19 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
     retry: false,
   });
 
-  const found = useMemo(() => search.data ?? [], [search.data]);
+  // Every line the vault answered with, cut to the ones that really are links
+  // where backlinks were asked for. rg finds the note's name in prose as
+  // readily as in a link, and only reading the line as the editor parses it
+  // tells the two apart. Resolving each target against the listing is what
+  // keeps `[[borges]]` and `[[reading/borges]]` both counting, and a link to
+  // another note of the same name in another folder not counting at all.
+  const found = useMemo(() => {
+    const hits = search.data ?? [];
+    if (backlinksOf === undefined) return hits;
+    return hits.filter((hit) =>
+      wikiLinkTargets(hit.text).some((target) => wikiLinkPath(target, paths ?? []) === backlinksOf),
+    );
+  }, [search.data, backlinksOf, paths]);
   // Derived from the answer and not from the query, so every keystroke between
   // two answers ranks a set that was prepared once.
   const candidates = useMemo(() => lineCandidates(found.map((hit) => hit.text)), [found]);
@@ -192,14 +238,22 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    const down = event.key === "ArrowDown" || (event.ctrlKey && event.key === "n");
-    const up = event.key === "ArrowUp" || (event.ctrlKey && event.key === "p");
+    // Tab walks the list rather than completing anything, the way it does in a
+    // terminal fuzzy finder. There is nothing here to complete: Enter opens the
+    // row under the highlight whatever the input says.
+    const tab = event.key === "Tab";
+    const down =
+      event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n");
+    const up =
+      event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p");
 
     if (down || up) {
-      if (hits.length === 0) return;
       // Without this the arrows take the caret to one end of the input, which
-      // is where the browser sends them when nothing else does.
+      // is where the browser sends them when nothing else does, and Tab takes
+      // the focus out of the panel. Prevented before the empty list is checked,
+      // because an empty list is where Tab would leave and not come back.
       event.preventDefault();
+      if (hits.length === 0) return;
       setActive(down ? Math.min(cursor + 1, hits.length - 1) : Math.max(cursor - 1, 0));
       return;
     }
@@ -225,7 +279,7 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Search notes"
+      aria-label={backlinksOf === undefined ? "Search notes" : "Backlinks"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className={BACKDROP}
@@ -235,7 +289,7 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
       <div className={`${PANEL} ${PANEL_WIDE}`}>
         <div className={HEADER_ROW}>
           <label htmlFor={`${listId}-query`} className={LABEL}>
-            search notes
+            {backlinksOf === undefined ? "search notes" : "backlinks"}
           </label>
           <input
             id={`${listId}-query`}
@@ -320,7 +374,9 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className={STATUS}>{hint(typed, search.isFetching, hits.length)}</output>
+        <output className={STATUS}>
+          {hint(typed, search.isFetching, hits.length, backlinksOf !== undefined)}
+        </output>
       </div>
     </div>
   );

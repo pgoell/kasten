@@ -219,6 +219,8 @@ export function Editor({
             renameNote: (startPath) => commandsRef.current?.renameNote(startPath),
             findNote: () => commandsRef.current?.findNote(),
             searchNotes: () => commandsRef.current?.searchNotes(),
+            showBacklinks: () => commandsRef.current?.showBacklinks(),
+            showLinksOut: () => commandsRef.current?.showLinksOut(),
           }),
           basicSetup,
           markdown({

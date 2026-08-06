@@ -36,6 +36,62 @@ class Hit(NamedTuple):
     text: str
 
 
+# Flags both readers below pass, so the two cannot drift into disagreeing about
+# which notes the vault holds. `--no-ignore` because the vault may be a git repo
+# and a `.gitignore` in it says nothing about which notes exist. The glob
+# because the listing is markdown only. Hidden files need no flag: rg skips
+# them, and so does the listing, which keeps `.jj` and `.git` out of both.
+SEEN_BY_THE_LISTING = ("--no-ignore", "--glob", "*.md")
+
+
+class SearchError(RuntimeError):
+    """rg could not read the whole vault, so its answer is not the whole answer.
+
+    Raised only for the caller that rewrites notes. A search that came up short
+    shows fewer rows; a rewrite that comes up short leaves a broken link behind,
+    and it has to fail instead.
+    """
+
+
+async def notes_holding(root: Path, text: str) -> list[str]:
+    """Every note in the vault whose text contains `text`, ignoring case.
+
+    Paths only, one per note rather than one per matching line, which is what
+    lets this have no cap where `search_vault` needs one: a caller about to
+    rewrite the vault has to be handed every note or it leaves a link pointing
+    at nothing.
+
+    A literal match, and a superset of what the caller is really after. It
+    narrows a walk over every note in the vault to a walk over the few that
+    could hold the link, and the caller still decides note by note.
+    """
+    process = await asyncio.create_subprocess_exec(
+        "rg",
+        "--files-with-matches",
+        "--fixed-strings",
+        "--ignore-case",
+        # One NUL after each path, which is the one byte a path cannot contain.
+        # A newline can, and splitting on one would cut such a path in half.
+        "--null",
+        *SEEN_BY_THE_LISTING,
+        "-e",
+        text,
+        "--",
+        str(root),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await process.communicate()
+
+    # 0 is matches and 1 is none. Anything above that is rg saying it could not
+    # read part of the vault, which for this caller is not an empty answer.
+    if process.returncode is not None and process.returncode > 1:
+        raise SearchError(stderr.decode(errors="replace").strip())
+
+    found = stdout.decode("utf-8", "replace").split("\0")
+    return [str(Path(path).relative_to(root)) for path in found if path]
+
+
 async def search_vault(root: Path, query: str) -> list[Hit]:
     """Every line in the vault containing `query`, ignoring case, up to `MOST_HITS`."""
     # An empty literal matches every line there is, so the query that has not
@@ -59,15 +115,9 @@ async def search_vault(root: Path, query: str) -> list[Hit]:
         "--with-filename",
         "--no-heading",
         "--null",
-        # Search has to see exactly what `GET /api/files` lists, and these two
-        # are where rg would otherwise disagree with it. `--no-ignore` because
-        # the vault may be a git repo and a `.gitignore` in it says nothing
-        # about which notes exist. The glob because the listing is markdown
-        # only. Hidden files need no flag: rg skips them, and so does the
-        # listing, which is what keeps `.jj` and `.git` out of both.
-        "--no-ignore",
-        "--glob",
-        "*.md",
+        # Search has to see exactly what `GET /api/files` lists, and these are
+        # where rg would otherwise disagree with it.
+        *SEEN_BY_THE_LISTING,
         # `-e` so a query starting with a dash is a query and not a flag, and
         # `--` so the same is true of the path after it.
         "-e",

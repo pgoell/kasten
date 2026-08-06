@@ -29,6 +29,8 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
+| `<leader>gb` | Show what links to the open note |
+| `<leader>go` | Show what the open note links to |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Write the note and close it |
 | `<leader>rf` | Open the rename prompt |
@@ -56,6 +58,17 @@ as renaming it in place, making folders on the way and taking away the ones it
 emptied. The note you are writing follows into the URL; renaming any other note
 leaves the editor where it is. Text still waiting to be written is saved before
 the prompt opens, so a rename never strands a keystroke at the old path.
+
+A rename also moves the links. Every `[[link]]` in the vault that named the note
+is rewritten to name it at its new path, and it keeps the spelling it had: a
+path stays a path and a bare name stays a bare name, so `[[borges]]` is left
+alone by a move between folders and follows a change of name. Renaming a folder
+does the same for every note it carries. [The link panels](#the-link-panels)
+cover the two ways to read those links.
+
+`<leader>gb` and `<leader>go` are a pair and need a note open, one showing what
+links to it and the other what it links to. Both do nothing with no note on
+screen, which is how the keys say there is nothing to ask about.
 
 `<leader>e` unfolds the tree first if it was folded away, and lands on the row
 the tree cursor is already on. Escape in the tree comes back to the editor.
@@ -168,7 +181,39 @@ finder](#the-note-finder) does by hand and one this does not have to repeat.
 a note's name rather than prose, so nothing in it is parsed as markdown, and a
 link that runs past the end of its line is not a link.
 
-Backlinks, the other half of what wikilinks are for, are not built.
+## The link panels
+
+`<leader>gb` shows what links to the open note. `<leader>go` shows what it links
+to. The same pair Obsidian calls backlinks and outgoing links, and the same two
+letters: `g` for go, then the direction. Neither can be a bare letter, `b`
+folding the tree and `o` opening a line in vim.
+
+Each one reuses a panel that was already here. Backlinks are lines from the
+vault, so they are drawn as [the note search](#the-note-search) draws them, one
+row per line with the note, the line number and the line itself, and Enter opens
+the note on that line. Outgoing links are notes, so they are drawn as [the note
+finder](#the-note-finder) draws them, one row per note, and Enter opens it.
+Typing filters either list, and the keys are that panel's keys.
+
+Backlinks are found in two steps, the way search is. The vault is asked once for
+the note's name, which every link to it carries whether it spelled the path out
+or not, and each line that comes back is then read the way the editor reads it:
+a line counts only where one of its `[[links]]` resolves to this note. That is
+what tells `see [[borges]]` from `borges wrote the library`, and what keeps
+`[[reading/borges]]` counting while a `[[borges]]` that the vault answers with
+another note does not.
+
+Outgoing links are read off the note itself, and the note is written to the
+vault first, so a link you have just typed is in the list. A link to a note
+nobody has written yet is left out: the panel is a list of notes, and there is
+no note there to list. The editor already draws that link dotted, and `gf` is
+what turns it into a note.
+
+The line underneath says `nothing links here` for a note nothing points at, and
+`this note links nowhere` for one that points at nothing.
+
+Both panels are a snapshot of the moment they opened. Nothing behind them is
+being edited while they are up, so there is nothing for them to keep up with.
 
 ## Backticks
 
@@ -208,6 +253,13 @@ same way, and an ordered list the same way as a bulleted one.
 These apply while the tree holds the focus. `<leader>e` reaches the row the
 cursor is on, and these keys move it from there.
 
+The tree opens with every folder folded away, so what you first see is the top
+level and the notes at the vault root. A folder's contents are not drawn until
+you open it, which is what keeps a big vault cheap: at 10,000 notes that is 8
+rows on screen rather than 10,842. The folders on the way to the open note are
+unfolded for you, so a reload lands on the note it says is open rather than on
+a tree that has hidden it.
+
 | Key | Does |
 | --- | --- |
 | `j` / `k` | Move the cursor down or up |
@@ -237,9 +289,12 @@ already opens `gg` in the tree and cannot also be a command of its own.
 `c` and `r` read the row the cursor is on; `f` and `s` do not. Both read the
 whole vault and start from nowhere, so they do the same thing from every row.
 
-Renaming a folder moves every note under it. The prompt says how many before you
-press Enter, and the whole subtree arrives at the new path together, so there is
-no state where half of it moved. It cannot land on a folder the vault already
+Renaming a folder moves every note under it, and the links along with them: a
+`[[reading/borges]]` anywhere in the vault becomes `[[archive/borges]]`, and the
+subtree's own links to each other move with it. A bare `[[borges]]` is left
+alone, the note's name being unchanged. The prompt says how many notes before
+you press Enter, and the whole subtree arrives at the new path together, so
+there is no state where half of it moved. It cannot land on a folder the vault already
 has, on a note, or inside itself, and the line under the list says which of
 those it is. The note you are writing follows into the URL when it was one of
 the notes that moved, and stays where it is when it was not.
@@ -307,13 +362,16 @@ into the finder has to name a path, and the finder never writes.
 | Key | Does |
 | --- | --- |
 | any character | Narrow the list to the notes the query reads into |
-| Down / Ctrl+n | Move the highlight down one row |
-| Up / Ctrl+p | Move the highlight up one row |
+| Down / Ctrl+n / Tab | Move the highlight down one row |
+| Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the highlighted note |
 | Escape | Close, and hand the focus back |
 
-Tab is unbound here. There is nothing to complete: Enter opens the row under the
-highlight whatever the input says.
+Tab walks the list rather than completing anything, the way it does in a
+terminal fuzzy finder. There is nothing here to complete: Enter opens the row
+under the highlight whatever the input says. It is answered even with an empty
+list, which is the one place the key would otherwise take the focus out of the
+panel and not bring it back.
 
 The list ranks every note in the vault, then shows the best twenty. The query
 reads as a subsequence, so `kap` finds `projects/kasten/api-design.md`. A run of
@@ -345,8 +403,8 @@ to name a path, and search never writes.
 | Key | Does |
 | --- | --- |
 | any character | Narrow to the lines holding the query |
-| Down / Ctrl+n | Move the highlight down one row |
-| Up / Ctrl+p | Move the highlight up one row |
+| Down / Ctrl+n / Tab | Move the highlight down one row |
+| Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the note on the line the match is on |
 | Escape | Close, and hand the focus back |
 

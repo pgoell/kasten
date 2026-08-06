@@ -229,8 +229,9 @@ Notes can be made, opened, edited, renamed and moved from the browser, and so
 can folders, except that a folder is never made on its own: it comes into being
 when a note names it. Nothing can be deleted, so getting rid of a note is still
 a file you delete yourself. Every note can be searched by what is written in
-it, with `<leader>fg`, and `[[wikilinks]]` are followed with `gf`, but nothing
-yet says which notes link back to the one you are reading.
+it, with `<leader>fg`, and `[[wikilinks]]` are followed with `gf`, read both
+ways with `<leader>gb` and `<leader>go`, and carried along when the note or the
+folder they name is renamed.
 Tables and images keep their syntax on screen, because live preview does not
 render them yet.
 

@@ -223,22 +223,37 @@ number is why the scorer was rewritten rather than reused.
 
 ### The load side
 
-Recorded, not gated, and nothing on this path was changed.
+Recorded, not gated.
 
-| measurement | value |
-| --- | --- |
-| `GET /api/files` at 10,000 notes | 155 to 161 ms |
-| `buildTree` at 10,000 notes | 8.554 ms |
-| time to the first tree row | 443 to 462 ms |
-| time to the paint that carried it | 834 to 859 ms |
-| rows mounted in the tree | 10,842 |
-| first contentful paint | not obtainable, see below |
+| measurement | before | now |
+| --- | --- | --- |
+| `GET /api/files` at 10,000 notes | 155 to 161 ms | 15.9 ms |
+| time to the first tree row | 443 to 462 ms | 10 to 34 ms |
+| time to the paint that carried it | 834 to 859 ms | 15 to 65 ms |
+| rows mounted in the tree | 10,842 | 8 |
+| `buildTree` at 10,000 notes | 8.554 ms | unchanged |
+| first contentful paint | not obtainable, see below | |
 
-Two of those explain each other. The tree starts with nothing collapsed, so
-10,000 notes means 10,842 buttons in one commit. React and the DOM are about
-98% of the load cost, and `buildTree` is 2% of it despite being the largest
-recorded pure function. The other half a cold open pays is the 158 ms request,
-which walks 10,842 entries, sorts them and serialises 10,000 strings.
+Two numbers were carrying all of it, and neither was `buildTree`, which is 2% of
+the load cost despite being the largest recorded pure function.
+
+The request walked the vault with `rglob`, which builds a `Path` per entry and
+then parses the relative path back out of it three times over, and walked into
+hidden directories to throw the contents away afterwards. `list_markdown_files`
+uses `os.scandir` now, carries the prefix down rather than working it out per
+file, and skips a hidden directory instead of descending into it.
+
+The tree drew every row in the vault, because it held the set of folders that
+were folded away and that set began empty: nothing collapsed means everything
+expanded, and 10,000 notes means 10,842 buttons in one commit. It holds the set
+that is unfolded now, which begins empty and means the opposite. A folder's rows
+are built when you open it, the folders on the way to the open note are unfolded
+at mount, and nothing else is. React and the DOM were 98% of the load cost, and
+this is the change that stopped asking them to do the work.
+
+The three browser rows are measured by `tests/frame/load.test.tsx`, which mounts
+the tree over the synthetic vault directly and makes no request. A cold open
+pays that and the request both.
 
 ## What these numbers are not
 

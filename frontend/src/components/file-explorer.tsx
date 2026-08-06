@@ -109,14 +109,14 @@ interface Row {
  * the keyboard needs the same rows flattened. Collapsed folders keep their
  * children out of it, because a cursor cannot sit on a row nobody can see.
  */
-function flattenRows(nodes: TreeNode[], collapsed: ReadonlySet<string>): Row[] {
+function flattenRows(nodes: TreeNode[], expanded: ReadonlySet<string>): Row[] {
   const rows: Row[] = [];
 
   function walk(level: TreeNode[], parent: number) {
     for (const node of level) {
       const index = rows.length;
       rows.push({ node, parent });
-      if (node.kind === "folder" && !collapsed.has(node.path)) {
+      if (node.kind === "folder" && expanded.has(node.path)) {
         walk(node.children, index);
       }
     }
@@ -124,6 +124,26 @@ function flattenRows(nodes: TreeNode[], collapsed: ReadonlySet<string>): Row[] {
 
   walk(nodes, -1);
   return rows;
+}
+
+/**
+ * Every folder on the way to `path`, which are the ones that have to be open
+ * for it to be on screen.
+ *
+ * `reading/2026/borges.md` names `reading` and `reading/2026`, spelled the way
+ * `buildTree` spells a folder's path, which is without a trailing slash. The
+ * note prompt's `startFolder` keeps one; these two are not the same string.
+ */
+function ancestors(path: string | undefined): ReadonlySet<string> {
+  const folders = new Set<string>();
+  if (path === undefined) return folders;
+
+  let prefix = "";
+  for (const segment of path.split("/").slice(0, -1)) {
+    prefix = prefix ? `${prefix}/${segment}` : segment;
+    folders.add(prefix);
+  }
+  return folders;
 }
 
 /** Identifies a row across the tree and the flat list, which share no shape. */
@@ -167,7 +187,7 @@ function Chevron({ open }: { open: boolean }) {
 interface NodeListProps {
   nodes: TreeNode[];
   depth: number;
-  collapsed: ReadonlySet<string>;
+  expanded: ReadonlySet<string>;
   openPath?: string;
   /** The row the keyboard cursor is on, which is the panel's only tab stop. */
   cursorKey: string;
@@ -178,7 +198,7 @@ interface NodeListProps {
 function NodeList({
   nodes,
   depth,
-  collapsed,
+  expanded,
   openPath,
   cursorKey,
   onToggleFolder,
@@ -217,7 +237,7 @@ function NodeList({
           );
         }
 
-        const open = !collapsed.has(node.path);
+        const open = expanded.has(node.path);
 
         return (
           <li key={key}>
@@ -239,7 +259,7 @@ function NodeList({
               <NodeList
                 nodes={node.children}
                 depth={depth + 1}
-                collapsed={collapsed}
+                expanded={expanded}
                 openPath={openPath}
                 cursorKey={cursorKey}
                 onToggleFolder={onToggleFolder}
@@ -337,7 +357,15 @@ export function FileExplorer({
   commands,
   focusSignal = 0,
 }: FileExplorerProps) {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  // What is unfolded, rather than what is folded away, which is what makes an
+  // unopened folder cost nothing. A folder's children are not rendered until it
+  // is in here, so the tree draws the rows you can see and no others: at 10,000
+  // notes that is 8 rows on open instead of 10,842.
+  //
+  // Seeded with the folders on the way to the open note, and only those. A note
+  // named in the URL has to be visible, or a reload lands on a tree that has
+  // hidden what it is showing you.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => ancestors(openPath));
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   /** Where the pointer went down, and how wide the panel was then. */
   const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
@@ -349,7 +377,7 @@ export function FileExplorer({
   /** The signal already answered, so the first render answers nothing. */
   const answered = useRef(focusSignal);
   const tree = useMemo(() => buildTree(paths), [paths]);
-  const rows = useMemo(() => flattenRows(tree, collapsed), [tree, collapsed]);
+  const rows = useMemo(() => flattenRows(tree, expanded), [tree, expanded]);
   // Collapsing a folder can strand the cursor past the end of the list.
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
   const cursorKey = rows[cursor] ? rowKey(rows[cursor].node) : "";
@@ -463,7 +491,7 @@ export function FileExplorer({
 
     const row = rows[cursor];
     const folder = row?.node.kind === "folder" ? row.node : null;
-    const unfolded = folder !== null && !collapsed.has(folder.path);
+    const unfolded = folder !== null && expanded.has(folder.path);
 
     switch (key) {
       case "j":
@@ -521,9 +549,9 @@ export function FileExplorer({
   }
 
   function toggleFolder(path: string) {
-    setCollapsed((previous) => {
+    setExpanded((previous) => {
       const next = new Set(previous);
-      // `delete` reports whether the folder was collapsed, so one call flips it.
+      // `delete` reports whether the folder was expanded, so one call flips it.
       if (!next.delete(path)) next.add(path);
       return next;
     });
@@ -579,7 +607,7 @@ export function FileExplorer({
           <NodeList
             nodes={tree}
             depth={0}
-            collapsed={collapsed}
+            expanded={expanded}
             openPath={openPath}
             cursorKey={cursorKey}
             onToggleFolder={toggleFolder}

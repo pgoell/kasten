@@ -109,6 +109,8 @@ describe("the key tables", () => {
       "renameNote",
       "findNote",
       "searchNotes",
+      "showBacklinks",
+      "showLinksOut",
     ]);
 
     for (const { command } of LEADER) {

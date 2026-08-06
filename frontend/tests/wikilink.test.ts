@@ -1,9 +1,67 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
-import { vaultPaths, WikiLink, wikiLinkCompletions, wikiLinkPath } from "@/lib/wikilink";
+import {
+  outgoingLinks,
+  vaultPaths,
+  WikiLink,
+  wikiLinkCompletions,
+  wikiLinkPath,
+  wikiLinkTargets,
+} from "@/lib/wikilink";
 
 const PATHS = ["daily/2026-08-05.md", "index.md", "reading/borges.md"];
+
+describe("wikiLinkTargets", () => {
+  it("reads every link on the line, in the order they were written", () => {
+    expect(wikiLinkTargets("see [[borges]] and [[index]]")).toEqual(["borges", "index"]);
+  });
+
+  it("finds nothing in a line holding no link", () => {
+    expect(wikiLinkTargets("borges wrote the library")).toEqual([]);
+  });
+
+  // The three the parser refuses, so the reader has to refuse them too:
+  // a link names one note, on one line, and it names something.
+  it("refuses a link that never closed", () => {
+    expect(wikiLinkTargets("see [[borges")).toEqual([]);
+  });
+
+  it("refuses a pair of empty brackets", () => {
+    expect(wikiLinkTargets("[[]] and [[   ]]")).toEqual([]);
+  });
+
+  it("refuses a bracket inside the name", () => {
+    expect(wikiLinkTargets("[[bor[ges]]")).toEqual([]);
+  });
+});
+
+describe("outgoingLinks", () => {
+  it("names the note behind every link, whichever way it was written", () => {
+    expect(outgoingLinks("see [[borges]] and [[daily/2026-08-05]]", PATHS)).toEqual([
+      "reading/borges.md",
+      "daily/2026-08-05.md",
+    ]);
+  });
+
+  it("reads the links off every line of the note", () => {
+    expect(outgoingLinks("# title\n\nsee [[index]]\n\nand [[borges]]\n", PATHS)).toEqual([
+      "index.md",
+      "reading/borges.md",
+    ]);
+  });
+
+  it("names a note twice linked only once", () => {
+    expect(outgoingLinks("[[borges]] and [[reading/borges]]", PATHS)).toEqual([
+      "reading/borges.md",
+    ]);
+  });
+
+  it("leaves out a link to a note nobody has written yet", () => {
+    // The panel is a list of notes, and there is no note there to list.
+    expect(outgoingLinks("see [[cortazar]]", PATHS)).toEqual([]);
+  });
+});
 
 describe("wikiLinkPath", () => {
   it("takes a name the vault root holds", () => {

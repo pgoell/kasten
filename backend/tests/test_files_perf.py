@@ -1,9 +1,12 @@
 """What `GET /api/files` costs over a vault the size the bar is set at.
 
-Recorded, not gated. The design says the load side is measured this round and
-fixed in another, so the only assertions here are about correctness: the
+Recorded, not gated. The only assertions here are about correctness: the
 endpoint answers, and it answers with every note. The wall time is printed for
 whoever is reading, which needs `pytest -s`.
+
+This is the number the walk was rewritten against. It read 155 to 161ms when
+`list_markdown_files` used `rglob`, and 15.9ms once it used `os.scandir`. Still
+not gated: a wall time on a shared runner is a worse gate than a reader.
 
 The vault is the same shape the frontend harnesses use, from
 `frontend/bench/fixtures.ts`: thirds of the notes at depth one, two and three,

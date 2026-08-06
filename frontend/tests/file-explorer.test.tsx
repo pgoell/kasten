@@ -63,12 +63,42 @@ function Harness({
         renameFolder: onRenameFolder ?? (() => {}),
         findNote: onFindNote ?? (() => {}),
         searchNotes: onSearchNotes ?? (() => {}),
+        showBacklinks: () => {},
+        showLinksOut: () => {},
       }}
     />
   );
 }
 
+/**
+ * Unfold every folder, which the tree no longer does on its own.
+ *
+ * Expanding one reveals the folders inside it, still folded, so this goes round
+ * until nothing is left folded. Every folder is opened at most once, which is
+ * what ends it.
+ */
+function expandAll() {
+  for (;;) {
+    const folded = screen.queryAllByRole("button", { expanded: false });
+    if (folded.length === 0) return;
+    for (const row of folded) fireEvent.click(row);
+  }
+}
+
+/**
+ * Render the tree with every folder open, which is what most of these are about.
+ *
+ * The tree itself opens folded, so the rows inside a folder cost nothing until
+ * you ask for them. `renderFolded` is for the tests about that.
+ */
 function renderTree(props: TreeProps = {}) {
+  const result = render(<Harness {...props} />);
+  expandAll();
+  return result;
+}
+
+/** Render the tree as a reader first meets it, with the folders folded away. */
+function renderFolded(props: TreeProps = {}) {
   return render(<Harness {...props} />);
 }
 
@@ -637,5 +667,35 @@ describe("FileExplorer", () => {
 
     fireEvent.keyDown(grip(), { key: "ArrowLeft" });
     expect(panel()).toHaveStyle({ width: DEFAULT_WIDTH });
+  });
+});
+
+describe("folding on open", () => {
+  it("opens with every folder folded away", () => {
+    // The rows inside a folder are what a big vault pays for, so none of them
+    // is drawn until the folder is asked for.
+    renderFolded();
+
+    expect(screen.getByRole("button", { name: "daily" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("2026-08-04")).toBeNull();
+    // A note at the vault root is not inside anything, so it still shows.
+    expect(screen.getByText("index")).toBeInTheDocument();
+  });
+
+  it("unfolds the folders on the way to the open note", () => {
+    // A note named in the URL has to be visible, or a reload lands on a tree
+    // that has hidden the note it says is open.
+    renderFolded({ openPath: "projects/kasten/api-design.md" });
+
+    expect(screen.getByText("api-design")).toBeInTheDocument();
+    // Only that path: `daily/` is on nobody's way to it.
+    expect(screen.queryByText("2026-08-04")).toBeNull();
+  });
+
+  it("leaves the rest folded when the open note is at the vault root", () => {
+    renderFolded({ openPath: "index.md" });
+
+    expect(screen.queryByText("2026-08-04")).toBeNull();
+    expect(screen.getByText("index")).toBeInTheDocument();
   });
 });

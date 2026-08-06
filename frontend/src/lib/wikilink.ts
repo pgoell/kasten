@@ -126,6 +126,41 @@ export function wikiLinkLands(target: string, paths: string[]): boolean {
   return paths.includes(wikiLinkPath(target, paths));
 }
 
+/** One `[[link]]`, spelled the way the parser above spells it. */
+const LINK = /\[\[([^[\]\n]+)\]\]/g;
+
+/**
+ * Every note named by a link in `text`, in the order they were written.
+ *
+ * What the backlinks panel reads a search hit with. A line comes back from the
+ * vault because it holds a note's name somewhere, and this is what tells the
+ * line that links to it from the line that only mentions it.
+ *
+ * The pattern is the parser's rule rather than a looser one: a bracket or a
+ * line break before the close means the `[[` opened nothing, and a name of only
+ * spaces is no name.
+ */
+export function wikiLinkTargets(text: string): string[] {
+  return [...text.matchAll(LINK)].map((match) => match[1] ?? "").filter((target) => target.trim());
+}
+
+/**
+ * Every note in the vault `text` links to, once each, in the order written.
+ *
+ * The other half of the backlinks panel, read off one note rather than off the
+ * whole vault. Links to a note nobody has written yet are left out: the panel
+ * is a list of notes, and there is no note there to list. The editor already
+ * draws those dotted, and `gf` is what turns one into a note.
+ */
+export function outgoingLinks(text: string, paths: string[]): string[] {
+  const found = new Set<string>();
+  for (const target of wikiLinkTargets(text)) {
+    const path = wikiLinkPath(target, paths);
+    if (paths.includes(path)) found.add(path);
+  }
+  return [...found];
+}
+
 /** What has been typed into an open `[[`, which is what a completion completes. */
 const TYPED = /\[\[[^[\]\n]*/;
 

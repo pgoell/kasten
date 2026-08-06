@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
 from kasten_backend.vault import (
     create_note,
@@ -219,6 +220,11 @@ async def move_file(
     relative = relative_path(settings.vault_path, target)
 
     await begin_change(settings.vault_path, relative)
+    # Before the move, because a bare `[[borges]]` only names this note while
+    # the note is still where the links were written to find it. Inside the jj
+    # bracket, because the rewritten links are part of the move rather than an
+    # edit that happened to follow it.
+    await relink_note_move(settings.vault_path, relative_path(settings.vault_path, note), relative)
     rename_note(note, target)
     prune_empty_folders(settings.vault_path, note.parent)
     await snapshot(settings.vault_path)
@@ -266,6 +272,12 @@ async def move_folder(
     # The trailing slash is what tells one of these apart from a note's change
     # in `jj log`, where the two would otherwise read the same.
     await begin_change(settings.vault_path, f"{relative}/")
+    # Before the move, the way a note's rewrite is, and for one reason more: the
+    # notes holding these links are often the ones inside the folder, and after
+    # the rename none of them is at the path the rewrite would write to.
+    await relink_folder_move(
+        settings.vault_path, relative_path(settings.vault_path, folder), relative
+    )
     rename_folder(folder, target)
     prune_empty_folders(settings.vault_path, folder.parent)
     await snapshot(settings.vault_path)
