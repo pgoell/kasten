@@ -106,9 +106,21 @@ body {
   color: var(--color-one-accent);
 }
 
-.cm-link {
+/* A wikilink wears what a markdown link wears. Both open something, and which
+   of the two it is is already on the screen: one shows a note's name, the
+   other the words someone wrote over a URL. */
+.cm-link,
+.cm-wikilink {
   color: var(--color-one-accent);
   text-decoration: underline;
+}
+
+/* A link to a note nobody has written yet. Muted and dotted rather than
+   crossed out or coloured like a warning: it is an invitation, not a mistake,
+   and following it is what writes the note. */
+.cm-wikilink-dead {
+  color: var(--color-one-muted);
+  text-decoration-style: dotted;
 }
 
 /* The dashes are hidden, so the row is empty and the rule is painted into its

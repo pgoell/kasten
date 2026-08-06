@@ -4,6 +4,7 @@ import { EditorSelection, EditorState, type RangeSet, StateField } from "@codemi
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
+import { vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
 /** An empty replacement: the range is in the document but not on the screen. */
 const HIDDEN = Decoration.replace({});
@@ -41,6 +42,9 @@ const INLINE: Record<string, { mark: string; class: string }> = {
   InlineCode: { mark: "CodeMark", class: "cm-inline-code" },
   Strikethrough: { mark: "StrikethroughMark", class: "cm-strikethrough" },
   Highlight: { mark: "HighlightMark", class: "cm-highlight" },
+  // Its two `[[` and `]]` marks are the pair this reads, so a wikilink renders
+  // as the note it names with nothing here that a bold word does not need.
+  WikiLink: { mark: "WikiLinkMark", class: "cm-wikilink" },
 };
 
 /**
@@ -202,7 +206,14 @@ function build(state: EditorState): Live {
       if (!open || !close || open.from === close.from) return;
 
       if (open.to < close.from) {
-        decorations.push(Decoration.mark({ class: inline.class }).range(open.to, close.from));
+        // The one construct whose rendering depends on something outside the
+        // document: a wikilink to a note the vault does not hold is drawn as
+        // the invitation it is rather than as a link that works.
+        const paths = node.name === "WikiLink" ? state.facet(vaultPaths) : null;
+        const dead =
+          paths !== null && !wikiLinkLands(state.doc.sliceString(open.to, close.from), paths);
+        const className = dead ? `${inline.class} cm-wikilink-dead` : inline.class;
+        decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
       }
       if (revealed) return;
       hide(open.from, open.to);
@@ -220,7 +231,11 @@ const live = StateField.define<Live>({
   create: build,
   update(value, tr) {
     const modeChanged = tr.effects.some((effect) => effect.is(setVimMode));
-    if (!tr.docChanged && !tr.selection && !modeChanged) return value;
+    // The listing arrives by reconfiguration rather than by effect, so there is
+    // nothing in `tr.effects` to read it off. A note holding a link to a note
+    // that has just been written has to stop calling it dead.
+    const vaultChanged = tr.startState.facet(vaultPaths) !== tr.state.facet(vaultPaths);
+    if (!tr.docChanged && !tr.selection && !modeChanged && !vaultChanged) return value;
     return build(tr.state);
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),

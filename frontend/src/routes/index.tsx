@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
@@ -9,9 +9,10 @@ import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { NoteSearch } from "@/components/note-search";
 import { StatusBar } from "@/components/status-bar";
-import { fetchFiles } from "@/lib/api";
+import { createNote, fetchFiles } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
+import { wikiLinkPath } from "@/lib/wikilink";
 
 const SAMPLE = `# kasten
 
@@ -37,6 +38,7 @@ function Home() {
   const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
   const { note, line } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
+  const queryClient = useQueryClient();
   // Autosave sits out here rather than in the editor because it has to outlive
   // the remount that opening another note causes: text typed into one note is
   // written to it while the next note is already opening.
@@ -110,6 +112,44 @@ function Home() {
     [navigate, save, note],
   );
 
+  /**
+   * Open the note a `[[link]]` names, making it if the vault has none.
+   *
+   * The listing is what turns a name into a path, so the resolving happens
+   * here rather than in the editor, which holds one note and knows nothing of
+   * the others. A link to a note that is not there is not a mistake: writing
+   * the link before the note is how a vault grows, and following one is the
+   * moment the note begins. No save first, for the reason the finder needs
+   * none: this moves no path out from under text still waiting to be written.
+   */
+  const follow = useCallback(
+    (target: string) => {
+      const paths = data ?? [];
+      const path = wikiLinkPath(target, paths);
+      if (paths.includes(path)) {
+        navigate({ search: { note: path } });
+        return;
+      }
+
+      void createNote(path).then(
+        (made) => {
+          // The vault's spelling and the vault's text, the way the prompt
+          // seeds them, so the editor opens what was written rather than
+          // reading back a file it just made.
+          queryClient.setQueryData(["note", made.path], made.content);
+          queryClient.invalidateQueries({ queryKey: ["files"] });
+          navigate({ search: { note: made.path } });
+        },
+        () => {
+          // The vault refused the path: a hidden name, or a note standing
+          // where the link wanted a folder. The note on screen stays open with
+          // the link still in it, which is the only place to fix either.
+        },
+      );
+    },
+    [data, navigate, queryClient],
+  );
+
   return (
     <main className="flex h-dvh flex-col bg-one-bg">
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
@@ -130,12 +170,20 @@ function Home() {
               path={note}
               commands={commands}
               preview={preview}
+              paths={data}
               startLine={line}
               onChange={change}
               onSave={save}
+              onFollow={follow}
             />
           ) : (
-            <Editor initialDoc={SAMPLE} commands={commands} preview={preview} />
+            <Editor
+              initialDoc={SAMPLE}
+              commands={commands}
+              preview={preview}
+              paths={data}
+              onFollow={follow}
+            />
           )}
         </div>
       </div>

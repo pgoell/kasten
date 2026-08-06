@@ -79,6 +79,70 @@ describe("live preview", () => {
     await waitFor(() => expect(content(container)).toBe("see [the docs](https://example.com) now"));
   });
 
+  it("renders a wikilink as the note it names", () => {
+    const { container } = render(<Editor initialDoc="see [[reading/borges]] now" />);
+
+    expect(content(container)).toBe("see reading/borges now");
+    expect(container.querySelector(".cm-wikilink")?.textContent).toBe("reading/borges");
+  });
+
+  it("reveals the brackets on the cursor's line in insert mode", async () => {
+    const { container } = render(<Editor initialDoc="see [[borges]] now" />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toBe("see [[borges]] now"));
+  });
+
+  it("marks a link to a note the vault does not hold", () => {
+    const { container } = render(
+      <Editor initialDoc="[[borges]] and [[ficciones]]" paths={["reading/borges.md"]} />,
+    );
+
+    expect(container.querySelectorAll(".cm-wikilink")).toHaveLength(2);
+    expect(container.querySelector(".cm-wikilink-dead")?.textContent).toBe("ficciones");
+  });
+
+  it("marks nothing dead where the vault is not known, as in a preview pane", () => {
+    // No listing is not an empty listing: a view that was told nothing must not
+    // call every link in the note broken.
+    const { container } = render(<Editor initialDoc="[[borges]]" />);
+
+    expect(container.querySelector(".cm-wikilink")).not.toBeNull();
+    expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
+  });
+
+  it("brings a link back to life when the note it names arrives", () => {
+    const { container, rerender } = render(<Editor initialDoc="[[borges]]" paths={[]} />);
+    expect(container.querySelector(".cm-wikilink-dead")).not.toBeNull();
+
+    rerender(<Editor initialDoc="[[borges]]" paths={["borges.md"]} />);
+
+    expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
+  });
+
+  // The three below read the class rather than the text: markdown's own
+  // shortcut reference link claims a `[bracketed]` run whatever is in it, and
+  // hiding those brackets is what this file has always done. What is being
+  // asked here is only whether a wikilink opened, and none of the three is one.
+  it("makes no wikilink of a bracket pair with no note in it", () => {
+    const { container } = render(<Editor initialDoc="[[]] and [[ ]]" />);
+
+    expect(container.querySelector(".cm-wikilink")).toBeNull();
+  });
+
+  it("leaves an unclosed wikilink alone", () => {
+    const { container } = render(<Editor initialDoc="[[borges and more" />);
+
+    expect(content(container)).toBe("[[borges and more");
+  });
+
+  it("does not carry a wikilink across a line break", () => {
+    const { container } = render(<Editor initialDoc={"[[borges\nand]] more"} />);
+
+    expect(container.querySelector(".cm-wikilink")).toBeNull();
+  });
+
   it("returns to normal mode when escape leaves visual mode", async () => {
     // vim signals this mode change from inside its own dispatch, so answering
     // it synchronously re-enters the update, CodeMirror kills the plugin that

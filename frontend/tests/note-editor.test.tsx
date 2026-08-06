@@ -39,6 +39,11 @@ function serveVault() {
   });
 }
 
+// Out here for the reason `commands` below is held across renders: the route's
+// own follow handler is a `useCallback`, and a fresh literal per render would
+// hand the editor a new prop on every keystroke.
+const follow = () => {};
+
 /** What the route puts around an open note: autosave, the editor, the bar. */
 function OpenNote({ path }: { path: string }) {
   const { status, change, save } = useAutosave(path);
@@ -63,7 +68,14 @@ function OpenNote({ path }: { path: string }) {
 
   return (
     <>
-      <NoteEditor path={path} commands={commands} preview onChange={change} onSave={save} />
+      <NoteEditor
+        path={path}
+        commands={commands}
+        preview
+        onChange={change}
+        onSave={save}
+        onFollow={follow}
+      />
       <StatusBar status={status} />
     </>
   );

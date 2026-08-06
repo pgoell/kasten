@@ -37,9 +37,14 @@ Real, working code, not a plan:
   you type and shows the one under the highlight beside the list. Search reads
   what is written in the notes instead: `Space f g`, or `s` in the tree, asks
   rg for the lines holding what you type and ranks them here, and Enter opens
-  the note on the line. The open note lives in the URL as `?note=` and the
-  line as `?line=`, and the note follows a folder that moves out from under
-  it.
+  the note on the line. `[[wikilinks]]` render as the note's name, and `gf` or
+  ctrl+click opens it: a target with a slash is a path, a bare name is looked
+  for anywhere in the vault, and a name nothing answers to is made and opened.
+  Typing `[[` offers the vault's notes and closes the link it completes, and a
+  link to a note that is not there yet is drawn muted and dotted. Both read the
+  listing off the editor state, which the route reconfigures as it changes.
+  The open note lives in the URL as `?note=` and the line as `?line=`, and the
+  note follows a folder that moves out from under it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.
@@ -48,7 +53,7 @@ Search reads the vault with rg on every query and indexes nothing, so it is
 not a reason to start writing to Postgres.
 
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, wikilinks, backlinks, and anything that writes to Postgres.
+two folders, backlinks, and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 

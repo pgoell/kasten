@@ -9,10 +9,14 @@ interface NoteEditorProps {
   path: string;
   commands: EditorCommands;
   preview: boolean;
+  /** Every note in the vault, which the editor completes and resolves against. */
+  paths?: string[];
   /** Line to open on, which a search hit names and nothing else does. */
   startLine?: number;
   onChange: (doc: string) => void;
   onSave: () => void;
+  /** Called with the note a `[[link]]` names, which only the route can resolve. */
+  onFollow: (target: string) => void;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-muted";
@@ -33,9 +37,11 @@ export const NoteEditor = memo(function NoteEditor({
   path,
   commands,
   preview,
+  paths,
   startLine,
   onChange,
   onSave,
+  onFollow,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -51,9 +57,11 @@ export const NoteEditor = memo(function NoteEditor({
       initialDoc={data}
       commands={commands}
       preview={preview}
+      paths={paths}
       startLine={startLine}
       onChange={onChange}
       onSave={onSave}
+      onFollow={onFollow}
     />
   );
 });

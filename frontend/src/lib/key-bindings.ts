@@ -109,6 +109,16 @@ export const INDENT: readonly { key: string; label: string }[] = [
 ];
 
 /**
+ * Following a wikilink, which is vim's own go-to-file rather than a leader key.
+ *
+ * Display only, the way INDENT is: `editor.tsx` carries the mapping, because
+ * what it reaches is a handler on the view and not one of the commands above.
+ */
+export const FOLLOW: readonly { key: string; label: string }[] = [
+  { key: "gf", label: "Open the note the wikilink names" },
+];
+
+/**
  * What the keys do inside the file tree.
  *
  * Display only. The panel resolves its keys by name in one switch, so there is
