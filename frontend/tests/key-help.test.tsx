@@ -99,6 +99,7 @@ describe("the key tables", () => {
       "focusTree",
       "createNote",
       "renameNote",
+      "findNote",
     ]);
 
     for (const { command } of LEADER) {

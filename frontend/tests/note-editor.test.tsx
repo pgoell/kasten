@@ -54,6 +54,7 @@ function OpenNote({ path }: { path: string }) {
       showHelp: () => {},
       createNote: () => {},
       renameNote: () => {},
+      findNote: vi.fn(),
       focusTree: () => {},
     }),
     [],

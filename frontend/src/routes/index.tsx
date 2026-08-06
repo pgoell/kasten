@@ -5,6 +5,7 @@ import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
+import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
@@ -43,6 +44,9 @@ function Home() {
   // One piece of state for both, because a create opening on the vault root
   // starts at "" and that still has to read as open.
   const [prompt, setPrompt] = useState<{ mode: PromptMode; startPath: string } | null>(null);
+  // A flag and not a path, unlike the prompt: the finder ranks the whole vault
+  // and has nothing to start from.
+  const [finderOpen, setFinderOpen] = useState(false);
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
@@ -77,6 +81,11 @@ function Home() {
       renameFolder: async (startPath) => {
         if (await save()) setPrompt({ mode: "folder", startPath });
       },
+      // No save first, unlike the two renames. They move a path out from under
+      // text still waiting to be written; opening a note leaves every path
+      // where it is, and `useAutosave` flushes on its own when the path it was
+      // given changes.
+      findNote: () => setFinderOpen(true),
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -128,6 +137,16 @@ function Home() {
             if (next !== undefined) navigate({ search: { note: next } });
           }}
           onClose={() => setPrompt(null)}
+        />
+      )}
+      {finderOpen && (
+        <NoteFinder
+          paths={data ?? []}
+          onOpen={(path) => {
+            setFinderOpen(false);
+            navigate({ search: { note: path } });
+          }}
+          onClose={() => setFinderOpen(false)}
         />
       )}
     </main>

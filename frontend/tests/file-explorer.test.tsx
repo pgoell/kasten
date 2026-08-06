@@ -52,6 +52,7 @@ function Harness({ onCreateNote, onRenameNote, onRenameFolder, ...props }: TreeP
         createNote: onCreateNote ?? (() => {}),
         renameNote: onRenameNote ?? (() => {}),
         renameFolder: onRenameFolder ?? (() => {}),
+        findNote: () => {},
       }}
     />
   );
