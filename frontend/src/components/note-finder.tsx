@@ -1,5 +1,6 @@
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 
@@ -35,18 +36,16 @@ function hint(vaultSize: number, matches: number): string {
 }
 
 /**
- * What the pane shows, which is the note's text or the reason there is none.
+ * Why the pane has no note to show, which is the only thing left for it to say.
  *
  * A note the vault holds but cannot be read is worth saying out loud, and it is
  * no reason to stop the row being opened: the editor gives its own answer, and
- * it is the one that matters.
+ * it is the one that matters. An empty note is not one of these, being empty
+ * rather than missing, and a spinner that never stops is the worse of the two
+ * lies.
  */
-function previewText(status: "pending" | "error" | "success", text: string | undefined): string {
-  if (status === "error") return "could not read this note";
-  // An empty note is empty, not still loading, and a spinner that never stops
-  // is the worse of the two lies.
-  if (status === "success") return text ?? "";
-  return "reading the note";
+function previewText(status: "pending" | "error"): string {
+  return status === "error" ? "could not read this note" : "reading the note";
 }
 
 /**
@@ -246,22 +245,28 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
           )}
 
           {highlighted !== undefined && (
-            // Plain text, no editor and no highlighting. Cheapest per highlight
-            // move, and this pane is for telling two notes apart rather than
-            // for reading one.
+            // Rendered the way the editor renders it, so the pane shows the
+            // note as opening it will. It used to be plain text, on the
+            // grounds that this pane is for telling two notes apart rather
+            // than for reading one, and two notes with their syntax showing
+            // are harder to tell apart, not easier. The cost is one dropped
+            // frame per mount, and the delay above makes that once per row you
+            // stop on rather than once per row you pass.
             // A labelled <section> rather than a bare <pre>, which takes no
             // label of its own and leaves the pane something a screen reader
             // can reach but not name.
             <section
               aria-label="Preview"
+              data-testid="preview"
               className="min-w-0 flex-1 overflow-auto border-l border-one-line"
             >
-              <pre
-                data-testid="preview"
-                className="px-3 py-2 text-[12px] text-one-muted whitespace-pre-wrap"
-              >
-                {previewText(note.status, note.data)}
-              </pre>
+              {note.status === "success" ? (
+                // Keyed on the path so opening another note builds a fresh
+                // view rather than reconfiguring this one.
+                <NotePreview key={reading} text={note.data} />
+              ) : (
+                <p className="px-3 py-2 text-[12px] text-one-muted">{previewText(note.status)}</p>
+              )}
             </section>
           )}
         </div>

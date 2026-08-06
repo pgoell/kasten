@@ -1,5 +1,6 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { NotePreview } from "@/components/note-preview";
 import { fetchNote, type SearchHit, searchNotes } from "@/lib/api";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
 
@@ -155,26 +156,6 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
       ? windowAround(note.data, reading.line)
       : undefined;
 
-  const pane = useRef<HTMLElement>(null);
-
-  /**
-   * Put the matched line in the middle of the pane as it mounts.
-   *
-   * A ref callback rather than an effect, because what has to trigger this is
-   * the matched row changing, and that is the one thing a ref reports on its
-   * own. An effect would have to name the note text and the hit as
-   * dependencies without reading either, which is the shape of a stale effect
-   * even when it is right.
-   *
-   * Centred by hand rather than with `scrollIntoView`, which walks every
-   * scrollable ancestor and would move what sits behind the dialog too.
-   */
-  const centre = useCallback((line: HTMLDivElement | null) => {
-    const box = pane.current;
-    if (!box || !line) return;
-    box.scrollTop = line.offsetTop - box.clientHeight / 2 + line.clientHeight / 2;
-  }, []);
-
   // The input takes the focus so the keys reach it, and hands it back on the
   // way out, unless a note is opening: the editor behind takes the focus only
   // when nobody holds it, and handing it back there leaves a note you have to
@@ -312,42 +293,20 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
             // label of its own and leaves the pane something a screen reader
             // can reach but not name.
             <section
-              ref={pane}
               aria-label="Preview"
               data-testid="preview"
-              className="min-w-0 flex-1 overflow-auto border-l border-one-line py-1 text-[12px]"
+              className="min-w-0 flex-1 border-l border-one-line text-[12px]"
             >
               {context !== undefined ? (
-                context.lines.map((text, offset) => {
-                  const number = context.from + offset + 1;
-                  const isMatch = number === reading.line;
-                  return (
-                    <div
-                      // The path is in the key so switching notes remounts
-                      // the rows. Numbers alone would let React reuse the
-                      // matched row across two notes and the centring, which
-                      // rides on that row mounting, would never run.
-                      key={`${reading.path}:${number}`}
-                      ref={isMatch ? centre : undefined}
-                      data-testid={isMatch ? "preview-hit" : undefined}
-                      className={`flex gap-3 px-3 ${isMatch ? "bg-one-hover" : ""}`}
-                    >
-                      <span className="w-8 shrink-0 text-right text-one-muted tabular-nums select-none">
-                        {number}
-                      </span>
-                      {/* Wraps rather than truncates: this pane is for reading
-                          around the match, and the row beside it already
-                          showed the line cut to one. */}
-                      <span
-                        className={`min-w-0 flex-1 whitespace-pre-wrap ${
-                          isMatch ? "text-one-fg" : "text-one-muted"
-                        }`}
-                      >
-                        {text}
-                      </span>
-                    </div>
-                  );
-                })
+                // Keyed on the note and the line, so walking to another hit
+                // builds a fresh view centred on it rather than leaving this
+                // one where it was.
+                <NotePreview
+                  key={`${reading.path}:${reading.line}`}
+                  text={context.lines.join("\n")}
+                  firstLine={context.from + 1}
+                  markLine={reading.line}
+                />
               ) : (
                 <p className="px-3 py-1 text-one-muted">
                   {/* An empty note is empty, not still loading, and a spinner

@@ -37,7 +37,9 @@ function renderSearch() {
     rows: () => screen.queryAllByRole("option").map((row) => row.textContent),
     hint: () => screen.getByRole("status").textContent,
     preview: () => screen.queryByTestId("preview")?.textContent ?? "",
-    previewHit: () => screen.queryByTestId("preview-hit")?.textContent ?? "",
+    lineNumbers: () =>
+      [...document.querySelectorAll(".cm-gutterElement")].map((n) => n.textContent ?? ""),
+    markedLine: () => document.querySelector(".cm-searchHit")?.textContent ?? "",
   };
 }
 
@@ -149,7 +151,7 @@ describe("the preview pane", () => {
 
     search.type("three");
 
-    await waitFor(() => expect(search.previewHit()).toContain("three"));
+    await waitFor(() => expect(search.markedLine()).toContain("three"));
     // The lines either side are the point of the pane: the row above already
     // showed the matching line on its own.
     expect(search.preview()).toContain("two");
@@ -162,7 +164,7 @@ describe("the preview pane", () => {
 
     search.type("line 100");
 
-    await waitFor(() => expect(search.previewHit()).toContain("line 100"));
+    await waitFor(() => expect(search.markedLine()).toContain("line 100"));
     expect(search.preview()).toContain("line 80");
     // A 200 line note costs the same as a 40 line one, which is what the
     // window is for.
@@ -176,7 +178,7 @@ describe("the preview pane", () => {
 
     search.type("line 2");
 
-    await waitFor(() => expect(search.previewHit()).toContain("line 2"));
+    await waitFor(() => expect(search.markedLine()).toContain("line 2"));
     expect(search.preview()).toContain("line 1");
   });
 
@@ -190,11 +192,11 @@ describe("the preview pane", () => {
     const search = renderSearch();
 
     search.type("line");
-    await waitFor(() => expect(search.previewHit()).toContain("line 10"));
+    await waitFor(() => expect(search.markedLine()).toContain("line 10"));
 
     search.press("ArrowDown");
 
-    await waitFor(() => expect(search.previewHit()).toContain("line 90"));
+    await waitFor(() => expect(search.markedLine()).toContain("line 90"));
     expect(fetchNote).toHaveBeenCalledTimes(1);
   });
 
@@ -206,4 +208,31 @@ describe("the preview pane", () => {
 
     await waitFor(() => expect(search.preview()).toContain("could not read this note"));
   });
+});
+
+it("renders the markdown in the preview rather than showing its syntax", async () => {
+  fetchNote.mockResolvedValue("line 1\n## a heading\nwith **bold** in it\nline 4");
+  searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: "with **bold** in it" }]);
+  const search = renderSearch();
+
+  search.type("bold");
+
+  await waitFor(() => expect(search.preview()).toContain("a heading"));
+  expect(search.preview()).not.toContain("##");
+  expect(search.preview()).not.toContain("**");
+  expect(document.querySelector(".cm-strong")?.textContent).toBe("bold");
+});
+
+it("still numbers the lines and marks the hit once the markdown is rendered", async () => {
+  fetchNote.mockResolvedValue("line 1\n## a heading\nwith bold in it\nline 4");
+  searchNotes.mockResolvedValue([{ path: "a.md", line: 3, text: "with bold in it" }]);
+  const search = renderSearch();
+
+  search.type("bold");
+
+  await waitFor(() => expect(search.preview()).toContain("a heading"));
+  // The numbers are the note's own, not the window's, so a hit deep in a note
+  // still says where it is.
+  expect(search.lineNumbers()).toContain("3");
+  expect(search.markedLine()).toContain("with bold in it");
 });

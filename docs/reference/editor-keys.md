@@ -248,9 +248,11 @@ scores above one that only matched the folder, so `arch` finds
 `kasten/architecture.md` before `archive/march.md`. Typing a folder still
 narrows, which is what `kasten/arch` is for.
 
-Beside the list sits the note under the highlight, as plain text. It is for
-telling two notes apart, not for reading one, so there is no highlighting and no
-editor. The text arrives a moment after the highlight stops moving, which is
+Beside the list sits the note under the highlight, rendered the way the editor
+renders it: headings sized, lists drawn, marks hidden. The pane shows the note
+as opening it will, which is what makes two notes easy to tell apart. Nothing
+in it can be typed into, and the keys stay with the input. The text arrives a
+moment after the highlight stops moving, which is
 what keeps a held Ctrl+n from reading every row it passes. A note that cannot be
 read says `could not read this note`, and Enter still opens it.
 
@@ -278,8 +280,10 @@ itself. Enter opens the note with the cursor on that line, centred rather than
 scrolled just barely into view, and the line lands in the URL as `?line=`, so a
 reload comes back to the match instead of the top of the note.
 
-Beside the list sits the note around the highlighted hit: numbered lines, the
-matching one marked, centred in the pane and scrollable either side of it. The
+Beside the list sits the note around the highlighted hit, rendered the same way
+the finder's pane renders it: numbered lines, the matching one marked, centred
+in the pane and scrollable either side of it. The numbers are the note's own,
+so a hit deep in a note still says where it is. The
 pane shows thirty lines each way rather than the whole note, so a long note
 costs what a short one does. The text arrives a moment after the highlight
 stops moving, which is what keeps a held Ctrl+n from reading every note it
@@ -289,6 +293,11 @@ note`, and Enter still opens it.
 
 The panel is wider than the finder's, because a row here carries the path, the
 line number and the line, and the pane still needs half.
+
+One thing the window costs: it slices the note at a fixed distance from the
+hit, so a fenced code block that opens above the window and closes inside it
+leaves the pane rendering a closing fence it never saw open. The note itself is
+one Enter away and renders correctly there.
 
 The work is split in two, and the split is the whole design. The backend finds
 the lines holding the query literally, which is the part a browser cannot do

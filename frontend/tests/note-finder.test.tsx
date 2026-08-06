@@ -195,8 +195,22 @@ describe("the note finder's preview", () => {
   it("shows the text of the note under the highlight", async () => {
     const finder = renderFinder();
 
-    await waitFor(() => expect(finder.preview()).toBe("# a note"));
+    // Rendered, so the heading's `#` is hidden the way the editor hides it.
+    await waitFor(() => expect(finder.preview()).toBe("a note"));
     expect(fetchNote).toHaveBeenCalledWith(PATHS[0]);
+  });
+
+  it("renders the markdown rather than showing its syntax", async () => {
+    // The same rendering the editor does, so the pane shows the note the way
+    // opening it will. Anything else makes the preview a different document
+    // from the one behind it.
+    fetchNote.mockResolvedValue("# a note\n\nwith **bold** in it");
+    const finder = renderFinder();
+
+    await waitFor(() => expect(finder.preview()).toContain("with bold in it"));
+    expect(finder.preview()).not.toContain("#");
+    expect(finder.preview()).not.toContain("**");
+    expect(document.querySelector(".cm-strong")?.textContent).toBe("bold");
   });
 
   it("asks for one note when the highlight is walked and brought back", async () => {
@@ -210,7 +224,7 @@ describe("the note finder's preview", () => {
     finder.press("ArrowUp");
     finder.press("ArrowUp");
 
-    await waitFor(() => expect(finder.preview()).toBe("# a note"));
+    await waitFor(() => expect(finder.preview()).toBe("a note"));
     expect(fetchNote).toHaveBeenCalledTimes(1);
     expect(fetchNote).toHaveBeenCalledWith(PATHS[0]);
   });
@@ -223,7 +237,7 @@ describe("the note finder's preview", () => {
 
     const finder = renderFinder(PATHS, queryClient);
 
-    await waitFor(() => expect(finder.preview()).toBe("# already open"));
+    await waitFor(() => expect(finder.preview()).toBe("already open"));
     expect(fetchNote).not.toHaveBeenCalled();
   });
 

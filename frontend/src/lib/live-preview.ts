@@ -301,3 +301,17 @@ const nudgeSelection = EditorState.transactionFilter.of((tr) => {
 export function livePreview(): Extension {
   return [vimModeState(), live, nudgeSelection];
 }
+
+/**
+ * The rendering on its own, for a view with no vim and no cursor in it.
+ *
+ * What the preview panes mount. The bridge is left out because it asks
+ * `getCM` for a vim instance the view does not have, and the selection filter
+ * because there is no cursor to keep out of the hidden marks. `vimModeField`
+ * stays: `live` reads it to decide which line shows its source, and its
+ * default of normal mode is the one that reveals nothing, so a cursorless view
+ * renders every line.
+ */
+export function renderedMarkdown(): Extension {
+  return [vimModeField, live];
+}
