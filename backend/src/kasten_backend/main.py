@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.frontmatter import stamp
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
 from kasten_backend.vault import (
@@ -141,6 +142,9 @@ async def create_file(path: str, settings: Annotated[Settings, Depends(get_setti
     the client navigates to it and `ideas/./kasten.md` must not end up in the
     address bar.
 
+    The note starts with its frontmatter and nothing else, so it has an id from
+    the first moment it exists rather than from its first save.
+
     The new note gets its own jj change, bracketed the way a save is. Both
     refusals return before any of that, so a bounced create leaves no change
     behind.
@@ -152,12 +156,13 @@ async def create_file(path: str, settings: Annotated[Settings, Depends(get_setti
         raise HTTPException(status_code=409, detail="A note is already there")
 
     relative = relative_path(settings.vault_path, note)
+    content = stamp("")
 
     await begin_change(settings.vault_path, relative)
-    create_note(note)
+    create_note(note, content)
     await snapshot(settings.vault_path)
 
-    return Note(path=relative, content="")
+    return Note(path=relative, content=content)
 
 
 @app.put("/api/files/{path:path}")
@@ -170,6 +175,13 @@ async def save_file(
     refused here too, and for the same reason, so a note you cannot open is a
     note you cannot overwrite.
 
+    The text is stamped on the way through, which dates the note and gives one
+    written before kasten its id. The note on disk is read for that, so the id
+    it already has outlives a client that sends the note back without one. What
+    comes back is therefore what landed on disk rather than what arrived, and it
+    is the only thing the client may believe: its own copy is a save behind from
+    the moment it sends it.
+
     The jj change is started before the write and the snapshot taken after, so
     the edit is bracketed by the history rather than trailing it. A vault that
     is not a jj repo skips both.
@@ -178,11 +190,13 @@ async def save_file(
     if note is None:
         raise HTTPException(status_code=404, detail="No such note")
 
+    content = stamp(edit.content, note.read_text(encoding="utf-8"))
+
     await begin_change(settings.vault_path, relative_path(settings.vault_path, note))
-    write_note(note, edit.content)
+    write_note(note, content)
     await snapshot(settings.vault_path)
 
-    return Note(path=path, content=edit.content)
+    return Note(path=path, content=content)
 
 
 @app.patch("/api/files/{path:path}")

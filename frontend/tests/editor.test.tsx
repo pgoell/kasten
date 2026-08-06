@@ -261,4 +261,11 @@ describe("Editor opened on a line", () => {
 
     expect(deleteCurrentLine(container)).toBe("onetwothree");
   });
+  it("starts below the frontmatter, which is the vault's text and not the note's", () => {
+    // A new note is nothing but its block, so the top of the document is inside
+    // the fences and the first thing typed would land in the dates.
+    const { container } = render(<Editor initialDoc={"---\nid: 1\n---\nNotes"} />);
+
+    expect(deleteCurrentLine(container)).toBe("---id: 1---");
+  });
 });

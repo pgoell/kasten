@@ -1,12 +1,9 @@
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
 import { EditorState, Text } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Decoration, EditorView, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef } from "react";
 import { renderedMarkdown } from "@/lib/live-preview";
-import { Highlight } from "@/lib/markdown-highlight";
-import { WikiLink } from "@/lib/wikilink";
+import { noteLanguage } from "@/lib/note-language";
 
 interface NotePreviewProps {
   /** The text to show. Read on mount; pass a `key` to show another note. */
@@ -63,14 +60,10 @@ export function NotePreview({ text, firstLine, markLine }: NotePreviewProps) {
         doc,
         extensions: [
           EditorView.editable.of(false),
-          // The editor's extensions, wikilinks included: the pane shows the
-          // note as opening it will, and no vault listing reaches here, so
-          // every link renders as one that lands.
-          markdown({
-            base: markdownLanguage,
-            codeLanguages: languages,
-            extensions: [Highlight, WikiLink],
-          }),
+          // The editor's own parse, wikilinks and frontmatter included: the
+          // pane shows the note as opening it will, and no vault listing
+          // reaches here, so every link renders as one that lands.
+          noteLanguage(),
           renderedMarkdown(),
           oneDark,
           EditorView.lineWrapping,

@@ -197,8 +197,8 @@ def read_note(root: Path, relative: str) -> str | None:
     return path.read_text(encoding="utf-8")
 
 
-def create_note(path: Path) -> None:
-    """Write an empty note at a path `resolve_path` returned.
+def create_note(path: Path, content: str) -> None:
+    """Write a new note at a path `resolve_path` returned.
 
     Straight to the target rather than through `write_note`. The temp file
     there protects text that is already on disk, and a create has none.
@@ -208,11 +208,13 @@ def create_note(path: Path) -> None:
     paths `mkdir` would raise on rather than answer: an ancestor that is a file
     or a link leading nowhere, and a name too long for the filesystem.
 
-    Empty because the file name is the note's title, so anything written here
-    would be a word in the vault the user did not type.
+    The content is the caller's, and the only caller writes a note holding its
+    frontmatter and nothing else. Nothing is written under the block: the file
+    name is the note's title, so a first line here would be a word in the vault
+    the user did not type.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("", encoding="utf-8")
+    path.write_text(content, encoding="utf-8")
 
 
 def rename_note(source: Path, target: Path) -> None:
