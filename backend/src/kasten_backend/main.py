@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.search import search_vault
 from kasten_backend.vault import (
     create_note,
     list_markdown_files,
@@ -69,6 +70,19 @@ class FolderMove(BaseModel):
     path: str
 
 
+class SearchHit(BaseModel):
+    """One line in the vault that matched, and enough to open the note on it."""
+
+    path: str
+    """The note the line is in, relative to the vault root."""
+
+    line: int
+    """Which line it is, counting from one, the way an editor counts."""
+
+    text: str
+    """The line itself, for the client to show and to rank."""
+
+
 @app.get("/api/health")
 async def health() -> Health:
     """Report that the process is up. Deliberately does not touch the database."""
@@ -82,6 +96,20 @@ async def list_files(settings: Annotated[Settings, Depends(get_settings)]) -> li
     The client folds these into a folder tree; the server stays flat.
     """
     return list_markdown_files(settings.vault_path)
+
+
+@app.get("/api/search")
+async def search_files(
+    q: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> list[SearchHit]:
+    """Find every line in the vault containing `q`, ignoring case.
+
+    A literal match, not a regex and not a fuzzy one. The client ranks what
+    comes back, which is what makes the finder feel fuzzy without asking a
+    subsequence match to mean something over prose, where it matches everything.
+    """
+    hits = await search_vault(settings.vault_path, q)
+    return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
 
 
 @app.get("/api/files/{path:path}")

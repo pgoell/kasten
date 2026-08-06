@@ -30,10 +30,22 @@ ADD https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSI
 RUN echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
 
+# rg answers `GET /api/search` by reading the vault on every query, so the
+# binary is as much a dependency as jj is. Pinned and checksummed the same way,
+# and the version has to match mise.toml for the same reason.
+FROM debian:bookworm-slim AS rg
+ARG RG_VERSION=14.1.1
+ARG RG_SHA256=4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e
+ADD https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/rg.tar.gz
+RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/rg.tar.gz -C /usr/local/bin --strip-components=1 \
+       ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl/rg
+
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS runtime
 WORKDIR /app
 
 COPY --from=jj /usr/local/bin/jj /usr/local/bin/jj
+COPY --from=rg /usr/local/bin/rg /usr/local/bin/rg
 COPY --from=builder /app/.venv /app/.venv
 # The wheel carries the backend source, so the runtime only needs the Alembic
 # config and migration scripts for the migrate container.

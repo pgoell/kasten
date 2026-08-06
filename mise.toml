@@ -9,6 +9,10 @@ bun    = "1.3.8"
 # "latest" because the same version has to be in the backend image: host and
 # container share one repo through the bind mount.
 "ubi:jj-vcs/jj" = "0.37.0"
+# And to rg to answer `GET /api/search`. Unlike jj this one is not optional:
+# without it there is no search at all, so it is pinned beside the tests that
+# depend on it.
+"aqua:BurntSushi/ripgrep" = "14.1.1"
 
 # ─── Bootstrap ──────────────────────────────────────────────────────────────
 
