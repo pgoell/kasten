@@ -26,14 +26,21 @@ move-right, because the leader is registered in normal mode only.
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cf` | Open the new note prompt |
+| `<leader>ct` | Start a tab, on one empty pane |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
 | `<leader>gb` | Show what links to the open note |
 | `<leader>go` | Show what the open note links to |
+| `<leader>o` | Move to the next pane |
 | `<leader>p` | Turn live preview off, or back on |
-| `<leader>q` | Write the note and close it |
+| `<leader>q` | Close the note, then the pane, then the tab |
 | `<leader>rf` | Open the rename prompt |
+| `<leader>th` | Go to the previous tab |
+| `<leader>tl` | Go to the next tab |
+| `<leader>%` | Split the pane left and right |
+| `<leader>"` | Split the pane top and bottom |
+| `<leader>1` to `<leader>0` | Go to a tab by number |
 | `<leader>?` | Show every binding on this page, in the app |
 
 `<leader>cf` takes two keys after the leader, `c` then `f`, and is the first
@@ -76,9 +83,53 @@ the tree cursor is already on. Escape in the tree comes back to the editor.
 `<leader>q` closes the note only once the vault holds the text. A write that
 fails leaves the note open with the warning in the status bar, because closing
 unmounts the editor and the only copy of the edit would go with it.
+[Panes and tabs](#panes-and-tabs) covers what the key does after that.
 
 `<leader>p` and `<leader>b` keep their setting while you move between notes,
 and start again from on and open when you reload the page.
+
+## Panes and tabs
+
+The window divides the way tmux divides a terminal. A tab holds panes, a pane
+holds one note, and every key above applies to the pane that has the focus.
+
+`<leader>%` and `<leader>"` are tmux's own split keys, and the shape of each
+character says which way the pane divides: `%` sets the new pane beside this
+one, `"` puts it underneath. Both make the pane empty and move to it, so a
+split is followed by `<leader>ff` or the file tree to say what goes in it.
+
+Splitting the same way twice gives even thirds rather than a half and two
+quarters. The panes of one split are one row or one column of any number, not a
+pair, and a split made inside a split dividing the same way joins it instead of
+nesting in it.
+
+`<leader>o` moves to the next pane and wraps at the end. It walks them in the
+order they are laid out rather than by direction, so there is no `<leader>h`
+and `<leader>l` for panes; the tab keys use those letters instead. Clicking
+into a pane moves the focus there too, and so does `gf` following a link into
+one.
+
+`<leader>ct` starts a tab. `<leader>tl` and `<leader>th` walk them, and
+`<leader>1` through `<leader>9` go straight to one, with `<leader>0` for the
+tenth, which is where those keys sit on the row rather than what the character
+means. An eleventh tab is reached by walking. The strip naming the tabs appears
+once there is more than one, and each tab is named for the note in the pane it
+left focused.
+
+`<leader>q` walks back out of all of this, one press at a time. On a pane
+holding a note it writes the note and empties the pane. On an empty pane it
+closes the pane. On the last pane of a tab it closes the tab. On the last pane
+of the last tab it does nothing, because a window with nothing on screen is not
+a state worth reaching.
+
+An empty pane is an editor on an empty document, which is what the window has
+always shown with no note open. Text typed into one goes nowhere and closing
+the pane discards it.
+
+The arrangement is not in the URL. `?note=` names the note in the focused pane
+and follows it from pane to pane, so a reload comes back to what you were
+reading, in a single pane, with the tabs and splits gone. The back button steps
+through pages rather than through panes.
 
 ## Formatting
 

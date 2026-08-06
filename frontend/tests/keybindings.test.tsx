@@ -16,6 +16,13 @@ function stubCommands() {
     showBacklinks: vi.fn(),
     showLinksOut: vi.fn(),
     focusTree: vi.fn(),
+    createTab: vi.fn(),
+    splitRight: vi.fn(),
+    splitDown: vi.fn(),
+    nextPane: vi.fn(),
+    nextTab: vi.fn(),
+    prevTab: vi.fn(),
+    goToTab: vi.fn(),
   } satisfies EditorCommands;
 }
 
@@ -153,6 +160,115 @@ describe("the leader key", () => {
     expect(commands.showBacklinks).not.toHaveBeenCalled();
   });
 
+  // tmux spells its splits `%` and `"`, and both are shifted keys. Vim builds
+  // its key name off `KeyboardEvent.key`, so these arrive as the characters
+  // themselves. `"` is the one worth doubting: bare, it begins a register
+  // selection and swallows the key after it. As the tail of a `<Space>`
+  // sequence the dispatcher has a full match to prefer, and these two prove it.
+  it("splits left and right on space then percent", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "%", shiftKey: true });
+
+    expect(commands.splitRight).toHaveBeenCalledTimes(1);
+  });
+
+  it("splits top and bottom on space then double quote", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: '"', shiftKey: true });
+
+    expect(commands.splitDown).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the register key alone without the leader in front of it", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: '"', shiftKey: true });
+
+    expect(commands.splitDown).not.toHaveBeenCalled();
+  });
+
+  it("moves to the next pane on space then o", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "o" });
+
+    expect(commands.nextPane).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a tab on space then c then t", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "c" });
+    fireEvent.keyDown(editor, { key: "t" });
+
+    expect(commands.createTab).toHaveBeenCalledTimes(1);
+    // The other half of the `c` group, which shares its first letter.
+    expect(commands.createNote).not.toHaveBeenCalled();
+  });
+
+  it("walks the tabs on space then t then l or h", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "t" });
+    fireEvent.keyDown(editor, { key: "l" });
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "t" });
+    fireEvent.keyDown(editor, { key: "h" });
+
+    expect(commands.nextTab).toHaveBeenCalledTimes(1);
+    expect(commands.prevTab).toHaveBeenCalledTimes(1);
+  });
+
+  // The digits are the sequence most likely to be eaten on the way through:
+  // bare, a digit in normal mode is a count, and vim collects one before it
+  // looks for a command. These pass only if the leader in front is enough to
+  // make the pair a sequence instead.
+  it("jumps to a tab on space then a digit", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "3" });
+
+    // Counting from one on the keyboard, from zero in the array.
+    expect(commands.goToTab).toHaveBeenCalledWith(2);
+  });
+
+  it("reads space then zero as the tenth tab, the way tmux does", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "0" });
+
+    expect(commands.goToTab).toHaveBeenCalledWith(9);
+  });
+
+  it("leaves the count alone without the leader in front of it", () => {
+    const commands = stubCommands();
+    const { editor, doc } = open("aaaa");
+
+    // `3x` cuts three characters. Were the digit stolen for a tab, one would go.
+    fireEvent.keyDown(editor, { key: "3" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(commands.goToTab).not.toHaveBeenCalled();
+    expect(doc()).toBe("a");
+  });
+
   it("waits for the second letter rather than acting on space then f", () => {
     const commands = stubCommands();
     const { editor } = open("plain", commands);
@@ -206,19 +322,9 @@ describe("the leader key", () => {
 function PreviewHarness() {
   const [preview, setPreview] = useState(true);
   const commands = useMemo<EditorCommands>(
-    () => ({
-      toggleTree: () => {},
-      togglePreview: () => setPreview((previous) => !previous),
-      closeNote: () => {},
-      showHelp: () => {},
-      createNote: () => {},
-      renameNote: () => {},
-      findNote: () => {},
-      searchNotes: () => {},
-      showBacklinks: () => {},
-      showLinksOut: () => {},
-      focusTree: () => {},
-    }),
+    // Built off the stub rather than listed again, so a command added to the
+    // interface reaches this harness without anybody remembering to bring it.
+    () => ({ ...stubCommands(), togglePreview: () => setPreview((previous) => !previous) }),
     [],
   );
 

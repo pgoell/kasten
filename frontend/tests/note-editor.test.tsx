@@ -64,6 +64,13 @@ function OpenNote({ path }: { path: string }) {
       showBacklinks: vi.fn(),
       showLinksOut: vi.fn(),
       focusTree: () => {},
+      createTab: () => {},
+      splitRight: () => {},
+      splitDown: () => {},
+      nextPane: () => {},
+      nextTab: () => {},
+      prevTab: () => {},
+      goToTab: () => {},
     }),
     [],
   );

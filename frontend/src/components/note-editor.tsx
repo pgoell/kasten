@@ -13,6 +13,8 @@ interface NoteEditorProps {
   paths?: string[];
   /** Line to open on, which a search hit names and nothing else does. */
   startLine?: number;
+  /** Raised when the pane this sits in has been moved to. See `Editor`. */
+  focusSignal?: number;
   onChange: (doc: string) => void;
   onSave: () => void;
   /** Called with the note a `[[link]]` names, which only the route can resolve. */
@@ -39,6 +41,7 @@ export const NoteEditor = memo(function NoteEditor({
   preview,
   paths,
   startLine,
+  focusSignal,
   onChange,
   onSave,
   onFollow,
@@ -59,6 +62,7 @@ export const NoteEditor = memo(function NoteEditor({
       preview={preview}
       paths={paths}
       startLine={startLine}
+      focusSignal={focusSignal}
       onChange={onChange}
       onSave={onSave}
       onFollow={onFollow}

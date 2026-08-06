@@ -51,10 +51,18 @@ Real, working code, not a plan:
   The links are read both ways from a panel: `Space g b` shows what links to the
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
-  The open note lives in the URL as `?note=` and the line as `?line=`, and the
-  note follows a folder that moves out from under it. The frontmatter is drawn
-  as YAML rather than as markdown, and the cursor opens on the first line under
-  it.
+  The window divides the way tmux divides a terminal. `Space %` and `Space "`
+  split the focused pane left and right or top and bottom, `Space o` walks the
+  panes, and `Space c t` starts a tab, walked with `Space t l` and `Space t h`
+  or reached by `Space 1` to `Space 0`. A split makes an empty pane and moves
+  to it, and every key above acts on the pane that has the focus. `Space q`
+  walks back out one press at a time: the note, then the pane, then the tab,
+  and it stops at the last pane of the last tab. The arrangement lives in React
+  state, so a reload drops it.
+  The note in the focused pane lives in the URL as `?note=` and the line as
+  `?line=`, and the note follows a folder that moves out from under it. The
+  frontmatter is drawn as YAML rather than as markdown, and the cursor opens on
+  the first line under it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.

@@ -154,6 +154,16 @@ interface EditorProps {
    * without rebuilding anything.
    */
   startLine?: number;
+  /**
+   * Raised when the app wants this editor to take the focus, and 0 while it
+   * does not.
+   *
+   * A counter and not a flag, the way the file tree's is: moving to a pane and
+   * back is two requests for the focus and both have to read as a change. The
+   * route raises it for a key that moved the focus and leaves it alone for a
+   * click, which has already put the focus where it belongs.
+   */
+  focusSignal?: number;
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
@@ -174,6 +184,7 @@ export function Editor({
   preview: rendered = true,
   paths,
   startLine,
+  focusSignal,
   onChange,
   onSave,
   onFollow,
@@ -240,6 +251,13 @@ export function Editor({
             searchNotes: () => commandsRef.current?.searchNotes(),
             showBacklinks: () => commandsRef.current?.showBacklinks(),
             showLinksOut: () => commandsRef.current?.showLinksOut(),
+            createTab: () => commandsRef.current?.createTab(),
+            splitRight: () => commandsRef.current?.splitRight(),
+            splitDown: () => commandsRef.current?.splitDown(),
+            nextPane: () => commandsRef.current?.nextPane(),
+            nextTab: () => commandsRef.current?.nextTab(),
+            prevTab: () => commandsRef.current?.prevTab(),
+            goToTab: (index) => commandsRef.current?.goToTab(index),
           }),
           basicSetup,
           noteLanguage(),
@@ -288,6 +306,13 @@ export function Editor({
       effects: EditorView.scrollIntoView(line.from, { y: "center" }),
     });
   }, [startLine]);
+
+  // Runs on mount as well as on every raise, which is what a freshly split pane
+  // needs: it is created focused, and its first render is the only chance it
+  // gets to say so. A pane that is not the focused one is handed 0 and stays put.
+  useEffect(() => {
+    if (focusSignal) viewRef.current?.focus();
+  }, [focusSignal]);
 
   // Coming back to the tab lands on the body when the page had nothing focused
   // when you left it, and the cursor is dead again until you click.

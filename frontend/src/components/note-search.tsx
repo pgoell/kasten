@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote, type SearchHit, searchNotes } from "@/lib/api";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
+import { noteName } from "@/lib/note-path";
 import {
   BACKDROP,
   BODY,
@@ -73,11 +74,6 @@ function windowAround(text: string, line: number): { lines: string[]; from: numb
   const at = line - 1;
   const from = Math.max(0, at - CONTEXT_LINES);
   return { lines: all.slice(from, at + CONTEXT_LINES + 1), from };
-}
-
-/** The note's name, which is what every link to it carries. */
-function noteName(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
 }
 
 /**

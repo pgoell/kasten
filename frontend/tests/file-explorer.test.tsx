@@ -65,6 +65,13 @@ function Harness({
         searchNotes: onSearchNotes ?? (() => {}),
         showBacklinks: () => {},
         showLinksOut: () => {},
+        createTab: () => {},
+        splitRight: () => {},
+        splitDown: () => {},
+        nextPane: () => {},
+        nextTab: () => {},
+        prevTab: () => {},
+        goToTab: () => {},
       }}
     />
   );

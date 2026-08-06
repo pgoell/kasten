@@ -58,6 +58,13 @@ const INERT: TreeCommands = {
   showBacklinks: vi.fn(),
   showLinksOut: vi.fn(),
   renameFolder: () => {},
+  createTab: () => {},
+  splitRight: () => {},
+  splitDown: () => {},
+  nextPane: () => {},
+  nextTab: () => {},
+  prevTab: () => {},
+  goToTab: () => {},
 };
 
 /** What the route opens with when no note is chosen, shortened. */
