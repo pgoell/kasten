@@ -119,6 +119,7 @@ export const TREE: readonly { key: string; label: string }[] = [
   // `<leader>cf` and `<leader>rf` still reach these from anywhere, and `r` is
   // the only way to a folder, which is a thing only the tree can point at.
   { key: "c", label: "New note in the folder the cursor is in" },
+  { key: "f", label: "Find a note by name" },
   { key: "r", label: "Rename the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
   { key: "Escape", label: "Back to the editor" },
