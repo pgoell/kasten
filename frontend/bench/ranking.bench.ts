@@ -3,9 +3,12 @@
  * across four sizes.
  *
  * `rankFolders` and `describeNotePath` are what the note prompt pays per
- * keystroke. `buildTree` belongs to the file explorer and runs on load, not on
- * a keystroke; it is here because it reads the same paths and its cost sets
- * what the vault size does to first paint.
+ * keystroke, and `rankCandidates` over notes is what the finder pays. The
+ * `Candidates` pair are the halves each surface derives once per vault rather
+ * than once per keystroke, recorded apart so a regression in either half cannot
+ * hide behind the other. `buildTree` belongs to the file explorer and runs on
+ * load, not on a keystroke; it is here because it reads the same paths and its
+ * cost sets what the vault size does to first paint.
  *
  * These numbers gate nothing. `vitest bench` has no threshold and no way to
  * exit non-zero, so the assertions live in `tests/perf/` and this file only
@@ -16,7 +19,7 @@
 
 import { bench, describe } from "vitest";
 import { buildTree } from "@/components/file-explorer";
-import { rankFolders } from "@/lib/fuzzy";
+import { folderCandidates, noteCandidates, rankCandidates, rankFolders } from "@/lib/fuzzy";
 import { describeNotePath } from "@/lib/note-path";
 import { syntheticVault, VAULT_SIZES } from "./fixtures";
 
@@ -36,8 +39,17 @@ const QUERY = "notes";
  * apart. A middle folder records what a typical keystroke pays. */
 const TYPED = "projects/client-work/a new note";
 
+/** The first letter typed, which is the dearest keystroke the finder answers:
+ * one letter rejects almost nothing, so nearly every note pays for the scoring
+ * table, where a longer query throws most of the vault out on the cheap scan
+ * that runs before it. */
+const LETTER = "a";
+
 for (const notes of VAULT_SIZES) {
   const { paths, folderCount } = syntheticVault(notes);
+
+  const folders = folderCandidates(paths);
+  const prepared = noteCandidates(paths);
 
   describe(`${notes} notes, ${folderCount} folders`, () => {
     bench("rankFolders, empty query", () => {
@@ -46,6 +58,30 @@ for (const notes of VAULT_SIZES) {
 
     bench("rankFolders, typed query", () => {
       rankFolders(paths, QUERY);
+    });
+
+    bench("folderCandidates", () => {
+      folderCandidates(paths);
+    });
+
+    bench("rankCandidates over folders, empty query", () => {
+      rankCandidates(folders, "");
+    });
+
+    bench("noteCandidates", () => {
+      noteCandidates(paths);
+    });
+
+    bench("rankCandidates over notes, empty query", () => {
+      rankCandidates(prepared, "");
+    });
+
+    bench("rankCandidates over notes, one letter", () => {
+      rankCandidates(prepared, LETTER);
+    });
+
+    bench("rankCandidates over notes, typed query", () => {
+      rankCandidates(prepared, QUERY);
     });
 
     bench("describeNotePath", () => {

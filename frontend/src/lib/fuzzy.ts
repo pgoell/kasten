@@ -1,25 +1,41 @@
 /**
- * The vault's folders, ranked against what has been typed so far.
+ * The vault ranked against what has been typed, for the prompt and the finder.
  *
- * Only folders, because the prompt completes where a note goes and the note's
- * own name is what the user is there to write.
+ * Two surfaces rank two different things through one recurrence. The prompt
+ * ranks folders, because it completes where a note goes and the note's own name
+ * is what the user is there to write. The finder ranks notes, because the note
+ * is the thing it opens. Only the candidates differ, and whether a letter
+ * landing in the last segment is paid for.
  */
+
+/**
+ * A path prepared for ranking, derived once per vault.
+ *
+ * Everything here depends on the vault and not on the query, which is what
+ * earns it a memo of its own at the call site. At 10,000 notes deriving this
+ * costs 0.8ms once; doing it per keystroke instead was most of what ranking
+ * used to cost.
+ */
+export interface Candidate {
+  /** The path as the vault spells it, which is what a caller gets back. */
+  path: string;
+  /** The same path lowercased once, which is what the scorer reads. */
+  lower: string;
+  /** Where the last segment starts. Past the end of `lower` means no name bonus. */
+  nameAt: number;
+}
 
 /**
  * Every directory prefix of `paths`, deduped, each ending in "/", in first-seen
  * order.
  *
- * Split out from the ranking because it depends on the vault and not on the
- * query, and it is the larger half: at 10,000 notes it walks every path to find
- * 842 folders, which profiling put at 3.8ms of a 16.8ms keystroke. Derived once
- * per listing it costs nothing per keystroke.
- *
  * Unsorted on purpose. A listing arrives sorted, ranking decides what the
- * prompt shows, and the sort in `rankFolderPrefixes` is cheap only because
- * these already arrive in order.
+ * prompt shows, and the sort in `rankCandidates` is cheap only because these
+ * already arrive in order.
  */
-export function folderPrefixes(paths: string[]): string[] {
+export function folderCandidates(paths: string[]): Candidate[] {
   const seen = new Set<string>();
+  const folders: Candidate[] = [];
 
   for (const path of paths) {
     const segments = path.split("/");
@@ -28,78 +44,148 @@ export function folderPrefixes(paths: string[]): string[] {
     // nested path names one at each level.
     for (const segment of segments.slice(0, -1)) {
       prefix += `${segment}/`;
+      if (seen.has(prefix)) continue;
       seen.add(prefix);
+      const lower = prefix.toLowerCase();
+      // A folder opts out of the name bonus by naming a start no character can
+      // reach. Its own name is where the notes underneath begin, not a segment
+      // to be weighed against the rest of the path.
+      folders.push({ path: prefix, lower, nameAt: lower.length });
     }
   }
-  return [...seen];
+  return folders;
+}
+
+/** Every note, prepared for ranking, in the order the listing arrived in. */
+export function noteCandidates(paths: string[]): Candidate[] {
+  return paths.map((path) => {
+    const lower = path.toLowerCase();
+    return { path, lower, nameAt: lower.lastIndexOf("/") + 1 };
+  });
+}
+
+const NONE = Number.NEGATIVE_INFINITY;
+const SLASH = "/".charCodeAt(0);
+
+// Two rows, reused by every candidate and every keystroke. The table below
+// needs the row behind it and the row it is filling, and nothing else, so two
+// buffers swapped in place do the work that a fresh array per query character
+// used to. Ten thousand notes and a four letter query is 40,000 allocations
+// saved, which is where the old scorer spent most of a keystroke.
+let scratchA = new Float64Array(256);
+let scratchB = new Float64Array(256);
+
+/** Both rows, big enough for the longest candidate seen so far. */
+function grow(size: number) {
+  if (scratchA.length >= size) return;
+  scratchA = new Float64Array(size);
+  scratchB = new Float64Array(size);
 }
 
 /**
- * How well `query` reads as a subsequence of `candidate`, or null when it does
+ * How well `query` reads as a subsequence of `candidate`, or `NONE` when it does
  * not read as one at all.
  *
  * A query that could land in two places is scored where it lands best, not
- * where it lands first. The bonuses pay for a run of letters and for a letter
- * that opens a folder name, which is what makes `pk` mean `projects/kasten/`
- * rather than any folder carrying the two letters.
+ * where it lands first. The bonuses pay for a run of letters, for a letter that
+ * opens a segment, and for a letter inside the candidate's own name. That is
+ * what makes `pk` mean `projects/kasten/` rather than any folder carrying the
+ * two letters, and `arch` mean `kasten/architecture.md` rather than
+ * `archive/march.md`, which reads just as well everywhere else.
+ *
+ * Both sides are counted in code units rather than characters. They only have
+ * to agree: a character written in two of them, an emoji opening a folder name,
+ * then matches as two units in a row and collects the run bonus between them,
+ * so it still reads as the one thing it looks like. Counting one side in
+ * characters and the other in code units is the arrangement that breaks, and
+ * `Array.from` on every candidate is too dear to be the way out of it.
  */
-function score(candidate: string, query: string): number | null {
-  // The loop below walks the query by character, so the candidate is held as
-  // characters too. Indexing the string walks code units instead, and a
-  // character written in two of them, an emoji opening a folder name, then
-  // matches neither half of itself.
-  const haystack = Array.from(candidate.toLowerCase());
-  const NONE = Number.NEGATIVE_INFINITY;
-  // `row[j]` is the best score of the query read so far ending on
-  // `haystack[j]`, and NONE where it cannot end there. One pass over the
-  // haystack takes one more query character, so every alignment is weighed and
-  // the best cell of the last row is the answer. Folders are short and few, so
-  // the cost of weighing them all is beneath notice.
-  let row = new Array<number>(haystack.length).fill(0);
+function score(candidate: Candidate, query: string): number {
+  const { lower, nameAt } = candidate;
+  const length = lower.length;
+
+  // Cheap rejection first. Unless the query reads into the candidate at all
+  // there is nothing for the table below to find, and `indexOf` settles that in
+  // one native pass with no allocation. Most of a vault leaves here on most
+  // queries, which is what keeps the cost with the matches rather than with the
+  // notes.
+  let at = 0;
+  for (let i = 0; i < query.length; i += 1) {
+    at = lower.indexOf(query.charAt(i), at);
+    if (at === -1) return NONE;
+    at += 1;
+  }
+
+  grow(length);
+  let row = scratchA;
+  let next = scratchB;
   // The seed row stands for the empty query, which reads into anything and pays
   // nothing. It ends nowhere, so the first character can start no run off it.
+  row.fill(0, 0, length);
   let first = true;
 
-  for (const char of query) {
-    const next = new Array<number>(haystack.length).fill(NONE);
+  for (let i = 0; i < query.length; i += 1) {
+    const char = query.charCodeAt(i);
+    // `next[j]` is the best score of the query read so far ending on `lower[j]`,
+    // and NONE where it cannot end there. One pass takes one more query
+    // character, so every alignment is weighed and the best cell of the last
+    // row is the answer.
+    next.fill(NONE, 0, length);
     // The best cell left of `j`, which is what a match starting no run pays.
     let left = first ? 0 : NONE;
     // The cell at `j - 1`, which is where a run of letters carries on from.
     let behind = NONE;
 
-    for (const [j, cell] of row.entries()) {
-      if (haystack[j] === char) {
-        const opens = j === 0 || haystack[j - 1] === "/" ? 3 : 0;
-        next[j] = 1 + opens + Math.max(left, first ? NONE : behind + 2);
+    for (let j = 0; j < length; j += 1) {
+      if (lower.charCodeAt(j) === char) {
+        const opens = j === 0 || lower.charCodeAt(j - 1) === SLASH ? 3 : 0;
+        const named = j >= nameAt ? 2 : 0;
+        const carry = first ? NONE : behind + 2;
+        next[j] = 1 + opens + named + (left > carry ? left : carry);
       }
-      if (!first) left = Math.max(left, cell);
+      // `?? NONE` only for the index signature: `j` is inside the row by the
+      // loop's own bound, and a cell never holds undefined.
+      const cell = row[j] ?? NONE;
+      if (!first && cell > left) left = cell;
       behind = cell;
     }
-    row = next;
+
+    const filled = next;
+    next = row;
+    row = filled;
     first = false;
   }
 
-  const best = Math.max(...row);
-  return best === NONE ? null : best;
+  let best = NONE;
+  for (let j = 0; j < length; j += 1) {
+    const cell = row[j] ?? NONE;
+    if (cell > best) best = cell;
+  }
+  return best;
 }
 
-/** Prefixes already derived, ranked against `query`. */
-export function rankFolderPrefixes(prefixes: string[], query: string): string[] {
+/** Candidates already derived, ranked against `query`, best first. */
+export function rankCandidates(candidates: Candidate[], query: string): string[] {
   const wanted = query.toLowerCase();
-  const ranked: Array<{ folder: string; points: number }> = [];
+  const ranked: Array<{ path: string; points: number }> = [];
 
-  for (const folder of prefixes) {
-    const points = score(folder, wanted);
-    if (points !== null) ranked.push({ folder, points });
+  for (const candidate of candidates) {
+    const points = score(candidate, wanted);
+    if (points !== NONE) ranked.push({ path: candidate.path, points });
   }
 
-  // Two equal folders go in name order, which is where a reader looks for one.
-  // A folder sorts before the folders inside it anyway, being their prefix.
-  ranked.sort((a, b) => b.points - a.points || a.folder.localeCompare(b.folder));
-  return ranked.map((entry) => entry.folder);
+  // Two equal paths go in name order, which is where a reader looks for one. A
+  // folder sorts before the folders inside it anyway, being their prefix.
+  ranked.sort((a, b) => b.points - a.points || a.path.localeCompare(b.path));
+  return ranked.map((entry) => entry.path);
 }
 
 /** Folder prefixes of `paths`, each ending in "/", ranked against `query`. */
 export function rankFolders(paths: string[], query: string): string[] {
-  return rankFolderPrefixes(folderPrefixes(paths), query);
+  return rankCandidates(folderCandidates(paths), query);
+}
+
+/** Every note in `paths`, ranked against `query`. */
+export function rankNotes(paths: string[], query: string): string[] {
+  return rankCandidates(noteCandidates(paths), query);
 }

@@ -27,10 +27,11 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onCreateNote?: (startPath?: string) => void;
   onRenameNote?: (startPath?: string) => void;
   onRenameFolder?: (startPath: string) => void;
+  onFindNote?: () => void;
 };
 
 /** Holds the open state the route holds in the app, so folding still works. */
-function Harness({ onCreateNote, onRenameNote, onRenameFolder, ...props }: TreeProps) {
+function Harness({ onCreateNote, onRenameNote, onRenameFolder, onFindNote, ...props }: TreeProps) {
   const [open, setOpen] = useState(true);
   // The route folds the panel from two directions, `q` in the tree and the
   // leader from anywhere, and both land on the same callback.
@@ -52,6 +53,7 @@ function Harness({ onCreateNote, onRenameNote, onRenameFolder, ...props }: TreeP
         createNote: onCreateNote ?? (() => {}),
         renameNote: onRenameNote ?? (() => {}),
         renameFolder: onRenameFolder ?? (() => {}),
+        findNote: onFindNote ?? (() => {}),
       }}
     />
   );
@@ -341,6 +343,23 @@ describe("the tree keyboard", () => {
     press("r");
 
     expect(onRenameFolder).toHaveBeenCalledWith("projects/kasten");
+  });
+
+  it("finds a note on f, whatever the cursor is on", () => {
+    // The finder ranks the whole vault, so unlike `c` and `r` it takes nothing
+    // from the row the cursor happens to be on.
+    const onFindNote = vi.fn();
+    renderTree({ onFindNote });
+
+    expect(cursor()).toHaveTextContent("daily");
+    press("f");
+
+    expect(onFindNote).toHaveBeenCalledTimes(1);
+
+    press("G");
+    press("f");
+
+    expect(onFindNote).toHaveBeenCalledTimes(2);
   });
 
   it("waits for the second letter rather than acting on the leader and c", () => {

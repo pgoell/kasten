@@ -1,4 +1,4 @@
-import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
+import { folderCandidates, rankCandidates, rankFolders, rankNotes } from "@/lib/fuzzy";
 
 // The list the file tree's tests run on, so the folders ranked here are the
 // ones a real vault listing yields.
@@ -96,29 +96,75 @@ describe("rankFolders", () => {
   });
 });
 
-describe("folderPrefixes", () => {
+describe("folderCandidates", () => {
   it("takes every folder on the way to a note, once each, in the order first seen", () => {
     // The fixture is deliberately out of order, so the expectation pins the
     // order the paths arrive in rather than a sorted one. A real listing is
     // sorted already, ranking decides what the prompt shows, and a sort here
     // would be work every open pays for nothing.
-    expect(folderPrefixes(["zettel/inbox/seed.md", "archive/2025.md", "zettel/today.md"])).toEqual([
-      "zettel/",
-      "zettel/inbox/",
-      "archive/",
+    const folders = folderCandidates([
+      "zettel/inbox/seed.md",
+      "archive/2025.md",
+      "zettel/today.md",
     ]);
+
+    expect(folders.map((folder) => folder.path)).toEqual(["zettel/", "zettel/inbox/", "archive/"]);
+  });
+
+  it("puts the name bonus out of reach, so a folder is scored on its whole path", () => {
+    // A note is ranked partly on its last segment. A folder has no last segment
+    // in that sense, its name being where the notes underneath begin, so it
+    // opts out by naming a start no character can reach.
+    for (const folder of folderCandidates(PATHS)) {
+      expect(folder.nameAt).toBeGreaterThanOrEqual(folder.lower.length);
+    }
   });
 });
 
-describe("rankFolderPrefixes", () => {
-  it("ranks derived prefixes exactly as rankFolders ranks the paths they came from", () => {
+describe("rankCandidates", () => {
+  it("ranks derived candidates exactly as rankFolders ranks the paths they came from", () => {
     // `rankFolders` is these two applied in turn, so every case above rides on
     // this holding: for the empty query the prompt opens with, for one that
     // matches, and for one that reads into nothing.
-    const prefixes = folderPrefixes(PATHS);
+    const folders = folderCandidates(PATHS);
 
-    expect(rankFolderPrefixes(prefixes, "")).toEqual(rankFolders(PATHS, ""));
-    expect(rankFolderPrefixes(prefixes, "pk")).toEqual(rankFolders(PATHS, "pk"));
-    expect(rankFolderPrefixes(prefixes, "zz")).toEqual(rankFolders(PATHS, "zz"));
+    expect(rankCandidates(folders, "")).toEqual(rankFolders(PATHS, ""));
+    expect(rankCandidates(folders, "pk")).toEqual(rankFolders(PATHS, "pk"));
+    expect(rankCandidates(folders, "zz")).toEqual(rankFolders(PATHS, "zz"));
+  });
+});
+
+describe("rankNotes", () => {
+  it("ranks the note the query names above one whose folder holds the letters", () => {
+    // The tie the name bonus exists to break. Both paths open a segment on `a`
+    // and carry `arch` as a run, so on folder rules alone they score the same
+    // and `localeCompare` hands it to `archive/`, which is the wrong note.
+    expect(rankNotes(["archive/2024/march.md", "projects/kasten/architecture.md"], "arch")).toEqual(
+      ["projects/kasten/architecture.md", "archive/2024/march.md"],
+    );
+  });
+
+  it("keeps a note the query only reads into by way of its folder", () => {
+    // Ranked below a name match, but present: typing the folder is how you
+    // narrow to a note whose name you cannot spell.
+    expect(rankNotes(["daily/2026-08-05.md", "projects/kasten/api-design.md"], "kasten")).toEqual([
+      "projects/kasten/api-design.md",
+    ]);
+  });
+
+  it("returns every note in name order for the empty query", () => {
+    // What the finder opens with. Nothing is typed, so nothing tells two notes
+    // apart and the list is the one a reader can find a note in.
+    expect(rankNotes(PATHS, "")).toEqual(PATHS);
+  });
+
+  it("drops a note the query does not read into", () => {
+    expect(rankNotes(PATHS, "zz")).toEqual([]);
+  });
+
+  it("will not read the query out of order", () => {
+    // The suffix is part of the path, so a query has `.md` to read from at the
+    // end and nowhere else.
+    expect(rankNotes(["index.md"], "mi")).toEqual([]);
   });
 });

@@ -68,7 +68,7 @@ install none, so `fe:frame` runs in its own CI job, after a
 `fe:bench` gates nothing. It prints a mean per benchmark and exits zero
 whatever the number, because `vitest bench` has no threshold to fail against.
 The thresholds are assertions in the test files instead. See
-[Note prompt performance](/reference/note-prompt-performance.md).
+[Ranking performance](/reference/ranking-performance.md).
 
 ## Lint, format and types
 
@@ -97,4 +97,4 @@ The thresholds are assertions in the test files instead. See
 ## Related
 
 * [Run the checks](/how-to/run-the-checks.md) - which of these CI runs, and what to do when the hooks misbehave
-* [Note prompt performance](/reference/note-prompt-performance.md) - what `fe:test`, `fe:frame` and `fe:bench` measure, and every recorded number
+* [Ranking performance](/reference/ranking-performance.md) - what `fe:test`, `fe:frame` and `fe:bench` measure, and every recorded number

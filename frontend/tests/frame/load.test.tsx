@@ -44,6 +44,7 @@ const INERT: TreeCommands = {
   focusTree: () => {},
   createNote: () => {},
   renameNote: () => {},
+  findNote: vi.fn(),
   renameFolder: () => {},
 };
 

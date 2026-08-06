@@ -20,6 +20,8 @@ export interface EditorCommands {
   createNote(startPath?: string): void;
   /** The note to rename, which the tree knows and the editor leaves to the route. */
   renameNote(startPath?: string): void;
+  /** Open the finder, which ranks the whole vault and needs nothing to start from. */
+  findNote(): void;
 }
 
 /**
@@ -50,6 +52,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // Tab used to be the way into the tree, and binding it to indent took that
   // away. This is the way back in, and it unfolds the panel first.
   { key: "e", label: "Focus the file tree", command: "focusTree" },
+  // Telescope spells `find_files` this way, and the shape matches `cf` and `rf`
+  // beside it: the group letter, then the thing.
+  { key: "ff", label: "Find a note", command: "findNote" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
   { key: "q", label: "Save and close the note", command: "closeNote" },
   // `rf` beside `cf`: same shape, the group letter then the thing, so renaming
@@ -114,6 +119,7 @@ export const TREE: readonly { key: string; label: string }[] = [
   // `<leader>cf` and `<leader>rf` still reach these from anywhere, and `r` is
   // the only way to a folder, which is a thing only the tree can point at.
   { key: "c", label: "New note in the folder the cursor is in" },
+  { key: "f", label: "Find a note by name" },
   { key: "r", label: "Rename the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
   { key: "Escape", label: "Back to the editor" },

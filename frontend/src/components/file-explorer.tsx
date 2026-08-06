@@ -485,6 +485,11 @@ export function FileExplorer({
       case "r":
         renameRow();
         break;
+      // Unlike `c` and `r`, this takes nothing from the row the cursor is on:
+      // the finder ranks the whole vault and starts from nowhere.
+      case "f":
+        commands.findNote();
+        break;
       case "q":
         onOpenChange(false);
         break;

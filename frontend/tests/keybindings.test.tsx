@@ -11,6 +11,7 @@ function stubCommands() {
     showHelp: vi.fn(),
     createNote: vi.fn(),
     renameNote: vi.fn(),
+    findNote: vi.fn(),
     focusTree: vi.fn(),
   } satisfies EditorCommands;
 }
@@ -100,6 +101,29 @@ describe("the leader key", () => {
     expect(commands.renameNote).toHaveBeenCalledWith(undefined);
   });
 
+  it("runs the find command on space then f then f", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "f" });
+    fireEvent.keyDown(editor, { key: "f" });
+
+    expect(commands.findNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for the second letter rather than acting on space then f", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "f" });
+
+    for (const command of Object.values(commands)) {
+      expect(command).not.toHaveBeenCalled();
+    }
+  });
+
   it("waits for the second letter rather than acting on space then r", () => {
     const commands = stubCommands();
     const { editor } = open("plain", commands);
@@ -148,6 +172,7 @@ function PreviewHarness() {
       showHelp: () => {},
       createNote: () => {},
       renameNote: () => {},
+      findNote: () => {},
       focusTree: () => {},
     }),
     [],
