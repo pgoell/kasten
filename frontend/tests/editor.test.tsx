@@ -82,6 +82,85 @@ describe("Editor", () => {
     expect(onChange).toHaveBeenLastCalledWith("line one\nline two");
   });
 
+  it("follows the wikilink under the cursor on gf", () => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    // `w` twice, so the cursor sits in the link rather than on the word before
+    // it. The brackets are hidden, so the first word after `see` is the target.
+    fireEvent.keyDown(content, { key: "w" });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).toHaveBeenCalledWith("borges");
+  });
+
+  it("names the note without the spaces written around it", () => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="[[ borges ]]" onFollow={onFollow} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).toHaveBeenCalledWith("borges");
+  });
+
+  it("follows a link the line ends on, which is where `$` leaves the cursor", () => {
+    // The `]]` is hidden, so the cursor cannot rest between the name and the
+    // end of the line: it lands past the link, painted at the end of the name.
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="see [[borges]]" onFollow={onFollow} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "$" });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).toHaveBeenCalledWith("borges");
+  });
+
+  it("follows a wikilink on ctrl+click, the way a browser opens a link", () => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+
+    fireEvent.mouseDown(container.querySelector(".cm-wikilink") as HTMLElement, { ctrlKey: true });
+
+    expect(onFollow).toHaveBeenCalledWith("borges");
+  });
+
+  it("leaves a plain click on a wikilink to the cursor", () => {
+    // Clicking a link to put the cursor in it is how it gets edited, so the
+    // modifier is what tells the two apart.
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+
+    fireEvent.mouseDown(container.querySelector(".cm-wikilink") as HTMLElement);
+
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
+  it("stays put on ctrl+click off a wikilink", () => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="plain words here" onFollow={onFollow} />);
+
+    fireEvent.mouseDown(container.querySelector(".cm-line") as HTMLElement, { ctrlKey: true });
+
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
+  it("stays put on gf outside a wikilink", () => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="plain [[borges]]" onFollow={onFollow} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
   it("tears the view down on unmount", () => {
     const { container, unmount } = render(<Editor initialDoc="# hello" />);
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
+import { FOLLOW, FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
 
 /** Vim's spelling of a key is for vim. This is the one on the keyboard. */
 function readable(key: string) {
@@ -62,7 +62,11 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     },
     {
       title: "Editor",
-      keys: [...FORMAT.map(({ key, label }) => ({ key: readable(key), label })), ...INDENT],
+      keys: [
+        ...FORMAT.map(({ key, label }) => ({ key: readable(key), label })),
+        ...INDENT,
+        ...FOLLOW,
+      ],
     },
     { title: "File tree", keys: TREE },
   ];

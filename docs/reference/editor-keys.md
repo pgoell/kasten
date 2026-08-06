@@ -95,6 +95,81 @@ history window.
 opens only when a non-space follows it and closes only when a non-space
 precedes it, which keeps `a == b` out of it.
 
+## Wikilinks
+
+`[[reading/borges]]` is a link to another note. The editor renders it as the
+name alone, in the link colour, with the brackets off the screen the way every
+other mark is hidden, and `i` on that line hands them back.
+
+| Key | Does | Mode |
+| --- | --- | --- |
+| `gf` | Open the note the wikilink names | normal |
+| Ctrl+click | The same, with the mouse | any |
+
+`gf` is vim's own go-to-file, and it reads the link under the cursor. Anywhere
+in the name will do, the last letter included: the closing `]]` is hidden, so
+the cursor cannot rest between the name and what follows it, and both edges
+count as on the link.
+
+Ctrl+click, or Cmd+click, is the same command with the mouse, and it is the
+modifier that browsers already spend on opening a link. A plain click is left
+to the cursor, because clicking into a link is how the link gets edited. The
+click has to land on the link's own text; it reads the element under the
+pointer rather than the nearest position to it, so the space after the line is
+not the link. With live preview off there is no rendered link to click, and
+`gf` is the way.
+
+What the target names is decided against the vault's own listing:
+
+* A target with a slash in it is a vault-relative path, and is taken at its
+  word. `.md` is added unless you typed it.
+* A target with no slash is a name, and is looked for anywhere in the vault,
+  ignoring case, so `[[borges]]` opens `reading/borges.md` from any note. A
+  note of that name at the vault root wins over one in a folder.
+* A target nothing answers to is a note that is not there yet. Following it
+  makes an empty note at that path, folders on the way included, and opens it.
+
+That last one is the point of writing a link before the note: `gf` is where the
+note begins. It uses [POST /api/files/{path}](/reference/http-api.md), so a path
+the vault refuses, a hidden name or a note standing where the link wanted a
+folder, leaves you where you are with the link still on screen to be fixed.
+
+A link whose note is not there yet is drawn muted, with a dotted underline
+rather than a solid one, so the two kinds are told apart before you follow
+either. It is not a warning colour: an unwritten note is an invitation, and
+following the link is what accepts it. The link comes to life on its own as
+soon as the note exists, without reopening the one you are reading. Nothing is
+marked dead where the vault listing has not arrived, so the finder's and
+search's preview panes draw every link as one that lands.
+
+## Completing a link
+
+Type `[[` and the vault's notes are offered, filtered as you go. The rows are
+paths without the `.md`, so `[[kast` reaches `projects/kasten` and typing a
+folder narrows the same way it does in the finder.
+
+| Key | Does |
+| --- | --- |
+| Down / Up | Move through the notes on offer |
+| Enter | Take the highlighted one |
+| Escape | Close the list and keep typing |
+
+Taking one closes the link with `]]`, because typing `[[` does not: markdown's
+close-brackets answers a `[` with nothing. A link you closed yourself gets no
+second pair.
+
+The whole vault goes into the list every time and CodeMirror scores the names
+against what has been typed, which is the same fuzzy match [the note
+finder](#the-note-finder) does by hand and one this does not have to repeat.
+
+`[[wikilinks]]` are not part of any markdown flavour kasten loads, so
+`frontend/src/lib/wikilink.ts` adds them to the parser, the way
+`markdown-highlight.ts` adds `==highlight==`. What sits between the brackets is
+a note's name rather than prose, so nothing in it is parsed as markdown, and a
+link that runs past the end of its line is not a link.
+
+Backlinks, the other half of what wikilinks are for, are not built.
+
 ## Backticks
 
 A backtick closes itself, the way a bracket and a quote already did. Markdown

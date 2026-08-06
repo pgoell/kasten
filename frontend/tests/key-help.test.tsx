@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
-import { FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
+import { FOLLOW, FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
 
 /** The panel spaces the letters of a key, so each one reads as a press. */
 function leaderKey(key: string) {
@@ -39,6 +39,14 @@ describe("KeyHelp", () => {
 
     for (const { label } of INDENT) {
       expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
+  it("lists the key that follows a wikilink", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    for (const { key, label } of FOLLOW) {
+      expect(screen.getByText(key).nextElementSibling).toHaveTextContent(label);
     }
   });
 

@@ -12,8 +12,10 @@ import { editorCommands } from "@/lib/editor-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { Highlight } from "@/lib/markdown-highlight";
+import { vaultPaths, WikiLink, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
+type FollowHandler = (target: string) => void;
 
 /**
  * Carries the save callback on the editor state.
@@ -34,6 +36,52 @@ function save(view: EditorView): boolean {
 Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
 
 /**
+ * Carries the follow callback, for the reason `saveHandler` carries the other.
+ *
+ * A facet and not one of `editorCommands`: that table is the one a leader
+ * sequence names a command in, and this command is reached by `gf` and carries
+ * a note's name with it.
+ */
+const followHandler = Facet.define<FollowHandler, FollowHandler | undefined>({
+  combine: (handlers) => handlers[0],
+});
+
+/** Open the note the cursor's `[[link]]` names, vim's own go-to-file. */
+function follow(view: EditorView): boolean {
+  const target = wikiLinkAt(view.state, view.state.selection.main.head);
+  if (target === null) return false;
+  view.state.facet(followHandler)?.(target);
+  return true;
+}
+
+Vim.defineAction("kastenFollowLink", (cm: { cm6: EditorView }) => follow(cm.cm6));
+Vim.mapCommand("gf", "action", "kastenFollowLink", {}, { context: "normal" });
+
+/**
+ * Ctrl+click, or cmd+click, follows a link the way every browser opens one.
+ *
+ * The element decides, not the coordinates: the rendered link is a span of its
+ * own, so a click that landed on it is a click on the link, and one that landed
+ * in the space after the line is not. `posAtDOM` needs no layout for that,
+ * which a test in jsdom also needs. The plain click is left alone, because
+ * putting the cursor in a link is how the link gets edited.
+ */
+const followOnClick = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    if (!event.ctrlKey && !event.metaKey) return false;
+    const element = event.target;
+    if (!(element instanceof HTMLElement) || !element.classList.contains("cm-wikilink")) {
+      return false;
+    }
+
+    const target = wikiLinkAt(view.state, view.posAtDOM(element));
+    if (target === null) return false;
+    view.state.facet(followHandler)?.(target);
+    return true;
+  },
+});
+
+/**
  * Holds live preview so `<leader>p` can swap it out.
  *
  * A compartment rather than a rebuilt view: rebuilding throws away the undo
@@ -42,6 +90,15 @@ Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
  * an identity, and each state configures it separately.
  */
 const preview = new Compartment();
+
+/**
+ * Holds the vault listing, which the route refreshes as notes come and go.
+ *
+ * A compartment for the reason the one above is: the listing changes while a
+ * note is open, and rebuilding the view to tell it so would throw away the undo
+ * history and the cursor.
+ */
+const vault = new Compartment();
 
 /**
  * Whether nobody on the page holds the focus.
@@ -64,6 +121,14 @@ interface EditorProps {
   /** Whether markdown is rendered. Held by the route, so it outlives a remount. */
   preview?: boolean;
   /**
+   * Every note in the vault, for completing a `[[` and for telling a link to a
+   * note that exists from one to a note that does not.
+   *
+   * Absent means the listing is not known here, which is not the same as an
+   * empty vault: nothing is offered and no link is called dead.
+   */
+  paths?: string[];
+  /**
    * Line to open on, counting from one. Absent starts at the top.
    *
    * Not folded into `initialDoc`'s read-once rule: a second search hit can
@@ -74,6 +139,8 @@ interface EditorProps {
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
+  /** Called with the note a `[[link]]` names when `gf` follows it. */
+  onFollow?: (target: string) => void;
 }
 
 /**
@@ -87,9 +154,11 @@ export function Editor({
   initialDoc,
   commands,
   preview: rendered = true,
+  paths,
   startLine,
   onChange,
   onSave,
+  onFollow,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -98,15 +167,18 @@ export function Editor({
   // exactly once: to open a different note, remount with a `key`.
   const initialDocRef = useRef(initialDoc);
   const renderedRef = useRef(rendered);
+  const pathsRef = useRef(paths);
   const commandsRef = useRef(commands);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
+  const onFollowRef = useRef(onFollow);
 
   useEffect(() => {
     commandsRef.current = commands;
     onChangeRef.current = onChange;
     onSaveRef.current = onSave;
-  }, [commands, onChange, onSave]);
+    onFollowRef.current = onFollow;
+  }, [commands, onChange, onSave, onFollow]);
 
   useEffect(() => {
     const parent = host.current;
@@ -132,6 +204,7 @@ export function Editor({
           // third backtick with a pair before the fence handler sees it.
           backticks(),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
+          followHandler.of((target) => onFollowRef.current?.(target)),
           // Each one reads the ref rather than closing over the prop, so a
           // re-render never has to rebuild the view to refresh a callback.
           editorCommands.of({
@@ -151,8 +224,11 @@ export function Editor({
           markdown({
             base: markdownLanguage,
             codeLanguages: languages,
-            extensions: [Highlight],
+            extensions: [Highlight, WikiLink],
           }),
+          markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
+          followOnClick,
+          vault.of(pathsRef.current ? vaultPaths.of(pathsRef.current) : []),
           preview.of(renderedRef.current ? livePreview() : []),
           oneDark,
           EditorView.lineWrapping,
@@ -214,6 +290,14 @@ export function Editor({
       effects: preview.reconfigure(rendered ? livePreview() : []),
     });
   }, [rendered]);
+
+  // A note written elsewhere is a link in this note that has just come to life,
+  // so the listing goes in whenever the route hands over a new one.
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: vault.reconfigure(paths ? vaultPaths.of(paths) : []),
+    });
+  }, [paths]);
 
   return <div ref={host} className="h-full overflow-auto" />;
 }
