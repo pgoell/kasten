@@ -278,6 +278,18 @@ itself. Enter opens the note with the cursor on that line, centred rather than
 scrolled just barely into view, and the line lands in the URL as `?line=`, so a
 reload comes back to the match instead of the top of the note.
 
+Beside the list sits the note around the highlighted hit: numbered lines, the
+matching one marked, centred in the pane and scrollable either side of it. The
+pane shows thirty lines each way rather than the whole note, so a long note
+costs what a short one does. The text arrives a moment after the highlight
+stops moving, which is what keeps a held Ctrl+n from reading every note it
+passes, and walking between two hits of one note re-centres the pane without
+reading the note again. A note that cannot be read says `could not read this
+note`, and Enter still opens it.
+
+The panel is wider than the finder's, because a row here carries the path, the
+line number and the line, and the pane still needs half.
+
 The work is split in two, and the split is the whole design. The backend finds
 the lines holding the query literally, which is the part a browser cannot do
 without every note loaded into it. The browser ranks what came back, which is
