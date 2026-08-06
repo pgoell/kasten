@@ -202,12 +202,11 @@ async def test_records_the_created_note_before_the_request_returns(
     await client.post("/api/files/index.md")
 
     # `root:` because a bare path is read relative to the working directory,
-    # which is the repo root only by luck. A new note is empty, so the read
-    # coming back at all is the assertion.
-    assert (
-        jj(versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@", "root:index.md")
-        == ""
-    )
+    # which is the repo root only by luck. A new note holds its frontmatter and
+    # nothing else, so the read coming back closed is the assertion.
+    assert jj(
+        versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@", "root:index.md"
+    ).endswith("---\n")
 
 
 async def test_names_the_change_after_the_path_a_move_lands_on(
@@ -251,7 +250,9 @@ async def test_leaves_the_note_readable_at_the_path_it_left(
 
     await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
 
-    assert jj(versioned_vault, "file", "show", "-r", "@-", "root:inbox/borges.md") == "# borges\n"
+    assert jj(versioned_vault, "file", "show", "-r", "@-", "root:inbox/borges.md").endswith(
+        "# borges\n"
+    )
 
 
 async def test_leaves_no_change_behind_when_it_refuses_a_move(
@@ -347,7 +348,7 @@ async def test_writes_the_note_even_when_the_repo_is_broken(
     response = await client.put("/api/files/index.md", json={"content": "# edited"})
 
     assert response.status_code == 200
-    assert (vault / "index.md").read_text() == "# edited"
+    assert (vault / "index.md").read_text().endswith("# edited")
 
 
 async def test_leaves_a_vault_that_is_not_a_repo_alone(client: AsyncClient, vault: Path) -> None:

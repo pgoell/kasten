@@ -1,6 +1,5 @@
 import { indentWithTab } from "@codemirror/commands";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
+import { markdownLanguage } from "@codemirror/lang-markdown";
 import { Compartment, EditorState, Facet } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
@@ -11,8 +10,8 @@ import { backticks } from "@/lib/backticks";
 import { editorCommands } from "@/lib/editor-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
-import { Highlight } from "@/lib/markdown-highlight";
-import { vaultPaths, WikiLink, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
+import { noteLanguage } from "@/lib/note-language";
+import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
 type FollowHandler = (target: string) => void;
@@ -101,6 +100,25 @@ const preview = new Compartment();
 const vault = new Compartment();
 
 /**
+ * Where the note itself starts, past the frontmatter the vault writes.
+ *
+ * The block is three fields nobody types, and a new note is nothing else, so
+ * the top of the document is between the fences and the first keystroke would
+ * land in the dates. Read off the text rather than the syntax tree: the state
+ * is being built here and has no tree yet.
+ */
+function noteStart(doc: string): number {
+  const lines = doc.split("\n");
+  const fence = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+  if (fence === -1) return 0;
+
+  const past = lines.slice(0, fence + 1).reduce((at, line) => at + line.length + 1, 0);
+  // A note that is only its block ends at the closing fence, and there is no
+  // line below to sit on.
+  return Math.min(past, doc.length);
+}
+
+/**
  * Whether nobody on the page holds the focus.
  *
  * The editor takes it in that case and only that case. The file tree and the
@@ -187,6 +205,7 @@ export function Editor({
     const view = new EditorView({
       state: EditorState.create({
         doc: initialDocRef.current,
+        selection: { anchor: noteStart(initialDocRef.current) },
         extensions: [
           // Must come first: whichever keymap is registered earliest wins, and
           // vim's bindings have to beat the ones basicSetup installs.
@@ -223,11 +242,7 @@ export function Editor({
             showLinksOut: () => commandsRef.current?.showLinksOut(),
           }),
           basicSetup,
-          markdown({
-            base: markdownLanguage,
-            codeLanguages: languages,
-            extensions: [Highlight, WikiLink],
-          }),
+          noteLanguage(),
           markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
           followOnClick,
           vault.of(pathsRef.current ? vaultPaths.of(pathsRef.current) : []),

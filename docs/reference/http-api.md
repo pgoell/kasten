@@ -91,7 +91,8 @@ the list above. A slash inside it may be sent raw or percent-encoded.
 { "path": "daily/2026-08-05.md", "content": "# 2026-08-05\n" }
 ```
 
-`content` is the file's text, unchanged.
+`content` is the file's text, unchanged, the
+[frontmatter block](/reference/note-frontmatter.md) included.
 
 Anything that is not a readable markdown file inside the vault is a `404`:
 
@@ -118,8 +119,12 @@ The reply is the same shape `GET` returns, so the client can see what landed:
 { "path": "daily/2026-08-05.md", "content": "# 2026-08-05\n\nEdited.\n" }
 ```
 
-`content` is written unchanged. Nothing is stripped, added or normalised,
-because the vault is the source of truth.
+The text is stamped on the way through: the note's `modified` date is set to
+now, and a note without a
+[frontmatter block](/reference/note-frontmatter.md) gains one. Nothing below the
+block is touched, because the vault is the source of truth. What comes back is
+what landed on disk rather than what arrived, and it is the only copy to
+believe: the client's own is a save behind from the moment it sends it.
 
 Only a note that is already there can be written. Everything the read refuses
 is refused here for the same reasons, and a note that does not exist is a `404`
@@ -152,15 +157,20 @@ Starts a new note. There is no body: the URL carries the path, and a new note
 has nothing else to say.
 
 ```json
-{ "path": "reading/borges.md", "content": "" }
+{
+  "path": "reading/borges.md",
+  "content": "---\nid: 019fd761-258e-75da-b109-7bb369317960\ncreated: 2026-08-06T14:01:35+00:00\nmodified: 2026-08-06T14:01:35+00:00\n---\n"
+}
 ```
 
 The status is `201` and the shape is the one `GET` returns, so the client can
 open what it just made.
 
-The note is empty. The file name is the note's title in a vault with
-wikilinks, so a `# Borges` heading would say it twice, and empty is the only
-text that puts no word in the vault the user did not type.
+The note holds its [frontmatter block](/reference/note-frontmatter.md) and
+nothing else, so it has an id from the moment it exists. Nothing is written
+below the block: the file name is the note's title in a vault with wikilinks,
+so a `# Borges` heading would say it twice, and anything else would be a word
+in the vault the user did not type.
 
 `path` in the reply is the vault's spelling, not the URL's, which is the one
 place this differs from `PUT`. `ideas/./kasten.md` comes back as

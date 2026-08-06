@@ -10,8 +10,8 @@ async def test_creates_a_note_at_the_vault_root(client: AsyncClient, vault: Path
     response = await client.post("/api/files/index.md")
 
     assert response.status_code == 201
-    assert response.json() == {"path": "index.md", "content": ""}
-    assert (vault / "index.md").read_text() == ""
+    assert response.json() == {"path": "index.md", "content": (vault / "index.md").read_text()}
+    assert response.json()["content"].endswith("---\n")
 
 
 async def test_creates_a_note_inside_a_folder(client: AsyncClient, vault: Path) -> None:
@@ -20,8 +20,8 @@ async def test_creates_a_note_inside_a_folder(client: AsyncClient, vault: Path) 
     response = await client.post("/api/files/daily/2026-08-05.md")
 
     assert response.status_code == 201
-    assert response.json() == {"path": "daily/2026-08-05.md", "content": ""}
-    assert (vault / "daily" / "2026-08-05.md").read_text() == ""
+    assert response.json()["path"] == "daily/2026-08-05.md"
+    assert (vault / "daily" / "2026-08-05.md").read_text().endswith("---\n")
 
 
 async def test_refuses_to_write_over_a_note_that_is_there(client: AsyncClient, vault: Path) -> None:
@@ -44,9 +44,9 @@ async def test_makes_the_folders_on_the_way(client: AsyncClient, vault: Path) ->
     response = await client.post("/api/files/reading/2026/borges.md")
 
     assert response.status_code == 201
-    assert response.json() == {"path": "reading/2026/borges.md", "content": ""}
+    assert response.json()["path"] == "reading/2026/borges.md"
     assert (vault / "reading" / "2026").is_dir()
-    assert (vault / "reading" / "2026" / "borges.md").read_text() == ""
+    assert (vault / "reading" / "2026" / "borges.md").read_text().endswith("---\n")
 
 
 async def test_creates_a_note_through_a_folder_symlink(client: AsyncClient, vault: Path) -> None:
@@ -58,8 +58,8 @@ async def test_creates_a_note_through_a_folder_symlink(client: AsyncClient, vaul
     response = await client.post("/api/files/daily/2026-08-05.md")
 
     assert response.status_code == 201
-    assert response.json() == {"path": "reading/2026-08-05.md", "content": ""}
-    assert (vault / "reading" / "2026-08-05.md").read_text() == ""
+    assert response.json()["path"] == "reading/2026-08-05.md"
+    assert (vault / "reading" / "2026-08-05.md").read_text().endswith("---\n")
 
 
 async def test_creates_the_vault_directory_when_it_is_missing(
@@ -70,7 +70,7 @@ async def test_creates_the_vault_directory_when_it_is_missing(
     response = await client.post("/api/files/index.md")
 
     assert response.status_code == 201
-    assert (missing_vault / "index.md").read_text() == ""
+    assert (missing_vault / "index.md").read_text().endswith("---\n")
 
 
 async def test_answers_with_the_canonical_path_not_the_url_spelling(
@@ -81,8 +81,8 @@ async def test_answers_with_the_canonical_path_not_the_url_spelling(
     response = await client.post("/api/files/ideas%2F..%2Fkasten.md")
 
     assert response.status_code == 201
-    assert response.json() == {"path": "kasten.md", "content": ""}
-    assert (vault / "kasten.md").read_text() == ""
+    assert response.json()["path"] == "kasten.md"
+    assert (vault / "kasten.md").read_text().endswith("---\n")
 
 
 async def test_refuses_a_note_inside_a_file(client: AsyncClient, vault: Path) -> None:
@@ -203,3 +203,13 @@ async def test_refuses_a_null_byte_rather_than_raising(client: AsyncClient, vaul
     # The rule below guards against stalling an event loop, and a test reading
     # one throwaway directory has no loop worth protecting.
     assert list(vault.iterdir()) == []  # noqa: ASYNC240
+
+
+async def test_gives_the_new_note_its_frontmatter(client: AsyncClient, vault: Path) -> None:
+    # The note is named by its id from the moment it exists, not from its first
+    # save. What the block holds is `test_frontmatter.py`'s business.
+    response = await client.post("/api/files/index.md")
+
+    written = (vault / "index.md").read_text()
+    assert written.startswith("---\nid: ")
+    assert response.json()["content"] == written

@@ -282,4 +282,12 @@ describe("live preview", () => {
     await waitFor(() => expect(content(container)).toContain("## One"));
     expect(content(container)).not.toContain("## Two");
   });
+  it("leaves a note's frontmatter on screen instead of reading it as markdown", () => {
+    // Without a parser for the block, the opening fence is a horizontal rule
+    // and the closing one underlines the fields above it into a heading: every
+    // note in the vault would open on three lines of dates drawn as a title.
+    const { container } = render(<Editor initialDoc={"---\nid: 1\n---\n# Notes"} />);
+
+    expect(content(container)).toBe("---id: 1---Notes");
+  });
 });

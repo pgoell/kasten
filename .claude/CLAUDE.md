@@ -20,14 +20,17 @@ Real, working code, not a plan:
 
 - `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Eight
   endpoints, `/api/health`, `/api/files`, `/api/search`, `GET`, `POST`, `PUT`
-  and `PATCH` on `/api/files/{path}`, and `PATCH` on `/api/folders/{path}`. A create starts an
-  empty note and makes the folders on the way to it; a `PATCH` gives a note or a
-  folder a new path and takes the folders it emptied with it. A folder moves in
+  and `PATCH` on `/api/files/{path}`, and `PATCH` on `/api/folders/{path}`. A create starts a
+  note holding its frontmatter and makes the folders on the way to it; a `PATCH`
+  gives a note or a folder a new path and takes the folders it emptied with it. A folder moves in
   one rename, so its whole subtree arrives together. Both moves rewrite every
   `[[link]]` in the vault that named what moved, each in the spelling it had,
   reading only the notes rg names rather than the whole vault. All four writes are
   recorded in the vault's jj repo, one change per note, and skipped when the
-  vault has none. Settings via pydantic-settings with the `KASTEN_` prefix.
+  vault has none. Every note carries a `---` block holding a uuid7 `id`, a
+  `created` date and a `modified` date; a create writes it and a save rewrites
+  the date, keeping the id, the creation date and every field that is not
+  kasten's. Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
   that opens the note you click and writes it back as you type, or on `:w`.
@@ -49,7 +52,9 @@ Real, working code, not a plan:
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
   The open note lives in the URL as `?note=` and the line as `?line=`, and the
-  note follows a folder that moves out from under it.
+  note follows a folder that moves out from under it. The frontmatter is drawn
+  as YAML rather than as markdown, and the cursor opens on the first line under
+  it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.

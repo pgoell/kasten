@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -12,8 +13,10 @@ async def test_writes_the_note_back_to_the_vault(client: AsyncClient, vault: Pat
     response = await client.put("/api/files/index.md", json={"content": "# index\n\nEdited.\n"})
 
     assert response.status_code == 200
-    assert response.json() == {"path": "index.md", "content": "# index\n\nEdited.\n"}
-    assert (vault / "index.md").read_text() == "# index\n\nEdited.\n"
+    # What came back is what landed on disk, stamp and all, because the client
+    # sent text a save older than its own.
+    assert response.json() == {"path": "index.md", "content": (vault / "index.md").read_text()}
+    assert response.json()["content"].endswith("# index\n\nEdited.\n")
 
 
 async def test_writes_a_note_inside_a_folder(client: AsyncClient, vault: Path) -> None:
@@ -23,17 +26,19 @@ async def test_writes_a_note_inside_a_folder(client: AsyncClient, vault: Path) -
     response = await client.put("/api/files/daily/2026-08-05.md", json={"content": "# tomorrow"})
 
     assert response.status_code == 200
-    assert (vault / "daily" / "2026-08-05.md").read_text() == "# tomorrow"
+    assert (vault / "daily" / "2026-08-05.md").read_text().endswith("# tomorrow")
 
 
 async def test_keeps_the_text_it_was_given(client: AsyncClient, vault: Path) -> None:
-    # The vault is the source of truth, so nothing may be normalised on the way in.
+    # The vault is the source of truth, so nothing below the frontmatter may be
+    # normalised on the way in, line endings included.
     (vault / "unicode.md").write_text("# note")
     content = "# Grüße\n\nEmdash free, ✅ and 日本語.\r\nNo trailing newline."
 
     await client.put("/api/files/unicode.md", json={"content": content})
 
-    assert (vault / "unicode.md").read_text(encoding="utf-8", newline="") == content
+    written = (vault / "unicode.md").read_text(encoding="utf-8", newline="")
+    assert written.endswith(content)
 
 
 async def test_leaves_no_temporary_file_behind(client: AsyncClient, vault: Path) -> None:
@@ -137,4 +142,24 @@ async def test_reads_back_what_it_wrote(client: AsyncClient, vault: Path) -> Non
     await client.put("/api/files/index.md", json={"content": "# index\n\nEdited.\n"})
     response = await client.get("/api/files/index.md")
 
-    assert response.json()["content"] == "# index\n\nEdited.\n"
+    assert response.json()["content"].endswith("# index\n\nEdited.\n")
+
+
+async def test_dates_the_note_it_writes_and_keeps_what_the_block_had(
+    client: AsyncClient, vault: Path
+) -> None:
+    # A save is what `modified` means. The id and the creation date are the
+    # note's from the first write and no later one may touch them.
+    (vault / "index.md").write_text(
+        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\n---\n# index"
+    )
+
+    await client.put("/api/files/index.md", json={"content": "# index\n\nEdited.\n"})
+
+    written = (vault / "index.md").read_text()
+    assert "\nid: kept\n" in written
+    assert "\ncreated: 2020-01-01T00:00:00+00:00\n" in written
+    modified = next(line for line in written.split("\n") if line.startswith("modified: "))
+    assert datetime.fromisoformat(modified.removeprefix("modified: ")) > datetime(
+        2020, 1, 1, tzinfo=UTC
+    )
