@@ -3,6 +3,20 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote, type SearchHit, searchNotes } from "@/lib/api";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
+import {
+  BACKDROP,
+  BODY,
+  HEADER_ROW,
+  INPUT,
+  LABEL,
+  LIST,
+  PANE,
+  PANE_MESSAGE,
+  PANEL,
+  PANEL_WIDE,
+  ROW,
+  STATUS,
+} from "@/lib/overlay-styles";
 
 interface NoteSearchProps {
   /** Called with the note to open and the line the match sits on. */
@@ -214,16 +228,13 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
       aria-label="Search notes"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      className="fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none"
+      className={BACKDROP}
     >
       {/* Wider than the finder's, because a row here carries the path, the
           line number and the line itself, and the pane still needs half. */}
-      <div className="flex w-[min(72rem,94vw)] flex-col rounded-md border border-one-line bg-one-panel font-mono shadow-xl">
-        <div className="flex items-center gap-3 border-b border-one-line px-3 py-2">
-          <label
-            htmlFor={`${listId}-query`}
-            className="text-[11px] tracking-wider text-one-muted uppercase"
-          >
+      <div className={`${PANEL} ${PANEL_WIDE}`}>
+        <div className={HEADER_ROW}>
+          <label htmlFor={`${listId}-query`} className={LABEL}>
             search notes
           </label>
           <input
@@ -240,22 +251,17 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
             aria-activedescendant={hits.length > 0 ? `${listId}-${cursor}` : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none"
+            className={INPUT}
           />
         </div>
 
         {/* A fixed height rather than one the content sets, so the panel does
             not jump about as the list narrows under it. */}
-        <div className="flex h-[min(26rem,55vh)]">
+        <div className={BODY}>
           {hits.length > 0 && (
             // A div rather than a list, because a listbox is not a list of
             // items to a screen reader and marking it as both says it twice.
-            <div
-              id={listId}
-              role="listbox"
-              aria-label="Matching lines"
-              className="w-1/2 shrink-0 overflow-auto py-1"
-            >
+            <div id={listId} role="listbox" aria-label="Matching lines" className={LIST}>
               {hits.map((index, row) => {
                 const hit = found[index];
                 if (hit === undefined) return null;
@@ -270,9 +276,7 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
                     // the highlight is how the list says what Enter would open.
                     tabIndex={-1}
                     onClick={() => accept(index)}
-                    className={`flex w-full cursor-pointer gap-3 px-3 py-[3px] text-left text-[13px] ${
-                      row === cursor ? "bg-one-hover" : ""
-                    }`}
+                    className={`${ROW} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
                   >
                     <span
                       className={`shrink-0 truncate ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
@@ -292,11 +296,7 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
             // A labelled <section> rather than a bare <pre>, which takes no
             // label of its own and leaves the pane something a screen reader
             // can reach but not name.
-            <section
-              aria-label="Preview"
-              data-testid="preview"
-              className="min-w-0 flex-1 border-l border-one-line text-[12px]"
-            >
+            <section aria-label="Preview" data-testid="preview" className={PANE}>
               {context !== undefined ? (
                 // Keyed on the note and the line, so walking to another hit
                 // builds a fresh view centred on it rather than leaving this
@@ -308,7 +308,7 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
                   markLine={reading.line}
                 />
               ) : (
-                <p className="px-3 py-1 text-one-muted">
+                <p className={PANE_MESSAGE}>
                   {/* An empty note is empty, not still loading, and a spinner
                       that never stops is the worse of the two lies. */}
                   {note.status === "error" ? "could not read this note" : "reading the note"}
@@ -320,9 +320,7 @@ export function NoteSearch({ onOpen, onClose }: NoteSearchProps) {
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className="border-t border-one-line px-3 py-1 text-[11px] text-one-muted">
-          {hint(typed, search.isFetching, hits.length)}
-        </output>
+        <output className={STATUS}>{hint(typed, search.isFetching, hits.length)}</output>
       </div>
     </div>
   );
