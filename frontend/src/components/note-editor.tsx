@@ -9,6 +9,8 @@ interface NoteEditorProps {
   path: string;
   commands: EditorCommands;
   preview: boolean;
+  /** Line to open on, which a search hit names and nothing else does. */
+  startLine?: number;
   onChange: (doc: string) => void;
   onSave: () => void;
 }
@@ -31,6 +33,7 @@ export const NoteEditor = memo(function NoteEditor({
   path,
   commands,
   preview,
+  startLine,
   onChange,
   onSave,
 }: NoteEditorProps) {
@@ -48,6 +51,7 @@ export const NoteEditor = memo(function NoteEditor({
       initialDoc={data}
       commands={commands}
       preview={preview}
+      startLine={startLine}
       onChange={onChange}
       onSave={onSave}
     />

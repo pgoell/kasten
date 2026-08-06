@@ -1,4 +1,4 @@
-import { folderCandidates, rankCandidates, rankFolders, rankNotes } from "@/lib/fuzzy";
+import { folderCandidates, rankCandidates, rankFolders, rankLines, rankNotes } from "@/lib/fuzzy";
 
 // The list the file tree's tests run on, so the folders ranked here are the
 // ones a real vault listing yields.
@@ -166,5 +166,44 @@ describe("rankNotes", () => {
     // The suffix is part of the path, so a query has `.md` to read from at the
     // end and nowhere else.
     expect(rankNotes(["index.md"], "mi")).toEqual([]);
+  });
+});
+
+describe("rankLines", () => {
+  // What a search hit's text looks like: prose, no slashes, and nothing in it
+  // that a path bonus would have anything to say about.
+  const LINES = [
+    "Postgres holds a derived index.",
+    "The vault is the source of truth.",
+    "Nothing that only exists in the database is allowed to matter.",
+  ];
+
+  it("answers with positions rather than the lines themselves", () => {
+    // Two hits can carry the very same text, on different notes or different
+    // lines of one. The caller has to be able to tell them apart afterwards,
+    // and the text alone cannot.
+    expect(rankLines(LINES, "derived")).toEqual([0]);
+  });
+
+  it("ranks a line the query reads well above one it only scrapes into", () => {
+    // `the` opens line 1 and runs unbroken, sits mid-line as a run in line 2,
+    // and line 0 only carries the three letters scattered across "Postgres
+    // holds a derived". All three match; they are nowhere near equal.
+    expect(rankLines(LINES, "the")).toEqual([1, 2, 0]);
+  });
+
+  it("keeps the order it was given where nothing tells two lines apart", () => {
+    // rg hands these over in path order, then line order within a note, which
+    // is the order a reader expects them back in. Sorting equal scores by the
+    // text would scramble that for nothing.
+    expect(rankLines(["same text", "same text"], "same")).toEqual([0, 1]);
+  });
+
+  it("drops a line the query does not read into", () => {
+    expect(rankLines(LINES, "zz")).toEqual([]);
+  });
+
+  it("returns every line in the order given for the empty query", () => {
+    expect(rankLines(LINES, "")).toEqual([0, 1, 2]);
   });
 });

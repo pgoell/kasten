@@ -161,3 +161,9 @@ body {
 .cm-code-close {
   color: var(--color-one-muted);
 }
+
+/* The line a search hit sits on, in the finder's preview pane. Painted rather
+   than outlined, so it reads as the same highlight the list row carries. */
+.cm-searchHit {
+  background: var(--color-one-hover);
+}

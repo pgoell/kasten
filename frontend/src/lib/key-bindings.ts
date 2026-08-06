@@ -22,6 +22,8 @@ export interface EditorCommands {
   renameNote(startPath?: string): void;
   /** Open the finder, which ranks the whole vault and needs nothing to start from. */
   findNote(): void;
+  /** Open search over note content, which starts from nowhere the way the finder does. */
+  searchNotes(): void;
 }
 
 /**
@@ -55,6 +57,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // Telescope spells `find_files` this way, and the shape matches `cf` and `rf`
   // beside it: the group letter, then the thing.
   { key: "ff", label: "Find a note", command: "findNote" },
+  // Telescope spells `live_grep` this way, and it lands beside `ff` for the
+  // reason the two belong together: one finds a note by its name, the other by
+  // what is written in it.
+  { key: "fg", label: "Search note content", command: "searchNotes" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
   { key: "q", label: "Save and close the note", command: "closeNote" },
   // `rf` beside `cf`: same shape, the group letter then the thing, so renaming
@@ -120,6 +126,8 @@ export const TREE: readonly { key: string; label: string }[] = [
   // the only way to a folder, which is a thing only the tree can point at.
   { key: "c", label: "New note in the folder the cursor is in" },
   { key: "f", label: "Find a note by name" },
+  // `s` and not `g`: `g` opens `gg` here, so it cannot be a command of its own.
+  { key: "s", label: "Search every note's content" },
   { key: "r", label: "Rename the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
   { key: "Escape", label: "Back to the editor" },

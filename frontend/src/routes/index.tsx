@@ -7,6 +7,7 @@ import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
 import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
+import { NoteSearch } from "@/components/note-search";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
@@ -23,11 +24,18 @@ Link notes with [[wikilinks]].
 interface HomeSearch {
   /** Vault-relative path of the open note, absent while none is open. */
   note?: string;
+  /**
+   * Line the editor opens on, which only a search hit names.
+   *
+   * In the URL beside the note so a reload lands back on the match rather than
+   * at the top of the note, the way `note` itself survives one.
+   */
+  line?: number;
 }
 
 function Home() {
   const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
-  const { note } = Route.useSearch();
+  const { note, line } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   // Autosave sits out here rather than in the editor because it has to outlive
   // the remount that opening another note causes: text typed into one note is
@@ -47,6 +55,10 @@ function Home() {
   // A flag and not a path, unlike the prompt: the finder ranks the whole vault
   // and has nothing to start from.
   const [finderOpen, setFinderOpen] = useState(false);
+  // Its own flag rather than a mode of the finder's: that one ranks a vault
+  // already in hand, this one asks the backend on a delay, and the two share
+  // no state worth folding together.
+  const [searchOpen, setSearchOpen] = useState(false);
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
@@ -86,6 +98,9 @@ function Home() {
       // where it is, and `useAutosave` flushes on its own when the path it was
       // given changes.
       findNote: () => setFinderOpen(true),
+      // No save first, for the reason the finder needs none: searching moves
+      // no path out from under text still waiting to be written.
+      searchNotes: () => setSearchOpen(true),
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -115,6 +130,7 @@ function Home() {
               path={note}
               commands={commands}
               preview={preview}
+              startLine={line}
               onChange={change}
               onSave={save}
             />
@@ -144,9 +160,21 @@ function Home() {
           paths={data ?? []}
           onOpen={(path) => {
             setFinderOpen(false);
+            // No line: the finder opens a note, not a place in one, and a
+            // stale `line` left in the URL would drop the cursor somewhere
+            // the previous search happened to point at.
             navigate({ search: { note: path } });
           }}
           onClose={() => setFinderOpen(false)}
+        />
+      )}
+      {searchOpen && (
+        <NoteSearch
+          onOpen={(path, hitLine) => {
+            setSearchOpen(false);
+            navigate({ search: { note: path, line: hitLine } });
+          }}
+          onClose={() => setSearchOpen(false)}
         />
       )}
     </main>
@@ -159,5 +187,11 @@ export const Route = createFileRoute("/")({
   // their place. Anything that is not a string reads as no note open.
   validateSearch: (search: Record<string, unknown>): HomeSearch => ({
     note: typeof search.note === "string" ? search.note : undefined,
+    // Anything that is not a line number reads as no line, which covers a
+    // hand-typed URL as well as the absence of one.
+    line:
+      Number.isInteger(Number(search.line)) && Number(search.line) > 0
+        ? Number(search.line)
+        : undefined,
   }),
 });

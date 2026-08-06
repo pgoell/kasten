@@ -28,6 +28,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>cf` | Open the new note prompt |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
+| `<leader>fg` | Open search over note content |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Write the note and close it |
 | `<leader>rf` | Open the rename prompt |
@@ -141,20 +142,25 @@ cursor is on, and these keys move it from there.
 | `gg` / `G` | Go to the first or last row |
 | `c` | New note in the folder the cursor is in |
 | `f` | Open the note finder |
+| `s` | Open search over note content |
 | `r` | Rename the note or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 
 Leader sequences work here too, so `<leader>b` closes the tree from inside it.
 
-`c`, `f` and `r` are bare letters rather than leader sequences, because the
+`c`, `f`, `s` and `r` are bare letters rather than leader sequences, because the
 tree's own keys are single presses. `c` does what `<leader>cf` does from here,
-`f` does what `<leader>ff` does, and `r` does what `<leader>rf` does and one
-thing more: on a folder row it renames the folder. The tree is the only place
-that can point at a folder, so it is the only place the key exists.
+`f` does what `<leader>ff` does, `s` does what `<leader>fg` does, and `r` does
+what `<leader>rf` does and one thing more: on a folder row it renames the
+folder. The tree is the only place that can point at a folder, so it is the only
+place the key exists.
 
-`c` and `r` read the row the cursor is on and `f` does not. The finder ranks the
-whole vault and starts from nowhere, so it does the same thing from every row.
+Search is `s` here and not `g`, which is the letter `<leader>fg` ends on: `g`
+already opens `gg` in the tree and cannot also be a command of its own.
+
+`c` and `r` read the row the cursor is on; `f` and `s` do not. Both read the
+whole vault and start from nowhere, so they do the same thing from every row.
 
 Renaming a folder moves every note under it. The prompt says how many before you
 press Enter, and the whole subtree arrives at the new path together, so there is
@@ -242,15 +248,73 @@ scores above one that only matched the folder, so `arch` finds
 `kasten/architecture.md` before `archive/march.md`. Typing a folder still
 narrows, which is what `kasten/arch` is for.
 
-Beside the list sits the note under the highlight, as plain text. It is for
-telling two notes apart, not for reading one, so there is no highlighting and no
-editor. The text arrives a moment after the highlight stops moving, which is
+Beside the list sits the note under the highlight, rendered the way the editor
+renders it: headings sized, lists drawn, marks hidden. The pane shows the note
+as opening it will, which is what makes two notes easy to tell apart. Nothing
+in it can be typed into, and the keys stay with the input. The text arrives a
+moment after the highlight stops moving, which is
 what keeps a held Ctrl+n from reading every row it passes. A note that cannot be
 read says `could not read this note`, and Enter still opens it.
 
 The line underneath says `no notes match` for a query that reads into nothing,
 and `the vault has no notes` for a vault with nothing in it yet. Enter does
 nothing in either case.
+
+## The note search
+
+`<leader>fg` and the tree's `s` open search over what is written in the notes,
+rather than over their names. Telescope spells the pair this way, `find_files`
+and `live_grep`, which is where `ff` and `fg` come from. Nothing typed here has
+to name a path, and search never writes.
+
+| Key | Does |
+| --- | --- |
+| any character | Narrow to the lines holding the query |
+| Down / Ctrl+n | Move the highlight down one row |
+| Up / Ctrl+p | Move the highlight up one row |
+| Enter | Open the note on the line the match is on |
+| Escape | Close, and hand the focus back |
+
+One row per matching line, showing the note, the line number and the line
+itself. Enter opens the note with the cursor on that line, centred rather than
+scrolled just barely into view, and the line lands in the URL as `?line=`, so a
+reload comes back to the match instead of the top of the note.
+
+The panel is the finder's, at the same size and split the same way down the
+middle. Beside the list sits the note around the highlighted hit, rendered the
+same way the finder's pane renders it: numbered lines, the matching one marked, centred
+in the pane and scrollable either side of it. The numbers are the note's own,
+so a hit deep in a note still says where it is. The
+pane shows thirty lines each way rather than the whole note, so a long note
+costs what a short one does. The text arrives a moment after the highlight
+stops moving, which is what keeps a held Ctrl+n from reading every note it
+passes, and walking between two hits of one note re-centres the pane without
+reading the note again. A note that cannot be read says `could not read this
+note`, and Enter still opens it.
+
+One thing the window costs: it slices the note at a fixed distance from the
+hit, so a fenced code block that opens above the window and closes inside it
+leaves the pane rendering a closing fence it never saw open. The note itself is
+one Enter away and renders correctly there.
+
+The work is split in two, and the split is the whole design. The backend finds
+the lines holding the query literally, which is the part a browser cannot do
+without every note loaded into it. The browser ranks what came back, which is
+the part that has to answer per keystroke. It has to be this way round: a
+subsequence match is what makes the finder feel fuzzy over note names, and it
+means nothing over prose, where an eight letter query still reads into 15% of
+the lines in a vault. So a subsequence never chooses the lines here, only their
+order.
+
+That split is also why typing keeps narrowing. Reading the vault waits for the
+typing to settle, but the lines already in hand are ranked against every
+keystroke, so the list tightens while the next scan is still out rather than
+freezing until it lands.
+
+The line underneath says `type to search every note` before anything is typed,
+`reading the vault` while a scan is out, and `no notes match` when the vault
+holds nothing that matches. See [GET /api/search](/reference/http-api.md) for
+what the backend does and does not look at.
 
 ## Saving
 

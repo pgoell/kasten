@@ -3,6 +3,16 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createNote, moveFolder, renameNote } from "@/lib/api";
 import { folderCandidates, rankCandidates } from "@/lib/fuzzy";
 import { describeFolderPath, describeNotePath, type NotePathVerdict } from "@/lib/note-path";
+import {
+  BACKDROP,
+  HEADER_ROW,
+  INPUT,
+  LABEL,
+  PANEL,
+  PANEL_NARROW,
+  ROW,
+  STATUS,
+} from "@/lib/overlay-styles";
 
 /**
  * What the prompt is naming.
@@ -343,14 +353,11 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
       aria-label={TITLE[mode]}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      className="fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none"
+      className={BACKDROP}
     >
-      <div className="flex max-h-[70vh] w-[min(36rem,90vw)] flex-col rounded-md border border-one-line bg-one-panel font-mono shadow-xl">
-        <div className="flex items-center gap-3 border-b border-one-line px-3 py-2">
-          <label
-            htmlFor={`${listId}-path`}
-            className="text-[11px] tracking-wider text-one-muted uppercase"
-          >
+      <div className={`${PANEL} ${PANEL_NARROW}`}>
+        <div className={HEADER_ROW}>
+          <label htmlFor={`${listId}-path`} className={LABEL}>
             {HEADER[mode]}
           </label>
           <input
@@ -368,7 +375,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
             aria-activedescendant={folders.length > 0 ? `${listId}-${cursor}` : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none"
+            className={INPUT}
           />
         </div>
 
@@ -388,7 +395,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
                 // click still lands here, and takes the folder Tab would take.
                 tabIndex={-1}
                 onClick={() => pick(folder)}
-                className={`w-full cursor-pointer px-3 py-[3px] text-left text-[13px] ${
+                className={`${ROW} ${
                   index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                 }`}
               >
@@ -400,7 +407,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className="border-t border-one-line px-3 py-1 text-[11px] text-one-muted">
+        <output className={STATUS}>
           {failed ? REFUSED[mode] : hint(verdict, mode, startPath, moves)}
         </output>
       </div>

@@ -36,6 +36,43 @@ and directories are skipped, which keeps `.git` and editor dotfiles out. A
 vault directory that does not exist reads as an empty one, so a fresh checkout
 still serves.
 
+## GET /api/search
+
+Finds every line in the vault holding `q`, ignoring case. Takes one query
+parameter, `q`, and answers with at most 2,000 matches.
+
+```json
+[{ "path": "projects/kasten.md", "line": 4, "text": "Postgres holds a derived index." }]
+```
+
+Nothing is indexed and Postgres is not consulted. `rg` reads the notes on every
+query, which over a 10,000 note vault costs about 17ms and cannot go stale,
+because the files it reads are the source of truth themselves.
+
+The match is literal. `q` is not a regex, so `index.` finds the end of a
+sentence rather than any five letters followed by one more, and a half-typed
+`[[like` is a query instead of an error. It is not a fuzzy match either: a
+query read as a subsequence finds most of a vault whatever you type, which is
+measurably useless over prose. Ranking the answer is the client's job, and
+[The note search](/reference/editor-keys.md#the-note-search) is where that
+happens.
+
+Search sees exactly what `GET /api/files` lists, and this is the property to
+keep. Markdown only, hidden files and directories skipped, and a `.gitignore`
+inside the vault deliberately ignored, because git being told to overlook a
+file says nothing about whether the note exists. A vault directory that does
+not exist reads as an empty one.
+
+A blank or whitespace-only `q` answers with nothing rather than everything. An
+empty literal matches every line there is, which would make the query nobody
+has finished typing the most expensive one the vault can answer.
+
+The cap of 2,000 is about what crosses the wire, not what the machine can do:
+`rg` reads the whole vault in about the same time whatever the cap. Because the
+client ranks everything it is handed and cuts afterwards, the rows on screen
+are the best of the match set rather than the head of it, and 2,000 is the
+whole match set for anything but the most common word in a vault.
+
 ## GET /api/files/{path}
 
 Reads one note. `path` is a vault-relative POSIX path, exactly as it appears in

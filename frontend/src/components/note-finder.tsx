@@ -1,7 +1,22 @@
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
+import {
+  BACKDROP,
+  BODY,
+  HEADER_ROW,
+  INPUT,
+  LABEL,
+  LIST,
+  PANE,
+  PANE_MESSAGE,
+  PANEL,
+  PANEL_WIDE,
+  ROW,
+  STATUS,
+} from "@/lib/overlay-styles";
 
 interface NoteFinderProps {
   /** Every path in the vault, ranked against what has been typed. */
@@ -35,18 +50,16 @@ function hint(vaultSize: number, matches: number): string {
 }
 
 /**
- * What the pane shows, which is the note's text or the reason there is none.
+ * Why the pane has no note to show, which is the only thing left for it to say.
  *
  * A note the vault holds but cannot be read is worth saying out loud, and it is
  * no reason to stop the row being opened: the editor gives its own answer, and
- * it is the one that matters.
+ * it is the one that matters. An empty note is not one of these, being empty
+ * rather than missing, and a spinner that never stops is the worse of the two
+ * lies.
  */
-function previewText(status: "pending" | "error" | "success", text: string | undefined): string {
-  if (status === "error") return "could not read this note";
-  // An empty note is empty, not still loading, and a spinner that never stops
-  // is the worse of the two lies.
-  if (status === "success") return text ?? "";
-  return "reading the note";
+function previewText(status: "pending" | "error"): string {
+  return status === "error" ? "could not read this note" : "reading the note";
 }
 
 /**
@@ -183,14 +196,11 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
       aria-label="Find note"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      className="fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none"
+      className={BACKDROP}
     >
-      <div className="flex w-[min(56rem,92vw)] flex-col rounded-md border border-one-line bg-one-panel font-mono shadow-xl">
-        <div className="flex items-center gap-3 border-b border-one-line px-3 py-2">
-          <label
-            htmlFor={`${listId}-query`}
-            className="text-[11px] tracking-wider text-one-muted uppercase"
-          >
+      <div className={`${PANEL} ${PANEL_WIDE}`}>
+        <div className={HEADER_ROW}>
+          <label htmlFor={`${listId}-query`} className={LABEL}>
             find note
           </label>
           <input
@@ -207,22 +217,17 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
             aria-activedescendant={notes.length > 0 ? `${listId}-${cursor}` : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none"
+            className={INPUT}
           />
         </div>
 
         {/* A fixed height rather than one the content sets, so the pane does not
             jump about as the list narrows under it. */}
-        <div className="flex h-[min(26rem,55vh)]">
+        <div className={BODY}>
           {notes.length > 0 && (
             // A div rather than a list, because a listbox is not a list of items
             // to a screen reader and marking it as both says it twice.
-            <div
-              id={listId}
-              role="listbox"
-              aria-label="Notes"
-              className="w-1/2 shrink-0 overflow-auto py-1"
-            >
+            <div id={listId} role="listbox" aria-label="Notes" className={LIST}>
               {notes.map((path, index) => (
                 <button
                   key={path}
@@ -235,7 +240,7 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
                   // open. A click still lands here, and opens the same note.
                   tabIndex={-1}
                   onClick={() => accept(path)}
-                  className={`w-full cursor-pointer truncate px-3 py-[3px] text-left text-[13px] ${
+                  className={`${ROW} truncate ${
                     index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                   }`}
                 >
@@ -246,31 +251,31 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
           )}
 
           {highlighted !== undefined && (
-            // Plain text, no editor and no highlighting. Cheapest per highlight
-            // move, and this pane is for telling two notes apart rather than
-            // for reading one.
+            // Rendered the way the editor renders it, so the pane shows the
+            // note as opening it will. It used to be plain text, on the
+            // grounds that this pane is for telling two notes apart rather
+            // than for reading one, and two notes with their syntax showing
+            // are harder to tell apart, not easier. The cost is one dropped
+            // frame per mount, and the delay above makes that once per row you
+            // stop on rather than once per row you pass.
             // A labelled <section> rather than a bare <pre>, which takes no
             // label of its own and leaves the pane something a screen reader
             // can reach but not name.
-            <section
-              aria-label="Preview"
-              className="min-w-0 flex-1 overflow-auto border-l border-one-line"
-            >
-              <pre
-                data-testid="preview"
-                className="px-3 py-2 text-[12px] text-one-muted whitespace-pre-wrap"
-              >
-                {previewText(note.status, note.data)}
-              </pre>
+            <section aria-label="Preview" data-testid="preview" className={PANE}>
+              {note.status === "success" ? (
+                // Keyed on the path so opening another note builds a fresh
+                // view rather than reconfiguring this one.
+                <NotePreview key={reading} text={note.data} />
+              ) : (
+                <p className={PANE_MESSAGE}>{previewText(note.status)}</p>
+              )}
             </section>
           )}
         </div>
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className="border-t border-one-line px-3 py-1 text-[11px] text-one-muted">
-          {hint(paths.length, notes.length)}
-        </output>
+        <output className={STATUS}>{hint(paths.length, notes.length)}</output>
       </div>
     </div>
   );

@@ -28,10 +28,18 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onRenameNote?: (startPath?: string) => void;
   onRenameFolder?: (startPath: string) => void;
   onFindNote?: () => void;
+  onSearchNotes?: () => void;
 };
 
 /** Holds the open state the route holds in the app, so folding still works. */
-function Harness({ onCreateNote, onRenameNote, onRenameFolder, onFindNote, ...props }: TreeProps) {
+function Harness({
+  onCreateNote,
+  onRenameNote,
+  onRenameFolder,
+  onFindNote,
+  onSearchNotes,
+  ...props
+}: TreeProps) {
   const [open, setOpen] = useState(true);
   // The route folds the panel from two directions, `q` in the tree and the
   // leader from anywhere, and both land on the same callback.
@@ -54,6 +62,7 @@ function Harness({ onCreateNote, onRenameNote, onRenameFolder, onFindNote, ...pr
         renameNote: onRenameNote ?? (() => {}),
         renameFolder: onRenameFolder ?? (() => {}),
         findNote: onFindNote ?? (() => {}),
+        searchNotes: onSearchNotes ?? (() => {}),
       }}
     />
   );
@@ -360,6 +369,29 @@ describe("the tree keyboard", () => {
     press("f");
 
     expect(onFindNote).toHaveBeenCalledTimes(2);
+  });
+
+  it("searches note content on s, whatever the cursor is on", () => {
+    // `s` rather than the `g` that `<leader>fg` ends on, because `g` is the
+    // first half of `gg` here. Takes nothing from the row, the way `f` does not.
+    const onSearchNotes = vi.fn();
+    renderTree({ onSearchNotes });
+
+    press("s");
+
+    expect(onSearchNotes).toHaveBeenCalledTimes(1);
+  });
+
+  it("still goes to the first row on gg, which the search key must not have eaten", () => {
+    renderTree();
+
+    press("G");
+    expect(cursor()).not.toHaveTextContent("daily");
+
+    press("g");
+    press("g");
+
+    expect(cursor()).toHaveTextContent("daily");
   });
 
   it("waits for the second letter rather than acting on the leader and c", () => {

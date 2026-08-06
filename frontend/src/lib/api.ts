@@ -7,6 +7,9 @@ export type Note = components["schemas"]["Note"];
 /** One folder as the vault spells it. A folder is a path and nothing else. */
 export type Folder = components["schemas"]["Folder"];
 
+/** One line of one note that matched a search, and where to find it. */
+export type SearchHit = components["schemas"]["SearchHit"];
+
 /**
  * Calls into the backend, typed from its OpenAPI schema.
  *
@@ -20,6 +23,25 @@ export async function fetchFiles(): Promise<string[]> {
 
   if (!data) {
     throw new Error(`GET /api/files failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * Every line in the vault holding `query`, as the backend found them.
+ *
+ * A literal match and nothing more. Ranking these is the caller's job, which
+ * is what lets a keystroke narrow the answer already in hand rather than wait
+ * for the next one.
+ */
+export async function searchNotes(query: string): Promise<SearchHit[]> {
+  const { data, response } = await client.GET("/api/search", {
+    params: { query: { q: query } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/search failed with ${response.status}`);
   }
 
   return data;
