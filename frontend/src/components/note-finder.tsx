@@ -19,11 +19,19 @@ import {
 } from "@/lib/overlay-styles";
 
 interface NoteFinderProps {
-  /** Every path in the vault, ranked against what has been typed. */
+  /** The notes to rank against what has been typed. Usually the whole vault. */
   paths: string[];
   /** Called with the note to open. */
   onOpen: (path: string) => void;
   onClose: () => void;
+  /**
+   * Whether `paths` is what one note links to rather than the whole vault.
+   *
+   * The list is the same list either way, so this only changes what the panel
+   * calls itself and what it says about an empty one: a vault with nothing in
+   * it and a note that links nowhere are not the same emptiness.
+   */
+  outgoing?: boolean;
 }
 
 /** Rows the list will mount. Beyond this, another keystroke narrows faster than a scroll. */
@@ -44,8 +52,8 @@ const PREVIEW_DELAY_MS = 80;
  * An empty list has two reasons and they are not the same problem: a vault with
  * nothing in it yet, and a query that reads into none of what is there.
  */
-function hint(vaultSize: number, matches: number): string {
-  if (vaultSize === 0) return "the vault has no notes";
+function hint(listed: number, matches: number, outgoing: boolean): string {
+  if (listed === 0) return outgoing ? "this note links nowhere" : "the vault has no notes";
   return matches === 0 ? "no notes match" : "";
 }
 
@@ -70,8 +78,13 @@ function previewText(status: "pending" | "error"): string {
  * and the list completes it; here the list is the answer and the input only
  * filters it. Enter takes the highlighted row whatever the input says, so
  * nothing typed here has to name a path, and nothing here ever writes.
+ *
+ * `outgoing` is the same panel over a shorter list: the notes one note links
+ * to. Nothing about ranking, previewing or opening a note changes when the
+ * list is twelve notes rather than the vault, which is why that is a mode of
+ * this rather than a panel of its own.
  */
-export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
+export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFinderProps) {
   const [query, setQuery] = useState("");
   /** Which note Enter would open. */
   const [active, setActive] = useState(0);
@@ -159,14 +172,22 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    const down = event.key === "ArrowDown" || (event.ctrlKey && event.key === "n");
-    const up = event.key === "ArrowUp" || (event.ctrlKey && event.key === "p");
+    // Tab walks the list rather than completing anything, the way it does in a
+    // terminal fuzzy finder. There is nothing here to complete: Enter opens the
+    // row under the highlight whatever the input says.
+    const tab = event.key === "Tab";
+    const down =
+      event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n");
+    const up =
+      event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p");
 
     if (down || up) {
-      if (notes.length === 0) return;
       // Without this the arrows take the caret to one end of the input, which
-      // is where the browser sends them when nothing else does.
+      // is where the browser sends them when nothing else does, and Tab takes
+      // the focus out of the panel. Prevented before the empty list is checked,
+      // because an empty list is where Tab would leave and not come back.
       event.preventDefault();
+      if (notes.length === 0) return;
       setActive(down ? Math.min(cursor + 1, notes.length - 1) : Math.max(cursor - 1, 0));
       return;
     }
@@ -193,7 +214,7 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Find note"
+      aria-label={outgoing ? "Outgoing links" : "Find note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className={BACKDROP}
@@ -201,7 +222,7 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
       <div className={`${PANEL} ${PANEL_WIDE}`}>
         <div className={HEADER_ROW}>
           <label htmlFor={`${listId}-query`} className={LABEL}>
-            find note
+            {outgoing ? "links out" : "find note"}
           </label>
           <input
             id={`${listId}-query`}
@@ -275,7 +296,7 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className={STATUS}>{hint(paths.length, notes.length)}</output>
+        <output className={STATUS}>{hint(paths.length, notes.length, outgoing)}</output>
       </div>
     </div>
   );

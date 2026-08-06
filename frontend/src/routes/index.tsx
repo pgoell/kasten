@@ -12,7 +12,7 @@ import { StatusBar } from "@/components/status-bar";
 import { createNote, fetchFiles } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
-import { wikiLinkPath } from "@/lib/wikilink";
+import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
 
 const SAMPLE = `# kasten
 
@@ -61,6 +61,14 @@ function Home() {
   // already in hand, this one asks the backend on a delay, and the two share
   // no state worth folding together.
   const [searchOpen, setSearchOpen] = useState(false);
+  // The note whose backlinks are on screen, and undefined while none are. The
+  // path and not a flag: the panel asks the vault for that note's name, and
+  // the note in the URL can change under a panel that is already open.
+  const [backlinksOf, setBacklinksOf] = useState<string>();
+  // The notes the open note links to, and null while that panel is shut. Read
+  // once when it opens rather than derived per render: the finder ranks the
+  // array it is handed and wants the same one back every time.
+  const [linksOut, setLinksOut] = useState<string[] | null>(null);
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
@@ -103,13 +111,28 @@ function Home() {
       // No save first, for the reason the finder needs none: searching moves
       // no path out from under text still waiting to be written.
       searchNotes: () => setSearchOpen(true),
+      // The one command that needs a note open, because what it shows is what
+      // links to that note. With nothing open there is nothing to ask about,
+      // and doing nothing is how the key says so.
+      showBacklinks: () => setBacklinksOf(note),
+      // The same pair read the other way, and the one of the two that reads the
+      // note itself. Saved first so the list holds the link you just typed:
+      // `save` puts the text in the cache this reads it back out of. A write
+      // that failed still opens the panel on the older text, because reading
+      // the links is no reason to hide them.
+      showLinksOut: async () => {
+        if (note === undefined) return;
+        await save();
+        const text = queryClient.getQueryData<string>(["note", note]) ?? "";
+        setLinksOut(outgoingLinks(text, data ?? []));
+      },
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
         setTreeFocus((previous) => previous + 1);
       },
     }),
-    [navigate, save, note],
+    [navigate, save, note, data, queryClient],
   );
 
   /**
@@ -203,26 +226,43 @@ function Home() {
           onClose={() => setPrompt(null)}
         />
       )}
-      {finderOpen && (
+      {/* One panel for both, because the notes one note links to are a list of
+          notes like any other: ranked the same, previewed the same, opened the
+          same. Only how short the list is differs. */}
+      {(finderOpen || linksOut !== null) && (
         <NoteFinder
-          paths={data ?? []}
+          paths={linksOut ?? data ?? []}
+          outgoing={linksOut !== null}
           onOpen={(path) => {
             setFinderOpen(false);
+            setLinksOut(null);
             // No line: the finder opens a note, not a place in one, and a
             // stale `line` left in the URL would drop the cursor somewhere
             // the previous search happened to point at.
             navigate({ search: { note: path } });
           }}
-          onClose={() => setFinderOpen(false)}
+          onClose={() => {
+            setFinderOpen(false);
+            setLinksOut(null);
+          }}
         />
       )}
-      {searchOpen && (
+      {/* One panel for both, because backlinks are the same list of lines from
+          the vault, ranked the same way, opened the same way. Only where the
+          lines come from differs. */}
+      {(searchOpen || backlinksOf !== undefined) && (
         <NoteSearch
+          backlinksOf={backlinksOf}
+          paths={data}
           onOpen={(path, hitLine) => {
             setSearchOpen(false);
+            setBacklinksOf(undefined);
             navigate({ search: { note: path, line: hitLine } });
           }}
-          onClose={() => setSearchOpen(false)}
+          onClose={() => {
+            setSearchOpen(false);
+            setBacklinksOf(undefined);
+          }}
         />
       )}
     </main>

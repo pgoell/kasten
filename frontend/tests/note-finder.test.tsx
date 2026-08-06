@@ -181,6 +181,84 @@ describe("the note finder", () => {
 
     expect(finder.highlighted()).toBe("projects/kasten.md");
   });
+
+  it("walks the list on tab rather than letting the focus leave", () => {
+    const finder = renderFinder();
+
+    expect(finder.press("Tab")).toBe(false);
+
+    expect(finder.highlighted()).toBe("index.md");
+  });
+
+  it("walks back up on shift tab", () => {
+    const finder = renderFinder();
+
+    finder.press("Tab");
+    finder.press("Tab", { shiftKey: true });
+
+    expect(finder.highlighted()).toBe("daily/2026-08-05.md");
+  });
+
+  it("holds the focus on tab even with nothing to walk", () => {
+    // An empty list is the one place Tab would leave the panel and not come
+    // back, so the key is answered before the list is looked at.
+    const finder = renderFinder([]);
+
+    expect(finder.press("Tab")).toBe(false);
+  });
+});
+
+describe("the outgoing links panel", () => {
+  beforeEach(() => {
+    fetchNote.mockResolvedValue("# a note");
+  });
+
+  afterEach(() => {
+    fetchNote.mockReset();
+  });
+
+  function renderLinksOut(links: string[]) {
+    const onOpen = vi.fn();
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NoteFinder paths={links} outgoing onOpen={onOpen} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    const input = screen.getByLabelText("links out") as HTMLInputElement;
+
+    return {
+      onOpen,
+      type: (value: string) => fireEvent.change(input, { target: { value } }),
+      press: (key: string) => fireEvent.keyDown(input, { key }),
+      rows: () => screen.queryAllByRole("option").map((row) => row.textContent),
+      hint: () => screen.getByRole("status").textContent,
+    };
+  }
+
+  it("lists the notes it was handed rather than the vault", () => {
+    const panel = renderLinksOut(["index.md", "projects/kasten.md"]);
+
+    expect(panel.rows()).toEqual(["index.md", "projects/kasten.md"]);
+  });
+
+  it("narrows and opens the way the finder does", () => {
+    const panel = renderLinksOut(["index.md", "projects/kasten.md"]);
+
+    panel.type("kas");
+    panel.press("Enter");
+
+    expect(panel.onOpen).toHaveBeenCalledWith("projects/kasten.md");
+  });
+
+  it("says the note links nowhere rather than that the vault is empty", () => {
+    // Two emptinesses, and saying the wrong one about a full vault is the whole
+    // reason the panel is told which list it is holding.
+    const panel = renderLinksOut([]);
+
+    expect(panel.hint()).toBe("this note links nowhere");
+  });
 });
 
 describe("the note finder's preview", () => {

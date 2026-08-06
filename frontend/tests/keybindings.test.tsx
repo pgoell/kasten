@@ -13,6 +13,8 @@ function stubCommands() {
     renameNote: vi.fn(),
     findNote: vi.fn(),
     searchNotes: vi.fn(),
+    showBacklinks: vi.fn(),
+    showLinksOut: vi.fn(),
     focusTree: vi.fn(),
   } satisfies EditorCommands;
 }
@@ -125,6 +127,32 @@ describe("the leader key", () => {
     expect(commands.findNote).not.toHaveBeenCalled();
   });
 
+  it("runs the backlinks command on space then g then b", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "g" });
+    fireEvent.keyDown(editor, { key: "b" });
+
+    expect(commands.showBacklinks).toHaveBeenCalledTimes(1);
+    // `<leader>b` folds the tree, and the `b` here is the second letter of a
+    // sequence rather than that key arriving late.
+    expect(commands.toggleTree).not.toHaveBeenCalled();
+  });
+
+  it("runs the outgoing links command on space then g then o", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "g" });
+    fireEvent.keyDown(editor, { key: "o" });
+
+    expect(commands.showLinksOut).toHaveBeenCalledTimes(1);
+    expect(commands.showBacklinks).not.toHaveBeenCalled();
+  });
+
   it("waits for the second letter rather than acting on space then f", () => {
     const commands = stubCommands();
     const { editor } = open("plain", commands);
@@ -187,6 +215,8 @@ function PreviewHarness() {
       renameNote: () => {},
       findNote: () => {},
       searchNotes: () => {},
+      showBacklinks: () => {},
+      showLinksOut: () => {},
       focusTree: () => {},
     }),
     [],

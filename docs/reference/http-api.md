@@ -32,9 +32,18 @@ Lists every note in the vault as a relative POSIX path, sorted.
 
 The list is flat and the server keeps it that way. Folders are not modelled
 anywhere in the backend; the frontend folds the paths into a tree. Hidden files
-and directories are skipped, which keeps `.git` and editor dotfiles out. A
-vault directory that does not exist reads as an empty one, so a fresh checkout
-still serves.
+and directories are skipped, which keeps `.git` and editor dotfiles out, and a
+hidden directory is skipped without being walked into, so the jj repo beside the
+notes costs nothing. A vault directory that does not exist reads as an empty
+one, so a fresh checkout still serves.
+
+A directory is walked and never listed, whatever its name ends in. Reading one
+is a `404`, so a folder called `notes.md` would otherwise be a row in the tree
+that answered nothing when you opened it.
+
+The walk costs 15.9ms at 10,000 notes in 842 folders. See [the load
+side](/reference/ranking-performance.md) for what that used to be and what a
+cold open spends the rest of its time on.
 
 ## GET /api/search
 
@@ -218,6 +227,46 @@ a note edited outside kasten arriving stale on the other side.
 
 The folders on the way to the new path are made, the way a create makes them.
 
+### What a move does to the links
+
+Every `[[link]]` in the vault that named the note is rewritten to name it at its
+new path. A link keeps the spelling it had: one that spelled the path out gets
+the new path, and one that named the note gets the new name. So a move between
+folders leaves `[[borges]]` alone, because a bare name follows the note on its
+own, and a change of name rewrites it. The note being moved is read like any
+other, which carries its links to itself along with it.
+
+The rule a target is read by is the editor's, so what a rename follows is what
+`gf` opens: a target with a slash is a path, a bare name is looked for anywhere
+in the vault, and the note at the vault root wins a tie. A link the vault
+already answers with another note is therefore left alone. The rule is written
+out twice, in `backend/src/kasten_backend/links.py` and in
+`frontend/src/lib/wikilink.ts`, which is what the editor resolving a link
+without asking the server costs.
+
+The rewrite runs before the note is moved, because a bare name only names the
+note while the note is still where the links were written to find it, and inside
+the same jj change, so the rewritten links are part of the move rather than an
+edit that happened to follow it.
+
+Which notes get read is rg's answer, not the whole vault. Every link to a note
+carries the note's name, a bare `[[borges]]` being the name and a path
+`[[reading/borges]]` ending in it, so the name is a query no link to it can
+escape. rg names the notes holding it and only those are read and reparsed. It
+matches far more than it rewrites, every mention in prose included, which costs
+nothing: the parse decides.
+
+At 10,000 notes a move costs 29ms, against 315ms for the walk over every note it
+replaced. 9ms of that is the directory listing, which resolving a bare name
+needs and which `GET /api/files` pays on every page load anyway. A folder's move
+costs 45ms, the difference being the notes it carries and their links to each
+other.
+
+Unlike search, an rg that cannot read the whole vault is an error here rather
+than an empty answer, and the move fails with nothing written. A search that
+came up short shows fewer rows; a rewrite that comes up short leaves a link
+pointing at nothing.
+
 ### What a move leaves behind
 
 Nothing, where it can. The folders the note came out of are removed as far up
@@ -297,6 +346,22 @@ them.
 
 Every refusal returns before anything is written, so a move that bounced leaves
 no folder, no half-moved subtree and no jj change behind.
+
+Links follow, the way [a note's move](#what-a-move-does-to-the-links) makes them
+follow, and by the same rules read over every note the folder carries at once. A
+link that spelled the old folder out gets the new one, and a bare `[[borges]]`
+is left alone, the note's name being unchanged.
+
+The folder is matched as a whole path segment, so moving `reading/` takes
+`reading/borges.md` and leaves `readings.md` where it is. The subtree's own
+links are rewritten with the rest: a `[[reading/kafka]]` inside
+`reading/borges.md` becomes `[[archive/kafka]]` when the folder lands at
+`archive/`.
+
+That same segment is the rg query that picks the notes to read, and here it
+misses nothing rather than merely matching too much. The only link a folder move
+changes is one that spelled the path out, and one that spelled it out holds the
+old folder's path in full.
 
 A move that lands is recorded the way a save is, named `vault: <new path>/`.
 The trailing slash is what tells it from the change a note's move leaves, which

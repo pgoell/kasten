@@ -1,11 +1,20 @@
 /**
  * What opening the app over a 10,000-note vault costs, in a real browser.
  *
- * Recorded, not gated. The design keeps the load side out of scope this round:
- * the repo's rule is that nothing lands without a benchmark that would have
- * caught the regression, and a gate here was declined. So this file asserts
- * nothing about time. It exists so the next session starts from numbers rather
- * than from a feeling.
+ * Recorded, not gated. This file asserts nothing about time; a wall clock on a
+ * shared runner is a worse gate than a reader. It exists so the next session
+ * starts from numbers rather than from a feeling.
+ *
+ * These are the numbers the tree was folded against. Mounting every row cost
+ * 443 to 462ms to the first one and 834 to 859ms to the paint, over 10,842
+ * buttons. The tree opens folded now, which is 8 rows, 10 to 34ms and 15 to
+ * 65ms. What holds it there is a test in the jsdom suite rather than a
+ * threshold here: `tests/file-explorer.test.tsx` asserts the folders start
+ * folded, which is the thing that would have to break for these to climb back.
+ *
+ * The console lines below do not reach the terminal through vitest's browser
+ * mode. Read them by making the test fail, which is what the assertion message
+ * is for elsewhere in this repo, or trust the figures recorded above.
  *
  * Read the numbers as development-build React served through Vite, the same
  * caveat `tests/frame/note-prompt.test.tsx` carries. Production React is
@@ -46,6 +55,8 @@ const INERT: TreeCommands = {
   renameNote: () => {},
   findNote: vi.fn(),
   searchNotes: vi.fn(),
+  showBacklinks: vi.fn(),
+  showLinksOut: vi.fn(),
   renameFolder: () => {},
 };
 

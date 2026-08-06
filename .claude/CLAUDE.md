@@ -23,7 +23,9 @@ Real, working code, not a plan:
   and `PATCH` on `/api/files/{path}`, and `PATCH` on `/api/folders/{path}`. A create starts an
   empty note and makes the folders on the way to it; a `PATCH` gives a note or a
   folder a new path and takes the folders it emptied with it. A folder moves in
-  one rename, so its whole subtree arrives together. All four writes are
+  one rename, so its whole subtree arrives together. Both moves rewrite every
+  `[[link]]` in the vault that named what moved, each in the spelling it had,
+  reading only the notes rg names rather than the whole vault. All four writes are
   recorded in the vault's jj repo, one change per note, and skipped when the
   vault has none. Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
@@ -43,6 +45,9 @@ Real, working code, not a plan:
   Typing `[[` offers the vault's notes and closes the link it completes, and a
   link to a note that is not there yet is drawn muted and dotted. Both read the
   listing off the editor state, which the route reconfigures as it changes.
+  The links are read both ways from a panel: `Space g b` shows what links to the
+  open note, drawn as search draws its hits, and `Space g o` shows what it links
+  to, drawn as the finder draws its notes. Tab walks the rows in either.
   The open note lives in the URL as `?note=` and the line as `?line=`, and the
   note follows a folder that moves out from under it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
@@ -50,10 +55,11 @@ Real, working code, not a plan:
 - `vault/`: the notes, and a colocated jj repo holding their history.
 
 Search reads the vault with rg on every query and indexes nothing, so it is
-not a reason to start writing to Postgres.
+not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
+pick the few notes it has to read, so there is no link table either.
 
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, backlinks, and anything that writes to Postgres.
+two folders, and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 
