@@ -1,11 +1,15 @@
 /**
- * What one keystroke in the note prompt costs end to end, in a real browser.
+ * What one keystroke in the note finder costs end to end, in a real browser.
  *
  * The node gate in `tests/perf/ranking.test.ts` times the ranking alone, which
  * is the part a regression is easiest to pin on. This file times the whole
- * keystroke: the ranking, the verdict, React's reconciliation and the DOM
- * commit. jsdom cannot answer this question at all, because it lays nothing out
- * and paints nothing, so a number out of it would not be true.
+ * keystroke: the ranking, React's reconciliation and the DOM commit. jsdom
+ * cannot answer this question at all, because it lays nothing out and paints
+ * nothing, so a number out of it would not be true.
+ *
+ * The finder ranks every note where the prompt ranks every folder, twelve times
+ * the candidates at 10,000 notes, which is why it is measured apart rather than
+ * assumed to cost what `tests/frame/note-prompt.test.tsx` records.
  *
  * The design target is 16ms end to end, one frame, about 4ms of it JS. The
  * threshold below is not that target. It is a regression gate set well above
@@ -15,18 +19,25 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
-import { NotePrompt } from "@/components/note-prompt";
+import { NoteFinder } from "@/components/note-finder";
 import { syntheticVault } from "../../bench/fixtures";
 
-// Six times the 2.5ms synchronous median `mise run fe:frame` measures on this
-// machine, three runs reading 2.5, 2.8 and 2.5ms. That is down from 5.1ms, which
-// the old 30ms literal came from, and from the 16.8ms this file first recorded.
-// The halving came free with the finder: one scorer now serves both surfaces,
-// and hoisting the lowercasing out of it and reusing its rows took the prompt's
-// ranking from 0.372ms to 0.092ms. Six is two factors: three carries a real
-// regression, and two carries the runner, which is about 2.0x slower than this
-// machine, so three times a local median would leave only 1.5x of headroom
-// where it actually gates.
+// The preview reads a note when the highlight holds still, and a real request
+// inside the timed window would be measuring the network. It never fires during
+// a run, the delay outlasting the gap between keystrokes, but a stub is what
+// makes that a fact rather than a hope.
+vi.mock("@/lib/api", () => ({ fetchNote: () => Promise.resolve("") }));
+
+// Six times the 6.7ms synchronous median `mise run fe:frame` measures on this
+// machine, three runs reading 7.1, 6.7 and 5.7ms. Six is two factors: three
+// carries a real regression, and two carries the runner, which is about 2.0x
+// slower than this machine, so three times a local median would leave only 1.5x
+// of headroom where it actually gates.
+//
+// 6.7ms is inside the 16ms frame with room to spare, and it is the dearest
+// keystroke of the lot: one letter, over every note in the vault. At 50,000
+// notes the same keystroke reads about 21ms and does drop its frame, which the
+// second case records and gates on nothing.
 //
 // The gate is on the synchronous half alone: the two-rAF window cannot resolve
 // in under two refresh periods, so it reads about 33ms however cheap the
@@ -34,13 +45,13 @@ import { syntheticVault } from "../../bench/fixtures";
 // A threshold between those steps flips on one dropped frame rather than on a
 // regression, and on the slower runner it would sit past the step and be red
 // today.
-const COMMIT_LIMIT_MS = 15;
+const COMMIT_LIMIT_MS = 40;
 
 /**
- * The cap `note-prompt.tsx` mounts to. Written out here rather than imported,
+ * The cap `note-finder.tsx` mounts to. Written out here rather than imported,
  * so a cap that grew back would turn this red instead of following it.
  */
-const VISIBLE_FOLDERS = 20;
+const VISIBLE_NOTES = 20;
 
 /** Untimed keystrokes, so the first timed one pays no warm-up cost. */
 const WARMUPS = 3;
@@ -50,10 +61,13 @@ const WARMUPS = 3;
  * than a growing query so every run ranks a comparable share of the vault. A
  * repeat would put back the value the input already holds, React would bail out
  * of the render, and the run would time an empty frame.
+ *
+ * One letter is also the dearest query the finder answers: it rejects almost
+ * nothing, so nearly every note pays for the scoring table.
  */
 const KEYS = "abcdefghijklmnopqr";
 
-/** Options currently mounted in the prompt's listbox. */
+/** Options currently mounted in the finder's listbox. */
 function optionCount(): number {
   return document.querySelectorAll('[role="option"]').length;
 }
@@ -99,18 +113,17 @@ interface Measurement {
    * Median of the two-rAF window, logged as context and asserted on by nothing.
    * Its floor is the refresh rate rather than the work: two animation frames
    * cannot resolve in under two refresh periods, about 33ms at 60Hz, however
-   * little the keystroke costs. So it says which step the keystroke landed on,
-   * not what it cost to get there.
+   * little the keystroke costs.
    */
   cost: number;
   /**
-   * Median of the synchronous half alone: ranking, the verdict, reconciliation
-   * and the DOM commit, with no waiting for the screen. This is the gated
-   * number. It moves with the work rather than in refresh-period steps, and it
-   * is what decides whether the frame drops.
+   * Median of the synchronous half alone: ranking, reconciliation and the DOM
+   * commit, with no waiting for the screen. This is the gated number. It moves
+   * with the work rather than in refresh-period steps, and it is what decides
+   * whether the frame drops.
    */
   commit: number;
-  /** Options mounted on open, where the query is empty and every folder matches. */
+  /** Options mounted on open, where the query is empty and every note matches. */
   onOpen: number;
   /** Distinct option counts seen across the runs, which the cap holds at its own number. */
   counts: Set<number>;
@@ -125,10 +138,10 @@ async function measure(noteCount: number): Promise<Measurement> {
   const root = createRoot(container);
 
   root.render(
-    // Not optional scaffolding: NotePrompt asks for the query client on every
+    // Not optional scaffolding: the preview asks for the query client on every
     // render, so without a provider it throws on mount.
     <QueryClientProvider client={new QueryClient()}>
-      <NotePrompt mode="create" paths={paths} startPath="" onOpen={() => {}} onClose={() => {}} />
+      <NoteFinder paths={paths} onOpen={() => {}} onClose={() => {}} />
     </QueryClientProvider>,
   );
 
@@ -138,7 +151,7 @@ async function measure(noteCount: number): Promise<Measurement> {
   while (optionCount() === 0) await frame();
 
   const input = document.querySelector<HTMLInputElement>('input[role="combobox"]');
-  if (!input) throw new Error("the prompt mounted without its input");
+  if (!input) throw new Error("the finder mounted without its input");
 
   const onOpen = optionCount();
   const times: number[] = [];
@@ -168,27 +181,26 @@ async function measure(noteCount: number): Promise<Measurement> {
   return { cost: median(times), commit: median(commits), onOpen, counts, tops };
 }
 
-describe("one keystroke in the note prompt", () => {
+describe("one keystroke in the note finder", () => {
   // The default five seconds does not cover eighteen keystrokes over a vault
   // this size, and the point of the slice is the number, not a fast run.
   it("commits within six times its recorded cost at 10,000 notes", async () => {
     const { cost, commit, onOpen, counts, tops } = await measure(10000);
 
     console.log(
-      `the prompt, 10,000 notes: ${cost.toFixed(1)}ms median keystroke, ${commit.toFixed(1)}ms of it before the paint`,
+      `the finder, 10,000 notes: ${cost.toFixed(1)}ms median keystroke, ${commit.toFixed(1)}ms of it before the paint`,
     );
     console.log(
-      `the prompt, 10,000 notes: ${onOpen} options on open, ${[...counts].join("/")} while typing`,
+      `the finder, 10,000 notes: ${onOpen} options on open, ${[...counts].join("/")} while typing`,
     );
     // Eighteen different queries agreeing on the best row would mean the
     // keystrokes never reached the component, and the medians above would
-    // belong to a render that did nothing. The option count used to carry this
-    // check and cannot any more: the cap holds it at 20 whatever is typed.
+    // belong to a render that did nothing.
     expect(tops.size).toBeGreaterThan(1);
-    // What the cap is for. 842 folders match an empty query at this size, and
-    // mounting a button for each is most of what the keystroke used to cost.
-    expect(onOpen).toBeLessThanOrEqual(VISIBLE_FOLDERS);
-    expect(Math.max(...counts)).toBeLessThanOrEqual(VISIBLE_FOLDERS);
+    // What the cap is for. Every one of the 10,000 notes matches an empty
+    // query, and mounting a button for each would be most of the keystroke.
+    expect(onOpen).toBeLessThanOrEqual(VISIBLE_NOTES);
+    expect(Math.max(...counts)).toBeLessThanOrEqual(VISIBLE_NOTES);
     expect(commit).toBeLessThan(COMMIT_LIMIT_MS);
   }, 120_000);
 
@@ -196,10 +208,10 @@ describe("one keystroke in the note prompt", () => {
     const { cost, commit, onOpen, counts } = await measure(50000);
 
     console.log(
-      `the prompt, 50,000 notes: ${cost.toFixed(1)}ms median keystroke, ${commit.toFixed(1)}ms of it before the paint`,
+      `the finder, 50,000 notes: ${cost.toFixed(1)}ms median keystroke, ${commit.toFixed(1)}ms of it before the paint`,
     );
     console.log(
-      `the prompt, 50,000 notes: ${onOpen} options on open, ${[...counts].join("/")} while typing`,
+      `the finder, 50,000 notes: ${onOpen} options on open, ${[...counts].join("/")} while typing`,
     );
   }, 600_000);
 });
