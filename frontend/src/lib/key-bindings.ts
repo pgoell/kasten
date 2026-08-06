@@ -36,6 +36,11 @@ export interface EditorCommands {
   splitDown(): void;
   /** Move to the next pane of this tab, wrapping at the end. */
   nextPane(): void;
+  /** Move to the pane in that direction on screen, or stay put at the edge. */
+  paneLeft(): void;
+  paneDown(): void;
+  paneUp(): void;
+  paneRight(): void;
   nextTab(): void;
   prevTab(): void;
   /** Go to one tab by position, counting from zero. `TAB_KEYS` names the keys. */
@@ -96,14 +101,19 @@ export const LEADER: readonly LeaderBinding[] = [
   // letter: `b` folds the tree away and `o` opens a line in vim.
   { key: "gb", label: "Show what links here", command: "showBacklinks" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
-  // tmux's own next-pane key. Cycling and not `hjkl`: which pane is left of
-  // this one is a question about rectangles on screen, and the tree these are
-  // laid out from does not answer it. Walking them in order needs no geometry
-  // at all.
-  //
-  // ponytail: cycle rather than move directionally, upgrade to `<leader>wh`
-  // and friends off `getBoundingClientRect` if three panes ever make this a
-  // guessing game.
+  // The directions vim already reads, one press from the leader. Which pane is
+  // left of this one is a question about rectangles rather than about the tree
+  // the panes are laid out from, so `pane-direction.ts` answers it off their
+  // boxes on screen. The tree cannot: it spells a square of four panes
+  // `row[col[A,C], col[B,D]]`, and walking it rightward out of C arrives at B,
+  // which is the pane diagonally across.
+  { key: "h", label: "Move to the pane on the left", command: "paneLeft" },
+  { key: "j", label: "Move to the pane below", command: "paneDown" },
+  { key: "k", label: "Move to the pane above", command: "paneUp" },
+  { key: "l", label: "Move to the pane on the right", command: "paneRight" },
+  // tmux's own next-pane key, kept beside the four above rather than replaced
+  // by them. It wraps, so it reaches every pane of the tab by repetition,
+  // where a direction stops at the edge of the window.
   { key: "o", label: "Move to the next pane", command: "nextPane" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
   // One key doing the whole retreat, because there is one obvious thing to

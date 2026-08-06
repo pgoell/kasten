@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { noteName } from "@/lib/note-path";
+import type { PaneRect } from "@/lib/pane-direction";
 import { isSplit, type Layout, type Pane, type PaneNode, panesOf, type Tab } from "@/lib/panes";
 
 interface PaneLayoutProps {
@@ -59,6 +60,21 @@ export function PaneLayout({ node, focus, onFocus, children, divided }: PaneLayo
       ))}
     </div>
   );
+}
+
+/**
+ * Where every pane sits on screen, read at the moment a direction key is pressed.
+ *
+ * Here rather than in the route because this file writes the attribute they are
+ * found by, and reading rather than watching because the answer is only wanted
+ * on a keystroke: a `ResizeObserver` would keep a copy of the layout up to date
+ * all day for the handful of times anybody asks.
+ */
+export function paneRects(): PaneRect[] {
+  return [...document.querySelectorAll<HTMLElement>("[data-pane]")].map((element) => {
+    const { left, top, right, bottom } = element.getBoundingClientRect();
+    return { id: element.dataset.pane ?? "", left, top, right, bottom };
+  });
 }
 
 /** What one tab is called: its number, and the note in the pane it left focused. */

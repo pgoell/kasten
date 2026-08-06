@@ -52,8 +52,9 @@ Real, working code, not a plan:
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
   The window divides the way tmux divides a terminal. `Space %` and `Space "`
-  split the focused pane left and right or top and bottom, `Space o` walks the
-  panes, and `Space c t` starts a tab, walked with `Space t l` and `Space t h`
+  split the focused pane left and right or top and bottom, `Space h j k l`
+  moves to the pane in that direction and `Space o` walks them in order,
+  and `Space c t` starts a tab, walked with `Space t l` and `Space t h`
   or reached by `Space 1` to `Space 0`. A split makes an empty pane and moves
   to it, and every key above acts on the pane that has the focus. `Space q`
   walks back out one press at a time: the note, then the pane, then the tab,

@@ -8,10 +8,11 @@ import { NoteEditor } from "@/components/note-editor";
 import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { NoteSearch } from "@/components/note-search";
-import { PaneLayout, TabStrip } from "@/components/pane-layout";
+import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
 import { createNote, fetchFiles } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
+import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
   addTab,
@@ -108,6 +109,22 @@ function Home() {
     setFocusSignal((previous) => previous + 1);
   }, []);
 
+  /**
+   * Move to the pane in one direction on screen, staying put at the edge.
+   *
+   * The boxes are read before the layout is touched rather than inside the
+   * update, which React is free to run more than once. Nothing happens with no
+   * pane that way, so the focus is not raised for a key that moved nothing.
+   */
+  const movePane = useCallback(
+    (dir: Direction) => {
+      const target = paneToward(paneRects(), pane.id, dir);
+      if (target === null) return;
+      moveTo((previous) => focusPane(previous, target));
+    },
+    [moveTo, pane.id],
+  );
+
   // The URL names the note in the focused pane, so a reload comes back to what
   // you were reading. `replace` rather than a push: moving between panes is not
   // navigation, and one history entry per pane would bury the back button under
@@ -193,11 +210,15 @@ function Home() {
       splitRight: () => moveTo((previous) => splitFocused(previous, "row")),
       splitDown: () => moveTo((previous) => splitFocused(previous, "col")),
       nextPane: () => moveTo(nextPane),
+      paneLeft: () => movePane("left"),
+      paneDown: () => movePane("down"),
+      paneUp: () => movePane("up"),
+      paneRight: () => movePane("right"),
       nextTab: () => moveTo((previous) => stepTab(previous, 1)),
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
-    [moveTo, save, pane.path, data, queryClient],
+    [moveTo, movePane, save, pane.path, data, queryClient],
   );
 
   /**

@@ -20,6 +20,10 @@ function stubCommands() {
     splitRight: vi.fn(),
     splitDown: vi.fn(),
     nextPane: vi.fn(),
+    paneLeft: vi.fn(),
+    paneDown: vi.fn(),
+    paneUp: vi.fn(),
+    paneRight: vi.fn(),
     nextTab: vi.fn(),
     prevTab: vi.fn(),
     goToTab: vi.fn(),
@@ -192,6 +196,49 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: '"', shiftKey: true });
 
     expect(commands.splitDown).not.toHaveBeenCalled();
+  });
+
+  // Bare, all four are vim's own motions. The leader in front is what makes
+  // them a sequence, the way it does for `o`, `p` and `q` beside them.
+  it("moves between panes on space then h, j, k or l", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    for (const key of ["h", "j", "k", "l"]) {
+      fireEvent.keyDown(editor, { key: " " });
+      fireEvent.keyDown(editor, { key });
+    }
+
+    expect(commands.paneLeft).toHaveBeenCalledTimes(1);
+    expect(commands.paneDown).toHaveBeenCalledTimes(1);
+    expect(commands.paneUp).toHaveBeenCalledTimes(1);
+    expect(commands.paneRight).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves h and l as motions without the leader in front of them", () => {
+    const commands = stubCommands();
+    const { editor, doc } = open("word");
+
+    // `l` steps right and `x` cuts what it landed on.
+    fireEvent.keyDown(editor, { key: "l" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(commands.paneRight).not.toHaveBeenCalled();
+    expect(doc()).toBe("wrd");
+  });
+
+  it("waits for the second letter rather than acting on space then t", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    // `th` and `tl` share a first letter with nothing, but `h` and `l` are
+    // commands of their own now, so the sequence must not resolve early.
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "t" });
+
+    for (const command of Object.values(commands)) {
+      expect(command).not.toHaveBeenCalled();
+    }
   });
 
   it("moves to the next pane on space then o", () => {

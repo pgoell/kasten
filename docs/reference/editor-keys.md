@@ -32,6 +32,10 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>fg` | Open search over note content |
 | `<leader>gb` | Show what links to the open note |
 | `<leader>go` | Show what the open note links to |
+| `<leader>h` | Move to the pane on the left |
+| `<leader>j` | Move to the pane below |
+| `<leader>k` | Move to the pane above |
+| `<leader>l` | Move to the pane on the right |
 | `<leader>o` | Move to the next pane |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Close the note, then the pane, then the tab |
@@ -103,11 +107,22 @@ quarters. The panes of one split are one row or one column of any number, not a
 pair, and a split made inside a split dividing the same way joins it instead of
 nesting in it.
 
-`<leader>o` moves to the next pane and wraps at the end. It walks them in the
-order they are laid out rather than by direction, so there is no `<leader>h`
-and `<leader>l` for panes; the tab keys use those letters instead. Clicking
-into a pane moves the focus there too, and so does `gf` following a link into
-one.
+`<leader>h`, `<leader>j`, `<leader>k` and `<leader>l` move to the pane in that
+direction, and stand still at the edge of the window. `<leader>o` moves to the
+next pane instead and wraps at the end, so repeating it reaches every pane of
+the tab where a direction stops. Clicking into a pane moves the focus there
+too, and so does `gf` following a link into one.
+
+Which pane is left of this one is a question about rectangles on screen rather
+than about the tree the panes are laid out from, so the directions are answered
+against the panes' boxes. The tree cannot answer it. Four panes in a square are
+`row[col[A,C], col[B,D]]`, and walking that rightward out of C steps up to the
+row, across to the second column and down to its first pane, which is B. B is
+diagonally across from C. D is the one beside it, and D is where `<leader>l`
+goes. This is the same thing vim and tmux do, and for the same reason.
+
+Moving right out of the bottom half of the window arrives in the bottom half.
+Where two panes are equally close, the upper or the left one wins.
 
 `<leader>ct` starts a tab. `<leader>tl` and `<leader>th` walk them, and
 `<leader>1` through `<leader>9` go straight to one, with `<leader>0` for the
