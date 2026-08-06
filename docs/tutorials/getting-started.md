@@ -134,7 +134,38 @@ cat vault/daily/today.md
 
 Your edit is in it. It went to the file, and again nothing went to Postgres.
 
-## 8. Give the vault a history
+## 8. Give a note a better name
+
+The note you made in step 6 sits in `reading/`. Say it belongs under the year.
+Open it from the tree, then press space, then `r`, then `f`.
+
+The prompt is back, this time headed `rename note`, holding `reading/borges.md`
+with just `borges` selected. The folder and the `.md` are the parts a rename
+usually keeps.
+
+Select the whole input and type `reading/2026/borges` over it. The line
+underneath reads `creates folder reading/2026/`. Press Enter.
+
+The note moves, the tree grows `2026` under `reading`, and the URL follows to
+`?note=reading/2026/borges.md`, so a reload still lands on it. Check what
+happened on disk:
+
+```sh
+ls -R vault/reading
+```
+
+`2026/borges.md` is there. Anything you had typed and not yet saved went to the
+old path before the note moved, so nothing was stranded.
+
+Now try to rename it onto a name that is taken. Press space, `r`, `f` again,
+select the whole input and type `daily/today` over it, which is the note from
+step 5. The line reads `a note is already there` and Enter does nothing: the
+vault will not write one note over another. Press Escape to back out.
+
+Renaming from the tree works the same way and acts on the row the tree cursor
+sits on, which need not be the note you have open. That one stays open.
+
+## 9. Give the vault a history
 
 Every save writes over what was there. Make the vault a
 [jj](https://jj-vcs.github.io/jj/) repo and the old text stays reachable:
@@ -161,10 +192,11 @@ and keeps no history, so an overwrite is final.
 
 ## What you cannot do yet
 
-Notes can be made, opened and edited but not renamed or deleted from the
-browser, so getting rid of one is still a file you delete yourself. Wikilinks,
-backlinks and search are not built. Tables and images keep their syntax on
-screen, because live preview does not render them yet.
+Notes can be made, opened, edited and renamed but not deleted from the browser,
+so getting rid of one is still a file you delete yourself. Folders are renamed
+the same way, by hand. Wikilinks, backlinks and search are not built. Tables and
+images keep their syntax on screen, because live preview does not render them
+yet.
 
 ## Next
 

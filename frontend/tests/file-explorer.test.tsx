@@ -25,10 +25,11 @@ function folderContents(name: string) {
 type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   /** The one command these tests drive, wired into the harness's own set. */
   onCreateNote?: (startPath?: string) => void;
+  onRenameNote?: (startPath?: string) => void;
 };
 
 /** Holds the open state the route holds in the app, so folding still works. */
-function Harness({ onCreateNote, ...props }: TreeProps) {
+function Harness({ onCreateNote, onRenameNote, ...props }: TreeProps) {
   const [open, setOpen] = useState(true);
   // The route folds the panel from two directions, `q` in the tree and the
   // leader from anywhere, and both land on the same callback.
@@ -48,6 +49,7 @@ function Harness({ onCreateNote, ...props }: TreeProps) {
         showHelp: () => {},
         focusTree: () => {},
         createNote: onCreateNote ?? (() => {}),
+        renameNote: onRenameNote ?? (() => {}),
       }}
     />
   );
@@ -244,6 +246,35 @@ describe("the tree keyboard", () => {
     press("f");
 
     expect(onCreateNote).toHaveBeenCalledWith("daily/");
+  });
+
+  it("renames the note under the cursor on the leader, r, then f", () => {
+    const onRenameNote = vi.fn();
+    renderTree({ onRenameNote });
+
+    press("G");
+    press("k");
+    // By title, not by name: the folder `projects/kasten/` reads the same.
+    expect(cursor()).toHaveAttribute("title", "projects/kasten.md");
+    press(" ");
+    press("r");
+    press("f");
+
+    expect(onRenameNote).toHaveBeenCalledWith("projects/kasten.md");
+  });
+
+  it("renames nothing when the cursor is on a folder", () => {
+    // Renaming a folder means moving every note under it, which is not this
+    // operation. Doing nothing is how the tree says so.
+    const onRenameNote = vi.fn();
+    renderTree({ onRenameNote });
+
+    expect(cursor()).toHaveTextContent("daily");
+    press(" ");
+    press("r");
+    press("f");
+
+    expect(onRenameNote).not.toHaveBeenCalled();
   });
 
   it("waits for the second letter rather than acting on the leader and c", () => {

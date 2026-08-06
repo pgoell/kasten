@@ -125,7 +125,7 @@ async function measure(noteCount: number): Promise<Measurement> {
     // Not optional scaffolding: NotePrompt asks for the query client on every
     // render, so without a provider it throws on mount.
     <QueryClientProvider client={new QueryClient()}>
-      <NotePrompt paths={paths} startPath="" onOpen={() => {}} onClose={() => {}} />
+      <NotePrompt mode="create" paths={paths} startPath="" onOpen={() => {}} onClose={() => {}} />
     </QueryClientProvider>,
   );
 

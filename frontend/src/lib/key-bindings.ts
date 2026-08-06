@@ -18,6 +18,8 @@ export interface EditorCommands {
   focusTree(): void;
   /** The folder the prompt opens on, which only the file tree knows. */
   createNote(startPath?: string): void;
+  /** The note to rename, which the tree knows and the editor leaves to the route. */
+  renameNote(startPath?: string): void;
 }
 
 export interface LeaderBinding {
@@ -38,6 +40,9 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "e", label: "Focus the file tree", command: "focusTree" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
   { key: "q", label: "Save and close the note", command: "closeNote" },
+  // `rf` beside `cf`: same shape, the group letter then the thing, so renaming
+  // a file sits next to creating one rather than somewhere else entirely.
+  { key: "rf", label: "Rename the note", command: "renameNote" },
   { key: "?", label: "Show the keys", command: "showHelp" },
 ];
 

@@ -43,6 +43,7 @@ const INERT: EditorCommands = {
   showHelp: () => {},
   focusTree: () => {},
   createNote: () => {},
+  renameNote: () => {},
 };
 
 /** What the route opens with when no note is chosen, shortened. */

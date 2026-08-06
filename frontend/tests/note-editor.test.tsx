@@ -53,6 +53,7 @@ function OpenNote({ path }: { path: string }) {
       closeNote: () => {},
       showHelp: () => {},
       createNote: () => {},
+      renameNote: () => {},
       focusTree: () => {},
     }),
     [],

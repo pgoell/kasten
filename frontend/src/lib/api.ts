@@ -1,5 +1,8 @@
 import createClient from "openapi-fetch";
-import type { paths } from "@/lib/api-types";
+import type { components, paths } from "@/lib/api-types";
+
+/** One note as the vault holds it: where it lives, and what is in it. */
+export type Note = components["schemas"]["Note"];
 
 /**
  * Calls into the backend, typed from its OpenAPI schema.
@@ -32,8 +35,8 @@ export async function fetchNote(path: string): Promise<string> {
   return data.content;
 }
 
-/** Make an empty note, and answer with the path the vault gave it. */
-export async function createNote(path: string): Promise<string> {
+/** Make an empty note, and answer with the note the vault wrote. */
+export async function createNote(path: string): Promise<Note> {
   const { data, response } = await client.POST("/api/files/{path}", {
     params: { path: { path } },
   });
@@ -42,9 +45,25 @@ export async function createNote(path: string): Promise<string> {
     throw new Error(`POST /api/files/${path} failed with ${response.status}`);
   }
 
-  // The vault's spelling, not the one that was typed. `daily/./note.md` comes
-  // back as `daily/note.md`, and that is what belongs in `?note=`.
-  return data.path;
+  // The whole note rather than the path alone, so a caller that writes and one
+  // that moves seed their cache from the same answer. The path in it is the
+  // vault's spelling, not the one that was typed: `daily/./note.md` comes back
+  // as `daily/note.md`, and that is what belongs in `?note=`.
+  return data;
+}
+
+/** Move one note to another path, and answer with the note the vault now holds. */
+export async function renameNote(from: string, to: string): Promise<Note> {
+  const { data, response } = await client.PATCH("/api/files/{path}", {
+    params: { path: { path: from } },
+    body: { path: to },
+  });
+
+  if (!data) {
+    throw new Error(`PATCH /api/files/${from} failed with ${response.status}`);
+  }
+
+  return data;
 }
 
 /** Write one note back to the vault, over the note that is already there. */

@@ -132,6 +132,9 @@ export function Editor({
             showHelp: () => commandsRef.current?.showHelp(),
             focusTree: () => commandsRef.current?.focusTree(),
             createNote: (startPath) => commandsRef.current?.createNote(startPath),
+            // No path: the editor holds one note, and the route already knows
+            // which. The tree is the caller that names one.
+            renameNote: (startPath) => commandsRef.current?.renameNote(startPath),
           }),
           basicSetup,
           markdown({
