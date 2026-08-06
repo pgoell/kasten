@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
-import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
+import { folderCandidates, rankCandidates, rankFolders } from "@/lib/fuzzy";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
@@ -150,8 +150,8 @@ describe("the new note prompt", () => {
 
     // Derivation already ran once on the mount, which is the one time it should
     // run, so clearing is what makes a zero below reachable.
-    vi.mocked(folderPrefixes).mockClear();
-    vi.mocked(rankFolderPrefixes).mockClear();
+    vi.mocked(folderCandidates).mockClear();
+    vi.mocked(rankCandidates).mockClear();
 
     const queries = ["n", "no", "not", "note"];
     for (const query of queries) prompt.type(query);
@@ -159,8 +159,8 @@ describe("the new note prompt", () => {
     // Ranking once per keystroke is what proves the keystrokes landed at all,
     // so the zero above it is a fact rather than a prompt that stopped reading
     // its input.
-    expect(rankFolderPrefixes).toHaveBeenCalledTimes(queries.length);
-    expect(folderPrefixes).not.toHaveBeenCalled();
+    expect(rankCandidates).toHaveBeenCalledTimes(queries.length);
+    expect(folderCandidates).not.toHaveBeenCalled();
   });
 
   it("keeps the highlight inside the capped list", () => {

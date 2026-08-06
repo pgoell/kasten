@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createNote, moveFolder, renameNote } from "@/lib/api";
-import { folderPrefixes, rankFolderPrefixes } from "@/lib/fuzzy";
+import { folderCandidates, rankCandidates } from "@/lib/fuzzy";
 import { describeFolderPath, describeNotePath, type NotePathVerdict } from "@/lib/note-path";
 
 /**
@@ -154,13 +154,16 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
   // asks one thing of the caller: hand over the same array each render. The
   // route passes what the query cache holds, and a listing filtered or sorted
   // at the call site would be a new array every time and undo all of this.
-  const prefixes = useMemo(() => folderPrefixes(paths), [paths]);
+  const prefixes = useMemo(() => folderCandidates(paths), [paths]);
   // A folder cannot go inside itself, so neither it nor anything under it is a
   // place this move can land, and completing to one would only be a way to type
   // a refusal faster. Off the keystroke path with the derivation above, because
   // the mode and the folder both hold still while the prompt is open.
   const candidates = useMemo(
-    () => (mode === "folder" ? prefixes.filter((p) => !p.startsWith(`${startPath}/`)) : prefixes),
+    () =>
+      mode === "folder"
+        ? prefixes.filter(({ path }) => !path.startsWith(`${startPath}/`))
+        : prefixes,
     [prefixes, mode, startPath],
   );
   // Ranked over every folder and cut afterwards, so the rows on screen are the
@@ -168,7 +171,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
   // everything, so without the cut a keystroke reconciles one button per folder
   // in the vault, which is most of what it costs.
   const folders = useMemo(
-    () => rankFolderPrefixes(candidates, typed).slice(0, VISIBLE_FOLDERS),
+    () => rankCandidates(candidates, typed).slice(0, VISIBLE_FOLDERS),
     [candidates, typed],
   );
   // How far a folder move reaches, for the hint. Same shape as the filter

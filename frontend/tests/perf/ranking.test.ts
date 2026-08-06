@@ -9,7 +9,7 @@
  * the prompt derives its folder set once and ranks the result.
  */
 
-import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
+import { folderCandidates, rankCandidates, rankFolders } from "@/lib/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
 
 /** The size the bar is set at. 842 folders, which is what the cost tracks. */
@@ -81,10 +81,10 @@ describe(`rankFolders at ${NOTES} notes`, () => {
   // `rankFolders` above, which still carries the derivation and would hide a
   // regression in either half behind the other.
   it("ranks derived prefixes within six times their recorded cost", () => {
-    const prefixes = folderPrefixes(paths);
-    const median = medianMs(() => rankFolderPrefixes(prefixes, ""), 25, 5);
+    const folders = folderCandidates(paths);
+    const median = medianMs(() => rankCandidates(folders, ""), 25, 5);
 
-    console.log(`rankFolderPrefixes, empty query: ${median.toFixed(3)}ms median`);
+    console.log(`rankCandidates over folders, empty query: ${median.toFixed(3)}ms median`);
     expect(median).toBeLessThan(PREFIX_LIMIT_MS);
   });
 });
