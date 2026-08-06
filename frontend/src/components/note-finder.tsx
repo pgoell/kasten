@@ -1,4 +1,6 @@
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { fetchNote } from "@/lib/api";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 
 interface NoteFinderProps {
@@ -13,6 +15,15 @@ interface NoteFinderProps {
 const VISIBLE_NOTES = 20;
 
 /**
+ * How long the highlight holds still before its note is read.
+ *
+ * A held ctrl+n walks a row per repeat, and every row it passes through would
+ * otherwise be a request for a note nobody is looking at. Short enough that
+ * stopping on a row feels like the text was already there.
+ */
+const PREVIEW_DELAY_MS = 80;
+
+/**
  * What the line under the list says, and nothing where it has nothing to say.
  *
  * An empty list has two reasons and they are not the same problem: a vault with
@@ -21,6 +32,21 @@ const VISIBLE_NOTES = 20;
 function hint(vaultSize: number, matches: number): string {
   if (vaultSize === 0) return "the vault has no notes";
   return matches === 0 ? "no notes match" : "";
+}
+
+/**
+ * What the pane shows, which is the note's text or the reason there is none.
+ *
+ * A note the vault holds but cannot be read is worth saying out loud, and it is
+ * no reason to stop the row being opened: the editor gives its own answer, and
+ * it is the one that matters.
+ */
+function previewText(status: "pending" | "error" | "success", text: string | undefined): string {
+  if (status === "error") return "could not read this note";
+  // An empty note is empty, not still loading, and a spinner that never stops
+  // is the worse of the two lies.
+  if (status === "success") return text ?? "";
+  return "reading the note";
 }
 
 /**
@@ -61,6 +87,37 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
   // Typing cannot: it puts the highlight back on the first row.
   const cursor = Math.min(active, Math.max(notes.length - 1, 0));
   const highlighted = notes[cursor];
+
+  // The path the preview is reading, which trails the highlight rather than
+  // following it. Held apart from `highlighted` because that is what makes
+  // walking the list cost one read instead of one per row.
+  const [reading, setReading] = useState<string>();
+
+  useEffect(() => {
+    if (highlighted === undefined) {
+      setReading(undefined);
+      return;
+    }
+    const timer = setTimeout(() => setReading(highlighted), PREVIEW_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [highlighted]);
+
+  // The key `NoteEditor` reads, on purpose: a note that is open is already here
+  // and costs nothing to show, and a note read here is one the editor will not
+  // have to fetch when Enter opens it. `skipToken` is how a query with nothing
+  // to ask for says so without lying to the types about the path.
+  const note = useQuery({
+    queryKey: ["note", reading],
+    queryFn: reading === undefined ? skipToken : () => fetchNote(reading),
+    // Walking back up the list must not re-read what was read on the way down.
+    // Staleness is per observer, so this buys the pane its quiet and leaves
+    // `NoteEditor` to fetch the note afresh when Enter actually opens it, which
+    // is the read that has to be right.
+    staleTime: 30_000,
+    // A preview nobody asked for is not worth three attempts and a backoff. The
+    // pane says it could not read the note, and opening the row asks properly.
+    retry: false,
+  });
 
   // The input takes the focus so the keys reach it rather than whatever was
   // focused when it opened, and hands it back on the way out. Restoring what
@@ -128,7 +185,7 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
       onKeyDown={onKeyDown}
       className="fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none"
     >
-      <div className="flex max-h-[70vh] w-[min(36rem,90vw)] flex-col rounded-md border border-one-line bg-one-panel font-mono shadow-xl">
+      <div className="flex w-[min(56rem,92vw)] flex-col rounded-md border border-one-line bg-one-panel font-mono shadow-xl">
         <div className="flex items-center gap-3 border-b border-one-line px-3 py-2">
           <label
             htmlFor={`${listId}-query`}
@@ -154,31 +211,60 @@ export function NoteFinder({ paths, onOpen, onClose }: NoteFinderProps) {
           />
         </div>
 
-        {notes.length > 0 && (
-          // A div rather than a list, because a listbox is not a list of items
-          // to a screen reader and marking it as both says it twice.
-          <div id={listId} role="listbox" aria-label="Notes" className="overflow-auto py-1">
-            {notes.map((note, index) => (
-              <button
-                key={note}
-                id={`${listId}-${index}`}
-                type="button"
-                role="option"
-                aria-selected={index === cursor}
-                // Out of the tab order, because the focus stays in the input and
-                // the highlight is how the list says what Enter would open. A
-                // click still lands here, and opens the same note.
-                tabIndex={-1}
-                onClick={() => accept(note)}
-                className={`w-full cursor-pointer px-3 py-[3px] text-left text-[13px] ${
-                  index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
-                }`}
+        {/* A fixed height rather than one the content sets, so the pane does not
+            jump about as the list narrows under it. */}
+        <div className="flex h-[min(26rem,55vh)]">
+          {notes.length > 0 && (
+            // A div rather than a list, because a listbox is not a list of items
+            // to a screen reader and marking it as both says it twice.
+            <div
+              id={listId}
+              role="listbox"
+              aria-label="Notes"
+              className="w-1/2 shrink-0 overflow-auto py-1"
+            >
+              {notes.map((path, index) => (
+                <button
+                  key={path}
+                  id={`${listId}-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === cursor}
+                  // Out of the tab order, because the focus stays in the input
+                  // and the highlight is how the list says what Enter would
+                  // open. A click still lands here, and opens the same note.
+                  tabIndex={-1}
+                  onClick={() => accept(path)}
+                  className={`w-full cursor-pointer truncate px-3 py-[3px] text-left text-[13px] ${
+                    index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
+                  }`}
+                >
+                  {path}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {highlighted !== undefined && (
+            // Plain text, no editor and no highlighting. Cheapest per highlight
+            // move, and this pane is for telling two notes apart rather than
+            // for reading one.
+            // A labelled <section> rather than a bare <pre>, which takes no
+            // label of its own and leaves the pane something a screen reader
+            // can reach but not name.
+            <section
+              aria-label="Preview"
+              className="min-w-0 flex-1 overflow-auto border-l border-one-line"
+            >
+              <pre
+                data-testid="preview"
+                className="px-3 py-2 text-[12px] text-one-muted whitespace-pre-wrap"
               >
-                {note}
-              </button>
-            ))}
-          </div>
-        )}
+                {previewText(note.status, note.data)}
+              </pre>
+            </section>
+          )}
+        </div>
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
