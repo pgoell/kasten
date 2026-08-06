@@ -27,6 +27,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>e` | Move the focus to the file tree |
+| `<leader>ff` | Open the note finder |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Write the note and close it |
 | `<leader>rf` | Open the rename prompt |
@@ -139,17 +140,21 @@ cursor is on, and these keys move it from there.
 | Enter | Open the note under the cursor |
 | `gg` / `G` | Go to the first or last row |
 | `c` | New note in the folder the cursor is in |
+| `f` | Open the note finder |
 | `r` | Rename the note or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 
 Leader sequences work here too, so `<leader>b` closes the tree from inside it.
 
-`c` and `r` are bare letters rather than leader sequences, because the tree's
-own keys are single presses. `c` does what `<leader>cf` does from here, and `r`
-does what `<leader>rf` does and one thing more: on a folder row it renames the
-folder. The tree is the only place that can point at a folder, so it is the only
-place the key exists.
+`c`, `f` and `r` are bare letters rather than leader sequences, because the
+tree's own keys are single presses. `c` does what `<leader>cf` does from here,
+`f` does what `<leader>ff` does, and `r` does what `<leader>rf` does and one
+thing more: on a folder row it renames the folder. The tree is the only place
+that can point at a folder, so it is the only place the key exists.
+
+`c` and `r` read the row the cursor is on and `f` does not. The finder ranks the
+whole vault and starts from nowhere, so it does the same thing from every row.
 
 Renaming a folder moves every note under it. The prompt says how many before you
 press Enter, and the whole subtree arrives at the new path together, so there is
@@ -210,6 +215,42 @@ Opening a note is the exception: the focus goes to the editor, in normal mode,
 so you can type into a new note at once. A rename that leaves the editor where
 it is hands the focus back the same as Escape, so renaming from the tree keeps
 you in the tree.
+
+## The note finder
+
+`<leader>ff` and the tree's `f` open the finder over the editor. It is the other
+way round from the prompt: there the input is the answer and the list completes
+it, here the list is the answer and the input only filters it. Nothing typed
+into the finder has to name a path, and the finder never writes.
+
+| Key | Does |
+| --- | --- |
+| any character | Narrow the list to the notes the query reads into |
+| Down / Ctrl+n | Move the highlight down one row |
+| Up / Ctrl+p | Move the highlight up one row |
+| Enter | Open the highlighted note |
+| Escape | Close, and hand the focus back |
+
+Tab is unbound here. There is nothing to complete: Enter opens the row under the
+highlight whatever the input says.
+
+The list ranks every note in the vault, then shows the best twenty. The query
+reads as a subsequence, so `kap` finds `projects/kasten/api-design.md`. A run of
+letters scores above the same letters scattered, a letter opening a folder name
+scores above one buried in it, and a letter landing in the note's own name
+scores above one that only matched the folder, so `arch` finds
+`kasten/architecture.md` before `archive/march.md`. Typing a folder still
+narrows, which is what `kasten/arch` is for.
+
+Beside the list sits the note under the highlight, as plain text. It is for
+telling two notes apart, not for reading one, so there is no highlighting and no
+editor. The text arrives a moment after the highlight stops moving, which is
+what keeps a held Ctrl+n from reading every row it passes. A note that cannot be
+read says `could not read this note`, and Enter still opens it.
+
+The line underneath says `no notes match` for a query that reads into nothing,
+and `the vault has no notes` for a vault with nothing in it yet. Enter does
+nothing in either case.
 
 ## Saving
 

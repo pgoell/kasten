@@ -1,17 +1,19 @@
 ---
 type: Reference
-title: Note prompt performance
-description: The bar a keystroke in the new note prompt is held to, the harnesses that measure it, and every recorded number.
-resource: frontend/tests/frame/note-prompt.test.tsx
+title: Ranking performance
+description: The bar a keystroke in the note prompt and the note finder is held to, the harnesses that measure it, and every recorded number.
+resource: frontend/tests/frame/note-finder.test.tsx
 tags: [performance, benchmarks, frontend, testing]
 status: stable
 ---
 
-# Note prompt performance
+# Ranking performance
 
-Typing in the new note prompt ranks every folder in the vault and rebuilds the
-list under the input. This page states the bar that work is held to, the three
-harnesses that measure it, and the numbers each one recorded.
+Two surfaces rank the vault as you type. The note prompt ranks every folder in
+it, and the note finder ranks every note. Both rebuild a list under an input on
+every keystroke, and both go through one scorer in `frontend/src/lib/fuzzy.ts`.
+This page states the bar that work is held to, the three harnesses that measure
+it, and the numbers each one recorded.
 
 Every figure here comes from one machine, a 16-thread desktop. `ubuntu-latest`
 is about 2.0x slower, which is why the gates carry the multiplier they do.
@@ -21,13 +23,18 @@ is about 2.0x slower, which is why the gates carry the multiplier they do.
 | Surface | Bar | Gated |
 | --- | --- | --- |
 | Prompt keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | yes |
-| Prompt keystroke at 50,000 notes | under 100 ms end to end | no, recorded |
+| Finder keystroke at 10,000 notes | 16 ms end to end, about 4 ms of it JS | yes |
+| Either at 50,000 notes | under 100 ms end to end | no, recorded |
 | Editor keystroke | no wasted re-renders, asserted as a count | yes, exact |
 | `GET /api/files`, `buildTree`, load and first paint | none | no, recorded |
 
-"End to end" counts the ranking, the path verdict, React's reconciliation and
-the DOM commit. It does not count paint, for the reason under
+"End to end" counts the ranking, the path verdict where there is one, React's
+reconciliation and the DOM commit. It does not count paint, for the reason under
 [What these numbers are not](#what-these-numbers-are-not).
+
+The finder is measured apart rather than assumed to cost what the prompt costs.
+At 10,000 notes it ranks twelve times the candidates, 10,000 notes against 842
+folders, and each candidate is longer.
 
 ## The harnesses
 
@@ -39,6 +46,9 @@ share the `@` alias and the synthetic vault, and nothing else.
 | `unit` | jsdom | `tests/**`, minus the two below | behaviour, and how often a function is called | anything timed, since jsdom lays out nothing |
 | `perf` | node | `tests/perf/**` and `bench/**` | pure functions, with little noise | React, the DOM, or a frame |
 | `frame` | Chromium, through playwright | `tests/frame/**` | the whole keystroke, reconciliation and commit included | first contentful paint |
+
+Both frame files log the surface they measure, `the prompt` or `the finder`,
+because they print the same shape into the same run.
 
 Three tasks name those projects. None of them runs all three.
 
@@ -65,20 +75,31 @@ which one noisy minute turns red.
 
 | Gate | File | Measures | Achieved | Threshold |
 | --- | --- | ---: | ---: | ---: |
-| `rankFolders`, empty query | `tests/perf/ranking.test.ts` | 10,000 paths, 842 folders | 5.40 ms | 32 ms |
-| `rankFolders`, typed query | `tests/perf/ranking.test.ts` | the same, query `notes` | 7.88 ms | 47 ms |
-| `rankFolderPrefixes`, empty query | `tests/perf/ranking.test.ts` | 842 prefixes already derived | 0.372 ms | 2.2 ms |
-| the keystroke's commit | `tests/frame/note-prompt.test.tsx` | 10,000 notes in Chromium | 5.1 ms | 30 ms |
-| rows mounted | `tests/frame/note-prompt.test.tsx` | options in the listbox | 20 | 20, exact |
+| `rankFolders`, empty query | `tests/perf/ranking.test.ts` | 10,000 paths, 842 folders | 4.650 ms | 28 ms |
+| `rankFolders`, typed query | `tests/perf/ranking.test.ts` | the same, query `notes` | 4.791 ms | 29 ms |
+| `rankCandidates` over folders | `tests/perf/ranking.test.ts` | 842 candidates already derived | 0.092 ms | 0.6 ms |
+| `noteCandidates` | `tests/perf/ranking.test.ts` | preparing 10,000 notes | 0.683 ms | 4.1 ms |
+| `rankCandidates` over notes, empty query | `tests/perf/ranking.test.ts` | 10,000 candidates already derived | 1.207 ms | 7.2 ms |
+| `rankCandidates` over notes, one letter | `tests/perf/ranking.test.ts` | the same, query `a` | 3.681 ms | 22 ms |
+| `rankCandidates` over notes, typed query | `tests/perf/ranking.test.ts` | the same, query `notes` | 3.484 ms | 21 ms |
+| the prompt keystroke's commit | `tests/frame/note-prompt.test.tsx` | 10,000 notes in Chromium | 2.5 ms | 15 ms |
+| the finder keystroke's commit | `tests/frame/note-finder.test.tsx` | 10,000 notes in Chromium | 6.7 ms | 40 ms |
+| rows mounted, either surface | `tests/frame/*.test.tsx` | options in the listbox | 20 | 20, exact |
 | wasted editor renders | `tests/note-editor.test.tsx` | renders per keystroke burst | 0 | 0, exact |
 
-The first two thresholds barely moved while the keystroke got three times
-cheaper. `rankFolders` still walks every path in the vault to find its folders,
-which is what it is for. The prompt stopped calling it once per keystroke and
-calls `rankFolderPrefixes` instead, so the third row is the half a keystroke
-now pays.
+Read the rows in pairs. `rankFolders` and `rankNotes` each walk every path in
+the vault to derive their candidates, which no keystroke pays: both surfaces
+derive once per vault and call `rankCandidates` per keystroke. So rows three
+through seven are what typing actually costs, and rows one and two are what
+opening the list costs once.
 
-The 50,000-note measurements are logged and assert nothing.
+The dearest keystroke the finder answers is the first letter typed, not a long
+query. One letter rejects almost nothing, so nearly every note pays for the
+scoring table, where a longer query throws most of the vault out on the cheap
+subsequence scan that runs in front of it.
+
+The 50,000-note measurements are logged and assert nothing. At that size the
+finder's keystroke reads about 21 ms and does drop its frame.
 
 The gated frame number is the synchronous commit, not a `requestAnimationFrame`
 window. React flushes the change event synchronously, so when
@@ -116,26 +137,42 @@ so two runs on two machines compare.
 | 10,000 | 842 |
 | 50,000 | 4,176 |
 
-The folder count is what the prompt's cost tracks, not the note count, so every
-table below carries both. Folder names average 21 to 27 characters, the shape
-of a real vault. That is load-bearing rather than cosmetic: scoring is linear
-in candidate length, and an earlier generator with 8.6-character names put
-every number about 1.7x low.
+The folder count is what the prompt's cost tracks and the note count is what the
+finder's does, so every table below carries both. Names average 21 to 27
+characters, the shape of a real vault. That is load-bearing rather than
+cosmetic: scoring is linear in candidate length, and an earlier generator with
+8.6-character names put every number about 1.7x low.
 
 ## Recorded numbers
 
 ### Ranking in node
 
-Means from `mise run fe:bench`, in milliseconds. Margin of error at or under
-1.1% except `buildTree` at 2,000 and 50,000 and `rank(typed)` at 50,000, where
-it reaches 9.37%.
+Means from `mise run fe:bench`, in milliseconds, recorded 2026-08-06. Margin of
+error at or under 1.3% except `noteCandidates`, which reaches 10.8% at every
+size, and `rankFolders, empty query` at 500 notes, at 3.6%.
 
-| notes | folders | rank(empty) | rank(typed) | describeNotePath | buildTree |
+What a keystroke pays, both surfaces deriving their candidates once per vault:
+
+| notes | folders | folders(empty) | notes(empty) | notes(letter) | notes(typed) |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 500 | 50 | 0.252 | 0.376 | 0.0045 | 0.237 |
-| 2,000 | 176 | 1.011 | 1.482 | 0.0127 | 1.158 |
-| 10,000 | 842 | 4.958 | 7.505 | 0.0802 | 8.737 |
-| 50,000 | 4,176 | 25.868 | 40.954 | 0.4603 | 133.15 |
+| 500 | 50 | 0.0049 | 0.060 | 0.177 | 0.177 |
+| 2,000 | 176 | 0.0177 | 0.253 | 0.681 | 0.704 |
+| 10,000 | 842 | 0.0878 | 1.263 | 3.421 | 3.378 |
+| 50,000 | 4,176 | 0.4565 | 8.408 | 17.949 | 17.612 |
+
+What opening a list pays, once per vault:
+
+| notes | folders | folderCandidates | noteCandidates | describeNotePath | buildTree |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | 50 | 0.229 | 0.056 | 0.0045 | 0.214 |
+| 2,000 | 176 | 0.920 | 0.181 | 0.0131 | 0.968 |
+| 10,000 | 842 | 4.515 | 0.890 | 0.0672 | 8.245 |
+| 50,000 | 4,176 | 23.458 | 5.035 | 0.3626 | 144.58 |
+
+Deriving the folders costs 51 times what ranking them does at 10,000 notes,
+4.515 ms against 0.0878 ms, which is the whole reason each surface splits its
+two memos the way it does. Notes are the other way round, 0.890 ms to prepare
+against 1.263 ms to rank, because a note carries no deduplication and no set.
 
 These means run below what the gates measure for the same code. A hot loop
 amortises garbage collection across its iterations, and one keystroke pays for
@@ -162,6 +199,27 @@ derived from the paths once per vault rather than once per keystroke. Neither
 clears the bar alone. Together they save 11.9 ms where they save 5.5 and 2.3
 apart, because a garbage collection pass is charged to whichever half is
 allocating when the nursery fills.
+
+The prompt halved again when the finder arrived, without anything in the prompt
+changing. One scorer now serves both surfaces, and it stopped building a
+character array per candidate, stopped allocating a table row per query
+character, and started rejecting a candidate the query does not read into before
+the table is touched at all. Ranking 842 folders went from 0.372 ms to 0.092 ms.
+
+| surface | notes | candidates | commit |
+| --- | ---: | ---: | ---: |
+| prompt | 10,000 | 842 folders | 2.5 ms |
+| finder | 10,000 | 10,000 notes | 6.7 ms |
+| prompt | 50,000 | 4,176 folders | 3.5 ms |
+| finder | 50,000 | 50,000 notes | 21.0 ms |
+
+The finder is the dearer of the two at every size, ranking every note where the
+prompt ranks the folders on the way to one. It is inside the frame at 10,000
+notes and outside it at 50,000, which is recorded and gated on nothing.
+
+Ranking notes with the scorer as it stood before this work cost 156 ms for a
+four-letter query at 10,000 notes, fourteen dropped frames per keystroke. That
+number is why the scorer was rewritten rather than reused.
 
 ### The load side
 
@@ -210,5 +268,5 @@ clear those variables, or the medians above will not appear.
 ## Related
 
 * [mise tasks](/reference/mise-tasks.md) - what `fe:test`, `fe:frame` and `fe:bench` run
-* [Editor keys](/reference/editor-keys.md) - the prompt's keys, and the capped list they move through
+* [Editor keys](/reference/editor-keys.md) - the keys of both lists, and the cap they move through
 * [Run the checks](/how-to/run-the-checks.md) - which of these CI runs

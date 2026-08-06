@@ -32,14 +32,18 @@ Real, working code, not a plan:
   One prompt does three jobs: `Space c f` makes a note at a path you type,
   `Space r f` moves one that is there, and the tree's own `r` renames whatever
   the cursor sits on, a folder included. The tree's `c` is `Space c f` from
-  there. All three complete the vault's folders. The open note lives in the URL
-  as `?note=`, and follows a folder that moves out from under it.
+  there. All three complete the vault's folders. A finder opens a note by name:
+  `Space f f`, or `f` in the tree, ranks every note in the vault against what
+  you type and shows the one under the highlight beside the list. The open note
+  lives in the URL as `?note=`, and follows a folder that moves out from under
+  it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, wikilinks, backlinks, search, and anything that writes to Postgres.
+two folders, wikilinks, backlinks, search over note content, and anything that
+writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 
