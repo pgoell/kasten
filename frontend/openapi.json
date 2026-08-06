@@ -220,10 +220,88 @@
           }
         }
       }
+    },
+    "/api/folders/{path}": {
+      "patch": {
+        "summary": "Move Folder",
+        "description": "Give one folder a new path, and every note under it a new path with it.\n\nIts own route rather than the one above, because a folder is not a note and\n`/api/files/inbox` cannot mean the folder on a `PATCH` and nothing at all on\na `GET`. What the two share is the shape: the URL says where it lives now,\nthe body where it should live from here on.\n\nThe refusals are the note's, read for a folder. A source that is not a\nfolder is a 404, a note at that path included, so the one way to move a note\nstays the route above. The target names its refusal, a 400 for a path the\nvault will not have and a 409 for one already taken, because the user is\nabout to retype it.\n\nA target inside the source is a 400 too. A folder cannot hold itself, and\n`rename` raises on that rather than refusing, so it is caught here with the\nrest.\n\nNo content comes back. The notes under the folder are at new paths now, but\nthey are unchanged, and the client works out where they went from the folder\npath alone.",
+        "operationId": "move_folder_api_folders__path__patch",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FolderMove"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Folder"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Folder": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "Folder",
+        "description": "One folder, as the vault spells it.\n\nNo content beside the path. A folder is the prefix of the notes under it and\nholds nothing of its own, so there is nothing else to answer with."
+      },
+      "FolderMove": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "FolderMove",
+        "description": "Where a folder should live from now on, and every note under it with it."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {

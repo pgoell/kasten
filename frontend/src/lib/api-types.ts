@@ -119,10 +119,68 @@ export interface paths {
         patch: operations["move_file_api_files__path__patch"];
         trace?: never;
     };
+    "/api/folders/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move Folder
+         * @description Give one folder a new path, and every note under it a new path with it.
+         *
+         *     Its own route rather than the one above, because a folder is not a note and
+         *     `/api/files/inbox` cannot mean the folder on a `PATCH` and nothing at all on
+         *     a `GET`. What the two share is the shape: the URL says where it lives now,
+         *     the body where it should live from here on.
+         *
+         *     The refusals are the note's, read for a folder. A source that is not a
+         *     folder is a 404, a note at that path included, so the one way to move a note
+         *     stays the route above. The target names its refusal, a 400 for a path the
+         *     vault will not have and a 409 for one already taken, because the user is
+         *     about to retype it.
+         *
+         *     A target inside the source is a 400 too. A folder cannot hold itself, and
+         *     `rename` raises on that rather than refusing, so it is caught here with the
+         *     rest.
+         *
+         *     No content comes back. The notes under the folder are at new paths now, but
+         *     they are unchanged, and the client works out where they went from the folder
+         *     path alone.
+         */
+        patch: operations["move_folder_api_folders__path__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Folder
+         * @description One folder, as the vault spells it.
+         *
+         *     No content beside the path. A folder is the prefix of the notes under it and
+         *     holds nothing of its own, so there is nothing else to answer with.
+         */
+        Folder: {
+            /** Path */
+            path: string;
+        };
+        /**
+         * FolderMove
+         * @description Where a folder should live from now on, and every note under it with it.
+         */
+        FolderMove: {
+            /** Path */
+            path: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -343,6 +401,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_folder_api_folders__path__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Folder"];
                 };
             };
             /** @description Validation Error */

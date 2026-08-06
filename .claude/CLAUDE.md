@@ -18,26 +18,30 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Six
-  endpoints, `/api/health`, `/api/files`, and `GET`, `POST`, `PUT` and `PATCH`
-  on `/api/files/{path}`. A create starts an empty note and makes the folders
-  on the way to it; a `PATCH` gives a note a new path and takes the folders it
-  emptied with it. All three writes are recorded in the vault's jj repo, one
-  change per note, and skipped when the vault has none. Settings via
-  pydantic-settings with the `KASTEN_` prefix.
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Seven
+  endpoints, `/api/health`, `/api/files`, `GET`, `POST`, `PUT` and `PATCH` on
+  `/api/files/{path}`, and `PATCH` on `/api/folders/{path}`. A create starts an
+  empty note and makes the folders on the way to it; a `PATCH` gives a note or a
+  folder a new path and takes the folders it emptied with it. A folder moves in
+  one rename, so its whole subtree arrives together. All four writes are
+  recorded in the vault's jj repo, one change per note, and skipped when the
+  vault has none. Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
   that opens the note you click and writes it back as you type, or on `:w`.
-  One prompt does two jobs: `Space c f` makes a note at a path you type and
-  `Space r f` moves one that is there, both completing the vault's folders. The
-  open note lives in the URL as `?note=`.
+  One prompt does three jobs: `Space c f` makes a note at a path you type,
+  `Space r f` moves one that is there, and the tree's own `r` renames whatever
+  the cursor sits on, a folder included. The tree's `c` is `Space c f` from
+  there. All three complete the vault's folders. The open note lives in the URL
+  as `?note=`, and follows a folder that moves out from under it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 
-Not built yet: deleting notes, renaming folders, wikilinks, backlinks, search,
-and anything that writes to Postgres. The database schema is empty beyond
-Alembic's own table. Do not document these as though they exist.
+Not built yet: deleting notes or folders, making a folder on its own, merging
+two folders, wikilinks, backlinks, search, and anything that writes to Postgres.
+The database schema is empty beyond Alembic's own table. Do not document these
+as though they exist.
 
 ## Commands
 

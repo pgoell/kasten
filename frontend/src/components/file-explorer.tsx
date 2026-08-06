@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type EditorCommands, LEADER } from "@/lib/key-bindings";
+import { LEADER, type TreeCommands } from "@/lib/key-bindings";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -11,8 +11,8 @@ interface FileExplorerProps {
    * reaches it from inside the editor. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Reached by leader sequences typed here rather than in the editor. */
-  commands: EditorCommands;
+  /** Reached by the tree's own keys, and by leader sequences typed here. */
+  commands: TreeCommands;
   /** Raised by the route to ask the panel for the focus. The change is the
    * request, not the value: mounting must not pull focus out of the editor. */
   focusSignal?: number;
@@ -406,13 +406,24 @@ export function FileExplorer({
 
   /** Rename the note the cursor is on, and nothing when it is on a folder.
    *
-   * Renaming a folder means moving every note under it, which is a different
-   * operation with a different way of failing partway through. Doing nothing is
-   * how the tree says the key does not apply here. */
+   * `<leader>rf` names a file, and doing nothing is how the tree says the key
+   * does not apply here. `r` is the tree's own key and takes a row of either
+   * kind. */
   function renameNote() {
     const node = rows[cursor]?.node;
     if (node?.kind !== "file") return;
     commands.renameNote(node.path);
+  }
+
+  /** Rename whatever the cursor is on, which is what `r` does.
+   *
+   * A folder is a path like a note is, so the same prompt renames both and only
+   * the mode differs. */
+  function renameRow() {
+    const node = rows[cursor]?.node;
+    if (!node) return;
+    if (node.kind === "file") commands.renameNote(node.path);
+    else commands.renameFolder(node.path);
   }
 
   /**
@@ -467,6 +478,12 @@ export function FileExplorer({
       case "g":
       case " ":
         setPending(key);
+        break;
+      case "c":
+        newNote();
+        break;
+      case "r":
+        renameRow();
         break;
       case "q":
         onOpenChange(false);

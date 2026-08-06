@@ -5,10 +5,10 @@ import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
-import { editorFollows, NotePrompt, type PromptMode } from "@/components/note-prompt";
+import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { StatusBar } from "@/components/status-bar";
 import { fetchFiles } from "@/lib/api";
-import type { EditorCommands } from "@/lib/key-bindings";
+import type { TreeCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
 
 const SAMPLE = `# kasten
@@ -47,7 +47,7 @@ function Home() {
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
 
-  const commands = useMemo<EditorCommands>(
+  const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
       togglePreview: () => setPreview((previous) => !previous),
@@ -70,6 +70,12 @@ function Home() {
         const path = startPath ?? note;
         if (path === undefined) return;
         if (await save()) setPrompt({ mode: "rename", startPath: path });
+      },
+      // Saved first for the reason a note's rename is: the open note may be one
+      // of the notes this moves, and text still waiting would be written to a
+      // path the vault no longer has.
+      renameFolder: async (startPath) => {
+        if (await save()) setPrompt({ mode: "folder", startPath });
       },
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
@@ -115,10 +121,11 @@ function Home() {
           mode={prompt.mode}
           paths={data ?? []}
           startPath={prompt.startPath}
+          openNote={note}
           onOpen={(path) => {
-            const follow = editorFollows(prompt.mode, prompt.startPath, note);
+            const next = noteAfterPrompt(prompt.mode, prompt.startPath, path, note);
             setPrompt(null);
-            if (follow) navigate({ search: { note: path } });
+            if (next !== undefined) navigate({ search: { note: next } });
           }}
           onClose={() => setPrompt(null)}
         />

@@ -46,8 +46,8 @@ input starts holding that note's whole path with the name selected: the folder
 and the `.md` are what a rename usually keeps. From the editor it renames the
 open note. From the file tree it renames the note the tree cursor sits on,
 which need not be the one you are writing, and does nothing at all when the
-cursor is on a folder. Renaming a folder would mean moving every note under it,
-which is not this command.
+cursor is on a folder. The `f` names a file; the tree's own `r` is the key that
+takes a row of either kind.
 
 A rename can change the whole path, so it moves a note between folders as well
 as renaming it in place, making folders on the way and taking away the ones it
@@ -138,27 +138,46 @@ cursor is on, and these keys move it from there.
 | `l` | Expand the folder, or open the note |
 | Enter | Open the note under the cursor |
 | `gg` / `G` | Go to the first or last row |
+| `c` | New note in the folder the cursor is in |
+| `r` | Rename the note or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 
 Leader sequences work here too, so `<leader>b` closes the tree from inside it.
 
+`c` and `r` are bare letters rather than leader sequences, because the tree's
+own keys are single presses. `c` does what `<leader>cf` does from here, and `r`
+does what `<leader>rf` does and one thing more: on a folder row it renames the
+folder. The tree is the only place that can point at a folder, so it is the only
+place the key exists.
+
+Renaming a folder moves every note under it. The prompt says how many before you
+press Enter, and the whole subtree arrives at the new path together, so there is
+no state where half of it moved. It cannot land on a folder the vault already
+has, on a note, or inside itself, and the line under the list says which of
+those it is. The note you are writing follows into the URL when it was one of
+the notes that moved, and stays where it is when it was not.
+
 ## The note prompt
 
-`<leader>cf` and `<leader>rf` open the same prompt over the editor, one to make
-a note and one to move a note that is there. Type where the note goes, relative
-to the vault root, and `.md` is added unless you typed it. Under the input sits
-the list of the vault's folders, ranked against what you have typed, best
-first, and never more than twenty rows.
+`<leader>cf`, `<leader>rf` and the tree's `c` and `r` open the same prompt over
+the editor: one to make a note, one to move a note that is there, one to move a
+folder. Type where it goes, relative to the vault root, and `.md` is added
+unless you typed it. A folder takes no `.md`, because a folder has a name and
+not a suffix. Under the input sits the list of the vault's folders, ranked
+against what you have typed, best first, and never more than twenty rows. A
+folder move leaves the folder itself and everything inside it out of that list,
+since neither is a place it can go.
 
-The header says which of the two you are in, `new note` or `rename note`.
+The header says which of the three you are in, `new note`, `rename note` or
+`rename folder`.
 
 | Key | Does |
 | --- | --- |
 | Down / Up | Move the highlight through the folders |
 | Ctrl+N / Ctrl+P | The same two, the way vim's completion moves |
 | Tab | Take the highlighted folder, leaving the caret after its slash |
-| Enter | Make the note or move it, per the line under the list |
+| Enter | Make it or move it, per the line under the list |
 | Escape | Close the prompt and give the focus back |
 
 Clicking a folder does what Tab does. Either way the folder replaces the whole
@@ -171,22 +190,26 @@ all. Tab is for before you name the note, not after.
 
 The line under the list says what Enter will do, and Enter does what it says.
 It reads `creates folder reading/` for a folder the vault does not have yet, or
-why the path is refused, so `name the note` for one ending in a slash. It says
-nothing where the input already spells out the whole story. An input naming no
-note leaves Enter with nothing to do. A write the vault refused leaves the
-typed path where it is and says `could not create the note` or `could not
-rename the note`, so the next Enter tries again.
+`moves 12 notes` for a folder about to take its subtree somewhere else, or why
+the path is refused, so `name the note` for one ending in a slash. It says
+nothing where the input already spells out the whole story. An input naming
+nothing leaves Enter with nothing to do. A write the vault refused leaves the
+typed path where it is and says `could not create the note`, `could not rename
+the note` or `could not rename the folder`, so the next Enter tries again.
 
-A path a note is already at is the one line the two modes read differently.
+A path that is already taken is the one line the modes read differently.
 Making a note there is opening it, so the line says `already exists, Enter
 opens it`. Moving a note there would write over it, which the vault refuses, so
-the line says `a note is already there` and Enter does nothing. The exception
-is the note's own path, which a rename starts on: Enter closes the prompt
+the line says `a note is already there` and Enter does nothing, and a folder
+onto a folder says `a folder is already there` for the same reason. The
+exception is the path a rename starts on, its own: Enter closes the prompt
 rather than refusing, because leaving a name alone is not a collision.
 
 Escape hands the focus back where it came from, the editor or the tree.
 Opening a note is the exception: the focus goes to the editor, in normal mode,
-so you can type into a new note at once.
+so you can type into a new note at once. A rename that leaves the editor where
+it is hands the focus back the same as Escape, so renaming from the tree keeps
+you in the tree.
 
 ## Saving
 
