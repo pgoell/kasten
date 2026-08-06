@@ -37,17 +37,19 @@ def list_markdown_files(root: Path) -> list[str]:
     return sorted(found)
 
 
-def resolve_path(root: Path, relative: str) -> Path | None:
-    """Return the real path of a legal note location under `root`, or None.
+def _resolve_inside(root: Path, relative: str) -> Path | None:
+    """Return the real path of a legal location under `root`, or None.
 
     `relative` arrives from the URL and is therefore hostile. Both sides are
     resolved before they are compared, so `..`, an absolute path and a symlink
     pointing out of the vault all land outside `root` and are refused. Anything
     the listing would not show is refused too, so the tree and this function
-    agree on what a note is.
+    agree on what lives in the vault.
 
-    Reading, writing and creating share this, because two copies of these rules
-    would drift and the looser copy would be the write.
+    Everything the vault will take, note or folder, passes through here, because
+    several copies of these rules would drift and the loosest copy would be a
+    write. What a note adds on top is its suffix, and `resolve_path` is where
+    that sits.
     """
     # Checked before anything touches the filesystem, because an embedded null
     # makes every call raise rather than return.
@@ -64,14 +66,11 @@ def resolve_path(root: Path, relative: str) -> Path | None:
     # a question a name has already answered. The length rule sits here rather
     # than in a catch around the write, which would read a full disk as a bad
     # path, and refusing before mkdir runs is what keeps a refused note from
-    # leaving its folder behind.
+    # leaving its folder behind. No parts at all is the vault root, which is a
+    # path the vault holds rather than one it will move or write.
     parts = path.relative_to(base).parts
-    if (
-        not parts
-        or path.suffix != ".md"
-        or any(
-            part.startswith(".") or len(part.encode("utf-8")) > _NAME_LIMIT_BYTES for part in parts
-        )
+    if not parts or any(
+        part.startswith(".") or len(part.encode("utf-8")) > _NAME_LIMIT_BYTES for part in parts
     ):
         return None
 
@@ -92,6 +91,44 @@ def resolve_path(root: Path, relative: str) -> Path | None:
         for p in path.parents
         if p.is_relative_to(base)
     ):
+        return None
+
+    return path
+
+
+def resolve_path(root: Path, relative: str) -> Path | None:
+    """Return the real path of a legal note location under `root`, or None.
+
+    A note is a `.md` file, which is the one rule a folder does not share, so it
+    is the one rule that sits out here. Reading, writing and creating all come
+    through this.
+    """
+    path = _resolve_inside(root, relative)
+    if path is None or path.suffix != ".md":
+        return None
+
+    return path
+
+
+def resolve_folder_path(root: Path, relative: str) -> Path | None:
+    """Return the real path of a legal folder location under `root`, or None.
+
+    The same rules a note's path answers to, minus the suffix. A folder is the
+    prefix of a note and carries no name of its own, so nothing here asks what
+    it is called beyond what `_resolve_inside` already refuses.
+    """
+    return _resolve_inside(root, relative)
+
+
+def resolve_folder(root: Path, relative: str) -> Path | None:
+    """Return the real path of one folder under `root`, or None when there is none.
+
+    What `resolve_note` is to a note. A path with a note at it is refused rather
+    than moved: `PATCH /api/files/{path}` is what moves a note, and answering
+    here would be a second way to do it with none of the note's rules.
+    """
+    path = resolve_folder_path(root, relative)
+    if path is None or not path.is_dir():
         return None
 
     return path
@@ -162,6 +199,23 @@ def rename_note(source: Path, target: Path) -> None:
     and the rename nothing holds the path, so this would promise an atomicity it
     does not have. kasten is one user behind oauth2-proxy, and that gap is the
     accepted cost of not doing the link-and-unlink dance.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source.rename(target)
+
+
+def rename_folder(source: Path, target: Path) -> None:
+    """Move a folder `resolve_folder` returned to a path `resolve_folder_path` returned.
+
+    One rename, not a walk over the notes inside. A folder is the prefix of
+    every note under it, so renaming the directory renames all of them at once
+    and there is no half-moved subtree to find a way back from. The folders on
+    the way to the target are made first, the way a note's move makes them.
+
+    The caller has already refused a target that is taken and a target inside
+    the source, both of which `rename` raises on or, worse, quietly swallows: it
+    replaces an empty directory without a word. The gap between that check and
+    this rename is the same one `rename_note` accepts, and for the same reason.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     source.rename(target)

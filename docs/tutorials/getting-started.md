@@ -165,7 +165,40 @@ vault will not write one note over another. Press Escape to back out.
 Renaming from the tree works the same way and acts on the row the tree cursor
 sits on, which need not be the note you have open. That one stays open.
 
-## 9. Give the vault a history
+## 9. Move a whole folder
+
+The tree has its own keys, and they are single letters rather than leader
+sequences. Press space then `e` to put the focus on it, then `j` and `k` until
+the cursor sits on `reading`. Press `r`.
+
+The prompt is back, headed `rename folder` and holding `reading`, with the whole
+name selected. A folder has a name and not a suffix, so no `.md` is added to
+whatever you type.
+
+Type `archive` over it. The line underneath reads how many notes the move
+carries. Press Enter.
+
+Every note under `reading/` went with it, in one move:
+
+```sh
+ls -R vault/archive
+```
+
+`2026/borges.md` is there, under its new parent, and `vault/reading` is gone: a
+folder the move emptied is one nothing would ever show again. If the note you
+had open was one of the notes that moved, the URL followed it; if it was not,
+the editor stayed where it was.
+
+Two things the vault will not do. Press `r` on `archive` again and type
+`archive/2026/deeper`: the line reads `a folder cannot move inside itself`. Type
+`daily` instead, which is a folder that already exists, and it reads `a folder
+is already there`. Merging two folders is a different thing and kasten does not
+do it. Press Escape.
+
+The tree's `c` is the same idea for making a note. With the cursor on a folder
+it opens the new note prompt already holding that folder.
+
+## 10. Give the vault a history
 
 Every save writes over what was there. Make the vault a
 [jj](https://jj-vcs.github.io/jj/) repo and the old text stays reachable:
@@ -192,11 +225,12 @@ and keeps no history, so an overwrite is final.
 
 ## What you cannot do yet
 
-Notes can be made, opened, edited and renamed but not deleted from the browser,
-so getting rid of one is still a file you delete yourself. Folders are renamed
-the same way, by hand. Wikilinks, backlinks and search are not built. Tables and
-images keep their syntax on screen, because live preview does not render them
-yet.
+Notes can be made, opened, edited, renamed and moved from the browser, and so
+can folders, except that a folder is never made on its own: it comes into being
+when a note names it. Nothing can be deleted, so getting rid of a note is still
+a file you delete yourself. Wikilinks, backlinks and search are not built.
+Tables and images keep their syntax on screen, because live preview does not
+render them yet.
 
 ## Next
 

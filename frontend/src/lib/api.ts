@@ -4,6 +4,9 @@ import type { components, paths } from "@/lib/api-types";
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
 
+/** One folder as the vault spells it. A folder is a path and nothing else. */
+export type Folder = components["schemas"]["Folder"];
+
 /**
  * Calls into the backend, typed from its OpenAPI schema.
  *
@@ -61,6 +64,20 @@ export async function renameNote(from: string, to: string): Promise<Note> {
 
   if (!data) {
     throw new Error(`PATCH /api/files/${from} failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/** Move one folder, and every note under it, and answer with where it landed. */
+export async function moveFolder(from: string, to: string): Promise<Folder> {
+  const { data, response } = await client.PATCH("/api/folders/{path}", {
+    params: { path: { path: from } },
+    body: { path: to },
+  });
+
+  if (!data) {
+    throw new Error(`PATCH /api/folders/${from} failed with ${response.status}`);
   }
 
   return data;

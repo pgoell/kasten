@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves five endpoints. Three read, two write. The interactive
+The backend serves seven endpoints. Three read, four write. The interactive
 schema is at `/docs` while the backend runs, and the machine-readable one at
 `/openapi.json`.
 
@@ -208,6 +208,64 @@ A move that lands is recorded the way a save is, a change started before it and
 a snapshot after, named `vault: <new path>`. jj matches the content across the
 move and records it as a rename rather than a delete and an add, so the note
 stays reachable at the path it left.
+
+## PATCH /api/folders/{path}
+
+Gives a folder a new path, and every note under it a new path with it. The URL
+says where it lives now, the body where it should live from here on.
+
+```json
+{ "path": "reading/2026" }
+```
+
+The reply is the folder, and only the folder:
+
+```json
+{ "path": "reading/2026" }
+```
+
+No content comes back. A folder is the prefix of the notes under it and holds
+nothing of its own, so there is nothing else to answer with. The notes moved but
+did not change, and the client works out where each one went by swapping the old
+prefix for the new.
+
+Its own route rather than the one above, because a folder is not a note.
+`/api/files/inbox` cannot mean the folder on a `PATCH` and nothing at all on a
+`GET`.
+
+One rename does it, not a walk over the notes. A folder is a directory on disk,
+so renaming it renames everything under it at once and there is no half-moved
+subtree to find a way back from.
+
+`path` in the reply is the vault's spelling of the body's, the way `POST`
+answers.
+
+The folders on the way to the new path are made, and the ones the move emptied
+are taken away, both exactly as [a note's move](#what-a-move-leaves-behind) does
+them.
+
+### What a folder move refuses
+
+* `404` when there is no folder at the path in the URL. A note at that path is a
+  `404` too: `PATCH /api/files/{path}` is the one way to move a note, and
+  answering here would be a second way with none of the note's rules. So is the
+  vault root, which is not a folder the vault will move.
+* `409` when anything is already at the new path, a folder or a note. Merging
+  two folders is a different operation, with a different way of failing partway
+  through, and this is not it.
+* `400` when the vault will not take the new path at all. The list is the one
+  [a create refuses](#what-a-create-refuses), minus the `.md` suffix, which a
+  folder does not carry. A new path inside the folder being moved is a `400`
+  as well: a folder cannot hold itself.
+
+Every refusal returns before anything is written, so a move that bounced leaves
+no folder, no half-moved subtree and no jj change behind.
+
+A move that lands is recorded the way a save is, named `vault: <new path>/`.
+The trailing slash is what tells it from the change a note's move leaves, which
+would otherwise read the same. jj matches the content across each note, so the
+change reads as the renames it is rather than one subtree deleted and another
+added.
 
 ## Related
 

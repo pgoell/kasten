@@ -270,6 +270,56 @@ async def test_leaves_no_change_behind_when_it_refuses_a_move(
     assert descriptions(versioned_vault) == before
 
 
+async def test_names_the_change_after_the_folder_a_move_lands_on(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # The trailing slash is what tells this apart from the change a note's move
+    # leaves, which `jj log` would otherwise show in the same words.
+    (versioned_vault / "inbox").mkdir()
+    (versioned_vault / "inbox" / "borges.md").write_text("# borges")
+
+    await client.patch("/api/folders/inbox", json={"path": "reading/2026"})
+
+    assert descriptions(versioned_vault)[0] == "vault: reading/2026/"
+
+
+async def test_records_a_folder_move_as_a_rename_of_every_note(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Every note under the folder moved, and jj matches the content across each
+    # one, so the change reads as the renames it is rather than a subtree
+    # deleted and another added.
+    (versioned_vault / "inbox" / "deep").mkdir(parents=True)
+    (versioned_vault / "inbox" / "borges.md").write_text("# borges")
+    (versioned_vault / "inbox" / "deep" / "kasten.md").write_text("# kasten")
+    # The notes have to be in a change of their own to have moved out of one.
+    await client.put("/api/files/inbox/borges.md", json={"content": "# borges"})
+    await client.put("/api/files/inbox/deep/kasten.md", json={"content": "# kasten"})
+
+    await client.patch("/api/folders/inbox", json={"path": "reading"})
+
+    assert moved_paths(versioned_vault, "@") == [
+        "inbox/borges.md -> reading/borges.md",
+        "inbox/deep/kasten.md -> reading/deep/kasten.md",
+    ]
+
+
+async def test_leaves_no_change_behind_when_it_refuses_a_folder_move(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    (versioned_vault / "inbox").mkdir()
+    (versioned_vault / "inbox" / "borges.md").write_text("# borges")
+    (versioned_vault / "reading").mkdir()
+    (versioned_vault / "reading" / "kasten.md").write_text("# kasten")
+    before = descriptions(versioned_vault)
+
+    await client.patch("/api/folders/inbox", json={"path": "reading"})
+    await client.patch("/api/folders/absent", json={"path": "elsewhere"})
+    await client.patch("/api/folders/inbox", json={"path": "inbox/deeper"})
+
+    assert descriptions(versioned_vault) == before
+
+
 async def test_leaves_no_change_behind_when_it_refuses_a_create(
     client: AsyncClient, versioned_vault: Path
 ) -> None:

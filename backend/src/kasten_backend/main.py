@@ -12,7 +12,10 @@ from kasten_backend.vault import (
     prune_empty_folders,
     read_note,
     relative_path,
+    rename_folder,
     rename_note,
+    resolve_folder,
+    resolve_folder_path,
     resolve_note,
     resolve_path,
     write_note,
@@ -46,6 +49,22 @@ class NoteEdit(BaseModel):
 
 class NoteMove(BaseModel):
     """Where a note should live from now on. Where it lives today comes from the URL."""
+
+    path: str
+
+
+class Folder(BaseModel):
+    """One folder, as the vault spells it.
+
+    No content beside the path. A folder is the prefix of the notes under it and
+    holds nothing of its own, so there is nothing else to answer with.
+    """
+
+    path: str
+
+
+class FolderMove(BaseModel):
+    """Where a folder should live from now on, and every note under it with it."""
 
     path: str
 
@@ -177,3 +196,50 @@ async def move_file(
     await snapshot(settings.vault_path)
 
     return Note(path=relative, content=target.read_text(encoding="utf-8"))
+
+
+@app.patch("/api/folders/{path:path}")
+async def move_folder(
+    path: str, move: FolderMove, settings: Annotated[Settings, Depends(get_settings)]
+) -> Folder:
+    """Give one folder a new path, and every note under it a new path with it.
+
+    Its own route rather than the one above, because a folder is not a note and
+    `/api/files/inbox` cannot mean the folder on a `PATCH` and nothing at all on
+    a `GET`. What the two share is the shape: the URL says where it lives now,
+    the body where it should live from here on.
+
+    The refusals are the note's, read for a folder. A source that is not a
+    folder is a 404, a note at that path included, so the one way to move a note
+    stays the route above. The target names its refusal, a 400 for a path the
+    vault will not have and a 409 for one already taken, because the user is
+    about to retype it.
+
+    A target inside the source is a 400 too. A folder cannot hold itself, and
+    `rename` raises on that rather than refusing, so it is caught here with the
+    rest.
+
+    No content comes back. The notes under the folder are at new paths now, but
+    they are unchanged, and the client works out where they went from the folder
+    path alone.
+    """
+    folder = resolve_folder(settings.vault_path, path)
+    if folder is None:
+        raise HTTPException(status_code=404, detail="No such folder")
+
+    target = resolve_folder_path(settings.vault_path, move.path)
+    if target is None or target.is_relative_to(folder):
+        raise HTTPException(status_code=400, detail="The vault will not take that path")
+    if target.exists():
+        raise HTTPException(status_code=409, detail="Something is already there")
+
+    relative = relative_path(settings.vault_path, target)
+
+    # The trailing slash is what tells one of these apart from a note's change
+    # in `jj log`, where the two would otherwise read the same.
+    await begin_change(settings.vault_path, f"{relative}/")
+    rename_folder(folder, target)
+    prune_empty_folders(settings.vault_path, folder.parent)
+    await snapshot(settings.vault_path)
+
+    return Folder(path=relative)

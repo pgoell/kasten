@@ -1,17 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { editorFollows, NotePrompt, type PromptMode } from "@/components/note-prompt";
+import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { folderPrefixes, rankFolderPrefixes, rankFolders } from "@/lib/fuzzy";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
 // module is also the right level: what this component owns is the path it sends
 // and what it does with the answer, not the HTTP.
-const { createNote, renameNote } = vi.hoisted(() => ({
+const { createNote, renameNote, moveFolder } = vi.hoisted(() => ({
   createNote: vi.fn(),
   renameNote: vi.fn(),
+  moveFolder: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ createNote, renameNote }));
+vi.mock("@/lib/api", () => ({ createNote, renameNote, moveFolder }));
 
 // Call counters for the two halves of the ranking. `spy: true` keeps the real
 // implementations, so the prompt still ranks for real and the only thing that
@@ -43,7 +44,19 @@ const MANY_PATHS = [
   ...Array.from({ length: 5 }, (_, index) => `notes-${index}/entry.md`),
 ];
 
-function renderPrompt(startPath = "", vault = PATHS, mode: PromptMode = "create") {
+/** What the input is labelled in each of the three modes. */
+const LABEL: Record<PromptMode, string> = {
+  create: "new note",
+  rename: "rename note",
+  folder: "rename folder",
+};
+
+function renderPrompt(
+  startPath = "",
+  vault = PATHS,
+  mode: PromptMode = "create",
+  openNote?: string,
+) {
   const onOpen = vi.fn();
   const onClose = vi.fn();
   const queryClient = new QueryClient();
@@ -54,6 +67,7 @@ function renderPrompt(startPath = "", vault = PATHS, mode: PromptMode = "create"
         mode={mode}
         paths={paths}
         startPath={startPath}
+        openNote={openNote}
         onOpen={onOpen}
         onClose={onClose}
       />
@@ -61,9 +75,7 @@ function renderPrompt(startPath = "", vault = PATHS, mode: PromptMode = "create"
   );
 
   const { rerender, unmount } = render(tree(vault));
-  const input = screen.getByLabelText(
-    mode === "rename" ? "rename note" : "new note",
-  ) as HTMLInputElement;
+  const input = screen.getByLabelText(LABEL[mode]) as HTMLInputElement;
 
   return {
     input,
@@ -573,24 +585,236 @@ describe("the rename prompt", () => {
   });
 });
 
+describe("the rename folder prompt", () => {
+  beforeEach(() => {
+    moveFolder.mockResolvedValue({ path: "reading" });
+  });
+
+  afterEach(() => {
+    moveFolder.mockReset();
+  });
+
+  /** The prompt opened on `projects/`, which holds two of the four PATHS. */
+  function renderFolder(startPath = "projects", openNote?: string) {
+    return renderPrompt(startPath, PATHS, "folder", openNote);
+  }
+
+  it("opens on the folder's own path with the whole name selected", () => {
+    const prompt = renderFolder("projects/kasten");
+
+    expect(prompt.input).toHaveValue("projects/kasten");
+    // The whole last segment, because a folder has a name and not a name and a
+    // suffix. `2026.05` is one name, not `2026` with `.05` after it.
+    expect(prompt.input.selectionStart).toBe("projects/".length);
+    expect(prompt.input.selectionEnd).toBe("projects/kasten".length);
+  });
+
+  it("says how many notes the move carries", () => {
+    const prompt = renderFolder();
+
+    prompt.type("reading");
+
+    expect(prompt.hint()).toBe("moves 2 notes");
+  });
+
+  it("counts one note as one", () => {
+    const prompt = renderFolder("daily");
+
+    prompt.type("journal");
+
+    expect(prompt.hint()).toBe("moves 1 note");
+  });
+
+  it("leaves the folder and its own subtree out of the list", () => {
+    // Neither is a place the folder can go, and the vault refuses both, so
+    // completing to one would only be a way to type a refusal faster. The vault
+    // has `daily/`, `projects/` and `projects/kasten/`, and an empty query
+    // matches every one of them.
+    const prompt = renderFolder();
+
+    prompt.type("");
+
+    expect(prompt.rows()).toEqual(["daily/"]);
+  });
+
+  it("adds no .md to what was typed", async () => {
+    const prompt = renderFolder();
+
+    prompt.type("reading");
+    prompt.press("Enter");
+
+    await waitFor(() => expect(moveFolder).toHaveBeenCalledWith("projects", "reading"));
+  });
+
+  it("refuses a folder the vault already has", () => {
+    const prompt = renderFolder();
+
+    prompt.type("daily");
+    prompt.press("Enter");
+
+    expect(prompt.hint()).toBe("a folder is already there");
+    expect(moveFolder).not.toHaveBeenCalled();
+    expect(prompt.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("refuses a move inside the folder itself", () => {
+    const prompt = renderFolder();
+
+    prompt.type("projects/archive");
+    prompt.press("Enter");
+
+    expect(prompt.hint()).toBe("a folder cannot move inside itself");
+    expect(moveFolder).not.toHaveBeenCalled();
+  });
+
+  it("closes without a request when the path is left alone", () => {
+    const prompt = renderFolder();
+
+    prompt.press("Enter");
+
+    expect(moveFolder).not.toHaveBeenCalled();
+    expect(prompt.onClose).toHaveBeenCalled();
+  });
+
+  it("reports the path the vault gave back, not the one that was typed", async () => {
+    // The vault answers with its own spelling, and that is what the route
+    // rewrites `?note=` against.
+    moveFolder.mockResolvedValue({ path: "archive/canonical" });
+    const prompt = renderFolder();
+
+    prompt.type("archive/typed");
+    prompt.press("Enter");
+
+    await waitFor(() => expect(prompt.onOpen).toHaveBeenCalledWith("archive/canonical"));
+  });
+
+  it("drops every cached note that moved and keeps the rest", async () => {
+    const prompt = renderFolder();
+    prompt.queryClient.setQueryData(["note", "projects/kasten.md"], "# kasten");
+    prompt.queryClient.setQueryData(["note", "projects/kasten/api-design.md"], "# api");
+    prompt.queryClient.setQueryData(["note", "index.md"], "# index");
+
+    prompt.type("reading");
+    prompt.press("Enter");
+    await waitFor(() => expect(prompt.onOpen).toHaveBeenCalled());
+
+    // The notes are at new paths now, and the vault is the only thing that
+    // knows what is in them, so the copies under the old paths go rather than
+    // move: a note edited outside kasten must not arrive stale on the far side.
+    expect(prompt.queryClient.getQueryData(["note", "projects/kasten.md"])).toBeUndefined();
+    expect(
+      prompt.queryClient.getQueryData(["note", "projects/kasten/api-design.md"]),
+    ).toBeUndefined();
+    expect(prompt.queryClient.getQueryData(["note", "index.md"])).toBe("# index");
+  });
+
+  it("stays open with the typed path when the vault refused the move", async () => {
+    moveFolder.mockRejectedValue(new Error("PATCH failed with 409"));
+    const prompt = renderFolder();
+
+    prompt.type("reading");
+    prompt.press("Enter");
+
+    await waitFor(() => expect(prompt.hint()).toBe("could not rename the folder"));
+    expect(prompt.input).toHaveValue("reading");
+    expect(prompt.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("sends the one request when Enter is held", async () => {
+    const prompt = renderFolder();
+
+    prompt.type("reading");
+    prompt.press("Enter");
+    prompt.press("Enter");
+    await waitFor(() => expect(prompt.onOpen).toHaveBeenCalled());
+
+    expect(moveFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands the focus back to the tree when the editor is not following", async () => {
+    // The editor takes the focus only when it is about to show another note.
+    // A folder renamed from the tree with nothing of it open leaves the next
+    // key belonging to the tree, so the row that opened the prompt gets it.
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+
+    const prompt = renderFolder("projects", "index.md");
+    prompt.type("reading");
+    prompt.press("Enter");
+    await waitFor(() => expect(prompt.onOpen).toHaveBeenCalled());
+    prompt.unmount();
+
+    expect(opener).toHaveFocus();
+    opener.remove();
+  });
+
+  it("leaves the focus for the editor when the open note moved with the folder", async () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+
+    const prompt = renderFolder("projects", "projects/kasten.md");
+    prompt.type("reading");
+    prompt.press("Enter");
+    await waitFor(() => expect(prompt.onOpen).toHaveBeenCalled());
+    prompt.unmount();
+
+    expect(document.activeElement).toBe(document.body);
+    opener.remove();
+  });
+});
+
 describe("what the editor follows", () => {
   it("opens the note a create made", () => {
-    expect(editorFollows("create", "daily/", undefined)).toBe(true);
+    expect(noteAfterPrompt("create", "daily/", "daily/note.md", undefined)).toBe("daily/note.md");
   });
 
   it("follows the note it renamed when that was the note being written", () => {
     // `?note=` has to move with it, or the editor is left pointing at a path
     // the vault no longer has.
-    expect(editorFollows("rename", "inbox/borges.md", "inbox/borges.md")).toBe(true);
+    expect(
+      noteAfterPrompt("rename", "inbox/borges.md", "reading/borges.md", "inbox/borges.md"),
+    ).toBe("reading/borges.md");
   });
 
   it("stays on the open note when another one was renamed", () => {
     // The tree renames the note under its cursor, which is not always the one
     // being written. Following it would take the editor off mid-sentence.
-    expect(editorFollows("rename", "daily/2026-08-05.md", "inbox/borges.md")).toBe(false);
+    expect(
+      noteAfterPrompt("rename", "daily/2026-08-05.md", "daily/today.md", "inbox/borges.md"),
+    ).toBeUndefined();
   });
 
   it("stays put when no note is open at all", () => {
-    expect(editorFollows("rename", "daily/2026-08-05.md", undefined)).toBe(false);
+    expect(
+      noteAfterPrompt("rename", "daily/2026-08-05.md", "daily/today.md", undefined),
+    ).toBeUndefined();
+  });
+
+  it("carries the open note along when the folder it sat in moved", () => {
+    expect(noteAfterPrompt("folder", "inbox", "reading", "inbox/borges.md")).toBe(
+      "reading/borges.md",
+    );
+  });
+
+  it("keeps the rest of the path when a folder moved from deeper in the vault", () => {
+    expect(noteAfterPrompt("folder", "inbox", "archive/2026", "inbox/deep/borges.md")).toBe(
+      "archive/2026/deep/borges.md",
+    );
+  });
+
+  it("stays on the open note when a folder it was not in moved", () => {
+    expect(noteAfterPrompt("folder", "inbox", "reading", "daily/2026-08-05.md")).toBeUndefined();
+  });
+
+  it("stays put when a folder whose name the open note only starts with moved", () => {
+    // `inboxes/` is not `inbox/`, and the slash is what keeps the test on a
+    // segment boundary.
+    expect(noteAfterPrompt("folder", "inbox", "reading", "inboxes/borges.md")).toBeUndefined();
+  });
+
+  it("stays put on a folder move with no note open", () => {
+    expect(noteAfterPrompt("folder", "inbox", "reading", undefined)).toBeUndefined();
   });
 });

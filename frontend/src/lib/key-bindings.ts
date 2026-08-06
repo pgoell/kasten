@@ -22,6 +22,18 @@ export interface EditorCommands {
   renameNote(startPath?: string): void;
 }
 
+/**
+ * What the file tree reaches for, which is the leader's commands and one more.
+ *
+ * `renameFolder` sits out of `EditorCommands` because that interface is the
+ * table a `LeaderBinding` names a command in, and no leader sequence names this
+ * one. The tree is the only place that can point at a folder, so the tree is
+ * the only place the command exists, and its key is a bare `r`.
+ */
+export interface TreeCommands extends EditorCommands {
+  renameFolder(startPath: string): void;
+}
+
 export interface LeaderBinding {
   /** The keys pressed after the leader, in order. Usually one. */
   key: string;
@@ -98,6 +110,11 @@ export const TREE: readonly { key: string; label: string }[] = [
   { key: "l", label: "Expand the folder, or open the note" },
   { key: "Enter", label: "Open the note under the cursor" },
   { key: "gg / G", label: "Go to the first or last row" },
+  // Bare letters, not leader sequences: the tree's own keys are single presses.
+  // `<leader>cf` and `<leader>rf` still reach these from anywhere, and `r` is
+  // the only way to a folder, which is a thing only the tree can point at.
+  { key: "c", label: "New note in the folder the cursor is in" },
+  { key: "r", label: "Rename the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
   { key: "Escape", label: "Back to the editor" },
 ];

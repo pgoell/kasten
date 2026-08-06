@@ -1,4 +1,4 @@
-import { describeNotePath } from "@/lib/note-path";
+import { describeFolderPath, describeNotePath } from "@/lib/note-path";
 
 const PATHS = ["daily/2026-08-05.md", "index.md", "projects/kasten/api-design.md"];
 
@@ -135,5 +135,119 @@ describe("describeNotePath", () => {
       path: "reading/borges.md",
       newFolder: "reading/",
     });
+  });
+});
+
+describe("describeFolderPath", () => {
+  /** The folder being moved, which is `daily/` in most of these. */
+  const SOURCE = "daily";
+
+  it("has nothing to say about an empty input", () => {
+    expect(describeFolderPath("", PATHS, SOURCE)).toEqual({ kind: "empty" });
+  });
+
+  it("takes a lone slash for an empty input", () => {
+    expect(describeFolderPath("/", PATHS, SOURCE)).toEqual({ kind: "empty" });
+  });
+
+  it("moves a folder to a name the vault does not have", () => {
+    expect(describeFolderPath("journal", PATHS, SOURCE)).toEqual({
+      kind: "create",
+      path: "journal",
+    });
+  });
+
+  it("trims what is typed around the path", () => {
+    expect(describeFolderPath("  journal  ", PATHS, SOURCE)).toEqual({
+      kind: "create",
+      path: "journal",
+    });
+  });
+
+  it("drops the trailing slash the folder list completes with", () => {
+    // Tab folds a row in whole, slash and all, and Enter on that names the
+    // folder rather than waiting for more.
+    expect(describeFolderPath("journal/", PATHS, SOURCE)).toEqual({
+      kind: "create",
+      path: "journal",
+    });
+  });
+
+  it("tidies doubled and leading slashes the way a note's path is tidied", () => {
+    expect(describeFolderPath("/archive//journal", PATHS, SOURCE)).toEqual({
+      kind: "create",
+      path: "archive/journal",
+    });
+  });
+
+  it("adds no .md, because a folder is not a note", () => {
+    expect(describeFolderPath("archive/2026", PATHS, SOURCE)).toEqual({
+      kind: "create",
+      path: "archive/2026",
+    });
+  });
+
+  it("blocks a name starting with a dot", () => {
+    expect(describeFolderPath(".jj", PATHS, SOURCE)).toEqual({
+      kind: "blocked",
+      reason: "a name cannot start with a dot",
+    });
+  });
+
+  it("blocks a dot below a folder, not only at the front", () => {
+    expect(describeFolderPath("archive/.hidden", PATHS, SOURCE)).toEqual({
+      kind: "blocked",
+      reason: "a name cannot start with a dot",
+    });
+  });
+
+  it("blocks a folder asked for inside a note", () => {
+    expect(describeFolderPath("index.md/archive", PATHS, SOURCE)).toEqual({
+      kind: "blocked",
+      reason: "a note cannot be a folder",
+    });
+  });
+
+  it("blocks a folder landing on a note", () => {
+    expect(describeFolderPath("index.md", PATHS, SOURCE)).toEqual({
+      kind: "blocked",
+      reason: "a note is already there",
+    });
+  });
+
+  it("blocks a folder moved inside itself", () => {
+    expect(describeFolderPath("daily/archive", PATHS, SOURCE)).toEqual({
+      kind: "blocked",
+      reason: "a folder cannot move inside itself",
+    });
+  });
+
+  it("allows a folder whose name only starts with the source's", () => {
+    // `dailies` is not inside `daily`, and the slash is what keeps the test on
+    // a segment boundary.
+    expect(describeFolderPath("dailies", PATHS, SOURCE)).toEqual({
+      kind: "create",
+      path: "dailies",
+    });
+  });
+
+  it("reads a folder the vault already has as one it cannot take", () => {
+    expect(describeFolderPath("projects", PATHS, SOURCE)).toEqual({
+      kind: "open",
+      path: "projects",
+    });
+  });
+
+  it("reads a folder nested inside another as one the vault already has", () => {
+    expect(describeFolderPath("projects/kasten", PATHS, SOURCE)).toEqual({
+      kind: "open",
+      path: "projects/kasten",
+    });
+  });
+
+  it("reads the folder's own path as the one it is already at", () => {
+    // Not a collision: leaving a name alone is nothing to do, and the prompt
+    // closes on it rather than refusing.
+    expect(describeFolderPath("daily", PATHS, SOURCE)).toEqual({ kind: "open", path: "daily" });
   });
 });

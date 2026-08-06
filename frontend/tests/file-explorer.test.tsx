@@ -23,13 +23,14 @@ function folderContents(name: string) {
 }
 
 type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
-  /** The one command these tests drive, wired into the harness's own set. */
+  /** The commands these tests drive, wired into the harness's own set. */
   onCreateNote?: (startPath?: string) => void;
   onRenameNote?: (startPath?: string) => void;
+  onRenameFolder?: (startPath: string) => void;
 };
 
 /** Holds the open state the route holds in the app, so folding still works. */
-function Harness({ onCreateNote, onRenameNote, ...props }: TreeProps) {
+function Harness({ onCreateNote, onRenameNote, onRenameFolder, ...props }: TreeProps) {
   const [open, setOpen] = useState(true);
   // The route folds the panel from two directions, `q` in the tree and the
   // leader from anywhere, and both land on the same callback.
@@ -50,6 +51,7 @@ function Harness({ onCreateNote, onRenameNote, ...props }: TreeProps) {
         focusTree: () => {},
         createNote: onCreateNote ?? (() => {}),
         renameNote: onRenameNote ?? (() => {}),
+        renameFolder: onRenameFolder ?? (() => {}),
       }}
     />
   );
@@ -264,10 +266,11 @@ describe("the tree keyboard", () => {
   });
 
   it("renames nothing when the cursor is on a folder", () => {
-    // Renaming a folder means moving every note under it, which is not this
-    // operation. Doing nothing is how the tree says so.
+    // `rf` names a file, and the tree has `r` for a row of either kind. Doing
+    // nothing is how it says the key does not apply here.
     const onRenameNote = vi.fn();
-    renderTree({ onRenameNote });
+    const onRenameFolder = vi.fn();
+    renderTree({ onRenameNote, onRenameFolder });
 
     expect(cursor()).toHaveTextContent("daily");
     press(" ");
@@ -275,6 +278,69 @@ describe("the tree keyboard", () => {
     press("f");
 
     expect(onRenameNote).not.toHaveBeenCalled();
+    expect(onRenameFolder).not.toHaveBeenCalled();
+  });
+
+  it("opens the note prompt on c", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    expect(cursor()).toHaveTextContent("daily");
+    press("c");
+
+    expect(onCreateNote).toHaveBeenCalledWith("daily/");
+  });
+
+  it("opens the note prompt on c in the folder holding the note under the cursor", () => {
+    const onCreateNote = vi.fn();
+    renderTree({ onCreateNote });
+
+    press("G");
+    expect(cursor()).toHaveTextContent("index");
+    press("c");
+
+    // A note at the root names no folder, so the prompt opens on the vault root.
+    expect(onCreateNote).toHaveBeenCalledWith("");
+  });
+
+  it("renames the note under the cursor on r", () => {
+    const onRenameNote = vi.fn();
+    renderTree({ onRenameNote });
+
+    press("G");
+    press("k");
+    // By title, not by name: the folder `projects/kasten/` reads the same.
+    expect(cursor()).toHaveAttribute("title", "projects/kasten.md");
+    press("r");
+
+    expect(onRenameNote).toHaveBeenCalledWith("projects/kasten.md");
+  });
+
+  it("renames the folder under the cursor on r", () => {
+    const onRenameFolder = vi.fn();
+    const onRenameNote = vi.fn();
+    renderTree({ onRenameFolder, onRenameNote });
+
+    expect(cursor()).toHaveTextContent("daily");
+    press("r");
+
+    // No trailing slash: this is the folder's path, not a prefix to type after.
+    expect(onRenameFolder).toHaveBeenCalledWith("daily");
+    expect(onRenameNote).not.toHaveBeenCalled();
+  });
+
+  it("renames a folder nested inside another on r", () => {
+    const onRenameFolder = vi.fn();
+    renderTree({ onRenameFolder });
+
+    press("G");
+    press("k");
+    press("k");
+    press("k");
+    expect(cursor()).toHaveTextContent("kasten");
+    press("r");
+
+    expect(onRenameFolder).toHaveBeenCalledWith("projects/kasten");
   });
 
   it("waits for the second letter rather than acting on the leader and c", () => {
