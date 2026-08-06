@@ -46,6 +46,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Files
+         * @description Find every line in the vault containing `q`, ignoring case.
+         *
+         *     A literal match, not a regex and not a fuzzy one. The client ranks what
+         *     comes back, which is what makes the finder feel fuzzy without asking a
+         *     subsequence match to mean something over prose, where it matches everything.
+         */
+        get: operations["search_files_api_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/files/{path}": {
         parameters: {
             query?: never;
@@ -220,6 +244,18 @@ export interface components {
             /** Path */
             path: string;
         };
+        /**
+         * SearchHit
+         * @description One line in the vault that matched, and enough to open the note on it.
+         */
+        SearchHit: {
+            /** Path */
+            path: string;
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -278,6 +314,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+        };
+    };
+    search_files_api_search_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -140,3 +140,46 @@ describe("the editor focus", () => {
     tree.remove();
   });
 });
+
+describe("Editor opened on a line", () => {
+  const DOC = "one\ntwo\nthree\nfour";
+
+  // `dd` deletes the line the cursor sits on, which is how the tests above ask
+  // where the cursor is without reaching into the view.
+  function deleteCurrentLine(container: HTMLElement) {
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    fireEvent.keyDown(content, { key: "d" });
+    fireEvent.keyDown(content, { key: "d" });
+    return content.textContent;
+  }
+
+  it("puts the cursor on the line it was opened at", () => {
+    const { container } = render(<Editor initialDoc={DOC} startLine={3} />);
+
+    expect(deleteCurrentLine(container)).toBe("onetwofour");
+  });
+
+  it("starts at the top when it was given no line", () => {
+    const { container } = render(<Editor initialDoc={DOC} />);
+
+    expect(deleteCurrentLine(container)).toBe("twothreefour");
+  });
+
+  it("moves the cursor when a second hit names another line of the same note", () => {
+    // No remount: the note has not changed, only where in it to look. Without
+    // this the second hit on an open note would go nowhere.
+    const { container, rerender } = render(<Editor initialDoc={DOC} startLine={2} />);
+
+    rerender(<Editor initialDoc={DOC} startLine={4} />);
+
+    expect(deleteCurrentLine(container)).toBe("onetwothree");
+  });
+
+  it("holds at the last line when the note is shorter than the hit said", () => {
+    // The note can be edited between the scan finding a line and the click
+    // opening it, and a line past the end is a crash rather than a miss.
+    const { container } = render(<Editor initialDoc={DOC} startLine={99} />);
+
+    expect(deleteCurrentLine(container)).toBe("onetwothree");
+  });
+});

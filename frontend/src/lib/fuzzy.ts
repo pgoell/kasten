@@ -164,20 +164,75 @@ function score(candidate: Candidate, query: string): number {
   return best;
 }
 
-/** Candidates already derived, ranked against `query`, best first. */
-export function rankCandidates(candidates: Candidate[], query: string): string[] {
+interface Scored {
+  candidate: Candidate;
+  /** Where it sat in the array it was ranked from, which is one way back to it. */
+  index: number;
+  points: number;
+}
+
+/**
+ * Every candidate `query` reads into, still in the order they were given.
+ *
+ * The two rankings below differ only in how they break a tie and what they
+ * hand back, so the scoring itself lives here once.
+ */
+function scoreAll(candidates: Candidate[], query: string): Scored[] {
   const wanted = query.toLowerCase();
-  const ranked: Array<{ path: string; points: number }> = [];
+  const scored: Scored[] = [];
+  let index = 0;
 
   for (const candidate of candidates) {
     const points = score(candidate, wanted);
-    if (points !== NONE) ranked.push({ path: candidate.path, points });
+    if (points !== NONE) scored.push({ candidate, index, points });
+    index += 1;
   }
+  return scored;
+}
+
+/** Candidates already derived, ranked against `query`, best first. */
+export function rankCandidates(candidates: Candidate[], query: string): string[] {
+  const ranked = scoreAll(candidates, query);
 
   // Two equal paths go in name order, which is where a reader looks for one. A
   // folder sorts before the folders inside it anyway, being their prefix.
-  ranked.sort((a, b) => b.points - a.points || a.path.localeCompare(b.path));
-  return ranked.map((entry) => entry.path);
+  ranked.sort((a, b) => b.points - a.points || a.candidate.path.localeCompare(b.candidate.path));
+  return ranked.map((entry) => entry.candidate.path);
+}
+
+/**
+ * The same ranking, answered as positions rather than as paths.
+ *
+ * What a search hit needs. Two hits can carry the very same line, on different
+ * notes or on two lines of one, so the text cannot be the way back to the hit
+ * it came from and the position has to be.
+ */
+export function rankIndexes(candidates: Candidate[], query: string): number[] {
+  const ranked = scoreAll(candidates, query);
+
+  // Ties keep the order they arrived in, which for search hits is rg's: path
+  // order, then line order inside a note. That is the order a reader expects,
+  // and sorting equal lines by their text would scramble it for nothing.
+  ranked.sort((a, b) => b.points - a.points || a.index - b.index);
+  return ranked.map((entry) => entry.index);
+}
+
+/**
+ * Lines of prose prepared for ranking.
+ *
+ * No name bonus, the way a folder opts out of one: a line has no last segment,
+ * and nothing in it is more the line's own name than the rest.
+ */
+export function lineCandidates(lines: string[]): Candidate[] {
+  return lines.map((line) => {
+    const lower = line.toLowerCase();
+    return { path: line, lower, nameAt: lower.length };
+  });
+}
+
+/** Positions of every line in `lines` the query reads into, best first. */
+export function rankLines(lines: string[], query: string): number[] {
+  return rankIndexes(lineCandidates(lines), query);
 }
 
 /** Folder prefixes of `paths`, each ending in "/", ranked against `query`. */

@@ -18,9 +18,9 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Seven
-  endpoints, `/api/health`, `/api/files`, `GET`, `POST`, `PUT` and `PATCH` on
-  `/api/files/{path}`, and `PATCH` on `/api/folders/{path}`. A create starts an
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Eight
+  endpoints, `/api/health`, `/api/files`, `/api/search`, `GET`, `POST`, `PUT`
+  and `PATCH` on `/api/files/{path}`, and `PATCH` on `/api/folders/{path}`. A create starts an
   empty note and makes the folders on the way to it; a `PATCH` gives a note or a
   folder a new path and takes the folders it emptied with it. A folder moves in
   one rename, so its whole subtree arrives together. All four writes are
@@ -34,16 +34,21 @@ Real, working code, not a plan:
   the cursor sits on, a folder included. The tree's `c` is `Space c f` from
   there. All three complete the vault's folders. A finder opens a note by name:
   `Space f f`, or `f` in the tree, ranks every note in the vault against what
-  you type and shows the one under the highlight beside the list. The open note
-  lives in the URL as `?note=`, and follows a folder that moves out from under
+  you type and shows the one under the highlight beside the list. Search reads
+  what is written in the notes instead: `Space f g`, or `s` in the tree, asks
+  rg for the lines holding what you type and ranks them here, and Enter opens
+  the note on the line. The open note lives in the URL as `?note=` and the
+  line as `?line=`, and the note follows a folder that moves out from under
   it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 
+Search reads the vault with rg on every query and indexes nothing, so it is
+not a reason to start writing to Postgres.
+
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, wikilinks, backlinks, search over note content, and anything that
-writes to Postgres.
+two folders, wikilinks, backlinks, and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 

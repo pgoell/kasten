@@ -46,13 +46,15 @@ description = "Start the hosted dev environment (db + reload servers)"
 # The mkdir matters: these are bind mounts, and Docker would otherwise create
 # them as root, leaving the non-root containers unable to write.
 #
-# The jj copy matters for the same kind of reason: the dev backend runs the
-# stock uv image, which has no jj in it, and the backend shells out to jj on
-# every save. The release build is static, so mise's copy runs in the
-# container as it does on the host.
+# The binary copies matter for the same kind of reason: the dev backend runs
+# the stock uv image, which has neither jj nor rg in it, and the backend shells
+# out to jj on every save and to rg on every search. Both release builds are
+# static musl, so mise's copies run in the container as they do on the host.
+# Production is the other path entirely, and installs both in backend/Dockerfile.
 run = [
   "mkdir -p .container/venv .container/node_modules .container/bin vault",
   "cp -f \"$(mise which jj)\" .container/bin/jj",
+  "cp -f \"$(mise which rg)\" .container/bin/rg",
   "docker compose -f compose.yaml -f compose.dev.yml up -d",
 ]
 

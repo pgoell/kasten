@@ -490,6 +490,12 @@ export function FileExplorer({
       case "f":
         commands.findNote();
         break;
+      // `s`, not the `g` that would match `<leader>fg`: `g` is the first half
+      // of `gg` here and cannot also be a command of its own. Takes nothing
+      // from the row, for the reason `f` does not: a search reads every note.
+      case "s":
+        commands.searchNotes();
+        break;
       case "q":
         onOpenChange(false);
         break;

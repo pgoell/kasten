@@ -228,7 +228,8 @@ and keeps no history, so an overwrite is final.
 Notes can be made, opened, edited, renamed and moved from the browser, and so
 can folders, except that a folder is never made on its own: it comes into being
 when a note names it. Nothing can be deleted, so getting rid of a note is still
-a file you delete yourself. Wikilinks, backlinks and search are not built.
+a file you delete yourself. Every note can be searched by what is written in
+it, with `<leader>fg`, but wikilinks and backlinks are not built.
 Tables and images keep their syntax on screen, because live preview does not
 render them yet.
 

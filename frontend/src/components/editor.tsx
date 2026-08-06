@@ -63,6 +63,14 @@ interface EditorProps {
   commands?: EditorCommands;
   /** Whether markdown is rendered. Held by the route, so it outlives a remount. */
   preview?: boolean;
+  /**
+   * Line to open on, counting from one. Absent starts at the top.
+   *
+   * Not folded into `initialDoc`'s read-once rule: a second search hit can
+   * name another line of the note already open, and that moves the cursor
+   * without rebuilding anything.
+   */
+  startLine?: number;
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
@@ -79,6 +87,7 @@ export function Editor({
   initialDoc,
   commands,
   preview: rendered = true,
+  startLine,
   onChange,
   onSave,
 }: EditorProps) {
@@ -136,6 +145,7 @@ export function Editor({
             // which. The tree is the caller that names one.
             renameNote: (startPath) => commandsRef.current?.renameNote(startPath),
             findNote: () => commandsRef.current?.findNote(),
+            searchNotes: () => commandsRef.current?.searchNotes(),
           }),
           basicSetup,
           markdown({
@@ -165,6 +175,26 @@ export function Editor({
       view.destroy();
     };
   }, []);
+
+  // Declared after the mount effect so the view exists by the time this runs,
+  // which is what lets one effect serve both cases: opening a note on a line,
+  // and moving to another line of the note already open.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || startLine === undefined) return;
+
+    // The note can be edited between a scan finding the line and a click
+    // opening it, and CodeMirror throws on a line past the end rather than
+    // clamping, so a stale hit would take the editor down with it.
+    const { doc } = view.state;
+    const line = doc.line(Math.min(startLine, doc.lines));
+    view.dispatch({
+      selection: { anchor: line.from },
+      // Centred rather than merely brought on screen: a match landing hard
+      // against the top or bottom edge is a match you cannot read around.
+      effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+    });
+  }, [startLine]);
 
   // Coming back to the tab lands on the body when the page had nothing focused
   // when you left it, and the cursor is dead again until you click.
