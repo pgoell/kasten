@@ -72,9 +72,10 @@ Real, working code, not a plan:
   One `EventSource` on `/api/events` answers what the vault does behind the
   app: the tree refetches its listing, a note nobody is typing into takes the
   new text with the cursor where it was, and one holding unsaved edits stops
-  autosaving and reads `Changed on disk` until `:w` settles it. Every way to
-  another note asks that one first and takes a no, so only the flush that
-  follows the focused pane still writes over it.
+  autosaving and reads `Changed on disk`. Two commands end that: `:w` keeps
+  your text and `:e!` takes the vault's. Until one of them does, every key
+  that would leave the note refuses and flashes the bar, the pane and tab
+  keys included, and only a mouse click into another pane still writes past it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.

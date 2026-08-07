@@ -129,6 +129,12 @@ Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
 nothing to tell it apart from.
 
+No pane or tab key on this page moves while the note in the focused pane reads
+`Changed on disk`. Leaving the pane would write that note, so the key flashes
+the status bar and stays put until `:w` or `:e!` settles it, which
+[Saving](#saving) covers. A click into another pane is the one thing that still
+goes through.
+
 `<leader>ct` starts a tab. `<leader>tl` and `<leader>th` walk them, and
 `<leader>1` through `<leader>9` go straight to one, with `<leader>0` for the
 tenth, which is where those keys sit on the row rather than what the character
@@ -526,34 +532,57 @@ what the backend does and does not look at.
 | --- | --- | --- |
 | `:w` | Write the note | normal |
 | Ctrl+S | Write the note | any |
+| `:e` | Read the note off the vault again | normal |
+| `:e!` | The same, throwing away unsaved text | normal |
 
-Neither is new to this page. Writing also happens on its own, about a second
-after you stop typing.
+`:w` and Ctrl+S are not new to this page. Writing also happens on its own,
+about a second after you stop typing.
 
 Something outside kasten writing the note is answered while it is open. A note
 you are not typing into simply takes the new text, with the cursor where you
 left it. A note holding unsaved edits keeps them instead: autosave stops, and
-the status bar wears the warning sign, labelled `Changed on disk`. Nothing you
-typed can then be lost to a write you never saw, and nothing reaches the vault
-until you say so. `:w` is how you say it, overwriting the vault with what is on
-screen and clearing the state.
+the status bar wears the warning sign, labelled `Changed on disk`.
 
-While it stands, every way from here to another note asks first and takes the
-refusal. A row clicked or opened in the tree, a hit taken out of the finder or
-search, a `[[link]]` followed with `gf` or Ctrl+click, the create prompt on
-`<leader>cf` or the tree's `c`, and `<leader>q` closing the note all leave the
-pane exactly where it is. So do `<leader>rf` and the tree's `r`, but only when
-what they would move is the open note itself or a folder it sits under: a
-rename anywhere else in the vault goes ahead, because a conflict in this pane
-is no reason to refuse to move some other note. `<leader>go` opens its panel
-anyway, on the older text, reading the links being no reason to overwrite. A
-`gf` at a link to a note that is not there still makes the note; it just leaves
-it unopened.
+Two commands end that state, and they are the two answers to the one question
+it asks, which writer wins. `:w` writes your buffer over the vault and keeps
+what you typed. `:e!` throws your buffer away and takes what the vault holds.
+Nothing else settles it: until one of them is pressed, nothing you typed
+reaches the vault and nothing the other writer left reaches your screen.
 
-So nothing you typed reaches the vault until you press `:w`, with one exception.
-The autosave follows the focused pane, so moving the focus to another pane or
-tab hands it a different note, and what was waiting for the note it left is
-written as it changes over. Holding that text back instead would lose it, the
-buffer being the only place it exists, which is why this one write is made
-rather than asked about. Settle the note with `:w` before you walk out of the
-pane.
+`:e` without the bang is vim's own reread and behaves the way vim's does. It
+takes the note off the vault when nothing is waiting to be written, and
+declines, without a word, when something is. The bang is what says throw it
+away. Either way the vault is read before anything is discarded, so a `:e!`
+whose request fails leaves the buffer and the warning exactly where they were
+rather than dropping your only copy on the strength of a read that never
+landed.
+
+While `Changed on disk` stands, every way from here to another note asks first
+and takes the refusal. A row clicked or opened in the tree, a hit taken out of
+the finder or search, a `[[link]]` followed with `gf` or Ctrl+click, the create
+prompt on `<leader>cf` or the tree's `c`, and `<leader>q` closing the note all
+leave the pane exactly where it is. So do `<leader>rf` and the tree's `r`, but
+only when what they would move is the open note itself or a folder it sits
+under: a rename anywhere else in the vault goes ahead, because a conflict in
+this pane is no reason to refuse to move some other note. `<leader>go` opens
+its panel anyway, on the older text, reading the links being no reason to
+overwrite. A `gf` at a link to a note that is not there still makes the note;
+it just leaves it unopened.
+
+The keys that move the focus decline too, because the autosave follows the
+focused pane and would write this note on its way to the next: `<leader>o`,
+`<leader>h`, `<leader>j`, `<leader>k`, `<leader>l`, the splits `<leader>%` and
+`<leader>"`, `<leader>ct`, `<leader>th`, `<leader>tl`, `<leader>1` to
+`<leader>0`, and a tab clicked in the strip. The reading in the status bar
+flashes each time one of them is refused, so a key that did nothing reads as
+refused rather than as broken. Every one of them works again the moment `:w` or
+`:e!` settles the note.
+
+One way past is left, and it takes a divided window and a mouse: clicking into
+another pane moves the focus without asking, and the note you were typing into
+is written as the autosave changes over. The browser has already moved the
+focus by the time the app hears about it, so refusing would mean either pulling
+it back, which fights the hand that moved it, or leaving a pane whose border
+says focused while the cursor is somewhere else. Every key into that pane
+refuses, so this is the one route that still overwrites, and `:w` or `:e!`
+first is what avoids it.
