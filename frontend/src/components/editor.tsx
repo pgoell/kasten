@@ -389,8 +389,10 @@ export function Editor({
 
     // Asked here and not when the vault reported the write, because the two are
     // not the same moment: the read takes a round trip, and the reader can type
-    // into a buffer that was clean when it went out. A refusal leaves the note
-    // as it stands and the vault as it stands, and says so in the status bar.
+    // into a buffer that was clean when it went out. Handed the text, so the
+    // answer to a write of our own can be told from somebody else's and only
+    // one of the two is worth reporting. A refusal leaves the note as it stands
+    // and the vault as it stands.
     if (allowReloadRef.current?.(reloadDoc) === false) return;
 
     view.dispatch({
