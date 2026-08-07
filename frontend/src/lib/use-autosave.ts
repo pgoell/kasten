@@ -50,20 +50,18 @@ export function useAutosave(path: string | undefined) {
 
     return saveNote(path, content).then(
       (note) => {
-        // What the vault answered with and not what was sent, because the two
-        // differ by the stamp. Hashing the wrong one would recognise nothing
-        // and call every save of our own somebody else's write.
+        // The note that came back and never the text that was sent: the two
+        // differ by the `modified` stamp `PUT` writes, so what is on disk is
+        // this one. Hashing the other would recognise nothing and read every
+        // save of our own as somebody else's write.
         void digestOf(note.content).then((digest) => {
           lastWritten.current = digest;
         });
         // Typing during the write leaves newer text behind us, and that is not
         // saved however this one went. The cache waits on the same test: the
         // editor reloads from it, so writing the text that was in the air would
-        // take those newer keystrokes off screen.
-        //
-        // What the vault answered with rather than what was sent, because the
-        // two differ by the `modified` stamp `PUT` writes. Reopening a note
-        // reads this cache, and so does the open editor.
+        // take those newer keystrokes off screen. Reopening a note reads this
+        // cache too.
         if (pending.current === null) {
           queryClient.setQueryData(["note", path], note.content);
           setStatus("saved");
@@ -118,6 +116,11 @@ export function useAutosave(path: string | undefined) {
   // note writes what is pending to the note it was typed into, not to the one
   // that just replaced it. Unmounting flushes for the same reason. Nobody is
   // left to hear how the write went, so the promise is dropped on purpose.
+  //
+  // A conflicted note is flushed too, and that overwrites the vault without
+  // anyone asking for it. The other way round loses the text on screen, which
+  // by then is the only copy of it there is, and loses it silently. Leaving
+  // the note open is what keeps the choice.
   useEffect(
     () => () => {
       void save();
