@@ -136,6 +136,29 @@ Both kasten site blocks in `/home/pascal/Code/server-infra/caddy/Caddyfile` carr
 
 **Every published port binds `127.0.0.1` explicitly.** Docker publishes ports with DNAT rules that ufw never sees, so a bare `"5434:5432"` faces the open internet regardless of firewall rules. Do not drop the prefix.
 
+**The shell container publishes no port at all, and its route carries the auth gate.** `kasten-shell-dev` and `kasten-shell-prod` run ttyd over tmux with the vault mounted, which is a root-less but fully live shell. Two things stand between it and the internet, and there is no third: the container has no `ports` key, so it is reachable only by name on the `web` network, and its Caddy block carries `import oauth2_auth`. Nothing else in this system fails this quietly, because a shell that is reachable looks exactly like a shell that is not until somebody finds it.
+
+Prove both after any change to compose or the Caddyfile. On the box:
+
+```sh
+docker inspect -f '{{json .NetworkSettings.Ports}}' kasten-shell-prod   # expect {}
+ss -ltn 'sport = :7681'                                                # expect no listener
+```
+
+From anywhere, with no oauth2 cookie:
+
+```sh
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+  -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==' \
+  -H 'Sec-WebSocket-Protocol: tty' \
+  https://kasten.pascalkraus.com/term/ws
+```
+
+`302` is right: oauth2-proxy sending an unauthenticated caller to the sign-in page. `101` means the gate is missing and the internet has a shell. `400` or `404` means ttyd answered directly, which is the same hole wearing a different number. `502` means the container is not up yet, which is expected before the first release ships the image and is not the same answer as `302`. Run it against `kasten-dev.pascalkraus.com` too, and check `grep -A4 'handle /term' caddy/Caddyfile` prints `import oauth2_auth` for both hosts rather than one.
+
+The shell mounts the same host vault directory the backend does, and the two environments do not share it: `./vault` in the repo for dev, `/home/pascal/kasten-data/vault` for prod. It does not get the docker socket.
+
 ## Looking at dev in a browser
 
 `kasten-dev.pascalkraus.com` is behind the OAuth gate, so a browser on the box cannot reach it without signing in. For a quick visual check, load `http://127.0.0.1:5173` instead: the dev ports are published on loopback for exactly this.

@@ -31,9 +31,13 @@ mise owns every command in this repo. `mise tasks` prints this list from
 Reload servers in containers with the working tree bind-mounted, reached
 through Caddy. See [Two environments](/explanation/environments.md).
 
+`dev:up` is the only task in this file that builds anything. The shell
+container has no reload loop, so it is built from `shell/Dockerfile` on the box;
+the other two services run stock images and rebuild nothing.
+
 | Task | What it does |
 |---|---|
-| `dev:up` | Start the hosted dev environment, database included |
+| `dev:up` | Start the hosted dev environment, database included, rebuilding the shell image |
 | `dev:down` | Stop it, keeping the database volume |
 | `dev:restart` | Restart the reload servers, after a dependency change |
 | `dev:status` | Show container status |

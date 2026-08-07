@@ -56,6 +56,16 @@ Real, working code, not a plan:
   The links are read both ways from a panel: `Space g b` shows what links to the
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
+  `Space c s` puts a shell in the focused pane instead of a note: it asks what
+  the tmux session is called and attaches to it, starting one if nothing
+  answers to that name. The pane speaks ttyd's WebSocket protocol itself
+  through a pure codec and an xterm terminal, painted in One and fitted to the
+  pane, so a terminal pane and a note pane are one window. The leader cannot
+  reach into a focused terminal, the leader being the space bar and a shell
+  needing it, so six `ctrl-shift` chords walk the panes and close one:
+  `H J K L` for the directions, `O` for the next and `Q` to close. Closing a
+  pane detaches a client rather than killing the session, so the session
+  outlives the pane, the tab and the browser.
   The window divides the way tmux divides a terminal. `Space %` and `Space "`
   split the focused pane left and right or top and bottom, `Space h j k l`
   moves to the pane in that direction and `Space o` walks them in order,
@@ -76,8 +86,14 @@ Real, working code, not a plan:
   your text and `:e!` takes the vault's. Until one of them does, every key
   that would leave the note refuses and flashes the bar, the pane and tab
   keys included, and only a mouse click into another pane still writes past it.
+- `shell/`: a Dockerfile, and nothing else. ttyd over tmux on a node base, with
+  the vault mounted and jj, rg, git, Claude Code and codex beside it. It
+  publishes no port; the only route in is a Caddy `handle /term/*` carrying
+  `import oauth2_auth`. The one dev service built on the box, because there is
+  no reload loop to bind-mount a tree into.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
-  prod pulls GHCR images and deploys from a GitHub release.
+  prod pulls GHCR images and deploys from a GitHub release. Three images now,
+  the shell among them.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 
 Search reads the vault with rg on every query and indexes nothing, so it is
