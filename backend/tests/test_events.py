@@ -117,6 +117,10 @@ def test_watchable_skips_a_folder_whose_name_ends_in_md(tmp_path: Path) -> None:
     assert not is_watchable(tmp_path, str(tmp_path / "notes.md"))
 
 
+def test_watchable_skips_a_path_outside_the_vault(tmp_path: Path) -> None:
+    assert not is_watchable(tmp_path / "vault", str(tmp_path / "elsewhere" / "kasten.md"))
+
+
 def test_to_events_reports_a_new_note_with_its_digest(tmp_path: Path) -> None:
     text = "derived index\n"
     note = write(tmp_path, "kasten.md", text)
@@ -157,6 +161,14 @@ def test_to_events_says_nothing_about_a_folder_whose_name_ends_in_md(tmp_path: P
     assert to_events(tmp_path, {(Change.added, str(folder))}) == []
 
 
+def test_to_events_says_nothing_about_a_path_outside_the_vault(tmp_path: Path) -> None:
+    # `relative_to` raises on a path from outside, and an exception raised in
+    # here ends the stream for whoever was listening to it.
+    outsider = write(tmp_path, "elsewhere.md", "derived index\n")
+
+    assert to_events(tmp_path / "vault", {(Change.modified, str(outsider))}) == []
+
+
 def test_to_events_says_nothing_about_the_jj_repo(tmp_path: Path) -> None:
     blob = write(tmp_path, ".jj/repo/store/blob.md", "derived index\n")
 
@@ -169,6 +181,58 @@ def test_to_events_reads_a_note_that_vanished_as_a_removal(tmp_path: Path) -> No
     assert to_events(tmp_path, {(Change.added, str(tmp_path / "kasten.md"))}) == [
         VaultEvent(path="kasten.md", change="removed", digest=None)
     ]
+
+
+def test_to_events_reports_every_note_a_batch_names(tmp_path: Path) -> None:
+    borges = write(tmp_path, "borges.md", "the garden of forking paths\n")
+    kasten = write(tmp_path, "projects/kasten.md", "derived index\n")
+
+    events = to_events(tmp_path, {(Change.added, str(borges)), (Change.modified, str(kasten))})
+
+    assert [(event.path, event.change) for event in events] == [
+        ("borges.md", "added"),
+        ("projects/kasten.md", "written"),
+    ]
+
+
+def test_to_events_orders_a_batch_the_same_way_every_time(tmp_path: Path) -> None:
+    # A set carries no order of its own, and the order it happens to iterate in
+    # varies between runs. Two clients reading one batch have to be told the
+    # same story in the same order.
+    notes = [write(tmp_path, f"note-{number}.md", "derived index\n") for number in range(8)]
+
+    events = to_events(tmp_path, {(Change.modified, str(note)) for note in notes})
+
+    assert [event.path for event in events] == sorted(note.name for note in notes)
+
+
+def test_to_events_reports_a_note_once_however_often_it_changed(tmp_path: Path) -> None:
+    # A note made and then written inside the same window fires twice. It is one
+    # note and one thing to tell the client about, and the digest is read once
+    # off the disk either way.
+    text = "derived index\n"
+    note = write(tmp_path, "kasten.md", text)
+
+    events = to_events(tmp_path, {(Change.added, str(note)), (Change.modified, str(note))})
+
+    assert events == [
+        VaultEvent(
+            path="kasten.md",
+            change="added",
+            digest=hashlib.sha256(text.encode()).hexdigest(),
+        )
+    ]
+
+
+def test_to_events_does_not_call_a_note_gone_that_was_written_back(tmp_path: Path) -> None:
+    # A save through a temp file fires a delete and an add for one path inside
+    # one window. Reported separately, whichever the set handed over last would
+    # decide, and "removed" would take a note that is on disk out of the tree.
+    note = write(tmp_path, "kasten.md", "derived index\n")
+
+    events = to_events(tmp_path, {(Change.deleted, str(note)), (Change.added, str(note))})
+
+    assert [(event.path, event.change) for event in events] == [("kasten.md", "added")]
 
 
 def test_format_sse_writes_one_data_line_holding_the_whole_event() -> None:
@@ -214,10 +278,12 @@ async def test_stream_reports_a_note_written_into_the_vault(server: str, vault: 
     assert event["digest"] == hashlib.sha256(text.encode()).hexdigest()
 
 
-async def test_stream_holds_open_for_a_vault_that_is_not_there(
+async def test_stream_ends_at_once_for_a_vault_that_is_not_there(
     server: str, missing_vault: Path
 ) -> None:
-    # A fresh checkout with no vault yet must not take the endpoint down with it.
+    # A fresh checkout with no vault yet must not take the endpoint down with
+    # it. There is nothing to watch, so the answer is an empty stream that
+    # closes rather than one that waits.
     async with AsyncClient(base_url=server, timeout=PATIENCE) as http:
         response = await http.get("/api/events")
 

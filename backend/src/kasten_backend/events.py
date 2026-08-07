@@ -29,12 +29,6 @@ into reloads before the next autosave would have fired.
 ChangeKind = Literal["written", "added", "removed"]
 """What happened to a note, in the client's words rather than watchfiles'."""
 
-_KINDS: dict[Change, ChangeKind] = {
-    Change.added: "added",
-    Change.modified: "written",
-    Change.deleted: "removed",
-}
-
 
 @dataclass(frozen=True, slots=True)
 class VaultEvent:
@@ -91,26 +85,34 @@ def _digest(note: Path) -> str | None:
 def to_events(root: Path, changes: set[tuple[Change, str]]) -> list[VaultEvent]:
     """Turn one batch of watchfiles changes into what the client is told.
 
-    Sorted by path, because a set has no order and two runs over the same batch
-    have to read the same.
+    One event per note, however many times the batch names it. A note made and
+    then written inside one window fires twice, and a save through a temp file
+    fires a delete and an add, which is the one that has to collapse rather than
+    merely being tidier: reported separately, the order the set happened to hand
+    them over in would decide, and a removal arriving last would take a note
+    that is on disk out of the client's tree.
 
-    A note that is gone by the time this reads it is a removal whatever
-    watchfiles called the change. Halfway through a move the old path fires as
-    modified and is already at its new name, and that race is normal rather than
-    an error.
+    Which leaves the disk to say what happened, not watchfiles. A note that is
+    gone by the time this reads it is a removal whatever fired, so the old path
+    of a move reads as one, and a note that is there is an appearance if the
+    batch saw it appear and an edit otherwise.
+
+    Sorted by path, because a set has no order and two clients reading one batch
+    have to be told the same story.
     """
+    watched = {changed for _change, changed in changes if is_watchable(root, changed)}
+    appeared = {changed for change, changed in changes if change is Change.added}
+
     events = []
 
-    for change, changed in sorted(changes, key=lambda pair: pair[1]):
-        if not is_watchable(root, changed):
-            continue
-
+    for changed in sorted(watched):
         note = Path(changed)
-        digest = None if change is Change.deleted else _digest(note)
+        digest = _digest(note)
+        there: ChangeKind = "added" if changed in appeared else "written"
         events.append(
             VaultEvent(
                 path=note.relative_to(root).as_posix(),
-                change="removed" if digest is None else _KINDS[change],
+                change="removed" if digest is None else there,
                 digest=digest,
             )
         )
@@ -129,10 +131,12 @@ def format_sse(event: VaultEvent) -> str:
 
 
 def _watched_root(root: Path) -> Path | None:
-    """Where the watcher should look, or None when there is no vault there.
+    """The vault's real path, or None when there is no directory there.
 
-    Sync, and asked once as the connection opens. Both calls go to the
-    filesystem, which is not something to do from inside the loop that streams.
+    Resolved because watchfiles reports resolved paths and `is_relative_to`
+    compares them as text: behind a symlinked vault every change would
+    otherwise read as coming from outside. A function of its own only because
+    ruff keeps pathlib out of an async body, and the watcher is one.
     """
     base = root.resolve()
     return base if base.is_dir() else None
