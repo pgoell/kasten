@@ -19,6 +19,8 @@ interface NoteEditorProps {
   onSave: () => void;
   /** Asked before the vault's text goes in, and can refuse. See `Editor`. */
   allowReload?: (text: string) => boolean;
+  /** Asked for the vault's text on `:e`, and can refuse. See `Editor`. */
+  onReload?: (force: boolean) => Promise<string | null>;
   /** Called with the note a `[[link]]` names, which only the route can resolve. */
   onFollow: (target: string) => void;
 }
@@ -48,6 +50,7 @@ export const NoteEditor = memo(function NoteEditor({
   onSave,
   onFollow,
   allowReload,
+  onReload,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -78,6 +81,7 @@ export const NoteEditor = memo(function NoteEditor({
       startLine={startLine}
       focusSignal={focusSignal}
       allowReload={allowReload}
+      onReload={onReload}
       onChange={onChange}
       onSave={onSave}
       onFollow={onFollow}

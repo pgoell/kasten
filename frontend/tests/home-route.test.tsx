@@ -109,10 +109,22 @@ async function renderApp() {
 
   return {
     press,
-    /** A leader key, which is space and then the key itself. */
-    leader: (key: string) => {
+    /** A leader key, which is space and then the keys after it, in order. */
+    leader: (...keys: string[]) => {
       press(" ");
-      press(key);
+      for (const key of keys) press(key);
+    },
+    /**
+     * Run an ex command, the way a reader types one.
+     *
+     * `:` opens a panel with an input of its own and moves the focus there, so
+     * the rest of the command never reaches `.cm-content`.
+     */
+    ex: (command: string) => {
+      press(":");
+      const input = container.querySelector(".cm-vim-panel input") as HTMLInputElement;
+      input.value = command;
+      fireEvent.keyDown(input, { key: "Enter", keyCode: 13 });
     },
     /** Open a note the way a reader does, by clicking its row in the tree. */
     click: (path: string) =>
@@ -263,5 +275,37 @@ describe("the route", () => {
 
     expect(app.text()).toBe("e index note");
     expect(app.status()).toBe("Changed on disk");
+  });
+
+  it("takes the vault's version on :e!", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+    expect(app.status()).toBe("Changed on disk");
+
+    // The read this answers is the one `:e!` sends. The cache holds neither
+    // version by now: the conflict is what stopped the refetch, so what is in
+    // there is the text from before the write that caused it.
+    fetchNote.mockResolvedValueOnce("somebody else's note");
+    app.ex("e!");
+    await settle();
+
+    expect(app.text()).toBe("somebody else's note");
+    expect(app.status()).toBe("Saved");
+    // The other writer's text is what won, so nothing went out.
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("refuses :e on a buffer holding unsaved text", async () => {
+    // Vim's own rule: `:e` on a modified buffer declines, and only the bang
+    // throws the edits away. The vault holds what it always held here, so the
+    // only thing a reload could do is take the keystroke off the screen.
+    const app = await editing();
+
+    app.ex("e");
+    await settle();
+
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Unsaved changes");
   });
 });

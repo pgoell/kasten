@@ -107,6 +107,26 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
+  /**
+   * Throw away what is waiting and take the note off conflict, which is what
+   * `:e!` says. Answers whether it did.
+   *
+   * `:e` without the bang gets a no while the buffer holds text nobody has
+   * written, the way vim declines to abandon a modified buffer. The caller
+   * reads the vault before asking, so a read that failed leaves the text and
+   * the warning exactly where they were.
+   */
+  const revert = useCallback((force: boolean): boolean => {
+    if (pending.current !== null && !force) return false;
+
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    pending.current = null;
+    conflicted.current = false;
+    setStatus("saved");
+    return true;
+  }, []);
+
   const change = useCallback(
     (doc: string) => {
       pending.current = doc;
@@ -180,5 +200,5 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
-  return { status, change, save, saveFirst, allowReload, reconcile };
+  return { status, change, save, saveFirst, revert, allowReload, reconcile };
 }

@@ -15,6 +15,8 @@ import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
 type FollowHandler = (target: string) => void;
+/** Answers with the vault's text, or with null when the reload was refused. */
+type ReloadHandler = (force: boolean) => Promise<string | null>;
 
 /**
  * Carries the save callback on the editor state.
@@ -55,6 +57,53 @@ function follow(view: EditorView): boolean {
 
 Vim.defineAction("kastenFollowLink", (cm: { cm6: EditorView }) => follow(cm.cm6));
 Vim.mapCommand("gf", "action", "kastenFollowLink", {}, { context: "normal" });
+
+/**
+ * Carries the reload callback, for the reason `saveHandler` carries the other.
+ *
+ * Whoever holds the unsaved text is who decides whether a `:e` may discard it,
+ * and that is the same somebody the vault's text has to be read by, so the
+ * whole answer comes back from one call.
+ */
+const reloadHandler = Facet.define<ReloadHandler, ReloadHandler | undefined>({
+  combine: (handlers) => handlers[0],
+});
+
+/**
+ * Read the note off the vault again, vim's `:e`, and `:e!` to discard the
+ * buffer.
+ *
+ * The bang is not part of the command's name. The parser takes the word for
+ * that and leaves everything after it as the command's argument, so `:e!`
+ * arrives here as `edit` with an argString of "!" and `:e` with none. Reading
+ * it is what keeps the two apart, and apart they must be: plain `:e` declines a
+ * buffer holding unsaved text, and only the bang throws it away.
+ */
+function edit(view: EditorView, params: { argString?: string }): boolean {
+  const reload = view.state.facet(reloadHandler);
+  if (reload === undefined) return false;
+
+  void reload(params.argString === "!").then(
+    (text) => {
+      // Null is the refusal, and there is nothing to put in. Nothing asks
+      // `allowReload` on the way in either: what that guard stands over is the
+      // text waiting to be written, and the answer above came from the holder
+      // of that text, who dropped it before handing this back. Dispatching into
+      // a view destroyed while the read was in flight is safe, CodeMirror
+      // keeping the state and doing nothing else with it.
+      if (text !== null) takeVaultText(view, text);
+    },
+    () => {
+      // The vault could not be read. Nothing was discarded, the discard waiting
+      // on the text, so the buffer and the status bar stand as they were.
+    },
+  );
+  return true;
+}
+
+Vim.defineEx("edit", "e", (cm: { cm6: EditorView }, params: { argString?: string }) =>
+  edit(cm.cm6, params),
+);
 
 /**
  * Ctrl+click, or cmd+click, follows a link the way every browser opens one.
@@ -108,6 +157,59 @@ const vault = new Compartment();
  * rewrite itself once a second.
  */
 const fromVault = Annotation.define<boolean>();
+
+/**
+ * Put the vault's text in the buffer, replacing only the span that differs.
+ *
+ * Never the whole document. CodeMirror maps positions through a change, so
+ * everything outside the span comes through where it was: the cursor stays on
+ * the words it sat on, and an undo of an edit the reader made puts the text
+ * back where they made it. Replaced whole, both collapse to the one point the
+ * replacement leaves, which is what a reload used to cost. Nothing is asked of
+ * the selection here for the same reason: mapping keeps it, and naming it would
+ * flatten it.
+ *
+ * The vault's own writes are what make this cheap. An agent appends, an editor
+ * rewrites a paragraph, and kasten's `modified` stamp moves one line of the
+ * frontmatter.
+ *
+ * `allowed` is asked at the last moment, once there is a change to make, and a
+ * no leaves the note as it stands and the vault as it stands. Absent means
+ * nobody is holding text the change could take off the screen.
+ */
+function takeVaultText(view: EditorView, text: string, allowed?: (text: string) => boolean): void {
+  const current = view.state.doc.toString();
+  let from = 0;
+  while (from < current.length && from < text.length && current[from] === text[from]) {
+    from += 1;
+  }
+
+  // Both ends stop at `from`, so the tail cannot walk back into the head it
+  // already matched: "aaa" grown to "aaaaa" shares its whole length with itself
+  // either way round, and subtracting both would delete text that is still
+  // there.
+  let to = current.length;
+  let insertTo = text.length;
+  while (to > from && insertTo > from && current[to - 1] === text[insertTo - 1]) {
+    to -= 1;
+    insertTo -= 1;
+  }
+
+  // Nothing left after the trim is the text already on screen, which is what
+  // mounting looks like from here: the note opens on the same query data the
+  // reload prop carries. A change holding nothing is still a transaction.
+  if (from === to && from === insertTo) return;
+  if (allowed?.(text) === false) return;
+
+  view.dispatch({
+    changes: { from, to, insert: text.slice(from, insertTo) },
+    // Off the undo stack as well as off the save path. Undoing a write nobody
+    // here made would put the text from before it back, and that revert carries
+    // no annotation, so autosave would send it to the vault: one `u`
+    // overwriting whatever the other writer had just done.
+    annotations: [fromVault.of(true), Transaction.addToHistory.of(false)],
+  });
+}
 
 /**
  * Where the note itself starts, past the frontmatter the vault writes.
@@ -191,6 +293,13 @@ interface EditorProps {
    * holding any, which is what an editor with no note behind it is.
    */
   allowReload?: (text: string) => boolean;
+  /**
+   * Asked for the vault's text on `:e`, with whether the reader typed the bang.
+   *
+   * Null back is the refusal, which is `:e` on a buffer holding unsaved edits.
+   * Absent leaves the command inert, which is what a pane holding no note is.
+   */
+  onReload?: (force: boolean) => Promise<string | null>;
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
@@ -214,6 +323,7 @@ export function Editor({
   startLine,
   focusSignal,
   allowReload,
+  onReload,
   onChange,
   onSave,
   onFollow,
@@ -231,6 +341,7 @@ export function Editor({
   const onSaveRef = useRef(onSave);
   const onFollowRef = useRef(onFollow);
   const allowReloadRef = useRef(allowReload);
+  const onReloadRef = useRef(onReload);
 
   useEffect(() => {
     commandsRef.current = commands;
@@ -238,7 +349,8 @@ export function Editor({
     onSaveRef.current = onSave;
     onFollowRef.current = onFollow;
     allowReloadRef.current = allowReload;
-  }, [commands, onChange, onSave, onFollow, allowReload]);
+    onReloadRef.current = onReload;
+  }, [commands, onChange, onSave, onFollow, allowReload, onReload]);
 
   useEffect(() => {
     const parent = host.current;
@@ -266,6 +378,10 @@ export function Editor({
           backticks(),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           followHandler.of((target) => onFollowRef.current?.(target)),
+          // A pane with nothing to reload answers the way a refusal does, so
+          // `:e` in one is a key that does nothing rather than a key that
+          // throws.
+          reloadHandler.of((force) => onReloadRef.current?.(force) ?? Promise.resolve(null)),
           // Each one reads the ref rather than closing over the prop, so a
           // re-render never has to rebuild the view to refresh a callback.
           editorCommands.of({
@@ -350,59 +466,17 @@ export function Editor({
   // remount: `key={path}` above only changes when another note is opened, and
   // rebuilding here would throw away the undo history and the cursor over an
   // edit the reader did not make.
+  //
+  // The guard is asked here and not when the vault reported the write, because
+  // the two are not the same moment: the read takes a round trip, and the
+  // reader can type into a buffer that was clean when it went out. It is handed
+  // the text, so the answer to a write of our own can be told from somebody
+  // else's and only one of the two is worth reporting.
   useEffect(() => {
     const view = viewRef.current;
     if (!view || reloadDoc === undefined) return;
 
-    // Only the span that differs, and never the whole document. CodeMirror maps
-    // positions through a change, so everything outside the span comes through
-    // where it was: the cursor stays on the words it sat on, and an undo of an
-    // edit the reader made puts the text back where they made it. Replaced
-    // whole, both collapse to the one point the replacement leaves, which is
-    // what a reload used to cost. Nothing is asked of the selection here for
-    // the same reason: mapping keeps it, and naming it would flatten it.
-    //
-    // The vault's own writes are what make this cheap. An agent appends, an
-    // editor rewrites a paragraph, and kasten's `modified` stamp moves one line
-    // of the frontmatter.
-    const text = view.state.doc.toString();
-    let from = 0;
-    while (from < text.length && from < reloadDoc.length && text[from] === reloadDoc[from]) {
-      from += 1;
-    }
-
-    // Both ends stop at `from`, so the tail cannot walk back into the head it
-    // already matched: "aaa" grown to "aaaaa" shares its whole length with
-    // itself either way round, and subtracting both would delete text that is
-    // still there.
-    let to = text.length;
-    let insertTo = reloadDoc.length;
-    while (to > from && insertTo > from && text[to - 1] === reloadDoc[insertTo - 1]) {
-      to -= 1;
-      insertTo -= 1;
-    }
-
-    // Nothing left after the trim is the text already on screen, which is what
-    // mounting looks like from here: the note opens on the same query data this
-    // prop carries. A change holding nothing is still a transaction.
-    if (from === to && from === insertTo) return;
-
-    // Asked here and not when the vault reported the write, because the two are
-    // not the same moment: the read takes a round trip, and the reader can type
-    // into a buffer that was clean when it went out. Handed the text, so the
-    // answer to a write of our own can be told from somebody else's and only
-    // one of the two is worth reporting. A refusal leaves the note as it stands
-    // and the vault as it stands.
-    if (allowReloadRef.current?.(reloadDoc) === false) return;
-
-    view.dispatch({
-      changes: { from, to, insert: reloadDoc.slice(from, insertTo) },
-      // Off the undo stack as well as off the save path. Undoing a write
-      // nobody here made would put the text from before it back, and that
-      // revert carries no annotation, so autosave would send it to the vault:
-      // one `u` overwriting whatever the other writer had just done.
-      annotations: [fromVault.of(true), Transaction.addToHistory.of(false)],
-    });
+    takeVaultText(view, reloadDoc, allowReloadRef.current);
   }, [reloadDoc]);
 
   // Runs on mount as well as on every raise, which is what a freshly split pane

@@ -10,7 +10,7 @@ import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-
 import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
-import { createNote, fetchFiles } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -73,7 +73,9 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
-  const { status, change, save, saveFirst, allowReload, reconcile } = useAutosave(pane.path);
+  const { status, change, save, saveFirst, revert, allowReload, reconcile } = useAutosave(
+    pane.path,
+  );
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
   // stream for the life of the page, so it cannot close over either: opening a
@@ -332,6 +334,38 @@ function Home() {
   );
 
   /**
+   * Read the open note off the vault again and answer with its text, `:e`.
+   *
+   * The other way out of a conflict, `:w` being the one that keeps the buffer.
+   * Null back is the refusal `:e` gets on a buffer holding unsaved text.
+   *
+   * The vault and not the cache: a note that changed under unsaved text is a
+   * note this route deliberately did not read again, so what is cached is the
+   * text from before that write, which is neither of the two versions in play.
+   * `fetchQuery` fills the cache on the way through, so reopening the note
+   * reads back what the buffer is about to hold.
+   *
+   * The discard waits on the read rather than leading it. The other order drops
+   * the reader's only copy on the strength of a request that may never land.
+   */
+  const reload = useCallback(
+    async (force: boolean): Promise<string | null> => {
+      const path = pane.path;
+      if (path === undefined) return null;
+
+      const text = await queryClient.fetchQuery({
+        queryKey: ["note", path],
+        queryFn: () => fetchNote(path),
+        // A note counts as fresh for ten seconds here, and `:e` asked for what
+        // the vault holds rather than for whatever that window still has.
+        staleTime: 0,
+      });
+      return revert(force) ? text : null;
+    },
+    [pane.path, queryClient, revert],
+  );
+
+  /**
    * Open a note in the focused pane, once the vault holds what was typed here.
    *
    * Every way in goes through this: the tree, the finder, search and a
@@ -451,6 +485,10 @@ function Home() {
                     // about a note it is not holding. An unfocused pane cannot
                     // be typed into, so it is always clean and always reloads.
                     allowReload={focused ? allowReload : undefined}
+                    // The focused pane alone, for the reason its typing is
+                    // reported alone: the note this reads is the one the
+                    // autosave follows, which is the note in that pane.
+                    onReload={focused ? reload : undefined}
                     onSave={save}
                     onFollow={follow}
                   />
