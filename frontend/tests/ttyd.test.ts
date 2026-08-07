@@ -42,6 +42,12 @@ describe("what the client sends", () => {
 
     expect(String.fromCharCode(frame[0] as number)).toBe("1");
     expect(payload(frame)).toBe('{"columns":120,"rows":40}');
+    // Spelled out as well as compared, because this is the part that fails
+    // quietly: ttyd's `parse_window_size` reads both as `uint16` and drops a
+    // quoted number, leaving the PTY at whatever size it started on.
+    const size = JSON.parse(payload(frame)) as { columns: unknown; rows: unknown };
+    expect(typeof size.columns).toBe("number");
+    expect(typeof size.rows).toBe("number");
   });
 });
 
