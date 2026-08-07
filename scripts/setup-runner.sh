@@ -75,7 +75,12 @@ Description=GitHub Actions runner (kasten)
 After=network-online.target
 
 [Service]
-ExecStart=%h/actions-runner-kasten/run.sh
+# Run through sg so the runner holds the docker group. A user unit inherits its
+# groups from the user manager, which was started before this account joined
+# docker, so it does not have that group and never picks it up short of a
+# reboot. Without this the deploy job fails on a permission denied against
+# /var/run/docker.sock.
+ExecStart=/usr/bin/sg docker -c "%h/actions-runner-kasten/run.sh"
 WorkingDirectory=%h/actions-runner-kasten
 Restart=always
 RestartSec=5

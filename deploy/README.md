@@ -91,7 +91,7 @@ cp deploy/.env.prod.example /home/pascal/kasten-deploy/.env.prod
 
 It unpacks the runner, registers it as `iuno-kasten`, installs a systemd user unit, and waits for GitHub to report it online. No sudo: lingering is already enabled for pascal, so a user unit survives logout and reboot. Re-running it is safe, it skips whatever is already done.
 
-The runner inherits pascal's group membership, which includes `docker`, so the deploy job can drive compose.
+The unit starts the runner through `sg docker`, which is what lets the deploy job drive compose. A user unit takes its groups from the user manager, and that process started before this account joined `docker`, so it does not carry the group and will not pick it up short of a reboot. Without the wrapper the deploy job gets as far as `docker login` and then fails on a permission denied against `/var/run/docker.sock`.
 
 To match the other two runners as system services instead, register with `config.sh` as the script does, then `sudo ./svc.sh install pascal && sudo ./svc.sh start` in `~/actions-runner-kasten`.
 
