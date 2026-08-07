@@ -86,7 +86,8 @@ the tree cursor is already on. Escape in the tree comes back to the editor.
 
 `<leader>q` closes the note only once the vault holds the text. A write that
 fails leaves the note open with the warning in the status bar, because closing
-unmounts the editor and the only copy of the edit would go with it.
+unmounts the editor and the only copy of the edit would go with it. So does a
+note something else has written under you, which [Saving](#saving) covers.
 [Panes and tabs](#panes-and-tabs) covers what the key does after that.
 
 `<leader>p` and `<leader>b` keep their setting while you move between notes,
@@ -528,3 +529,20 @@ what the backend does and does not look at.
 
 Neither is new to this page. Writing also happens on its own, about a second
 after you stop typing.
+
+Something outside kasten writing the note is answered while it is open. A note
+you are not typing into simply takes the new text, with the cursor where you
+left it. A note holding unsaved edits keeps them instead: autosave stops, and
+the status bar wears the warning sign, labelled `Changed on disk`. Nothing you
+typed can then be lost to a write you never saw, and nothing reaches the vault
+until you say so. `:w` is how you say it, overwriting the vault with what is on
+screen and clearing the state.
+
+While it stands, the keys that would save on their way somewhere else decline
+instead. `<leader>q` leaves the note open, and `<leader>rf` and the tree's `r`
+leave the prompt shut, so leaving a note the vault has moved past is one
+deliberate keystroke rather than a silent overwrite. `<leader>go` still opens,
+on the older text: reading the links is no reason to overwrite either.
+
+Opening another note into the pane does write. The text goes out as the editor
+leaves, and by then there is nobody left to ask.
