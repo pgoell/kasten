@@ -80,10 +80,20 @@ const reloadHandler = Facet.define<ReloadHandler, ReloadHandler | undefined>({
  * buffer holding unsaved text, and only the bang throws it away.
  */
 function edit(view: EditorView, params: { argString?: string }): boolean {
+  // Trimmed, because the argument holds everything typed after the word and
+  // `:e! ` is still `:e!`. Losing the bang to a trailing space would turn the
+  // command into the one that declines, without a word about why.
+  const argument = params.argString?.trim() ?? "";
+  // Those two spellings are the whole of the command. Vim opens the file an
+  // argument names; this editor holds the note its pane holds, so rereading
+  // that one would be the wrong note answering to the right command. Nothing
+  // happens instead, which is at least not a lie.
+  if (argument !== "" && argument !== "!") return false;
+
   const reload = view.state.facet(reloadHandler);
   if (reload === undefined) return false;
 
-  void reload(params.argString === "!").then(
+  void reload(argument === "!").then(
     (text) => {
       // Null is the refusal, and there is nothing to put in. Nothing asks
       // `allowReload` on the way in either: what that guard stands over is the

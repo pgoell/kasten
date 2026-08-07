@@ -35,6 +35,16 @@ export function useAutosave(path: string | undefined) {
   // timer can see it: that timer was scheduled by an older render, and the
   // status it closed over is the one from before the conflict.
   const conflicted = useRef(false);
+  // How many times the reader has thrown the buffer away, which a write in
+  // flight compares against the reading it left with.
+  //
+  // `pending.current === null` cannot answer that question. A write empties it
+  // on the way out and `revert` empties it too, so a write reading it as
+  // "nothing newer was typed" would take a revert for the all clear and put the
+  // discarded text back in the cache, from where the editor reads it onto the
+  // screen. Reverts are counted rather than flagged because a second `:e!`
+  // during the same write has to read as another one.
+  const reverts = useRef(0);
   const queryClient = useQueryClient();
 
   /** Resolves to whether the vault holds the text, so `<leader>q` can refuse. */
@@ -49,6 +59,7 @@ export function useAutosave(path: string | undefined) {
     // Reaching this at all is the reader deciding to overwrite: the timer stops
     // short of it while the note stands conflicted, and `:w` does not.
     conflicted.current = false;
+    const sent = reverts.current;
     setStatus("saving");
 
     return saveNote(path, content).then(
@@ -77,13 +88,22 @@ export function useAutosave(path: string | undefined) {
         // editor reloads from it, so writing the text that was in the air would
         // take those newer keystrokes off screen. Reopening a note reads this
         // cache too.
-        if (pending.current === null) {
+        //
+        // A `:e!` during the write is the other way this text stops being the
+        // note: the reader asked for the vault's version and got it, and
+        // putting this in the cache would hand it straight back to them.
+        if (pending.current === null && reverts.current === sent) {
           queryClient.setQueryData(["note", path], note.content);
           setStatus("saved");
         }
         return true;
       },
       () => {
+        // Nothing to hold and nothing to warn about once the reader has thrown
+        // this text away: the buffer holds the vault's version, and the retry
+        // would be a retry of an edit that no longer exists anywhere.
+        if (reverts.current !== sent) return false;
+
         // Hold on to the text: the next keystroke or `:w` tries again.
         pending.current ??= content;
         setStatus("error");
@@ -115,14 +135,17 @@ export function useAutosave(path: string | undefined) {
    * written, the way vim declines to abandon a modified buffer. The caller
    * reads the vault before asking, so a read that failed leaves the text and
    * the warning exactly where they were.
+   *
+   * The count is what a write already in flight reads to find out this
+   * happened. The timer needs no cancelling here: it wakes to an empty
+   * `pending` and `save` turns straight back round.
    */
   const revert = useCallback((force: boolean): boolean => {
     if (pending.current !== null && !force) return false;
 
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
     pending.current = null;
     conflicted.current = false;
+    reverts.current += 1;
     setStatus("saved");
     return true;
   }, []);

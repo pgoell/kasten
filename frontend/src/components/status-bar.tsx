@@ -4,6 +4,9 @@ import type { SaveStatus } from "@/lib/use-autosave";
 
 const MINUTE_MS = 60_000;
 
+/** How long the refusal flash lasts. The same 400ms `--animate-flash` names. */
+const FLASH_MS = 400;
+
 /**
  * The date and time at the foot of the window.
  *
@@ -123,6 +126,20 @@ interface StatusBarProps {
  * the panel's colour with no rule above it so the two read as one surface.
  */
 export function StatusBar({ status, flash }: StatusBarProps) {
+  // Taken off again once it has played. The class alone would outlive its own
+  // animation, and every later mount of this reading, coming back from a tab
+  // holding no note, would play it again with nothing refused. `animationend`
+  // would say when to stop without a timer, but jsdom fires none, and a flash
+  // no test can see is a flash that drifts.
+  const [flashing, setFlashing] = useState(false);
+  useEffect(() => {
+    if (!flash) return;
+
+    setFlashing(true);
+    const timer = setTimeout(() => setFlashing(false), FLASH_MS);
+    return () => clearTimeout(timer);
+  }, [flash]);
+
   return (
     // Three columns rather than two: the outer pair share what the clock does
     // not take, so the reading sits on the middle of the window and does not
@@ -139,7 +156,7 @@ export function StatusBar({ status, flash }: StatusBarProps) {
             aria-label={SAVE_LABEL[status]}
             title={SAVE_LABEL[status]}
             // Inline by default, and a transform does nothing to an inline box.
-            className={flash ? "inline-block animate-flash" : undefined}
+            className={flashing ? "inline-block animate-flash" : undefined}
           >
             {/* The conflict wears the warning rather than the ring for the
                 reason the failure does: nothing is on its way to the vault,

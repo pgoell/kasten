@@ -114,8 +114,21 @@ function Home() {
   const [treeFocus, setTreeFocus] = useState(0);
   // Raised each time a key was refused, which flashes the status bar's reading.
   // A counter for the reason the two above are counters: pressing a refused key
-  // twice is two refusals and both have to read as one.
+  // twice is two refusals and both have to read as one. How long the flash
+  // lasts is the bar's own business.
   const [refused, setRefused] = useState(0);
+
+  /**
+   * Decline a key where the reader can see it: the bar's one reading flashes.
+   *
+   * Answers null, which is what a refused reload hands back. A dozen keys and
+   * one form of `:e` come through here, and a key that does nothing and says
+   * nothing reads as a key that is broken.
+   */
+  const refuse = useCallback(() => {
+    setRefused((previous) => previous + 1);
+    return null;
+  }, []);
 
   /**
    * Rearrange the panes, and hand the focus to whichever one we arrived at.
@@ -123,8 +136,12 @@ function Home() {
    * Refused while the open note stands conflicted. Every one of these moves the
    * focused pane, which moves the note the autosave follows, and its cleanup
    * writes what is waiting to the note being left: the overwrite `saveFirst`
-   * declines on every path that asks, arriving here with nobody asked. A dozen
-   * keys come through this one, so the bar is flashed rather than left silent.
+   * declines on every path that asks, arriving here with nobody asked.
+   *
+   * Every key that moves the focus comes through here. The one thing that moves
+   * it without doing so is a click into another pane, which the pane layout
+   * reports once the browser has already moved it, and which is deliberately
+   * left alone below.
    *
    * `closeNote` reaches this after a save, by which point there is no conflict
    * left to catch it.
@@ -132,14 +149,14 @@ function Home() {
   const moveTo = useCallback(
     (update: (previous: Layout) => Layout) => {
       if (isConflicted()) {
-        setRefused((previous) => previous + 1);
+        refuse();
         return;
       }
 
       setLayout(update);
       setFocusSignal((previous) => previous + 1);
     },
-    [isConflicted],
+    [isConflicted, refuse],
   );
 
   /**
@@ -382,9 +399,11 @@ function Home() {
         // the vault holds rather than for whatever that window still has.
         staleTime: 0,
       });
-      return revert(force) ? text : null;
+      // A no here is `:e` on a buffer holding edits, and the bar is flashed
+      // rather than left saying nothing about a command that did nothing.
+      return revert(force) ? text : refuse();
     },
-    [pane.path, queryClient, revert],
+    [pane.path, queryClient, revert, refuse],
   );
 
   /**
@@ -468,6 +487,16 @@ function Home() {
               node={tab.root}
               focus={tab.focus}
               divided={tabPanes(layout).length > 1}
+              // The one way to another pane that `moveTo` does not stand in
+              // front of, and it stays that way on purpose. This is reported
+              // after the browser has moved the focus, so declining it would
+              // leave the cursor blinking in a pane the border says is not the
+              // focused one, and pulling the focus back is a fight with the
+              // browser over a note that is already only one `:w` from being
+              // settled. So a click into another pane while the open note
+              // stands conflicted still leaves it, and the flush still writes.
+              // A test pins that, so closing it later is a decision rather than
+              // an accident.
               onFocus={(id) => setLayout((previous) => focusPane(previous, id))}
             >
               {(shown, focused) =>

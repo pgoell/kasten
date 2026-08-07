@@ -9,12 +9,13 @@ import { routeTree } from "@/routeTree.gen";
  *
  * Every other file here renders one component or one hook, and this project
  * kept falling into the seam that leaves: the pieces each well pinned and the
- * wiring between them not pinned at all. Four lines of `routes/index.tsx`
- * decide whether a write from outside can take a reader's unsaved text, and
- * every one of them could be reverted with the whole suite green. Each test
- * below kills one of those four. Extracting the decisions into pure functions
- * would not have done it, because what survives the mutation is the call and
- * not the callee.
+ * wiring between them not pinned at all. A handful of lines across
+ * `routes/index.tsx`, `use-autosave.ts` and `editor.tsx` decide whether a write
+ * from outside can take a reader's unsaved text, and whether the two commands
+ * that settle a conflict settle it. Every one of them could be reverted with
+ * the whole suite green. Each test below kills at least one. Extracting the
+ * decisions into pure functions would not have done it, because what survives
+ * the mutation is the call and not the callee.
  *
  * So this mounts `Home` over a memory-history router and drives the vault's
  * stream by hand. The two things jsdom does not provide are stood up here
@@ -52,7 +53,14 @@ const VAULT: Record<string, string> = {
   "other.md": "the other note",
 };
 
-/** The vault's stream, opened by the route and driven by the test. */
+/**
+ * The vault's stream, opened by the route and driven by the test.
+ *
+ * Only the three members the route uses, which is what a double by hand costs:
+ * move the route to `addEventListener` and this one delivers nothing at all,
+ * with every test in the file still green over a stream that says nothing. If
+ * that day comes, the tests here go on passing and only this class is wrong.
+ */
 class FakeEventSource {
   static last: FakeEventSource | undefined;
   onopen: (() => void) | null = null;
@@ -76,7 +84,13 @@ function stream(): FakeEventSource {
   return open;
 }
 
-/** Mount the app the way `main.tsx` does, over a history that is not a browser. */
+/**
+ * Mount the app over a history that is not a browser.
+ *
+ * The same providers `main.tsx` puts up, but not its `StrictMode`: nothing here
+ * exercises an effect run twice, so a mount that double-fires would be a second
+ * `EventSource` and a second reload to reason about in every test below.
+ */
 async function renderApp() {
   const queryClient = new QueryClient({
     // The app's own settings, because what is being tested is what the app
@@ -134,6 +148,9 @@ async function renderApp() {
       container.querySelector("[data-testid='save-status']")?.getAttribute("aria-label"),
     /** How many tabs the strip draws, which is none until there are two. */
     tabs: () => container.querySelectorAll("[role='tab']").length,
+    /** Click into another pane, which is a focus and not a click event. */
+    focusPane: (index: number) =>
+      (container.querySelectorAll<HTMLElement>(".cm-content")[index] as HTMLElement).focus(),
     /** Whether the bar's reading is wearing the flash a refusal raises. */
     flashing: () =>
       container.querySelector("[data-testid='save-status']")?.className.includes("animate-flash") ??
@@ -302,6 +319,86 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
+  it("does not let a write in flight put back what :e! threw away", async () => {
+    const app = await editing();
+
+    // The `PUT` goes out and hangs, which is the window `:e!` has to come
+    // through: the read it sends opens a file while this one is writing one and
+    // committing it, so the read is the likely one to answer first.
+    let written: (() => void) | undefined;
+    saveNote.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          written = () => resolve({ path, content });
+        }),
+    );
+    app.ex("w");
+    await settle();
+    expect(saveNote).toHaveBeenCalledTimes(1);
+
+    fetchNote.mockResolvedValueOnce("the vault's own text");
+    app.ex("e!");
+    await settle();
+    expect(app.text()).toBe("the vault's own text");
+
+    // The write answers, carrying the text the reader has just discarded. What
+    // it must not do is put that text anywhere the editor reads from.
+    written?.();
+    await settle();
+
+    expect(app.text()).toBe("the vault's own text");
+    expect(app.status()).toBe("Saved");
+  });
+
+  it("does not keep a failed write's text once :e! has thrown it away", async () => {
+    // The same window read the other way. A write that fails holds on to its
+    // text so the next keystroke can try again, and after a `:e!` there is no
+    // edit left to retry: putting it back would send it to the vault on the
+    // next `:w`, which is the loss this command was written to stop.
+    const app = await editing();
+
+    let refused: (() => void) | undefined;
+    saveNote.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          refused = () => reject(new Error("the vault would not take it"));
+        }),
+    );
+    app.ex("w");
+    await settle();
+
+    fetchNote.mockResolvedValueOnce("the vault's own text");
+    app.ex("e!");
+    await settle();
+    expect(app.text()).toBe("the vault's own text");
+
+    refused?.();
+    await settle();
+
+    expect(app.status()).toBe("Saved");
+    app.ex("w");
+    await settle();
+    expect(saveNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the bang past a space, and answers no other argument", async () => {
+    const app = await editing();
+
+    // A filename is vim's way of opening another note, and this command holds
+    // the note its pane holds. So the vault is not read at all: rereading the
+    // open note would be the wrong note answering to the right command.
+    app.ex("e other.md");
+    await settle();
+    expect(fetchNote).toHaveBeenCalledTimes(1);
+    expect(app.text()).toBe("he index note");
+
+    // The bang survives a trailing space. Losing it there turns the command
+    // into the one that declines, and declines without a word.
+    app.ex("e! ");
+    await settle();
+    expect(app.text()).toBe("the index note");
+  });
+
   it("puts the vault's text back on :e! with nobody else writing", async () => {
     // The reader throwing away their own edits, which is what `:e!` is for most
     // of the time. Nothing about the note has changed anywhere, so the query
@@ -322,6 +419,46 @@ describe("the route", () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
     expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("keeps the text and the warning when the vault cannot be read", async () => {
+    // The read leads the discard, and this is the whole of why. The other order
+    // throws the buffer away on the strength of a request that never lands, and
+    // by then the buffer is the only copy of it there is. A note somebody
+    // deleted arrives here as the same failure.
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    fetchNote.mockRejectedValueOnce(new Error("the vault did not answer"));
+    app.ex("e!");
+    await settle();
+
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Changed on disk");
+  });
+
+  it("leaves nothing waiting and nothing conflicted behind :e!", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    fetchNote.mockResolvedValueOnce("somebody else's note");
+    app.ex("e!");
+    await settle();
+
+    // Nothing waiting: `:w` finds the vault already up to date and sends
+    // nothing, rather than sending back the text that was just discarded.
+    app.ex("w");
+    await settle();
+    expect(saveNote).not.toHaveBeenCalled();
+
+    // Nothing conflicted: the keys that were refusing move again. Left set, the
+    // note would read `Saved` while every one of them refused for the rest of
+    // the session.
+    app.leader("c", "t");
+    await settle();
+    expect(app.tabs()).toBe(2);
   });
 
   it("refuses :e on a buffer holding unsaved text", async () => {
@@ -355,6 +492,69 @@ describe("the route", () => {
     // With a dozen keys declining, a key that does nothing and says nothing
     // reads as a key that is broken.
     expect(app.flashing()).toBe(true);
+  });
+
+  it("flashes nothing when nothing was refused", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    app.leader("c", "t");
+    await settle();
+    expect(app.flashing()).toBe(true);
+
+    // Once the flash has played it is over, and the class goes with it.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(app.flashing()).toBe(false);
+
+    app.ex("w");
+    await settle();
+
+    // A tab and back, which takes the reading off the screen and puts it back:
+    // the empty pane in a new tab has no note to say anything about. Nothing
+    // was refused on the way, so nothing should flash on the way back.
+    app.leader("c", "t");
+    await settle();
+    expect(app.status()).toBeUndefined();
+    app.leader("t", "h");
+    await settle();
+
+    expect(app.status()).toBe("Saved");
+    expect(app.flashing()).toBe(false);
+  });
+
+  it("still leaves a conflicted note for a click into another pane", async () => {
+    // The hole `moveTo` cannot close, pinned so that closing it later is a
+    // decision somebody made rather than something that drifted. The layout
+    // hears about this after the browser has moved the focus, so a refusal here
+    // is a fight with the browser rather than a key declining.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    // Split while the buffer is still clean, there being no way to split once
+    // it is not.
+    app.leader("%");
+    await settle();
+    app.leader("o");
+    await settle();
+
+    app.press("x");
+    expect(app.text()).toBe("he index note");
+    somebodyElseWrote();
+    await settle();
+    expect(app.status()).toBe("Changed on disk");
+
+    app.focusPane(1);
+    await settle();
+
+    // The focus moved, the note it left was flushed on the way, and the vault
+    // has the buffer's text over whatever the other writer put there.
+    expect(app.status()).toBeUndefined();
+    expect(saveNote).toHaveBeenCalledTimes(1);
   });
 
   it("starts the tab once :w has settled the conflict", async () => {
