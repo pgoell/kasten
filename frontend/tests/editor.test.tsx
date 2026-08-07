@@ -15,6 +15,19 @@ function runExCommand(container: HTMLElement, command: string) {
   fireEvent.keyDown(input, { key: "Enter", keyCode: 13 });
 }
 
+/**
+ * Delete the line the cursor sits on, and read back what is left.
+ *
+ * `dd` is how these tests ask where the cursor is without reaching into the
+ * view, which they have no handle on.
+ */
+function deleteCurrentLine(container: HTMLElement) {
+  const content = container.querySelector(".cm-content") as HTMLElement;
+  fireEvent.keyDown(content, { key: "d" });
+  fireEvent.keyDown(content, { key: "d" });
+  return content.textContent;
+}
+
 describe("Editor", () => {
   it("starts in vim normal mode, so keys act as commands", () => {
     const { container } = render(<Editor initialDoc={"line one\nline two"} />);
@@ -223,15 +236,6 @@ describe("the editor focus", () => {
 describe("Editor opened on a line", () => {
   const DOC = "one\ntwo\nthree\nfour";
 
-  // `dd` deletes the line the cursor sits on, which is how the tests above ask
-  // where the cursor is without reaching into the view.
-  function deleteCurrentLine(container: HTMLElement) {
-    const content = container.querySelector(".cm-content") as HTMLElement;
-    fireEvent.keyDown(content, { key: "d" });
-    fireEvent.keyDown(content, { key: "d" });
-    return content.textContent;
-  }
-
   it("puts the cursor on the line it was opened at", () => {
     const { container } = render(<Editor initialDoc={DOC} startLine={3} />);
 
@@ -267,5 +271,56 @@ describe("Editor opened on a line", () => {
     const { container } = render(<Editor initialDoc={"---\nid: 1\n---\nNotes"} />);
 
     expect(deleteCurrentLine(container)).toBe("---id: 1---");
+  });
+});
+
+describe("Editor reloaded from the vault", () => {
+  const DOC = "one\ntwo\nthree\nfour";
+  const APPENDED = `${DOC}\nfive`;
+
+  it("takes text written under it, leaving the cursor where it was", () => {
+    // The line is what the cursor is asked for through `dd`, and `startLine`
+    // is only how it got there: that effect does not run again on a rerender
+    // handing it the same line.
+    const { container, rerender } = render(<Editor initialDoc={DOC} startLine={3} />);
+
+    rerender(<Editor initialDoc={DOC} startLine={3} reloadDoc={APPENDED} />);
+
+    expect(container.querySelector(".cm-content")?.textContent).toBe("onetwothreefourfive");
+    expect(deleteCurrentLine(container)).toBe("onetwofourfive");
+  });
+
+  it("dispatches nothing when the vault hands back the text already open", () => {
+    const onChange = vi.fn();
+    const { container, rerender } = render(
+      <Editor initialDoc={DOC} startLine={3} onChange={onChange} />,
+    );
+
+    rerender(<Editor initialDoc={DOC} startLine={3} reloadDoc={DOC} onChange={onChange} />);
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(deleteCurrentLine(container)).toBe("onetwofour");
+  });
+
+  it("does not report the reload as an edit, so nobody writes it back", () => {
+    // A reload read as typing would be saved, which stamps a new date, which
+    // is another change to the vault, which reloads: a note nobody touched
+    // rewriting itself once a second.
+    const onChange = vi.fn();
+    const { rerender } = render(<Editor initialDoc={DOC} onChange={onChange} />);
+
+    rerender(<Editor initialDoc={DOC} reloadDoc={APPENDED} onChange={onChange} />);
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("holds the cursor inside a note that came back shorter", () => {
+    // CodeMirror throws on a selection past the end rather than clamping, so
+    // an external delete would take the editor down with it.
+    const { container, rerender } = render(<Editor initialDoc={DOC} startLine={4} />);
+
+    rerender(<Editor initialDoc={DOC} startLine={4} reloadDoc="one" />);
+
+    expect(deleteCurrentLine(container)).toBe("");
   });
 });

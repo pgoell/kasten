@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
@@ -25,6 +25,7 @@ import {
   mapPanes,
   nextPane,
   openInFocused,
+  panesOf,
   removeFocused,
   splitFocused,
   stepTab,
@@ -64,6 +65,15 @@ function Home() {
   // query parameter is its own feature, and tmux is the thing to copy if it
   // ever earns the work: a session that outlives the window.
   const [layout, setLayout] = useState<Layout>(() => emptyLayout(note, line));
+  // The same arrangement, for the event handler below to read. That handler
+  // lives in an effect that opens one stream for the life of the page, so it
+  // cannot depend on `layout`: every split, every tab and every note opened
+  // would close the stream and open another. The ref is how it sees the panes
+  // as they stand rather than as they stood when the stream opened.
+  const layoutRef = useRef(layout);
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
   // Raised by every key that moves the focus, so the editor in the pane arrived
   // at takes it. A click raises nothing, having already moved the focus itself.
   const [focusSignal, setFocusSignal] = useState(0);
@@ -167,6 +177,23 @@ function Home() {
     stream.onmessage = (message) => {
       const event = parseVaultEvent(message.data);
       if (event === null) return;
+
+      // A note on screen is holding text the vault has moved past, so the
+      // query behind it refetches and the editor takes what comes back. Every
+      // tab is read and not only the one in front of you: a note is counted
+      // fresh for ten seconds after it was fetched, so a tab you come back to
+      // would draw the old text. A `removed` needs no refetch, there
+      // being nothing left to read, and the pane keeps what it has. A
+      // `listing` names no note at all.
+      if (
+        event.change === "written" &&
+        layoutRef.current.tabs.some((tab) =>
+          panesOf(tab.root).some((shown) => shown.path === event.path),
+        )
+      ) {
+        queryClient.invalidateQueries({ queryKey: ["note", event.path] }, { cancelRefetch: false });
+      }
+
       // A write to a note the tree already draws changes no row, and this is
       // the test that stands in for the `added` kind the backend deliberately
       // has none of. Read out of the cache rather than off `data` above: the

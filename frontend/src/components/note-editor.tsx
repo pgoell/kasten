@@ -58,6 +58,11 @@ export const NoteEditor = memo(function NoteEditor({
     <Editor
       key={path}
       initialDoc={data}
+      // The same text, read a second time: `initialDoc` opens the note and
+      // this one keeps it up to date, because the query answers again whenever
+      // the vault reports a write to this path. The memo above is untouched by
+      // it, the query living inside this component rather than in its props.
+      reloadDoc={data}
       commands={commands}
       preview={preview}
       paths={paths}

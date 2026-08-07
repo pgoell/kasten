@@ -1,6 +1,6 @@
 import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { Compartment, EditorState, Facet } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, Facet } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
@@ -100,6 +100,16 @@ const preview = new Compartment();
 const vault = new Compartment();
 
 /**
+ * Marks the transaction that puts the vault's own text in.
+ *
+ * The listener below reports every other change, and reporting this one would
+ * have the note saved back: that stamps a new date, which is another change to
+ * the vault, which reloads here, which saves again. A note nobody touched would
+ * rewrite itself once a second.
+ */
+const fromVault = Annotation.define<boolean>();
+
+/**
  * Where the note itself starts, past the frontmatter the vault writes.
  *
  * The block is three fields nobody types, and a new note is nothing else, so
@@ -134,6 +144,13 @@ function nothingFocused(): boolean {
 interface EditorProps {
   /** The document to open. Only read on mount; pass a `key` to open another note. */
   initialDoc: string;
+  /**
+   * Text the vault holds now, when something other than this editor wrote it.
+   *
+   * Applied as one transaction rather than a remount, so the cursor and the
+   * undo history survive a reload nobody asked for.
+   */
+  reloadDoc?: string;
   /** What the leader keys reach for. Absent leaves them inert. */
   commands?: EditorCommands;
   /** Whether markdown is rendered. Held by the route, so it outlives a remount. */
@@ -180,6 +197,7 @@ interface EditorProps {
  */
 export function Editor({
   initialDoc,
+  reloadDoc,
   commands,
   preview: rendered = true,
   paths,
@@ -272,7 +290,7 @@ export function Editor({
           oneDark,
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
+            if (update.docChanged && !update.transactions.some((tr) => tr.annotation(fromVault))) {
               onChangeRef.current?.(update.state.doc.toString());
             }
           }),
@@ -310,6 +328,31 @@ export function Editor({
       effects: EditorView.scrollIntoView(line.from, { y: "center" }),
     });
   }, [startLine]);
+
+  // The vault is the source of truth, so text written to the open note by an
+  // agent or an ssh session belongs on screen. One transaction and not a
+  // remount: `key={path}` above only changes when another note is opened, and
+  // rebuilding here would throw away the undo history and the cursor over an
+  // edit the reader did not make.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || reloadDoc === undefined) return;
+
+    // The editor's own save comes back through the same query, so most of what
+    // arrives here is the text already on screen. Replacing it with itself is
+    // still a transaction: an undo step, and a cursor that moved for nothing.
+    const { doc, selection } = view.state;
+    if (reloadDoc === doc.toString()) return;
+
+    view.dispatch({
+      changes: { from: 0, to: doc.length, insert: reloadDoc },
+      // The cursor is kept by offset and clamped, the way the line above is:
+      // what arrived can be shorter than what it replaced, and CodeMirror
+      // throws on a selection past the end rather than clamping it.
+      selection: { anchor: Math.min(selection.main.head, reloadDoc.length) },
+      annotations: fromVault.of(true),
+    });
+  }, [reloadDoc]);
 
   // Runs on mount as well as on every raise, which is what a freshly split pane
   // needs: it is created focused, and its first render is the only chance it
