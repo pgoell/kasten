@@ -111,7 +111,7 @@ mise run dev:up
 
 **Dev.** Edit files. uvicorn and vite reload on their own, because the working tree is bind-mounted into both containers. `mise run dev:restart` after a dependency change, `mise run dev:logs` when something looks wrong, `mise run dev:status` to see what is up.
 
-**Prod.** Cut a GitHub release. The workflow builds both images on `ubuntu-latest`, tags them with the release tag and `latest`, pushes to GHCR, then the self-hosted runner pulls, runs migrations as a one-shot container, restarts the services, and waits for the backend healthcheck.
+**Prod.** Cut a GitHub release. The workflow builds all three images on `ubuntu-latest`, tags them with the release tag and `latest`, pushes to GHCR, then the self-hosted runner pulls, runs migrations as a one-shot container, restarts the services, and waits for the backend healthcheck.
 
 **Rollback.** Run the `Deploy production` workflow by hand with the `tag` input set to an older release. It skips the build and redeploys that tag.
 
