@@ -28,7 +28,15 @@ services:
       - sh
       - -c
       # $$PATH, not $PATH: compose would otherwise substitute the host's.
-      - "export PATH=/opt/kasten-bin:$$PATH && uv sync --frozen && exec uv run uvicorn kasten_backend.main:app --reload --host 0.0.0.0 --port 8000"
+      #
+      # `--timeout-graceful-shutdown` is what keeps the reload loop usable.
+      # `/api/events` runs until its reader leaves, and uvicorn waits for open
+      # connections before it stops, so one browser tab holding that stream
+      # pins the old process open and every request hangs until the tab is
+      # closed. No lifespan can settle it: uvicorn runs the shutdown lifespan
+      # after that wait, not before. A second, then, and `EventSource`
+      # reconnects to the new process on its own.
+      - "export PATH=/opt/kasten-bin:$$PATH && uv sync --frozen && exec uv run uvicorn kasten_backend.main:app --reload --timeout-graceful-shutdown 1 --host 0.0.0.0 --port 8000"
     environment:
       # A separate venv path so the container never touches the host's .venv,
       # which holds absolute paths that are wrong inside the container.

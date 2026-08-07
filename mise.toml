@@ -28,7 +28,10 @@ run = [
 
 [tasks.dev]
 description = "Run the backend with auto-reload on :8000"
-run = "uv run uvicorn kasten_backend.main:app --reload --port 8000"
+# `--timeout-graceful-shutdown`: `/api/events` runs until its reader leaves and
+# uvicorn waits for open connections before it stops, so a browser tab holding
+# that stream would pin the old process open on every reload. See compose.dev.yml.
+run = "uv run uvicorn kasten_backend.main:app --reload --timeout-graceful-shutdown 1 --port 8000"
 
 [tasks."fe:dev"]
 description = "Run the frontend dev server on :5173"

@@ -188,6 +188,18 @@ what has been typed, so a half-remembered name is one Tab away and a click on a
 row opens it. It offers rather than restricts: a name nothing answers to is
 still taken, and starts a session.
 
+A session you no longer want is closed from inside any terminal, in two steps,
+because herdr will not delete one that is still running:
+
+```sh
+herdr session stop <name>
+herdr session delete <name>
+```
+
+`stop` ends the session and everything in it; `delete` removes what it left
+behind, and the name stops being offered here. A session that is stopped but
+not deleted is still on the list, because the list is what exists.
+
 It says what exists, not what is running. `GET /api/terminals` lists the
 directory the shell container keeps one entry per session in, so the backend
 never runs herdr and cannot start or stop anything; and `herdr --session`
