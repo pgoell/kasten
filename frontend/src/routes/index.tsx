@@ -73,7 +73,7 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
-  const { status, change, save, saveFirst, reconcile } = useAutosave(pane.path);
+  const { status, change, save, saveFirst, allowReload, reconcile } = useAutosave(pane.path);
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
   // stream for the life of the page, so it cannot close over either: opening a
@@ -82,12 +82,6 @@ function Home() {
   useEffect(() => {
     focusedNote.current = { path: pane.path, reconcile };
   });
-  // The same question the event asks, put again at the moment the document is
-  // about to change. The buffer can pick up unsaved text while the read is in
-  // flight, so the answer given when the event arrived is out of date by then.
-  // No digest to offer, this text having come back through the query rather
-  // than off the stream.
-  const allowReload = useCallback(() => reconcile(null), [reconcile]);
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
   const [treeOpen, setTreeOpen] = useState(true);
@@ -259,7 +253,12 @@ function Home() {
         if (await saveFirst()) moveTo(clearFocused);
       },
       showHelp: () => setHelpOpen(true),
-      createNote: (startPath = "") => setPrompt({ mode: "create", startPath }),
+      // Saved first the way a rename is, and for the same reason: the note a
+      // create makes is opened in the focused pane, which moves the autosave's
+      // path out from under text still waiting for the note being left.
+      createNote: async (startPath = "") => {
+        if (await saveFirst()) setPrompt({ mode: "create", startPath });
+      },
       // Save before the prompt opens, not after Enter. `useAutosave` flushes
       // pending text when its path changes, using the render's own closure, so
       // text still waiting when the note moves would be written to a path the
@@ -267,24 +266,31 @@ function Home() {
       // holds the focus, so flushing here is enough. A failed write keeps the
       // prompt shut with the warning already in the status bar, the way
       // `closeNote` refuses to leave.
+      //
+      // The refusal it carries is the pane's own note and nothing else. The
+      // tree renames whatever its cursor sits on, which is usually not what is
+      // open, and a note that changed on disk in one pane is no reason to
+      // refuse to move a note somewhere else in the vault.
       renameNote: async (startPath) => {
         const path = startPath ?? pane.path;
         if (path === undefined) return;
-        if (await saveFirst()) setPrompt({ mode: "rename", startPath: path });
+        if (!(await saveFirst()) && path === pane.path) return;
+        setPrompt({ mode: "rename", startPath: path });
       },
       // Saved first for the reason a note's rename is: the note in the focused
       // pane may be one of the notes this moves, and text still waiting would
       // be written to a path the vault no longer has.
       renameFolder: async (startPath) => {
-        if (await saveFirst()) setPrompt({ mode: "folder", startPath });
+        // Narrowed the way the note's rename is: only a folder the open note
+        // sits under can move that note's path.
+        const holdsOpenNote = pane.path?.startsWith(`${startPath}/`) ?? false;
+        if (!(await saveFirst()) && holdsOpenNote) return;
+        setPrompt({ mode: "folder", startPath });
       },
-      // No save first, unlike the two renames. They move a path out from under
-      // text still waiting to be written; opening a note leaves every path
-      // where it is, and `useAutosave` flushes on its own when the path it was
-      // given changes.
+      // No save first: opening the panel moves no path. Picking a note out of
+      // it does, and `openInPane` is where that is asked.
       findNote: () => setFinderOpen(true),
-      // No save first, for the reason the finder needs none: searching moves
-      // no path out from under text still waiting to be written.
+      // The same, and for the same reason.
       searchNotes: () => setSearchOpen(true),
       // The one command that needs a note open, because what it shows is what
       // links to that note. With an empty pane there is nothing to ask about,
@@ -326,21 +332,38 @@ function Home() {
   );
 
   /**
+   * Open a note in the focused pane, once the vault holds what was typed here.
+   *
+   * Every way in goes through this: the tree, the finder, search and a
+   * `[[link]]`. Opening another note moves the autosave's path, and its cleanup
+   * writes what is waiting to the note it was typed into, so the same write
+   * `<leader>q` refuses is one click away from happening without being asked.
+   * The refusal cannot live in that cleanup: by then the path has already
+   * changed, and refusing there would trade the other writer's text for the
+   * reader's own.
+   */
+  const openInPane = useCallback(
+    async (path: string, line?: number) => {
+      if (await saveFirst()) setLayout((previous) => openInFocused(previous, path, line));
+    },
+    [saveFirst],
+  );
+
+  /**
    * Open the note a `[[link]]` names, making it if the vault has none.
    *
    * The listing is what turns a name into a path, so the resolving happens
    * here rather than in the editor, which holds one note and knows nothing of
    * the others. A link to a note that is not there is not a mistake: writing
    * the link before the note is how a vault grows, and following one is the
-   * moment the note begins. No save first, for the reason the finder needs
-   * none: this moves no path out from under text still waiting to be written.
+   * moment the note begins.
    */
   const follow = useCallback(
     (target: string) => {
       const paths = data ?? [];
       const path = wikiLinkPath(target, paths);
       if (paths.includes(path)) {
-        setLayout((previous) => openInFocused(previous, path));
+        void openInPane(path);
         return;
       }
 
@@ -351,7 +374,7 @@ function Home() {
           // reading back a file it just made.
           queryClient.setQueryData(["note", made.path], made.content);
           queryClient.invalidateQueries({ queryKey: ["files"] });
-          setLayout((previous) => openInFocused(previous, made.path));
+          void openInPane(made.path);
         },
         () => {
           // The vault refused the path: a hidden name, or a note standing
@@ -360,7 +383,7 @@ function Home() {
         },
       );
     },
-    [data, queryClient],
+    [data, queryClient, openInPane],
   );
 
   return (
@@ -370,7 +393,7 @@ function Home() {
         <FileExplorer
           paths={data ?? []}
           openPath={pane.path}
-          onOpenFile={(path) => setLayout((previous) => openInFocused(previous, path))}
+          onOpenFile={(path) => void openInPane(path)}
           open={treeOpen}
           onOpenChange={setTreeOpen}
           commands={commands}
@@ -479,7 +502,7 @@ function Home() {
             // stale `line` left behind would drop the cursor somewhere the
             // previous search happened to point at. `openInFocused` writes the
             // pane whole, which is what drops it.
-            setLayout((previous) => openInFocused(previous, path));
+            void openInPane(path);
           }}
           onClose={() => {
             setFinderOpen(false);
@@ -497,7 +520,7 @@ function Home() {
           onOpen={(path, hitLine) => {
             setSearchOpen(false);
             setBacklinksOf(undefined);
-            setLayout((previous) => openInFocused(previous, path, hitLine));
+            void openInPane(path, hitLine);
           }}
           onClose={() => {
             setSearchOpen(false);
