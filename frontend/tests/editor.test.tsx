@@ -290,16 +290,17 @@ describe("Editor reloaded from the vault", () => {
     expect(deleteCurrentLine(container)).toBe("onetwofourfive");
   });
 
-  it("costs no undo step when the vault hands back the text already open", () => {
+  it("puts an undone line back where it was when the text already open comes back", () => {
     // An autosave's own text comes back through the query, and replacing the
-    // document with itself is still a transaction: `u` would undo nothing at
-    // all rather than the edit before it, once for every save.
-    const { container, rerender } = render(<Editor initialDoc={DOC} />);
+    // document with itself is still a transaction. Undo maps its stored change
+    // through every transaction since, and a whole-document replace maps
+    // anything inside it to the far end, so the line would come back at the
+    // foot of the note: once for every save.
+    const { container, rerender } = render(<Editor initialDoc={DOC} startLine={3} />);
     const content = container.querySelector(".cm-content") as HTMLElement;
-    // The line the cursor opens on, so the document now stands one line short.
     deleteCurrentLine(container);
 
-    rerender(<Editor initialDoc={DOC} reloadDoc={"two\nthree\nfour"} />);
+    rerender(<Editor initialDoc={DOC} startLine={3} reloadDoc={"one\ntwo\nfour"} />);
     fireEvent.keyDown(content, { key: "u" });
 
     expect(content.textContent).toBe("onetwothreefour");
@@ -318,7 +319,10 @@ describe("Editor reloaded from the vault", () => {
     expect(content.textContent).toBe("onetwothreefourfive");
   });
 
-  it("dispatches nothing when the vault hands back the text already open", () => {
+  it("reports nothing and leaves the cursor put when the text already open comes back", () => {
+    // Neither of these turns on the guard against equal text: the reload is
+    // annotated, so it is never reported, and the cursor is restored by offset
+    // either way. What that guard is worth is the undo above.
     const onChange = vi.fn();
     const { container, rerender } = render(
       <Editor initialDoc={DOC} startLine={3} onChange={onChange} />,
