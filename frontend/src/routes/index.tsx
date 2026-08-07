@@ -150,6 +150,15 @@ function Home() {
   // life of the page rather than one per note you read.
   useEffect(() => {
     const stream = new EventSource("/api/events");
+    // Every open, and the first one is deliberately one invalidation too many.
+    // A stream that went down and came back missed whatever the vault did in
+    // between: the backend replays nothing and `EventSource` reconnects without
+    // saying it ever stopped, which a sleeping laptop or a backend restart
+    // guarantees. Asking for the listing on each open closes that hole by
+    // construction, and the price is one refetch of a query that just loaded.
+    // Do not trim it back to the reconnects, because there is no way to tell
+    // them apart here and the gap comes back with the optimisation.
+    stream.onopen = () => queryClient.invalidateQueries({ queryKey: ["files"] });
     stream.onmessage = (message) => {
       const event = parseVaultEvent(message.data);
       if (event === null) return;
@@ -158,6 +167,17 @@ function Home() {
       // has none of. Read out of the cache rather than off `data` above: the
       // listing is already in there, and depending on it here would close and
       // reopen the stream every time it changed.
+      //
+      // The listing read here can be known-wrong, and it is left that way. An
+      // external delete invalidates, and if the note comes back before that
+      // refetch answers, the `written` tests against the array from before it
+      // and returns early, so the refetch lands without the note and the tree
+      // stays short a row until the next event that changes the listing. It
+      // takes two debounce windows inside one `/api/files` round trip, which is
+      // narrow on local disk and heals itself. Dropping the early return would
+      // close it and refetch the whole listing on every autosave instead, and
+      // what that listing costs is the subject of
+      // docs/reference/ranking-performance.md.
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
       queryClient.invalidateQueries({ queryKey: ["files"] });
