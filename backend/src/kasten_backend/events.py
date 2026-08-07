@@ -9,11 +9,22 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from watchfiles import Change
+from watchfiles import Change, awatch
 
 from kasten_backend.vault import SUFFIX
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+DEBOUNCE_MS = 100
+"""How long watchfiles gathers changes before handing over a batch.
+
+An agent rewriting forty notes then costs a handful of messages rather than
+forty. Well under the editor's quiet period, so a note the user is not typing
+into reloads before the next autosave would have fired.
+"""
 
 ChangeKind = Literal["written", "added", "removed"]
 """What happened to a note, in the client's words rather than watchfiles'."""
@@ -108,3 +119,42 @@ def format_sse(event: VaultEvent) -> str:
     own, so one `data:` line carries all of it.
     """
     return f"data: {json.dumps(asdict(event))}\n\n"
+
+
+def _watched_root(root: Path) -> Path | None:
+    """Where the watcher should look, or None when there is no vault there.
+
+    Sync, and asked once as the connection opens. Both calls go to the
+    filesystem, which is not something to do from inside the loop that streams.
+    """
+    base = root.resolve()
+    return base if base.is_dir() else None
+
+
+async def watch_vault(root: Path) -> AsyncIterator[list[VaultEvent]]:
+    """Yield a batch of events every time the vault changes, forever.
+
+    One watcher per caller rather than one for the process. A watcher costs
+    nothing while nobody is connected, and this way the root comes in as an
+    argument, which is what keeps the caller free to inject it.
+
+    The paths are filtered before watchfiles hands them over as well as after,
+    so a batch of nothing but jj writes never reaches the loop below.
+    `to_events` filters again because it has to be right on its own.
+
+    A vault that is not there reads as one nothing ever happens in, matching
+    the listing. `awatch` raises on a missing path, and a fresh checkout must
+    not take the endpoint down with it.
+    """
+    base = _watched_root(root)
+    if base is None:
+        return
+
+    async for changes in awatch(
+        base,
+        debounce=DEBOUNCE_MS,
+        watch_filter=lambda _change, changed: is_watchable(base, changed),
+    ):
+        events = to_events(base, changes)
+        if events:
+            yield events

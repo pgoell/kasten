@@ -1,11 +1,13 @@
 """FastAPI application entrypoint."""
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.events import format_sse, watch_vault
 from kasten_backend.frontmatter import stamp
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
@@ -24,6 +26,9 @@ from kasten_backend.vault import (
     write_note,
 )
 from kasten_backend.vcs import begin_change, snapshot
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 app = FastAPI(title="kasten", version="0.1.0")
 
@@ -112,6 +117,32 @@ async def search_files(
     """
     hits = await search_vault(settings.vault_path, q)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.get("/api/events")
+async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) -> StreamingResponse:
+    """Report every change to the vault that kasten did not make itself.
+
+    Server-sent events, one `data:` line per changed note. The traffic runs one
+    way, so this needs none of a WebSocket's machinery, and the browser
+    reconnects on its own.
+
+    The stream carries no note text, only the path, what happened and a digest
+    of what is now on disk. A client that wants the new content reads the note
+    the way it always does, and the digest is how it tells its own write coming
+    back from someone else's.
+
+    The watcher lives as long as the connection. Starlette closes this generator
+    when the client goes away, which ends the watch with it, so nothing is left
+    running for a reader that has gone.
+    """
+
+    async def report() -> AsyncIterator[str]:
+        async for events in watch_vault(settings.vault_path):
+            for event in events:
+                yield format_sse(event)
+
+    return StreamingResponse(report(), media_type="text/event-stream")
 
 
 @app.get("/api/files/{path:path}")

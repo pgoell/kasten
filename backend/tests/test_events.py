@@ -6,16 +6,33 @@ backend write touches it, so without that rule each save would report its own
 bookkeeping back to the editor that caused it.
 """
 
+import asyncio
 import hashlib
 import json
+import socket
+from itertools import count
 from typing import TYPE_CHECKING
 
+import pytest
+import uvicorn
+from httpx import AsyncClient
 from watchfiles import Change
 
 from kasten_backend.events import VaultEvent, format_sse, is_watchable, to_events
+from kasten_backend.main import app
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from pathlib import Path
+
+    from httpx import Response
+
+PATIENCE = 10.0
+"""Seconds to wait for an event before calling the stream broken.
+
+Far above the debounce and the write, and there to fail rather than hang: a
+watcher that never fires would otherwise stop the suite dead.
+"""
 
 
 def write(root: Path, path: str, text: str) -> Path:
@@ -23,6 +40,51 @@ def write(root: Path, path: str, text: str) -> Path:
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(text, encoding="utf-8")
     return note
+
+
+@pytest.fixture
+async def server() -> AsyncIterator[str]:
+    """Serve the app on a real socket and hand back its base URL.
+
+    The `client` fixture in conftest cannot reach this endpoint: httpx's ASGI
+    transport runs the app to completion before it answers, and a stream that
+    stays open never completes. So this one needs a socket under it.
+
+    The socket is bound and listening before uvicorn starts, so a connection
+    made straight away waits in the backlog rather than being refused.
+    """
+    listening = socket.socket()
+    listening.bind(("127.0.0.1", 0))
+    listening.listen()
+    port = listening.getsockname()[1]
+
+    serving = uvicorn.Server(uvicorn.Config(app, log_level="warning"))
+    task = asyncio.create_task(serving.serve(sockets=[listening]))
+
+    yield f"http://127.0.0.1:{port}"
+
+    serving.should_exit = True
+    await task
+
+
+async def keep_adding_notes(vault: Path, text: str) -> None:
+    """Write a new note over and over until the test has seen one arrive.
+
+    Once would be a race. Nothing the client can see says the watcher is up, so
+    the first note may land before it is listening, and a new path each time
+    keeps every attempt an addition rather than an edit of the last one.
+    """
+    for attempt in count():
+        write(vault, f"kasten-{attempt}.md", text)
+        await asyncio.sleep(0.5)
+
+
+async def first_event(response: Response) -> dict[str, object]:
+    async for line in response.aiter_lines():
+        if line.startswith("data: "):
+            return json.loads(line.removeprefix("data: "))
+
+    raise AssertionError("the stream ended without reporting anything")
 
 
 def test_watchable_note_under_the_vault_root(tmp_path: Path) -> None:
@@ -108,3 +170,35 @@ def test_format_sse_writes_null_for_a_removal() -> None:
     line = format_sse(VaultEvent(path="kasten.md", change="removed", digest=None))
 
     assert json.loads(line.removeprefix("data: "))["digest"] is None
+
+
+async def test_stream_reports_a_note_written_into_the_vault(server: str, vault: Path) -> None:
+    text = "derived index\n"
+
+    async with (
+        AsyncClient(base_url=server, timeout=PATIENCE) as http,
+        http.stream("GET", "/api/events") as response,
+    ):
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        writer = asyncio.create_task(keep_adding_notes(vault, text))
+        try:
+            event = await asyncio.wait_for(first_event(response), PATIENCE)
+        finally:
+            writer.cancel()
+
+    assert str(event["path"]).startswith("kasten-")
+    assert event["change"] == "added"
+    assert event["digest"] == hashlib.sha256(text.encode()).hexdigest()
+
+
+async def test_stream_holds_open_for_a_vault_that_is_not_there(
+    server: str, missing_vault: Path
+) -> None:
+    # A fresh checkout with no vault yet must not take the endpoint down with it.
+    async with AsyncClient(base_url=server, timeout=PATIENCE) as http:
+        response = await http.get("/api/events")
+
+    assert response.status_code == 200
+    assert response.text == ""
