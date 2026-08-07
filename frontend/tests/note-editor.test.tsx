@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Editor } from "@/components/editor";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
@@ -46,7 +46,12 @@ const follow = () => {};
 
 /** What the route puts around an open note: autosave, the editor, the bar. */
 function OpenNote({ path }: { path: string }) {
-  const { status, change, save } = useAutosave(path);
+  const { status, change, save, reconcile } = useAutosave(path);
+  // What the route wires, and the reason this harness exists: the editor asks
+  // the autosave before it takes the vault's text, and the autosave is what
+  // knows whether anything is waiting. No digest, the text having come back
+  // through the query rather than off the stream.
+  const allowReload = useCallback(() => reconcile(null), [reconcile]);
   // Held across renders because the route holds it across renders too. A fresh
   // literal here would hand the editor a new prop on every keystroke, and the
   // render-count test below would then be measuring this harness rather than
@@ -88,6 +93,7 @@ function OpenNote({ path }: { path: string }) {
         onChange={change}
         onSave={save}
         onFollow={follow}
+        allowReload={allowReload}
       />
       <StatusBar status={status} />
     </>
@@ -268,6 +274,39 @@ describe("an open note", () => {
     await note.reread("index.md");
 
     await waitFor(() => expect(note.text()).toBe("the index note, rewritten"));
+  });
+
+  it("keeps unsaved text on screen when a write from the vault lands under it", async () => {
+    // The three parts wired together, which is the only place this is true.
+    // The buffer was clean when the vault reported the write, so the read went
+    // out; the reader typed while it was in flight. Deciding when the event
+    // arrives and dispatching when the answer lands are not the same moment,
+    // and the editor asks again at the second one.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockResolvedValue("the index note, rewritten elsewhere");
+    // `x` deletes the character under the cursor, which opens at the top.
+    note.press("x");
+    await note.reread("index.md");
+    await waitFor(() => expect(fetchNote).toHaveBeenCalledTimes(2));
+
+    expect(note.text()).toBe("he index note");
+    // The refusal reaches the bar a render later than it reaches the document.
+    await waitFor(() => expect(note.status()).toBe("Changed on disk"));
+  });
+
+  it("takes a write from the vault when nothing is waiting, and says nothing about it", async () => {
+    // The other side of the test above: a clean buffer is what the reload is
+    // for, and refusing every reload would pass that one on its own.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockResolvedValue("the index note, rewritten elsewhere");
+    await note.reread("index.md");
+
+    await waitFor(() => expect(note.text()).toBe("the index note, rewritten elsewhere"));
+    expect(note.status()).toBe("Saved");
   });
 
   it("keeps a keystroke typed after a save, which the note's own event would revert", async () => {

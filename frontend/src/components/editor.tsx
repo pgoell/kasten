@@ -181,6 +181,15 @@ interface EditorProps {
    * click, which has already put the focus where it belongs.
    */
   focusSignal?: number;
+  /**
+   * Asked immediately before the vault's text goes in, and can refuse.
+   *
+   * The buffer picks up unsaved text of its own between the vault reporting a
+   * write and the read of it arriving here, so whoever holds that text is asked
+   * at the last moment rather than the first. Absent means nobody is holding
+   * any, which is what an editor with no note behind it is.
+   */
+  allowReload?: () => boolean;
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
@@ -203,6 +212,7 @@ export function Editor({
   paths,
   startLine,
   focusSignal,
+  allowReload,
   onChange,
   onSave,
   onFollow,
@@ -219,13 +229,15 @@ export function Editor({
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const onFollowRef = useRef(onFollow);
+  const allowReloadRef = useRef(allowReload);
 
   useEffect(() => {
     commandsRef.current = commands;
     onChangeRef.current = onChange;
     onSaveRef.current = onSave;
     onFollowRef.current = onFollow;
-  }, [commands, onChange, onSave, onFollow]);
+    allowReloadRef.current = allowReload;
+  }, [commands, onChange, onSave, onFollow, allowReload]);
 
   useEffect(() => {
     const parent = host.current;
@@ -369,10 +381,16 @@ export function Editor({
       insertTo -= 1;
     }
 
-    // Nothing left after the trim is the text already on screen, which is most
-    // of what arrives here: the editor's own save comes back through the same
-    // query, holding what the vault answered the write with.
+    // Nothing left after the trim is the text already on screen, which is what
+    // mounting looks like from here: the note opens on the same query data this
+    // prop carries. A change holding nothing is still a transaction.
     if (from === to && from === insertTo) return;
+
+    // Asked here and not when the vault reported the write, because the two are
+    // not the same moment: the read takes a round trip, and the reader can type
+    // into a buffer that was clean when it went out. A refusal leaves the note
+    // as it stands and the vault as it stands, and says so in the status bar.
+    if (allowReloadRef.current?.() === false) return;
 
     view.dispatch({
       changes: { from, to, insert: reloadDoc.slice(from, insertTo) },

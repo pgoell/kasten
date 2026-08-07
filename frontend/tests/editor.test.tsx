@@ -393,6 +393,28 @@ describe("Editor reloaded from the vault", () => {
     expect(container.querySelector(".cm-content")?.textContent).toBe(next.split("\n").join(""));
   });
 
+  it("stays put when what holds the unsaved text refuses the reload", () => {
+    // The buffer can pick up text between the vault reporting a write and the
+    // read of it landing here, so the answer given when the event arrived is
+    // out of date by now. This is the last moment anyone can tell.
+    const { container, rerender } = render(<Editor initialDoc={DOC} allowReload={() => false} />);
+
+    rerender(<Editor initialDoc={DOC} allowReload={() => false} reloadDoc={APPENDED} />);
+
+    expect(container.querySelector(".cm-content")?.textContent).toBe("onetwothreefour");
+  });
+
+  it("does not ask when the vault hands back the text already open", () => {
+    // Asked after the trim and not before it, so a reload with nothing in it
+    // cannot stand a note in conflict over a change that was never made.
+    const allowReload = vi.fn(() => true);
+    const { rerender } = render(<Editor initialDoc={DOC} allowReload={allowReload} />);
+
+    rerender(<Editor initialDoc={DOC} allowReload={allowReload} reloadDoc={DOC} />);
+
+    expect(allowReload).not.toHaveBeenCalled();
+  });
+
   it("holds the cursor inside a note that came back shorter", () => {
     // CodeMirror throws on a selection past the end rather than clamping, so
     // an external delete would take the editor down with it.
