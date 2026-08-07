@@ -55,6 +55,14 @@ function renderAutosave(path = "index.md") {
   return {
     change: (doc: string) => act(() => result.current.change(doc)),
     save: () => act(() => result.current.save()),
+    /** Save the way a key that does something else saves, and report the answer. */
+    saveFirst: async () => {
+      let outcome: boolean | undefined;
+      await act(async () => {
+        outcome = await result.current.saveFirst();
+      });
+      return outcome;
+    },
     /** Save, and report whether the vault ended up holding the text. */
     saved: async () => {
       let outcome: boolean | undefined;
@@ -332,5 +340,37 @@ describe("useAutosave", () => {
 
     expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
     expect(note.status()).toBe("saved");
+
+    // And the quiet period writes again afterwards. A conflict left standing
+    // stops every automatic write there is, and the bar would go on reading
+    // `Saved` while nothing at all reached the vault.
+    note.change("# edited again");
+    await idle();
+
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited again");
+    expect(note.status()).toBe("saved");
+  });
+
+  it("writes on the way to another command when nothing is in conflict", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+
+    expect(await note.saveFirst()).toBe(true);
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
+  });
+
+  it("writes nothing on the way to another command while the note stands conflicted", async () => {
+    // Closing the note, moving it, moving a folder above it, reading its
+    // links: all of them save first, and none of them was pressed to decide
+    // that the buffer beats what the vault now holds.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.reconcile("0".repeat(64));
+
+    expect(await note.saveFirst()).toBe(false);
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(note.status()).toBe("conflict");
   });
 });

@@ -54,9 +54,20 @@ export function useAutosave(path: string | undefined) {
         // differ by the `modified` stamp `PUT` writes, so what is on disk is
         // this one. Hashing the other would recognise nothing and read every
         // save of our own as somebody else's write.
-        void digestOf(note.content).then((digest) => {
-          lastWritten.current = digest;
-        });
+        void digestOf(note.content).then(
+          (digest) => {
+            lastWritten.current = digest;
+          },
+          (error: unknown) => {
+            // `crypto.subtle` is missing outside a secure context, which is a
+            // proxy serving the app over plain http and nothing else. Left
+            // unhandled it is an unhandled rejection per save; handled, the
+            // hook simply recognises none of its own writes, so a save the
+            // typing carried on through raises a conflict the reader clears
+            // with `:w`. Wrong in the direction that writes nothing.
+            if (!(error instanceof TypeError)) throw error;
+          },
+        );
         // Typing during the write leaves newer text behind us, and that is not
         // saved however this one went. The cache waits on the same test: the
         // editor reloads from it, so writing the text that was in the air would
@@ -76,6 +87,21 @@ export function useAutosave(path: string | undefined) {
       },
     );
   }, [path, queryClient]);
+
+  /**
+   * Write what is waiting on the way to doing something else, refusing while
+   * the vault has moved past the buffer. Answers whether the vault holds it.
+   *
+   * Every key that saves before it acts goes through here: closing the note,
+   * moving it, moving a folder above it, reading its links. A save while the
+   * note stands conflicted is the deliberate overwrite `:w` means, and a key
+   * that was pressed for something else does not get to make that call on the
+   * reader's behalf. `false` leaves the command undone.
+   */
+  const saveFirst = useCallback(
+    (): Promise<boolean> => (conflicted.current ? Promise.resolve(false) : save()),
+    [save],
+  );
 
   const change = useCallback(
     (doc: string) => {
@@ -119,8 +145,9 @@ export function useAutosave(path: string | undefined) {
   //
   // A conflicted note is flushed too, and that overwrites the vault without
   // anyone asking for it. The other way round loses the text on screen, which
-  // by then is the only copy of it there is, and loses it silently. Leaving
-  // the note open is what keeps the choice.
+  // by then is the only copy of it there is, and loses it silently. This is
+  // the one path with nobody standing in front of it to be asked, which is
+  // why `saveFirst` above exists for the paths that have somebody.
   useEffect(
     () => () => {
       void save();
@@ -128,5 +155,5 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
-  return { status, change, save, reconcile };
+  return { status, change, save, saveFirst, reconcile };
 }
