@@ -31,6 +31,7 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { useAutosave } from "@/lib/use-autosave";
+import { parseVaultEvent } from "@/lib/vault-events";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
@@ -135,6 +136,34 @@ function Home() {
       replace: true,
     });
   }, [pane.path, pane.line, navigate]);
+
+  // The vault is the source of truth, so a note written by an agent or an ssh
+  // session is as real as one written here. `/api/events` says what moved and
+  // the tree refetches itself.
+  //
+  // Opened by hand rather than through `openapi-fetch`: the endpoint answers
+  // with a `StreamingResponse`, which carries no schema, so `api-types.ts` has
+  // no entry to generate a client from. Nothing retries either, because
+  // `EventSource` reconnects on its own.
+  //
+  // `queryClient` never changes identity, so this opens one stream for the
+  // life of the page rather than one per note you read.
+  useEffect(() => {
+    const stream = new EventSource("/api/events");
+    stream.onmessage = (message) => {
+      const event = parseVaultEvent(message.data);
+      if (event === null) return;
+      // A write to a note the tree already draws changes no row, and this is
+      // the test that stands in for the `added` kind the backend deliberately
+      // has none of. Read out of the cache rather than off `data` above: the
+      // listing is already in there, and depending on it here would close and
+      // reopen the stream every time it changed.
+      const paths = queryClient.getQueryData<string[]>(["files"]);
+      if (event.change === "written" && paths?.includes(event.path)) return;
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+    };
+    return () => stream.close();
+  }, [queryClient]);
 
   const commands = useMemo<TreeCommands>(
     () => ({
