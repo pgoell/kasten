@@ -538,11 +538,22 @@ typed can then be lost to a write you never saw, and nothing reaches the vault
 until you say so. `:w` is how you say it, overwriting the vault with what is on
 screen and clearing the state.
 
-While it stands, the keys that would save on their way somewhere else decline
-instead. `<leader>q` leaves the note open, and `<leader>rf` and the tree's `r`
-leave the prompt shut, so leaving a note the vault has moved past is one
-deliberate keystroke rather than a silent overwrite. `<leader>go` still opens,
-on the older text: reading the links is no reason to overwrite either.
+While it stands, every way from here to another note asks first and takes the
+refusal. A row clicked or opened in the tree, a hit taken out of the finder or
+search, a `[[link]]` followed with `gf` or Ctrl+click, the create prompt on
+`<leader>cf` or the tree's `c`, and `<leader>q` closing the note all leave the
+pane exactly where it is. So do `<leader>rf` and the tree's `r`, but only when
+what they would move is the open note itself or a folder it sits under: a
+rename anywhere else in the vault goes ahead, because a conflict in this pane
+is no reason to refuse to move some other note. `<leader>go` opens its panel
+anyway, on the older text, reading the links being no reason to overwrite. A
+`gf` at a link to a note that is not there still makes the note; it just leaves
+it unopened.
 
-Opening another note into the pane does write. The text goes out as the editor
-leaves, and by then there is nobody left to ask.
+So nothing you typed reaches the vault until you press `:w`, with one exception.
+The autosave follows the focused pane, so moving the focus to another pane or
+tab hands it a different note, and what was waiting for the note it left is
+written as it changes over. Holding that text back instead would lose it, the
+buffer being the only place it exists, which is why this one write is made
+rather than asked about. Settle the note with `:w` before you walk out of the
+pane.
