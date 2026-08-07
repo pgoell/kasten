@@ -1,6 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { type ITheme, Terminal } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
+import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import "@xterm/xterm/css/xterm.css";
 import {
   decodeServer,
@@ -42,6 +43,8 @@ function oneTheme(): ITheme {
 interface TerminalPaneProps {
   /** tmux session name, which `?arg=` hands to `tmux new -A -s`. */
   session: string;
+  /** What a `TERMINAL` chord reaches. The route hands down the same object the editors get. */
+  commands: EditorCommands;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
 }
@@ -53,9 +56,20 @@ interface TerminalPaneProps {
  * the effect keys on the session name and nothing else. Everything on the wire
  * is `ttyd.ts`, which is where the format is tested.
  */
-export function TerminalPane({ session, focusSignal }: TerminalPaneProps) {
+export function TerminalPane({ session, commands, focusSignal }: TerminalPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
+  // Read through a ref, the way `editor.tsx` reads the same prop. The terminal
+  // and its socket are built in one effect keyed on `session`, and naming
+  // `commands` in that effect's dependencies would rebuild both every time the
+  // route's memo took a new identity. It takes one on every `data` change, and
+  // the `EventSource` invalidates `data` on every vault write, so an agent
+  // writing notes in a terminal would tear down its own socket and lose its
+  // scrollback.
+  const commandsRef = useRef(commands);
+  useEffect(() => {
+    commandsRef.current = commands;
+  });
 
   useEffect(() => {
     const element = host.current;
@@ -70,6 +84,30 @@ export function TerminalPane({ session, focusSignal }: TerminalPaneProps) {
     });
     termRef.current = term;
     term.open(element);
+
+    // The leader is the space bar and a shell must receive the space bar, so
+    // the only keys kasten takes back are these. `false` stops xterm handing
+    // the event to the PTY; `true` lets every other key through untouched.
+    //
+    // The modifiers are compared for equality rather than tested for truth: a
+    // handler that fired on ctrl and shift while ignoring alt would eat chords
+    // the shell wants.
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") return true;
+      const held =
+        event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
+        event.shiftKey === TERMINAL_CHORD.shiftKey &&
+        event.altKey === TERMINAL_CHORD.altKey &&
+        event.metaKey === TERMINAL_CHORD.metaKey;
+      if (!held) return true;
+
+      const binding = TERMINAL.find((row) => row.key === event.key);
+      if (binding === undefined) return true;
+
+      event.preventDefault();
+      commandsRef.current[binding.command]();
+      return false;
+    });
 
     const fit = new FitAddon();
     term.loadAddon(fit);

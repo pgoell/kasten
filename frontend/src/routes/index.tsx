@@ -510,7 +510,11 @@ function Home() {
             >
               {(shown, focused) =>
                 shown.term !== undefined ? (
-                  <TerminalPane session={shown.term} focusSignal={focused ? focusSignal : 0} />
+                  <TerminalPane
+                    session={shown.term}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
+                  />
                 ) : shown.path === undefined ? (
                   // An empty pane is an editor on an empty document, which is
                   // what the window has always shown with no note open. It

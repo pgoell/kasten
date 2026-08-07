@@ -155,6 +155,58 @@ export const LEADER: readonly LeaderBinding[] = [
  */
 export const TAB_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
+/**
+ * The modifiers a terminal chord is held with, in one place so retuning the
+ * whole set is one edit.
+ *
+ * ctrl and shift because a terminal cannot transmit most of those chords, so
+ * taking them costs the shell nothing. That is a reason to expect them to
+ * work, not evidence that they are comfortable. Expect to change this.
+ *
+ * ponytail: the chord is a guess and one week of real use decides it. Changing
+ * this or the table below carries `terminal-pane.tsx`, `key-help.tsx` and
+ * `key-help.test.tsx` with it, all three deriving from these two exports. One
+ * place does not follow and has to be edited by hand: the chord table in
+ * `docs/reference/editor-keys.md`, which is prose that no code reads.
+ */
+export const TERMINAL_CHORD = {
+  ctrlKey: true,
+  shiftKey: true,
+  altKey: false,
+  metaKey: false,
+};
+
+export interface TerminalBinding {
+  /**
+   * `KeyboardEvent.key` while `TERMINAL_CHORD` is held, which for a letter is
+   * the uppercase one: shift is down. `FORMAT` below carries the same trap.
+   */
+  key: string;
+  label: string;
+  command: LeaderCommand;
+}
+
+/**
+ * What a chord reaches inside a focused terminal, before the PTY sees it.
+ *
+ * The leader is the space bar and a shell must receive the space bar, so
+ * nothing kasten owns can reach into a focused terminal as a leader sequence.
+ * These are the way out of one.
+ */
+export const TERMINAL: readonly TerminalBinding[] = [
+  { key: "H", label: "Move to the pane on the left", command: "paneLeft" },
+  { key: "J", label: "Move to the pane below", command: "paneDown" },
+  { key: "K", label: "Move to the pane above", command: "paneUp" },
+  { key: "L", label: "Move to the pane on the right", command: "paneRight" },
+  { key: "O", label: "Move to the next pane", command: "nextPane" },
+  // `closeNote` rather than a command of its own: it empties a pane holding a
+  // note and removes an empty one, and a terminal pane holds no note, so this
+  // removes the pane in one press. It does not kill the tmux session, because
+  // closing the socket detaches a client and `tmux new -A` reattaches to
+  // whatever is still running in there.
+  { key: "Q", label: "Close the terminal pane", command: "closeNote" },
+];
+
 export interface FormatBinding {
   /** Vim's spelling of the key, not the browser's. */
   key: string;
