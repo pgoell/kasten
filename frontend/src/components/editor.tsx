@@ -341,19 +341,41 @@ export function Editor({
     const view = viewRef.current;
     if (!view || reloadDoc === undefined) return;
 
-    // The editor's own save comes back through the same query, holding what
-    // the vault answered the write with, so most of what arrives here is the
-    // text already on screen. Replacing it with itself is still a transaction,
-    // and a cursor that moved for nothing.
-    const { doc, selection } = view.state;
-    if (reloadDoc === doc.toString()) return;
+    // Only the span that differs, and never the whole document. CodeMirror maps
+    // positions through a change, so everything outside the span comes through
+    // where it was: the cursor stays on the words it sat on, and an undo of an
+    // edit the reader made puts the text back where they made it. Replaced
+    // whole, both collapse to the one point the replacement leaves, which is
+    // what a reload used to cost. Nothing is asked of the selection here for
+    // the same reason: mapping keeps it, and naming it would flatten it.
+    //
+    // The vault's own writes are what make this cheap. An agent appends, an
+    // editor rewrites a paragraph, and kasten's `modified` stamp moves one line
+    // of the frontmatter.
+    const text = view.state.doc.toString();
+    let from = 0;
+    while (from < text.length && from < reloadDoc.length && text[from] === reloadDoc[from]) {
+      from += 1;
+    }
+
+    // Both ends stop at `from`, so the tail cannot walk back into the head it
+    // already matched: "aaa" grown to "aaaaa" shares its whole length with
+    // itself either way round, and subtracting both would delete text that is
+    // still there.
+    let to = text.length;
+    let insertTo = reloadDoc.length;
+    while (to > from && insertTo > from && text[to - 1] === reloadDoc[insertTo - 1]) {
+      to -= 1;
+      insertTo -= 1;
+    }
+
+    // Nothing left after the trim is the text already on screen, which is most
+    // of what arrives here: the editor's own save comes back through the same
+    // query, holding what the vault answered the write with.
+    if (from === to && from === insertTo) return;
 
     view.dispatch({
-      changes: { from: 0, to: doc.length, insert: reloadDoc },
-      // The cursor is kept by offset and clamped, the way the line above is:
-      // what arrived can be shorter than what it replaced, and CodeMirror
-      // throws on a selection past the end rather than clamping it.
-      selection: { anchor: Math.min(selection.main.head, reloadDoc.length) },
+      changes: { from, to, insert: reloadDoc.slice(from, insertTo) },
       // Off the undo stack as well as off the save path. Undoing a write
       // nobody here made would put the text from before it back, and that
       // revert carries no annotation, so autosave would send it to the vault:

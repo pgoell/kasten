@@ -346,6 +346,53 @@ describe("Editor reloaded from the vault", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("keeps the cursor on its line when the write landed above it", () => {
+    // The line is what the cursor is asked for through `dd`. A write above it
+    // moves every offset below, so an offset held across the reload lands on
+    // the wrong words: only a change over the span that actually differs maps
+    // the cursor with the text it sits on.
+    const { container, rerender } = render(<Editor initialDoc={DOC} startLine={3} />);
+
+    rerender(<Editor initialDoc={DOC} startLine={3} reloadDoc={`zero\n${DOC}`} />);
+
+    expect(deleteCurrentLine(container)).toBe("zeroonetwofour");
+  });
+
+  it("puts an undone line back where it was after a write below it", () => {
+    // Undo maps its stored change through every transaction since. A change
+    // over the whole document maps anything inside it to the far end, so the
+    // line would come back at the foot of the note.
+    const { container, rerender } = render(<Editor initialDoc={DOC} startLine={3} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    deleteCurrentLine(container);
+
+    rerender(<Editor initialDoc={DOC} startLine={3} reloadDoc={"one\ntwo\nfour\nfive"} />);
+    fireEvent.keyDown(content, { key: "u" });
+
+    expect(content.textContent).toBe("onetwothreefourfive");
+  });
+
+  // The shapes an external write arrives in, and the arithmetic that trims it
+  // down to the span that differs. The last two pairs are where an off-by-one
+  // lives: the common prefix and the common suffix overlap unless the second
+  // is stopped at the end of the first.
+  it.each([
+    ["appended to", DOC, `${DOC}\nfive`],
+    ["written above", DOC, `zero\n${DOC}`],
+    ["cut in the middle", DOC, "one\nfour"],
+    ["emptied", DOC, ""],
+    ["written into an empty note", "", DOC],
+    ["extended by more of what it already held", "aaa", "aaaaa"],
+    ["shortened by more of what it already held", "aaaaa", "aaa"],
+  ])("takes a note %s", (_shape, start, next) => {
+    const { container, rerender } = render(<Editor initialDoc={start} />);
+
+    rerender(<Editor initialDoc={start} reloadDoc={next} />);
+
+    // CodeMirror draws a line per element, so the text runs together.
+    expect(container.querySelector(".cm-content")?.textContent).toBe(next.split("\n").join(""));
+  });
+
   it("holds the cursor inside a note that came back shorter", () => {
     // CodeMirror throws on a selection past the end rather than clamping, so
     // an external delete would take the editor down with it.
