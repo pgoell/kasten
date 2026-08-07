@@ -2,7 +2,7 @@
 #
 # shell/Dockerfile
 #
-# A browser-reachable shell beside the vault: ttyd over tmux, with the tools a
+# A browser-reachable shell beside the vault: ttyd over herdr, with the tools a
 # session in the vault needs. Build context: repo root, so the CI image matrix
 # reaches it with `shell/Dockerfile` the way it reaches the other two.
 #
@@ -18,6 +18,18 @@ ARG TTYD_SHA256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
 ADD https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64 /usr/local/bin/ttyd
 RUN echo "${TTYD_SHA256}  /usr/local/bin/ttyd" | sha256sum -c - \
     && chmod +x /usr/local/bin/ttyd
+
+# herdr is the multiplexer the session lives in, in place of tmux, because it
+# is what this box already runs and its config is the tmux config migrated. The
+# release asset is a bare static binary, like ttyd's. Version and checksum come
+# from https://herdr.dev/latest.json, which publishes both. Apache-2.0 since
+# 0.8.0, checked against the LICENSE file in the tag.
+FROM debian:bookworm-slim AS herdr
+ARG HERDR_VERSION=0.8.0
+ARG HERDR_SHA256=b872ea7e40fa2cb17e857ac9b62b1bf26db7b403c622f5d2f3f5b35f6e9acd28
+ADD https://github.com/herdrdev/herdr/releases/download/v${HERDR_VERSION}/herdr-linux-x86_64 /usr/local/bin/herdr
+RUN echo "${HERDR_SHA256}  /usr/local/bin/herdr" | sha256sum -c - \
+    && chmod +x /usr/local/bin/herdr
 
 # jj and rg again, spelled exactly as backend/Dockerfile spells them. Docker
 # cannot share a stage between two Dockerfiles without a named build context,
@@ -42,10 +54,11 @@ RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
 FROM node:24-bookworm-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y tmux git ca-certificates less \
+    && apt-get install --no-install-recommends -y git ca-certificates less \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ttyd /usr/local/bin/ttyd /usr/local/bin/ttyd
+COPY --from=herdr /usr/local/bin/herdr /usr/local/bin/herdr
 COPY --from=jj /usr/local/bin/jj /usr/local/bin/jj
 COPY --from=rg /usr/local/bin/rg /usr/local/bin/rg
 
@@ -61,18 +74,26 @@ RUN npm install -g @anthropic-ai/claude-code@2.1.224 @openai/codex@0.147.0
 RUN usermod --login kasten --home /home/kasten --move-home node \
     && groupmod --new-name kasten node
 
+# In the image rather than in the home volume: a named volume is seeded from
+# the image only when it is first created, so a config written into $HOME would
+# never see a rebuild. herdr's sockets, logs and session history still live in
+# $HOME, which is the volume, so a session survives a restart.
+COPY shell/herdr.toml /etc/herdr/config.toml
+
 USER kasten
 WORKDIR /vault
-ENV TERM=xterm-256color
+ENV TERM=xterm-256color \
+    HERDR_CONFIG_PATH=/etc/herdr/config.toml
 
 # No EXPOSE. The container is reached over the `web` network by name, and
 # publishing a port would put a root-less but unauthenticated shell on the box.
 #
-# The command ends at `-s` with no session name. `-a` appends the client's
-# `?arg=` fragments after the server's own argv, so `?arg=agent-kasten` runs
-# `tmux new -A -s agent-kasten`. A name here would push the client's name into
-# the next slot, which tmux reads as the command to run in the session.
+# The command ends at `--session` with no name after it. `-a` appends the
+# client's `?arg=` fragments after the server's own argv, so `?arg=agent-kasten`
+# runs `herdr --session agent-kasten`, which herdr documents as use-or-create.
+# A name here would push the client's into the next slot, where it is not an
+# argument to `--session` at all.
 #
 # `-W` is not optional: ttyd has been read-only by default since 1.7.0, and
 # without it the terminal looks alive and drops every keystroke.
-CMD ["ttyd", "-W", "-a", "-b", "/term", "-p", "7681", "tmux", "new", "-A", "-s"]
+CMD ["ttyd", "-W", "-a", "-b", "/term", "-p", "7681", "herdr", "--session"]

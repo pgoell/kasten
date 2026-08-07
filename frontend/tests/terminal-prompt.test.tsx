@@ -40,7 +40,7 @@ describe("TerminalPrompt", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it("refuses a name tmux cannot take, and says why", () => {
+  it("refuses a name herdr cannot take, and says why", () => {
     // A key that does nothing and says nothing reads as a key that is broken,
     // so the rule is on screen rather than only in the regular expression.
     const { onOpen, dialog, field } = renderPrompt();

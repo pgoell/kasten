@@ -26,7 +26,7 @@ move-right, because the leader is registered in normal mode only.
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cf` | Open the new note prompt |
-| `<leader>cs` | Open a terminal, on a tmux session you name |
+| `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>ct` | Start a tab, on one empty pane |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
@@ -142,7 +142,7 @@ goes through.
 tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
-left focused, or for the tmux session when that pane holds a terminal.
+left focused, or for the herdr session when that pane holds a terminal.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
 holding a note it writes the note and empties the pane. On an empty pane it
@@ -162,9 +162,17 @@ through pages rather than through panes.
 ## Terminal
 
 `<leader>cs` puts a shell in the focused pane. It opens a prompt asking what the
-tmux session is called; letters, numbers, `-` and `_`, up to 64 characters. A
+herdr session is called; letters, numbers, `-` and `_`, up to 64 characters. A
 name nothing answers to starts a fresh session, and a name that is already
 running attaches to it.
+
+The multiplexer is [herdr](https://herdr.dev) rather than tmux, running the
+config in `shell/herdr.toml`, which is the one on this VPS at
+`~/.config/herdr/config.toml`, itself migrated from `~/.tmux.conf`. So the
+prefix is `Ctrl+Space` and the keys inside the session are the ones you already
+press over ssh. That config is baked into the image and read through
+`HERDR_CONFIG_PATH`; herdr's own sockets and session history live in the
+container's home volume, which is what makes a session survive a restart.
 
 The shell runs in its own container with the vault mounted at `/vault`, beside
 jj, rg, git, Claude Code and codex. The two agents are fresh installs and sign
@@ -176,8 +184,8 @@ shell with its scrollback and whatever was still running in it. Closing the pane
 detaches a client; it does not kill the session.
 
 The prompt deliberately lists nothing. ttyd cannot answer a query about which
-sessions are running, and `tmux ls` inside any terminal finds a name you have
-forgotten.
+sessions are running, and `herdr session list` inside any terminal finds a name
+you have forgotten.
 
 The keys below are the only ones kasten takes back inside a focused terminal.
 They are not leader keys and cannot be: the leader is the space bar and a shell
@@ -199,6 +207,12 @@ work, not evidence that they are comfortable, and they are expected to change.
 `TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts` are the one
 place to change them; the component, the `<leader>?` panel and its test all
 derive from those two. This table does not, and has to be edited by hand.
+
+They do not collide with herdr's own keys, which is the other reason to hold
+`Ctrl+Shift`: herdr's prefix is `Ctrl+Space`, its tab keys are `Alt+Shift+H` and
+`Alt+Shift+L`, and its pane navigation is `Ctrl+H` through `Ctrl+L`. Kasten
+takes the shifted `Ctrl` variants and leaves all of those alone, so the six
+chords move between kasten's panes and everything else moves within herdr's.
 
 `Ctrl+Shift+H` is also Highlight in the editor. The two never meet: a chord
 pressed in a focused terminal never reaches the editor, and formatting is bound

@@ -57,7 +57,7 @@ Real, working code, not a plan:
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
   `Space c s` puts a shell in the focused pane instead of a note: it asks what
-  the tmux session is called and attaches to it, starting one if nothing
+  the herdr session is called and attaches to it, starting one if nothing
   answers to that name. The pane speaks ttyd's WebSocket protocol itself
   through a pure codec and an xterm terminal, painted in One and fitted to the
   pane, so a terminal pane and a note pane are one window. The leader cannot
@@ -86,8 +86,10 @@ Real, working code, not a plan:
   your text and `:e!` takes the vault's. Until one of them does, every key
   that would leave the note refuses and flashes the bar, the pane and tab
   keys included, and only a mouse click into another pane still writes past it.
-- `shell/`: a Dockerfile, and nothing else. ttyd over tmux on a node base, with
-  the vault mounted and jj, rg, git, Claude Code and codex beside it. The
+- `shell/`: a Dockerfile and a herdr config. ttyd over herdr on a node base,
+  with the vault mounted and jj, rg, git, Claude Code and codex beside it. The
+  config is the one this VPS runs, migrated from its tmux config, baked into
+  the image and read through `HERDR_CONFIG_PATH`. The
   agents are fresh installs signing themselves in inside the container, into a
   named volume; nothing of the host's home is mounted, so the vault is the only
   thing they share with you. It publishes no port; the only route in is a Caddy

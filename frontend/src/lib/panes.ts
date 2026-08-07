@@ -21,7 +21,7 @@ export interface Pane {
   /** Line the editor opens on, which only a search hit names. */
   line?: number;
   /**
-   * The tmux session it holds, absent unless this is a terminal pane.
+   * The herdr session it holds, absent unless this is a terminal pane.
    *
    * A pane holds a note or a terminal, never both. A comment rather than a
    * discriminated union: a union would rewrite every `pane.path` read site to

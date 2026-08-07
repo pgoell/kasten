@@ -136,7 +136,7 @@ Both kasten site blocks in `/home/pascal/Code/server-infra/caddy/Caddyfile` carr
 
 **Every published port binds `127.0.0.1` explicitly.** Docker publishes ports with DNAT rules that ufw never sees, so a bare `"5434:5432"` faces the open internet regardless of firewall rules. Do not drop the prefix.
 
-**The shell container publishes no port at all, and its route carries the auth gate.** `kasten-shell-dev` and `kasten-shell-prod` run ttyd over tmux with the vault mounted, which is a root-less but fully live shell. Two things stand between it and the internet, and there is no third: the container has no `ports` key, so it is reachable only by name on the `web` network, and its Caddy block carries `import oauth2_auth`. Nothing else in this system fails this quietly, because a shell that is reachable looks exactly like a shell that is not until somebody finds it.
+**The shell container publishes no port at all, and its route carries the auth gate.** `kasten-shell-dev` and `kasten-shell-prod` run ttyd over herdr with the vault mounted, which is a root-less but fully live shell. Two things stand between it and the internet, and there is no third: the container has no `ports` key, so it is reachable only by name on the `web` network, and its Caddy block carries `import oauth2_auth`. Nothing else in this system fails this quietly, because a shell that is reachable looks exactly like a shell that is not until somebody finds it.
 
 Prove both after any change to compose or the Caddyfile. On the box:
 

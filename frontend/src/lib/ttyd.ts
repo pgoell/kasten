@@ -85,8 +85,8 @@ export function decodeServer(frame: ArrayBuffer): ServerMessage {
  *
  * The session name goes on the WebSocket URL's query and not on the page's.
  * ttyd's `-a` reads `arg=` fragments off the upgrade request and appends them
- * to the server's own argv, so `?arg=notes` against `ttyd ... tmux new -A -s`
- * runs `tmux new -A -s notes`. A name in the page URL reaches nothing.
+ * to the server's own argv, so `?arg=notes` against `ttyd ... herdr --session`
+ * runs `herdr --session notes`. A name in the page URL reaches nothing.
  */
 export function terminalUrl(session: string): string {
   const scheme = location.protocol === "https:" ? "wss:" : "ws:";

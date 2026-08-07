@@ -41,7 +41,7 @@ function oneTheme(): ITheme {
 }
 
 interface TerminalPaneProps {
-  /** tmux session name, which `?arg=` hands to `tmux new -A -s`. */
+  /** herdr session name, which `?arg=` hands to `herdr --session`. */
   session: string;
   /** What a `TERMINAL` chord reaches. The route hands down the same object the editors get. */
   commands: EditorCommands;
@@ -144,7 +144,7 @@ export function TerminalPane({ session, commands, focusSignal }: TerminalPanePro
       resizing.dispose();
       typing.dispose();
       // StrictMode mounts, cleans up and mounts again in dev, and two live
-      // sockets are two tmux clients on one session mirroring each other. A
+      // sockets are two herdr clients on one session mirroring each other. A
       // socket still opening cannot be closed, so it is closed the moment it
       // opens instead.
       if (socket.readyState === WebSocket.CONNECTING) {

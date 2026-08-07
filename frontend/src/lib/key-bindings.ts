@@ -30,7 +30,7 @@ export interface EditorCommands {
   showLinksOut(): void;
   /** Start a tab holding one empty pane, and go to it. */
   createTab(): void;
-  /** Open a terminal in the focused pane, attached to a tmux session by name. */
+  /** Open a terminal in the focused pane, attached to a herdr session by name. */
   openTerminal(): void;
   /** Put an empty pane beside this one, and move to it. */
   splitRight(): void;
@@ -201,8 +201,8 @@ export const TERMINAL: readonly TerminalBinding[] = [
   { key: "O", label: "Move to the next pane", command: "nextPane" },
   // `closeNote` rather than a command of its own: it empties a pane holding a
   // note and removes an empty one, and a terminal pane holds no note, so this
-  // removes the pane in one press. It does not kill the tmux session, because
-  // closing the socket detaches a client and `tmux new -A` reattaches to
+  // removes the pane in one press. It does not kill the herdr session, because
+  // closing the socket detaches a client and `herdr --session` reattaches to
   // whatever is still running in there.
   { key: "Q", label: "Close the terminal pane", command: "closeNote" },
 ];

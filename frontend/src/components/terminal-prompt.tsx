@@ -10,12 +10,13 @@ import {
 } from "@/lib/overlay-styles";
 
 /**
- * What a tmux session may be called here.
+ * What a herdr session may be called here.
  *
- * tmux forbids `.` and `:` in a session name, and anything needing
- * percent-encoding raises a question about how libwebsockets hands `?arg=`
- * fragments to the command. Narrower than either, and on screen in the prompt
- * so the rule is where the person typing can read it.
+ * herdr keeps a named session in a directory of its own, so the name lands on
+ * a filesystem path, and anything needing percent-encoding raises a question
+ * about how libwebsockets hands `?arg=` fragments to the command. Narrower
+ * than either needs, and on screen in the prompt so the rule is where the
+ * person typing can read it.
  */
 export const SESSION_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -28,11 +29,11 @@ interface TerminalPromptProps {
 }
 
 /**
- * Name the tmux session a pane attaches to, and Enter attaches to it.
+ * Name the herdr session a pane attaches to, and Enter attaches to it.
  *
  * No list under the input, unlike the note prompt: ttyd cannot answer a query
- * about which sessions are running, and `tmux ls` inside any terminal finds a
- * name you have forgotten.
+ * about which sessions are running, and `herdr session list` inside any
+ * terminal finds a name you have forgotten.
  *
  * Its own component rather than a fourth mode on `note-prompt.tsx`, which is
  * built around note paths end to end through `describeNotePath`,
