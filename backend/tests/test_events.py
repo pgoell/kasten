@@ -1,15 +1,17 @@
-"""What the vault reports when something outside kasten writes it.
+"""What the vault reports when something writes it.
 
-The rule here is the listing's rule: an event names a note `GET /api/files`
-would show, and nothing else. The vault carries its own jj repo, and every
-backend write touches it, so without that rule each save would report its own
-bookkeeping back to the editor that caused it.
+Two rules run through these. An event that names a note names one `GET
+/api/files` would show, and anything else the vault holds is reported once, as
+a request for a fresh file listing. Both stop at the hidden rule: the vault
+carries its own jj repo, every backend write touches it, and neither kind of
+event may carry that back to the editor that caused it.
 """
 
 import asyncio
 import hashlib
 import json
 import socket
+from contextlib import suppress
 from itertools import count
 from typing import TYPE_CHECKING
 
@@ -18,6 +20,7 @@ import uvicorn
 from httpx import AsyncClient, TimeoutException
 from watchfiles import Change
 
+from kasten_backend import main
 from kasten_backend.events import VaultEvent, format_sse, is_watchable, to_events
 from kasten_backend.main import app
 
@@ -33,6 +36,9 @@ PATIENCE = 10.0
 Far above the debounce and the write, and there to fail rather than hang: a
 watcher that never fires would otherwise stop the suite dead.
 """
+
+LISTING = VaultEvent(path="", change="listing", digest=None)
+"""The one event that names no note: read the file list again."""
 
 
 def write(root: Path, path: str, text: str) -> Path:
@@ -58,7 +64,10 @@ async def server() -> AsyncIterator[str]:
     listening.listen()
     port = listening.getsockname()[1]
 
-    serving = uvicorn.Server(uvicorn.Config(app, log_level="warning"))
+    # A graceful shutdown waits on open connections forever by default, and a
+    # stream is a connection that has no reason to close. One second is the
+    # difference between a slow test and a CI job that never finishes.
+    serving = uvicorn.Server(uvicorn.Config(app, log_level="warning", timeout_graceful_shutdown=1))
     task = asyncio.create_task(serving.serve(sockets=[listening]))
 
     yield f"http://127.0.0.1:{port}"
@@ -121,14 +130,17 @@ def test_watchable_skips_a_path_outside_the_vault(tmp_path: Path) -> None:
     assert not is_watchable(tmp_path / "vault", str(tmp_path / "elsewhere" / "kasten.md"))
 
 
-def test_to_events_reports_a_new_note_with_its_digest(tmp_path: Path) -> None:
+def test_to_events_reports_a_note_on_disk_as_written(tmp_path: Path) -> None:
+    # An add reads as a write, and has to: a save renames a temp file over the
+    # note, Linux calls that a move into place, and watchfiles calls it added.
+    # A note kasten has held for weeks arrives here as `Change.added`.
     text = "derived index\n"
     note = write(tmp_path, "kasten.md", text)
 
     assert to_events(tmp_path, {(Change.added, str(note))}) == [
         VaultEvent(
             path="kasten.md",
-            change="added",
+            change="written",
             digest=hashlib.sha256(text.encode()).hexdigest(),
         )
     ]
@@ -152,13 +164,14 @@ def test_to_events_spells_the_path_the_way_the_listing_does(tmp_path: Path) -> N
     assert to_events(tmp_path, {(Change.modified, str(note))})[0].path == "projects/kasten.md"
 
 
-def test_to_events_says_nothing_about_a_folder_whose_name_ends_in_md(tmp_path: Path) -> None:
+def test_to_events_names_no_note_for_a_folder_whose_name_ends_in_md(tmp_path: Path) -> None:
     # A folder fires changes of its own, and reading one as a note raises. One
-    # of those on the stream ends it for the client that was listening.
+    # of those on the stream ends it for the client that was listening. It is
+    # still a change to the shape of the vault, so the listing is asked for.
     folder = tmp_path / "notes.md"
     folder.mkdir()
 
-    assert to_events(tmp_path, {(Change.added, str(folder))}) == []
+    assert to_events(tmp_path, {(Change.added, str(folder))}) == [LISTING]
 
 
 def test_to_events_says_nothing_about_a_path_outside_the_vault(tmp_path: Path) -> None:
@@ -173,6 +186,15 @@ def test_to_events_says_nothing_about_the_jj_repo(tmp_path: Path) -> None:
     blob = write(tmp_path, ".jj/repo/store/blob.md", "derived index\n")
 
     assert to_events(tmp_path, {(Change.modified, str(blob))}) == []
+
+
+def test_to_events_asks_for_no_listing_for_the_jj_repo(tmp_path: Path) -> None:
+    # The one that would undo the hidden rule. jj writes files that are not
+    # notes on every save the API makes, and a listing event for each of those
+    # is the same storm the filter exists to stop, one indirection along.
+    blob = write(tmp_path, ".jj/repo/store/blob", "not a note\n")
+
+    assert to_events(tmp_path, {(Change.added, str(blob))}) == []
 
 
 def test_to_events_reads_a_note_that_vanished_as_a_removal(tmp_path: Path) -> None:
@@ -190,7 +212,7 @@ def test_to_events_reports_every_note_a_batch_names(tmp_path: Path) -> None:
     events = to_events(tmp_path, {(Change.added, str(borges)), (Change.modified, str(kasten))})
 
     assert [(event.path, event.change) for event in events] == [
-        ("borges.md", "added"),
+        ("borges.md", "written"),
         ("projects/kasten.md", "written"),
     ]
 
@@ -218,7 +240,7 @@ def test_to_events_reports_a_note_once_however_often_it_changed(tmp_path: Path) 
     assert events == [
         VaultEvent(
             path="kasten.md",
-            change="added",
+            change="written",
             digest=hashlib.sha256(text.encode()).hexdigest(),
         )
     ]
@@ -232,7 +254,58 @@ def test_to_events_does_not_call_a_note_gone_that_was_written_back(tmp_path: Pat
 
     events = to_events(tmp_path, {(Change.deleted, str(note)), (Change.added, str(note))})
 
-    assert [(event.path, event.change) for event in events] == [("kasten.md", "added")]
+    assert [(event.path, event.change) for event in events] == [("kasten.md", "written")]
+
+
+def test_to_events_reads_a_note_it_cannot_open_as_a_removal(tmp_path: Path) -> None:
+    # Gone and unreadable look the same from the other end of the stream, and
+    # both beat an exception, which would end the stream for good and say why
+    # to nobody: the response is already on its way by the time it is raised.
+    note = write(tmp_path, "kasten.md", "derived index\n")
+    note.chmod(0o000)
+
+    assert to_events(tmp_path, {(Change.modified, str(note))}) == [
+        VaultEvent(path="kasten.md", change="removed", digest=None)
+    ]
+
+
+def test_to_events_asks_for_a_listing_when_a_folder_moves(tmp_path: Path) -> None:
+    # The whole reason this kind exists. `rename_folder` is one rename, so the
+    # notes inside it never fire at all: inotify names the folder and nothing
+    # else. Without this the client keeps a row pointing at a note that moved.
+    write(tmp_path, "projects/kasten.md", "derived index\n")
+    (tmp_path / "projects").rename(tmp_path / "done")
+
+    assert to_events(tmp_path, {(Change.added, str(tmp_path / "done"))}) == [LISTING]
+
+
+def test_to_events_asks_for_one_listing_however_much_moved(tmp_path: Path) -> None:
+    # An agent reorganising the vault moves many folders inside one window, and
+    # the client has one file list to read whatever happened to it.
+    folders = [tmp_path / f"folder-{number}" for number in range(4)]
+    for folder in folders:
+        folder.mkdir()
+
+    events = to_events(tmp_path, {(Change.added, str(folder)) for folder in folders})
+
+    assert events == [LISTING]
+
+
+def test_to_events_asks_for_no_listing_when_only_notes_changed(tmp_path: Path) -> None:
+    note = write(tmp_path, "kasten.md", "derived index\n")
+
+    assert LISTING not in to_events(tmp_path, {(Change.modified, str(note))})
+
+
+def test_to_events_puts_the_listing_before_the_notes(tmp_path: Path) -> None:
+    note = write(tmp_path, "kasten.md", "derived index\n")
+    (tmp_path / "projects").mkdir()
+
+    events = to_events(
+        tmp_path, {(Change.modified, str(note)), (Change.added, str(tmp_path / "projects"))}
+    )
+
+    assert events[0] == LISTING
 
 
 def test_format_sse_writes_one_data_line_holding_the_whole_event() -> None:
@@ -272,10 +345,35 @@ async def test_stream_reports_a_note_written_into_the_vault(server: str, vault: 
             pytest.fail(f"the vault reported nothing in {PATIENCE} seconds")
         finally:
             writer.cancel()
+            # Awaited rather than dropped, so a writer that fell over says so
+            # itself instead of turning up as a watcher that never fired.
+            with suppress(asyncio.CancelledError):
+                await writer
 
     assert str(event["path"]).startswith("kasten-")
-    assert event["change"] == "added"
+    assert event["change"] == "written"
     assert event["digest"] == hashlib.sha256(text.encode()).hexdigest()
+
+
+async def test_stream_keeps_a_quiet_connection_alive(
+    server: str, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Nothing writes to this vault, so without the keepalive the socket carries
+    # no bytes at all and neither proxy in front of it can tell the connection
+    # from a dead one. The colon line is a comment the wire format defines and
+    # `EventSource` throws away.
+    monkeypatch.setattr(main, "KEEPALIVE_SECONDS", 0.2)
+
+    async with (
+        AsyncClient(base_url=server, timeout=PATIENCE) as http,
+        http.stream("GET", "/api/events") as response,
+    ):
+        try:
+            line = await asyncio.wait_for(anext(aiter(response.aiter_lines())), PATIENCE)
+        except TimeoutError, TimeoutException:
+            pytest.fail(f"the stream said nothing at all in {PATIENCE} seconds")
+
+    assert line.startswith(":")
 
 
 async def test_stream_ends_at_once_for_a_vault_that_is_not_there(

@@ -26,21 +26,32 @@ forty. Well under the editor's quiet period, so a note the user is not typing
 into reloads before the next autosave would have fired.
 """
 
-ChangeKind = Literal["written", "added", "removed"]
-"""What happened to a note, in the client's words rather than watchfiles'."""
+ChangeKind = Literal["written", "removed", "listing"]
+"""What happened, in the client's words rather than watchfiles'.
+
+Three kinds, and no fourth for a note that is new. Told apart from a write it
+would be a lie: a save renames a temp file over the note, Linux reports a move
+into place, and watchfiles calls that an addition, so a note kasten has held for
+weeks would arrive as new on every save. Whether a note is new is a question
+about what the client already holds, and the client holds the file list to
+answer it with.
+"""
 
 
 @dataclass(frozen=True, slots=True)
 class VaultEvent:
-    """One note the vault says changed."""
+    """One thing the vault says happened."""
 
     path: str
-    """Where the note lives, relative to the vault root, POSIX spelling."""
+    """Where the note lives, relative to the vault root, POSIX spelling.
+
+    Empty on a `listing`, which names no note.
+    """
 
     change: ChangeKind
 
     digest: str | None
-    """sha256 of the text now on disk, or None when there is no text left.
+    """sha256 of the text now on disk, or None when there is no text to read.
 
     The note itself does not travel: a client that wants the new content asks
     for it. The digest is here so a client can tell its own write coming back
@@ -48,14 +59,30 @@ class VaultEvent:
     """
 
 
+def is_inside(root: Path, changed: str) -> bool:
+    """Whether a path watchfiles reported is part of the vault at all.
+
+    Under the root, with nothing hidden along the way, which is the rule
+    `list_markdown_files` walks by. Everything the client hears about passes
+    this first, notes and the listing signal alike, and that is what keeps the
+    colocated jj repo quiet: every write kasten makes touches `.jj`, and a
+    change in there must reach the client in no shape whatever.
+
+    `is_relative_to` rather than a `resolve` on each change: this runs once per
+    changed path and the caller watches an already resolved root.
+    """
+    path = Path(changed)
+    return path.is_relative_to(root) and not any(
+        part.startswith(".") for part in path.relative_to(root).parts
+    )
+
+
 def is_watchable(root: Path, changed: str) -> bool:
     """Whether a path watchfiles reported is a note the vault would list.
 
-    The listing's rules, read for one path: markdown, under the root, and
-    nothing hidden anywhere along the way. The hidden rule is what keeps the
-    vault's colocated jj repo quiet, and it has to be the same rule
-    `list_markdown_files` applies or the watcher would report notes the tree
-    never shows.
+    What `is_inside` says, and markdown on top of it, which is the one rule a
+    folder does not share. A path this refuses but `is_inside` allows is what
+    asks the client for a new file listing.
 
     A directory is refused whatever it is called, which is the rule the listing
     reaches by walking directories rather than matching their names, and the one
@@ -64,21 +91,26 @@ def is_watchable(root: Path, changed: str) -> bool:
     `is_dir` and not `is_file`, because a removal names a path that is already
     gone and has to stay reportable.
 
-    `is_relative_to` rather than a `resolve` on each change: this runs once per
-    changed path and the caller watches an already resolved root.
+    The suffix is asked first, so only a markdown path inside the vault costs
+    the syscall that `is_dir` is.
     """
     path = Path(changed)
-    if path.suffix != SUFFIX or not path.is_relative_to(root) or path.is_dir():
-        return False
-
-    return not any(part.startswith(".") for part in path.relative_to(root).parts)
+    return path.suffix == SUFFIX and is_inside(root, changed) and not path.is_dir()
 
 
 def _digest(note: Path) -> str | None:
-    """sha256 of what the note holds, or None when the note is no longer there."""
+    """sha256 of what the note holds, or None when it cannot be read.
+
+    Gone is the ordinary case and not an error: halfway through a move the old
+    path fires and is already at its new name. A note that is there but will not
+    open answers the same, because unreadable and absent look alike from the far
+    end of the stream, and both beat the alternative. An exception raised here
+    escapes into a response that is already on its way, which ends the stream
+    for good and explains itself to nobody.
+    """
     try:
         return hashlib.sha256(note.read_bytes()).hexdigest()
-    except FileNotFoundError:
+    except OSError:
         return None
 
 
@@ -92,32 +124,54 @@ def to_events(root: Path, changes: set[tuple[Change, str]]) -> list[VaultEvent]:
     them over in would decide, and a removal arriving last would take a note
     that is on disk out of the client's tree.
 
-    Which leaves the disk to say what happened, not watchfiles. A note that is
-    gone by the time this reads it is a removal whatever fired, so the old path
-    of a move reads as one, and a note that is there is an appearance if the
-    batch saw it appear and an edit otherwise.
+    Which leaves the disk to say what happened, not watchfiles. A note that will
+    not open is a removal whatever fired, so the old path of a move reads as one,
+    and a note that opens is a write. Whether that write made the note is not
+    asked, because the answer here would be wrong: see `ChangeKind`.
 
-    Sorted by path, because a set has no order and two clients reading one batch
-    have to be told the same story.
+    Anything else the vault holds gets one `listing` between the lot of them,
+    which is how a folder move is reported at all. `rename_folder` is a single
+    rename, so the notes under it never fire: inotify names the directory and
+    stops. One per batch and not one per path, because the client has one file
+    list to read whatever moved.
+
+    The listing comes first, and its empty path is what sorts it there: the
+    shape of the vault is what the note paths below are spelled against, so a
+    client that reads in order learns where things are before it is told what
+    changed inside them.
+
+    Notes sorted by path, because a set has no order and two clients reading one
+    batch have to be told the same story.
     """
-    watched = {changed for _change, changed in changes if is_watchable(root, changed)}
-    appeared = {changed for change, changed in changes if change is Change.added}
+    inside = {changed for _change, changed in changes if is_inside(root, changed)}
+    notes = {changed for changed in inside if is_watchable(root, changed)}
 
     events = []
 
-    for changed in sorted(watched):
+    if inside - notes:
+        events.append(VaultEvent(path="", change="listing", digest=None))
+
+    for changed in sorted(notes):
         note = Path(changed)
         digest = _digest(note)
-        there: ChangeKind = "added" if changed in appeared else "written"
         events.append(
             VaultEvent(
                 path=note.relative_to(root).as_posix(),
-                change="removed" if digest is None else there,
+                change="removed" if digest is None else "written",
                 digest=digest,
             )
         )
 
     return events
+
+
+KEEPALIVE = ": \n\n"
+"""A line that says nothing, for a stream with nothing to say.
+
+A comment on the wire, which the format defines and `EventSource` drops without
+telling anyone. Written to prove the socket is still there; when to write it is
+the route's business, not the watcher's.
+"""
 
 
 def format_sse(event: VaultEvent) -> str:
@@ -134,9 +188,14 @@ def _watched_root(root: Path) -> Path | None:
     """The vault's real path, or None when there is no directory there.
 
     Resolved because watchfiles reports resolved paths and `is_relative_to`
-    compares them as text: behind a symlinked vault every change would
-    otherwise read as coming from outside. A function of its own only because
-    ruff keeps pathlib out of an async body, and the watcher is one.
+    compares them as text: behind a symlinked vault every change would otherwise
+    read as coming from outside.
+
+    Both calls block the event loop, and moving them into a function of their
+    own does not change that. It is where ruff stops asking, which is honest
+    enough for two stats at connect time and no answer at all for `to_events`,
+    which reads every changed note in the loop. That one is bounded by what a
+    single debounce window can hold, and the vault is local disk.
     """
     base = root.resolve()
     return base if base.is_dir() else None
@@ -149,13 +208,19 @@ async def watch_vault(root: Path) -> AsyncIterator[list[VaultEvent]]:
     nothing while nobody is connected, and this way the root comes in as an
     argument, which is what keeps the caller free to inject it.
 
-    The paths are filtered before watchfiles hands them over as well as after,
-    so a batch of nothing but jj writes never reaches the loop below.
-    `to_events` filters again because it has to be right on its own.
+    The filter is `is_inside` and not `is_watchable`, because a folder move
+    names a directory and nothing else, and refusing directories here would
+    leave the batch empty and the move unreported. watchfiles runs the filter
+    over each raw batch once its own thread hands one back, in Python and after
+    the fact, and yields nothing when that leaves the batch empty. So a window
+    holding only jj's own writes never wakes the loop below, though the thread
+    did the work of collecting them. `to_events` sorts notes from the rest, and
+    filters again because it has to be right on its own.
 
     A vault that is not there reads as one nothing ever happens in, matching
     the listing. `awatch` raises on a missing path, and a fresh checkout must
-    not take the endpoint down with it.
+    not take the endpoint down with it. One deleted after this point stops
+    reporting until the client opens the stream again.
     """
     base = _watched_root(root)
     if base is None:
@@ -164,7 +229,7 @@ async def watch_vault(root: Path) -> AsyncIterator[list[VaultEvent]]:
     async for changes in awatch(
         base,
         debounce=DEBOUNCE_MS,
-        watch_filter=lambda _change, changed: is_watchable(base, changed),
+        watch_filter=lambda _change, changed: is_inside(base, changed),
     ):
         events = to_events(base, changes)
         if events:

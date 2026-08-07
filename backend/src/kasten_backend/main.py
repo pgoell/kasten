@@ -1,5 +1,6 @@
 """FastAPI application entrypoint."""
 
+import asyncio
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -7,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.events import format_sse, watch_vault
+from kasten_backend.events import KEEPALIVE, format_sse, watch_vault
 from kasten_backend.frontmatter import stamp
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
@@ -30,7 +31,17 @@ from kasten_backend.vcs import begin_change, snapshot
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from kasten_backend.events import VaultEvent
+
 app = FastAPI(title="kasten", version="0.1.0")
+
+KEEPALIVE_SECONDS = 30.0
+"""How long a quiet stream waits before writing a line that says nothing.
+
+Long enough to cost nothing, short enough to beat an idle timeout on either
+proxy in front of it. The line itself is `KEEPALIVE`, over in `events.py` with
+the rest of the wire format.
+"""
 
 
 class Health(BaseModel):
@@ -121,16 +132,19 @@ async def search_files(
 
 @app.get("/api/events")
 async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) -> StreamingResponse:
-    """Report every change to the vault that kasten did not make itself.
+    """Report every change to the vault, kasten's own writes included.
 
     Server-sent events, one `data:` line per changed note. The traffic runs one
     way, so this needs none of a WebSocket's machinery, and the browser
     reconnects on its own.
 
+    Nothing here knows which write was kasten's, and nothing tries to: the
+    digest is what settles that at the other end, where the client holds the
+    text it sent and can see its own save come back.
+
     The stream carries no note text, only the path, what happened and a digest
     of what is now on disk. A client that wants the new content reads the note
-    the way it always does, and the digest is how it tells its own write coming
-    back from someone else's.
+    the way it always does.
 
     The watcher lives as long as the connection. Starlette closes this generator
     when the client goes away, which ends the watch with it, so nothing is left
@@ -138,9 +152,36 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
     """
 
     async def report() -> AsyncIterator[str]:
-        async for events in watch_vault(settings.vault_path):
-            for event in events:
-                yield format_sse(event)
+        # The watcher fills a queue from a task of its own rather than being
+        # read directly, so the wait below can time out without touching it.
+        # Cancelling a generator's `__anext__` is what a timeout does, and
+        # `awatch` answers that by ending, which would trade a live watcher for
+        # every keepalive written.
+        batches: asyncio.Queue[list[VaultEvent] | None] = asyncio.Queue()
+
+        async def collect() -> None:
+            async for events in watch_vault(settings.vault_path):
+                batches.put_nowait(events)
+            # There is no vault to watch, so say so rather than sitting here
+            # writing keepalives at a client that will never hear anything.
+            batches.put_nowait(None)
+
+        watching = asyncio.create_task(collect())
+        try:
+            while True:
+                try:
+                    events = await asyncio.wait_for(batches.get(), KEEPALIVE_SECONDS)
+                except TimeoutError:
+                    yield KEEPALIVE
+                    continue
+
+                if events is None:
+                    return
+
+                for event in events:
+                    yield format_sse(event)
+        finally:
+            watching.cancel()
 
     return StreamingResponse(report(), media_type="text/event-stream")
 
