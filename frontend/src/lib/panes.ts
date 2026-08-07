@@ -20,6 +20,16 @@ export interface Pane {
   path?: string;
   /** Line the editor opens on, which only a search hit names. */
   line?: number;
+  /**
+   * The tmux session it holds, absent unless this is a terminal pane.
+   *
+   * A pane holds a note or a terminal, never both. A comment rather than a
+   * discriminated union: a union would rewrite every `pane.path` read site to
+   * buy an invariant one branch in the route already holds, and it would cost
+   * `mapPanes` the property that a terminal pane is skipped by a moved note
+   * with no code at all, because following a move keys on `path`.
+   */
+  term?: string;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -145,6 +155,20 @@ export function openInFocused(layout: Layout, path: string, line?: number): Layo
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, path, line }),
+  });
+}
+
+/**
+ * Put a terminal in the focused pane, replacing whatever was there.
+ *
+ * Written whole for the reason `openInFocused` writes one whole: the note and
+ * the line it opened on are gone, not left behind under a terminal.
+ */
+export function openTerminalInFocused(layout: Layout, session: string): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, term: session }),
   });
 }
 

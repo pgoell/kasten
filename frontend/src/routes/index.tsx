@@ -10,6 +10,7 @@ import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-
 import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
+import { TerminalPane } from "@/components/terminal-pane";
 import { createNote, fetchFiles, fetchNote } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
@@ -25,6 +26,7 @@ import {
   mapPanes,
   nextPane,
   openInFocused,
+  openTerminalInFocused,
   removeFocused,
   splitFocused,
   stepTab,
@@ -355,6 +357,11 @@ function Home() {
         setTreeFocus((previous) => previous + 1);
       },
       createTab: () => moveTo(addTab),
+      // One fixed name until the prompt lands, which is Slice 3's job.
+      // Through `moveTo` rather than `setLayout`, so opening a terminal is
+      // refused while the note in the focused pane stands conflicted, the same
+      // as every other key that moves the focus.
+      openTerminal: () => moveTo((previous) => openTerminalInFocused(previous, "kasten")),
       // A bare `nextPane` and `goToTab` inside these reach the imports, not the
       // keys they are written beside: an object literal's keys are not names in
       // the scope its values are written in.
@@ -500,7 +507,9 @@ function Home() {
               onFocus={(id) => setLayout((previous) => focusPane(previous, id))}
             >
               {(shown, focused) =>
-                shown.path === undefined ? (
+                shown.term !== undefined ? (
+                  <TerminalPane session={shown.term} focusSignal={focused ? focusSignal : 0} />
+                ) : shown.path === undefined ? (
                   // An empty pane is an editor on an empty document, which is
                   // what the window has always shown with no note open. It
                   // costs nothing and it is what keeps every leader key working

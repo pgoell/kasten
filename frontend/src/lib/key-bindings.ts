@@ -30,6 +30,8 @@ export interface EditorCommands {
   showLinksOut(): void;
   /** Start a tab holding one empty pane, and go to it. */
   createTab(): void;
+  /** Open a terminal in the focused pane, attached to a tmux session by name. */
+  openTerminal(): void;
   /** Put an empty pane beside this one, and move to it. */
   splitRight(): void;
   /** Put an empty pane under this one, and move to it. */
@@ -83,6 +85,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // the group and `f` for the thing. Both the editor and the tree resolve a
   // sequence, so nothing else has to be single-key from here on.
   { key: "cf", label: "Create a note", command: "createNote" },
+  // `s` for shell. The third member of the `c` group: `cf` is spent on a note
+  // and `ct` on a tab, so the terminal takes the first letter of what it is.
+  { key: "cs", label: "Open a terminal", command: "openTerminal" },
   // The other half of the `c` group. A tab is a thing you create, so it belongs
   // beside the note rather than under a group of its own.
   { key: "ct", label: "Create a tab", command: "createTab" },

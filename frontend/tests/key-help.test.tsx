@@ -117,6 +117,7 @@ describe("the key tables", () => {
       showBacklinks: () => {},
       showLinksOut: () => {},
       createTab: () => {},
+      openTerminal: () => {},
       splitRight: () => {},
       splitDown: () => {},
       nextPane: () => {},

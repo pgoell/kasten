@@ -85,9 +85,11 @@ export function paneRects(): PaneRect[] {
   });
 }
 
-/** What one tab is called: its number, and the note in the pane it left focused. */
+/** What one tab is called: its number, and what is in the pane it left focused. */
 function tabLabel(tab: Tab): string {
   const focused = panesOf(tab.root).find((pane) => pane.id === tab.focus);
+  // A terminal pane names its tmux session, which is the thing you named it.
+  if (focused?.term !== undefined) return focused.term;
   return focused?.path === undefined ? "empty" : noteName(focused.path);
 }
 

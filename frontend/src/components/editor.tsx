@@ -409,6 +409,7 @@ export function Editor({
             showBacklinks: () => commandsRef.current?.showBacklinks(),
             showLinksOut: () => commandsRef.current?.showLinksOut(),
             createTab: () => commandsRef.current?.createTab(),
+            openTerminal: () => commandsRef.current?.openTerminal(),
             splitRight: () => commandsRef.current?.splitRight(),
             splitDown: () => commandsRef.current?.splitDown(),
             nextPane: () => commandsRef.current?.nextPane(),

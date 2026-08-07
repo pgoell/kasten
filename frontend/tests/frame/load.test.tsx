@@ -59,6 +59,7 @@ const INERT: TreeCommands = {
   showLinksOut: vi.fn(),
   renameFolder: () => {},
   createTab: () => {},
+  openTerminal: () => {},
   splitRight: () => {},
   splitDown: () => {},
   nextPane: () => {},
