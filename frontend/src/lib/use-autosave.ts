@@ -34,13 +34,19 @@ export function useAutosave(path: string | undefined) {
     setStatus("saving");
 
     return saveNote(path, content).then(
-      () => {
-        // Reopening a note reads the cache, so leaving the old text there
-        // would show the edit being undone.
-        queryClient.setQueryData(["note", path], content);
-        // Typing during the write leaves newer text behind us, and that is
-        // not saved however this one went.
-        if (pending.current === null) setStatus("saved");
+      (note) => {
+        // Typing during the write leaves newer text behind us, and that is not
+        // saved however this one went. The cache waits on the same test: the
+        // editor reloads from it, so writing the text that was in the air would
+        // take those newer keystrokes off screen.
+        //
+        // What the vault answered with rather than what was sent, because the
+        // two differ by the `modified` stamp `PUT` writes. Reopening a note
+        // reads this cache, and so does the open editor.
+        if (pending.current === null) {
+          queryClient.setQueryData(["note", path], note.content);
+          setStatus("saved");
+        }
         return true;
       },
       () => {

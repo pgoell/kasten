@@ -105,8 +105,15 @@ export async function moveFolder(from: string, to: string): Promise<Folder> {
   return data;
 }
 
-/** Write one note back to the vault, over the note that is already there. */
-export async function saveNote(path: string, content: string): Promise<void> {
+/**
+ * Write one note back to the vault, over the note that is already there.
+ *
+ * The note that comes back is what landed on disk, not what was sent: `PUT`
+ * stamps a fresh `modified` on the way through. Callers that cache the text
+ * have to cache this one, or their copy is a stamp behind the vault from the
+ * moment the write returns.
+ */
+export async function saveNote(path: string, content: string): Promise<Note> {
   const { data, response } = await client.PUT("/api/files/{path}", {
     params: { path: { path } },
     body: { content },
@@ -115,4 +122,6 @@ export async function saveNote(path: string, content: string): Promise<void> {
   if (!data) {
     throw new Error(`PUT /api/files/${path} failed with ${response.status}`);
   }
+
+  return data;
 }

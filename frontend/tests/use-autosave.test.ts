@@ -6,15 +6,26 @@ import { useAutosave } from "@/lib/use-autosave";
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn() }));
 vi.mock("@/lib/api", () => ({ saveNote }));
 
+/**
+ * The note as the vault holds it once `content` has been written to it.
+ *
+ * `PUT` stamps a fresh `modified` on the way through, so what lands on disk is
+ * never the text that was sent. Every test here writes through that, because
+ * the difference is what the cache and the digest are about.
+ */
+function written(content: string) {
+  return { path: "index.md", content: `${content}\nmodified: now` };
+}
+
 /** A save the test finishes by hand, so the in-flight state can be looked at. */
 function pendingSave() {
   let settle: (() => void) | undefined;
   let fail: (() => void) | undefined;
 
   saveNote.mockImplementationOnce(
-    () =>
-      new Promise<void>((resolve, reject) => {
-        settle = resolve;
+    (_path: string, content: string) =>
+      new Promise((resolve, reject) => {
+        settle = () => resolve(written(content));
         fail = () => reject(new Error("PUT /api/files/index.md failed with 500"));
       }),
   );
@@ -63,7 +74,7 @@ async function idle() {
 describe("useAutosave", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    saveNote.mockResolvedValue(undefined);
+    saveNote.mockImplementation(async (_path: string, content: string) => written(content));
   });
 
   afterEach(() => {
@@ -160,13 +171,29 @@ describe("useAutosave", () => {
     expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
   });
 
-  it("puts what it wrote in the cache, so reopening the note shows it", async () => {
+  it("puts the note the vault wrote in the cache, not the text that was sent", async () => {
+    // The editor reloads from this cache, so a cache one stamp behind disk is
+    // a note that replaces itself under the reader after every single save.
     const note = renderAutosave();
 
     note.change("# edited");
     await idle();
 
-    expect(note.cached("index.md")).toBe("# edited");
+    expect(note.cached("index.md")).toBe(written("# edited").content);
+  });
+
+  it("leaves the cache alone when newer text was typed during the write", async () => {
+    // The editor reloads from this cache too, so putting the text that was in
+    // the air into it takes the newer keystrokes off screen.
+    const note = renderAutosave();
+    const write = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    note.change("# edited again");
+    await write.finish();
+
+    expect(note.cached("index.md")).toBeUndefined();
   });
 
   it("does not call itself saved while newer text is waiting", async () => {

@@ -63,9 +63,11 @@ export const NoteEditor = memo(function NoteEditor({
       key={path}
       initialDoc={data}
       // The same text, read a second time: `initialDoc` opens the note and
-      // this one keeps it up to date, because the query answers again whenever
-      // the vault reports a write to this path. The memo above is untouched by
-      // it, the query living inside this component rather than in its props.
+      // this one keeps it up to date. Two things move that cache: the autosave,
+      // which puts the note the vault answered its write with straight into it,
+      // and a refetch, which the route asks for when the vault reports a write
+      // this editor did not make. The memo above is untouched by either, the
+      // query living inside this component rather than in its props.
       reloadDoc={data}
       commands={commands}
       preview={preview}

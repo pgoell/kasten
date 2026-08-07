@@ -341,9 +341,10 @@ export function Editor({
     const view = viewRef.current;
     if (!view || reloadDoc === undefined) return;
 
-    // The editor's own save comes back through the same query, so most of what
-    // arrives here is the text already on screen. Replacing it with itself is
-    // still a transaction: an undo step, and a cursor that moved for nothing.
+    // The editor's own save comes back through the same query, holding what
+    // the vault answered the write with, so most of what arrives here is the
+    // text already on screen. Replacing it with itself is still a transaction,
+    // and a cursor that moved for nothing.
     const { doc, selection } = view.state;
     if (reloadDoc === doc.toString()) return;
 

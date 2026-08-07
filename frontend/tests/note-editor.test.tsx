@@ -127,7 +127,9 @@ function renderNote(path: string) {
 describe("an open note", () => {
   beforeEach(() => {
     serveVault();
-    saveNote.mockResolvedValue(undefined);
+    // A vault that stamps nothing, so what comes back is what was sent. The
+    // test that turns on the difference writes its own.
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
   });
 
   afterEach(() => {
@@ -266,6 +268,33 @@ describe("an open note", () => {
     await note.reread("index.md");
 
     await waitFor(() => expect(note.text()).toBe("the index note, rewritten"));
+  });
+
+  it("keeps a keystroke typed after a save, which the note's own event would revert", async () => {
+    // The whole loss in one test. `PUT` stamps a fresh `modified`, so the vault
+    // holds text the cache never saw; the write comes back as an event, the
+    // query reads it, and the editor takes it. Anything typed in between is
+    // wiped off the screen, and typing on from there wipes it from the vault.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    saveNote.mockImplementation(async (path: string, content: string) => {
+      const stamped = `${content} stamped`;
+      fetchNote.mockResolvedValue(stamped);
+      return { path, content: stamped };
+    });
+
+    // `x` deletes the character under the cursor, which opens at the top.
+    note.press("x");
+    note.press("s", { ctrlKey: true });
+    await waitFor(() => expect(note.status()).toBe("Saved"));
+
+    // Typed between the write landing and the vault reporting it.
+    note.press("x");
+    await note.reread("index.md");
+    await waitFor(() => expect(fetchNote).toHaveBeenCalledTimes(2));
+
+    expect(note.text()).toBe("e index note stamped");
   });
 
   it("keeps the note on screen when a later read of it fails", async () => {
