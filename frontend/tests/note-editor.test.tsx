@@ -116,6 +116,11 @@ function renderNote(path: string) {
     errorIcon: () => container.querySelector("[data-testid='save-error']"),
     press: (key: string, init?: KeyboardEventInit) =>
       fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key, ...init }),
+    // What an event from the vault does to an open note, and what the query
+    // made of the read that followed. Both go through the client, because a
+    // read that failed while the note stays on screen leaves nothing to wait on.
+    reread: (target: string) => queryClient.invalidateQueries({ queryKey: ["note", target] }),
+    readError: (target: string) => queryClient.getQueryState(["note", target])?.error,
   };
 }
 
@@ -248,6 +253,18 @@ describe("an open note", () => {
     expect(note.text()).toBe("ndex note");
     expect(vi.mocked(StatusBar).mock.calls.length).toBeGreaterThan(0);
     expect(vi.mocked(Editor).mock.calls.length).toBe(0);
+  });
+
+  it("keeps the note on screen when a later read of it fails", async () => {
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockRejectedValue(new Error("GET /api/files/index.md failed with 500"));
+    await note.reread("index.md");
+
+    await waitFor(() => expect(note.readError("index.md")).not.toBeNull());
+    expect(note.text()).toBe("the index note");
+    expect(note.body()).not.toContain("Could not open");
   });
 
   it("says so when the note cannot be read", async () => {

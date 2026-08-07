@@ -52,7 +52,11 @@ export const NoteEditor = memo(function NoteEditor({
   });
 
   if (isPending) return <p className={MESSAGE}>Opening {path}</p>;
-  if (error) return <p className={MESSAGE}>Could not open {path}</p>;
+  // Only while there is nothing to show. Every write to the vault reads this
+  // note again, and a read that failed with the note already open is a blip on
+  // one of those: what is on screen, edits included, is the only copy of it
+  // there is, and swapping it for a message throws that away.
+  if (error && data === undefined) return <p className={MESSAGE}>Could not open {path}</p>;
 
   return (
     <Editor
