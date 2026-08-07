@@ -25,7 +25,6 @@ import {
   mapPanes,
   nextPane,
   openInFocused,
-  panesOf,
   removeFocused,
   splitFocused,
   stepTab,
@@ -65,15 +64,6 @@ function Home() {
   // query parameter is its own feature, and tmux is the thing to copy if it
   // ever earns the work: a session that outlives the window.
   const [layout, setLayout] = useState<Layout>(() => emptyLayout(note, line));
-  // The same arrangement, for the event handler below to read. That handler
-  // lives in an effect that opens one stream for the life of the page, so it
-  // cannot depend on `layout`: every split, every tab and every note opened
-  // would close the stream and open another. The ref is how it sees the panes
-  // as they stand rather than as they stood when the stream opened.
-  const layoutRef = useRef(layout);
-  useEffect(() => {
-    layoutRef.current = layout;
-  }, [layout]);
   // Raised by every key that moves the focus, so the editor in the pane arrived
   // at takes it. A click raises nothing, having already moved the focus itself.
   const [focusSignal, setFocusSignal] = useState(0);
@@ -83,7 +73,15 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
-  const { status, change, save } = useAutosave(pane.path);
+  const { status, change, save, reconcile } = useAutosave(pane.path);
+  // The focused pane's note and the hook holding its unsaved text, for the
+  // event handler below to read. That handler lives in an effect that opens one
+  // stream for the life of the page, so it cannot close over either: opening a
+  // note would close the stream and open another.
+  const focused = useRef({ path: pane.path, reconcile });
+  useEffect(() => {
+    focused.current = { path: pane.path, reconcile };
+  });
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
   const [treeOpen, setTreeOpen] = useState(true);
@@ -178,20 +176,26 @@ function Home() {
       const event = parseVaultEvent(message.data);
       if (event === null) return;
 
-      // A note on screen is holding text the vault has moved past, so the
-      // query behind it refetches and the editor takes what comes back. Every
-      // tab is read and not only the one in front of you: a note is counted
-      // fresh for ten seconds after it was fetched, so a tab you come back to
-      // would draw the old text. A `removed` needs no refetch, there
-      // being nothing left to read, and the pane keeps what it has. A
+      // A note on screen is holding text the vault has moved past, so the query
+      // behind it refetches and the editor takes what comes back. Which panes
+      // hold the note is not asked: `invalidateQueries` refetches the queries
+      // somebody is observing and only marks the rest stale, which is what a
+      // note in a background tab wants anyway. A `removed` needs no refetch,
+      // there being nothing left to read, and the pane keeps what it has. A
       // `listing` names no note at all.
-      if (
-        event.change === "written" &&
-        layoutRef.current.tabs.some((tab) =>
-          panesOf(tab.root).some((shown) => shown.path === event.path),
-        )
-      ) {
-        queryClient.invalidateQueries({ queryKey: ["note", event.path] }, { cancelRefetch: false });
+      //
+      // The focused pane is asked first, and it is the only pane that can be
+      // asked: it is the one the keys reach, so it is the only one that can be
+      // holding text nobody has written yet. A refusal there means the reader's
+      // own edits are on screen and the reload would take them off it.
+      if (event.change === "written") {
+        const { path, reconcile } = focused.current;
+        if (event.path !== path || reconcile(event.digest)) {
+          queryClient.invalidateQueries(
+            { queryKey: ["note", event.path] },
+            { cancelRefetch: false },
+          );
+        }
       }
 
       // A write to a note the tree already draws changes no row, and this is

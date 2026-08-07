@@ -13,6 +13,18 @@ export interface VaultEvent {
   digest: string | null;
 }
 
+/**
+ * The sha256 of `text`, spelled the way an event's `digest` is spelled.
+ *
+ * Lowercase hex over the UTF-8 bytes, which is what Python's `hexdigest()` of
+ * the file's own bytes gives, so a client can hold what it wrote against what
+ * the vault says landed.
+ */
+export async function digestOf(text: string): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /** The kinds this build acts on. A backend saying anything else is ignored. */
 const KINDS: ReadonlySet<string> = new Set(["written", "removed", "listing"]);
 

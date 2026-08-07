@@ -48,6 +48,7 @@ const SAVE_LABEL: Record<SaveStatus, string> = {
   unsaved: "Unsaved changes",
   saving: "Saving",
   error: "Could not save",
+  conflict: "Changed on disk",
 };
 
 // Any smaller and the arrowheads close up into blobs at this stroke width.
@@ -127,7 +128,14 @@ export function StatusBar({ status }: StatusBarProps) {
             aria-label={SAVE_LABEL[status]}
             title={SAVE_LABEL[status]}
           >
-            {status === "error" ? <Warning /> : <Spinner spinning={status !== "saved"} />}
+            {/* The conflict wears the warning rather than the ring for the
+                reason the failure does: nothing is on its way to the vault,
+                and a ring spinning at the reader would say the opposite. */}
+            {status === "error" || status === "conflict" ? (
+              <Warning />
+            ) : (
+              <Spinner spinning={status !== "saved"} />
+            )}
           </span>
         )}
       </div>

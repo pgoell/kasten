@@ -1,4 +1,4 @@
-import { parseVaultEvent } from "@/lib/vault-events";
+import { digestOf, parseVaultEvent } from "@/lib/vault-events";
 
 describe("parseVaultEvent", () => {
   it("reads a note that was written", () => {
@@ -49,5 +49,20 @@ describe("parseVaultEvent", () => {
 
   it("refuses a digest that is neither a string nor null", () => {
     expect(parseVaultEvent('{"path": "notes/a.md", "change": "written", "digest": 7}')).toBeNull();
+  });
+});
+
+describe("digestOf", () => {
+  // The hex Python's `hexdigest()` prints for the same input, which is what the
+  // backend puts on the wire. Both sides have to spell it identically or a
+  // write of our own reads as somebody else's.
+  it.each([
+    ["", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"],
+    ["hello", "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"],
+    // The backend hashes the bytes on disk, so a note holding anything but
+    // ASCII only agrees if this side hashes UTF-8 too.
+    ["Grüße vom Vault\n", "e3c180b9c84038b150509a5639e4452326e61e1c3a2277913263f3899e7d2d33"],
+  ])("hashes %j the way the backend does", async (text, hex) => {
+    await expect(digestOf(text)).resolves.toBe(hex);
   });
 });
