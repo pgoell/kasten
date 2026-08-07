@@ -2,9 +2,26 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { useAutosave } from "@/lib/use-autosave";
+import { digestOf } from "@/lib/vault-events";
+
+// crypto finishes a digest off the event loop, which no fake timer reaches, so
+// the real timer is kept from before the fakes go in. `hashed` below is what
+// the tests wait on for the hash of a write to land.
+const realTimeout = globalThis.setTimeout;
 
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn() }));
 vi.mock("@/lib/api", () => ({ saveNote }));
+
+/**
+ * The note as the vault holds it once `content` has been written to it.
+ *
+ * `PUT` stamps a fresh `modified` on the way through, so what lands on disk is
+ * never the text that was sent. Every test here writes through that, because
+ * the difference is what the cache and the digest are about.
+ */
+function written(content: string) {
+  return { path: "index.md", content: `${content}\nmodified: now` };
+}
 
 /** A save the test finishes by hand, so the in-flight state can be looked at. */
 function pendingSave() {
@@ -12,9 +29,9 @@ function pendingSave() {
   let fail: (() => void) | undefined;
 
   saveNote.mockImplementationOnce(
-    () =>
-      new Promise<void>((resolve, reject) => {
-        settle = resolve;
+    (_path: string, content: string) =>
+      new Promise((resolve, reject) => {
+        settle = () => resolve(written(content));
         fail = () => reject(new Error("PUT /api/files/index.md failed with 500"));
       }),
   );
@@ -38,6 +55,14 @@ function renderAutosave(path = "index.md") {
   return {
     change: (doc: string) => act(() => result.current.change(doc)),
     save: () => act(() => result.current.save()),
+    /** Save the way a key that does something else saves, and report the answer. */
+    saveFirst: async () => {
+      let outcome: boolean | undefined;
+      await act(async () => {
+        outcome = await result.current.saveFirst();
+      });
+      return outcome;
+    },
     /** Save, and report whether the vault ended up holding the text. */
     saved: async () => {
       let outcome: boolean | undefined;
@@ -47,6 +72,21 @@ function renderAutosave(path = "index.md") {
       return outcome;
     },
     status: () => result.current.status,
+    /** Ask the way the editor asks, with the text it is about to put in. */
+    allowReload: (text: string) => {
+      let allowed: boolean | undefined;
+      act(() => {
+        allowed = result.current.allowReload(text);
+      });
+      return allowed;
+    },
+    reconcile: (digest: string | null) => {
+      let reload: boolean | undefined;
+      act(() => {
+        reload = result.current.reconcile(digest);
+      });
+      return reload;
+    },
     open: (next: string) => act(() => rerender({ open: next })),
     unmount: () => act(() => unmount()),
     cached: (of: string) => queryClient.getQueryData(["note", of]),
@@ -60,10 +100,17 @@ async function idle() {
   });
 }
 
+/** Let the digest of what the vault answered with land, which takes a real tick. */
+async function hashed() {
+  await act(async () => {
+    await new Promise((resolve) => realTimeout(resolve, 0));
+  });
+}
+
 describe("useAutosave", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    saveNote.mockResolvedValue(undefined);
+    saveNote.mockImplementation(async (_path: string, content: string) => written(content));
   });
 
   afterEach(() => {
@@ -160,13 +207,29 @@ describe("useAutosave", () => {
     expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
   });
 
-  it("puts what it wrote in the cache, so reopening the note shows it", async () => {
+  it("puts the note the vault wrote in the cache, not the text that was sent", async () => {
+    // The editor reloads from this cache, so a cache one stamp behind disk is
+    // a note that replaces itself under the reader after every single save.
     const note = renderAutosave();
 
     note.change("# edited");
     await idle();
 
-    expect(note.cached("index.md")).toBe("# edited");
+    expect(note.cached("index.md")).toBe(written("# edited").content);
+  });
+
+  it("leaves the cache alone when newer text was typed during the write", async () => {
+    // The editor reloads from this cache too, so putting the text that was in
+    // the air into it takes the newer keystrokes off screen.
+    const note = renderAutosave();
+    const write = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    note.change("# edited again");
+    await write.finish();
+
+    expect(note.cached("index.md")).toBeUndefined();
   });
 
   it("does not call itself saved while newer text is waiting", async () => {
@@ -217,5 +280,135 @@ describe("useAutosave", () => {
 
     expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited");
     expect(note.status()).toBe("saved");
+  });
+
+  it("asks for no reload when the write the vault reports is its own", async () => {
+    // Every write comes back over the stream, this hook's included. Reading
+    // that as somebody else's would flag a false conflict on every autosave
+    // the typing carried on through.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    await idle();
+    await hashed();
+
+    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
+    expect(note.status()).toBe("saved");
+  });
+
+  it("asks for the reload when the buffer holds nothing unwritten", async () => {
+    const note = renderAutosave();
+
+    expect(note.reconcile("0".repeat(64))).toBe(true);
+    expect(note.status()).toBe("saved");
+  });
+
+  it("refuses the reload and says so when text is still waiting", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+
+    expect(note.reconcile("0".repeat(64))).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("keeps saying so while the note is typed into", async () => {
+    // Typing does not settle anything: the vault still holds text this buffer
+    // never saw, and a reading of `unsaved` would promise a write that the
+    // quiet period no longer makes.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.reconcile("0".repeat(64));
+    note.change("# edited more");
+
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("writes nothing on the quiet period while the note stands conflicted", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.reconcile("0".repeat(64));
+    note.change("# edited more");
+    await idle();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("overwrites the vault when saved by hand, which is what clears the conflict", async () => {
+    // `:w` is the reader deciding, and the only way past a conflict. The text
+    // it keeps is theirs, not the vault's.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.reconcile("0".repeat(64));
+    await act(async () => note.save());
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
+    expect(note.status()).toBe("saved");
+
+    // And the quiet period writes again afterwards. A conflict left standing
+    // stops every automatic write there is, and the bar would go on reading
+    // `Saved` while nothing at all reached the vault.
+    note.change("# edited again");
+    await idle();
+
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited again");
+    expect(note.status()).toBe("saved");
+  });
+
+  it("takes anything from the vault while nothing is waiting", async () => {
+    const note = renderAutosave();
+
+    expect(note.allowReload("# somebody else wrote this")).toBe(true);
+    expect(note.status()).toBe("saved");
+  });
+
+  it("takes nothing from the vault while text is waiting, and says so", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+
+    expect(note.allowReload("# somebody else wrote this")).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("says nothing when the text waiting to go out beat its own last write here", async () => {
+    // The answer to our own `PUT`, arriving a keystroke late. Every save moves
+    // the cache, so this is every save the reader typed through, and calling it
+    // a conflict would stop the autosave of somebody who did nothing but type.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    await idle();
+    note.change("# edited more");
+
+    expect(note.allowReload(written("# edited").content)).toBe(false);
+    expect(note.status()).toBe("unsaved");
+  });
+
+  it("writes on the way to another command when nothing is in conflict", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+
+    expect(await note.saveFirst()).toBe(true);
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
+  });
+
+  it("writes nothing on the way to another command while the note stands conflicted", async () => {
+    // Closing the note, moving it, moving a folder above it, reading its
+    // links: all of them save first, and none of them was pressed to decide
+    // that the buffer beats what the vault now holds.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.reconcile("0".repeat(64));
+
+    expect(await note.saveFirst()).toBe(false);
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(note.status()).toBe("conflict");
   });
 });

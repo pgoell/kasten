@@ -20,6 +20,23 @@
      @replit/codemirror-vim so the file tree's cursor reads as the same idea. */
   --color-one-cursor: #ff9696;
   --color-one-line: #181a1f;
+
+  /* What a refused key does to the one reading in the status bar. Long enough
+     to be seen without watching for it, and over before a hand that noticed can
+     press the key again, so the second press starts a flash of its own rather
+     than landing in the middle of this one. It runs once and stops: the element
+     is replaced to play it again. */
+  --animate-flash: flash 400ms ease-out;
+
+  @keyframes flash {
+    from {
+      transform: scale(1.6);
+      color: var(--color-one-yellow);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
 }
 
 html,

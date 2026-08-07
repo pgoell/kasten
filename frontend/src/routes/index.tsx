@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
@@ -10,7 +10,7 @@ import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-
 import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
-import { createNote, fetchFiles } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -31,6 +31,7 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { useAutosave } from "@/lib/use-autosave";
+import { parseVaultEvent } from "@/lib/vault-events";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
@@ -72,7 +73,16 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
-  const { status, change, save } = useAutosave(pane.path);
+  const { status, change, save, saveFirst, revert, isConflicted, allowReload, reconcile } =
+    useAutosave(pane.path);
+  // The focused pane's note and the hook holding its unsaved text, for the
+  // event handler below to read. That handler lives in an effect that opens one
+  // stream for the life of the page, so it cannot close over either: opening a
+  // note would close the stream and open another.
+  const focusedNote = useRef({ path: pane.path, reconcile });
+  useEffect(() => {
+    focusedNote.current = { path: pane.path, reconcile };
+  });
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
   const [treeOpen, setTreeOpen] = useState(true);
@@ -102,12 +112,52 @@ function Home() {
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
+  // Raised each time a key was refused, which flashes the status bar's reading.
+  // A counter for the reason the two above are counters: pressing a refused key
+  // twice is two refusals and both have to read as one. How long the flash
+  // lasts is the bar's own business.
+  const [refused, setRefused] = useState(0);
 
-  /** Rearrange the panes, and hand the focus to whichever one we arrived at. */
-  const moveTo = useCallback((update: (previous: Layout) => Layout) => {
-    setLayout(update);
-    setFocusSignal((previous) => previous + 1);
+  /**
+   * Decline a key where the reader can see it: the bar's one reading flashes.
+   *
+   * Answers null, which is what a refused reload hands back. A dozen keys and
+   * one form of `:e` come through here, and a key that does nothing and says
+   * nothing reads as a key that is broken.
+   */
+  const refuse = useCallback(() => {
+    setRefused((previous) => previous + 1);
+    return null;
   }, []);
+
+  /**
+   * Rearrange the panes, and hand the focus to whichever one we arrived at.
+   *
+   * Refused while the open note stands conflicted. Every one of these moves the
+   * focused pane, which moves the note the autosave follows, and its cleanup
+   * writes what is waiting to the note being left: the overwrite `saveFirst`
+   * declines on every path that asks, arriving here with nobody asked.
+   *
+   * Every key that moves the focus comes through here. The one thing that moves
+   * it without doing so is a click into another pane, which the pane layout
+   * reports once the browser has already moved it, and which is deliberately
+   * left alone below.
+   *
+   * `closeNote` reaches this after a save, by which point there is no conflict
+   * left to catch it.
+   */
+  const moveTo = useCallback(
+    (update: (previous: Layout) => Layout) => {
+      if (isConflicted()) {
+        refuse();
+        return;
+      }
+
+      setLayout(update);
+      setFocusSignal((previous) => previous + 1);
+    },
+    [isConflicted, refuse],
+  );
 
   /**
    * Move to the pane in one direction on screen, staying put at the edge.
@@ -136,6 +186,91 @@ function Home() {
     });
   }, [pane.path, pane.line, navigate]);
 
+  // The vault is the source of truth, so a note written by an agent or an ssh
+  // session is as real as one written here. `/api/events` says what moved and
+  // the tree refetches itself.
+  //
+  // Opened by hand rather than through `openapi-fetch`: the endpoint answers
+  // with a `StreamingResponse`, which carries no schema, so `api-types.ts` has
+  // no entry to generate a client from. Nothing retries either, because
+  // `EventSource` reconnects on its own.
+  //
+  // `queryClient` never changes identity, so this opens one stream for the
+  // life of the page rather than one per note you read.
+  useEffect(() => {
+    const stream = new EventSource("/api/events");
+    // Every open, the first one included. A stream that went down and came
+    // back missed whatever the vault did in between: the backend replays
+    // nothing and `EventSource` reconnects without saying it ever stopped,
+    // which a sleeping laptop or a backend restart guarantees. Asking for the
+    // listing on each open closes that hole by construction. Do not trim it
+    // back to the reconnects, because there is no way to tell them apart here
+    // and the gap comes back with the optimisation.
+    //
+    // At mount this usually beats the query's own first fetch, and with
+    // `cancelRefetch` off it joins that fetch rather than replacing it, so the
+    // redundant open costs nothing and the first paint waits on one walk of
+    // the vault rather than two.
+    stream.onopen = () =>
+      queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
+    stream.onmessage = (message) => {
+      const event = parseVaultEvent(message.data);
+      if (event === null) return;
+
+      // A note on screen is holding text the vault has moved past, so the query
+      // behind it refetches and the editor takes what comes back. Which panes
+      // hold the note is not asked: `invalidateQueries` refetches the queries
+      // somebody is observing and only marks the rest stale, which is what a
+      // note in a background tab wants anyway. A `removed` needs no refetch,
+      // there being nothing left to read, and the pane keeps what it has. A
+      // `listing` names no note at all.
+      //
+      // The focused pane is asked first, and it is the only pane that can be
+      // asked: it is the one the keys reach, so it is the only one that can be
+      // holding text nobody has written yet. A refusal there means the reader's
+      // own edits are on screen and the reload would take them off it.
+      if (event.change === "written") {
+        const { path, reconcile } = focusedNote.current;
+        if (event.path !== path || reconcile(event.digest)) {
+          queryClient.invalidateQueries(
+            { queryKey: ["note", event.path] },
+            { cancelRefetch: false },
+          );
+        }
+      }
+
+      // A write to a note the tree already draws changes no row, and this is
+      // the test that stands in for the `added` kind the backend deliberately
+      // has none of. Read out of the cache rather than off `data` above: the
+      // listing is already in there, and depending on it here would close and
+      // reopen the stream every time it changed.
+      //
+      // The listing read here can be known-wrong, and it is left that way. An
+      // external delete invalidates, and if the note comes back before that
+      // refetch answers, the `written` tests against the array from before it
+      // and returns early, so the refetch lands without the note and the tree
+      // stays short a row until the next event that changes the listing. It
+      // takes two debounce windows inside one `/api/files` round trip, which is
+      // narrow on local disk and heals itself. Dropping the early return would
+      // close it and refetch the whole listing on every autosave instead, and
+      // what that listing costs is the subject of
+      // docs/reference/ranking-performance.md.
+      //
+      // `cancelRefetch` off for the reason it is off above, and here it is the
+      // one that decides what a busy vault costs. An agent writing forty notes
+      // sends one batch, which arrives as forty-one messages and forty-one
+      // tasks, each testing against a listing the refetch has not replaced yet.
+      // On the default every one of them would cancel the last and start again,
+      // and because `fetchFiles` carries no `AbortSignal` the server walks the
+      // whole vault forty-one times regardless. Off, the first walk answers all
+      // of them, which is what the backend's own debounce is for.
+      const paths = queryClient.getQueryData<string[]>(["files"]);
+      if (event.change === "written" && paths?.includes(event.path)) return;
+      queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
+    };
+    return () => stream.close();
+  }, [queryClient]);
+
   const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
@@ -148,15 +283,23 @@ function Home() {
       // Only leave a note once the vault has the text. A failed write keeps it
       // on screen with the warning already in the status bar, because emptying
       // the pane unmounts the editor and the only copy of the edit goes with it.
+      // A note the vault has moved past is not left either: `saveFirst` refuses
+      // it, and the pane stays open with `Changed on disk` in the bar until
+      // `:w` settles it.
       closeNote: async () => {
         if (pane.path === undefined) {
           moveTo(removeFocused);
           return;
         }
-        if (await save()) moveTo(clearFocused);
+        if (await saveFirst()) moveTo(clearFocused);
       },
       showHelp: () => setHelpOpen(true),
-      createNote: (startPath = "") => setPrompt({ mode: "create", startPath }),
+      // Saved first the way a rename is, and for the same reason: the note a
+      // create makes is opened in the focused pane, which moves the autosave's
+      // path out from under text still waiting for the note being left.
+      createNote: async (startPath = "") => {
+        if (await saveFirst()) setPrompt({ mode: "create", startPath });
+      },
       // Save before the prompt opens, not after Enter. `useAutosave` flushes
       // pending text when its path changes, using the render's own closure, so
       // text still waiting when the note moves would be written to a path the
@@ -164,24 +307,31 @@ function Home() {
       // holds the focus, so flushing here is enough. A failed write keeps the
       // prompt shut with the warning already in the status bar, the way
       // `closeNote` refuses to leave.
+      //
+      // The refusal it carries is the pane's own note and nothing else. The
+      // tree renames whatever its cursor sits on, which is usually not what is
+      // open, and a note that changed on disk in one pane is no reason to
+      // refuse to move a note somewhere else in the vault.
       renameNote: async (startPath) => {
         const path = startPath ?? pane.path;
         if (path === undefined) return;
-        if (await save()) setPrompt({ mode: "rename", startPath: path });
+        if (!(await saveFirst()) && path === pane.path) return;
+        setPrompt({ mode: "rename", startPath: path });
       },
       // Saved first for the reason a note's rename is: the note in the focused
       // pane may be one of the notes this moves, and text still waiting would
       // be written to a path the vault no longer has.
       renameFolder: async (startPath) => {
-        if (await save()) setPrompt({ mode: "folder", startPath });
+        // Narrowed the way the note's rename is: only a folder the open note
+        // sits under can move that note's path.
+        const holdsOpenNote = pane.path?.startsWith(`${startPath}/`) ?? false;
+        if (!(await saveFirst()) && holdsOpenNote) return;
+        setPrompt({ mode: "folder", startPath });
       },
-      // No save first, unlike the two renames. They move a path out from under
-      // text still waiting to be written; opening a note leaves every path
-      // where it is, and `useAutosave` flushes on its own when the path it was
-      // given changes.
+      // No save first: opening the panel moves no path. Picking a note out of
+      // it does, and `openInPane` is where that is asked.
       findNote: () => setFinderOpen(true),
-      // No save first, for the reason the finder needs none: searching moves
-      // no path out from under text still waiting to be written.
+      // The same, and for the same reason.
       searchNotes: () => setSearchOpen(true),
       // The one command that needs a note open, because what it shows is what
       // links to that note. With an empty pane there is nothing to ask about,
@@ -189,12 +339,13 @@ function Home() {
       showBacklinks: () => setBacklinksOf(pane.path),
       // The same pair read the other way, and the one of the two that reads the
       // note itself. Saved first so the list holds the link you just typed:
-      // `save` puts the text in the cache this reads it back out of. A write
-      // that failed still opens the panel on the older text, because reading
-      // the links is no reason to hide them.
+      // `saveFirst` puts the text in the cache this reads it back out of. A
+      // write that was refused or that failed still opens the panel, on the
+      // older text: reading the links is no reason to hide them, and it is no
+      // reason to overwrite a note that changed on disk either.
       showLinksOut: async () => {
         if (pane.path === undefined) return;
-        await save();
+        await saveFirst();
         const text = queryClient.getQueryData<string>(["note", pane.path]) ?? "";
         setLinksOut(outgoingLinks(text, data ?? []));
       },
@@ -218,7 +369,59 @@ function Home() {
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
-    [moveTo, movePane, save, pane.path, data, queryClient],
+    [moveTo, movePane, saveFirst, pane.path, data, queryClient],
+  );
+
+  /**
+   * Read the open note off the vault again and answer with its text, `:e`.
+   *
+   * The other way out of a conflict, `:w` being the one that keeps the buffer.
+   * Null back is the refusal `:e` gets on a buffer holding unsaved text.
+   *
+   * The vault and not the cache: a note that changed under unsaved text is a
+   * note this route deliberately did not read again, so what is cached is the
+   * text from before that write, which is neither of the two versions in play.
+   * `fetchQuery` fills the cache on the way through, so reopening the note
+   * reads back what the buffer is about to hold.
+   *
+   * The discard waits on the read rather than leading it. The other order drops
+   * the reader's only copy on the strength of a request that may never land.
+   */
+  const reload = useCallback(
+    async (force: boolean): Promise<string | null> => {
+      const path = pane.path;
+      if (path === undefined) return null;
+
+      const text = await queryClient.fetchQuery({
+        queryKey: ["note", path],
+        queryFn: () => fetchNote(path),
+        // A note counts as fresh for ten seconds here, and `:e` asked for what
+        // the vault holds rather than for whatever that window still has.
+        staleTime: 0,
+      });
+      // A no here is `:e` on a buffer holding edits, and the bar is flashed
+      // rather than left saying nothing about a command that did nothing.
+      return revert(force) ? text : refuse();
+    },
+    [pane.path, queryClient, revert, refuse],
+  );
+
+  /**
+   * Open a note in the focused pane, once the vault holds what was typed here.
+   *
+   * Every way in goes through this: the tree, the finder, search and a
+   * `[[link]]`. Opening another note moves the autosave's path, and its cleanup
+   * writes what is waiting to the note it was typed into, so the same write
+   * `<leader>q` refuses is one click away from happening without being asked.
+   * The refusal cannot live in that cleanup: by then the path has already
+   * changed, and refusing there would trade the other writer's text for the
+   * reader's own.
+   */
+  const openInPane = useCallback(
+    async (path: string, line?: number) => {
+      if (await saveFirst()) setLayout((previous) => openInFocused(previous, path, line));
+    },
+    [saveFirst],
   );
 
   /**
@@ -228,15 +431,14 @@ function Home() {
    * here rather than in the editor, which holds one note and knows nothing of
    * the others. A link to a note that is not there is not a mistake: writing
    * the link before the note is how a vault grows, and following one is the
-   * moment the note begins. No save first, for the reason the finder needs
-   * none: this moves no path out from under text still waiting to be written.
+   * moment the note begins.
    */
   const follow = useCallback(
     (target: string) => {
       const paths = data ?? [];
       const path = wikiLinkPath(target, paths);
       if (paths.includes(path)) {
-        setLayout((previous) => openInFocused(previous, path));
+        void openInPane(path);
         return;
       }
 
@@ -247,7 +449,7 @@ function Home() {
           // reading back a file it just made.
           queryClient.setQueryData(["note", made.path], made.content);
           queryClient.invalidateQueries({ queryKey: ["files"] });
-          setLayout((previous) => openInFocused(previous, made.path));
+          void openInPane(made.path);
         },
         () => {
           // The vault refused the path: a hidden name, or a note standing
@@ -256,7 +458,7 @@ function Home() {
         },
       );
     },
-    [data, queryClient],
+    [data, queryClient, openInPane],
   );
 
   return (
@@ -266,7 +468,7 @@ function Home() {
         <FileExplorer
           paths={data ?? []}
           openPath={pane.path}
-          onOpenFile={(path) => setLayout((previous) => openInFocused(previous, path))}
+          onOpenFile={(path) => void openInPane(path)}
           open={treeOpen}
           onOpenChange={setTreeOpen}
           commands={commands}
@@ -285,6 +487,16 @@ function Home() {
               node={tab.root}
               focus={tab.focus}
               divided={tabPanes(layout).length > 1}
+              // The one way to another pane that `moveTo` does not stand in
+              // front of, and it stays that way on purpose. This is reported
+              // after the browser has moved the focus, so declining it would
+              // leave the cursor blinking in a pane the border says is not the
+              // focused one, and pulling the focus back is a fight with the
+              // browser over a note that is already only one `:w` from being
+              // settled. So a click into another pane while the open note
+              // stands conflicted still leaves it, and the flush still writes.
+              // A test pins that, so closing it later is a decision rather than
+              // an accident.
               onFocus={(id) => setLayout((previous) => focusPane(previous, id))}
             >
               {(shown, focused) =>
@@ -318,6 +530,16 @@ function Home() {
                     // be typed into, and an unfocused pane that somehow did
                     // would be writing its text to the focused pane's path.
                     onChange={focused ? change : IGNORE}
+                    // Asked for the focused pane alone, for the reason its
+                    // typing is reported alone: the autosave follows that pane,
+                    // so any other pane asking would be handing it a question
+                    // about a note it is not holding. An unfocused pane cannot
+                    // be typed into, so it is always clean and always reloads.
+                    allowReload={focused ? allowReload : undefined}
+                    // The focused pane alone, for the reason its typing is
+                    // reported alone: the note this reads is the one the
+                    // autosave follows, which is the note in that pane.
+                    onReload={focused ? reload : undefined}
                     onSave={save}
                     onFollow={follow}
                   />
@@ -327,7 +549,7 @@ function Home() {
           </div>
         </div>
       </div>
-      <StatusBar status={pane.path === undefined ? undefined : status} />
+      <StatusBar status={pane.path === undefined ? undefined : status} flash={refused} />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {prompt !== null && (
         <NotePrompt
@@ -369,7 +591,7 @@ function Home() {
             // stale `line` left behind would drop the cursor somewhere the
             // previous search happened to point at. `openInFocused` writes the
             // pane whole, which is what drops it.
-            setLayout((previous) => openInFocused(previous, path));
+            void openInPane(path);
           }}
           onClose={() => {
             setFinderOpen(false);
@@ -387,7 +609,7 @@ function Home() {
           onOpen={(path, hitLine) => {
             setSearchOpen(false);
             setBacklinksOf(undefined);
-            setLayout((previous) => openInFocused(previous, path, hitLine));
+            void openInPane(path, hitLine);
           }}
           onClose={() => {
             setSearchOpen(false);

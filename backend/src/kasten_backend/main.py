@@ -1,11 +1,14 @@
 """FastAPI application entrypoint."""
 
-from typing import Annotated
+import asyncio
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.frontmatter import stamp
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
@@ -25,7 +28,30 @@ from kasten_backend.vault import (
 )
 from kasten_backend.vcs import begin_change, snapshot
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from kasten_backend.events import VaultEvent
+
 app = FastAPI(title="kasten", version="0.1.0")
+
+KEEPALIVE_SECONDS = 30.0
+"""How long a quiet stream waits before writing a line that says nothing.
+
+Long enough to cost nothing, short enough to beat an idle timeout on either
+proxy in front of it. The line itself is `KEEPALIVE`, over in `events.py` with
+the rest of the wire format.
+"""
+
+RECONNECT_SECONDS = 30.0
+"""How long the client waits before opening the stream again after it closes.
+
+The browser's own default is about three seconds, and a stream that closes the
+moment it opens turns that into a loop: the client relists the vault on every
+connection, so a missing vault directory or a watcher that cannot start would
+cost twenty relists a minute for as long as the condition holds. This makes it
+two. It matches `KEEPALIVE_SECONDS` by coincidence rather than by need.
+"""
 
 
 class Health(BaseModel):
@@ -112,6 +138,77 @@ async def search_files(
     """
     hits = await search_vault(settings.vault_path, q)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.get("/api/events")
+async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) -> StreamingResponse:
+    """Report every change to the vault, kasten's own writes included.
+
+    Server-sent events, one `data:` line per changed note. The traffic runs one
+    way, so this needs none of a WebSocket's machinery, and the browser
+    reconnects on its own.
+
+    Nothing here knows which write was kasten's, and nothing tries to: the
+    digest is what settles that at the other end, where the client holds the
+    text it sent and can see its own save come back.
+
+    The stream carries no note text, only the path, what happened and a digest
+    of what is now on disk. A client that wants the new content reads the note
+    the way it always does.
+
+    The watcher lives as long as the connection. Starlette closes this generator
+    when the client goes away, which ends the watch with it, so nothing is left
+    running for a reader that has gone.
+    """
+
+    async def report() -> AsyncIterator[str]:
+        # Before the watcher is even asked for, because both of the ways this
+        # stream closes early close it before anything else could be written,
+        # and those are the two that make the number matter.
+        yield format_retry(RECONNECT_SECONDS)
+
+        # The watcher fills a queue from a task of its own rather than being
+        # read directly, so the wait below can time out without touching it.
+        # Cancelling a generator's `__anext__` is what a timeout does, and
+        # `awatch` answers that by ending, which would trade a live watcher for
+        # every keepalive written.
+        batches: asyncio.Queue[list[VaultEvent] | None] = asyncio.Queue()
+
+        async def collect() -> None:
+            try:
+                async for events in watch_vault(settings.vault_path):
+                    batches.put_nowait(events)
+            finally:
+                # Every way out of the watcher has to end up here, a raise as
+                # much as a return. A stream that keeps writing keepalives over
+                # a watcher that died looks healthier than one that closed, and
+                # `EventSource` reconnects from closed and never from this. The
+                # silence would be exactly the loss this endpoint exists to
+                # prevent, and an exhausted inotify limit is enough to cause it.
+                batches.put_nowait(None)
+
+        watching = asyncio.create_task(collect())
+        try:
+            while True:
+                try:
+                    events = await asyncio.wait_for(batches.get(), KEEPALIVE_SECONDS)
+                except TimeoutError:
+                    yield KEEPALIVE
+                    continue
+
+                if events is None:
+                    # Awaited rather than dropped, so a watcher that fell over
+                    # says why in the log on its way out. It raises here, which
+                    # closes the stream just as returning would.
+                    await watching
+                    return
+
+                for event in events:
+                    yield format_sse(event)
+        finally:
+            watching.cancel()
+
+    return StreamingResponse(report(), media_type="text/event-stream")
 
 
 @app.get("/api/files/{path:path}")

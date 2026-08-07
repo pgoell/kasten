@@ -125,6 +125,15 @@ Container dependency trees live in `.container/`, deliberately separate from the
 
 **`.container/node_modules` outlives a restart, and a stale one breaks dev quietly.** It is the tree the frontend container installs into, so `dev:restart` cannot clear it. After the move from pnpm to bun it held both layouts at once, and dev served the page with a 500 on the stylesheet, `ENOENT` on a path under `node_modules/.pnpm/`. Wipe it and let the container reinstall. [Run the checks](../docs/how-to/run-the-checks.md) has the commands, and the reason you recreate the directory yourself rather than letting Docker do it.
 
+**`/api/events` must not be compressed.** It is a server-sent event stream that stays open and pushes vault changes as they happen. A reverse proxy that gzips it buffers the whole response instead, so the browser holds a connection that never delivers a byte and never errors either: it reads as healthy, nothing is logged, and nobody works it out from the behaviour. Caddy's `reverse_proxy` flushes `text/event-stream` on its own, so `encode` is the only thing on the path that can do this, and the fix is a request matcher rather than a response one, because `not` inside `encode` is rejected as an unrecognised response matcher:
+
+```caddyfile
+@compressible not path /api/events
+encode @compressible gzip
+```
+
+Both kasten site blocks in `/home/pascal/Code/server-infra/caddy/Caddyfile` carry it, and everything else stays compressed. That file lives in another repo, which is why the requirement is written down here.
+
 **Every published port binds `127.0.0.1` explicitly.** Docker publishes ports with DNAT rules that ufw never sees, so a bare `"5434:5432"` faces the open internet regardless of firewall rules. Do not drop the prefix.
 
 ## Looking at dev in a browser

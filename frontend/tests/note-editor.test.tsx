@@ -46,7 +46,10 @@ const follow = () => {};
 
 /** What the route puts around an open note: autosave, the editor, the bar. */
 function OpenNote({ path }: { path: string }) {
-  const { status, change, save } = useAutosave(path);
+  // What the route wires, and the reason this harness exists: the editor asks
+  // the autosave before it takes the vault's text, and the autosave is what
+  // knows whether anything is waiting.
+  const { status, change, save, allowReload } = useAutosave(path);
   // Held across renders because the route holds it across renders too. A fresh
   // literal here would hand the editor a new prop on every keystroke, and the
   // render-count test below would then be measuring this harness rather than
@@ -88,6 +91,7 @@ function OpenNote({ path }: { path: string }) {
         onChange={change}
         onSave={save}
         onFollow={follow}
+        allowReload={allowReload}
       />
       <StatusBar status={status} />
     </>
@@ -116,13 +120,20 @@ function renderNote(path: string) {
     errorIcon: () => container.querySelector("[data-testid='save-error']"),
     press: (key: string, init?: KeyboardEventInit) =>
       fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key, ...init }),
+    // What an event from the vault does to an open note, and what the query
+    // made of the read that followed. Both go through the client, because a
+    // read that failed while the note stays on screen leaves nothing to wait on.
+    reread: (target: string) => queryClient.invalidateQueries({ queryKey: ["note", target] }),
+    readError: (target: string) => queryClient.getQueryState(["note", target])?.error,
   };
 }
 
 describe("an open note", () => {
   beforeEach(() => {
     serveVault();
-    saveNote.mockResolvedValue(undefined);
+    // A vault that stamps nothing, so what comes back is what was sent. The
+    // test that turns on the difference writes its own.
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
   });
 
   afterEach(() => {
@@ -248,6 +259,146 @@ describe("an open note", () => {
     expect(note.text()).toBe("ndex note");
     expect(vi.mocked(StatusBar).mock.calls.length).toBeGreaterThan(0);
     expect(vi.mocked(Editor).mock.calls.length).toBe(0);
+  });
+
+  it("takes text written to the note while it is open", async () => {
+    // The whole path in one test: something else writes the vault, the query
+    // behind the open note reads it again, and the editor takes what comes
+    // back. `editor.test.tsx` proves the effect; this proves it is reached.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockResolvedValue("the index note, rewritten");
+    await note.reread("index.md");
+
+    await waitFor(() => expect(note.text()).toBe("the index note, rewritten"));
+  });
+
+  it("keeps writing when a keystroke lands between a write and its answer", async () => {
+    // The narrowest gap in this whole feature, and the one that costs the most.
+    // Every `PUT` answers with a fresh stamp, so every save moves the cache and
+    // every save reloads; React runs that reload a task later, and a keystroke
+    // reaching the buffer first would make the answer to our own write look
+    // like somebody else's. Flagged as a conflict, ordinary continuous typing
+    // stops reaching the vault at all and the bar says so an edit too late.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    // The stamp is idempotent, so the second write reads as clearly as the
+    // first: what is on screen at the end names how many landed.
+    const stamp = (content: string) => `${content.replace(/ stamped$/, "")} stamped`;
+    let answer: (() => void) | undefined;
+    saveNote.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          answer = () => resolve({ path, content: stamp(content) });
+        }),
+    );
+    saveNote.mockImplementation(async (path: string, content: string) => ({
+      path,
+      content: stamp(content),
+    }));
+
+    note.press("x");
+    note.press("s", { ctrlKey: true });
+    await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
+
+    // Answered outside `act`, so the keystroke below lands in the gap the way
+    // a reader's does: after the promise settles, before React has run the
+    // effect that takes the answer in.
+    const renders = vi.mocked(Editor).mock.calls.length;
+    answer?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    note.press("x");
+
+    // Nothing goes into the buffer while it holds text nobody has written yet.
+    // The answer is a `PUT` behind this keystroke, so putting it in would take
+    // the keystroke off the screen and invite the reader to carry on from text
+    // that has already been superseded. It waits for the next quiet write.
+    //
+    // The wait is for the render that carries the answer down the tree, whose
+    // effect is the one that decides, so what follows is about the decision
+    // rather than about the clock.
+    await waitFor(() => expect(vi.mocked(Editor).mock.calls.length).toBeGreaterThan(renders));
+    expect(note.text()).toBe("e index note");
+
+    // The quiet period writes again, which it cannot do from a conflict, and
+    // what comes back carries the stamp: both keystrokes and one more write.
+    await waitFor(() => expect(note.text()).toBe("e index note stamped"), { timeout: 2000 });
+    expect(note.status()).toBe("Saved");
+  });
+
+  it("keeps unsaved text on screen when a write from the vault lands under it", async () => {
+    // The three parts wired together, which is the only place this is true.
+    // The buffer was clean when the vault reported the write, so the read went
+    // out; the reader typed while it was in flight. Deciding when the event
+    // arrives and dispatching when the answer lands are not the same moment,
+    // and the editor asks again at the second one.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockResolvedValue("the index note, rewritten elsewhere");
+    // `x` deletes the character under the cursor, which opens at the top.
+    note.press("x");
+    await note.reread("index.md");
+    await waitFor(() => expect(fetchNote).toHaveBeenCalledTimes(2));
+
+    expect(note.text()).toBe("he index note");
+    // The refusal reaches the bar a render later than it reaches the document.
+    await waitFor(() => expect(note.status()).toBe("Changed on disk"));
+  });
+
+  it("takes a write from the vault when nothing is waiting, and says nothing about it", async () => {
+    // The other side of the test above: a clean buffer is what the reload is
+    // for, and refusing every reload would pass that one on its own.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockResolvedValue("the index note, rewritten elsewhere");
+    await note.reread("index.md");
+
+    await waitFor(() => expect(note.text()).toBe("the index note, rewritten elsewhere"));
+    expect(note.status()).toBe("Saved");
+  });
+
+  it("keeps a keystroke typed after a save, which the note's own event would revert", async () => {
+    // The whole loss in one test. `PUT` stamps a fresh `modified`, so the vault
+    // holds text the cache never saw; the write comes back as an event, the
+    // query reads it, and the editor takes it. Anything typed in between is
+    // wiped off the screen, and typing on from there wipes it from the vault.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    saveNote.mockImplementation(async (path: string, content: string) => {
+      const stamped = `${content} stamped`;
+      fetchNote.mockResolvedValue(stamped);
+      return { path, content: stamped };
+    });
+
+    // `x` deletes the character under the cursor, which opens at the top.
+    note.press("x");
+    note.press("s", { ctrlKey: true });
+    await waitFor(() => expect(note.status()).toBe("Saved"));
+
+    // Typed between the write landing and the vault reporting it.
+    note.press("x");
+    await note.reread("index.md");
+    await waitFor(() => expect(fetchNote).toHaveBeenCalledTimes(2));
+
+    expect(note.text()).toBe("e index note stamped");
+  });
+
+  it("keeps the note on screen when a later read of it fails", async () => {
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockRejectedValue(new Error("GET /api/files/index.md failed with 500"));
+    await note.reread("index.md");
+
+    await waitFor(() => expect(note.readError("index.md")).not.toBeNull());
+    expect(note.text()).toBe("the index note");
+    expect(note.body()).not.toContain("Could not open");
   });
 
   it("says so when the note cannot be read", async () => {

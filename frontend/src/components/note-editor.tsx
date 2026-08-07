@@ -17,6 +17,10 @@ interface NoteEditorProps {
   focusSignal?: number;
   onChange: (doc: string) => void;
   onSave: () => void;
+  /** Asked before the vault's text goes in, and can refuse. See `Editor`. */
+  allowReload?: (text: string) => boolean;
+  /** Asked for the vault's text on `:e`, and can refuse. See `Editor`. */
+  onReload?: (force: boolean) => Promise<string | null>;
   /** Called with the note a `[[link]]` names, which only the route can resolve. */
   onFollow: (target: string) => void;
 }
@@ -45,6 +49,8 @@ export const NoteEditor = memo(function NoteEditor({
   onChange,
   onSave,
   onFollow,
+  allowReload,
+  onReload,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -52,17 +58,30 @@ export const NoteEditor = memo(function NoteEditor({
   });
 
   if (isPending) return <p className={MESSAGE}>Opening {path}</p>;
-  if (error) return <p className={MESSAGE}>Could not open {path}</p>;
+  // Only while there is nothing to show. Every write to the vault reads this
+  // note again, and a read that failed with the note already open is a blip on
+  // one of those: what is on screen, edits included, is the only copy of it
+  // there is, and swapping it for a message throws that away.
+  if (error && data === undefined) return <p className={MESSAGE}>Could not open {path}</p>;
 
   return (
     <Editor
       key={path}
       initialDoc={data}
+      // The same text, read a second time: `initialDoc` opens the note and
+      // this one keeps it up to date. Two things move that cache: the autosave,
+      // which puts the note the vault answered its write with straight into it,
+      // and a refetch, which the route asks for when the vault reports a write
+      // this editor did not make. The memo above is untouched by either, the
+      // query living inside this component rather than in its props.
+      reloadDoc={data}
       commands={commands}
       preview={preview}
       paths={paths}
       startLine={startLine}
       focusSignal={focusSignal}
+      allowReload={allowReload}
+      onReload={onReload}
       onChange={onChange}
       onSave={onSave}
       onFollow={onFollow}

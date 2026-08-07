@@ -9,9 +9,9 @@ status: stable
 
 # HTTP API
 
-The backend serves seven endpoints. Three read, four write. The interactive
-schema is at `/docs` while the backend runs, and the machine-readable one at
-`/openapi.json`.
+The backend serves nine endpoints. Four read, four write, and one streams. The
+interactive schema is at `/docs` while the backend runs, and the
+machine-readable one at `/openapi.json`.
 
 ## GET /api/health
 
@@ -82,6 +82,62 @@ client ranks everything it is handed and cuts afterwards, the rows on screen
 are the best of the match set rather than the head of it, and 2,000 is the
 whole match set for anything but the most common word in a vault.
 
+## GET /api/events
+
+Reports every change to the vault as server-sent events, one `data:` line per
+change. The response stays open until the client goes away.
+
+```
+retry: 30000
+
+data: {"path": "daily/2026-08-05.md", "change": "written", "digest": "3fda1d2d4bdf392f4939d3d3d02a091bf16144d45b4cf691ae4c2f7662f14674"}
+```
+
+Each event names a path, what happened to it, and a digest of what is on disk
+now. There are three kinds:
+
+* `written`: the note is on disk, and `digest` is the sha256 of its bytes.
+* `removed`: the note is gone, and `digest` is `null`.
+* `listing`: the shape of the vault moved. `path` is empty, `digest` is `null`,
+  and the client rereads `GET /api/files`.
+
+`listing` is how a folder move arrives. `PATCH /api/folders/{path}` is a single
+rename, so the kernel names the directory and stops: no note under it fires at
+all, and without this the client would keep drawing rows for notes that had
+moved. One per batch whatever moved, because there is one file list to reread.
+
+There is no kind for a note that is new. A write renames a temp file over the
+note, Linux reports that as a move into place, and a note kasten has held for
+weeks would announce itself as new on every save. Whether a note is new is a
+question about the file list the client already holds, so the client answers it
+there.
+
+Nothing under a dot-directory is ever reported, which is the rule
+`GET /api/files` lists by. That is what keeps the vault's own jj repo off the
+stream: every write the backend makes touches `.jj`, and a save that reported
+its own bookkeeping would say more about the repo than about the note.
+
+The stream carries no note text, only the path, the kind and the digest. A
+client that wants the new content reads the note the way it always does. The
+digest is what lets it tell its own write coming back from someone else's:
+kasten's writes are reported like any other, and nothing here tries to know
+which was which.
+
+Two lines are not events. A `retry:` field goes out first, telling the browser
+to wait 30 seconds before opening the stream again, and a comment line goes out
+every 30 seconds so that a quiet connection does not read as a dead one to the
+proxies in front of it. `EventSource` swallows both before any handler sees
+them.
+
+Changes are gathered over a 100ms window, so an agent rewriting forty notes
+costs a handful of messages rather than forty. A vault directory that does not
+exist reads as one nothing ever happens in, so a fresh checkout still serves.
+
+The stream must not be compressed on the way out. A proxy that gzips it buffers
+the whole response, and the client then holds a connection that never delivers
+a byte and never errors either.
+[deploy/README.md](../../deploy/README.md) gives the Caddy fix.
+
 ## GET /api/files/{path}
 
 Reads one note. `path` is a vault-relative POSIX path, exactly as it appears in
@@ -135,9 +191,15 @@ The write goes to a hidden temp file beside the target and is then renamed over
 it. The rename is atomic, so a crash halfway through leaves the old note whole
 rather than half a new one.
 
-There is no conflict detection. One user, and the last write wins. A note
-edited by hand or by `git pull` while it is open in the browser is overwritten
-by the browser. What makes that safe to live with is the history below.
+The write detects no conflict of its own. One user, and a `PUT` whose base has
+moved is not refused, so at this layer the last write still wins.
+
+What a note edited by hand or by `git pull` costs is settled a layer up, over
+[the change stream](#get-apievents). The browser is told when the vault changes
+under it: a note nobody is typing into takes the new text, and a note holding
+unsaved edits stops autosaving and says `Changed on disk` rather than writing
+over what landed. A client that does not read the stream overwrites the way it
+always did, and the history below is what gets the old text back either way.
 
 ### What the write records
 

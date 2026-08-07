@@ -11,13 +11,28 @@ describe("StatusBar", () => {
     expect(container.querySelector("footer")).not.toBeNull();
   });
 
-  it("names the state for anyone who cannot see the ring", () => {
-    const { container } = render(<StatusBar status="unsaved" />);
+  it.each([
+    ["saved", "Saved"],
+    ["unsaved", "Unsaved changes"],
+    ["saving", "Saving"],
+    ["error", "Could not save"],
+    ["conflict", "Changed on disk"],
+  ] as const)("names the %s state for anyone who cannot see the ring", (status, label) => {
+    const { container } = render(<StatusBar status={status} />);
 
     expect(container.querySelector("[data-testid='save-status']")).toHaveAttribute(
       "aria-label",
-      "Unsaved changes",
+      label,
     );
+  });
+
+  it("shows the warning sign rather than the ring when the note changed on disk", () => {
+    // A spinning ring reads as a write on its way out, and while the note
+    // stands conflicted nothing is on its way anywhere until `:w`.
+    const { container } = render(<StatusBar status="conflict" />);
+
+    expect(container.querySelector("[data-testid='save-error']")).not.toBeNull();
+    expect(container.querySelector("[data-testid='save-spinner']")).toBeNull();
   });
 });
 

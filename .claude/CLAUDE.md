@@ -18,9 +18,10 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Eight
-  endpoints, `/api/health`, `/api/files`, `/api/search`, `GET`, `POST`, `PUT`
-  and `PATCH` on `/api/files/{path}`, and `PATCH` on `/api/folders/{path}`. A create starts a
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Nine
+  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/events`, `GET`,
+  `POST`, `PUT` and `PATCH` on `/api/files/{path}`, and `PATCH` on
+  `/api/folders/{path}`. A create starts a
   note holding its frontmatter and makes the folders on the way to it; a `PATCH`
   gives a note or a folder a new path and takes the folders it emptied with it. A folder moves in
   one rename, so its whole subtree arrives together. Both moves rewrite every
@@ -30,7 +31,11 @@ Real, working code, not a plan:
   vault has none. Every note carries a `---` block holding a uuid7 `id`, a
   `created` date and a `modified` date; a create writes it and a save rewrites
   the date, keeping the id, the creation date and every field that is not
-  kasten's. Settings via pydantic-settings with the `KASTEN_` prefix.
+  kasten's. `/api/events` streams every change to the vault as server-sent
+  events, one per note with a sha256 of what is on disk, plus one `listing`
+  when the shape of the vault moved, which is how a folder move arrives.
+  Nothing under a dot-directory is reported, so the jj repo stays off it.
+  Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
   that opens the note you click and writes it back as you type, or on `:w`.
@@ -64,6 +69,13 @@ Real, working code, not a plan:
   `?line=`, and the note follows a folder that moves out from under it. The
   frontmatter is drawn as YAML rather than as markdown, and the cursor opens on
   the first line under it.
+  One `EventSource` on `/api/events` answers what the vault does behind the
+  app: the tree refetches its listing, a note nobody is typing into takes the
+  new text with the cursor where it was, and one holding unsaved edits stops
+  autosaving and reads `Changed on disk`. Two commands end that: `:w` keeps
+  your text and `:e!` takes the vault's. Until one of them does, every key
+  that would leave the note refuses and flashes the bar, the pane and tab
+  keys included, and only a mouse click into another pane still writes past it.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release.
 - `vault/`: the notes, and a colocated jj repo holding their history.
