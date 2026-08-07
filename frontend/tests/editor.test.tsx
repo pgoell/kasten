@@ -290,6 +290,21 @@ describe("Editor reloaded from the vault", () => {
     expect(deleteCurrentLine(container)).toBe("onetwofourfive");
   });
 
+  it("costs no undo step when the vault hands back the text already open", () => {
+    // An autosave's own text comes back through the query, and replacing the
+    // document with itself is still a transaction: `u` would undo nothing at
+    // all rather than the edit before it, once for every save.
+    const { container, rerender } = render(<Editor initialDoc={DOC} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    // The line the cursor opens on, so the document now stands one line short.
+    deleteCurrentLine(container);
+
+    rerender(<Editor initialDoc={DOC} reloadDoc={"two\nthree\nfour"} />);
+    fireEvent.keyDown(content, { key: "u" });
+
+    expect(content.textContent).toBe("onetwothreefour");
+  });
+
   it("dispatches nothing when the vault hands back the text already open", () => {
     const onChange = vi.fn();
     const { container, rerender } = render(

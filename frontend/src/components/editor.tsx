@@ -290,7 +290,10 @@ export function Editor({
           oneDark,
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {
-            if (update.docChanged && !update.transactions.some((tr) => tr.annotation(fromVault))) {
+            // `every` and not `some`: an update carrying the reload alongside
+            // something the user typed is an update whose text has to be
+            // written, and the keystroke in it would go unreported otherwise.
+            if (update.docChanged && !update.transactions.every((tr) => tr.annotation(fromVault))) {
               onChangeRef.current?.(update.state.doc.toString());
             }
           }),

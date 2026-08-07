@@ -255,6 +255,19 @@ describe("an open note", () => {
     expect(vi.mocked(Editor).mock.calls.length).toBe(0);
   });
 
+  it("takes text written to the note while it is open", async () => {
+    // The whole path in one test: something else writes the vault, the query
+    // behind the open note reads it again, and the editor takes what comes
+    // back. `editor.test.tsx` proves the effect; this proves it is reached.
+    const note = renderNote("index.md");
+    await waitFor(() => expect(note.text()).toBe("the index note"));
+
+    fetchNote.mockResolvedValue("the index note, rewritten");
+    await note.reread("index.md");
+
+    await waitFor(() => expect(note.text()).toBe("the index note, rewritten"));
+  });
+
   it("keeps the note on screen when a later read of it fails", async () => {
     const note = renderNote("index.md");
     await waitFor(() => expect(note.text()).toBe("the index note"));
