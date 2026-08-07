@@ -76,12 +76,17 @@ services:
     user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
     volumes:
       - ./vault:/vault
-      # The agents' own credentials and settings, so a shell in here is signed
-      # in the way the host is. Not the docker socket: nothing in here needs to
-      # start a container, and handing one out is handing out root on the box.
-      - ${HOME}/.claude:/home/kasten/.claude
-      - ${HOME}/.claude.json:/home/kasten/.claude.json
-      - ${HOME}/.codex:/home/kasten/.codex
+      # The agents' home, and nothing of the host's. Claude Code and codex are
+      # installed fresh in the image and sign themselves in here, so the host's
+      # `~/.claude`, `~/.claude.json` and `~/.codex` are deliberately not
+      # mounted: an agent in this container is its own install with its own
+      # settings, not a second window onto yours. A named volume rather than
+      # the image layer, or `dev:up --build` would ask you to log in again on
+      # every Dockerfile change.
+      #
+      # Not the docker socket either: nothing in here needs to start a
+      # container, and handing one out is handing out root on the box.
+      - kasten-shell-home:/home/kasten
     restart: unless-stopped
     # No `ports`. The only route in is Caddy on the `web` network, behind
     # `import oauth2_auth`. Publishing one would put a shell on the internet.
@@ -125,6 +130,11 @@ services:
     networks:
       - default
       - web
+
+volumes:
+  # Whatever the agents write about themselves: a login, a history, settings
+  # they were given inside the container. Kept off the host's home on purpose.
+  kasten-shell-home:
 
 networks:
   web:

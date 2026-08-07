@@ -87,10 +87,12 @@ Real, working code, not a plan:
   that would leave the note refuses and flashes the bar, the pane and tab
   keys included, and only a mouse click into another pane still writes past it.
 - `shell/`: a Dockerfile, and nothing else. ttyd over tmux on a node base, with
-  the vault mounted and jj, rg, git, Claude Code and codex beside it. It
-  publishes no port; the only route in is a Caddy `handle /term/*` carrying
-  `import oauth2_auth`. The one dev service built on the box, because there is
-  no reload loop to bind-mount a tree into.
+  the vault mounted and jj, rg, git, Claude Code and codex beside it. The
+  agents are fresh installs signing themselves in inside the container, into a
+  named volume; nothing of the host's home is mounted, so the vault is the only
+  thing they share with you. It publishes no port; the only route in is a Caddy
+  `handle /term/*` carrying `import oauth2_auth`. The one dev service built on
+  the box, because there is no reload loop to bind-mount a tree into.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
   prod pulls GHCR images and deploys from a GitHub release. Three images now,
   the shell among them.
