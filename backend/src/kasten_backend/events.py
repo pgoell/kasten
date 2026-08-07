@@ -63,11 +63,18 @@ def is_watchable(root: Path, changed: str) -> bool:
     `list_markdown_files` applies or the watcher would report notes the tree
     never shows.
 
+    A directory is refused whatever it is called, which is the rule the listing
+    reaches by walking directories rather than matching their names, and the one
+    `resolve_note` spells out. A folder called `notes.md` fires changes like
+    anything else, and reading one as a note raises rather than returns.
+    `is_dir` and not `is_file`, because a removal names a path that is already
+    gone and has to stay reportable.
+
     `is_relative_to` rather than a `resolve` on each change: this runs once per
     changed path and the caller watches an already resolved root.
     """
     path = Path(changed)
-    if path.suffix != SUFFIX or not path.is_relative_to(root):
+    if path.suffix != SUFFIX or not path.is_relative_to(root) or path.is_dir():
         return False
 
     return not any(part.startswith(".") for part in path.relative_to(root).parts)

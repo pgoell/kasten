@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import uvicorn
-from httpx import AsyncClient
+from httpx import AsyncClient, TimeoutException
 from watchfiles import Change
 
 from kasten_backend.events import VaultEvent, format_sse, is_watchable, to_events
@@ -109,6 +109,14 @@ def test_watchable_skips_a_file_that_is_not_markdown(tmp_path: Path) -> None:
     assert not is_watchable(tmp_path, str(tmp_path / "notes.txt"))
 
 
+def test_watchable_skips_a_folder_whose_name_ends_in_md(tmp_path: Path) -> None:
+    # The tree learned this one already: a folder called `notes.md` is a folder,
+    # and reading it as a note is what `resolve_note` refuses.
+    (tmp_path / "notes.md").mkdir()
+
+    assert not is_watchable(tmp_path, str(tmp_path / "notes.md"))
+
+
 def test_to_events_reports_a_new_note_with_its_digest(tmp_path: Path) -> None:
     text = "derived index\n"
     note = write(tmp_path, "kasten.md", text)
@@ -138,6 +146,15 @@ def test_to_events_spells_the_path_the_way_the_listing_does(tmp_path: Path) -> N
     note = write(tmp_path, "projects/kasten.md", "derived index\n")
 
     assert to_events(tmp_path, {(Change.modified, str(note))})[0].path == "projects/kasten.md"
+
+
+def test_to_events_says_nothing_about_a_folder_whose_name_ends_in_md(tmp_path: Path) -> None:
+    # A folder fires changes of its own, and reading one as a note raises. One
+    # of those on the stream ends it for the client that was listening.
+    folder = tmp_path / "notes.md"
+    folder.mkdir()
+
+    assert to_events(tmp_path, {(Change.added, str(folder))}) == []
 
 
 def test_to_events_says_nothing_about_the_jj_repo(tmp_path: Path) -> None:
@@ -185,6 +202,10 @@ async def test_stream_reports_a_note_written_into_the_vault(server: str, vault: 
         writer = asyncio.create_task(keep_adding_notes(vault, text))
         try:
             event = await asyncio.wait_for(first_event(response), PATIENCE)
+        # Whichever clock runs out first, a watcher that never fires has to say
+        # so. A bare TimeoutError points at asyncio's innards and names nothing.
+        except TimeoutError, TimeoutException:
+            pytest.fail(f"the vault reported nothing in {PATIENCE} seconds")
         finally:
             writer.cancel()
 
