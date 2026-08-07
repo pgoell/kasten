@@ -56,16 +56,16 @@ describe("PaneLayout", () => {
     const layout = splitFocused(emptyLayout("a.md"), "row");
     const { container } = draw(layout);
 
-    const focused = panes(container).filter((pane) => pane.className.includes("ring-1"));
+    const focused = panes(container).filter((pane) => pane.className.includes("border-one-accent"));
     expect(focused).toHaveLength(1);
     // The split focused the pane it made, which is the empty one.
     expect(focused[0]).toHaveTextContent("empty");
   });
 
-  it("draws no ring on a single pane, having nothing to tell it from", () => {
+  it("draws no border on a single pane, having nothing to tell it from", () => {
     const { container } = draw(emptyLayout("a.md"));
 
-    expect(container.querySelector(".ring-1")).toBeNull();
+    expect(container.querySelector(".border-one-line")).toBeNull();
   });
 
   it("reports the pane the focus moved into", () => {

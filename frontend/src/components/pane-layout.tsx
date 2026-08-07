@@ -24,7 +24,9 @@ interface PaneLayoutProps {
  * than a half and two quarters.
  *
  * The rules between panes are the container's own background showing through a
- * one pixel gap, so dividing the window costs no elements to draw lines with.
+ * two pixel gap, so dividing the window costs no elements to draw lines with.
+ * Each pane draws its own border on top of that, blue on the focused one, so
+ * where a pane ends and which one is listening are both on screen.
  */
 export function PaneLayout({ node, focus, onFocus, children, divided }: PaneLayoutProps) {
   if (!isSplit(node)) {
@@ -38,8 +40,14 @@ export function PaneLayout({ node, focus, onFocus, children, divided }: PaneLayo
         onFocusCapture={() => onFocus(node.id)}
         className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-one-bg ${
           // Only worth drawing once there is another pane it could have been.
-          // An undivided window has one pane and the ring says nothing.
-          divided && focused ? "ring-1 ring-one-accent/40 ring-inset" : ""
+          // An undivided window has one pane and the border says nothing.
+          //
+          // A border rather than a ring or an outline: the editor fills the pane
+          // and paints its own background over both of those. The border is the
+          // one edge the children cannot reach, because they are laid out
+          // inside it. Every pane carries one, so taking the focus changes its
+          // colour and moves nothing.
+          divided ? (focused ? "border border-one-accent" : "border border-one-line") : ""
         }`}
       >
         {children(node, focused)}
@@ -49,7 +57,7 @@ export function PaneLayout({ node, focus, onFocus, children, divided }: PaneLayo
 
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-1 gap-px bg-one-line ${
+      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-one-selection ${
         node.dir === "row" ? "flex-row" : "flex-col"
       }`}
     >

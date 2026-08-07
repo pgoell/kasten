@@ -73,3 +73,4 @@
 ## 2026-08-07
 
 * **Update**: [Panes and tabs](/reference/editor-keys.md#panes-and-tabs) gained `<leader>h`, `<leader>j`, `<leader>k` and `<leader>l`, which move to the pane in that direction and stand still at the edge. The section says why the directions are answered against the panes' boxes rather than against the tree they are laid out from, and gives the case that settles it: four panes in a square are `row[col[A,C], col[B,D]]`, so walking the tree rightward out of C arrives at B, which is the pane diagonally across. `<leader>o` is still there and still wraps, which a direction does not.
+* **Update**: [Panes and tabs](/reference/editor-keys.md#panes-and-tabs) says a divided window draws every pane inside a border, blue on the focused one, and that a single pane has none.

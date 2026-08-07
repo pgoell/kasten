@@ -33,6 +33,17 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Nothing here is scrolled by dragging: the cursor moves and the view follows
+   it. A bar down the edge of every pane would only be one more line competing
+   with the rules that divide them. Scrolling itself is untouched. */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* CodeMirror sizes itself to its content by default; make it fill the pane. */
 .cm-editor {
   height: 100%;

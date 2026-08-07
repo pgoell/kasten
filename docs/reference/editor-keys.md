@@ -124,6 +124,10 @@ goes. This is the same thing vim and tmux do, and for the same reason.
 Moving right out of the bottom half of the window arrives in the bottom half.
 Where two panes are equally close, the upper or the left one wins.
 
+Every pane in a divided window is drawn inside a border, and the border of the
+focused one is blue. A window holding a single pane has no border, having
+nothing to tell it apart from.
+
 `<leader>ct` starts a tab. `<leader>tl` and `<leader>th` walk them, and
 `<leader>1` through `<leader>9` go straight to one, with `<leader>0` for the
 tenth, which is where those keys sit on the row rather than what the character
