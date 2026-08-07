@@ -104,6 +104,16 @@ function Warning() {
 interface StatusBarProps {
   /** Absent while no note is open, when there is nothing to say about one. */
   status?: SaveStatus;
+  /**
+   * Raised each time a key was refused, which flashes the reading below.
+   *
+   * The number itself says nothing; that it changed is the whole message. The
+   * element is keyed on it, so a fresh one replaces the old and starts the
+   * animation again. That is what keeps the timing in CSS and out of here:
+   * nothing to schedule, nothing to clear, and no timer left running when the
+   * bar unmounts.
+   */
+  flash?: number;
 }
 
 /**
@@ -112,7 +122,7 @@ interface StatusBarProps {
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({ status }: StatusBarProps) {
+export function StatusBar({ status, flash }: StatusBarProps) {
   return (
     // Three columns rather than two: the outer pair share what the clock does
     // not take, so the reading sits on the middle of the window and does not
@@ -123,10 +133,13 @@ export function StatusBar({ status }: StatusBarProps) {
       <div className="justify-self-end">
         {status && (
           <span
+            key={flash}
             data-testid="save-status"
             role="img"
             aria-label={SAVE_LABEL[status]}
             title={SAVE_LABEL[status]}
+            // Inline by default, and a transform does nothing to an inline box.
+            className={flash ? "inline-block animate-flash" : undefined}
           >
             {/* The conflict wears the warning rather than the ring for the
                 reason the failure does: nothing is on its way to the vault,

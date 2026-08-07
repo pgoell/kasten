@@ -132,6 +132,12 @@ async function renderApp() {
     text: () => editor().textContent,
     status: () =>
       container.querySelector("[data-testid='save-status']")?.getAttribute("aria-label"),
+    /** How many tabs the strip draws, which is none until there are two. */
+    tabs: () => container.querySelectorAll("[role='tab']").length,
+    /** Whether the bar's reading is wearing the flash a refusal raises. */
+    flashing: () =>
+      container.querySelector("[data-testid='save-status']")?.className.includes("animate-flash") ??
+      false,
   };
 }
 
@@ -307,5 +313,40 @@ describe("the route", () => {
 
     expect(app.text()).toBe("he index note");
     expect(app.status()).toBe("Unsaved changes");
+  });
+
+  it("refuses to start a tab while the note stands conflicted", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    app.leader("c", "t");
+    await settle();
+
+    // A new tab moves the focus to the empty pane in it, which moves the note
+    // the autosave follows, and the flush that follows would write the buffer
+    // over the vault with nobody asked. Every key that moves the focus is the
+    // same key from here.
+    expect(app.tabs()).toBe(0);
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(app.status()).toBe("Changed on disk");
+    // With a dozen keys declining, a key that does nothing and says nothing
+    // reads as a key that is broken.
+    expect(app.flashing()).toBe(true);
+  });
+
+  it("starts the tab once :w has settled the conflict", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    app.ex("w");
+    await settle();
+    expect(saveNote).toHaveBeenCalledTimes(1);
+
+    app.leader("c", "t");
+    await settle();
+
+    expect(app.tabs()).toBe(2);
   });
 });

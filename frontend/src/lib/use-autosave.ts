@@ -127,6 +127,15 @@ export function useAutosave(path: string | undefined) {
     return true;
   }, []);
 
+  /**
+   * Whether the vault has moved past the buffer, for the keys that must refuse.
+   *
+   * A reading off the ref rather than off `status`: everything the route builds
+   * out of this would take `status` into its dependencies, and one of those is
+   * the command table the editor's memo is keyed on.
+   */
+  const isConflicted = useCallback(() => conflicted.current, []);
+
   const change = useCallback(
     (doc: string) => {
       pending.current = doc;
@@ -200,5 +209,5 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
-  return { status, change, save, saveFirst, revert, allowReload, reconcile };
+  return { status, change, save, saveFirst, revert, isConflicted, allowReload, reconcile };
 }

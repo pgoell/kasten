@@ -73,9 +73,8 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
-  const { status, change, save, saveFirst, revert, allowReload, reconcile } = useAutosave(
-    pane.path,
-  );
+  const { status, change, save, saveFirst, revert, isConflicted, allowReload, reconcile } =
+    useAutosave(pane.path);
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
   // stream for the life of the page, so it cannot close over either: opening a
@@ -113,12 +112,35 @@ function Home() {
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
+  // Raised each time a key was refused, which flashes the status bar's reading.
+  // A counter for the reason the two above are counters: pressing a refused key
+  // twice is two refusals and both have to read as one.
+  const [refused, setRefused] = useState(0);
 
-  /** Rearrange the panes, and hand the focus to whichever one we arrived at. */
-  const moveTo = useCallback((update: (previous: Layout) => Layout) => {
-    setLayout(update);
-    setFocusSignal((previous) => previous + 1);
-  }, []);
+  /**
+   * Rearrange the panes, and hand the focus to whichever one we arrived at.
+   *
+   * Refused while the open note stands conflicted. Every one of these moves the
+   * focused pane, which moves the note the autosave follows, and its cleanup
+   * writes what is waiting to the note being left: the overwrite `saveFirst`
+   * declines on every path that asks, arriving here with nobody asked. A dozen
+   * keys come through this one, so the bar is flashed rather than left silent.
+   *
+   * `closeNote` reaches this after a save, by which point there is no conflict
+   * left to catch it.
+   */
+  const moveTo = useCallback(
+    (update: (previous: Layout) => Layout) => {
+      if (isConflicted()) {
+        setRefused((previous) => previous + 1);
+        return;
+      }
+
+      setLayout(update);
+      setFocusSignal((previous) => previous + 1);
+    },
+    [isConflicted],
+  );
 
   /**
    * Move to the pane in one direction on screen, staying put at the edge.
@@ -498,7 +520,7 @@ function Home() {
           </div>
         </div>
       </div>
-      <StatusBar status={pane.path === undefined ? undefined : status} />
+      <StatusBar status={pane.path === undefined ? undefined : status} flash={refused} />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {prompt !== null && (
         <NotePrompt
