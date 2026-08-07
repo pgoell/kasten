@@ -75,12 +75,15 @@ function Home() {
   // has always covered opening a second note in a single window.
   const { status, change, save, reconcile } = useAutosave(pane.path);
   // The focused pane's note and the hook holding its unsaved text, for the
-  // event handler below to read. That handler lives in an effect that opens one
-  // stream for the life of the page, so it cannot close over either: opening a
-  // note would close the stream and open another.
-  const focused = useRef({ path: pane.path, reconcile });
+  // event handler below to read, and its save state for the key that closes it.
+  // That handler lives in an effect that opens one stream for the life of the
+  // page, so it cannot close over any of them: opening a note would close the
+  // stream and open another. `status` is kept out of the keys' own dependencies
+  // for a second reason, that it turns over on the first keystroke of an edit,
+  // and a fresh set of commands per keystroke re-renders every editor on screen.
+  const focused = useRef({ path: pane.path, status, reconcile });
   useEffect(() => {
-    focused.current = { path: pane.path, reconcile };
+    focused.current = { path: pane.path, status, reconcile };
   });
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
@@ -242,11 +245,19 @@ function Home() {
       // Only leave a note once the vault has the text. A failed write keeps it
       // on screen with the warning already in the status bar, because emptying
       // the pane unmounts the editor and the only copy of the edit goes with it.
+      //
+      // A note the vault has moved past is not left at all. Saving it here
+      // would overwrite the other writer without being asked, which is the one
+      // thing this key must not do quietly, so the pane stays open with
+      // `Changed on disk` in the bar until `:w` settles it. The flush that runs
+      // when the note is unmounted or its path changes still writes, because
+      // there is nobody standing in front of those to be asked.
       closeNote: async () => {
         if (pane.path === undefined) {
           moveTo(removeFocused);
           return;
         }
+        if (focused.current.status === "conflict") return;
         if (await save()) moveTo(clearFocused);
       },
       showHelp: () => setHelpOpen(true),
