@@ -183,9 +183,18 @@ the browser, so closing the tab and coming back to the same name finds the same
 shell with its scrollback and whatever was still running in it. Closing the pane
 detaches a client; it does not kill the session.
 
-The prompt deliberately lists nothing. ttyd cannot answer a query about which
-sessions are running, and `herdr session list` inside any terminal finds a name
-you have forgotten.
+The list under the input is the sessions that already exist, ranked against
+what has been typed, so a half-remembered name is one Tab away and a click on a
+row opens it. It offers rather than restricts: a name nothing answers to is
+still taken, and starts a session.
+
+It says what exists, not what is running. `GET /api/terminals` lists the
+directory the shell container keeps one entry per session in, so the backend
+never runs herdr and cannot start or stop anything; and `herdr --session`
+attaches to a stopped session and starts a missing one alike, which makes the
+distinction one you do not have to care about here. `herdr session list` inside
+any terminal is where the running state is. The list is empty when the shell
+container is not up, and the prompt is then a bare input.
 
 The keys below are the only ones kasten takes back inside a focused terminal.
 They are not leader keys and cannot be: the leader is the space bar and a shell

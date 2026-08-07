@@ -12,7 +12,7 @@ import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
-import { createNote, fetchFiles, fetchNote } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote, fetchTerminals } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -104,9 +104,16 @@ function Home() {
   // already in hand, this one asks the backend on a delay, and the two share
   // no state worth folding together.
   const [searchOpen, setSearchOpen] = useState(false);
-  // A flag, like the finder's: the prompt offers nothing to start from, ttyd
-  // being unable to say which sessions are running.
   const [terminalPrompt, setTerminalPrompt] = useState(false);
+  // The sessions the prompt offers. Asked for only while it is open: they
+  // change when something outside the browser starts one, and nothing else on
+  // screen reads them, so there is no reason to hold a copy the rest of the
+  // time. A failure answers with none, which the prompt draws as a bare input.
+  const { data: terminals } = useQuery({
+    queryKey: ["terminals"],
+    queryFn: fetchTerminals,
+    enabled: terminalPrompt,
+  });
   // The note whose backlinks are on screen, and undefined while none are. The
   // path and not a flag: the panel asks the vault for that note's name, and
   // the note in the focused pane can change under a panel that is already open.
@@ -571,6 +578,7 @@ function Home() {
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {terminalPrompt && (
         <TerminalPrompt
+          sessions={terminals ?? []}
           onOpen={(session) => {
             setTerminalPrompt(false);
             // Through `moveTo` rather than `setLayout`, so opening a terminal

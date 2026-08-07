@@ -54,6 +54,10 @@ services:
       # empty one and no history, rather than a directory named `jj` and a
       # backend that cannot run it.
       - ./.container/bin:/opt/kasten-bin:ro
+      # The shell container's home, read-only, so `/api/terminals` can name the
+      # herdr sessions a terminal pane could attach to. A listing and nothing
+      # more: this container has no herdr and cannot touch a session.
+      - kasten-shell-home:/herdr-home:ro
     depends_on:
       db:
         condition: service_healthy

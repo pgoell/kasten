@@ -33,6 +33,10 @@ services:
       # to a host path, never a named volume, so it survives every container
       # and image change and stays readable over ssh and by git.
       - /home/pascal/kasten-data/vault:/vault
+      # The shell container's home, read-only, so `/api/terminals` can name the
+      # herdr sessions a terminal pane could attach to. A listing and nothing
+      # more: this container has no herdr and cannot touch a session.
+      - kasten-shell-home:/herdr-home:ro
     depends_on:
       kasten-migrate-prod:
         condition: service_completed_successfully

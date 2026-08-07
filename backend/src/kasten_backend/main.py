@@ -126,6 +126,25 @@ async def list_files(settings: Annotated[Settings, Depends(get_settings)]) -> li
     return list_markdown_files(settings.vault_path)
 
 
+@app.get("/api/terminals")
+async def list_terminals(settings: Annotated[Settings, Depends(get_settings)]) -> list[str]:
+    """Name every herdr session a terminal pane could attach to, sorted.
+
+    A listing of a directory the shell container owns, and nothing more. herdr
+    is not run and the sessions are not touched, so this cannot say which are
+    running; a name is enough for the prompt, and `herdr --session` attaches to
+    a stopped session and starts a missing one alike.
+
+    An absent directory is not an error. The mount is optional and the shell
+    container need not be up for the notebook to work, so the prompt falls back
+    to a name typed by hand.
+    """
+    root = settings.herdr_sessions_path
+    if not root.is_dir():
+        return []
+    return sorted(entry.name for entry in root.iterdir() if entry.is_dir())
+
+
 @app.get("/api/search")
 async def search_files(
     q: str, settings: Annotated[Settings, Depends(get_settings)]

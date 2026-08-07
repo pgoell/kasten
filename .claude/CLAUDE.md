@@ -18,8 +18,9 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Nine
-  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/events`, `GET`,
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Ten
+  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/terminals`,
+  `/api/events`, `GET`,
   `POST`, `PUT` and `PATCH` on `/api/files/{path}`, and `PATCH` on
   `/api/folders/{path}`. A create starts a
   note holding its frontmatter and makes the folders on the way to it; a `PATCH`
@@ -35,6 +36,9 @@ Real, working code, not a plan:
   events, one per note with a sha256 of what is on disk, plus one `listing`
   when the shape of the vault moved, which is how a folder move arrives.
   Nothing under a dot-directory is reported, so the jj repo stays off it.
+  `/api/terminals` is the one endpoint that reads nothing of the vault: it
+  lists the shell container's herdr sessions off a read-only mount of that
+  container's volume, so the prompt can offer the ones that already exist.
   Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
@@ -57,8 +61,8 @@ Real, working code, not a plan:
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
   `Space c s` puts a shell in the focused pane instead of a note: it asks what
-  the herdr session is called and attaches to it, starting one if nothing
-  answers to that name. The pane speaks ttyd's WebSocket protocol itself
+  the herdr session is called, offering the ones that already exist, and
+  attaches to it, starting one if nothing answers to that name. The pane speaks ttyd's WebSocket protocol itself
   through a pure codec and an xterm terminal, painted in One and fitted to the
   pane, so a terminal pane and a note pane are one window. The leader cannot
   reach into a focused terminal, the leader being the space bar and a shell

@@ -2,10 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { PANEL, PANEL_NARROW } from "@/lib/overlay-styles";
 
-function renderPrompt() {
+const SESSIONS = ["agent-kasten", "notes", "scratch"];
+
+function renderPrompt(sessions = SESSIONS) {
   const onOpen = vi.fn();
   const onClose = vi.fn();
-  render(<TerminalPrompt onOpen={onOpen} onClose={onClose} />);
+  render(<TerminalPrompt sessions={sessions} onOpen={onOpen} onClose={onClose} />);
 
   return {
     onOpen,
@@ -68,5 +70,56 @@ describe("TerminalPrompt", () => {
     const { dialog } = renderPrompt();
 
     expect((dialog.firstElementChild as HTMLElement).className).toBe(`${PANEL} ${PANEL_NARROW}`);
+  });
+
+  it("offers the sessions that already exist", () => {
+    renderPrompt();
+
+    for (const name of SESSIONS) {
+      expect(screen.getByRole("option", { name })).toBeInTheDocument();
+    }
+  });
+
+  it("narrows the list to what has been typed", () => {
+    const { field } = renderPrompt();
+
+    fireEvent.change(field, { target: { value: "not" } });
+
+    expect(screen.getByRole("option", { name: "notes" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "scratch" })).not.toBeInTheDocument();
+  });
+
+  it("takes the highlighted session on Tab, so a name need not be typed out", () => {
+    const { dialog, field } = renderPrompt();
+
+    fireEvent.change(field, { target: { value: "scr" } });
+    fireEvent.keyDown(dialog, { key: "Tab" });
+
+    expect(field).toHaveValue("scratch");
+  });
+
+  it("opens the session a row is clicked on", () => {
+    const { onOpen } = renderPrompt();
+
+    fireEvent.click(screen.getByRole("option", { name: "notes" }));
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith("notes");
+  });
+
+  it("still takes a name nothing answers to, which starts a session", () => {
+    const { onOpen, dialog, field } = renderPrompt();
+
+    fireEvent.change(field, { target: { value: "brand-new" } });
+    fireEvent.keyDown(dialog, { key: "Enter" });
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith("brand-new");
+  });
+
+  it("draws no list when the backend named no sessions", () => {
+    // The mount is optional and the shell container need not be up, so the
+    // prompt has to work as a bare input.
+    renderPrompt([]);
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 });

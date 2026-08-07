@@ -29,6 +29,24 @@ export async function fetchFiles(): Promise<string[]> {
 }
 
 /**
+ * Every herdr session a terminal pane could attach to, named and sorted.
+ *
+ * A listing of the shell container's session directory, so it says what exists
+ * rather than what is running. Empty when that container is not up, or when
+ * the backend was started without its volume, and the prompt still takes a
+ * name typed by hand.
+ */
+export async function fetchTerminals(): Promise<string[]> {
+  const { data, response } = await client.GET("/api/terminals");
+
+  if (!data) {
+    throw new Error(`GET /api/terminals failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
  * Every line in the vault holding `query`, as the backend found them.
  *
  * A literal match and nothing more. Ranking these is the caller's job, which
