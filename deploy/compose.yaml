@@ -48,6 +48,30 @@ services:
       retries: 5
       start_period: 20s
 
+  # A shell in a container beside the vault, reached only through Caddy's
+  # `handle /term/*` and its `import oauth2_auth`. No `ports` key: publishing
+  # one would put an unauthenticated shell on the internet. No `depends_on`
+  # either, because a shell does not need the backend or the database to be a
+  # shell, and no healthcheck, because a shell nobody is attached to has
+  # nothing to report.
+  kasten-shell-prod:
+    image: ghcr.io/pgoell/kasten-shell:${KASTEN_IMAGE_TAG:-latest}
+    container_name: kasten-shell-prod
+    # Run as pascal, for the reason the backend does: this writes the vault
+    # through a bind mount, and root-owned notes would need sudo to edit.
+    user: "1000:1000"
+    volumes:
+      # The same host directory the backend mounts. Absolute paths rather than
+      # ${HOME}, matching how the vault mount above is written.
+      - /home/pascal/kasten-data/vault:/vault
+      # The agents' own credentials and settings. Not the docker socket.
+      - /home/pascal/.claude:/home/kasten/.claude
+      - /home/pascal/.claude.json:/home/kasten/.claude.json
+      - /home/pascal/.codex:/home/kasten/.codex
+    restart: unless-stopped
+    networks:
+      - web
+
   kasten-frontend-prod:
     image: ghcr.io/pgoell/kasten-frontend:${KASTEN_IMAGE_TAG:-latest}
     container_name: kasten-frontend-prod
