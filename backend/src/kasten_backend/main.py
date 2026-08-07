@@ -160,11 +160,17 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
         batches: asyncio.Queue[list[VaultEvent] | None] = asyncio.Queue()
 
         async def collect() -> None:
-            async for events in watch_vault(settings.vault_path):
-                batches.put_nowait(events)
-            # There is no vault to watch, so say so rather than sitting here
-            # writing keepalives at a client that will never hear anything.
-            batches.put_nowait(None)
+            try:
+                async for events in watch_vault(settings.vault_path):
+                    batches.put_nowait(events)
+            finally:
+                # Every way out of the watcher has to end up here, a raise as
+                # much as a return. A stream that keeps writing keepalives over
+                # a watcher that died looks healthier than one that closed, and
+                # `EventSource` reconnects from closed and never from this. The
+                # silence would be exactly the loss this endpoint exists to
+                # prevent, and an exhausted inotify limit is enough to cause it.
+                batches.put_nowait(None)
 
         watching = asyncio.create_task(collect())
         try:
@@ -176,6 +182,10 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
                     continue
 
                 if events is None:
+                    # Awaited rather than dropped, so a watcher that fell over
+                    # says why in the log on its way out. It raises here, which
+                    # closes the stream just as returning would.
+                    await watching
                     return
 
                 for event in events:

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import uvicorn
-from httpx import AsyncClient, TimeoutException
+from httpx import AsyncClient, RemoteProtocolError, TimeoutException
 from watchfiles import Change
 
 from kasten_backend import main
@@ -94,6 +94,21 @@ async def first_event(response: Response) -> dict[str, object]:
             return json.loads(line.removeprefix("data: "))
 
     raise AssertionError("the stream ended without reporting anything")
+
+
+async def drain(response: Response) -> list[str]:
+    """Every line the stream writes before it ends, however it ends.
+
+    A watcher that raised takes the connection down with it rather than closing
+    it politely, and httpx says so. Either way the stream is over, which is the
+    thing being asked about here.
+    """
+    lines = []
+    with suppress(RemoteProtocolError):
+        async for line in response.aiter_lines():
+            lines.append(line)
+
+    return lines
 
 
 def test_watchable_note_under_the_vault_root(tmp_path: Path) -> None:
@@ -374,6 +389,32 @@ async def test_stream_keeps_a_quiet_connection_alive(
             pytest.fail(f"the stream said nothing at all in {PATIENCE} seconds")
 
     assert line.startswith(":")
+
+
+async def test_stream_ends_when_the_watcher_falls_over(
+    server: str, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The failure that hides. A watcher that raises leaves a connection writing
+    # keepalives at a client it will never tell anything again, and that reads
+    # healthier than a closed one: `EventSource` reconnects from closed and
+    # cannot reconnect from this. An inotify limit already spent on some other
+    # tree watching this box is enough to get there.
+    def fall_over(root: Path) -> AsyncIterator[list[VaultEvent]]:
+        raise OSError("no watches left")
+
+    monkeypatch.setattr(main, "watch_vault", fall_over)
+    monkeypatch.setattr(main, "KEEPALIVE_SECONDS", 0.2)
+
+    async with (
+        AsyncClient(base_url=server, timeout=PATIENCE) as http,
+        http.stream("GET", "/api/events") as response,
+    ):
+        try:
+            lines = await asyncio.wait_for(drain(response), PATIENCE)
+        except TimeoutError, TimeoutException:
+            pytest.fail(f"the stream was still open {PATIENCE} seconds after the watcher died")
+
+    assert lines == []
 
 
 async def test_stream_ends_at_once_for_a_vault_that_is_not_there(
