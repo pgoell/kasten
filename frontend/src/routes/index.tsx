@@ -514,6 +514,7 @@ function Home() {
                     session={shown.term}
                     commands={commands}
                     focusSignal={focused ? focusSignal : 0}
+                    focused={focused}
                   />
                 ) : shown.path === undefined ? (
                   // An empty pane is an editor on an empty document, which is
@@ -531,6 +532,7 @@ function Home() {
                     preview={preview}
                     paths={data}
                     focusSignal={focused ? focusSignal : 0}
+                    focused={focused}
                     onFollow={follow}
                   />
                 ) : (
@@ -541,6 +543,7 @@ function Home() {
                     paths={data}
                     startLine={shown.line}
                     focusSignal={focused ? focusSignal : 0}
+                    focused={focused}
                     // Only the focused pane reports its typing. Nothing else can
                     // be typed into, and an unfocused pane that somehow did
                     // would be writing its text to the focused pane's path.

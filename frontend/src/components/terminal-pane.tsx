@@ -47,6 +47,8 @@ interface TerminalPaneProps {
   commands: EditorCommands;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
+  /** Whether the pane this sits in is the focused one. See `Editor`. */
+  focused?: boolean;
 }
 
 /**
@@ -56,7 +58,12 @@ interface TerminalPaneProps {
  * the effect keys on the session name and nothing else. Everything on the wire
  * is `ttyd.ts`, which is where the format is tested.
  */
-export function TerminalPane({ session, commands, focusSignal }: TerminalPaneProps) {
+export function TerminalPane({
+  session,
+  commands,
+  focusSignal,
+  focused = true,
+}: TerminalPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   // Read through a ref, the way `editor.tsx` reads the same prop. The terminal
@@ -163,6 +170,22 @@ export function TerminalPane({ session, commands, focusSignal }: TerminalPanePro
   useEffect(() => {
     if (focusSignal) termRef.current?.focus();
   }, [focusSignal]);
+
+  // Coming back to the tab, the same way `Editor` does it and for the same
+  // reason: the browser lands on the body when the page had nothing focused as
+  // you left it. Without this a terminal pane never revives, because the
+  // editors in the other panes are the only things claiming the focus back, and
+  // the shell then drops every key until you click into it. `focused` is what
+  // keeps the panes from racing each other for it.
+  useEffect(() => {
+    function onWindowFocus() {
+      const active = document.activeElement;
+      if (focused && (!active || active === document.body)) termRef.current?.focus();
+    }
+
+    window.addEventListener("focus", onWindowFocus);
+    return () => window.removeEventListener("focus", onWindowFocus);
+  }, [focused]);
 
   // No border of its own: `pane-layout.tsx` draws that already.
   return <div ref={host} className="h-full w-full" />;

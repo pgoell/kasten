@@ -218,6 +218,12 @@ chords move between kasten's panes and everything else moves within herdr's.
 pressed in a focused terminal never reaches the editor, and formatting is bound
 in insert and visual mode inside a note.
 
+Leaving the browser tab and coming back puts the cursor where it was, in a
+terminal pane as much as in a note. Only the focused pane claims it: every pane
+would otherwise race for it on the way in, and a terminal has no editor to win
+that race with, so the shell would sit there showing nothing focused and
+dropping every key until you clicked into it.
+
 A terminal pane is not in the URL. `?note=` names a note, and a terminal names
 nothing, so a reload comes back to an empty pane. `<leader>cs` and the session
 name is how you get back to it, which is the mechanism the sessions already have.
