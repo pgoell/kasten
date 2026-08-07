@@ -35,4 +35,19 @@ describe("parseVaultEvent", () => {
   it("refuses a payload that is not JSON", () => {
     expect(parseVaultEvent("not json at all")).toBeNull();
   });
+
+  // Valid JSON that is no event, `null` first: it is the shape that throws
+  // rather than merely failing a test, so the guard it needs is the one a
+  // later reader would otherwise take for dead weight.
+  it.each([["null"], ["42"], ['"str"'], ["[]"], ["{}"]])("refuses the payload %s", (data) => {
+    expect(parseVaultEvent(data)).toBeNull();
+  });
+
+  it("refuses a path that is not a string", () => {
+    expect(parseVaultEvent('{"path": 7, "change": "written", "digest": null}')).toBeNull();
+  });
+
+  it("refuses a digest that is neither a string nor null", () => {
+    expect(parseVaultEvent('{"path": "notes/a.md", "change": "written", "digest": 7}')).toBeNull();
+  });
 });

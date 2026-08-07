@@ -150,15 +150,20 @@ function Home() {
   // life of the page rather than one per note you read.
   useEffect(() => {
     const stream = new EventSource("/api/events");
-    // Every open, and the first one is deliberately one invalidation too many.
-    // A stream that went down and came back missed whatever the vault did in
-    // between: the backend replays nothing and `EventSource` reconnects without
-    // saying it ever stopped, which a sleeping laptop or a backend restart
-    // guarantees. Asking for the listing on each open closes that hole by
-    // construction, and the price is one refetch of a query that just loaded.
-    // Do not trim it back to the reconnects, because there is no way to tell
-    // them apart here and the gap comes back with the optimisation.
-    stream.onopen = () => queryClient.invalidateQueries({ queryKey: ["files"] });
+    // Every open, the first one included. A stream that went down and came
+    // back missed whatever the vault did in between: the backend replays
+    // nothing and `EventSource` reconnects without saying it ever stopped,
+    // which a sleeping laptop or a backend restart guarantees. Asking for the
+    // listing on each open closes that hole by construction. Do not trim it
+    // back to the reconnects, because there is no way to tell them apart here
+    // and the gap comes back with the optimisation.
+    //
+    // At mount this usually beats the query's own first fetch, and with
+    // `cancelRefetch` off it joins that fetch rather than replacing it, so the
+    // redundant open costs nothing and the first paint waits on one walk of
+    // the vault rather than two.
+    stream.onopen = () =>
+      queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
     stream.onmessage = (message) => {
       const event = parseVaultEvent(message.data);
       if (event === null) return;
@@ -178,9 +183,18 @@ function Home() {
       // close it and refetch the whole listing on every autosave instead, and
       // what that listing costs is the subject of
       // docs/reference/ranking-performance.md.
+      //
+      // `cancelRefetch` off for the reason it is off above, and here it is the
+      // one that decides what a busy vault costs. An agent writing forty notes
+      // sends one batch, which arrives as forty-one messages and forty-one
+      // tasks, each testing against a listing the refetch has not replaced yet.
+      // On the default every one of them would cancel the last and start again,
+      // and because `fetchFiles` carries no `AbortSignal` the server walks the
+      // whole vault forty-one times regardless. Off, the first walk answers all
+      // of them, which is what the backend's own debounce is for.
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
-      queryClient.invalidateQueries({ queryKey: ["files"] });
+      queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
     };
     return () => stream.close();
   }, [queryClient]);

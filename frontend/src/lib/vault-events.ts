@@ -28,8 +28,20 @@ export function parseVaultEvent(data: string): VaultEvent | null {
     return null;
   }
 
-  // A kind nobody here knows is how an older frontend meets a newer backend,
-  // and the same test throws out anything that is not an event at all.
+  // Every field, not only the kind. This is where the wire meets the app, and
+  // an event half-checked is one the callers below read `path` off as a string
+  // it never was. An unknown kind is the ordinary case among these: it is how
+  // an older frontend meets a newer backend, and it goes by quietly.
+  //
+  // The null is asked first because it is the one shape that throws rather than
+  // failing a test: JSON holds `null`, and reading a field off it raises. Every
+  // other non-event, a number, a string, an array, an object short of a field,
+  // simply has no `path` and falls out here.
   const event = payload as VaultEvent | null;
-  return event !== null && KINDS.has(event.change) ? event : null;
+  return event !== null &&
+    typeof event.path === "string" &&
+    KINDS.has(event.change) &&
+    (event.digest === null || typeof event.digest === "string")
+    ? event
+    : null;
 }
