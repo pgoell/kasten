@@ -25,9 +25,12 @@ export function useAutosave(path: string | undefined) {
   // state: a keystroke must not re-render the tree around CodeMirror.
   const pending = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The sha256 of the note the vault answered the last write with, which is
-  // how that write is recognised coming back over the event stream.
+  // The note the vault answered the last write with, in the two shapes the two
+  // readers of it need. The text is for the editor, which holds the text it is
+  // asking about and would otherwise wait on a hash it does not have yet; the
+  // sha256 is for the event, which carries a digest and nothing else.
   const lastWritten = useRef<string | null>(null);
+  const lastText = useRef<string | null>(null);
   // The same reading as `status === "conflict"`, held where the quiet-period
   // timer can see it: that timer was scheduled by an older render, and the
   // status it closed over is the one from before the conflict.
@@ -54,6 +57,7 @@ export function useAutosave(path: string | undefined) {
         // differ by the `modified` stamp `PUT` writes, so what is on disk is
         // this one. Hashing the other would recognise nothing and read every
         // save of our own as somebody else's write.
+        lastText.current = note.content;
         void digestOf(note.content).then(
           (digest) => {
             lastWritten.current = digest;
@@ -119,6 +123,27 @@ export function useAutosave(path: string | undefined) {
   );
 
   /**
+   * Whether the editor may put `text` in, asked at the moment it would.
+   *
+   * A buffer with nothing waiting takes anything: that is the reload doing its
+   * job. A buffer with text in it takes nothing, and what the text is decides
+   * only whether that is worth reporting. Somebody else's write is the conflict
+   * this hook exists for. Our own answer coming back is not: it is one `PUT`
+   * behind the keystroke that beat it here, it carries no words the reader has
+   * not already got, and flagging it would stop the autosave of a reader who
+   * did nothing but keep typing. The stamp in it reaches the buffer on the next
+   * quiet write instead, which is a round trip away and costs nothing.
+   */
+  const allowReload = useCallback((text: string): boolean => {
+    if (pending.current === null) return true;
+    if (text === lastText.current) return false;
+
+    conflicted.current = true;
+    setStatus("conflict");
+    return false;
+  }, []);
+
+  /**
    * Called when the vault reports a write to the open note. Returns whether the
    * caller should reload: false means the buffer is dirty and now conflicted,
    * or the write was this hook's own and there is nothing to do.
@@ -155,5 +180,5 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
-  return { status, change, save, saveFirst, reconcile };
+  return { status, change, save, saveFirst, allowReload, reconcile };
 }

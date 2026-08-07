@@ -72,6 +72,14 @@ function renderAutosave(path = "index.md") {
       return outcome;
     },
     status: () => result.current.status,
+    /** Ask the way the editor asks, with the text it is about to put in. */
+    allowReload: (text: string) => {
+      let allowed: boolean | undefined;
+      act(() => {
+        allowed = result.current.allowReload(text);
+      });
+      return allowed;
+    },
     reconcile: (digest: string | null) => {
       let reload: boolean | undefined;
       act(() => {
@@ -349,6 +357,36 @@ describe("useAutosave", () => {
 
     expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited again");
     expect(note.status()).toBe("saved");
+  });
+
+  it("takes anything from the vault while nothing is waiting", async () => {
+    const note = renderAutosave();
+
+    expect(note.allowReload("# somebody else wrote this")).toBe(true);
+    expect(note.status()).toBe("saved");
+  });
+
+  it("takes nothing from the vault while text is waiting, and says so", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+
+    expect(note.allowReload("# somebody else wrote this")).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("says nothing when the text waiting to go out beat its own last write here", async () => {
+    // The answer to our own `PUT`, arriving a keystroke late. Every save moves
+    // the cache, so this is every save the reader typed through, and calling it
+    // a conflict would stop the autosave of somebody who did nothing but type.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    await idle();
+    note.change("# edited more");
+
+    expect(note.allowReload(written("# edited").content)).toBe(false);
+    expect(note.status()).toBe("unsaved");
   });
 
   it("writes on the way to another command when nothing is in conflict", async () => {

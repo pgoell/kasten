@@ -18,7 +18,7 @@ interface NoteEditorProps {
   onChange: (doc: string) => void;
   onSave: () => void;
   /** Asked before the vault's text goes in, and can refuse. See `Editor`. */
-  allowReload?: () => boolean;
+  allowReload?: (text: string) => boolean;
   /** Called with the note a `[[link]]` names, which only the route can resolve. */
   onFollow: (target: string) => void;
 }

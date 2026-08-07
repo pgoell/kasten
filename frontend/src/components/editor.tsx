@@ -186,10 +186,11 @@ interface EditorProps {
    *
    * The buffer picks up unsaved text of its own between the vault reporting a
    * write and the read of it arriving here, so whoever holds that text is asked
-   * at the last moment rather than the first. Absent means nobody is holding
-   * any, which is what an editor with no note behind it is.
+   * at the last moment rather than the first, and handed the text so it can
+   * tell a write of its own from somebody else's. Absent means nobody is
+   * holding any, which is what an editor with no note behind it is.
    */
-  allowReload?: () => boolean;
+  allowReload?: (text: string) => boolean;
   onChange?: (doc: string) => void;
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
@@ -390,7 +391,7 @@ export function Editor({
     // not the same moment: the read takes a round trip, and the reader can type
     // into a buffer that was clean when it went out. A refusal leaves the note
     // as it stands and the vault as it stands, and says so in the status bar.
-    if (allowReloadRef.current?.() === false) return;
+    if (allowReloadRef.current?.(reloadDoc) === false) return;
 
     view.dispatch({
       changes: { from, to, insert: reloadDoc.slice(from, insertTo) },
