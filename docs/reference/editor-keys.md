@@ -551,8 +551,8 @@ reaches the vault and nothing the other writer left reaches your screen.
 
 `:e` without the bang is vim's own reread and behaves the way vim's does. It
 takes the note off the vault when nothing is waiting to be written, and
-declines, without a word, when something is. The bang is what says throw it
-away. Either way the vault is read before anything is discarded, so a `:e!`
+declines when something is, flashing the reading in the status bar the way
+every refused key below does. The bang is what says throw it away. Either way the vault is read before anything is discarded, so a `:e!`
 whose request fails leaves the buffer and the warning exactly where they were
 rather than dropping your only copy on the strength of a read that never
 landed.
