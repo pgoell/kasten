@@ -11,6 +11,7 @@ import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
+import { TerminalPrompt } from "@/components/terminal-prompt";
 import { createNote, fetchFiles, fetchNote } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
@@ -103,6 +104,9 @@ function Home() {
   // already in hand, this one asks the backend on a delay, and the two share
   // no state worth folding together.
   const [searchOpen, setSearchOpen] = useState(false);
+  // A flag, like the finder's: the prompt offers nothing to start from, ttyd
+  // being unable to say which sessions are running.
+  const [terminalPrompt, setTerminalPrompt] = useState(false);
   // The note whose backlinks are on screen, and undefined while none are. The
   // path and not a flag: the panel asks the vault for that note's name, and
   // the note in the focused pane can change under a panel that is already open.
@@ -357,11 +361,9 @@ function Home() {
         setTreeFocus((previous) => previous + 1);
       },
       createTab: () => moveTo(addTab),
-      // One fixed name until the prompt lands, which is Slice 3's job.
-      // Through `moveTo` rather than `setLayout`, so opening a terminal is
-      // refused while the note in the focused pane stands conflicted, the same
-      // as every other key that moves the focus.
-      openTerminal: () => moveTo((previous) => openTerminalInFocused(previous, "kasten")),
+      // No save first: opening the prompt moves no path. Naming a session does
+      // replace what is in the pane, and that is asked on the way out below.
+      openTerminal: () => setTerminalPrompt(true),
       // A bare `nextPane` and `goToTab` inside these reach the imports, not the
       // keys they are written beside: an object literal's keys are not names in
       // the scope its values are written in.
@@ -560,6 +562,20 @@ function Home() {
       </div>
       <StatusBar status={pane.path === undefined ? undefined : status} flash={refused} />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
+      {terminalPrompt && (
+        <TerminalPrompt
+          onOpen={(session) => {
+            setTerminalPrompt(false);
+            // Through `moveTo` rather than `setLayout`, so opening a terminal
+            // is refused while the note in the focused pane stands conflicted,
+            // the same as every other key that moves the focus. The refusal
+            // sits on the path that replaces the pane rather than on the key
+            // that opens the prompt, which replaces nothing.
+            moveTo((previous) => openTerminalInFocused(previous, session));
+          }}
+          onClose={() => setTerminalPrompt(false)}
+        />
+      )}
       {prompt !== null && (
         <NotePrompt
           mode={prompt.mode}
