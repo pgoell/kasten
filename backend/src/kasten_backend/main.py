@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.events import KEEPALIVE, format_sse, watch_vault
+from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.frontmatter import stamp
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
@@ -41,6 +41,16 @@ KEEPALIVE_SECONDS = 30.0
 Long enough to cost nothing, short enough to beat an idle timeout on either
 proxy in front of it. The line itself is `KEEPALIVE`, over in `events.py` with
 the rest of the wire format.
+"""
+
+RECONNECT_SECONDS = 30.0
+"""How long the client waits before opening the stream again after it closes.
+
+The browser's own default is about three seconds, and a stream that closes the
+moment it opens turns that into a loop: the client relists the vault on every
+connection, so a missing vault directory or a watcher that cannot start would
+cost twenty relists a minute for as long as the condition holds. This makes it
+two. It matches `KEEPALIVE_SECONDS` by coincidence rather than by need.
 """
 
 
@@ -152,6 +162,11 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
     """
 
     async def report() -> AsyncIterator[str]:
+        # Before the watcher is even asked for, because both of the ways this
+        # stream closes early close it before anything else could be written,
+        # and those are the two that make the number matter.
+        yield format_retry(RECONNECT_SECONDS)
+
         # The watcher fills a queue from a task of its own rather than being
         # read directly, so the wait below can time out without touching it.
         # Cancelling a generator's `__anext__` is what a timeout does, and

@@ -184,6 +184,20 @@ def format_sse(event: VaultEvent) -> str:
     return f"data: {json.dumps(asdict(event))}\n\n"
 
 
+def format_retry(seconds: float) -> str:
+    """Tell the client how long to wait before it opens the stream again.
+
+    `retry:` is the wire format's own answer to a connection that keeps closing,
+    and `EventSource` holds on to the number for the life of the page. Sent
+    first, because a stream that closes at once is exactly the one that needs
+    it, and by then there is no second chance to say anything.
+
+    Milliseconds on the wire, seconds in the caller: the unit is the protocol's,
+    so the conversion belongs here rather than in the route's constant.
+    """
+    return f"retry: {round(seconds * 1000)}\n\n"
+
+
 def _watched_root(root: Path) -> Path | None:
     """The vault's real path, or None when there is no directory there.
 

@@ -21,7 +21,7 @@ from httpx import AsyncClient, RemoteProtocolError, TimeoutException
 from watchfiles import Change
 
 from kasten_backend import main
-from kasten_backend.events import VaultEvent, format_sse, is_watchable, to_events
+from kasten_backend.events import VaultEvent, format_retry, format_sse, is_watchable, to_events
 from kasten_backend.main import app
 
 if TYPE_CHECKING:
@@ -39,6 +39,9 @@ watcher that never fires would otherwise stop the suite dead.
 
 LISTING = VaultEvent(path="", change="listing", digest=None)
 """The one event that names no note: read the file list again."""
+
+RETRY = "retry: 30000\n\n"
+"""What every stream says first: wait this long before opening it again."""
 
 
 def write(root: Path, path: str, text: str) -> Path:
@@ -94,6 +97,14 @@ async def first_event(response: Response) -> dict[str, object]:
             return json.loads(line.removeprefix("data: "))
 
     raise AssertionError("the stream ended without reporting anything")
+
+
+async def first_comment(response: Response) -> str:
+    async for line in response.aiter_lines():
+        if line.startswith(":"):
+            return line
+
+    raise AssertionError("the stream ended without a word")
 
 
 async def drain(response: Response) -> list[str]:
@@ -341,6 +352,12 @@ def test_format_sse_writes_null_for_a_removal() -> None:
     assert json.loads(line.removeprefix("data: "))["digest"] is None
 
 
+def test_format_retry_writes_the_delay_in_milliseconds() -> None:
+    # Seconds everywhere else in the route, milliseconds on the wire, and this
+    # is the one place that knows the difference.
+    assert format_retry(30.0) == RETRY
+
+
 async def test_stream_reports_a_note_written_into_the_vault(server: str, vault: Path) -> None:
     text = "derived index\n"
 
@@ -370,6 +387,23 @@ async def test_stream_reports_a_note_written_into_the_vault(server: str, vault: 
     assert event["digest"] == hashlib.sha256(text.encode()).hexdigest()
 
 
+async def test_stream_names_its_reconnect_delay_first(server: str, vault: Path) -> None:
+    # The client reads the whole file listing every time this stream opens, so
+    # a stream that closes at once costs a relist every three seconds, which is
+    # what the browser waits by default. Sent before anything else, because the
+    # streams that need it are the ones with no second line to put it on.
+    async with (
+        AsyncClient(base_url=server, timeout=PATIENCE) as http,
+        http.stream("GET", "/api/events") as response,
+    ):
+        try:
+            line = await asyncio.wait_for(anext(response.aiter_lines()), PATIENCE)
+        except TimeoutError, TimeoutException:
+            pytest.fail(f"the stream said nothing at all in {PATIENCE} seconds")
+
+    assert line == RETRY.rstrip("\n")
+
+
 async def test_stream_keeps_a_quiet_connection_alive(
     server: str, vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -384,7 +418,7 @@ async def test_stream_keeps_a_quiet_connection_alive(
         http.stream("GET", "/api/events") as response,
     ):
         try:
-            line = await asyncio.wait_for(anext(aiter(response.aiter_lines())), PATIENCE)
+            line = await asyncio.wait_for(first_comment(response), PATIENCE)
         except TimeoutError, TimeoutException:
             pytest.fail(f"the stream said nothing at all in {PATIENCE} seconds")
 
@@ -414,17 +448,21 @@ async def test_stream_ends_when_the_watcher_falls_over(
         except TimeoutError, TimeoutException:
             pytest.fail(f"the stream was still open {PATIENCE} seconds after the watcher died")
 
-    assert lines == []
+    # The reconnect delay and nothing after it: this is the other half of why
+    # the delay is sent, and a keepalive here would mean the stream had stayed
+    # open over a watcher that is no longer watching anything.
+    assert lines == RETRY.splitlines()
 
 
 async def test_stream_ends_at_once_for_a_vault_that_is_not_there(
     server: str, missing_vault: Path
 ) -> None:
     # A fresh checkout with no vault yet must not take the endpoint down with
-    # it. There is nothing to watch, so the answer is an empty stream that
-    # closes rather than one that waits.
+    # it. There is nothing to watch, so the answer closes rather than waits,
+    # and the one line it carries is the one that stops the client coming
+    # straight back: this is half of why the delay is sent at all.
     async with AsyncClient(base_url=server, timeout=PATIENCE) as http:
         response = await http.get("/api/events")
 
     assert response.status_code == 200
-    assert response.text == ""
+    assert response.text == RETRY
