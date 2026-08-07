@@ -305,6 +305,19 @@ describe("Editor reloaded from the vault", () => {
     expect(content.textContent).toBe("onetwothreefour");
   });
 
+  it("is no undo step, so `u` cannot revert somebody else's write", () => {
+    // Undoing a reload puts the text from before it back, and that revert is
+    // not annotated: autosave writes it to the vault. One `u` would overwrite
+    // whatever the agent or the ssh session had just written.
+    const { container, rerender } = render(<Editor initialDoc={DOC} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    rerender(<Editor initialDoc={DOC} reloadDoc={APPENDED} />);
+    fireEvent.keyDown(content, { key: "u" });
+
+    expect(content.textContent).toBe("onetwothreefourfive");
+  });
+
   it("dispatches nothing when the vault hands back the text already open", () => {
     const onChange = vi.fn();
     const { container, rerender } = render(

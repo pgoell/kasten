@@ -1,6 +1,6 @@
 import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { Annotation, Compartment, EditorState, Facet } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, Facet, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
@@ -354,7 +354,11 @@ export function Editor({
       // what arrived can be shorter than what it replaced, and CodeMirror
       // throws on a selection past the end rather than clamping it.
       selection: { anchor: Math.min(selection.main.head, reloadDoc.length) },
-      annotations: fromVault.of(true),
+      // Off the undo stack as well as off the save path. Undoing a write
+      // nobody here made would put the text from before it back, and that
+      // revert carries no annotation, so autosave would send it to the vault:
+      // one `u` overwriting whatever the other writer had just done.
+      annotations: [fromVault.of(true), Transaction.addToHistory.of(false)],
     });
   }, [reloadDoc]);
 
