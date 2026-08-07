@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FOLLOW, FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
+import { FOLLOW, FORMAT, INDENT, LEADER, TAB_KEYS, TREE } from "@/lib/key-bindings";
 
 /** Vim's spelling of a key is for vim. This is the one on the keyboard. */
 function readable(key: string) {
@@ -58,7 +58,15 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       title: "Leader",
       // A leader key can be more than one letter, and the letters are spaced so
       // that `cf` reads as the two presses it is rather than as one key.
-      keys: LEADER.map(({ key, label }) => ({ key: `Space ${[...key].join(" ")}`, label })),
+      keys: [
+        ...LEADER.map(({ key, label }) => ({ key: `Space ${[...key].join(" ")}`, label })),
+        // The ten digits on one row. Ten rows carrying the same sentence would
+        // bury every other key on the panel.
+        {
+          key: `Space ${TAB_KEYS[0]} … ${TAB_KEYS[TAB_KEYS.length - 1]}`,
+          label: "Go to a tab by number",
+        },
+      ],
     },
     {
       title: "Editor",

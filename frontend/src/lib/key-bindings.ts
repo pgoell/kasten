@@ -28,6 +28,23 @@ export interface EditorCommands {
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */
   showLinksOut(): void;
+  /** Start a tab holding one empty pane, and go to it. */
+  createTab(): void;
+  /** Put an empty pane beside this one, and move to it. */
+  splitRight(): void;
+  /** Put an empty pane under this one, and move to it. */
+  splitDown(): void;
+  /** Move to the next pane of this tab, wrapping at the end. */
+  nextPane(): void;
+  /** Move to the pane in that direction on screen, or stay put at the edge. */
+  paneLeft(): void;
+  paneDown(): void;
+  paneUp(): void;
+  paneRight(): void;
+  nextTab(): void;
+  prevTab(): void;
+  /** Go to one tab by position, counting from zero. `TAB_KEYS` names the keys. */
+  goToTab(index: number): void;
 }
 
 /**
@@ -42,11 +59,22 @@ export interface TreeCommands extends EditorCommands {
   renameFolder(startPath: string): void;
 }
 
+/**
+ * The commands a leader sequence can name, which is every one taking no
+ * argument.
+ *
+ * `goToTab` is the exception and is left out: it names a tab by number, and the
+ * ten keys that reach it are `TAB_KEYS` rather than rows of this table. Saying
+ * so here is what lets the file tree run any binding it resolves by calling it
+ * with nothing.
+ */
+export type LeaderCommand = Exclude<keyof EditorCommands, "goToTab">;
+
 export interface LeaderBinding {
   /** The keys pressed after the leader, in order. Usually one. */
   key: string;
   label: string;
-  command: keyof EditorCommands;
+  command: LeaderCommand;
 }
 
 export const LEADER: readonly LeaderBinding[] = [
@@ -55,6 +83,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // the group and `f` for the thing. Both the editor and the tree resolve a
   // sequence, so nothing else has to be single-key from here on.
   { key: "cf", label: "Create a note", command: "createNote" },
+  // The other half of the `c` group. A tab is a thing you create, so it belongs
+  // beside the note rather than under a group of its own.
+  { key: "ct", label: "Create a tab", command: "createTab" },
   // Tab used to be the way into the tree, and binding it to indent took that
   // away. This is the way back in, and it unfolds the panel first.
   { key: "e", label: "Focus the file tree", command: "focusTree" },
@@ -70,13 +101,54 @@ export const LEADER: readonly LeaderBinding[] = [
   // letter: `b` folds the tree away and `o` opens a line in vim.
   { key: "gb", label: "Show what links here", command: "showBacklinks" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
+  // The directions vim already reads, one press from the leader. Which pane is
+  // left of this one is a question about rectangles rather than about the tree
+  // the panes are laid out from, so `pane-direction.ts` answers it off their
+  // boxes on screen. The tree cannot: it spells a square of four panes
+  // `row[col[A,C], col[B,D]]`, and walking it rightward out of C arrives at B,
+  // which is the pane diagonally across.
+  { key: "h", label: "Move to the pane on the left", command: "paneLeft" },
+  { key: "j", label: "Move to the pane below", command: "paneDown" },
+  { key: "k", label: "Move to the pane above", command: "paneUp" },
+  { key: "l", label: "Move to the pane on the right", command: "paneRight" },
+  // tmux's own next-pane key, kept beside the four above rather than replaced
+  // by them. It wraps, so it reaches every pane of the tab by repetition,
+  // where a direction stops at the edge of the window.
+  { key: "o", label: "Move to the next pane", command: "nextPane" },
   { key: "p", label: "Toggle live preview", command: "togglePreview" },
-  { key: "q", label: "Save and close the note", command: "closeNote" },
+  // One key doing the whole retreat, because there is one obvious thing to
+  // shut at any moment: the note, then the pane it sat in, then the tab that
+  // pane was the last of. Pressing it repeatedly walks back out.
+  { key: "q", label: "Close the note, then the pane, then the tab", command: "closeNote" },
   // `rf` beside `cf`: same shape, the group letter then the thing, so renaming
   // a file sits next to creating one rather than somewhere else entirely.
   { key: "rf", label: "Rename the note", command: "renameNote" },
+  // tmux walks its windows with `n` and `p`, and both are spent here: `p` is
+  // live preview and `n` is too close to it to be worth the confusion. `h` and
+  // `l` are the directions vim already reads as left and right.
+  { key: "th", label: "Go to the previous tab", command: "prevTab" },
+  { key: "tl", label: "Go to the next tab", command: "nextTab" },
+  // tmux's own split keys, kept because they are the two this app is imitating
+  // and because the shape of each character says which way the pane divides.
+  // Both are shifted, which is no obstacle: vim names a key by
+  // `KeyboardEvent.key`, and `?` below has been one all along.
+  { key: "%", label: "Split the pane left and right", command: "splitRight" },
+  { key: '"', label: "Split the pane top and bottom", command: "splitDown" },
   { key: "?", label: "Show the keys", command: "showHelp" },
 ];
+
+/**
+ * The digits that jump straight to a tab, in the order the tabs sit in.
+ *
+ * tmux's arrangement, and the keyboard's: `1` through `9` are the first nine
+ * and `0` is the tenth, because that is where the key is on the row rather than
+ * what the character means. An eleventh tab is reached with `th` and `tl`.
+ *
+ * Its own table rather than ten rows in `LEADER`, because every binding there
+ * names a command taking nothing and these ten name one command taking a
+ * number. `editor-commands.ts` registers them in a loop of their own.
+ */
+export const TAB_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 export interface FormatBinding {
   /** Vim's spelling of the key, not the browser's. */

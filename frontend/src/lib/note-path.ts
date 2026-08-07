@@ -13,6 +13,11 @@ export type NotePathVerdict =
 
 const SUFFIX = ".md";
 
+/** The note's name, which is what every link to it carries. */
+export function noteName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
+}
+
 /**
  * The typed path with the slashes tidied.
  *

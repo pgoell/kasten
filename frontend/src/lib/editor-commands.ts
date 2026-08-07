@@ -1,7 +1,7 @@
 import { Facet } from "@codemirror/state";
 import { type CodeMirrorV, Vim } from "@replit/codemirror-vim";
 import { toggleMark } from "@/lib/format-commands";
-import { type EditorCommands, FORMAT, LEADER } from "@/lib/key-bindings";
+import { type EditorCommands, FORMAT, LEADER, TAB_KEYS } from "@/lib/key-bindings";
 
 /**
  * Carries the app's commands on the editor state.
@@ -30,6 +30,17 @@ for (const { key, command } of LEADER) {
   });
   Vim.mapCommand(`<Space>${key}`, "action", name, {}, { context: "normal" });
 }
+
+// Their own loop, because the commands above take nothing and this one takes
+// the tab to go to. Folding the number into `LEADER` would mean every action
+// in that loop being called with an argument all but ten of them ignore.
+TAB_KEYS.forEach((key, index) => {
+  const name = `kastenTab:${index}`;
+  Vim.defineAction(name, (cm: CodeMirrorV) => {
+    cm.cm6.state.facet(editorCommands)?.goToTab(index);
+  });
+  Vim.mapCommand(`<Space>${key}`, "action", name, {}, { context: "normal" });
+});
 
 for (const { key, spec } of FORMAT) {
   const name = `kastenFormat:${spec.node}`;

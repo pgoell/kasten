@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
-import { FOLLOW, FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
+import { type EditorCommands, FOLLOW, FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
 
 /** The panel spaces the letters of a key, so each one reads as a press. */
 function leaderKey(key: string) {
@@ -99,19 +99,36 @@ describe("the key tables", () => {
   it("names a command for every leader key that the editor can run", () => {
     // The panel and the docs both read these tables. A leader entry naming a
     // command nothing provides would show a key that does nothing.
-    const commands = new Set([
-      "toggleTree",
-      "togglePreview",
-      "closeNote",
-      "showHelp",
-      "focusTree",
-      "createNote",
-      "renameNote",
-      "findNote",
-      "searchNotes",
-      "showBacklinks",
-      "showLinksOut",
-    ]);
+    //
+    // The names are read off a stub rather than listed here, so the two ways
+    // this can rot are both caught: `satisfies` fails to compile when the
+    // interface gains a command the stub has not got, and the loop below fails
+    // when `LEADER` names one that does not exist.
+    const stub = {
+      toggleTree: () => {},
+      togglePreview: () => {},
+      closeNote: () => {},
+      showHelp: () => {},
+      focusTree: () => {},
+      createNote: () => {},
+      renameNote: () => {},
+      findNote: () => {},
+      searchNotes: () => {},
+      showBacklinks: () => {},
+      showLinksOut: () => {},
+      createTab: () => {},
+      splitRight: () => {},
+      splitDown: () => {},
+      nextPane: () => {},
+      paneLeft: () => {},
+      paneDown: () => {},
+      paneUp: () => {},
+      paneRight: () => {},
+      nextTab: () => {},
+      prevTab: () => {},
+      goToTab: () => {},
+    } satisfies EditorCommands;
+    const commands = new Set(Object.keys(stub));
 
     for (const { command } of LEADER) {
       expect(commands).toContain(command);
