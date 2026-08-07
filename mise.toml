@@ -51,11 +51,15 @@ description = "Start the hosted dev environment (db + reload servers)"
 # out to jj on every save and to rg on every search. Both release builds are
 # static musl, so mise's copies run in the container as they do on the host.
 # Production is the other path entirely, and installs both in backend/Dockerfile.
+#
+# `--build` is for shell-dev, the one dev service built from a Dockerfile.
+# Without it a Dockerfile edit stays invisible until the image is deleted by
+# hand. The other two run stock images and rebuild nothing.
 run = [
   "mkdir -p .container/venv .container/node_modules .container/bin vault",
   "cp -f \"$(mise which jj)\" .container/bin/jj",
   "cp -f \"$(mise which rg)\" .container/bin/rg",
-  "docker compose -f compose.yaml -f compose.dev.yml up -d",
+  "docker compose -f compose.yaml -f compose.dev.yml up -d --build",
 ]
 
 [tasks."dev:down"]
