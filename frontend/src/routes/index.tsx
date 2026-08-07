@@ -73,18 +73,21 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
-  const { status, change, save, reconcile } = useAutosave(pane.path);
+  const { status, change, save, saveFirst, reconcile } = useAutosave(pane.path);
   // The focused pane's note and the hook holding its unsaved text, for the
-  // event handler below to read, and its save state for the key that closes it.
-  // That handler lives in an effect that opens one stream for the life of the
-  // page, so it cannot close over any of them: opening a note would close the
-  // stream and open another. `status` is kept out of the keys' own dependencies
-  // for a second reason, that it turns over on the first keystroke of an edit,
-  // and a fresh set of commands per keystroke re-renders every editor on screen.
-  const focused = useRef({ path: pane.path, status, reconcile });
+  // event handler below to read. That handler lives in an effect that opens one
+  // stream for the life of the page, so it cannot close over either: opening a
+  // note would close the stream and open another.
+  const focusedNote = useRef({ path: pane.path, reconcile });
   useEffect(() => {
-    focused.current = { path: pane.path, status, reconcile };
+    focusedNote.current = { path: pane.path, reconcile };
   });
+  // The same question the event asks, put again at the moment the document is
+  // about to change. The buffer can pick up unsaved text while the read is in
+  // flight, so the answer given when the event arrived is out of date by then.
+  // No digest to offer, this text having come back through the query rather
+  // than off the stream.
+  const allowReload = useCallback(() => reconcile(null), [reconcile]);
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
   const [treeOpen, setTreeOpen] = useState(true);
@@ -192,7 +195,7 @@ function Home() {
       // holding text nobody has written yet. A refusal there means the reader's
       // own edits are on screen and the reload would take them off it.
       if (event.change === "written") {
-        const { path, reconcile } = focused.current;
+        const { path, reconcile } = focusedNote.current;
         if (event.path !== path || reconcile(event.digest)) {
           queryClient.invalidateQueries(
             { queryKey: ["note", event.path] },
@@ -245,20 +248,15 @@ function Home() {
       // Only leave a note once the vault has the text. A failed write keeps it
       // on screen with the warning already in the status bar, because emptying
       // the pane unmounts the editor and the only copy of the edit goes with it.
-      //
-      // A note the vault has moved past is not left at all. Saving it here
-      // would overwrite the other writer without being asked, which is the one
-      // thing this key must not do quietly, so the pane stays open with
-      // `Changed on disk` in the bar until `:w` settles it. The flush that runs
-      // when the note is unmounted or its path changes still writes, because
-      // there is nobody standing in front of those to be asked.
+      // A note the vault has moved past is not left either: `saveFirst` refuses
+      // it, and the pane stays open with `Changed on disk` in the bar until
+      // `:w` settles it.
       closeNote: async () => {
         if (pane.path === undefined) {
           moveTo(removeFocused);
           return;
         }
-        if (focused.current.status === "conflict") return;
-        if (await save()) moveTo(clearFocused);
+        if (await saveFirst()) moveTo(clearFocused);
       },
       showHelp: () => setHelpOpen(true),
       createNote: (startPath = "") => setPrompt({ mode: "create", startPath }),
@@ -272,13 +270,13 @@ function Home() {
       renameNote: async (startPath) => {
         const path = startPath ?? pane.path;
         if (path === undefined) return;
-        if (await save()) setPrompt({ mode: "rename", startPath: path });
+        if (await saveFirst()) setPrompt({ mode: "rename", startPath: path });
       },
       // Saved first for the reason a note's rename is: the note in the focused
       // pane may be one of the notes this moves, and text still waiting would
       // be written to a path the vault no longer has.
       renameFolder: async (startPath) => {
-        if (await save()) setPrompt({ mode: "folder", startPath });
+        if (await saveFirst()) setPrompt({ mode: "folder", startPath });
       },
       // No save first, unlike the two renames. They move a path out from under
       // text still waiting to be written; opening a note leaves every path
@@ -294,12 +292,13 @@ function Home() {
       showBacklinks: () => setBacklinksOf(pane.path),
       // The same pair read the other way, and the one of the two that reads the
       // note itself. Saved first so the list holds the link you just typed:
-      // `save` puts the text in the cache this reads it back out of. A write
-      // that failed still opens the panel on the older text, because reading
-      // the links is no reason to hide them.
+      // `saveFirst` puts the text in the cache this reads it back out of. A
+      // write that was refused or that failed still opens the panel, on the
+      // older text: reading the links is no reason to hide them, and it is no
+      // reason to overwrite a note that changed on disk either.
       showLinksOut: async () => {
         if (pane.path === undefined) return;
-        await save();
+        await saveFirst();
         const text = queryClient.getQueryData<string>(["note", pane.path]) ?? "";
         setLinksOut(outgoingLinks(text, data ?? []));
       },
@@ -323,7 +322,7 @@ function Home() {
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
-    [moveTo, movePane, save, pane.path, data, queryClient],
+    [moveTo, movePane, saveFirst, pane.path, data, queryClient],
   );
 
   /**
@@ -423,6 +422,12 @@ function Home() {
                     // be typed into, and an unfocused pane that somehow did
                     // would be writing its text to the focused pane's path.
                     onChange={focused ? change : IGNORE}
+                    // Asked for the focused pane alone, for the reason its
+                    // typing is reported alone: the autosave follows that pane,
+                    // so any other pane asking would be handing it a question
+                    // about a note it is not holding. An unfocused pane cannot
+                    // be typed into, so it is always clean and always reloads.
+                    allowReload={focused ? allowReload : undefined}
                     onSave={save}
                     onFollow={follow}
                   />
