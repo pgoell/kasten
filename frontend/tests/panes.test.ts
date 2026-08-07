@@ -272,6 +272,18 @@ describe("a terminal in a pane", () => {
     expect(focusedPane(layout).line).toBeUndefined();
   });
 
+  it("is taken out of the pane by a clear, leaving the pane on screen", () => {
+    // What `<leader>q` and the terminal's own close chord reach. A terminal
+    // pane holds no note, so the route used to send it straight to the removal
+    // instead, which does nothing at all on the last pane of the last tab: a
+    // window holding one terminal had no way back to an editor.
+    const layout = clearFocused(openTerminalInFocused(emptyLayout(), "kasten"));
+
+    expect(focusedPane(layout).term).toBeUndefined();
+    expect(focusedPane(layout).path).toBeUndefined();
+    expect(tabPanes(layout)).toHaveLength(1);
+  });
+
   it("is skipped by a note that moved, with no code of its own", () => {
     // `mapPanes` follows a move by keying on `path`, and a terminal pane has
     // none. That is the whole reason `term` sits beside `path` rather than

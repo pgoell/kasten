@@ -74,16 +74,20 @@ RUN npm install -g @anthropic-ai/claude-code@2.1.224 @openai/codex@0.147.0
 RUN usermod --login kasten --home /home/kasten --move-home node \
     && groupmod --new-name kasten node
 
-# In the image rather than in the home volume: a named volume is seeded from
-# the image only when it is first created, so a config written into $HOME would
-# never see a rebuild. herdr's sockets, logs and session history still live in
-# $HOME, which is the volume, so a session survives a restart.
-COPY shell/herdr.toml /etc/herdr/config.toml
+# The default config, not the live one. herdr rewrites its config whenever a
+# setting is changed in its UI, so the file it reads has to be writable and has
+# to outlive a rebuild; the entrypoint copies this into the home volume the
+# first time the container starts and never again. Everything else herdr keeps,
+# its sockets, logs and session history, lives in that volume too, which is
+# what makes a session survive a restart.
+COPY shell/herdr.toml /etc/herdr/config.toml.default
+COPY shell/entrypoint.sh /usr/local/bin/kasten-shell-entrypoint
 
 USER kasten
 WORKDIR /vault
-ENV TERM=xterm-256color \
-    HERDR_CONFIG_PATH=/etc/herdr/config.toml
+ENV TERM=xterm-256color
+
+ENTRYPOINT ["/usr/local/bin/kasten-shell-entrypoint"]
 
 # No EXPOSE. The container is reached over the `web` network by name, and
 # publishing a port would put a root-less but unauthenticated shell on the box.

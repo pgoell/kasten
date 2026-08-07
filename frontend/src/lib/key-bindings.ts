@@ -199,12 +199,14 @@ export const TERMINAL: readonly TerminalBinding[] = [
   { key: "K", label: "Move to the pane above", command: "paneUp" },
   { key: "L", label: "Move to the pane on the right", command: "paneRight" },
   { key: "O", label: "Move to the next pane", command: "nextPane" },
-  // `closeNote` rather than a command of its own: it empties a pane holding a
-  // note and removes an empty one, and a terminal pane holds no note, so this
-  // removes the pane in one press. It does not kill the herdr session, because
-  // closing the socket detaches a client and `herdr --session` reattaches to
-  // whatever is still running in there.
-  { key: "Q", label: "Close the terminal pane", command: "closeNote" },
+  // `closeNote` rather than a command of its own: it takes what a pane holds
+  // out of it and removes the pane once it holds nothing, so this is one step
+  // in from `<leader>q` on a note. Emptying rather than removing is what gives
+  // a window holding only a terminal a way back to an editor, there being no
+  // chord that splits. It does not kill the herdr session, because closing the
+  // socket detaches a client and `herdr --session` reattaches to whatever is
+  // still running in there.
+  { key: "Q", label: "Take the terminal out of the pane", command: "closeNote" },
 ];
 
 export interface FormatBinding {

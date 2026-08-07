@@ -220,7 +220,7 @@ a leader sequence. Every other key, the space bar included, goes to the shell.
 | `Ctrl+Shift+K` | Move to the pane above |
 | `Ctrl+Shift+L` | Move to the pane on the right |
 | `Ctrl+Shift+O` | Move to the next pane |
-| `Ctrl+Shift+Q` | Close the terminal pane |
+| `Ctrl+Shift+Q` | Take the terminal out of the pane |
 
 They are `Ctrl+Shift` because a terminal cannot transmit most of those chords,
 so claiming them costs the shell nothing. That is a reason to expect them to
@@ -228,6 +228,14 @@ work, not evidence that they are comfortable, and they are expected to change.
 `TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts` are the one
 place to change them; the component, the `<leader>?` panel and its test all
 derive from those two. This table does not, and has to be edited by hand.
+
+`Ctrl+Shift+Q` empties the pane rather than removing it, which is what
+`<leader>q` does to a note. That is also the way out of a window that holds
+nothing but a terminal: there is no chord that splits, so with one terminal
+pane the directions have nowhere to go and `Ctrl+Shift+O` wraps to itself. One
+press puts an editor back in the pane and every leader key with it, splits
+included. The herdr session goes on running either way, because closing the
+socket detaches a client rather than ending the session.
 
 They do not collide with herdr's own keys, which is the other reason to hold
 `Ctrl+Shift`: herdr's prefix is `Ctrl+Space`, its tab keys are `Alt+Shift+H` and

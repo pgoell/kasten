@@ -2,11 +2,13 @@
 #
 # Copied from ~/.config/herdr/config.toml on the VPS, which was itself
 # migrated from ~/.tmux.conf, so a shell in a kasten pane answers the same
-# keys as one over ssh. Baked into the image at /etc/herdr/config.toml and
-# reached through HERDR_CONFIG_PATH, rather than written into the home
-# volume: a named volume is seeded from the image only when it is first
-# created, so a config living in there would never see a rebuild. herdr's
-# sockets, logs and session history stay in $HOME, which is the volume.
+# keys as one over ssh.
+#
+# This is the default the container starts from, not the file herdr reads.
+# herdr rewrites its config whenever a setting is changed in its UI, so the
+# live one has to be writable: the entrypoint copies this into the home volume
+# the first time the container starts, and never again. Your saved settings
+# survive a rebuild that way, and a change here reaches only a fresh volume.
 #
 # The four vim-herdr-navigation bindings need a plugin that is not installed
 # here. `herdr config check` accepts them and they no-op, and they are kept

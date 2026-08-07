@@ -300,6 +300,16 @@ function Home() {
       // it, and the pane stays open with `Changed on disk` in the bar until
       // `:w` settles it.
       closeNote: async () => {
+        // A terminal is taken out of the pane the way a note is, leaving the
+        // pane itself on screen. Without this the key went straight to
+        // removing the pane, which does nothing at all on the last pane of the
+        // last tab, so a window holding one terminal had no way back to an
+        // editor and no way to reach any leader key. Nothing is lost: closing
+        // the socket detaches a client, and the herdr session goes on running.
+        if (pane.term !== undefined) {
+          moveTo(clearFocused);
+          return;
+        }
         if (pane.path === undefined) {
           moveTo(removeFocused);
           return;
@@ -385,7 +395,7 @@ function Home() {
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
-    [moveTo, movePane, saveFirst, pane.path, data, queryClient],
+    [moveTo, movePane, saveFirst, pane.path, pane.term, data, queryClient],
   );
 
   /**
