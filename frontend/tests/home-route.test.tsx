@@ -302,6 +302,28 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
+  it("puts the vault's text back on :e! with nobody else writing", async () => {
+    // The reader throwing away their own edits, which is what `:e!` is for most
+    // of the time. Nothing about the note has changed anywhere, so the query
+    // behind it answers with the text it already held and hands the editor
+    // nothing new to take: the buffer is put back by the command itself or by
+    // nothing at all.
+    const app = await editing();
+
+    app.ex("e!");
+    await settle();
+
+    expect(app.text()).toBe("the index note");
+    expect(app.status()).toBe("Saved");
+
+    // Well past the quiet period, because what was waiting has to be gone
+    // rather than merely off the screen.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
   it("refuses :e on a buffer holding unsaved text", async () => {
     // Vim's own rule: `:e` on a modified buffer declines, and only the bang
     // throws the edits away. The vault holds what it always held here, so the
