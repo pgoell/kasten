@@ -12,7 +12,7 @@ import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
-import { createNote, fetchFiles, fetchNote, fetchTerminals } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote, fetchTerminals, saveNote } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -33,6 +33,7 @@ import {
   stepTab,
   tabPanes,
 } from "@/lib/panes";
+import { type Period, periodicNote } from "@/lib/periodic";
 import { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
@@ -284,6 +285,89 @@ function Home() {
     return () => stream.close();
   }, [queryClient]);
 
+  /**
+   * Open a note in the focused pane, once the vault holds what was typed here.
+   *
+   * Every way in goes through this: the tree, the finder, search and a
+   * `[[link]]`. Opening another note moves the autosave's path, and its cleanup
+   * writes what is waiting to the note it was typed into, so the same write
+   * `<leader>q` refuses is one click away from happening without being asked.
+   * The refusal cannot live in that cleanup: by then the path has already
+   * changed, and refusing there would trade the other writer's text for the
+   * reader's own.
+   */
+  const openInPane = useCallback(
+    async (path: string, line?: number) => {
+      if (await saveFirst()) setLayout((previous) => openInFocused(previous, path, line));
+    },
+    [saveFirst],
+  );
+
+  /**
+   * Open the note a `[[link]]` names, making it if the vault has none.
+   *
+   * The listing is what turns a name into a path, so the resolving happens
+   * here rather than in the editor, which holds one note and knows nothing of
+   * the others. A link to a note that is not there is not a mistake: writing
+   * the link before the note is how a vault grows, and following one is the
+   * moment the note begins.
+   *
+   * `body` is what a note this makes starts life with, and it is empty for
+   * every link followed by hand: a note the reader is about to write is one
+   * they write themselves. Only the periodic keys pass one.
+   */
+  const follow = useCallback(
+    (target: string, body = "") => {
+      const paths = data ?? [];
+      const path = wikiLinkPath(target, paths);
+      if (paths.includes(path)) {
+        void openInPane(path);
+        return;
+      }
+
+      void createNote(path)
+        // Two writes, because `POST` starts a note holding its frontmatter and
+        // nothing else, and there is no way to hand it a body. The second is
+        // what puts the heading and the links under that block.
+        //
+        // ponytail: two jj changes and two events for one note. Give the create
+        // a body of its own if that ever reads badly in `jj log`.
+        .then((made) => (body === "" ? made : saveNote(made.path, `${made.content}\n${body}`)))
+        .then(
+          (made) => {
+            // The vault's spelling and the vault's text, the way the prompt
+            // seeds them, so the editor opens what was written rather than
+            // reading back a file it just made.
+            queryClient.setQueryData(["note", made.path], made.content);
+            queryClient.invalidateQueries({ queryKey: ["files"] });
+            void openInPane(made.path);
+          },
+          () => {
+            // The vault refused the path: a hidden name, or a note standing
+            // where the link wanted a folder. The note on screen stays open
+            // with the link still in it, which is the only place to fix either.
+          },
+        );
+    },
+    [data, queryClient, openInPane],
+  );
+
+  /**
+   * Open the note covering today at one grain, making it if the vault has none.
+   *
+   * Through `follow`, because that is already the one place a note is made and
+   * opened in the same breath, and a periodic note differs from a followed link
+   * only in carrying a body. The date is read at the press, so a tab left open
+   * overnight opens the new day's note rather than yesterday's.
+   */
+  const openPeriodic = useCallback(
+    (period: Period) => {
+      const { path, body } = periodicNote(period, new Date());
+      follow(path, body);
+    },
+    [follow],
+  );
+
   const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
@@ -372,6 +456,13 @@ function Home() {
         const text = queryClient.getQueryData<string>(["note", pane.path]) ?? "";
         setLinksOut(outgoingLinks(text, data ?? []));
       },
+      // Five rows for one helper, because a leader binding names a command that
+      // takes nothing. What they have in common is in `periodic.ts`.
+      openDaily: () => openPeriodic("daily"),
+      openWeekly: () => openPeriodic("weekly"),
+      openMonthly: () => openPeriodic("monthly"),
+      openQuarterly: () => openPeriodic("quarterly"),
+      openYearly: () => openPeriodic("yearly"),
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -395,7 +486,7 @@ function Home() {
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
-    [moveTo, movePane, saveFirst, pane.path, pane.term, data, queryClient],
+    [moveTo, movePane, saveFirst, openPeriodic, pane.path, pane.term, data, queryClient],
   );
 
   /**
@@ -430,61 +521,6 @@ function Home() {
       return revert(force) ? text : refuse();
     },
     [pane.path, queryClient, revert, refuse],
-  );
-
-  /**
-   * Open a note in the focused pane, once the vault holds what was typed here.
-   *
-   * Every way in goes through this: the tree, the finder, search and a
-   * `[[link]]`. Opening another note moves the autosave's path, and its cleanup
-   * writes what is waiting to the note it was typed into, so the same write
-   * `<leader>q` refuses is one click away from happening without being asked.
-   * The refusal cannot live in that cleanup: by then the path has already
-   * changed, and refusing there would trade the other writer's text for the
-   * reader's own.
-   */
-  const openInPane = useCallback(
-    async (path: string, line?: number) => {
-      if (await saveFirst()) setLayout((previous) => openInFocused(previous, path, line));
-    },
-    [saveFirst],
-  );
-
-  /**
-   * Open the note a `[[link]]` names, making it if the vault has none.
-   *
-   * The listing is what turns a name into a path, so the resolving happens
-   * here rather than in the editor, which holds one note and knows nothing of
-   * the others. A link to a note that is not there is not a mistake: writing
-   * the link before the note is how a vault grows, and following one is the
-   * moment the note begins.
-   */
-  const follow = useCallback(
-    (target: string) => {
-      const paths = data ?? [];
-      const path = wikiLinkPath(target, paths);
-      if (paths.includes(path)) {
-        void openInPane(path);
-        return;
-      }
-
-      void createNote(path).then(
-        (made) => {
-          // The vault's spelling and the vault's text, the way the prompt
-          // seeds them, so the editor opens what was written rather than
-          // reading back a file it just made.
-          queryClient.setQueryData(["note", made.path], made.content);
-          queryClient.invalidateQueries({ queryKey: ["files"] });
-          void openInPane(made.path);
-        },
-        () => {
-          // The vault refused the path: a hidden name, or a note standing
-          // where the link wanted a folder. The note on screen stays open with
-          // the link still in it, which is the only place to fix either.
-        },
-      );
-    },
-    [data, queryClient, openInPane],
   );
 
   return (

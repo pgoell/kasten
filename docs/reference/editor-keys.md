@@ -32,7 +32,12 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
 | `<leader>gb` | Show what links to the open note |
+| `<leader>gd` | Open today's note |
+| `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
+| `<leader>gq` | Open this quarter's note |
+| `<leader>gw` | Open this week's note |
+| `<leader>gy` | Open this year's note |
 | `<leader>h` | Move to the pane on the left |
 | `<leader>j` | Move to the pane below |
 | `<leader>k` | Move to the pane above |
@@ -391,6 +396,47 @@ The line underneath says `nothing links here` for a note nothing points at, and
 
 Both panels are a snapshot of the moment they opened. Nothing behind them is
 being edited while they are up, so there is nothing for them to keep up with.
+
+## Periodic notes
+
+Five keys open the note covering today, one per stretch of time. They finish the
+`g` group: `d` for the day, `w` for the week, `q` for the quarter and `y` for the
+year, and `m` for the month because `go` is spent on the panel above.
+
+| Key | Note | Path |
+| --- | --- | --- |
+| `<leader>gd` | Today | `01 Periodic/00 Daily/2026-08-06.md` |
+| `<leader>gw` | This week | `01 Periodic/01 Weekly/2026-W32.md` |
+| `<leader>gm` | This month | `01 Periodic/02 Monthly/2026-08.md` |
+| `<leader>gq` | This quarter | `01 Periodic/03 Quarterly/2026-Q3.md` |
+| `<leader>gy` | This year | `01 Periodic/04 Yearly/2026.md` |
+
+The key opens the note if the vault holds it and makes it if it does not, so
+there is one key rather than a key to make and another to open. The date is read
+at the press: a tab left open overnight opens the new day's note.
+
+A note the key makes starts with a heading and one line of links, under the
+frontmatter every note carries. The daily note carries its weekday too, because
+a date alone does not say which day it was.
+
+```markdown
+# 2026-08-06 Thursday
+
+[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] | [[01 Periodic/00 Daily/2026-08-07]]
+```
+
+Three links: back one, up to the note holding this one, and on one. The year has
+no note above it, so a yearly note carries two.
+
+The links are written whether or not the notes on either side exist yet, which
+is what makes the chain walkable in both directions. Tomorrow's note is a note
+nobody has written, so the editor draws it dotted and `gf` on it makes it. That
+is also why nothing goes back to rewrite the note behind: a note made this way
+already points forwards.
+
+The week is the ISO one, counted from its Thursday, so 2027-01-01 opens
+`2026-W53` rather than a week of 2027. The month above a week is that Thursday's
+month for the same reason: `2026-W53` links up to `2026-12`, not to `2027-01`.
 
 ## Backticks
 

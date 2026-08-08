@@ -36,6 +36,12 @@ describe("readClock", () => {
     expect(readClock(new Date(2027, 0, 3)).week).toBe(53);
   });
 
+  it("opens a year whose first of January is not a Thursday at week one", () => {
+    // 2027-01-07 is the first Thursday of 2027, so it opens week 1. Counting
+    // in whole weeks from January 1, which is a Friday, would say 2.
+    expect(readClock(new Date(2027, 0, 7)).week).toBe(1);
+  });
+
   it("gives a long year its 53rd week", () => {
     expect(readClock(new Date(2026, 11, 31)).week).toBe(53);
   });

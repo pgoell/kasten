@@ -60,6 +60,13 @@ Real, working code, not a plan:
   The links are read both ways from a panel: `Space g b` shows what links to the
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
+  Five more `g` keys open the note covering today: `Space g d` the day,
+  `g w` the week, `g m` the month, `g q` the quarter and `g y` the year. They
+  live under `01 Periodic`, one numbered folder each, and the key makes the
+  note if the vault has none. A fresh one carries a heading and one line of
+  links: back one, up to the note holding it, and on one, written whether or
+  not those notes exist yet, so `gf` walks the chain and makes what it reaches.
+  The week is the ISO one, counted from its Thursday.
   `Space c s` puts a shell in the focused pane instead of a note: it asks what
   the herdr session is called, offering the ones that already exist, and
   attaches to it, starting one if nothing answers to that name. The pane speaks ttyd's WebSocket protocol itself

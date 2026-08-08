@@ -28,6 +28,19 @@ export interface EditorCommands {
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */
   showLinksOut(): void;
+  /**
+   * Open the note covering today at that grain, making it if the vault has none.
+   *
+   * Five members rather than one taking a period, because a `LeaderBinding`
+   * names a command taking nothing, and five one-line rows in `LEADER` cost
+   * less than the second table and the second vim loop the argument would
+   * need. `periodic.ts` holds everything the five have in common.
+   */
+  openDaily(): void;
+  openWeekly(): void;
+  openMonthly(): void;
+  openQuarterly(): void;
+  openYearly(): void;
   /** Start a tab holding one empty pane, and go to it. */
   createTab(): void;
   /** Open a terminal in the focused pane, attached to a herdr session by name. */
@@ -105,7 +118,15 @@ export const LEADER: readonly LeaderBinding[] = [
   // outgoing links, and `b` and `o` are those two words. Neither can be a bare
   // letter: `b` folds the tree away and `o` opens a line in vim.
   { key: "gb", label: "Show what links here", command: "showBacklinks" },
+  // The rest of the `g` group is the five periodic notes, each on the first
+  // letter of what it covers. `go` is spent above, so the month takes `m` and
+  // nothing here has to move for it.
+  { key: "gd", label: "Open today's note", command: "openDaily" },
+  { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
+  { key: "gq", label: "Open this quarter's note", command: "openQuarterly" },
+  { key: "gw", label: "Open this week's note", command: "openWeekly" },
+  { key: "gy", label: "Open this year's note", command: "openYearly" },
   // The directions vim already reads, one press from the leader. Which pane is
   // left of this one is a question about rectangles rather than about the tree
   // the panes are laid out from, so `pane-direction.ts` answers it off their
