@@ -33,6 +33,10 @@ services:
       # to a host path, never a named volume, so it survives every container
       # and image change and stays readable over ssh and by git.
       - /home/pascal/kasten-data/vault:/vault
+      # The shell container's home, read-only, so `/api/terminals` can name the
+      # herdr sessions a terminal pane could attach to. A listing and nothing
+      # more: this container has no herdr and cannot touch a session.
+      - kasten-shell-home:/herdr-home:ro
     depends_on:
       kasten-migrate-prod:
         condition: service_completed_successfully
@@ -48,6 +52,33 @@ services:
       retries: 5
       start_period: 20s
 
+  # A shell in a container beside the vault, reached only through Caddy's
+  # `handle /term/*` and its `import oauth2_auth`. No `ports` key: publishing
+  # one would put an unauthenticated shell on the internet. No `depends_on`
+  # either, because a shell does not need the backend or the database to be a
+  # shell, and no healthcheck, because a shell nobody is attached to has
+  # nothing to report.
+  kasten-shell-prod:
+    image: ghcr.io/pgoell/kasten-shell:${KASTEN_IMAGE_TAG:-latest}
+    container_name: kasten-shell-prod
+    # Run as pascal, for the reason the backend does: this writes the vault
+    # through a bind mount, and root-owned notes would need sudo to edit.
+    user: "1000:1000"
+    volumes:
+      # The same host directory the backend mounts. An absolute path rather
+      # than ${HOME}, matching how the vault mount above is written.
+      - /home/pascal/kasten-data/vault:/vault
+      # The agents' home, and nothing of the host's. Claude Code and codex are
+      # installed fresh in the image and sign themselves in here, so no
+      # `~/.claude`, `~/.claude.json` or `~/.codex` from the host is mounted:
+      # an agent in this container is its own install with its own settings.
+      # A named volume, so a login survives the next release. Not the docker
+      # socket: handing one out is handing out root on the box.
+      - kasten-shell-home:/home/kasten
+    restart: unless-stopped
+    networks:
+      - web
+
   kasten-frontend-prod:
     image: ghcr.io/pgoell/kasten-frontend:${KASTEN_IMAGE_TAG:-latest}
     container_name: kasten-frontend-prod
@@ -59,6 +90,12 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+
+volumes:
+  # Whatever the agents write about themselves: a login, a history, settings
+  # they were given inside the container. Kept off the host's home on purpose,
+  # and off the vault, which is the only irreplaceable thing here.
+  kasten-shell-home:
 
 networks:
   web:

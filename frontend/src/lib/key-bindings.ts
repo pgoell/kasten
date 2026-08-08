@@ -30,6 +30,8 @@ export interface EditorCommands {
   showLinksOut(): void;
   /** Start a tab holding one empty pane, and go to it. */
   createTab(): void;
+  /** Open a terminal in the focused pane, attached to a herdr session by name. */
+  openTerminal(): void;
   /** Put an empty pane beside this one, and move to it. */
   splitRight(): void;
   /** Put an empty pane under this one, and move to it. */
@@ -83,6 +85,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // the group and `f` for the thing. Both the editor and the tree resolve a
   // sequence, so nothing else has to be single-key from here on.
   { key: "cf", label: "Create a note", command: "createNote" },
+  // `s` for shell. The third member of the `c` group: `cf` is spent on a note
+  // and `ct` on a tab, so the terminal takes the first letter of what it is.
+  { key: "cs", label: "Open a terminal", command: "openTerminal" },
   // The other half of the `c` group. A tab is a thing you create, so it belongs
   // beside the note rather than under a group of its own.
   { key: "ct", label: "Create a tab", command: "createTab" },
@@ -149,6 +154,60 @@ export const LEADER: readonly LeaderBinding[] = [
  * number. `editor-commands.ts` registers them in a loop of their own.
  */
 export const TAB_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+/**
+ * The modifiers a terminal chord is held with, in one place so retuning the
+ * whole set is one edit.
+ *
+ * ctrl and shift because a terminal cannot transmit most of those chords, so
+ * taking them costs the shell nothing. That is a reason to expect them to
+ * work, not evidence that they are comfortable. Expect to change this.
+ *
+ * ponytail: the chord is a guess and one week of real use decides it. Changing
+ * this or the table below carries `terminal-pane.tsx`, `key-help.tsx` and
+ * `key-help.test.tsx` with it, all three deriving from these two exports. One
+ * place does not follow and has to be edited by hand: the chord table in
+ * `docs/reference/editor-keys.md`, which is prose that no code reads.
+ */
+export const TERMINAL_CHORD = {
+  ctrlKey: true,
+  shiftKey: true,
+  altKey: false,
+  metaKey: false,
+};
+
+export interface TerminalBinding {
+  /**
+   * `KeyboardEvent.key` while `TERMINAL_CHORD` is held, which for a letter is
+   * the uppercase one: shift is down. `FORMAT` below carries the same trap.
+   */
+  key: string;
+  label: string;
+  command: LeaderCommand;
+}
+
+/**
+ * What a chord reaches inside a focused terminal, before the PTY sees it.
+ *
+ * The leader is the space bar and a shell must receive the space bar, so
+ * nothing kasten owns can reach into a focused terminal as a leader sequence.
+ * These are the way out of one.
+ */
+export const TERMINAL: readonly TerminalBinding[] = [
+  { key: "H", label: "Move to the pane on the left", command: "paneLeft" },
+  { key: "J", label: "Move to the pane below", command: "paneDown" },
+  { key: "K", label: "Move to the pane above", command: "paneUp" },
+  { key: "L", label: "Move to the pane on the right", command: "paneRight" },
+  { key: "O", label: "Move to the next pane", command: "nextPane" },
+  // `closeNote` rather than a command of its own: it takes what a pane holds
+  // out of it and removes the pane once it holds nothing, so this is one step
+  // in from `<leader>q` on a note. Emptying rather than removing is what gives
+  // a window holding only a terminal a way back to an editor, there being no
+  // chord that splits. It does not kill the herdr session, because closing the
+  // socket detaches a client and `herdr --session` reattaches to whatever is
+  // still running in there.
+  { key: "Q", label: "Take the terminal out of the pane", command: "closeNote" },
+];
 
 export interface FormatBinding {
   /** Vim's spelling of the key, not the browser's. */

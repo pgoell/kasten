@@ -15,6 +15,8 @@ interface NoteEditorProps {
   startLine?: number;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
+  /** Whether the pane this sits in is the focused one. See `Editor`. */
+  focused?: boolean;
   onChange: (doc: string) => void;
   onSave: () => void;
   /** Asked before the vault's text goes in, and can refuse. See `Editor`. */
@@ -46,6 +48,7 @@ export const NoteEditor = memo(function NoteEditor({
   paths,
   startLine,
   focusSignal,
+  focused,
   onChange,
   onSave,
   onFollow,
@@ -80,6 +83,7 @@ export const NoteEditor = memo(function NoteEditor({
       paths={paths}
       startLine={startLine}
       focusSignal={focusSignal}
+      focused={focused}
       allowReload={allowReload}
       onReload={onReload}
       onChange={onChange}

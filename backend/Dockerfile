@@ -57,4 +57,10 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8000
-CMD ["uvicorn", "kasten_backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# `--timeout-graceful-shutdown` bounds how long a deploy waits on `/api/events`.
+# That endpoint runs until its reader leaves, and uvicorn waits for open
+# connections before it stops, so an open browser tab would otherwise hold a
+# replaced container up indefinitely. A second is plenty: the stream carries no
+# state and `EventSource` reconnects to the new container on its own.
+CMD ["uvicorn", "kasten_backend.main:app", "--timeout-graceful-shutdown", "1", \
+     "--host", "0.0.0.0", "--port", "8000"]

@@ -1,6 +1,45 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
-import { type EditorCommands, FOLLOW, FORMAT, INDENT, LEADER, TREE } from "@/lib/key-bindings";
+import {
+  type EditorCommands,
+  FOLLOW,
+  FORMAT,
+  INDENT,
+  LEADER,
+  TERMINAL,
+  TERMINAL_CHORD,
+  TREE,
+} from "@/lib/key-bindings";
+
+/**
+ * One group's table, so a key spelled the same in two groups reads as two rows.
+ *
+ * `Ctrl Shift H` is exactly that: `FORMAT` binds it to Highlight in the editor
+ * and `TERMINAL` binds it to the pane on the left. The contexts are disjoint, a
+ * chord in a focused terminal never reaching the editor, but the panel prints
+ * the spelling twice and an unscoped query cannot tell them apart.
+ */
+function group(title: string) {
+  return within(screen.getByRole("heading", { name: title }).parentElement as HTMLElement);
+}
+
+/**
+ * How a terminal chord should read, built here from `TERMINAL_CHORD` rather
+ * than imported from the panel.
+ *
+ * Derived twice on purpose: a test that called the panel's own speller would
+ * agree with it whatever it printed. Retuning the modifiers moves both, which
+ * is the claim.
+ */
+function chord(key: string): string {
+  const held = [
+    TERMINAL_CHORD.ctrlKey && "Ctrl",
+    TERMINAL_CHORD.altKey && "Alt",
+    TERMINAL_CHORD.shiftKey && "Shift",
+    TERMINAL_CHORD.metaKey && "Meta",
+  ].filter((word) => word !== false);
+  return [...held, key].join(" ");
+}
 
 /** The panel spaces the letters of a key, so each one reads as a press. */
 function leaderKey(key: string) {
@@ -12,8 +51,9 @@ describe("KeyHelp", () => {
     render(<KeyHelp onClose={() => {}} />);
 
     for (const { key, label } of LEADER) {
-      expect(screen.getByText(leaderKey(key))).toBeInTheDocument();
-      expect(screen.getByText(label)).toBeInTheDocument();
+      // The key's own row, not the label anywhere on the panel: a terminal
+      // chord carries the same sentence as the leader key doing the same job.
+      expect(group("Leader").getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
     }
   });
 
@@ -47,6 +87,16 @@ describe("KeyHelp", () => {
 
     for (const { key, label } of FOLLOW) {
       expect(screen.getByText(key).nextElementSibling).toHaveTextContent(label);
+    }
+  });
+
+  it("lists every terminal chord, spelled the way it is pressed", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    for (const { key, label } of TERMINAL) {
+      // The prefix is built from `TERMINAL_CHORD`, so retuning the modifiers
+      // moves both the panel and this assertion together.
+      expect(group("Terminal").getByText(chord(key)).nextElementSibling).toHaveTextContent(label);
     }
   });
 
@@ -117,6 +167,7 @@ describe("the key tables", () => {
       showBacklinks: () => {},
       showLinksOut: () => {},
       createTab: () => {},
+      openTerminal: () => {},
       splitRight: () => {},
       splitDown: () => {},
       nextPane: () => {},
@@ -132,6 +183,54 @@ describe("the key tables", () => {
 
     for (const { command } of LEADER) {
       expect(commands).toContain(command);
+    }
+  });
+
+  it("names a command for every terminal chord that the editor can run", () => {
+    // The same guarantee as above, one table over. A chord naming a command
+    // nothing provides would eat a key inside a terminal and do nothing with it.
+    const stub = {
+      toggleTree: () => {},
+      togglePreview: () => {},
+      closeNote: () => {},
+      showHelp: () => {},
+      focusTree: () => {},
+      createNote: () => {},
+      renameNote: () => {},
+      findNote: () => {},
+      searchNotes: () => {},
+      showBacklinks: () => {},
+      showLinksOut: () => {},
+      createTab: () => {},
+      openTerminal: () => {},
+      splitRight: () => {},
+      splitDown: () => {},
+      nextPane: () => {},
+      paneLeft: () => {},
+      paneDown: () => {},
+      paneUp: () => {},
+      paneRight: () => {},
+      nextTab: () => {},
+      prevTab: () => {},
+      goToTab: () => {},
+    } satisfies EditorCommands;
+    const commands = new Set(Object.keys(stub));
+
+    for (const { command } of TERMINAL) {
+      expect(commands).toContain(command);
+    }
+  });
+
+  it("gives every terminal chord its own key", () => {
+    // Two rows on one key means the second is unreachable, silently.
+    expect(new Set(TERMINAL.map(({ key }) => key)).size).toBe(TERMINAL.length);
+  });
+
+  it("spells a terminal chord with the letter shift actually produces", () => {
+    // The trap `FORMAT` carries below: `KeyboardEvent.key` is the uppercase
+    // letter while shift is down, so a row spelled "h" can never fire.
+    for (const { key } of TERMINAL) {
+      expect(key).toMatch(/^[A-Z]$/);
     }
   });
 

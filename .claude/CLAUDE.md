@@ -18,8 +18,9 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Nine
-  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/events`, `GET`,
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Ten
+  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/terminals`,
+  `/api/events`, `GET`,
   `POST`, `PUT` and `PATCH` on `/api/files/{path}`, and `PATCH` on
   `/api/folders/{path}`. A create starts a
   note holding its frontmatter and makes the folders on the way to it; a `PATCH`
@@ -35,6 +36,9 @@ Real, working code, not a plan:
   events, one per note with a sha256 of what is on disk, plus one `listing`
   when the shape of the vault moved, which is how a folder move arrives.
   Nothing under a dot-directory is reported, so the jj repo stays off it.
+  `/api/terminals` is the one endpoint that reads nothing of the vault: it
+  lists the shell container's herdr sessions off a read-only mount of that
+  container's volume, so the prompt can offer the ones that already exist.
   Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
@@ -56,6 +60,16 @@ Real, working code, not a plan:
   The links are read both ways from a panel: `Space g b` shows what links to the
   open note, drawn as search draws its hits, and `Space g o` shows what it links
   to, drawn as the finder draws its notes. Tab walks the rows in either.
+  `Space c s` puts a shell in the focused pane instead of a note: it asks what
+  the herdr session is called, offering the ones that already exist, and
+  attaches to it, starting one if nothing answers to that name. The pane speaks ttyd's WebSocket protocol itself
+  through a pure codec and an xterm terminal, painted in One and fitted to the
+  pane, so a terminal pane and a note pane are one window. The leader cannot
+  reach into a focused terminal, the leader being the space bar and a shell
+  needing it, so six `ctrl-shift` chords walk the panes and close one:
+  `H J K L` for the directions, `O` for the next and `Q` to close. Closing a
+  pane detaches a client rather than killing the session, so the session
+  outlives the pane, the tab and the browser.
   The window divides the way tmux divides a terminal. `Space %` and `Space "`
   split the focused pane left and right or top and bottom, `Space h j k l`
   moves to the pane in that direction and `Space o` walks them in order,
@@ -76,8 +90,18 @@ Real, working code, not a plan:
   your text and `:e!` takes the vault's. Until one of them does, every key
   that would leave the note refuses and flashes the bar, the pane and tab
   keys included, and only a mouse click into another pane still writes past it.
+- `shell/`: a Dockerfile and a herdr config. ttyd over herdr on a node base,
+  with the vault mounted and jj, rg, git, Claude Code and codex beside it. The
+  config is the one this VPS runs, migrated from its tmux config, baked into
+  the image and read through `HERDR_CONFIG_PATH`. The
+  agents are fresh installs signing themselves in inside the container, into a
+  named volume; nothing of the host's home is mounted, so the vault is the only
+  thing they share with you. It publishes no port; the only route in is a Caddy
+  `handle /term/*` carrying `import oauth2_auth`. The one dev service built on
+  the box, because there is no reload loop to bind-mount a tree into.
 - `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
-  prod pulls GHCR images and deploys from a GitHub release.
+  prod pulls GHCR images and deploys from a GitHub release. Three images now,
+  the shell among them.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 
 Search reads the vault with rg on every query and indexes nothing, so it is

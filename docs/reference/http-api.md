@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves nine endpoints. Four read, four write, and one streams. The
+The backend serves ten endpoints. Five read, four write, and one streams. The
 interactive schema is at `/docs` while the backend runs, and the
 machine-readable one at `/openapi.json`.
 
@@ -44,6 +44,30 @@ that answered nothing when you opened it.
 The walk costs 15.9ms at 10,000 notes in 842 folders. See [the load
 side](/reference/ranking-performance.md) for what that used to be and what a
 cold open spends the rest of its time on.
+
+## GET /api/terminals
+
+Names every herdr session a terminal pane could attach to, sorted. Takes
+nothing and answers with a JSON array of strings.
+
+```json
+["agent-kasten", "notes"]
+```
+
+This is the one endpoint that reads nothing of the vault. The shell container
+keeps one directory per named session under its own home, and this lists that
+directory through a read-only mount of the same volume. So the backend runs no
+herdr, holds no socket, and cannot start, stop or read into a session; the
+worst it can do is name one.
+
+It says what exists rather than what is running, because a directory is all it
+looks at. That costs nothing in practice: `herdr --session <name>` attaches to
+a stopped session and starts a missing one alike, so the two are the same
+request from the browser's side.
+
+An absent directory is not an error and answers `[]`. The mount is optional and
+the shell container need not be up for the notebook to work, so the terminal
+prompt falls back to a bare input that takes a name typed by hand.
 
 ## GET /api/search
 

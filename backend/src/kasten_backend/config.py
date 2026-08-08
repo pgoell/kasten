@@ -18,6 +18,18 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev"
     """Async SQLAlchemy URL for the derived index. Never holds note content."""
 
+    herdr_sessions_path: Path = Path("/herdr-home/.config/herdr/sessions")
+    """Where the shell container keeps one directory per named herdr session.
+
+    That container's home, mounted read-only from the volume it writes, so the
+    terminal prompt can offer the sessions that already exist. Nothing here
+    starts, stops or reads into a session; the path is only ever listed.
+
+    The default is the container path rather than something relative, because
+    production sets no environment variable for it. A backend without the mount
+    answers with an empty list and the notebook is unaffected.
+    """
+
     vault_path: Path = Path("vault")
     """Directory of markdown files. This is the source of truth.
 

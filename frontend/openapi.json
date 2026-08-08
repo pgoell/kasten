@@ -47,6 +47,29 @@
         }
       }
     },
+    "/api/terminals": {
+      "get": {
+        "summary": "List Terminals",
+        "description": "Name every herdr session a terminal pane could attach to, sorted.\n\nA listing of a directory the shell container owns, and nothing more. herdr\nis not run and the sessions are not touched, so this cannot say which are\nrunning; a name is enough for the prompt, and `herdr --session` attaches to\na stopped session and starts a missing one alike.\n\nAn absent directory is not an error. The mount is optional and the shell\ncontainer need not be up for the notebook to work, so the prompt falls back\nto a name typed by hand.",
+        "operationId": "list_terminals_api_terminals_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Terminals Api Terminals Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/search": {
       "get": {
         "summary": "Search Files",
@@ -85,6 +108,23 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "summary": "Stream Events",
+        "description": "Report every change to the vault, kasten's own writes included.\n\nServer-sent events, one `data:` line per changed note. The traffic runs one\nway, so this needs none of a WebSocket's machinery, and the browser\nreconnects on its own.\n\nNothing here knows which write was kasten's, and nothing tries to: the\ndigest is what settles that at the other end, where the client holds the\ntext it sent and can see its own save come back.\n\nThe stream carries no note text, only the path, what happened and a digest\nof what is now on disk. A client that wants the new content reads the note\nthe way it always does.\n\nThe watcher lives as long as the connection. Starlette closes this generator\nwhen the client goes away, which ends the watch with it, so nothing is left\nrunning for a reader that has gone.",
+        "operationId": "stream_events_api_events_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -132,7 +172,7 @@
       },
       "post": {
         "summary": "Create File",
-        "description": "Start a new, empty note in the vault.\n\nThis one says why it refused, unlike the read and the write: a 409 for a\npath already taken and a 400 for one the vault will not have. The user is\nabout to retype the path and has to know which it was, and the one user\nbehind oauth2-proxy learns nothing from a 409 that `GET /api/files` did not\nalready hand them.\n\nThe path that comes back is the canonical spelling, not the URL's, because\nthe client navigates to it and `ideas/./kasten.md` must not end up in the\naddress bar.\n\nThe new note gets its own jj change, bracketed the way a save is. Both\nrefusals return before any of that, so a bounced create leaves no change\nbehind.",
+        "description": "Start a new, empty note in the vault.\n\nThis one says why it refused, unlike the read and the write: a 409 for a\npath already taken and a 400 for one the vault will not have. The user is\nabout to retype the path and has to know which it was, and the one user\nbehind oauth2-proxy learns nothing from a 409 that `GET /api/files` did not\nalready hand them.\n\nThe path that comes back is the canonical spelling, not the URL's, because\nthe client navigates to it and `ideas/./kasten.md` must not end up in the\naddress bar.\n\nThe note starts with its frontmatter and nothing else, so it has an id from\nthe first moment it exists rather than from its first save.\n\nThe new note gets its own jj change, bracketed the way a save is. Both\nrefusals return before any of that, so a bounced create leaves no change\nbehind.",
         "operationId": "create_file_api_files__path__post",
         "parameters": [
           {
@@ -170,7 +210,7 @@
       },
       "put": {
         "summary": "Save File",
-        "description": "Write one note back to the vault.\n\nOnly over a note that is already there. Everything the read refuses is\nrefused here too, and for the same reason, so a note you cannot open is a\nnote you cannot overwrite.\n\nThe jj change is started before the write and the snapshot taken after, so\nthe edit is bracketed by the history rather than trailing it. A vault that\nis not a jj repo skips both.",
+        "description": "Write one note back to the vault.\n\nOnly over a note that is already there. Everything the read refuses is\nrefused here too, and for the same reason, so a note you cannot open is a\nnote you cannot overwrite.\n\nThe text is stamped on the way through, which dates the note and gives one\nwritten before kasten its id. The note on disk is read for that, so the id\nit already has outlives a client that sends the note back without one. What\ncomes back is therefore what landed on disk rather than what arrived, and it\nis the only thing the client may believe: its own copy is a save behind from\nthe moment it sends it.\n\nThe jj change is started before the write and the snapshot taken after, so\nthe edit is bracketed by the history rather than trailing it. A vault that\nis not a jj repo skips both.",
         "operationId": "save_file_api_files__path__put",
         "parameters": [
           {

@@ -28,16 +28,27 @@ import { routeTree } from "@/routeTree.gen";
  * a test on this path that fails once a fortnight is a test somebody deletes.
  */
 
-const { fetchFiles, fetchNote, saveNote, searchNotes, createNote, renameNote, moveFolder } =
-  vi.hoisted(() => ({
-    fetchFiles: vi.fn(),
-    fetchNote: vi.fn(),
-    saveNote: vi.fn(),
-    searchNotes: vi.fn(),
-    createNote: vi.fn(),
-    renameNote: vi.fn(),
-    moveFolder: vi.fn(),
-  }));
+const {
+  fetchFiles,
+  fetchNote,
+  saveNote,
+  searchNotes,
+  createNote,
+  renameNote,
+  moveFolder,
+  fetchTerminals,
+} = vi.hoisted(() => ({
+  fetchFiles: vi.fn(),
+  fetchNote: vi.fn(),
+  saveNote: vi.fn(),
+  searchNotes: vi.fn(),
+  createNote: vi.fn(),
+  renameNote: vi.fn(),
+  moveFolder: vi.fn(),
+  // The terminal prompt asks for these when it opens. No route test opens
+  // it, so an empty list is the whole of what this has to answer.
+  fetchTerminals: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
   fetchNote,
@@ -46,6 +57,7 @@ vi.mock("@/lib/api", () => ({
   createNote,
   renameNote,
   moveFolder,
+  fetchTerminals,
 }));
 
 const VAULT: Record<string, string> = {

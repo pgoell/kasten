@@ -66,6 +66,21 @@ body {
   height: 100%;
 }
 
+/* A terminal pane's background, which xterm's own theme cannot set.
+   `xterm.css` paints `.xterm-viewport` an opaque `#000`, for a macOS scrollbar
+   quirk its comment explains, and that element sits over the
+   `.xterm-scrollable-element` the theme's `background` is applied to. So a
+   terminal reads black however it is themed, and every other colour it carries
+   is the theme's. This puts the one that is not back.
+
+   The class is written twice on purpose. `xterm.css` spells its own rule
+   `.xterm .xterm-viewport`, which ties on specificity, and it is imported by
+   `terminal-pane.tsx` rather than here, so which one lands last is a question
+   about module order. Outranking it settles that without an `!important`. */
+.xterm .xterm-viewport.xterm-viewport {
+  background-color: var(--color-one-bg);
+}
+
 /* A note is prose, so it is set in the proportional face. Monospace is kept for
    the things that are actually code: the two rules at the foot of this file. */
 .cm-editor .cm-scroller {

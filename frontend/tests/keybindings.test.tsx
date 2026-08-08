@@ -17,6 +17,7 @@ function stubCommands() {
     showLinksOut: vi.fn(),
     focusTree: vi.fn(),
     createTab: vi.fn(),
+    openTerminal: vi.fn(),
     splitRight: vi.fn(),
     splitDown: vi.fn(),
     nextPane: vi.fn(),
@@ -261,6 +262,20 @@ describe("the leader key", () => {
 
     expect(commands.createTab).toHaveBeenCalledTimes(1);
     // The other half of the `c` group, which shares its first letter.
+    expect(commands.createNote).not.toHaveBeenCalled();
+  });
+
+  it("opens a terminal on space then c then s", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "c" });
+    fireEvent.keyDown(editor, { key: "s" });
+
+    expect(commands.openTerminal).toHaveBeenCalledTimes(1);
+    // The third member of the `c` group, and neither of the other two fires.
+    expect(commands.createTab).not.toHaveBeenCalled();
     expect(commands.createNote).not.toHaveBeenCalled();
   });
 

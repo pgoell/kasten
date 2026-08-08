@@ -425,3 +425,34 @@ describe("Editor reloaded from the vault", () => {
     expect(deleteCurrentLine(container)).toBe("");
   });
 });
+
+describe("coming back to the tab", () => {
+  /** Leave the page with nothing focused, then return to it. */
+  function leaveAndComeBack() {
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent(window, new Event("focus"));
+  }
+
+  it("takes the cursor back when this pane is the focused one", () => {
+    // The window lands on the body when the page had nothing focused as you
+    // left it, and the cursor is dead until you click. This is what revives it.
+    const { container } = render(<Editor initialDoc="one" focused />);
+
+    leaveAndComeBack();
+
+    expect(container.querySelector(".cm-content")).toHaveFocus();
+  });
+
+  it("leaves the focus alone when another pane holds it", () => {
+    // Every pane mounts one of these, and without the guard all of them race
+    // for the focus on the way back in. The pane that wins is arbitrary, and a
+    // terminal pane loses every time, because it has no editor to race with:
+    // the shell silently stops receiving keys and only a click brings it back.
+    const { container } = render(<Editor initialDoc="one" focused={false} />);
+
+    leaveAndComeBack();
+
+    expect(container.querySelector(".cm-content")).not.toHaveFocus();
+    expect(document.body).toHaveFocus();
+  });
+});

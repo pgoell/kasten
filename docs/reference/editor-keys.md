@@ -26,6 +26,7 @@ move-right, because the leader is registered in normal mode only.
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cf` | Open the new note prompt |
+| `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>ct` | Start a tab, on one empty pane |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
@@ -96,7 +97,8 @@ and start again from on and open when you reload the page.
 ## Panes and tabs
 
 The window divides the way tmux divides a terminal. A tab holds panes, a pane
-holds one note, and every key above applies to the pane that has the focus.
+holds one note or one terminal, and every key above applies to the pane that has
+the focus.
 
 `<leader>%` and `<leader>"` are tmux's own split keys, and the shape of each
 character says which way the pane divides: `%` sets the new pane beside this
@@ -140,7 +142,7 @@ goes through.
 tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
-left focused.
+left focused, or for the herdr session when that pane holds a terminal.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
 holding a note it writes the note and empties the pane. On an empty pane it
@@ -156,6 +158,104 @@ The arrangement is not in the URL. `?note=` names the note in the focused pane
 and follows it from pane to pane, so a reload comes back to what you were
 reading, in a single pane, with the tabs and splits gone. The back button steps
 through pages rather than through panes.
+
+## Terminal
+
+`<leader>cs` puts a shell in the focused pane. It opens a prompt asking what the
+herdr session is called; letters, numbers, `-` and `_`, up to 64 characters. A
+name nothing answers to starts a fresh session, and a name that is already
+running attaches to it.
+
+The multiplexer is [herdr](https://herdr.dev) rather than tmux, running the
+config in `shell/herdr.toml`, which is the one on this VPS at
+`~/.config/herdr/config.toml`, itself migrated from `~/.tmux.conf`. So the
+prefix is `Ctrl+Space` and the keys inside the session are the ones you already
+press over ssh. That config is baked into the image and read through
+`HERDR_CONFIG_PATH`; herdr's own sockets and session history live in the
+container's home volume, which is what makes a session survive a restart.
+
+The shell runs in its own container with the vault mounted at `/vault`, beside
+jj, rg, git, Claude Code and codex. The two agents are fresh installs and sign
+themselves in inside the container, so the first one you start asks you to log
+in; nothing of your own home directory is in there, and the vault is the only
+thing the container shares with the machine. The session outlives the pane, the tab and
+the browser, so closing the tab and coming back to the same name finds the same
+shell with its scrollback and whatever was still running in it. Closing the pane
+detaches a client; it does not kill the session.
+
+The list under the input is the sessions that already exist, ranked against
+what has been typed, so a half-remembered name is one Tab away and a click on a
+row opens it. It offers rather than restricts: a name nothing answers to is
+still taken, and starts a session.
+
+A session you no longer want is closed from inside any terminal, in two steps,
+because herdr will not delete one that is still running:
+
+```sh
+herdr session stop <name>
+herdr session delete <name>
+```
+
+`stop` ends the session and everything in it; `delete` removes what it left
+behind, and the name stops being offered here. A session that is stopped but
+not deleted is still on the list, because the list is what exists.
+
+It says what exists, not what is running. `GET /api/terminals` lists the
+directory the shell container keeps one entry per session in, so the backend
+never runs herdr and cannot start or stop anything; and `herdr --session`
+attaches to a stopped session and starts a missing one alike, which makes the
+distinction one you do not have to care about here. `herdr session list` inside
+any terminal is where the running state is. The list is empty when the shell
+container is not up, and the prompt is then a bare input.
+
+The keys below are the only ones kasten takes back inside a focused terminal.
+They are not leader keys and cannot be: the leader is the space bar and a shell
+must receive the space bar, so nothing kasten owns can reach into a terminal as
+a leader sequence. Every other key, the space bar included, goes to the shell.
+
+| Key | Does |
+| --- | --- |
+| `Ctrl+Shift+H` | Move to the pane on the left |
+| `Ctrl+Shift+J` | Move to the pane below |
+| `Ctrl+Shift+K` | Move to the pane above |
+| `Ctrl+Shift+L` | Move to the pane on the right |
+| `Ctrl+Shift+O` | Move to the next pane |
+| `Ctrl+Shift+Q` | Take the terminal out of the pane |
+
+They are `Ctrl+Shift` because a terminal cannot transmit most of those chords,
+so claiming them costs the shell nothing. That is a reason to expect them to
+work, not evidence that they are comfortable, and they are expected to change.
+`TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts` are the one
+place to change them; the component, the `<leader>?` panel and its test all
+derive from those two. This table does not, and has to be edited by hand.
+
+`Ctrl+Shift+Q` empties the pane rather than removing it, which is what
+`<leader>q` does to a note. That is also the way out of a window that holds
+nothing but a terminal: there is no chord that splits, so with one terminal
+pane the directions have nowhere to go and `Ctrl+Shift+O` wraps to itself. One
+press puts an editor back in the pane and every leader key with it, splits
+included. The herdr session goes on running either way, because closing the
+socket detaches a client rather than ending the session.
+
+They do not collide with herdr's own keys, which is the other reason to hold
+`Ctrl+Shift`: herdr's prefix is `Ctrl+Space`, its tab keys are `Alt+Shift+H` and
+`Alt+Shift+L`, and its pane navigation is `Ctrl+H` through `Ctrl+L`. Kasten
+takes the shifted `Ctrl` variants and leaves all of those alone, so the six
+chords move between kasten's panes and everything else moves within herdr's.
+
+`Ctrl+Shift+H` is also Highlight in the editor. The two never meet: a chord
+pressed in a focused terminal never reaches the editor, and formatting is bound
+in insert and visual mode inside a note.
+
+Leaving the browser tab and coming back puts the cursor where it was, in a
+terminal pane as much as in a note. Only the focused pane claims it: every pane
+would otherwise race for it on the way in, and a terminal has no editor to win
+that race with, so the shell would sit there showing nothing focused and
+dropping every key until you clicked into it.
+
+A terminal pane is not in the URL. `?note=` names a note, and a terminal names
+nothing, so a reload comes back to an empty pane. `<leader>cs` and the session
+name is how you get back to it, which is the mechanism the sessions already have.
 
 ## Formatting
 

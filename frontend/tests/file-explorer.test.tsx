@@ -66,6 +66,7 @@ function Harness({
         showBacklinks: () => {},
         showLinksOut: () => {},
         createTab: () => {},
+        openTerminal: () => {},
         splitRight: () => {},
         splitDown: () => {},
         nextPane: () => {},

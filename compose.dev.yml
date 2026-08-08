@@ -28,7 +28,15 @@ services:
       - sh
       - -c
       # $$PATH, not $PATH: compose would otherwise substitute the host's.
-      - "export PATH=/opt/kasten-bin:$$PATH && uv sync --frozen && exec uv run uvicorn kasten_backend.main:app --reload --host 0.0.0.0 --port 8000"
+      #
+      # `--timeout-graceful-shutdown` is what keeps the reload loop usable.
+      # `/api/events` runs until its reader leaves, and uvicorn waits for open
+      # connections before it stops, so one browser tab holding that stream
+      # pins the old process open and every request hangs until the tab is
+      # closed. No lifespan can settle it: uvicorn runs the shutdown lifespan
+      # after that wait, not before. A second, then, and `EventSource`
+      # reconnects to the new process on its own.
+      - "export PATH=/opt/kasten-bin:$$PATH && uv sync --frozen && exec uv run uvicorn kasten_backend.main:app --reload --timeout-graceful-shutdown 1 --host 0.0.0.0 --port 8000"
     environment:
       # A separate venv path so the container never touches the host's .venv,
       # which holds absolute paths that are wrong inside the container.
@@ -54,12 +62,47 @@ services:
       # empty one and no history, rather than a directory named `jj` and a
       # backend that cannot run it.
       - ./.container/bin:/opt/kasten-bin:ro
+      # The shell container's home, read-only, so `/api/terminals` can name the
+      # herdr sessions a terminal pane could attach to. A listing and nothing
+      # more: this container has no herdr and cannot touch a session.
+      - kasten-shell-home:/herdr-home:ro
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - default
+      - web
+
+  # The one dev service with a `build` section, and the only one that needs it:
+  # there is no reload loop to bind-mount a tree into, so a Dockerfile change
+  # has no other way to be tested before a release ships it. `dev:up` passes
+  # `--build`, which rebuilds this image and leaves the other two alone.
+  shell-dev:
+    build:
+      context: .
+      dockerfile: shell/Dockerfile
+    container_name: kasten-shell-dev
+    # Run as you, for the reason the backend does: this container writes into
+    # the bind-mounted vault, and root-owned notes would need sudo to edit.
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    volumes:
+      - ./vault:/vault
+      # The agents' home, and nothing of the host's. Claude Code and codex are
+      # installed fresh in the image and sign themselves in here, so the host's
+      # `~/.claude`, `~/.claude.json` and `~/.codex` are deliberately not
+      # mounted: an agent in this container is its own install with its own
+      # settings, not a second window onto yours. A named volume rather than
+      # the image layer, or `dev:up --build` would ask you to log in again on
+      # every Dockerfile change.
+      #
+      # Not the docker socket either: nothing in here needs to start a
+      # container, and handing one out is handing out root on the box.
+      - kasten-shell-home:/home/kasten
+    restart: unless-stopped
+    # No `ports`. The only route in is Caddy on the `web` network, behind
+    # `import oauth2_auth`. Publishing one would put a shell on the internet.
+    networks:
       - web
 
   frontend-dev:
@@ -99,6 +142,11 @@ services:
     networks:
       - default
       - web
+
+volumes:
+  # Whatever the agents write about themselves: a login, a history, settings
+  # they were given inside the container. Kept off the host's home on purpose.
+  kasten-shell-home:
 
 networks:
   web:

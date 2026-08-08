@@ -46,6 +46,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/terminals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Terminals
+         * @description Name every herdr session a terminal pane could attach to, sorted.
+         *
+         *     A listing of a directory the shell container owns, and nothing more. herdr
+         *     is not run and the sessions are not touched, so this cannot say which are
+         *     running; a name is enough for the prompt, and `herdr --session` attaches to
+         *     a stopped session and starts a missing one alike.
+         *
+         *     An absent directory is not an error. The mount is optional and the shell
+         *     container need not be up for the notebook to work, so the prompt falls back
+         *     to a name typed by hand.
+         */
+        get: operations["list_terminals_api_terminals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -62,6 +91,42 @@ export interface paths {
          *     subsequence match to mean something over prose, where it matches everything.
          */
         get: operations["search_files_api_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Events
+         * @description Report every change to the vault, kasten's own writes included.
+         *
+         *     Server-sent events, one `data:` line per changed note. The traffic runs one
+         *     way, so this needs none of a WebSocket's machinery, and the browser
+         *     reconnects on its own.
+         *
+         *     Nothing here knows which write was kasten's, and nothing tries to: the
+         *     digest is what settles that at the other end, where the client holds the
+         *     text it sent and can see its own save come back.
+         *
+         *     The stream carries no note text, only the path, what happened and a digest
+         *     of what is now on disk. A client that wants the new content reads the note
+         *     the way it always does.
+         *
+         *     The watcher lives as long as the connection. Starlette closes this generator
+         *     when the client goes away, which ends the watch with it, so nothing is left
+         *     running for a reader that has gone.
+         */
+        get: operations["stream_events_api_events_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -93,6 +158,13 @@ export interface paths {
          *     refused here too, and for the same reason, so a note you cannot open is a
          *     note you cannot overwrite.
          *
+         *     The text is stamped on the way through, which dates the note and gives one
+         *     written before kasten its id. The note on disk is read for that, so the id
+         *     it already has outlives a client that sends the note back without one. What
+         *     comes back is therefore what landed on disk rather than what arrived, and it
+         *     is the only thing the client may believe: its own copy is a save behind from
+         *     the moment it sends it.
+         *
          *     The jj change is started before the write and the snapshot taken after, so
          *     the edit is bracketed by the history rather than trailing it. A vault that
          *     is not a jj repo skips both.
@@ -111,6 +183,9 @@ export interface paths {
          *     The path that comes back is the canonical spelling, not the URL's, because
          *     the client navigates to it and `ideas/./kasten.md` must not end up in the
          *     address bar.
+         *
+         *     The note starts with its frontmatter and nothing else, so it has an id from
+         *     the first moment it exists rather than from its first save.
          *
          *     The new note gets its own jj change, bracketed the way a save is. Both
          *     refusals return before any of that, so a bounced create leaves no change
@@ -318,6 +393,26 @@ export interface operations {
             };
         };
     };
+    list_terminals_api_terminals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
     search_files_api_search_get: {
         parameters: {
             query: {
@@ -345,6 +440,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_events_api_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

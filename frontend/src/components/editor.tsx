@@ -294,6 +294,14 @@ interface EditorProps {
    */
   focusSignal?: number;
   /**
+   * Whether the pane this sits in is the focused one.
+   *
+   * Read only on the way back into the tab, below. Every pane mounts one of
+   * these, so without it they all race for the focus and the winner is
+   * arbitrary.
+   */
+  focused?: boolean;
+  /**
    * Asked immediately before the vault's text goes in, and can refuse.
    *
    * The buffer picks up unsaved text of its own between the vault reporting a
@@ -332,6 +340,7 @@ export function Editor({
   paths,
   startLine,
   focusSignal,
+  focused = true,
   allowReload,
   onReload,
   onChange,
@@ -409,6 +418,7 @@ export function Editor({
             showBacklinks: () => commandsRef.current?.showBacklinks(),
             showLinksOut: () => commandsRef.current?.showLinksOut(),
             createTab: () => commandsRef.current?.createTab(),
+            openTerminal: () => commandsRef.current?.openTerminal(),
             splitRight: () => commandsRef.current?.splitRight(),
             splitDown: () => commandsRef.current?.splitDown(),
             nextPane: () => commandsRef.current?.nextPane(),
@@ -498,14 +508,19 @@ export function Editor({
 
   // Coming back to the tab lands on the body when the page had nothing focused
   // when you left it, and the cursor is dead again until you click.
+  //
+  // Only the focused pane's editor revives itself. Every pane mounts one of
+  // these and they would otherwise all race, which is invisible between two
+  // notes and wrong beside a terminal: a terminal pane loses every time, and
+  // the shell then drops every key until you click back into it.
   useEffect(() => {
     function onWindowFocus() {
-      if (nothingFocused()) viewRef.current?.focus();
+      if (focused && nothingFocused()) viewRef.current?.focus();
     }
 
     window.addEventListener("focus", onWindowFocus);
     return () => window.removeEventListener("focus", onWindowFocus);
-  }, []);
+  }, [focused]);
 
   // Swapping the extension out is all this takes: the same `livePreview()`
   // pieces come back by identity, so nothing below them is rebuilt.

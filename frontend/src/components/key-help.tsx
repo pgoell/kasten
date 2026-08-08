@@ -1,5 +1,14 @@
 import { useEffect, useRef } from "react";
-import { FOLLOW, FORMAT, INDENT, LEADER, TAB_KEYS, TREE } from "@/lib/key-bindings";
+import {
+  FOLLOW,
+  FORMAT,
+  INDENT,
+  LEADER,
+  TAB_KEYS,
+  TERMINAL,
+  TERMINAL_CHORD,
+  TREE,
+} from "@/lib/key-bindings";
 
 /** Vim's spelling of a key is for vim. This is the one on the keyboard. */
 function readable(key: string) {
@@ -8,6 +17,23 @@ function readable(key: string) {
     .replace("C-", "Ctrl ")
     .replace("S-", "Shift ")
     .replace(/-/g, " ");
+}
+
+/**
+ * `Ctrl Shift H`, built from `TERMINAL_CHORD` so the panel follows a retune.
+ *
+ * `readable` above rewrites vim's spellings and does nothing to a bare `"H"`,
+ * which is what a terminal chord is written as, so this is the second one.
+ */
+function chordLabel(key: string): string {
+  const held = [
+    TERMINAL_CHORD.ctrlKey && "Ctrl",
+    TERMINAL_CHORD.altKey && "Alt",
+    TERMINAL_CHORD.shiftKey && "Shift",
+    TERMINAL_CHORD.metaKey && "Meta",
+  ].filter((word) => word !== false);
+
+  return [...held, key].join(" ");
 }
 
 interface Group {
@@ -75,6 +101,12 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
         ...INDENT,
         ...FOLLOW,
       ],
+    },
+    // Its own group because these are not leader keys and cannot be: the leader
+    // is the space bar and a shell must receive the space bar.
+    {
+      title: "Terminal",
+      keys: TERMINAL.map(({ key, label }) => ({ key: chordLabel(key), label })),
     },
     { title: "File tree", keys: TREE },
   ];

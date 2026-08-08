@@ -111,7 +111,7 @@ mise run dev:up
 
 **Dev.** Edit files. uvicorn and vite reload on their own, because the working tree is bind-mounted into both containers. `mise run dev:restart` after a dependency change, `mise run dev:logs` when something looks wrong, `mise run dev:status` to see what is up.
 
-**Prod.** Cut a GitHub release. The workflow builds both images on `ubuntu-latest`, tags them with the release tag and `latest`, pushes to GHCR, then the self-hosted runner pulls, runs migrations as a one-shot container, restarts the services, and waits for the backend healthcheck.
+**Prod.** Cut a GitHub release. The workflow builds all three images on `ubuntu-latest`, tags them with the release tag and `latest`, pushes to GHCR, then the self-hosted runner pulls, runs migrations as a one-shot container, restarts the services, and waits for the backend healthcheck.
 
 **Rollback.** Run the `Deploy production` workflow by hand with the `tag` input set to an older release. It skips the build and redeploys that tag.
 
@@ -134,7 +134,34 @@ encode @compressible gzip
 
 Both kasten site blocks in `/home/pascal/Code/server-infra/caddy/Caddyfile` carry it, and everything else stays compressed. That file lives in another repo, which is why the requirement is written down here.
 
+**`/api/events` would hold a reload open forever, so uvicorn is started with `--timeout-graceful-shutdown 1`.** That endpoint runs until its reader leaves, and uvicorn waits for open connections before it stops, so a single browser tab holding the stream pins the old process open: in dev every request then hangs until the tab is closed or the container restarted, and in prod a replaced container never goes away. A lifespan cannot settle it, and this is worth writing down because it is the obvious thing to reach for: uvicorn runs the shutdown lifespan *after* the wait for connections, so a flag set there is read too late to end the wait it was meant to end. The flag is on the dev command in `compose.dev.yml`, the image `CMD` in `backend/Dockerfile` and the `dev` task in `mise.toml`. It logs `Cancel 1 running task(s), timeout graceful shutdown exceeded`, which is expected rather than a fault, and `EventSource` reconnects to the new process on its own.
+
 **Every published port binds `127.0.0.1` explicitly.** Docker publishes ports with DNAT rules that ufw never sees, so a bare `"5434:5432"` faces the open internet regardless of firewall rules. Do not drop the prefix.
+
+**The shell container publishes no port at all, and its route carries the auth gate.** `kasten-shell-dev` and `kasten-shell-prod` run ttyd over herdr with the vault mounted, which is a root-less but fully live shell. Two things stand between it and the internet, and there is no third: the container has no `ports` key, so it is reachable only by name on the `web` network, and its Caddy block carries `import oauth2_auth`. Nothing else in this system fails this quietly, because a shell that is reachable looks exactly like a shell that is not until somebody finds it.
+
+Prove both after any change to compose or the Caddyfile. On the box:
+
+```sh
+docker inspect -f '{{json .NetworkSettings.Ports}}' kasten-shell-prod   # expect {}
+ss -ltn 'sport = :7681'                                                # expect no listener
+```
+
+From anywhere, with no oauth2 cookie:
+
+```sh
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+  -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==' \
+  -H 'Sec-WebSocket-Protocol: tty' \
+  https://kasten.pascalkraus.com/term/ws
+```
+
+`302` is right: oauth2-proxy sending an unauthenticated caller to the sign-in page. `101` means the gate is missing and the internet has a shell. `400` or `404` means ttyd answered directly, which is the same hole wearing a different number. `502` means the container is not up yet, which is expected before the first release ships the image and is not the same answer as `302`. Run it against `kasten-dev.pascalkraus.com` too, and check `grep -A4 'handle /term' caddy/Caddyfile` prints `import oauth2_auth` for both hosts rather than one.
+
+The shell mounts the same host vault directory the backend does, and the two environments do not share it: `./vault` in the repo for dev, `/home/pascal/kasten-data/vault` for prod. It does not get the docker socket.
+
+It does not get your home directory either. Claude Code and codex are installed fresh in the image and sign themselves in inside the container, into the `kasten-shell-home` named volume; no `~/.claude`, `~/.claude.json` or `~/.codex` from the host is mounted. So the first agent you start in there asks you to log in, once, and the volume keeps it across rebuilds and releases. That is the point: an agent in this container is its own install with its own settings, and the vault is the only thing it shares with you.
 
 ## Looking at dev in a browser
 

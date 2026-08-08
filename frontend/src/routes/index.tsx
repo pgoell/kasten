@@ -10,7 +10,9 @@ import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-
 import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
-import { createNote, fetchFiles, fetchNote } from "@/lib/api";
+import { TerminalPane } from "@/components/terminal-pane";
+import { TerminalPrompt } from "@/components/terminal-prompt";
+import { createNote, fetchFiles, fetchNote, fetchTerminals } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -25,6 +27,7 @@ import {
   mapPanes,
   nextPane,
   openInFocused,
+  openTerminalInFocused,
   removeFocused,
   splitFocused,
   stepTab,
@@ -101,6 +104,16 @@ function Home() {
   // already in hand, this one asks the backend on a delay, and the two share
   // no state worth folding together.
   const [searchOpen, setSearchOpen] = useState(false);
+  const [terminalPrompt, setTerminalPrompt] = useState(false);
+  // The sessions the prompt offers. Asked for only while it is open: they
+  // change when something outside the browser starts one, and nothing else on
+  // screen reads them, so there is no reason to hold a copy the rest of the
+  // time. A failure answers with none, which the prompt draws as a bare input.
+  const { data: terminals } = useQuery({
+    queryKey: ["terminals"],
+    queryFn: fetchTerminals,
+    enabled: terminalPrompt,
+  });
   // The note whose backlinks are on screen, and undefined while none are. The
   // path and not a flag: the panel asks the vault for that note's name, and
   // the note in the focused pane can change under a panel that is already open.
@@ -287,6 +300,16 @@ function Home() {
       // it, and the pane stays open with `Changed on disk` in the bar until
       // `:w` settles it.
       closeNote: async () => {
+        // A terminal is taken out of the pane the way a note is, leaving the
+        // pane itself on screen. Without this the key went straight to
+        // removing the pane, which does nothing at all on the last pane of the
+        // last tab, so a window holding one terminal had no way back to an
+        // editor and no way to reach any leader key. Nothing is lost: closing
+        // the socket detaches a client, and the herdr session goes on running.
+        if (pane.term !== undefined) {
+          moveTo(clearFocused);
+          return;
+        }
         if (pane.path === undefined) {
           moveTo(removeFocused);
           return;
@@ -355,6 +378,9 @@ function Home() {
         setTreeFocus((previous) => previous + 1);
       },
       createTab: () => moveTo(addTab),
+      // No save first: opening the prompt moves no path. Naming a session does
+      // replace what is in the pane, and that is asked on the way out below.
+      openTerminal: () => setTerminalPrompt(true),
       // A bare `nextPane` and `goToTab` inside these reach the imports, not the
       // keys they are written beside: an object literal's keys are not names in
       // the scope its values are written in.
@@ -369,7 +395,7 @@ function Home() {
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
-    [moveTo, movePane, saveFirst, pane.path, data, queryClient],
+    [moveTo, movePane, saveFirst, pane.path, pane.term, data, queryClient],
   );
 
   /**
@@ -500,7 +526,14 @@ function Home() {
               onFocus={(id) => setLayout((previous) => focusPane(previous, id))}
             >
               {(shown, focused) =>
-                shown.path === undefined ? (
+                shown.term !== undefined ? (
+                  <TerminalPane
+                    session={shown.term}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
+                    focused={focused}
+                  />
+                ) : shown.path === undefined ? (
                   // An empty pane is an editor on an empty document, which is
                   // what the window has always shown with no note open. It
                   // costs nothing and it is what keeps every leader key working
@@ -516,6 +549,7 @@ function Home() {
                     preview={preview}
                     paths={data}
                     focusSignal={focused ? focusSignal : 0}
+                    focused={focused}
                     onFollow={follow}
                   />
                 ) : (
@@ -526,6 +560,7 @@ function Home() {
                     paths={data}
                     startLine={shown.line}
                     focusSignal={focused ? focusSignal : 0}
+                    focused={focused}
                     // Only the focused pane reports its typing. Nothing else can
                     // be typed into, and an unfocused pane that somehow did
                     // would be writing its text to the focused pane's path.
@@ -551,6 +586,21 @@ function Home() {
       </div>
       <StatusBar status={pane.path === undefined ? undefined : status} flash={refused} />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
+      {terminalPrompt && (
+        <TerminalPrompt
+          sessions={terminals ?? []}
+          onOpen={(session) => {
+            setTerminalPrompt(false);
+            // Through `moveTo` rather than `setLayout`, so opening a terminal
+            // is refused while the note in the focused pane stands conflicted,
+            // the same as every other key that moves the focus. The refusal
+            // sits on the path that replaces the pane rather than on the key
+            // that opens the prompt, which replaces nothing.
+            moveTo((previous) => openTerminalInFocused(previous, session));
+          }}
+          onClose={() => setTerminalPrompt(false)}
+        />
+      )}
       {prompt !== null && (
         <NotePrompt
           mode={prompt.mode}

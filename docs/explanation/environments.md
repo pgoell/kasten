@@ -19,6 +19,12 @@ Prod runs images. GitHub Actions builds them, publishes them to GHCR, and
 deploys only when you publish a GitHub release. Nothing about it is built by
 hand, and nothing is built on the machine that serves it.
 
+One service breaks that pattern, and it is worth naming rather than hiding. The
+shell container is the only dev service built on the box. There is no reload
+loop to bind-mount a tree into, so a change to `shell/Dockerfile` has no other
+way to be tested before a release ships it; `mise run dev:up` passes `--build`
+and rebuilds that one image, leaving the other two on their stock ones.
+
 The split exists so that the fast path stays fast and the slow path stays
 trustworthy. A reload loop that waits on CI is useless for development. A
 production image built by hand on the server is a machine nobody can reproduce.
@@ -32,6 +38,12 @@ kasten itself contains no authentication code at all. That is worth restating
 because it is easy to forget when reading the backend: there is no login,
 no session, no user model, and the API is open to whoever reaches it. The gate
 is entirely in front.
+
+That matters more now that one of the things behind the gate is a shell. Both
+environments reach the shell container the same way, through a Caddy
+`handle /term/*` carrying `import oauth2_auth`, and neither container publishes
+a port. Those two facts are the whole of its security, so
+[deploy/README.md](../../deploy/README.md) carries the command that proves them.
 
 They do not share a database and they do not share a vault. Dev writes
 `kasten_dev` on kasten's own compose Postgres; prod writes `kasten_prod` on the

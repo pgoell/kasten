@@ -1,0 +1,85 @@
+# herdr, in the shell container.
+#
+# Copied from ~/.config/herdr/config.toml on the VPS, which was itself
+# migrated from ~/.tmux.conf, so a shell in a kasten pane answers the same
+# keys as one over ssh.
+#
+# This is the default the container starts from, not the file herdr reads.
+# herdr rewrites its config whenever a setting is changed in its UI, so the
+# live one has to be writable: the entrypoint copies this into the home volume
+# the first time the container starts, and never again. Your saved settings
+# survive a rebuild that way, and a change here reaches only a fresh volume.
+#
+# The four vim-herdr-navigation bindings need a plugin that is not installed
+# here. `herdr config check` accepts them and they no-op, and they are kept
+# so this file and the host's stay one file.
+
+# herdr configuration
+# Migrated from ~/.tmux.conf
+
+[keys]
+# was: unbind C-b / set -g prefix C-Space
+prefix = "ctrl+space"
+
+# was: bind -n M-H previous-window / bind -n M-L next-window
+previous_tab = ["prefix+p", "alt+shift+h"]
+next_tab = ["prefix+n", "alt+shift+l"]
+
+[theme]
+name = "catppuccin"
+
+# Catppuccin Frappe, to match @catppuccin_flavour 'frappe' in tmux.
+# "catppuccin" above is herdr's built-in dark flavor (Mocha); these
+# overrides re-skin it to Frappe's official palette field by field.
+[theme.custom]
+accent = "#8caaee"
+panel_bg = "#292c3c"
+surface0 = "#414559"
+surface1 = "#51576d"
+surface_dim = "#303446"
+overlay0 = "#737994"
+overlay1 = "#838ba7"
+text = "#c6d0f5"
+subtext0 = "#a5adce"
+mauve = "#ca9ee6"
+green = "#a6d189"
+yellow = "#e5c890"
+red = "#e78284"
+blue = "#8caaee"
+teal = "#81c8be"
+peach = "#ef9f76"
+
+[experimental]
+# was: tmux-resurrect + tmux-continuum (@continuum-restore 'on')
+pane_history = true
+
+# was: christoomey/vim-tmux-navigator
+# No nvim config found on this box, so these currently just move herdr's
+# pane focus (the "not in Vim" fallback). Wire up editor/nvim.lua wherever
+# your nvim config lives to get the seamless Vim <-> herdr crossover.
+[[keys.command]]
+key = "ctrl+h"
+type = "plugin_action"
+command = "vim-herdr-navigation.left"
+description = "navigate left (vim/herdr)"
+
+[[keys.command]]
+key = "ctrl+j"
+type = "plugin_action"
+command = "vim-herdr-navigation.down"
+description = "navigate down (vim/herdr)"
+
+[[keys.command]]
+key = "ctrl+k"
+type = "plugin_action"
+command = "vim-herdr-navigation.up"
+description = "navigate up (vim/herdr)"
+
+[[keys.command]]
+key = "ctrl+l"
+type = "plugin_action"
+command = "vim-herdr-navigation.right"
+description = "navigate right (vim/herdr)"
+
+[ui]
+agent_panel_sort = "spaces"
