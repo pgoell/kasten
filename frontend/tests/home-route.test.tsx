@@ -583,4 +583,45 @@ describe("the route", () => {
 
     expect(app.tabs()).toBe(2);
   });
+
+  it("makes today's daily note with its links and opens it", async () => {
+    // The one test on the two writes a periodic note costs: `POST` starts the
+    // note holding its frontmatter and the `PUT` puts the body under it.
+    // `periodic.test.ts` pins what that body says for every other grain.
+    vi.setSystemTime(new Date(2026, 7, 6, 9, 30));
+    const path = "01 Periodic/00 Daily/2026-08-06.md";
+    createNote.mockResolvedValue({ path, content: "---\nid: one\n---\n" });
+
+    const app = await renderApp();
+    await settle();
+
+    app.leader("g", "d");
+    await settle();
+
+    expect(createNote).toHaveBeenCalledWith(path);
+    expect(saveNote).toHaveBeenCalledWith(
+      path,
+      "---\nid: one\n---\n\n# 2026-08-06 Thursday\n\n" +
+        "[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] |" +
+        " [[01 Periodic/00 Daily/2026-08-07]]\n",
+    );
+    expect(app.text()).toContain("2026-08-06 Thursday");
+  });
+
+  it("opens the daily note the vault already holds without writing to it", async () => {
+    vi.setSystemTime(new Date(2026, 7, 6, 9, 30));
+    const path = "01 Periodic/00 Daily/2026-08-06.md";
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), path]);
+    fetchNote.mockImplementation(async () => "# 2026-08-06 Thursday");
+
+    const app = await renderApp();
+    await settle();
+
+    app.leader("g", "d");
+    await settle();
+
+    expect(createNote).not.toHaveBeenCalled();
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(app.text()).toContain("2026-08-06 Thursday");
+  });
 });
