@@ -604,12 +604,16 @@ describe("the route", () => {
   });
 
   it("makes today's daily note with its links and opens it", async () => {
-    // The one test on the two writes a periodic note costs: `POST` starts the
-    // note holding its frontmatter and the `PUT` puts the body under it.
-    // `periodic.test.ts` pins what that body says for every other grain.
+    // The body goes into the `POST` that makes the note, so a periodic note
+    // costs one write. `periodic.test.ts` pins what that body says for every
+    // other grain.
     vi.setSystemTime(new Date(2026, 7, 6, 9, 30));
     const path = "01 Periodic/00 Daily/2026-08-06.md";
-    createNote.mockResolvedValue({ path, content: "---\nid: one\n---\n" });
+    const body =
+      "\n# 2026-08-06 Thursday\n\n" +
+      "[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] |" +
+      " [[01 Periodic/00 Daily/2026-08-07]]\n";
+    createNote.mockResolvedValue({ path, content: `---\nid: one\n---\n${body}` });
 
     const app = await renderApp();
     await settle();
@@ -617,13 +621,11 @@ describe("the route", () => {
     app.leader("g", "d");
     await settle();
 
-    expect(createNote).toHaveBeenCalledWith(path);
-    expect(saveNote).toHaveBeenCalledWith(
-      path,
-      "---\nid: one\n---\n\n# 2026-08-06 Thursday\n\n" +
-        "[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] |" +
-        " [[01 Periodic/00 Daily/2026-08-07]]\n",
-    );
+    expect(createNote).toHaveBeenCalledWith(path, body);
+    // The second write is what the reader's own editor used to read as another
+    // writer: it lands on `/api/events` a moment after the note is opened, and
+    // anything typed by then is unsaved text over a note that changed on disk.
+    expect(saveNote).not.toHaveBeenCalled();
     expect(app.text()).toContain("2026-08-06 Thursday");
   });
 

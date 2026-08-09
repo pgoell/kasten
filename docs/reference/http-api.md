@@ -239,8 +239,14 @@ more than the record of it. See
 
 ## POST /api/files/{path}
 
-Starts a new note. There is no body: the URL carries the path, and a new note
-has nothing else to say.
+Starts a new note. The URL carries the path. The body is optional and carries
+the note's text, in the shape `PUT` takes:
+
+```json
+{ "content": "\n# 2026-08-09 Sunday\n" }
+```
+
+The reply is the note the vault wrote:
 
 ```json
 {
@@ -252,11 +258,22 @@ has nothing else to say.
 The status is `201` and the shape is the one `GET` returns, so the client can
 open what it just made.
 
-The note holds its [frontmatter block](/reference/note-frontmatter.md) and
-nothing else, so it has an id from the moment it exists. Nothing is written
-below the block: the file name is the note's title in a vault with wikilinks,
-so a `# Borges` heading would say it twice, and anything else would be a word
-in the vault the user did not type.
+The note always holds its [frontmatter block](/reference/note-frontmatter.md),
+so it has an id from the moment it exists. Sent text goes under that block and
+is stamped on the way through the way a save's text is, so a body carrying a
+block of its own keeps the fields in it.
+
+Send no body and the note is the block and nothing else. That is what a note
+made from the prompt or by following a `[[link]]` gets: the file name is the
+note's title in a vault with wikilinks, so a `# Borges` heading would say it
+twice, and anything else would be a word in the vault the user did not type.
+
+The body exists for the client that already knows the text. The five periodic
+keys do, and without it they had to save straight over the note they had just
+made. That second write is a second event on `/api/events` a moment after the
+note opens, and typing into the note before it arrives makes the reader's own
+keystrokes look like another writer: the editor stops autosaving and reads
+`Changed on disk`, cleared with `:w`.
 
 `path` in the reply is the vault's spelling, not the URL's, which is the one
 place this differs from `PUT`. `ideas/./kasten.md` comes back as

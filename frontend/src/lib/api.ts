@@ -78,10 +78,19 @@ export async function fetchNote(path: string): Promise<string> {
   return data.content;
 }
 
-/** Make an empty note, and answer with the note the vault wrote. */
-export async function createNote(path: string): Promise<Note> {
+/**
+ * Make a note, and answer with the note the vault wrote.
+ *
+ * `content` is what goes under the frontmatter block, and it is empty for every
+ * note a reader is about to write themselves. A caller that already knows the
+ * text passes it here rather than saving over the note it just made: that save
+ * is a second event on `/api/events`, and one arriving into an editor already
+ * being typed into reads as another writer.
+ */
+export async function createNote(path: string, content = ""): Promise<Note> {
   const { data, response } = await client.POST("/api/files/{path}", {
     params: { path: { path } },
+    body: { content },
   });
 
   if (!data) {

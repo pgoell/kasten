@@ -1,6 +1,7 @@
 """FastAPI application entrypoint."""
 
 import asyncio
+from importlib.metadata import version
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -33,7 +34,14 @@ if TYPE_CHECKING:
 
     from kasten_backend.events import VaultEvent
 
-app = FastAPI(title="kasten", version="0.1.0")
+app = FastAPI(title="kasten", version=version("kasten-backend"))
+"""The number is read off the installed package rather than written here.
+
+Two copies of it drifted apart once already: the release was cut, the tag moved
+and this string did not, so `/docs` reported a version behind the code serving
+it. `pyproject.toml` is the one place it lives now, and the deploy workflow
+refuses a release whose tag disagrees with it.
+"""
 
 KEEPALIVE_SECONDS = 30.0
 """How long a quiet stream waits before writing a line that says nothing.
@@ -71,7 +79,11 @@ class Note(BaseModel):
 
 
 class NoteEdit(BaseModel):
-    """The new text for a note. The path it belongs to comes from the URL."""
+    """The text for a note. The path it belongs to comes from the URL.
+
+    A save carries one and a create may. Both write the same thing, the note's
+    text below its block, so both read the same body.
+    """
 
     content: str
 
@@ -245,8 +257,12 @@ async def read_file(path: str, settings: Annotated[Settings, Depends(get_setting
 
 
 @app.post("/api/files/{path:path}", status_code=201)
-async def create_file(path: str, settings: Annotated[Settings, Depends(get_settings)]) -> Note:
-    """Start a new, empty note in the vault.
+async def create_file(
+    path: str,
+    settings: Annotated[Settings, Depends(get_settings)],
+    edit: NoteEdit | None = None,
+) -> Note:
+    """Start a new note in the vault, empty unless a body comes with it.
 
     This one says why it refused, unlike the read and the write: a 409 for a
     path already taken and a 400 for one the vault will not have. The user is
@@ -258,8 +274,17 @@ async def create_file(path: str, settings: Annotated[Settings, Depends(get_setti
     the client navigates to it and `ideas/./kasten.md` must not end up in the
     address bar.
 
-    The note starts with its frontmatter and nothing else, so it has an id from
-    the first moment it exists rather than from its first save.
+    The note starts with its frontmatter, so it has an id from the first moment
+    it exists rather than from its first save. A body is written under that
+    block and is stamped on the way through, the way a save's text is, so a
+    body carrying a block of its own keeps the fields in it.
+
+    The body is optional because most creates have nothing to write: a note the
+    reader is about to type is one they type themselves. It exists for the
+    client that already knows the text, the periodic notes above all, which
+    would otherwise have to save straight over the note they just made. That
+    second write is a second event on `/api/events`, and one arriving while the
+    reader types into the note it names reads as another writer.
 
     The new note gets its own jj change, bracketed the way a save is. Both
     refusals return before any of that, so a bounced create leaves no change
@@ -272,7 +297,7 @@ async def create_file(path: str, settings: Annotated[Settings, Depends(get_setti
         raise HTTPException(status_code=409, detail="A note is already there")
 
     relative = relative_path(settings.vault_path, note)
-    content = stamp("")
+    content = stamp(edit.content if edit else "")
 
     await begin_change(settings.vault_path, relative)
     create_note(note, content)
