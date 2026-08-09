@@ -12,7 +12,7 @@ import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
-import { createNote, fetchFiles, fetchNote, fetchTerminals, saveNote } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote, fetchTerminals } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -337,29 +337,25 @@ function Home() {
         return;
       }
 
-      void createNote(path)
-        // Two writes, because `POST` starts a note holding its frontmatter and
-        // nothing else, and there is no way to hand it a body. The second is
-        // what puts the heading and the links under that block.
-        //
-        // ponytail: two jj changes and two events for one note. Give the create
-        // a body of its own if that ever reads badly in `jj log`.
-        .then((made) => (body === "" ? made : saveNote(made.path, `${made.content}\n${body}`)))
-        .then(
-          (made) => {
-            // The vault's spelling and the vault's text, the way the prompt
-            // seeds them, so the editor opens what was written rather than
-            // reading back a file it just made.
-            queryClient.setQueryData(["note", made.path], made.content);
-            queryClient.invalidateQueries({ queryKey: ["files"] });
-            void openInPane(made.path);
-          },
-          () => {
-            // The vault refused the path: a hidden name, or a note standing
-            // where the link wanted a folder. The note on screen stays open
-            // with the link still in it, which is the only place to fix either.
-          },
-        );
+      // One write. The blank line is the create's rather than the body's: the
+      // text lands under a frontmatter block and wants a line between, and the
+      // body is written without one so that a reader of `periodic.ts` sees the
+      // heading first.
+      void createNote(path, body === "" ? "" : `\n${body}`).then(
+        (made) => {
+          // The vault's spelling and the vault's text, the way the prompt
+          // seeds them, so the editor opens what was written rather than
+          // reading back a file it just made.
+          queryClient.setQueryData(["note", made.path], made.content);
+          queryClient.invalidateQueries({ queryKey: ["files"] });
+          void openInPane(made.path);
+        },
+        () => {
+          // The vault refused the path: a hidden name, or a note standing
+          // where the link wanted a folder. The note on screen stays open
+          // with the link still in it, which is the only place to fix either.
+        },
+      );
     },
     [data, queryClient, openInPane],
   );

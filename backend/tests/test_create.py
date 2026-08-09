@@ -213,3 +213,27 @@ async def test_gives_the_new_note_its_frontmatter(client: AsyncClient, vault: Pa
     written = (vault / "index.md").read_text()
     assert written.startswith("---\nid: ")
     assert response.json()["content"] == written
+
+
+async def test_starts_the_note_with_the_body_it_was_given(client: AsyncClient, vault: Path) -> None:
+    response = await client.post("/api/files/index.md", json={"content": "\n# index\n"})
+
+    assert response.status_code == 201
+    written = (vault / "index.md").read_text()
+    assert written.startswith("---\nid: ")
+    assert written.endswith("---\n\n# index\n")
+    assert response.json()["content"] == written
+
+
+async def test_stamps_a_body_that_carries_its_own_block(client: AsyncClient, vault: Path) -> None:
+    # A body arrives the way a save's text does, so the block in it is filled in
+    # rather than written over, and a note made from one keeps its own fields.
+    response = await client.post(
+        "/api/files/index.md", json={"content": "---\ntags: [a]\n---\n# index\n"}
+    )
+
+    assert response.status_code == 201
+    written = (vault / "index.md").read_text()
+    assert "tags: [a]" in written
+    assert written.startswith("---\nid: ")
+    assert written.endswith("---\n# index\n")

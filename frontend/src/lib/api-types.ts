@@ -172,7 +172,7 @@ export interface paths {
         put: operations["save_file_api_files__path__put"];
         /**
          * Create File
-         * @description Start a new, empty note in the vault.
+         * @description Start a new note in the vault, empty unless a body comes with it.
          *
          *     This one says why it refused, unlike the read and the write: a 409 for a
          *     path already taken and a 400 for one the vault will not have. The user is
@@ -184,8 +184,17 @@ export interface paths {
          *     the client navigates to it and `ideas/./kasten.md` must not end up in the
          *     address bar.
          *
-         *     The note starts with its frontmatter and nothing else, so it has an id from
-         *     the first moment it exists rather than from its first save.
+         *     The note starts with its frontmatter, so it has an id from the first moment
+         *     it exists rather than from its first save. A body is written under that
+         *     block and is stamped on the way through, the way a save's text is, so a
+         *     body carrying a block of its own keeps the fields in it.
+         *
+         *     The body is optional because most creates have nothing to write: a note the
+         *     reader is about to type is one they type themselves. It exists for the
+         *     client that already knows the text, the periodic notes above all, which
+         *     would otherwise have to save straight over the note they just made. That
+         *     second write is a second event on `/api/events`, and one arriving while the
+         *     reader types into the note it names reads as another writer.
          *
          *     The new note gets its own jj change, bracketed the way a save is. Both
          *     refusals return before any of that, so a bounced create leaves no change
@@ -305,7 +314,10 @@ export interface components {
         };
         /**
          * NoteEdit
-         * @description The new text for a note. The path it belongs to comes from the URL.
+         * @description The text for a note. The path it belongs to comes from the URL.
+         *
+         *     A save carries one and a create may. Both write the same thing, the note's
+         *     text below its block, so both read the same body.
          */
         NoteEdit: {
             /** Content */
@@ -539,7 +551,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NoteEdit"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

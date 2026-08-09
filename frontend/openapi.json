@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.1.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/api/health": {
@@ -172,7 +172,7 @@
       },
       "post": {
         "summary": "Create File",
-        "description": "Start a new, empty note in the vault.\n\nThis one says why it refused, unlike the read and the write: a 409 for a\npath already taken and a 400 for one the vault will not have. The user is\nabout to retype the path and has to know which it was, and the one user\nbehind oauth2-proxy learns nothing from a 409 that `GET /api/files` did not\nalready hand them.\n\nThe path that comes back is the canonical spelling, not the URL's, because\nthe client navigates to it and `ideas/./kasten.md` must not end up in the\naddress bar.\n\nThe note starts with its frontmatter and nothing else, so it has an id from\nthe first moment it exists rather than from its first save.\n\nThe new note gets its own jj change, bracketed the way a save is. Both\nrefusals return before any of that, so a bounced create leaves no change\nbehind.",
+        "description": "Start a new note in the vault, empty unless a body comes with it.\n\nThis one says why it refused, unlike the read and the write: a 409 for a\npath already taken and a 400 for one the vault will not have. The user is\nabout to retype the path and has to know which it was, and the one user\nbehind oauth2-proxy learns nothing from a 409 that `GET /api/files` did not\nalready hand them.\n\nThe path that comes back is the canonical spelling, not the URL's, because\nthe client navigates to it and `ideas/./kasten.md` must not end up in the\naddress bar.\n\nThe note starts with its frontmatter, so it has an id from the first moment\nit exists rather than from its first save. A body is written under that\nblock and is stamped on the way through, the way a save's text is, so a\nbody carrying a block of its own keeps the fields in it.\n\nThe body is optional because most creates have nothing to write: a note the\nreader is about to type is one they type themselves. It exists for the\nclient that already knows the text, the periodic notes above all, which\nwould otherwise have to save straight over the note they just made. That\nsecond write is a second event on `/api/events`, and one arriving while the\nreader types into the note it names reads as another writer.\n\nThe new note gets its own jj change, bracketed the way a save is. Both\nrefusals return before any of that, so a bounced create leaves no change\nbehind.",
         "operationId": "create_file_api_files__path__post",
         "parameters": [
           {
@@ -185,6 +185,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/NoteEdit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Edit"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -444,7 +461,7 @@
           "content"
         ],
         "title": "NoteEdit",
-        "description": "The new text for a note. The path it belongs to comes from the URL."
+        "description": "The text for a note. The path it belongs to comes from the URL.\n\nA save carries one and a create may. Both write the same thing, the note's\ntext below its block, so both read the same body."
       },
       "NoteMove": {
         "properties": {

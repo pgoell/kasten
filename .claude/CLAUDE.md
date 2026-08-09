@@ -23,7 +23,8 @@ Real, working code, not a plan:
   `/api/events`, `GET`,
   `POST`, `PUT` and `PATCH` on `/api/files/{path}`, and `PATCH` on
   `/api/folders/{path}`. A create starts a
-  note holding its frontmatter and makes the folders on the way to it; a `PATCH`
+  note holding its frontmatter, and the text under it when a body comes with
+  the request, and makes the folders on the way to it; a `PATCH`
   gives a note or a folder a new path and takes the folders it emptied with it. A folder moves in
   one rename, so its whole subtree arrives together. Both moves rewrite every
   `[[link]]` in the vault that named what moved, each in the spelling it had,
@@ -177,6 +178,12 @@ Work happens on a branch and lands through a pull request. Lefthook runs `lint`
 before a commit and the tests plus the frontend typecheck before a push. CI
 runs Lint and Test, and both must pass before main will take the merge. Main
 requires linear history and merge commits are off, so squash or rebase.
+
+The version lives in `backend/pyproject.toml` and nowhere else; the backend
+reads it back off the installed package. A release is a bump plus a tag, and the
+deploy workflow refuses one whose tag disagrees. The sequence, and how to read
+the next number off the commit subjects, is in
+[Cut a release](../docs/how-to/cut-a-release.md).
 
 Verify before you claim. A change is done when you have run the thing, not when
 it looks right.
