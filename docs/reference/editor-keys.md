@@ -497,6 +497,13 @@ a tree that has hidden it.
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 
+Opening a note takes the focus with it, from here and from everywhere else that
+opens one: Enter in the tree, a click on a row, the finder, search, a `[[link]]`
+and the periodic keys. The editor claims the focus on its own only when nothing
+else holds it, and the tree holds it, so without this the note arrived on screen
+with every following key still reaching the panel beside it. Escape is for
+leaving the tree without opening anything.
+
 Leader sequences work here too, so `<leader>b` closes the tree from inside it.
 
 `c`, `f`, `s` and `r` are bare letters rather than leader sequences, because the

@@ -295,10 +295,22 @@ function Home() {
    * The refusal cannot live in that cleanup: by then the path has already
    * changed, and refusing there would trade the other writer's text for the
    * reader's own.
+   *
+   * The focus is raised with the note, the way every key that moves between
+   * panes raises it. Without that, a note opened from the file tree arrives on
+   * screen with the focus still on the tree row: the editor takes the focus on
+   * mount only when nothing else holds it, and the tree holds it. The note is
+   * in front of you and every key you press goes to the panel beside it. A
+   * click into a row lands here too and raises it just the same, which is what
+   * you want from a click on a note: you asked to read it, not to go on
+   * walking the tree.
    */
   const openInPane = useCallback(
     async (path: string, line?: number) => {
-      if (await saveFirst()) setLayout((previous) => openInFocused(previous, path, line));
+      if (!(await saveFirst())) return;
+
+      setLayout((previous) => openInFocused(previous, path, line));
+      setFocusSignal((previous) => previous + 1);
     },
     [saveFirst],
   );

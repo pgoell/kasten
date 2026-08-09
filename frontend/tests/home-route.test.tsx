@@ -584,6 +584,25 @@ describe("the route", () => {
     expect(app.tabs()).toBe(2);
   });
 
+  it("puts the cursor in the editor when a note is opened from the file tree", async () => {
+    // The tree holds the focus while its own keys are being pressed, and the
+    // editor takes the focus on mount only when nothing else holds it. Without
+    // the focus being raised with the note, the note arrives on screen and
+    // every key after it goes on reaching the tree.
+    const app = await renderApp();
+    await settle();
+
+    const row = document.querySelector("[title='other.md']") as HTMLElement;
+    row.focus();
+    expect(document.activeElement).toBe(row);
+
+    app.click("other.md");
+    await settle();
+
+    expect(document.activeElement?.className).toContain("cm-content");
+    expect(app.text()).toBe("the other note");
+  });
+
   it("makes today's daily note with its links and opens it", async () => {
     // The one test on the two writes a periodic note costs: `POST` starts the
     // note holding its frontmatter and the `PUT` puts the body under it.
