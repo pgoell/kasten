@@ -19,6 +19,17 @@ function renderPrompt() {
   };
 }
 
+describe("the same prompt opened on a row", () => {
+  it("says which todo the part is going under", () => {
+    render(<TodoPrompt onAdd={vi.fn()} onClose={vi.fn()} today={TODAY} under="go to japan" />);
+
+    // The one thing that tells this press from `a`, which writes into today's
+    // note wherever the cursor sits.
+    expect(screen.getByRole("dialog", { name: "Add part" })).toHaveTextContent("go to japan");
+    expect(screen.getByLabelText("part")).toHaveFocus();
+  });
+});
+
 describe("TodoPrompt", () => {
   const TYPED = "call the dentist due:08-14 !high #health";
 

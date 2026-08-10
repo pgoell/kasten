@@ -16,6 +16,13 @@ interface TodoPromptProps {
   onAdd: (input: string) => void;
   onClose: () => void;
   today: string;
+  /**
+   * The words of the todo this is going under, where the pane's `s` opened it.
+   *
+   * Drawn rather than acted on: the write is the caller's, and the two presses
+   * put the line in different notes, so the prompt has to say which one this is.
+   */
+  under?: string;
 }
 
 /**
@@ -31,10 +38,12 @@ interface TodoPromptProps {
  * `describeNotePath`, `folderCandidates` and `noteAfterPrompt`. A todo is not a
  * path.
  */
-export function TodoPrompt({ onAdd, onClose, today }: TodoPromptProps) {
+export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
   const [input, setInput] = useState("");
   const field = useRef<HTMLInputElement>(null);
   const fieldId = useId();
+  /** What this press is: a todo in today's note, or a part of the row it opened on. */
+  const what = under === undefined ? "todo" : "part";
 
   const typed = input.trim();
   // Nothing typed draws no line: a preview of a todo with no words in it is
@@ -77,7 +86,7 @@ export function TodoPrompt({ onAdd, onClose, today }: TodoPromptProps) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Add todo"
+      aria-label={`Add ${what}`}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className={BACKDROP}
@@ -85,7 +94,7 @@ export function TodoPrompt({ onAdd, onClose, today }: TodoPromptProps) {
       <div className={`${PANEL} ${PANEL_NARROW}`}>
         <div className={HEADER_ROW}>
           <label htmlFor={fieldId} className={LABEL}>
-            todo
+            {what}
           </label>
           <input
             id={fieldId}
@@ -97,6 +106,12 @@ export function TodoPrompt({ onAdd, onClose, today }: TodoPromptProps) {
             className={INPUT}
           />
         </div>
+
+        {/* Which todo the part is going under, so the two presses that open
+            this prompt cannot be told apart by the label alone. */}
+        {under !== undefined && (
+          <p className={`${STATUS} truncate text-one-muted`}>under {under}</p>
+        )}
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}

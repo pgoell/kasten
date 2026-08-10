@@ -115,10 +115,13 @@ Real, working code, not a plan:
   the row off the list until the day it names. A part is drawn one step in under
   the todo it belongs to, and where that todo is in another group or already
   done it names it in front of its own words instead.
-  Its keys are `j k Enter x O P X B R a i t d n v / q Escape`: `x` walks a todo in the vault,
+  Its keys are `j k Enter x O P X B R a s i t d n v / q Escape`: `x` walks a todo in the vault,
   `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
   est:45m !high #health`, into a todo under `## TODOs` in today's note, `est:`
   being the one path by which kasten rather than your keyboard writes a `⏲`,
+  `s` opens that same prompt on the row under the cursor and puts what it takes
+  in as a part of it, in that todo's own note, two spaces in from its line and
+  after the parts it already has, declining a row the vault has moved past,
   `i` turns the row into the line as the note holds it, vim's own key for
   typing where the cursor is and writes back what you
   leave in it, which is how a `🔁`, a `⏳` or an indent is changed, and it

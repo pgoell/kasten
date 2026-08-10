@@ -225,6 +225,12 @@ its parts done. Both directions are the spec's own asymmetry: finishing the
 whole thing finishes the parts, while a parent usually has work of its own that
 no part names.
 
+The indent is typed by hand in a note, and written for you from the todo pane:
+[`s`](/reference/editor-keys.md#the-todo-pane) puts what you type in as a part
+of the row under the cursor, two spaces further in than that row's own line and
+after the parts it already has. It is the add prompt's shorthand either way, so
+`s` and `a` write the same kind of line into different places.
+
 ## Dependencies
 
 `⛔` names another todo's id, and says this todo waits on that one:
@@ -423,7 +429,7 @@ while it is half written.
 
 ## The add prompt's shorthand
 
-`a` in the todo pane reads the same words as instructions rather than as
+`a` and `s` in the todo pane read the same words as instructions rather than as
 filters, so `due:08-14` sets a date rather than picking one. The line under the
 input is what the vault is about to get.
 

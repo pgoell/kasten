@@ -186,6 +186,33 @@ export function addTodoWrites({ dailyPath, dailyText, todo }: AddInput): Write[]
   return [{ path: dailyPath, text: appendUnder(dailyText, TODOS, formatTodo(todo)) }];
 }
 
+/** How far one step of nesting shifts a line. Two spaces, as the vault writes them. */
+const STEP = 2;
+
+/**
+ * The note with `todo` written in as a part of the todo on `line`. Null where
+ * that line is not one, as `dropDone` is null where nothing moved.
+ *
+ * A part is an indent and nothing else, so the whole of this is where the line
+ * goes and how far in. It goes after the parts the parent already has rather
+ * than straight under it, which is where a list you are adding to grows, and one
+ * step past the parent's own indent however deep that already runs.
+ */
+export function insertSubtask(text: string, line: number, todo: Todo): string | null {
+  const lines = text.split("\n");
+  const parent = parseTodo(lines[line - 1] ?? "");
+  if (parent === null) return null;
+
+  // The tree rather than the lines below it: a part can be several lines down
+  // with prose between, which `treeOf` reads through and a scan would stop at.
+  const node = nodeAt(lines, line);
+  const under = node === null ? [] : descendants(node);
+  const at = under.reduce((last, part) => Math.max(last, part.line), line);
+
+  lines.splice(at, 0, formatTodo({ ...todo, indent: parent.indent + STEP }));
+  return lines.join("\n");
+}
+
 export interface LogInput {
   /** The todo as the line read before the press, or null where it was not one. */
   was: Todo | null;

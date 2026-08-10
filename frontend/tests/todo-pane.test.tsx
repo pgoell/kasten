@@ -66,6 +66,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
   const onOpen = vi.fn();
   const onCycle = vi.fn();
   const onAdd = vi.fn();
+  const onSubtask = vi.fn();
   const onEdit = vi.fn();
   const onTimer = vi.fn();
   const { reached, commands } = recorder();
@@ -78,6 +79,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
         onOpen={onOpen}
         onCycle={onCycle}
         onAdd={onAdd}
+        onSubtask={onSubtask}
         onEdit={onEdit}
         onTimer={onTimer}
         focusSignal={focusSignal}
@@ -92,6 +94,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     onOpen,
     onCycle,
     onAdd,
+    onSubtask,
     onEdit,
     onTimer,
     reached,
@@ -432,6 +435,7 @@ describe("the todo pane", () => {
 
     expect(pane.footer()).toContain("x cycle");
     expect(pane.footer()).toContain("a add");
+    expect(pane.footer()).toContain("s part");
     expect(pane.footer()).toContain("i edit");
     expect(pane.footer()).toContain("d done");
     expect(pane.footer()).toContain("n next");
@@ -451,6 +455,19 @@ describe("the todo pane", () => {
     // No row and no hit: the todo goes into today's note, wherever the cursor
     // happens to be sitting.
     expect(pane.onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the same prompt on s, bound to the row under the cursor", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("j");
+    pane.press("s");
+
+    // The hit, because the part goes in beside that line rather than into
+    // today's note.
+    expect(pane.onSubtask).toHaveBeenCalledExactlyOnceWith(TODOS[1]);
+    expect(pane.onAdd).not.toHaveBeenCalled();
   });
 
   it("turns the row under the cursor into its own line on i", async () => {

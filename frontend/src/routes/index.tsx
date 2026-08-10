@@ -38,8 +38,9 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
-import type { TodoState } from "@/lib/todo";
+import { parseTodo, type TodoState } from "@/lib/todo";
 import {
+  addSubtaskInVault,
   addTodoInVault,
   cycleTodoAside,
   cycleTodoInVault,
@@ -122,9 +123,10 @@ function Home() {
   // asks for all of them, so there is nothing here to start from.
   const [todosOpen, setTodosOpen] = useState(false);
   const [terminalPrompt, setTerminalPrompt] = useState(false);
-  // A flag, like the terminal prompt's: the todo is typed out rather than
-  // picked, so there is nothing here for it to start from.
-  const [todoPrompt, setTodoPrompt] = useState(false);
+  // Whether the todo prompt is open, and the row it opened on where `s` opened
+  // it. The todo is typed out rather than picked, so the parent is the whole of
+  // what this holds: it decides which note the line lands in.
+  const [todoPrompt, setTodoPrompt] = useState<{ parent?: SearchHit } | null>(null);
   // The sessions the prompt offers. Asked for only while it is open: they
   // change when something outside the browser starts one, and nothing else on
   // screen reads them, so there is no reason to hold a copy the rest of the
@@ -476,7 +478,12 @@ function Home() {
   );
 
   /**
-   * Put a typed todo under `## TODOs` in today's note, from the pane's `a`.
+   * Put a typed todo under `## TODOs` in today's note, from the pane's `a`, or
+   * beside the row `s` opened on as a part of it.
+   *
+   * One callback for both, because the prompt is one prompt: the row it opened
+   * on is the whole of the difference, and it decides which note the line lands
+   * in.
    *
    * The clock is read here rather than in the prompt, so a prompt left open
    * over midnight writes the day it was taken on. The prompt shuts before the
@@ -484,14 +491,20 @@ function Home() {
    */
   const addTodo = useCallback(
     (input: string) => {
-      setTodoPrompt(false);
+      const parent = todoPrompt?.parent;
+      setTodoPrompt(null);
       refocusPane();
-      void addTodoInVault(input, readClock(new Date()).date, data ?? []).then(todosWritten, () => {
-        // The vault refused the write. Nothing on screen moved with it, so
-        // there is nothing here to put back.
+      const today = readClock(new Date()).date;
+      const written =
+        parent === undefined
+          ? addTodoInVault(input, today, data ?? [])
+          : addSubtaskInVault(parent, input, today);
+      void written.then(todosWritten, () => {
+        // The vault refused the write, or the note moved out from under the
+        // row. Nothing on screen moved with it, so there is nothing to put back.
       });
     },
-    [data, todosWritten, refocusPane],
+    [data, todosWritten, refocusPane, todoPrompt],
   );
 
   /**
@@ -729,7 +742,8 @@ function Home() {
                     commands={commands}
                     onOpen={(path, hitLine) => void openInPane(path, hitLine)}
                     onCycle={cycleTodo}
-                    onAdd={() => setTodoPrompt(true)}
+                    onAdd={() => setTodoPrompt({})}
+                    onSubtask={(hit) => setTodoPrompt({ parent: hit })}
                     onEdit={editTodo}
                     onTimer={toggleTimer}
                     focusSignal={focused ? focusSignal : 0}
@@ -816,13 +830,21 @@ function Home() {
           onClose={() => setTerminalPrompt(false)}
         />
       )}
-      {todoPrompt && (
+      {todoPrompt !== null && (
         <TodoPrompt
           onAdd={addTodo}
           onClose={() => {
-            setTodoPrompt(false);
+            setTodoPrompt(null);
             refocusPane();
           }}
+          // The line as the vault holds it, read no further than this: the
+          // prompt draws it to say where the part is going, and the write reads
+          // the note again for itself.
+          under={
+            todoPrompt.parent === undefined
+              ? undefined
+              : (parseTodo(todoPrompt.parent.text)?.text ?? todoPrompt.parent.text)
+          }
           // Read at the render, the way the pane reads it, so the line the
           // prompt draws and the line the write makes are the same day's.
           today={readClock(new Date()).date}

@@ -11,6 +11,7 @@ import {
   doneLine,
   doneLogWrites,
   dropDone,
+  insertSubtask,
   type LogInput,
   type TimerInput,
   timerWrites,
@@ -530,6 +531,49 @@ describe("addTodoWrites", () => {
         ].join("\n"),
       },
     ]);
+  });
+});
+
+describe("insertSubtask", () => {
+  const PART = "- [ ] book the flight ➕ 2026-08-10";
+
+  it("puts the part one step in under the todo it belongs to", () => {
+    const note = ["## TODOs", "- [ ] go to japan", "- [ ] buy milk", ""].join("\n");
+
+    expect(insertSubtask(note, 2, todo(PART))).toBe(
+      ["## TODOs", "- [ ] go to japan", `  ${PART}`, "- [ ] buy milk", ""].join("\n"),
+    );
+  });
+
+  it("puts it after the parts the todo already has, however deep they run", () => {
+    const note = [
+      "- [ ] go to japan",
+      "  - [ ] pack",
+      "    - [ ] the passport",
+      "- [ ] buy milk",
+    ].join("\n");
+
+    expect(insertSubtask(note, 1, todo(PART))).toBe(
+      [
+        "- [ ] go to japan",
+        "  - [ ] pack",
+        "    - [ ] the passport",
+        `  ${PART}`,
+        "- [ ] buy milk",
+      ].join("\n"),
+    );
+  });
+
+  it("counts the parent's own indent, so a part of a part goes in two steps", () => {
+    const note = ["- [ ] go to japan", "  - [ ] pack"].join("\n");
+
+    expect(insertSubtask(note, 2, todo(PART))).toBe(
+      ["- [ ] go to japan", "  - [ ] pack", `    ${PART}`].join("\n"),
+    );
+  });
+
+  it("answers nothing where the line is not a todo", () => {
+    expect(insertSubtask(["# Kasten", "some prose"].join("\n"), 2, todo(PART))).toBeNull();
   });
 });
 
