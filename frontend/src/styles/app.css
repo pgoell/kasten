@@ -178,9 +178,11 @@ body {
   color: var(--color-one-yellow);
 }
 
+/* Red, so a dropped todo is not read as an open one: muted is what an empty box
+   wears, and the two boxes differ by one stroke. */
 .cm-todo-rejected::before {
   content: "☒ ";
-  color: var(--color-one-muted);
+  color: var(--color-one-warn);
 }
 
 /* Off the list either way, whether it was finished or dropped, so the words
