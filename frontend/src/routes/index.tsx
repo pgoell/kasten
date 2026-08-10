@@ -38,7 +38,7 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
-import { addTodoInVault, cycleTodoInVault, logCycledTodoInVault } from "@/lib/todo-api";
+import { addTodoInVault, cycleTodoAside, cycleTodoInVault } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
@@ -415,7 +415,7 @@ function Home() {
    */
   const logCycledTodo = useCallback(
     (path: string, cycle: TodoCycle) => {
-      void logCycledTodoInVault(path, cycle, readClock(new Date()).date, data ?? []).then(
+      void cycleTodoAside(path, cycle, readClock(new Date()).date, data ?? []).then(
         todosWritten,
         () => {
           // The vault refused the write. The line in the buffer stands, and the

@@ -33,6 +33,8 @@ export interface CycleInput {
   today: string;
   /** A fresh id, used only when the todo enters done carrying none. */
   id: string;
+  /** Whether a blocker is closed, as far as the caller can see. */
+  closed: Closed;
 }
 
 export interface AddInput {
@@ -215,6 +217,57 @@ export function doneLogWrites(input: LogInput): Write[] {
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
 }
 
+/**
+ * Whether a blocker is closed, or nothing where the caller cannot see it.
+ *
+ * Nothing reads as still open, so a dependent is never opened on a guess. The
+ * buffer builds this from the document it holds; the vault writer builds it
+ * from every todo the vault holds.
+ */
+export type Closed = (id: string) => boolean | undefined;
+
+/** A resolver over the todos in hand. An id none of them carries answers nothing. */
+export function closedAmong(todos: Todo[]): Closed {
+  const states = new Map<string, boolean>();
+  for (const todo of todos) if (todo.id !== undefined) states.set(todo.id, !isOpen(todo));
+  return (id) => states.get(id);
+}
+
+/**
+ * Every `⛔` line in `lines` whose state kasten owns and whose blockers
+ * disagree with it, keyed by line number.
+ *
+ * `⛔` on a line means kasten owns the choice between `[ ]` and `[b]` there.
+ * `[/]`, `[x]` and `[-]` are never touched, so a state set by hand cannot be
+ * destroyed by a blocker moving.
+ */
+export function blockedLines(lines: string[], closed: Closed): Map<number, string> {
+  const moved = new Map<number, string>();
+
+  for (const [index, text] of lines.entries()) {
+    const todo = parseTodo(text);
+    if (todo === null || todo.blockedBy.length === 0) continue;
+    if (todo.state !== "open" && todo.state !== "blocked") continue;
+
+    // Every blocker has to be closed, and one this cannot see reads as open.
+    const held = todo.blockedBy.some((blocker) => closed(blocker) !== true);
+    const state = held ? "blocked" : "open";
+    if (todo.state !== state) moved.set(index + 1, formatTodo({ ...todo, state }));
+  }
+
+  return moved;
+}
+
+/** `blockedLines` applied to a note. Null where nothing moved, as `dropDone` is. */
+export function applyBlocked(text: string, closed: Closed): string | null {
+  const lines = text.split("\n");
+  const moved = blockedLines(lines, closed);
+  if (moved.size === 0) return null;
+
+  for (const [at, insert] of moved) lines[at - 1] = insert;
+  return lines.join("\n");
+}
+
 export interface CycleLinesInput {
   /** The whole note, split on newlines. */
   lines: string[];
@@ -223,6 +276,8 @@ export interface CycleLinesInput {
   today: string;
   /** A fresh id, used only when the todo enters done carrying none. */
   id: string;
+  /** Whether a blocker is closed. The press's own todo is answered from the press. */
+  closed: Closed;
 }
 
 /**
@@ -250,16 +305,23 @@ function nodeAt(lines: string[], line: number): Node | null {
  * and hand CodeMirror an overlapping change. A value may hold a newline, which
  * is how the recurrence copy arrives above the line it belongs to.
  */
-export function cycleLines({ lines, line, today, id }: CycleLinesInput): Map<number, string> {
+export function cycleLines({
+  lines,
+  line,
+  today,
+  id,
+  closed,
+}: CycleLinesInput): Map<number, string> {
   const before = lines[line - 1] ?? "";
   const was = parseTodo(before);
   const cycled = cycleLine(before, today, id);
+  const now = parseTodo(cycled);
   const moved = new Map<number, string>([[line, cycled]]);
 
   // Finishing the whole thing finishes the parts, so entering done takes every
   // open descendant with it. Leaving done cascades nothing, and ticking the
   // last part leaves the parent alone: that inference is the one often wrong.
-  if (was?.state !== "done" && parseTodo(cycled)?.state === "done") {
+  if (was?.state !== "done" && now?.state === "done") {
     const node = nodeAt(lines, line);
     for (const part of node === null ? [] : descendants(node)) {
       // No id on a part: nothing names it, the log writes one line for the
@@ -270,12 +332,30 @@ export function cycleLines({ lines, line, today, id }: CycleLinesInput): Map<num
     }
   }
 
+  // From the blocker's side and only from there: closing or reopening a todo
+  // that carries an id is what moves the lines waiting on it. A press that
+  // leaves the line no longer a todo moves nothing, nothing being able to
+  // resolve it any more.
+  if (was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now)) {
+    const after = [...lines];
+    for (const [at, insert] of moved) after[at - 1] = insert;
+    // The press is newer than whatever the caller can see, so this one id is
+    // answered off the line the press just wrote.
+    const resolve: Closed = (blocker) => (blocker === now.id ? !isOpen(now) : closed(blocker));
+
+    for (const [at, insert] of blockedLines(after, resolve)) {
+      // The press and the cascade keep the lines they claimed. Two rules must
+      // never hand CodeMirror one line twice.
+      if (!moved.has(at)) moved.set(at, insert);
+    }
+  }
+
   return moved;
 }
 
 /** Every note one press of the cycle changes, in the order they should be sent. */
 export function cycleTodoWrites(input: CycleInput): Write[] {
-  const { path, text, line, dailyPath, dailyText, logged, today, id } = input;
+  const { path, text, line, dailyPath, dailyText, logged, today, id, closed } = input;
 
   const lines = text.split("\n");
   const was = parseTodo(lines[line - 1] ?? "");
@@ -283,7 +363,9 @@ export function cycleTodoWrites(input: CycleInput): Write[] {
   // the recurrence copy as well, and the log is about the todo that was ticked.
   const now = parseTodo(cycleLine(lines[line - 1] ?? "", today, id));
 
-  for (const [at, insert] of cycleLines({ lines, line, today, id })) lines[at - 1] = insert;
+  for (const [at, insert] of cycleLines({ lines, line, today, id, closed })) {
+    lines[at - 1] = insert;
+  }
   const own = lines.join("\n");
 
   const writes = new Map<string, string>([[path, own]]);

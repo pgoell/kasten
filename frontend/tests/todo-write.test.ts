@@ -2,6 +2,9 @@ import { parseTodo, type Todo } from "@/lib/todo";
 import {
   addTodoWrites,
   appendUnder,
+  applyBlocked,
+  blockedLines,
+  type Closed,
   type CycleInput,
   cycleLines,
   cycleTodoWrites,
@@ -60,6 +63,9 @@ function todo(line: string): Todo {
   return found;
 }
 
+/** A resolver that has never heard of a blocker, which reads as still open. */
+const UNKNOWN: Closed = () => undefined;
+
 /** One press, with the note and the day above and nothing logged anywhere. */
 function press(over: Partial<CycleInput> = {}): CycleInput {
   return {
@@ -71,6 +77,7 @@ function press(over: Partial<CycleInput> = {}): CycleInput {
     logged: {},
     today: TODAY,
     id: "kt-3f9a2c",
+    closed: UNKNOWN,
     ...over,
   };
 }
@@ -173,8 +180,8 @@ describe("dropDone", () => {
 });
 
 /** One press over a note's lines, which is what the cascade is a rule about. */
-function cycle(note: string[], line: number) {
-  return cycleLines({ lines: note, line, today: TODAY, id: "kt-3f9a2c" });
+function cycle(note: string[], line: number, closed: Closed = UNKNOWN) {
+  return cycleLines({ lines: note, line, today: TODAY, id: "kt-3f9a2c", closed });
 }
 
 describe("cycleLines", () => {
@@ -219,6 +226,36 @@ describe("cycleLines", () => {
     const note = [`- [x] a ✅ ${TODAY} 🆔 kt-000001`, `  - [x] b ✅ ${TODAY}`];
 
     expect(cycle(note, 1)).toEqual(new Map([[1, "- [b] a 🆔 kt-000001"]]));
+  });
+
+  it("moves what waits on the todo it just closed", () => {
+    const note = ["- [/] ship it 🆔 kt-000001", "- [b] write the docs ⛔ kt-000001"];
+
+    expect(cycle(note, 1)).toEqual(
+      new Map([
+        [1, `- [x] ship it ✅ ${TODAY} 🆔 kt-000001`],
+        [2, "- [ ] write the docs ⛔ kt-000001"],
+      ]),
+    );
+  });
+
+  it("puts a dependent back to blocked when the blocker is reopened", () => {
+    const note = [`- [x] ship it ✅ ${TODAY} 🆔 kt-000001`, "- [ ] write the docs ⛔ kt-000001"];
+
+    expect(cycle(note, 1)).toEqual(
+      new Map([
+        [1, "- [b] ship it 🆔 kt-000001"],
+        [2, "- [b] write the docs ⛔ kt-000001"],
+      ]),
+    );
+  });
+
+  it("lets the cascade keep a line the writeback also points at", () => {
+    // The child waits on its own parent, so both rules name line 2. The map is
+    // what stops the two of them handing CodeMirror one line twice.
+    const note = ["- [/] ship it 🆔 kt-000001", "  - [b] write the docs ⛔ kt-000001"];
+
+    expect(cycle(note, 1).get(2)).toBe(`  - [x] write the docs ✅ ${TODAY} ⛔ kt-000001`);
   });
 
   it("leaves the parent alone when the last part is ticked", () => {
@@ -434,5 +471,74 @@ describe("addTodoWrites", () => {
         ].join("\n"),
       },
     ]);
+  });
+});
+
+/** A vault where one blocker is done and one is still open. */
+const CLOSED: Closed = (id) =>
+  id === "kt-000001" || id === "kt-000003" ? true : id === "kt-000002" ? false : undefined;
+
+describe("blockedLines", () => {
+  it("holds a dependent at blocked while what blocks it is open", () => {
+    expect(blockedLines(["- [ ] ship it ⛔ kt-000002"], CLOSED)).toEqual(
+      new Map([[1, "- [b] ship it ⛔ kt-000002"]]),
+    );
+  });
+
+  it("opens it again once the blocker closes", () => {
+    expect(blockedLines(["- [b] ship it ⛔ kt-000001"], CLOSED)).toEqual(
+      new Map([[1, "- [ ] ship it ⛔ kt-000001"]]),
+    );
+  });
+
+  it("answers nothing where the line already agrees with its blockers", () => {
+    expect(blockedLines(["- [ ] ship it ⛔ kt-000001", "- [b] a ⛔ kt-000002"], CLOSED)).toEqual(
+      new Map(),
+    );
+  });
+
+  it("leaves a state kasten does not own alone, whatever the blocker says", () => {
+    const note = [
+      "- [/] one ⛔ kt-000002",
+      "- [x] two ✅ 2026-08-01 ⛔ kt-000002",
+      "- [-] three ❌ 2026-08-01 ⛔ kt-000001",
+    ];
+
+    expect(blockedLines(note, CLOSED)).toEqual(new Map());
+  });
+
+  it("opens a line only when every blocker on it is closed", () => {
+    const both = ["- [b] ship it ⛔ kt-000001 ⛔ kt-000002"];
+    const all = ["- [b] ship it ⛔ kt-000001 ⛔ kt-000003"];
+    // A blocker nothing answers for reads as open, so nothing is opened on a
+    // guess and a dangling `⛔` changes nothing.
+    const dangling = ["- [b] ship it ⛔ kt-000001 ⛔ kt-ffffff"];
+
+    expect(blockedLines(both, CLOSED)).toEqual(new Map());
+    expect(blockedLines(all, CLOSED)).toEqual(
+      new Map([[1, "- [ ] ship it ⛔ kt-000001 ⛔ kt-000003"]]),
+    );
+    expect(blockedLines(dangling, CLOSED)).toEqual(new Map());
+  });
+
+  it("leaves a line carrying no blocker alone, hand-set blocked included", () => {
+    // A `[b]` with no `⛔` means waiting on something outside the vault.
+    expect(blockedLines(["- [b] waiting on the post", "- [ ] buy milk"], CLOSED)).toEqual(
+      new Map(),
+    );
+  });
+});
+
+describe("applyBlocked", () => {
+  it("gives the note back rewritten where a line moved", () => {
+    const note = ["# kasten", "", "- [b] ship it ⛔ kt-000001", ""].join("\n");
+
+    expect(applyBlocked(note, CLOSED)).toBe(
+      ["# kasten", "", "- [ ] ship it ⛔ kt-000001", ""].join("\n"),
+    );
+  });
+
+  it("answers null where nothing moved", () => {
+    expect(applyBlocked(["# kasten", "", "- [ ] buy milk", ""].join("\n"), CLOSED)).toBeNull();
   });
 });

@@ -448,6 +448,44 @@ describe("the leader key", () => {
     expect(doc()).toBe(note);
   });
 
+  it("stamps an id on the todo under the cursor on space then i", () => {
+    // The spec's second stamp, the one entering done is not: a `⛔` is written
+    // by hand and needs an id to name.
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    expect(doc()).toMatch(/^- \[ \] wire up the pane 🆔 kt-\w{6}$/);
+  });
+
+  it("leaves the id it wrote on a second press", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "i" });
+    const stamped = doc();
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    expect(doc()).toBe(stamped);
+  });
+
+  it("moves a dependent in the same note in the press that closes its blocker", () => {
+    const note = "- [/] ship it 🆔 kt-000001\n- [b] write the docs ⛔ kt-000001";
+    const { editor, doc } = open(note);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc().split("\n")[1]).toBe("- [ ] write the docs ⛔ kt-000001");
+
+    fireEvent.keyDown(editor, { key: "u" });
+
+    // One press, so one undo takes back both lines.
+    expect(doc()).toBe(note);
+  });
+
   it("reports the line it cycled, so the done log can follow it", () => {
     // The press edits the buffer and autosave writes it, which is what keeps
     // `u` working. The `## Done` line lands in another note, so the route has

@@ -1,6 +1,6 @@
 import type { EditorView } from "@codemirror/view";
 import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-commands";
-import { cycleTodoAtCursor } from "@/lib/todo-commands";
+import { cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
 
 /**
  * Every binding the app owns, in one table.
@@ -194,6 +194,9 @@ export interface LeaderEdit {
 export const LEADER_EDITS: readonly LeaderEdit[] = [
   // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
   // binding spell a tick, and bare `x` in normal mode is vim's own cut.
+  // `i` is free after the leader, and cannot collide with vim's own `i`, which
+  // needs no leader in front of it.
+  { key: "i", label: "Stamp an id on this todo", run: stampIdAtCursor },
   { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },
 ];
 

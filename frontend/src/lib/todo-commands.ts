@@ -2,8 +2,15 @@ import { ChangeSet, Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
 import { periodicNote } from "@/lib/periodic";
-import { cycleLine, newId, parseTodo } from "@/lib/todo";
-import { appendUnderEdit, cycleLines, doneLine, doneLineEdits, type Edit } from "@/lib/todo-write";
+import { cycleLine, formatTodo, newId, parseTodo } from "@/lib/todo";
+import {
+  appendUnderEdit,
+  closedAmong,
+  cycleLines,
+  doneLine,
+  doneLineEdits,
+  type Edit,
+} from "@/lib/todo-write";
 
 /** Where the box ends on a line that has one, which is where the words start. */
 const BOX = /^[ \t]*- \[.\] /;
@@ -90,10 +97,22 @@ export function cycleTodoAtCursor(view: EditorView): void {
   const cycleHandler = state.facet(todoCycled);
   const path = state.facet(notePath);
 
-  // Every line of this note the press rewrites, the cascade among them. One map
-  // rather than a pass per rule, so no two of them can claim a line and hand
-  // this an overlapping change.
-  const moved = cycleLines({ lines: doc.split("\n"), line: line.number, today, id });
+  // Every line of this note the press rewrites, the cascade and the dependents
+  // among them. One map rather than a pass per rule, so no two of them can
+  // claim a line and hand this an overlapping change.
+  //
+  // The resolver is built from this document alone, so a dependent in here
+  // whose other blocker lives elsewhere stays at `[b]`. That is the
+  // conservative answer and the right one: a line is opened only when every
+  // blocker on it can be seen closed.
+  const lines = doc.split("\n");
+  const moved = cycleLines({
+    lines,
+    line: line.number,
+    today,
+    id,
+    closed: closedAmong(lines.flatMap((text) => parseTodo(text) ?? [])),
+  });
 
   const changes = ChangeSet.of(
     [
@@ -119,4 +138,23 @@ export function cycleTodoAtCursor(view: EditorView): void {
   });
 
   cycleHandler?.({ before: line.text, after: cycled, line: line.number });
+}
+
+/**
+ * Stamp an id on the todo under the cursor, so something else can name it.
+ *
+ * The spec's second stamp, the one entering done is not. A `⛔` is written by
+ * hand and needs an id to name, and an open todo has none until this.
+ */
+export function stampIdAtCursor(view: EditorView): void {
+  const { state } = view;
+  const line = state.doc.lineAt(state.selection.main.head);
+  const todo = parseTodo(line.text);
+  // A second press leaves the id the first one wrote: an id names one todo for
+  // as long as that todo exists.
+  if (todo === null || todo.id !== undefined) return;
+
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert: formatTodo({ ...todo, id: newId() }) },
+  });
 }
