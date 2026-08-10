@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { sectionOf, TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo";
+import { PRIORITY_SYMBOL } from "@/lib/todo";
 
 // Standing in for the module rather than for `fetch`, the way the search
 // panel's tests do: what the pane owns is what it asks the vault for, not the
@@ -27,13 +27,6 @@ const TODOS = [
   { path: "projects/kasten.md", line: 33, text: "- [x] think about it ✅ 2026-08-01 🆔 kt-000003" },
   { path: "daily/2026-08-10.md", line: 5, text: "- 09:12-10:32 wire up the pane" },
 ];
-
-/** A todo out of one of the lines above, for the tests that want a record. */
-function todo(line: string): Todo {
-  const found = parseTodo(line);
-  if (found === null) throw new Error(`not a todo: ${line}`);
-  return found;
-}
 
 /**
  * Every command, recording which one was reached.
@@ -94,31 +87,35 @@ function renderPane(hits = TODOS, focusSignal = 0) {
   };
 }
 
-describe("sectionOf", () => {
-  it("reads a date before today as overdue", () => {
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-09"), TODAY)).toBe("overdue");
-  });
-
-  it("reads today as today", () => {
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-10"), TODAY)).toBe("today");
-  });
-
-  it("reads the next seven days as this week", () => {
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-11"), TODAY)).toBe("week");
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-16"), TODAY)).toBe("week");
-  });
-
-  it("reads anything further out as later", () => {
-    // Seven days out is the first day past the window, the way `due:<7d` reads.
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-17"), TODAY)).toBe("later");
-  });
-
-  it("reads a todo with no due date as no date", () => {
-    expect(sectionOf(todo("- [ ] a"), TODAY)).toBe("none");
-  });
-});
-
 describe("the todo pane", () => {
+  it("keeps a todo off the list until the day it starts", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 🛫 2026-08-11" },
+      { path: "a.md", line: 2, text: "- [ ] call the dentist 📅 2026-08-14" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.texts().join()).not.toContain("buy milk");
+  });
+
+  it("shows one whose start date has arrived", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 🛫 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.texts()[0]).toContain("buy milk");
+  });
+
+  it("draws a scheduled todo under the day it is scheduled for", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 ⏳ 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.headings()).toEqual(["Today"]);
+  });
+
   it("draws one heading per section that has rows, in order", async () => {
     const pane = renderPane();
 

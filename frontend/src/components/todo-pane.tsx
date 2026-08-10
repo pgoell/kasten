@@ -7,34 +7,7 @@ import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { isOpen, PRIORITY_SYMBOL, parseTodo, STATE_SYMBOL, type Todo } from "@/lib/todo";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
-
-export type Section = "overdue" | "today" | "week" | "later" | "none";
-
-/** In the order the pane draws them: what is late first, what has no date last. */
-const SECTIONS: readonly Section[] = ["overdue", "today", "week", "later", "none"];
-
-const HEADING: Record<Section, string> = {
-  overdue: "Overdue",
-  today: "Today",
-  week: "This week",
-  later: "Later",
-  none: "No date",
-};
-
-/**
- * Which group a todo belongs to, read off its due date alone.
- *
- * The scheduled and start dates are phase 2, and they are what move a row out
- * of the group its due date names, so phase 1 reads `📅` and nothing else. ISO
- * dates sort as strings, which is the whole of the maths.
- */
-export function sectionOf(todo: Todo, today: string): Section {
-  if (todo.due === undefined) return "none";
-  if (todo.due < today) return "overdue";
-  if (todo.due === today) return "today";
-  // The window `due:<7d` names, so the seventh day out is already later.
-  return todo.due < shiftDay(today, 7) ? "week" : "later";
-}
+import { HEADING, SECTIONS, sectionOf, waiting } from "@/lib/todo-view";
 
 /** One drawn row: the line the vault answered with, and that line read. */
 interface Row {
@@ -110,15 +83,17 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
   const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 
   // The endpoint matches the shape of a checkbox and nothing else, so reading
-  // each line is what drops the `## Time` sessions and the finished todos.
+  // each line is what drops the `## Time` sessions and the finished todos. A
+  // todo whose `🛫` has not arrived goes with them: a list of things you cannot
+  // start yet is not a list of what to do.
   const open = useMemo(() => {
     const found: Row[] = [];
     for (const hit of data ?? []) {
       const todo = parseTodo(hit.text);
-      if (todo !== null && isOpen(todo)) found.push({ hit, todo });
+      if (todo !== null && isOpen(todo) && !waiting(todo, today)) found.push({ hit, todo });
     }
     return found;
-  }, [data]);
+  }, [data, today]);
 
   // What `d` shows. Grouped on the day it was finished rather than on the day
   // it was due: a finished todo has no due date worth grouping on.
