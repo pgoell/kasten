@@ -13,6 +13,7 @@
 
 import { shiftDay } from "@/lib/clock";
 import { TAG, type Todo, type TodoPriority, type TodoState } from "@/lib/todo";
+import { parseRecurrence } from "@/lib/todo-recur";
 import { parseDuration } from "@/lib/todo-time";
 
 export type DueWindow = "today" | "overdue" | "week";
@@ -143,8 +144,13 @@ export function matchesFilter(todo: Todo, filter: Filter, today: string): boolea
   );
 }
 
-/** What was written after `due:`, as a date, or nothing where it is not one. */
-function readDate(value: string, today: string): string | undefined {
+/**
+ * What was written after `due:`, as a date, or nothing where it is not one.
+ *
+ * Exported because `todo-suggest.ts` offers the same words the other way round:
+ * this reads `tomorrow` as a date, and that offers `tomorrow` as one.
+ */
+export function readDate(value: string, today: string): string | undefined {
   if (value === "today") return today;
   if (value === "tomorrow") return shiftDay(today, 1);
   if (DAY.test(value)) return real(value);
@@ -173,6 +179,32 @@ function real(day: string): string | undefined {
   return at.toISOString().slice(0, 10) === day ? day : undefined;
 }
 
+/** The three dates that can be written here, each naming the field it sets. */
+const DATE_TERMS: Record<string, "due" | "scheduled" | "start"> = {
+  due: "due",
+  sched: "scheduled",
+  start: "start",
+};
+
+/** A recurrence with its spaces taken out, `3months` for `every 3 months`. */
+const PERIOD = /^(\d+)?([a-z]+)$/;
+
+/**
+ * `week` or `3months` as the rule a `🔁` carries, or nothing where it is not one.
+ *
+ * A word cannot hold the space obsidian-tasks writes the rule with, so the
+ * number and the unit are written together and put back apart here. Read back
+ * through the parser that will act on it, so a rule nothing can count from
+ * stays in the words rather than sitting on the line saying nothing.
+ */
+function readEvery(value: string): string | undefined {
+  const found = PERIOD.exec(value);
+  if (found === null) return undefined;
+
+  const rule = `every ${found[1] === undefined ? "" : `${found[1]} `}${found[2]}`;
+  return parseRecurrence(rule) === null ? undefined : rule;
+}
+
 /**
  * The same terms read as instructions: `due:08-14` sets a date rather than
  * picking one.
@@ -181,11 +213,16 @@ function real(day: string): string | undefined {
  * so `/doing` stays in the words where it was typed. So does anything after
  * `due:` that is not a date, for the reason `todo.ts` keeps a marker it cannot
  * read: a mistyped field the reader can see is one they can fix.
+ *
+ * `sched:`, `start:`, `est:` and `every:` are instructions and nothing else:
+ * there is nothing useful to filter on in any of them, so `parseFilter` leaves
+ * all four in the words it ranks.
  */
 export function expandShorthand(input: string, today: string): Todo {
   let priority: TodoPriority | undefined;
-  let due: string | undefined;
   let estimate: string | undefined;
+  let recurrence: string | undefined;
+  const dates: Partial<Record<"due" | "scheduled" | "start", string>> = {};
   const words: string[] = [];
 
   for (const word of input.split(/\s+/)) {
@@ -197,19 +234,34 @@ export function expandShorthand(input: string, today: string): Todo {
       continue;
     }
 
-    if (word.startsWith("due:")) {
-      const date = readDate(word.slice(4).toLowerCase(), today);
+    // Everything below is `term:value`. A word holding no colon names no term,
+    // and one whose value does not parse is a word like any other.
+    const colon = word.indexOf(":");
+    const term = word.slice(0, colon).toLowerCase();
+    const value = word.slice(colon + 1);
+
+    const field = colon === -1 ? undefined : DATE_TERMS[term];
+    if (field !== undefined) {
+      const date = readDate(value.toLowerCase(), today);
       if (date !== undefined) {
-        due = date;
+        dates[field] = date;
         continue;
       }
     }
 
     // The one path by which kasten rather than your keyboard puts a `⏲` on a
-    // line. Not a filter term: there is nothing useful to filter on.
-    if (word.startsWith("est:") && parseDuration(word.slice(4)) !== null) {
-      estimate = word.slice(4);
+    // line.
+    if (term === "est" && parseDuration(value) !== null) {
+      estimate = value;
       continue;
+    }
+
+    if (term === "every") {
+      const rule = readEvery(value.toLowerCase());
+      if (rule !== undefined) {
+        recurrence = rule;
+        continue;
+      }
     }
 
     words.push(word);
@@ -221,8 +273,9 @@ export function expandShorthand(input: string, today: string): Todo {
     state: "open",
     text,
     tags: text.match(TAG) ?? [],
-    due,
+    ...dates,
     priority,
+    recurrence,
     created: today,
     blockedBy: [],
     estimate,

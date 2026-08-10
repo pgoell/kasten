@@ -1,3 +1,4 @@
+import { acceptCompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { Annotation, Compartment, EditorState, Facet, Transaction } from "@codemirror/state";
@@ -12,6 +13,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
+import { todoCompletions } from "@/lib/todo-suggest";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
@@ -400,7 +402,12 @@ export function Editor({
           // is the way to the file tree now, so the trade is worth taking.
           // Vim maps no tab of its own, in any mode, so this is the only
           // handler the key reaches.
-          keymap.of([indentWithTab]),
+          //
+          // The completion goes first and declines when no list is open, which
+          // is tab's own job in every editor that offers one. Enter takes a
+          // completion too, `basicSetup` binding it, but a list that tab cannot
+          // take is a list nobody's fingers reach for.
+          keymap.of([{ key: "Tab", run: acceptCompletion }, indentWithTab]),
           // Ahead of basicSetup, whose closeBrackets would otherwise answer the
           // third backtick with a pair before the fence handler sees it.
           backticks(),
@@ -451,6 +458,7 @@ export function Editor({
           basicSetup,
           noteLanguage(),
           markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
+          markdownLanguage.data.of({ autocomplete: todoCompletions }),
           followOnClick,
           vault.of(pathsRef.current ? vaultPaths.of(pathsRef.current) : []),
           preview.of(renderedRef.current ? livePreview() : []),

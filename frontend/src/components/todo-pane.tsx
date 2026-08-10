@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TodoHints } from "@/components/todo-hints";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
@@ -15,6 +16,7 @@ import {
   type TodoState,
 } from "@/lib/todo";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
+import { lineSuggestions } from "@/lib/todo-suggest";
 import { parseSession, type Session } from "@/lib/todo-time";
 import {
   DEFAULT_VIEWS,
@@ -556,8 +558,9 @@ export function TodoPane({
   function onKeyDown(event: React.KeyboardEvent) {
     // Typing into an input is not the list's keys: `j` in one is a letter. The
     // filter is one, the row being edited is the other, and the pane holds no
-    // third.
-    if (event.target instanceof HTMLInputElement) return;
+    // third. Nor are the keys pressed on a hint under that row, which tab
+    // reaches and which is still an edit rather than a walk down the list.
+    if (event.target instanceof HTMLInputElement || editing !== null) return;
     const { key } = event;
 
     if (pending) {
@@ -744,34 +747,45 @@ export function TodoPane({
                 // their place are a reading of the line rather than the line.
                 if (key === editing?.key) {
                   return (
-                    <input
-                      key={key}
-                      ref={draft}
-                      value={editing.line}
-                      onChange={(event) => setEditing({ key, line: event.target.value })}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter" && event.key !== "Escape") return;
-                        event.preventDefault();
-                        // Nothing left in it is nothing to write. Deleting a
-                        // todo is not what this key is.
-                        if (event.key === "Enter" && editing.line.trim() !== "") {
-                          onEdit(hit, editing.line);
-                        }
-                        setEditing(null);
-                      }}
-                      aria-label="edit line"
-                      autoComplete="off"
-                      spellCheck={false}
-                      style={indent}
-                      // Its own classes rather than `ROW` and `INPUT`: the
-                      // overlay input is written to disappear into a panel,
-                      // `outline-none` and `bg-transparent`, and both of those
-                      // win over the two things this row has to say. It is a
-                      // row of the list, at the list's size, wearing the
-                      // keyboard cursor's own outline, because this row is
-                      // where the keys are going.
-                      className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor"
-                    />
+                    <div key={key}>
+                      <input
+                        ref={draft}
+                        value={editing.line}
+                        onChange={(event) => setEditing({ key, line: event.target.value })}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== "Escape") return;
+                          event.preventDefault();
+                          // Nothing left in it is nothing to write. Deleting a
+                          // todo is not what this key is.
+                          if (event.key === "Enter" && editing.line.trim() !== "") {
+                            onEdit(hit, editing.line);
+                          }
+                          setEditing(null);
+                        }}
+                        aria-label="edit line"
+                        autoComplete="off"
+                        spellCheck={false}
+                        style={indent}
+                        // Its own classes rather than `ROW` and `INPUT`: the
+                        // overlay input is written to disappear into a panel,
+                        // `outline-none` and `bg-transparent`, and both of those
+                        // win over the two things this row has to say. It is a
+                        // row of the list, at the list's size, wearing the
+                        // keyboard cursor's own outline, because this row is
+                        // where the keys are going.
+                        className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor"
+                      />
+                      <TodoHints
+                        found={lineSuggestions(editing.line, today, true)}
+                        line={editing.line}
+                        onTake={(edited) => {
+                          setEditing({ key, line: edited });
+                          // Back to the line, so the next thing typed carries on
+                          // where the hint left off rather than into a button.
+                          draft.current?.focus();
+                        }}
+                      />
+                    </div>
                   );
                 }
 
