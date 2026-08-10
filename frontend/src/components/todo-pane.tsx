@@ -7,7 +7,16 @@ import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { isOpen, PRIORITY_SYMBOL, parseTodo, STATE_SYMBOL, type Todo } from "@/lib/todo";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
-import { HEADING, SECTIONS, sectionOf, waiting } from "@/lib/todo-view";
+import {
+  descendants,
+  HEADING,
+  type Placed,
+  progressOf,
+  SECTIONS,
+  sectionOf,
+  treeOf,
+  waiting,
+} from "@/lib/todo-view";
 
 /** One drawn row: the line the vault answered with, and that line read. */
 interface Row {
@@ -94,6 +103,34 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
     }
     return found;
   }, [data, today]);
+
+  // `3/5` for every row that has parts, keyed by the row it belongs to. Read
+  // off every todo the vault answered with rather than off the rows on screen,
+  // the closed parts being exactly what the list above leaves out.
+  const progress = useMemo(() => {
+    const notes = new Map<string, Placed[]>();
+    for (const hit of data ?? []) {
+      const todo = parseTodo(hit.text);
+      if (todo === null) continue;
+      const lines = notes.get(hit.path) ?? [];
+      lines.push({ line: hit.line, todo });
+      notes.set(hit.path, lines);
+    }
+
+    const labels = new Map<string, string>();
+    for (const [path, lines] of notes) {
+      // By line, because the tree is read off the order the note holds them in
+      // and rg answers a note's hits in whatever order it found them.
+      const sorted = [...lines].sort((one, other) => one.line - other.line);
+      for (const root of treeOf(sorted)) {
+        for (const node of [root, ...descendants(root)]) {
+          const count = progressOf(node);
+          if (count !== null) labels.set(`${path}:${node.line}`, `${count.closed}/${count.total}`);
+        }
+      }
+    }
+    return labels;
+  }, [data]);
 
   // What `d` shows. Grouped on the day it was finished rather than on the day
   // it was due: a finished todo has no due date worth grouping on.
@@ -338,6 +375,12 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
                       <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
                     )}
                     <span className="min-w-0 flex-1 truncate">{todo.text}</span>
+                    {/* Between the words and the date, where the spec's mock
+                        puts it, and out of the truncation for the reason the
+                        date is: it is the shortest thing on the row. */}
+                    {progress.has(key) && (
+                      <span className="shrink-0 text-one-muted">{progress.get(key)}</span>
+                    )}
                     {/* Out of the truncation, so a long todo loses its words
                         rather than the date they are due on. The year is cut
                         from a date inside this one, where every row shares it,

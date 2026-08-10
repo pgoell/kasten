@@ -197,6 +197,13 @@ body {
   color: var(--color-one-warn);
 }
 
+/* How many of a parent's parts are closed, drawn after its words. Muted: it is
+   a reading of the lines below rather than anything somebody typed. */
+.cm-todo-progress {
+  margin-left: 0.6em;
+  color: var(--color-one-muted);
+}
+
 /* A wikilink wears what a markdown link wears. Both open something, and which
    of the two it is is already on the screen: one shows a note's name, the
    other the words someone wrote over a URL. */

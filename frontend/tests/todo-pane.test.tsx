@@ -107,6 +107,21 @@ describe("the todo pane", () => {
     expect(pane.texts()[0]).toContain("buy milk");
   });
 
+  it("counts a parent's parts on its row, and counts nothing on a row with none", async () => {
+    // The closed parts are off the list themselves, so the count is read off
+    // every todo the note holds rather than off the rows on screen.
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10" },
+      { path: "a.md", line: 2, text: "  - [x] read the spec ✅ 2026-08-10" },
+      { path: "a.md", line: 3, text: "  - [-] argue about it" },
+      { path: "a.md", line: 4, text: "  - [ ] write it" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.texts()[0]).toContain("2/3");
+    expect(pane.texts()[1]).not.toContain("/");
+  });
+
   it("draws a scheduled todo under the day it is scheduled for", async () => {
     const pane = renderPane([
       { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 ⏳ 2026-08-10" },
