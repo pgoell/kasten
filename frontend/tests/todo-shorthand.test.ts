@@ -174,4 +174,28 @@ describe("expandShorthand", () => {
     expect(todo.estimate).toBeUndefined();
     expect(todo.text).toBe("write the docs est:soon");
   });
+
+  it("takes the other two dates, in the shapes the due date is written in", () => {
+    expect(written("pack sched:tomorrow start:2026-08-12")).toBe(
+      "- [ ] pack ⏳ 2026-08-11 🛫 2026-08-12 ➕ 2026-08-10",
+    );
+  });
+
+  it("takes a recurrence, with and without a number", () => {
+    expect(written("water the plants due:today every:week")).toBe(
+      "- [ ] water the plants 📅 2026-08-10 🔁 every week ➕ 2026-08-10",
+    );
+    expect(written("pay rent due:09-01 every:3months")).toBe(
+      "- [ ] pay rent 📅 2026-09-01 🔁 every 3 months ➕ 2026-08-10",
+    );
+  });
+
+  it("leaves a recurrence it cannot read in the words", () => {
+    // Read back through `parseRecurrence`, so a rule that would sit on the line
+    // saying nothing stays where it was typed instead.
+    const todo = expandShorthand("water the plants every:fortnight", TODAY);
+
+    expect(todo.recurrence).toBeUndefined();
+    expect(todo.text).toBe("water the plants every:fortnight");
+  });
 });

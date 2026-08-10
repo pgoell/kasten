@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { TodoHints } from "@/components/todo-hints";
 import {
   BACKDROP,
   HEADER_ROW,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/overlay-styles";
 import { formatTodo } from "@/lib/todo";
 import { expandShorthand } from "@/lib/todo-shorthand";
+import { shorthandSuggestions } from "@/lib/todo-suggest";
 
 interface TodoPromptProps {
   /** Called with what was typed, once Enter takes it. */
@@ -65,6 +67,10 @@ export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
   function onKeyDown(event: React.KeyboardEvent) {
     switch (event.key) {
       case "Enter":
+        // A hint has the focus and Enter is taking that, not writing the todo.
+        // The button's own click does the work; this key never reaches here
+        // from the input, which nothing else in the panel can be.
+        if (event.target instanceof HTMLButtonElement) return;
         event.preventDefault();
         // Nothing typed is nothing to write, and the empty preview says so.
         if (typed === "") return;
@@ -116,6 +122,18 @@ export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
         <output className={`${STATUS} truncate text-one-fg`}>{preview}</output>
+
+        {/* Below the preview, so the line the vault is about to get stays under
+            the input as it is typed and the buttons come after both. Tab from
+            the input reaches them in that order. */}
+        <TodoHints
+          found={shorthandSuggestions(input, today)}
+          line={input}
+          onTake={(edited) => {
+            setInput(edited);
+            field.current?.focus();
+          }}
+        />
       </div>
     </div>
   );

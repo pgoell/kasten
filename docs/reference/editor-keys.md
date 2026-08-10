@@ -364,7 +364,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `x` | Cycle the todo under the cursor |
 | `a` | Add a todo to today's note |
 | `s` | Add a part of the todo under the cursor |
-| `i` | Edit the row's own line, in place |
+| `i` | Edit the row's own line, in place, with the fields it has not got under it |
 | `t` | Start a timer on the todo under the cursor, or stop the ones it has running |
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
@@ -373,6 +373,14 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `/` | Narrow the list |
 | `q` | Close the pane |
 | Escape | Back to the editor |
+
+Under the line `i` opens are the same fields
+[the editor completes](#completing-a-todo-field), drawn as buttons rather than
+as a list: the row is one line among many, and a panel over it would cover the
+work it is about. Tab reaches them in the order they are drawn, Enter takes the
+one it is on, and a click does the same. The reading of the line is the
+editor's own, so taking `due` here also asks which day, and the keys go back to
+the line once a button has written into it.
 
 Leader sequences work here too, so `<leader>gd` opens today's note from inside
 the pane. `<leader>x` is not among them, and that is right: there is no buffer
@@ -445,6 +453,12 @@ it will write under the input, and Enter puts it under `## TODOs` in today's
 daily note, making that note where the vault has none. Escape closes and writes
 nothing, and Enter on an empty input does nothing.
 
+Under the preview are the terms that line has not used, drawn as the pane draws
+them under an edit and reached the same way, by Tab or by a click. A press
+writes the term, `due:` or `every:` or `!high`, and the ones that take a value
+then offer it, so a todo due Friday and repeating monthly can be written without
+typing a colon. Enter on one of them takes it rather than writing the todo.
+
 `s` opens that same prompt on the row under the cursor, and what it takes lands
 as a part of that todo: in the note the todo lives in, one step further in, after
 the parts it already has. The header reads `part` rather than `todo` and names
@@ -460,9 +474,9 @@ moved past writes nothing rather than hanging it under whatever now sits there.
 `i` turns the row under the cursor into the line it was read from, markdown and
 emoji as the note holds them, and Enter writes back exactly what you leave in
 it. No overlay and no shorthand: the line is the whole record, so an edit is the
-line itself, and that is what reaches the fields nothing else here can set, `🔁`
-and `⏳` among them. The words, the dates, the priority and the state are all in
-reach, and so is the indent that makes a todo a part of another. What the row
+line itself, and that is what reaches what nothing else here can, the state and
+the indent that makes a todo a part of another. The words, the dates and the
+priority are all in reach too. What the row
 draws is a reading of that line, which is why the whole row gives way to it
 rather than the words alone.
 
@@ -589,7 +603,7 @@ folder narrows the same way it does in the finder.
 | Key | Does |
 | --- | --- |
 | Down / Up | Move through the notes on offer |
-| Enter | Take the highlighted one |
+| Tab / Enter | Take the highlighted one |
 | Escape | Close the list and keep typing |
 
 Taking one closes the link with `]]`, because typing `[[` does not: markdown's
@@ -605,6 +619,38 @@ finder](#the-note-finder) does by hand and one this does not have to repeat.
 `markdown-highlight.ts` adds `==highlight==`. What sits between the brackets is
 a note's name rather than prose, so nothing in it is parsed as markdown, and a
 link that runs past the end of its line is not a link.
+
+## Completing a todo field
+
+Every field a todo carries is a glyph, and no glyph is on a keyboard. Type a
+colon on a todo line and the fields that line has not got are offered by name:
+`:due` writes the `📅`, `:high` writes the `⏫`, `:weekly` writes
+`🔁 every week`. A field the line already carries is left off the list, so what
+is on offer is what is left to write.
+
+| Key | Does |
+| --- | --- |
+| Down / Up | Move through the fields on offer |
+| Tab / Enter | Take the highlighted one |
+| Escape | Close the list and keep typing |
+
+The fields that take a value are written in two steps. Taking `due` leaves
+`📅 ` and the cursor after it, and the days are offered there: `today`,
+`tomorrow` and the seven weekdays, each drawn beside the date it means, a
+weekday naming the next one. Typing `fri` and taking `friday` writes the date
+itself, so what lands on the line is a date the format reads rather than a word
+it cannot. `estimate` works the same way and offers `15m` up to `4h`; any other
+duration is typed out.
+
+Ctrl+Space opens the list without the colon, anywhere on a todo line. Without
+one or the other nothing pops up while a todo is being written, which is what
+the colon is for.
+
+Four fields are deliberately absent. `➕`, `✅` and `❌` are kasten's own stamps,
+and a done date written by hand is one
+[the done log](/reference/todo-format.md#the-done-log) knows nothing about.
+`🆔` has a key of its own, `<leader>i`. And a `⛔` names another todo's id,
+which the line being typed cannot see.
 
 ## The link panels
 

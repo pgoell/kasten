@@ -108,6 +108,15 @@ function renderPane(hits = TODOS, focusSignal = 0) {
       fireEvent.change(screen.getByLabelText("edit line"), { target: { value } }),
     /** A key pressed inside that input, which the list's own keys never see. */
     send: (key: string) => fireEvent.keyDown(screen.getByLabelText("edit line"), { key }),
+    /** The fields offered under the line being edited, as they are drawn. */
+    hints: () => screen.queryAllByTestId("todo-hint").map((chip) => chip.textContent ?? ""),
+    /** Take one of them, the way a click does. */
+    take: (label: string) =>
+      fireEvent.click(
+        screen
+          .getAllByTestId("todo-hint")
+          .find((chip) => chip.textContent === label) as HTMLElement,
+      ),
     /** What the header says the list is showing: a view's name, or nothing. */
     view: () => screen.queryByTestId("todo-view")?.textContent ?? "",
     headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
@@ -529,6 +538,55 @@ describe("the todo pane", () => {
 
     expect(pane.onCycle).not.toHaveBeenCalled();
     expect(pane.onAdd).not.toHaveBeenCalled();
+  });
+
+  it("offers the fields the line has not got, under the line being edited", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("i");
+
+    // The row is overdue and important, so neither the due date nor a priority
+    // is a question. Every field a glyph writes and this line has not got is.
+    expect(pane.hints()).toEqual([
+      "⏳ scheduled",
+      "🛫 start",
+      "🔁 daily",
+      "🔁 weekly",
+      "🔁 monthly",
+      "⏲ estimate",
+    ]);
+  });
+
+  it("writes the field a hint names, and offers the days it takes next", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("i");
+    pane.take("⏳ scheduled");
+
+    // The marker and the space after it, so the day it takes next stands off it.
+    expect(pane.draft()).toHaveValue(`${TODOS[0]?.text} ⏳ `);
+    // A marker with no day after it is half a field, so the days are what the
+    // same row asks next.
+    expect(pane.hints().slice(0, 2)).toEqual(["2026-08-10 today", "2026-08-11 tomorrow"]);
+
+    pane.take("2026-08-11 tomorrow");
+    expect(pane.draft()).toHaveValue(`${TODOS[0]?.text} ⏳ 2026-08-11`);
+    // And the keys go back to the line, so what a hint wrote can be typed over.
+    expect(pane.draft()).toHaveFocus();
+  });
+
+  it("keeps the list's keys off a hint", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("i");
+    // Tab reaches the hints, and a key pressed on one bubbles to the pane. The
+    // list is not what those keys are for while a line is being edited.
+    fireEvent.keyDown(screen.getAllByTestId("todo-hint")[0] as HTMLElement, { key: "x" });
+
+    expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
   it("does nothing on i with no row to press it on", async () => {

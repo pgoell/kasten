@@ -88,6 +88,16 @@ Real, working code, not a plan:
   row there, which once put blocked and rejected out of the pane's reach.
   `Space i` stamps an id on its own, which is how an open todo gets a name for a
   `⛔` to point at.
+  A glyph is easy to read and hard to type, so a colon on a todo line offers the
+  fields that line has not got, by name: `:due` writes the `📅` and offers
+  `today`, `tomorrow` and the seven weekdays after it, each beside the date it
+  means, `:high` writes the `⏫`, `:weekly` writes `🔁 every week`, and
+  `:estimate` writes the `⏲` and offers `15m` up to `4h`. Tab takes what the
+  list highlights, a link's completion included. `➕ ✅ ❌ 🆔` and `⛔` are
+  deliberately off it. The pane's `i` draws the same fields as buttons under the
+  line it is editing, off the same reading of it, reached by Tab or by a click,
+  and the add prompt draws them under its input in the shorthand's own spelling.
+  One table of fields answers all three, each field carrying both spellings.
   A todo indented under another is a part of it, the indent being the whole
   rule, and the parent carries `1/3` after its words in the editor and on its
   row, counting every descendant. Ticking a parent ticks every open part with
@@ -117,14 +127,16 @@ Real, working code, not a plan:
   done it names it in front of its own words instead.
   Its keys are `j k Enter x O P X B R a s i t d n v / q Escape`: `x` walks a todo in the vault,
   `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
-  est:45m !high #health`, into a todo under `## TODOs` in today's note, `est:`
-  being the one path by which kasten rather than your keyboard writes a `⏲`,
+  est:45m !high #health`, into a todo under `## TODOs` in today's note, its
+  terms being `due: sched: start: every: est:` and the five `!` priorities,
+  `est:` the one path by which kasten rather than your keyboard writes a `⏲`
+  and `every:week` the rule with its space taken out,
   `s` opens that same prompt on the row under the cursor and puts what it takes
   in as a part of it, in that todo's own note, two spaces in from its line and
   after the parts it already has, declining a row the vault has moved past,
   `i` turns the row into the line as the note holds it, vim's own key for
   typing where the cursor is and writes back what you
-  leave in it, which is how a `🔁`, a `⏳` or an indent is changed, and it
+  leave in it, which is how a state or an indent is changed, and it
   declines a row the vault has moved past rather than overwriting whatever now
   sits at that line,
   `t` starts and stops a timer, `d` shows the

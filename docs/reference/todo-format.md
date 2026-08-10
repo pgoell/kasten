@@ -192,6 +192,22 @@ The words come first, then every field the line carries, in this order:
 One decision made in one place, so a note stays consistent however it was
 edited. A line already in this order comes back byte for byte.
 
+## Writing a field
+
+A glyph is easy to read and hard to type, so all three places a todo is written
+offer the fields it has not got yet. A colon opens the list in the editor, the
+todo pane's `i` draws it under the row, and the add prompt draws it under the
+input in [its own shorthand](#the-add-prompts-shorthand). One table of fields
+answers all three, so a field cannot be reachable in one and missing from
+another.
+
+Each reads what is written so far and leaves out what is there: a line already
+carrying a `📅` is not offered another. The fields that take a value are written
+in two steps, the marker first and the days or the durations after it, so what
+lands is a value the table above reads rather than a word it cannot.
+[Completing a todo field](/reference/editor-keys.md#completing-a-todo-field)
+says which keys, and which four fields are deliberately left out of all three.
+
 ## Subtasks
 
 A todo indented under another is a part of it:
@@ -433,7 +449,18 @@ while it is half written.
 filters, so `due:08-14` sets a date rather than picking one. The line under the
 input is what the vault is about to get.
 
-`!high` and the four beside it set the priority. `due:` takes five forms:
+`!high` and the four beside it set the priority. Every other field is
+`term:value`:
+
+| Typed | Writes |
+| --- | --- |
+| `due:` | `📅` |
+| `sched:` | `⏳` |
+| `start:` | `🛫` |
+| `every:` | `🔁` |
+| `est:` | `⏲` |
+
+The three dates take the same five forms:
 
 | Typed | Means |
 | --- | --- |
@@ -448,11 +475,20 @@ words where you can see it, `due:whenever` included. So does a day the calendar
 does not have: `due:2026-02-30` is read back before it is taken, because a date
 nobody typed is worse on disk than no date at all.
 
-`est:` takes a duration and writes the `⏲`: `est:2h`, `est:45m` and `est:1h20m`.
-It is the one path by which kasten rather than your keyboard puts an estimate on
-a line, and it is not a filter term, there being nothing useful to filter on.
-Anything after `est:` that is not a duration stays in the words, as a mistyped
-date does.
+`est:` takes a duration: `est:2h`, `est:45m` and `est:1h20m`. It is the one path
+by which kasten rather than your keyboard puts an estimate on a line. Anything
+after it that is not a duration stays in the words, as a mistyped date does.
+
+`every:` takes the rule with its space taken out, a word being one word:
+`every:week` writes `🔁 every week` and `every:3months` writes
+`🔁 every 3 months`. It is read back through the parser that will count from it,
+so `every:fortnight` stays in the words rather than sitting on the line saying
+nothing. The `when done` suffix is not spelled here; type it on the line, or
+reach the line with `i` in the todo pane.
+
+Only `due:` is a filter term as well. There is nothing useful to filter on in
+the other four, so `sched:tomorrow` in the filter line is text to rank against
+rather than a term.
 
 A state term is not an instruction here, a fresh todo being open, so `/doing`
 stays in the words as well. Tags stay where they were typed. The todo comes back
@@ -469,6 +505,11 @@ writes this:
 ```markdown
 - [ ] call the dentist #health 📅 2026-08-14 ⏫ ➕ 2026-08-10 ⏲ 45m
 ```
+
+None of it has to be typed: the prompt draws every term the input has not used
+under it, and a press writes the term and then offers the days or the durations
+that follow it. [Writing a field](#writing-a-field) says where else that
+happens.
 
 ## Related
 
