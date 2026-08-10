@@ -3,7 +3,7 @@ import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { Annotation, Compartment, EditorState, Facet, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
@@ -456,6 +456,19 @@ export function Editor({
             goToTab: (index) => commandsRef.current?.goToTab(index),
           }),
           basicSetup,
+          // vim's `number relativenumber`: the line the cursor sits on names
+          // itself and the rest count the distance to it, which is the number
+          // `10j` and `d5k` are reached for with. basicSetup's own
+          // `lineNumbers()` carries no config, so this adds a formatter to the
+          // gutter already there rather than a second one beside it. It
+          // redraws when the cursor changes line because `highlightActiveLineGutter`,
+          // also basicSetup's, moves its marker then.
+          lineNumbers({
+            formatNumber: (line, state) => {
+              const cursor = state.doc.lineAt(state.selection.main.head).number;
+              return `${line === cursor ? line : Math.abs(line - cursor)}`;
+            },
+          }),
           noteLanguage(),
           markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
           markdownLanguage.data.of({ autocomplete: todoCompletions }),
