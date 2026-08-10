@@ -10,7 +10,15 @@
  * This is the one module that knows that.
  */
 
-import { cycleLine, formatTodo, isOpen, parseTodo, type Todo } from "@/lib/todo";
+import {
+  cycleLine,
+  formatTodo,
+  isOpen,
+  parseTodo,
+  setStateOn,
+  type Todo,
+  type TodoState,
+} from "@/lib/todo";
 import { nextOccurrence } from "@/lib/todo-recur";
 import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
 
@@ -36,6 +44,8 @@ export interface CycleInput {
   id: string;
   /** Whether a blocker is closed, as far as the caller can see. */
   closed: Closed;
+  /** The state the key named, or nothing where the key walks the cycle. */
+  state?: TodoState;
 }
 
 export interface AddInput {
@@ -279,6 +289,13 @@ export interface CycleLinesInput {
   id: string;
   /** Whether a blocker is closed. The press's own todo is answered from the press. */
   closed: Closed;
+  /** The state the key named, or nothing where the key walks the cycle. */
+  state?: TodoState;
+}
+
+/** The line one press writes, whether it walks the cycle or names a state. */
+function pressed(line: string, today: string, id: string, state?: TodoState): string {
+  return state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id);
 }
 
 /**
@@ -312,10 +329,11 @@ export function cycleLines({
   today,
   id,
   closed,
+  state,
 }: CycleLinesInput): Map<number, string> {
   const before = lines[line - 1] ?? "";
   const was = parseTodo(before);
-  const cycled = cycleLine(before, today, id);
+  const cycled = pressed(before, today, id, state);
   const now = parseTodo(cycled);
   const moved = new Map<number, string>([[line, cycled]]);
 
@@ -365,15 +383,15 @@ export function cycleLines({
 
 /** Every note one press of the cycle changes, in the order they should be sent. */
 export function cycleTodoWrites(input: CycleInput): Write[] {
-  const { path, text, line, dailyPath, dailyText, logged, today, id, closed } = input;
+  const { path, text, line, dailyPath, dailyText, logged, today, id, closed, state } = input;
 
   const lines = text.split("\n");
   const was = parseTodo(lines[line - 1] ?? "");
   // The line the press was on, read on its own: its entry in the map can hold
   // the recurrence copy as well, and the log is about the todo that was ticked.
-  const now = parseTodo(cycleLine(lines[line - 1] ?? "", today, id));
+  const now = parseTodo(pressed(lines[line - 1] ?? "", today, id, state));
 
-  for (const [at, insert] of cycleLines({ lines, line, today, id, closed })) {
+  for (const [at, insert] of cycleLines({ lines, line, today, id, closed, state })) {
     lines[at - 1] = insert;
   }
   const own = lines.join("\n");

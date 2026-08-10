@@ -2,7 +2,7 @@ import { ChangeSet, Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
 import { periodicNote } from "@/lib/periodic";
-import { cycleLine, formatTodo, newId, parseTodo } from "@/lib/todo";
+import { cycleLine, formatTodo, newId, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
 import {
   appendUnderEdit,
   closedAmong,
@@ -86,14 +86,19 @@ function logEdits(doc: string, before: string, after: string, path: string | und
  * today's note is the case the route cannot write, this being the buffer being
  * typed into, so both halves go in one transaction here and `u` takes back
  * both.
+ *
+ * `want` is the state a key named, and nothing where the key walks the cycle.
+ * Everything past the line itself is the same either way: a parent takes its
+ * parts into done however the press got there.
  */
-export function cycleTodoAtCursor(view: EditorView): void {
+export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   const { state } = view;
   const line = state.doc.lineAt(state.selection.main.head);
   const today = readClock(new Date()).date;
   const id = newId();
   const doc = state.doc.toString();
-  const cycled = cycleLine(line.text, today, id);
+  const cycled =
+    want === undefined ? cycleLine(line.text, today, id) : setStateOn(line.text, want, today, id);
   const cycleHandler = state.facet(todoCycled);
   const path = state.facet(notePath);
 
@@ -112,6 +117,7 @@ export function cycleTodoAtCursor(view: EditorView): void {
     today,
     id,
     closed: closedAmong(lines.flatMap((text) => parseTodo(text) ?? [])),
+    state: want,
   });
 
   const changes = ChangeSet.of(

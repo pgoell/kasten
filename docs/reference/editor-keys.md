@@ -49,6 +49,11 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Close the note, then the pane, then the tab |
 | `<leader>rf` | Open the rename prompt |
+| `<leader>so` | Set this todo to open |
+| `<leader>sp` | Set this todo to doing |
+| `<leader>sx` | Set this todo to done |
+| `<leader>sb` | Set this todo to blocked |
+| `<leader>sr` | Set this todo to rejected |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
 | `<leader>x` | Cycle the todo on this line |
@@ -271,16 +276,22 @@ name is how you get back to it, which is the mechanism the sessions already have
 ## Todos
 
 A todo is a checkbox line in a note, and [Todo
-format](/reference/todo-format.md) is what one is written in. Four keys reach
-them. `<leader>x` makes and walks one where you are typing, `<leader>i` gives
-one a name, `<leader>gt` puts the whole vault's list in the focused pane, and
-`<leader>ft` opens that same list as an overlay.
+format](/reference/todo-format.md) is what one is written in. `<leader>x` makes
+and walks one where you are typing, the `<leader>s` keys put one straight into a
+state, `<leader>i` gives one a name, `<leader>gt` puts the whole vault's list in
+the focused pane, and `<leader>ft` opens that same list as an overlay.
 
-`<leader>x` cycles the line the cursor is on. A plain line becomes `- [ ]`, four
-more presses walk it through doing, done, blocked and rejected, and a sixth
-gives the words back as prose. It edits the buffer, so `u` undoes it and the
-autosave writes it. [The cycle](/reference/todo-format.md#the-cycle) says what
-each press stamps.
+`<leader>x` cycles the line the cursor is on. A plain line becomes `- [ ]`, two
+more presses walk it through doing and done, and a fourth gives the words back
+as prose. It edits the buffer, so `u` undoes it and the autosave writes it.
+[The cycle](/reference/todo-format.md#the-cycle) says what each press stamps.
+
+The walk is the work and nothing else. Blocked and rejected are not on it, and
+the five `<leader>s` keys are how you reach any state from any other: `so`
+open, `sp` doing, `sx` done, `sb` blocked, `sr` rejected. They stamp what the
+walk stamps and drag what it drags, so setting a parent done still ticks its
+parts. `s` for state, and `p` for in progress because `d` is spent on the done
+list in the pane.
 
 The press that enters or leaves done also moves
 [the done log](/reference/todo-format.md#the-done-log), which lives in another
@@ -354,6 +365,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `a` | Add a todo to today's note |
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
+| `O` `P` `X` `B` `R` | Set the row's todo to open, doing, done, blocked or rejected |
 | `/` | Narrow the list |
 | `q` | Close the pane |
 | Escape | Back to the editor |
@@ -384,6 +396,11 @@ day it was finished rather than by when it was due, newest day first. A finished
 todo has no due date worth grouping on, and a list reaching back to the
 beginning of the vault is not one anybody reads to the end of. Pressing `d`
 again brings the open list back.
+
+The five shifted keys set a state directly, which is the only way to blocked and
+rejected from here: a row leaves this list the moment it is done, and done is
+where the walk goes first. They are the pane's spelling of the `<leader>s` keys
+and write exactly what those write.
 
 `n` swaps the list for one row per top level todo, each naming the one thing
 you could start on it, which is the GTD question asked directly. That is the

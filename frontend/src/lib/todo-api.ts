@@ -15,7 +15,7 @@ import {
   searchNotes,
 } from "@/lib/api";
 import { periodicNote } from "@/lib/periodic";
-import { cycleLine, isOpen, newId, parseTodo } from "@/lib/todo";
+import { cycleLine, isOpen, newId, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { expandShorthand } from "@/lib/todo-shorthand";
 import {
@@ -164,6 +164,7 @@ export async function cycleTodoInVault(
   hit: SearchHit,
   today: string,
   paths: string[],
+  state?: TodoState,
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
@@ -203,6 +204,7 @@ export async function cycleTodoInVault(
     today,
     id,
     closed,
+    state,
   });
 
   await send(writes, paths);
@@ -210,7 +212,10 @@ export async function cycleTodoInVault(
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
   // press could see only the ones in the note it moved.
-  const now = parseTodo(cycleLine(text.split("\n")[hit.line - 1] ?? "", today, id));
+  const line = text.split("\n")[hit.line - 1] ?? "";
+  const now = parseTodo(
+    state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id),
+  );
   if (now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
     await writeBackBlocked(now.id, !isOpen(now), "");
   }

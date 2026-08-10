@@ -75,11 +75,16 @@ Real, working code, not a plan:
   A todo is a checkbox line in a note, and the line is the whole record: five
   states, `[ ] [/] [x] [b] [-]`, and every field beside them spelled the way
   obsidian-tasks spells it, the dates `📅 ⏳ 🛫 ➕ ✅ ❌`, a priority glyph, and
-  `🔁 🆔 ⛔ ⏲ ⏱`. `Space x` cycles the line under the cursor, stamping the
-  created date, the done date, the id and the cancelled date as it goes, and the
-  editor draws each state as a symbol with an overdue date in red. `Space i`
-  stamps an id on its own, which is how an open todo gets a name for a `⛔` to
-  point at.
+  `🔁 🆔 ⛔ ⏲ ⏱`. `Space x` walks the line under the cursor
+  through the work, plain line to open to doing to done and out to a plain line
+  again, stamping the created date, the done date and the id as it goes, and the
+  editor draws each state as a symbol with an overdue date in red. Blocked and
+  rejected are not on the walk: five keys set a state straight, `Space s o p x b
+  r` in the editor and `O P X B R` in the pane, stamping and dragging what the
+  walk does. Done is the walk's last state because a list of open work loses the
+  row there, which once put blocked and rejected out of the pane's reach.
+  `Space i` stamps an id on its own, which is how an open todo gets a name for a
+  `⛔` to point at.
   A todo indented under another is a part of it, the indent being the whole
   rule, and the parent carries `1/3` after its words in the editor and on its
   row, counting every descendant. Ticking a parent ticks every open part with
@@ -107,7 +112,7 @@ Real, working code, not a plan:
   the row off the list until the day it names. A part is drawn one step in under
   the todo it belongs to, and where that todo is in another group or already
   done it names it in front of its own words instead.
-  Its keys are `j k Enter x a d n / q Escape`: `x` walks a todo in the vault,
+  Its keys are `j k Enter x O P X B R a d n / q Escape`: `x` walks a todo in the vault,
   `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
   !high #health`, into a todo under `## TODOs` in today's note, `d` shows the
   last seven days of finished work, `n` shows one next action per top level

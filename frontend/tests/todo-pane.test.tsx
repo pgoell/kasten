@@ -402,6 +402,7 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("a add");
     expect(pane.footer()).toContain("d done");
     expect(pane.footer()).toContain("n next");
+    expect(pane.footer()).toContain("O P X B R state");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
     // `t` and `v` are later phases. A footer offering a key that does nothing
@@ -430,6 +431,26 @@ describe("the todo pane", () => {
     // The hit, not the todo: the write reads the note off disk again, and the
     // path and the line are how it finds the line to cycle.
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[1]);
+  });
+
+  it("sets the state a shifted key names on the row under the cursor", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("B");
+
+    // The walk cannot reach blocked from here: a row leaves this list the
+    // moment it is done, which is the state the walk passes through first.
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "blocked");
+  });
+
+  it("keeps the bare x walking the cycle", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("x");
+
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0]);
   });
 
   it("swaps the list for the last seven days of finished work on d", async () => {

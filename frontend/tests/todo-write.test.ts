@@ -1,4 +1,4 @@
-import { parseTodo, type Todo } from "@/lib/todo";
+import { parseTodo, type Todo, type TodoState } from "@/lib/todo";
 import {
   addTodoWrites,
   appendUnder,
@@ -184,6 +184,11 @@ function cycle(note: string[], line: number, closed: Closed = UNKNOWN) {
   return cycleLines({ lines: note, line, today: TODAY, id: "kt-3f9a2c", closed });
 }
 
+/** The same press, naming a state rather than walking to the next one. */
+function set(note: string[], line: number, state: TodoState, closed: Closed = UNKNOWN) {
+  return cycleLines({ lines: note, line, today: TODAY, id: "kt-3f9a2c", closed, state });
+}
+
 describe("cycleLines", () => {
   it("answers the one line the press moved, where nothing hangs off it", () => {
     expect(cycle(["- [ ] buy milk"], 1)).toEqual(new Map([[1, "- [/] buy milk"]]));
@@ -225,7 +230,21 @@ describe("cycleLines", () => {
   it("leaves the parts where they are when the parent leaves done", () => {
     const note = [`- [x] a ✅ ${TODAY} 🆔 kt-000001`, `  - [x] b ✅ ${TODAY}`];
 
-    expect(cycle(note, 1)).toEqual(new Map([[1, "- [b] a 🆔 kt-000001"]]));
+    expect(set(note, 1, "blocked")).toEqual(new Map([[1, "- [b] a 🆔 kt-000001"]]));
+  });
+
+  it("takes a key that names a state through the same rules the walk takes", () => {
+    const note = ["- [ ] wire up the pane", "  - [ ] write it", "  - [/] ship it"];
+
+    // Set straight to done from open, and the parts go with it exactly as they
+    // do when the walk arrives there.
+    expect(set(note, 1, "done")).toEqual(
+      new Map([
+        [1, `- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c`],
+        [2, `  - [x] write it ✅ ${TODAY}`],
+        [3, `  - [x] ship it ✅ ${TODAY}`],
+      ]),
+    );
   });
 
   it("moves what waits on the todo it just closed", () => {
@@ -242,9 +261,11 @@ describe("cycleLines", () => {
   it("puts a dependent back to blocked when the blocker is reopened", () => {
     const note = [`- [x] ship it ✅ ${TODAY} 🆔 kt-000001`, "- [ ] write the docs ⛔ kt-000001"];
 
-    expect(cycle(note, 1)).toEqual(
+    // Reopening is a key naming a state now: the walk out of done writes a
+    // plain line, which nothing can resolve, so it moves no dependent.
+    expect(set(note, 1, "doing")).toEqual(
       new Map([
-        [1, "- [b] ship it 🆔 kt-000001"],
+        [1, "- [/] ship it 🆔 kt-000001"],
         [2, "- [b] write the docs ⛔ kt-000001"],
       ]),
     );
@@ -271,7 +292,7 @@ describe("cycleLines", () => {
   it("writes no copy on the press that leaves done", () => {
     const note = [`- [x] water the plants 🔁 every week 📅 2026-08-10 ✅ ${TODAY} 🆔 kt-000001`];
 
-    expect(cycle(note, 1).get(1)).toBe(
+    expect(set(note, 1, "blocked").get(1)).toBe(
       "- [b] water the plants 📅 2026-08-10 🔁 every week 🆔 kt-000001",
     );
   });
@@ -366,6 +387,7 @@ describe("cycleTodoWrites", () => {
       press({
         text: NOTE.replace("- [/] wire up the pane 📅 2026-08-14 ⏫ #kasten", done),
         logged: { [tuesday]: logged },
+        state: "blocked",
       }),
     );
 

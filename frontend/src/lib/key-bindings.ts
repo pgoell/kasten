@@ -198,6 +198,23 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
   // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
   // binding spell a tick, and bare `x` in normal mode is vim's own cut.
   { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },
+  // The states the walk does not reach, and the two it does, each on one key.
+  // `s` for state, and the group shape `cf`, `rf` and `ff` already have. The
+  // second letter is the state's own first letter, `p` standing for in
+  // progress because `d` is spent on done.
+  { key: "so", label: "Set this todo to open", run: (view) => cycleTodoAtCursor(view, "open") },
+  { key: "sp", label: "Set this todo to doing", run: (view) => cycleTodoAtCursor(view, "doing") },
+  { key: "sx", label: "Set this todo to done", run: (view) => cycleTodoAtCursor(view, "done") },
+  {
+    key: "sb",
+    label: "Set this todo to blocked",
+    run: (view) => cycleTodoAtCursor(view, "blocked"),
+  },
+  {
+    key: "sr",
+    label: "Set this todo to rejected",
+    run: (view) => cycleTodoAtCursor(view, "rejected"),
+  },
 ];
 
 /**
@@ -355,6 +372,11 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "a", label: "Add a todo to today's note" },
   { key: "d", label: "Show what was finished in the last seven days" },
   { key: "n", label: "Show one next action per task" },
+  { key: "O", label: "Set the todo under the cursor to open" },
+  { key: "P", label: "Set the todo under the cursor to doing" },
+  { key: "X", label: "Set the todo under the cursor to done" },
+  { key: "B", label: "Set the todo under the cursor to blocked" },
+  { key: "R", label: "Set the todo under the cursor to rejected" },
   { key: "/", label: "Narrow the list" },
   { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Back to the editor" },

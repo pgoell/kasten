@@ -503,6 +503,38 @@ describe("the leader key", () => {
     expect(doc()).toBe(note);
   });
 
+  it("sets the state a leader s key names, from wherever the line was", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "b" });
+
+    // Blocked is not on the walk, so this key is the only way to it.
+    expect(doc()).toBe("- [b] wire up the pane");
+  });
+
+  it("takes a part into done with its parent on a key that names done", () => {
+    const { editor, doc } = open("- [ ] wire up the pane\n  - [ ] write it");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    // Straight to done from open, and the cascade goes with it exactly as it
+    // does when the walk arrives there.
+    expect(doc().split("\n")[1]).toBe(`  - [x] write it ✅ ${TODAY}`);
+  });
+
+  it("waits for the second letter rather than acting on space then s", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+
+    expect(doc()).toBe("- [ ] wire up the pane");
+  });
+
   it("reports the line it cycled, so the done log can follow it", () => {
     // The press edits the buffer and autosave writes it, which is what keeps
     // `u` working. The `## Done` line lands in another note, so the route has

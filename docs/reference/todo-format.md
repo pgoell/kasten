@@ -112,18 +112,29 @@ A blocked todo is open work.
 | a plain line | `[ ]` | `➕` today, unless the line already carries one |
 | `[ ]` | `[/]` | nothing |
 | `[/]` | `[x]` | `✅` today, and `🆔` unless the line already carries one |
-| `[x]` | `[b]` | strips the `✅` it wrote |
-| `[b]` | `[-]` | `❌` today |
+| `[x]` | a plain line | strips the `✅` it wrote |
+| `[b]` | `[/]` | nothing |
 | `[-]` | a plain line | strips the `❌` it wrote |
+
+The walk is the work: not started, started, finished, and out of the list again.
+Blocked and rejected are things that happen to work rather than steps in it, so
+neither is on the walk and each has [a key of its own](#setting-a-state). That
+is also what puts done last. A list of open work loses a row the moment it is
+done, so a walk with two closed states in it could never reach the second: from
+the todo pane the old order made blocked and rejected unreachable, because the
+row left the list at done and took the rest of the walk with it.
+
+The walk picks a blocked line up where the work left off, at doing, rather than
+at the start of it. A todo somebody blocked is one somebody had begun.
 
 The first step reads the fields already on the line, so a todo written out by
 hand arrives carrying them. It takes the line's bullet off where it had one, the
 box standing in for it.
 
-The last step drops the bullet, the box and the `❌`, and keeps every other
-field, so six more presses give the todo back with its dates. It rebuilds the
-line the way every other step does, which is why the tags come back in front of
-the fields:
+Either step out drops the bullet, the box and the stamp its own state wrote, and
+keeps every other field, so three more presses give the todo back with its
+dates. It rebuilds the line the way every other step does, which is why the tags
+come back in front of the fields:
 
 ```markdown
 - [-] call the dentist 📅 2026-08-14 ⏫ ➕ 2026-08-09 ❌ 2026-08-10 #health
@@ -146,6 +157,23 @@ across machines.
 Ticking a parent takes its parts with it, and ticking a recurring todo writes
 the next copy. [Subtasks](#subtasks) and [Recurrence](#recurrence) below say
 what those two presses write.
+
+## Setting a state
+
+Five keys put a line straight into one state from wherever it was: `O`, `P`,
+`X`, `B` and `R` in the todo pane, and `<leader>so`, `<leader>sp`,
+`<leader>sx`, `<leader>sb` and `<leader>sr` in the editor. `p` is in progress,
+`d` being spent on the done list.
+
+A state is worth the same whichever key wrote it. Entering done stamps `✅`
+today and an `🆔` where the line carries none, entering rejected stamps `❌`
+today, and leaving either drops the stamp it wrote, exactly as the walk does.
+A key aimed at the state a line is already in changes nothing. A plain line
+becomes a todo in that state, carrying the `➕` the walk would have stamped.
+
+Everything a press drags with it comes too: a parent set to done takes its open
+parts, a recurring todo set to done writes its next copy, and a todo carrying an
+`🆔` set into or out of done moves what waits on it.
 
 ## The field order
 

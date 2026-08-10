@@ -5,7 +5,14 @@ import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
-import { isOpen, PRIORITY_SYMBOL, parseTodo, STATE_SYMBOL, type Todo } from "@/lib/todo";
+import {
+  isOpen,
+  PRIORITY_SYMBOL,
+  parseTodo,
+  STATE_SYMBOL,
+  type Todo,
+  type TodoState,
+} from "@/lib/todo";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import {
   descendants,
@@ -69,6 +76,15 @@ const GUTTER = 0.75;
 /** Which list the pane is showing. `d` and `n` each toggle their own back. */
 type Mode = "open" | "done" | "next";
 
+/** The state each shifted key names. `p` for in progress, `d` being spent. */
+const SET: Record<string, TodoState> = {
+  O: "open",
+  P: "doing",
+  X: "done",
+  B: "blocked",
+  R: "rejected",
+};
+
 function rowKey(hit: SearchHit): string {
   return `${hit.path}:${hit.line}`;
 }
@@ -84,12 +100,13 @@ interface TodoPaneProps {
   commands: EditorCommands;
   onOpen: (path: string, line: number) => void;
   /**
-   * Walk the row's todo one step on, in the vault.
+   * Walk the row's todo one step on, in the vault, or put it in the state a
+   * key named.
    *
    * The hit rather than the todo: the write reads the note off disk again, and
    * the path and the line are how it finds the line to cycle.
    */
-  onCycle: (hit: SearchHit) => void;
+  onCycle: (hit: SearchHit, state?: TodoState) => void;
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
   /** Raised by the route when this pane has been moved to. See `Editor`. */
@@ -355,6 +372,16 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       case "x":
         if (at !== undefined) onCycle(at.hit);
         break;
+      // One key per state, shifted so every lowercase key keeps its meaning.
+      // The walk cannot reach blocked or rejected from here: a row leaves this
+      // list the moment it is done, and these are how you get to them.
+      case "O":
+      case "P":
+      case "X":
+      case "B":
+      case "R":
+        if (at !== undefined) onCycle(at.hit, SET[key]);
+        break;
       // The one key here that writes a note nothing on screen names: the todo
       // goes into today's, wherever the cursor happens to be sitting.
       case "a":
@@ -521,8 +548,8 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
           )}
         </span>
         <span>
-          x cycle&ensp;&ensp;a add&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;/
-          filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;d done&ensp;&ensp;n
+          next&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
         </span>
       </footer>
     </section>
