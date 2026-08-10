@@ -90,6 +90,7 @@ function tabLabel(tab: Tab): string {
   const focused = panesOf(tab.root).find((pane) => pane.id === tab.focus);
   // A terminal pane names its herdr session, which is the thing you named it.
   if (focused?.term !== undefined) return focused.term;
+  if (focused?.todos === true) return "todos";
   return focused?.path === undefined ? "empty" : noteName(focused.path);
 }
 

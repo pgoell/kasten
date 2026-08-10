@@ -9,6 +9,7 @@ import {
   LEADER_EDITS,
   TERMINAL,
   TERMINAL_CHORD,
+  TODO_PANE,
   TREE,
 } from "@/lib/key-bindings";
 
@@ -115,8 +116,18 @@ describe("KeyHelp", () => {
   it("lists every tree key", () => {
     render(<KeyHelp onClose={() => {}} />);
 
-    for (const { label } of TREE) {
-      expect(screen.getByText(label)).toBeInTheDocument();
+    // Scoped to the group, because the todo pane below binds `j / k`, `q` and
+    // `Escape` to the same sentences: two panels, two rows, one spelling.
+    for (const { key, label } of TREE) {
+      expect(group("File tree").getByText(key).nextElementSibling).toHaveTextContent(label);
+    }
+  });
+
+  it("lists every todo pane key", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    for (const { key, label } of TODO_PANE) {
+      expect(group("Todos").getByText(key).nextElementSibling).toHaveTextContent(label);
     }
   });
 
@@ -177,6 +188,7 @@ describe("the key tables", () => {
       findNote: () => {},
       searchNotes: () => {},
       findTodos: () => {},
+      openTodos: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},
       openDaily: () => {},
@@ -218,6 +230,7 @@ describe("the key tables", () => {
       findNote: () => {},
       searchNotes: () => {},
       findTodos: () => {},
+      openTodos: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},
       openDaily: () => {},

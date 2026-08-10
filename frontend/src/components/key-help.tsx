@@ -8,6 +8,7 @@ import {
   TAB_KEYS,
   TERMINAL,
   TERMINAL_CHORD,
+  TODO_PANE,
   TREE,
 } from "@/lib/key-bindings";
 
@@ -116,6 +117,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       keys: TERMINAL.map(({ key, label }) => ({ key: chordLabel(key), label })),
     },
     { title: "File tree", keys: TREE },
+    { title: "Todos", keys: TODO_PANE },
   ];
 
   return (

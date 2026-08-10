@@ -37,6 +37,7 @@ const {
   renameNote,
   moveFolder,
   fetchTerminals,
+  fetchTodos,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -48,6 +49,9 @@ const {
   // The terminal prompt asks for these when it opens. No route test opens
   // it, so an empty list is the whole of what this has to answer.
   fetchTerminals: vi.fn().mockResolvedValue([]),
+  // The todo pane asks for these the moment it opens. Nothing here is about
+  // what the vault holds to do, so an empty list is the whole of the answer.
+  fetchTodos: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
@@ -58,6 +62,7 @@ vi.mock("@/lib/api", () => ({
   renameNote,
   moveFolder,
   fetchTerminals,
+  fetchTodos,
 }));
 
 const VAULT: Record<string, string> = {
@@ -163,6 +168,10 @@ async function renderApp() {
     /** Click into another pane, which is a focus and not a click event. */
     focusPane: (index: number) =>
       (container.querySelectorAll<HTMLElement>(".cm-content")[index] as HTMLElement).focus(),
+    /** The todo pane, while a pane is holding one. */
+    todoPane: () => container.querySelector("[aria-label='Todos']"),
+    /** How many panes the active tab draws. */
+    panes: () => container.querySelectorAll("[data-pane]").length,
     /** Whether the bar's reading is wearing the flash a refusal raises. */
     flashing: () =>
       container.querySelector("[data-testid='save-status']")?.className.includes("animate-flash") ??
@@ -202,6 +211,10 @@ describe("the route", () => {
     fetchFiles.mockResolvedValue(Object.keys(VAULT));
     fetchNote.mockImplementation(async (path: string) => VAULT[path]);
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    // Reset with the rest, because `resetAllMocks` takes the answer above off
+    // it and a query function answering undefined is an error rather than an
+    // empty list.
+    fetchTodos.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -627,6 +640,26 @@ describe("the route", () => {
     // anything typed by then is unsaved text over a note that changed on disk.
     expect(saveNote).not.toHaveBeenCalled();
     expect(app.text()).toContain("2026-08-06 Thursday");
+  });
+
+  it("puts the todo list in the focused pane and takes it back out", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader("g", "t");
+    await settle();
+    expect(app.todoPane()).not.toBeNull();
+
+    // Emptying rather than removing: the pane stays on screen, so a window
+    // holding only the list still has a way back to an editor.
+    fireEvent.keyDown(app.todoPane() as HTMLElement, { key: " " });
+    fireEvent.keyDown(app.todoPane() as HTMLElement, { key: "q" });
+    await settle();
+
+    expect(app.todoPane()).toBeNull();
+    expect(app.panes()).toBe(1);
   });
 
   it("opens the daily note the vault already holds without writing to it", async () => {

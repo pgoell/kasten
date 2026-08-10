@@ -28,6 +28,8 @@ export interface EditorCommands {
   searchNotes(): void;
   /** Open the todo overlay, which ranks every todo the vault holds. */
   findTodos(): void;
+  /** Put the todo list in the focused pane, replacing whatever was there. */
+  openTodos(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */
@@ -133,6 +135,9 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
   { key: "gq", label: "Open this quarter's note", command: "openQuarterly" },
+  // `g` for go, and the pane it goes to holds the todos. `ct` is spent on a
+  // tab, which is why this is not under `c`.
+  { key: "gt", label: "Open the todo pane", command: "openTodos" },
   { key: "gw", label: "Open this week's note", command: "openWeekly" },
   { key: "gy", label: "Open this year's note", command: "openYearly" },
   // The directions vim already reads, one press from the leader. Which pane is
@@ -330,5 +335,23 @@ export const TREE: readonly { key: string; label: string }[] = [
   { key: "s", label: "Search every note's content" },
   { key: "r", label: "Rename the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
+  { key: "Escape", label: "Back to the editor" },
+];
+
+/**
+ * What the keys do inside the todo pane.
+ *
+ * Display only, the way `TREE` is: the pane resolves its own keys in one
+ * switch. It lists the whole set the phase arrives at, so the reference page
+ * and the help panel describe one pane rather than each other.
+ */
+export const TODO_PANE: readonly { key: string; label: string }[] = [
+  { key: "j / k", label: "Move the cursor down or up" },
+  { key: "Enter", label: "Open the note the todo is in" },
+  { key: "x", label: "Cycle the todo under the cursor" },
+  { key: "a", label: "Add a todo to today's note" },
+  { key: "d", label: "Show what was finished in the last seven days" },
+  { key: "/", label: "Narrow the list" },
+  { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Back to the editor" },
 ];

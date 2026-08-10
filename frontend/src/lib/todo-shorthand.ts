@@ -11,6 +11,7 @@
  * every function below is a function over strings.
  */
 
+import { shiftDay } from "@/lib/clock";
 import { TAG, type Todo, type TodoPriority, type TodoState } from "@/lib/todo";
 
 export type DueWindow = "today" | "overdue" | "week";
@@ -107,13 +108,6 @@ export function parseFilter(input: string): Filter {
   return { has, hasNot, text: words.join(" ") };
 }
 
-/** `day` moved by whole days. UTC, so no daylight saving change can shift it. */
-function shift(day: string, days: number): string {
-  const at = new Date(`${day}T00:00:00Z`);
-  at.setUTCDate(at.getUTCDate() + days);
-  return at.toISOString().slice(0, 10);
-}
-
 // ISO dates sort as strings, which is the whole of the date maths below.
 function inWindow(due: string | undefined, window: DueWindow, today: string): boolean {
   if (due === undefined) return false;
@@ -121,7 +115,7 @@ function inWindow(due: string | undefined, window: DueWindow, today: string): bo
   if (window === "today") return due === today;
   // `<7d` as it is spelled: less than seven days out, so today counts and the
   // seventh day does not.
-  return due < shift(today, 7);
+  return due < shiftDay(today, 7);
 }
 
 /** Whether each non-empty group is answered, one entry per group that has terms. */
@@ -151,7 +145,7 @@ export function matchesFilter(todo: Todo, filter: Filter, today: string): boolea
 /** What was written after `due:`, as a date, or nothing where it is not one. */
 function readDate(value: string, today: string): string | undefined {
   if (value === "today") return today;
-  if (value === "tomorrow") return shift(today, 1);
+  if (value === "tomorrow") return shiftDay(today, 1);
   if (DAY.test(value)) return real(value);
   // `08-14` is this year's, taken from today rather than rolled forward: a date
   // that has been and gone is the reader's to correct, not this module's.
@@ -163,7 +157,7 @@ function readDate(value: string, today: string): string | undefined {
   const ahead = (wanted - new Date(`${today}T00:00:00Z`).getUTCDay() + 7) % 7;
   // Naming today's weekday means the next one, a week off. Somebody typing
   // `due:monday` on a Monday means the Monday to come.
-  return shift(today, ahead === 0 ? 7 : ahead);
+  return shiftDay(today, ahead === 0 ? 7 : ahead);
 }
 
 /**

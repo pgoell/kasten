@@ -74,7 +74,8 @@ export const STATE_SYMBOL: Record<TodoState, string> = {
   rejected: "☒",
 };
 
-const PRIORITIES: Record<TodoPriority, string> = {
+/** Exported for the reason `STATE_SYMBOL` is: the pane draws these too. */
+export const PRIORITY_SYMBOL: Record<TodoPriority, string> = {
   highest: "🔺",
   high: "⏫",
   medium: "🔼",
@@ -188,7 +189,7 @@ function tail(todo: Todo): string {
   if (todo.due !== undefined) parts.push(`📅 ${todo.due}`);
   if (todo.scheduled !== undefined) parts.push(`⏳ ${todo.scheduled}`);
   if (todo.start !== undefined) parts.push(`🛫 ${todo.start}`);
-  if (todo.priority !== undefined) parts.push(PRIORITIES[todo.priority]);
+  if (todo.priority !== undefined) parts.push(PRIORITY_SYMBOL[todo.priority]);
   if (todo.recurrence !== undefined) parts.push(`🔁 ${todo.recurrence}`);
   if (todo.created !== undefined) parts.push(`➕ ${todo.created}`);
   if (todo.done !== undefined) parts.push(`✅ ${todo.done}`);

@@ -12,7 +12,9 @@ import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
+import { TodoPane } from "@/components/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTerminals } from "@/lib/api";
+import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -28,6 +30,7 @@ import {
   nextPane,
   openInFocused,
   openTerminalInFocused,
+  openTodosInFocused,
   removeFocused,
   splitFocused,
   stepTab,
@@ -254,6 +257,11 @@ function Home() {
             { cancelRefetch: false },
           );
         }
+        // A todo written by an agent or over ssh reaches the pane without a
+        // reload. Ahead of the early return below, which fires for a write to
+        // a note the tree already draws, and that is most writes. `cancelRefetch`
+        // off for the reason the two invalidations beside it have it off.
+        queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
       }
 
       // A write to a note the tree already draws changes no row, and this is
@@ -395,13 +403,14 @@ function Home() {
       // it, and the pane stays open with `Changed on disk` in the bar until
       // `:w` settles it.
       closeNote: async () => {
-        // A terminal is taken out of the pane the way a note is, leaving the
-        // pane itself on screen. Without this the key went straight to
-        // removing the pane, which does nothing at all on the last pane of the
-        // last tab, so a window holding one terminal had no way back to an
-        // editor and no way to reach any leader key. Nothing is lost: closing
-        // the socket detaches a client, and the herdr session goes on running.
-        if (pane.term !== undefined) {
+        // A terminal and the todo list are taken out of the pane the way a note
+        // is, leaving the pane itself on screen. Without this the key went
+        // straight to removing the pane, which does nothing at all on the last
+        // pane of the last tab, so a window holding one terminal had no way
+        // back to an editor and no way to reach any leader key. Nothing is
+        // lost: closing the socket detaches a client, and the herdr session
+        // goes on running.
+        if (pane.term !== undefined || pane.todos === true) {
           moveTo(clearFocused);
           return;
         }
@@ -453,6 +462,12 @@ function Home() {
       searchNotes: () => setSearchOpen(true),
       // The same, and for the same reason.
       findTodos: () => setTodosOpen(true),
+      // Saved first, unlike the three above: this one replaces what the pane
+      // holds, which unmounts the editor in it and would take unsaved text with
+      // it. The same rule `closeNote` follows.
+      openTodos: async () => {
+        if (await saveFirst()) moveTo(openTodosInFocused);
+      },
       // The one command that needs a note open, because what it shows is what
       // links to that note. With an empty pane there is nothing to ask about,
       // and doing nothing is how the key says so.
@@ -499,7 +514,17 @@ function Home() {
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
-    [moveTo, movePane, saveFirst, openPeriodic, pane.path, pane.term, data, queryClient],
+    [
+      moveTo,
+      movePane,
+      saveFirst,
+      openPeriodic,
+      pane.path,
+      pane.term,
+      pane.todos,
+      data,
+      queryClient,
+    ],
   );
 
   /**
@@ -575,7 +600,19 @@ function Home() {
               onFocus={(id) => setLayout((previous) => focusPane(previous, id))}
             >
               {(shown, focused) =>
-                shown.term !== undefined ? (
+                shown.todos === true ? (
+                  <TodoPane
+                    commands={commands}
+                    onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                    focusSignal={focused ? focusSignal : 0}
+                    // Read at the render rather than inside the pane, which
+                    // stays a function of the strings it is handed. A tab left
+                    // open across midnight keeps yesterday's sections until
+                    // something makes it render, which is what the event stream
+                    // does the moment anything is written.
+                    today={readClock(new Date()).date}
+                  />
+                ) : shown.term !== undefined ? (
                   <TerminalPane
                     session={shown.term}
                     commands={commands}

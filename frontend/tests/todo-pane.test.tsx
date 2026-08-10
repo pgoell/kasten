@@ -1,0 +1,261 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { sectionOf, TodoPane } from "@/components/todo-pane";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo";
+
+// Standing in for the module rather than for `fetch`, the way the search
+// panel's tests do: what the pane owns is what it asks the vault for, not the
+// HTTP underneath.
+const { fetchTodos } = vi.hoisted(() => ({ fetchTodos: vi.fn() }));
+vi.mock("@/lib/api", () => ({ fetchTodos }));
+
+/** The day every test below is written against, so no assertion expires. */
+const TODAY = "2026-08-10";
+
+const TODOS = [
+  { path: "projects/kasten.md", line: 3, text: "- [ ] call the dentist 📅 2026-08-07 ⏫ #health" },
+  { path: "projects/kasten.md", line: 12, text: "- [/] wire up the pane 📅 2026-08-10 ⏫ #kasten" },
+  { path: "projects/kasten.md", line: 13, text: "- [b] ship it 📅 2026-08-10 #kasten" },
+  { path: "projects/kasten.md", line: 20, text: "- [ ] buy milk 📅 2026-08-14 🔽" },
+  { path: "projects/kasten.md", line: 21, text: "- [ ] renew the passport 📅 2026-09-01" },
+  { path: "projects/kasten.md", line: 30, text: "- [ ] waiting on the API" },
+  // Neither of these is work to do: one is finished and one is a `## Time`
+  // line, which the endpoint carries back for phase 3.
+  { path: "projects/kasten.md", line: 31, text: "- [x] read the spec 📅 2026-08-10" },
+  { path: "daily/2026-08-10.md", line: 5, text: "- 09:12-10:32 wire up the pane" },
+];
+
+/** A todo out of one of the lines above, for the tests that want a record. */
+function todo(line: string): Todo {
+  const found = parseTodo(line);
+  if (found === null) throw new Error(`not a todo: ${line}`);
+  return found;
+}
+
+/**
+ * Every command, recording which one was reached.
+ *
+ * A proxy rather than an object with a member per command: the pane runs
+ * whatever a leader sequence resolves to, so the stub has to answer to the
+ * whole of `EditorCommands`, and writing thirty stubs out here is thirty lines
+ * to keep in step with an interface this test says nothing about.
+ */
+function recorder() {
+  const reached: string[] = [];
+  const commands = new Proxy({} as EditorCommands, {
+    get: (_target, name: string) => () => reached.push(name),
+  });
+  return { reached, commands };
+}
+
+function renderPane(hits = TODOS) {
+  fetchTodos.mockResolvedValue(hits);
+  const onOpen = vi.fn();
+  const { reached, commands } = recorder();
+
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TodoPane commands={commands} onOpen={onOpen} focusSignal={0} today={TODAY} />
+    </QueryClientProvider>,
+  );
+
+  const panel = () => screen.getByRole("region", { name: "Todos" });
+
+  return {
+    onOpen,
+    reached,
+    filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
+    headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
+    rows: () => screen.queryAllByRole("button"),
+    texts: () => screen.queryAllByRole("button").map((row) => row.textContent ?? ""),
+    /** The row the keyboard cursor is on, which is the pane's only tab stop. */
+    cursor: () => screen.queryAllByRole("button").find((row) => row.tabIndex === 0),
+    footer: () => screen.getByTestId("todo-footer").textContent ?? "",
+    press: (key: string) => fireEvent.keyDown(panel(), { key }),
+    type: (value: string) =>
+      fireEvent.change(screen.getByLabelText("filter todos"), { target: { value } }),
+  };
+}
+
+describe("sectionOf", () => {
+  it("reads a date before today as overdue", () => {
+    expect(sectionOf(todo("- [ ] a 📅 2026-08-09"), TODAY)).toBe("overdue");
+  });
+
+  it("reads today as today", () => {
+    expect(sectionOf(todo("- [ ] a 📅 2026-08-10"), TODAY)).toBe("today");
+  });
+
+  it("reads the next seven days as this week", () => {
+    expect(sectionOf(todo("- [ ] a 📅 2026-08-11"), TODAY)).toBe("week");
+    expect(sectionOf(todo("- [ ] a 📅 2026-08-16"), TODAY)).toBe("week");
+  });
+
+  it("reads anything further out as later", () => {
+    // Seven days out is the first day past the window, the way `due:<7d` reads.
+    expect(sectionOf(todo("- [ ] a 📅 2026-08-17"), TODAY)).toBe("later");
+  });
+
+  it("reads a todo with no due date as no date", () => {
+    expect(sectionOf(todo("- [ ] a"), TODAY)).toBe("none");
+  });
+});
+
+describe("the todo pane", () => {
+  it("draws one heading per section that has rows, in order", async () => {
+    const pane = renderPane();
+
+    await waitFor(() => expect(pane.rows().length).toBeGreaterThan(0));
+    expect(pane.headings()).toEqual(["Overdue", "Today", "This week", "Later", "No date"]);
+  });
+
+  it("draws no heading for a section with nothing in it", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] call the dentist 📅 2026-08-07" },
+      { path: "a.md", line: 2, text: "- [ ] waiting on the API" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.headings()).toEqual(["Overdue", "No date"]);
+  });
+
+  it("leaves out what is finished and what was never a todo", async () => {
+    const pane = renderPane();
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    expect(pane.texts().join()).not.toContain("read the spec");
+    expect(pane.texts().join()).not.toContain("09:12");
+  });
+
+  it("draws the priority a row carries, and nothing where it carries none", async () => {
+    const pane = renderPane();
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    // Two glyphs on the row and one on the list: `⏫` beside the dentist, and
+    // nothing at all beside the one waiting on the API.
+    expect((pane.rows()[0] as HTMLElement).textContent).toContain("⏫");
+    const none = pane.texts().find((text) => text.includes("waiting on the API")) ?? "";
+    expect(Object.values(PRIORITY_SYMBOL).some((glyph) => none.includes(glyph))).toBe(false);
+  });
+
+  it("draws a blocked todo muted, in the section its due date names", async () => {
+    const pane = renderPane();
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    // Third row: overdue holds one, and today holds the doing one before it.
+    const blocked = pane.rows()[2] as HTMLElement;
+    expect(blocked.textContent).toContain("ship it");
+    expect(blocked.className).toContain("text-one-muted");
+  });
+
+  it("moves the cursor down on j and up on k", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    expect(pane.cursor()?.textContent).toContain("call the dentist");
+
+    pane.press("j");
+    expect(pane.cursor()?.textContent).toContain("wire up the pane");
+
+    pane.press("k");
+    expect(pane.cursor()?.textContent).toContain("call the dentist");
+  });
+
+  it("opens the note the todo is on with enter", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("j");
+    pane.press("Enter");
+
+    expect(pane.onOpen).toHaveBeenCalledWith("projects/kasten.md", 12);
+  });
+
+  it("moves the focus to the filter line on /", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("/");
+
+    expect(pane.filter()).toHaveFocus();
+  });
+
+  it("narrows the list to the rows carrying every term", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.type("#kasten !high");
+
+    // `#kasten` alone would keep the blocked row too, and `!high` alone the
+    // dentist. Across groups the terms are an and.
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.texts()[0]).toContain("wire up the pane");
+  });
+
+  it("keeps the filter applied once escape hands the list back the focus", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("/");
+    pane.type("#kasten");
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+
+    fireEvent.keyDown(pane.filter(), { key: "Escape" });
+
+    expect(pane.cursor()).toHaveFocus();
+    expect(pane.rows()).toHaveLength(2);
+    expect(pane.filter().value).toBe("#kasten");
+  });
+
+  it("takes the letters of a filter rather than reading them as keys", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("/");
+    // `j` and `k` are the list's own keys, and in the input they are letters.
+    fireEvent.keyDown(pane.filter(), { key: "j" });
+
+    expect(pane.cursor()?.textContent).toContain("call the dentist");
+  });
+
+  it("counts the open and blocked rows in the footer", async () => {
+    const pane = renderPane();
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    expect(pane.footer()).toContain("5 open, 1 blocked");
+  });
+
+  it("names only the keys this phase binds", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    expect(pane.footer()).toContain("/ filter");
+    expect(pane.footer()).toContain("q close");
+    // `x` and `d` arrive with the writes and `a` with the add prompt. `t`, `n`
+    // and `v` are later phases. A footer offering a key that does nothing is
+    // worse than one that is short.
+    expect(pane.footer()).not.toMatch(/\b(cycle|add|done|next|view|timer)\b/i);
+  });
+
+  it("closes the pane on q", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("q");
+
+    // The route empties the pane rather than removing it, which is one step in
+    // from what the same key does on a note.
+    expect(pane.reached).toEqual(["closeNote"]);
+  });
+
+  it("still resolves a leader sequence from inside the list", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press(" ");
+    pane.press("c");
+    pane.press("t");
+
+    expect(pane.reached).toEqual(["createTab"]);
+  });
+});
