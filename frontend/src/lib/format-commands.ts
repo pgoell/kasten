@@ -1,5 +1,5 @@
 import { syntaxTree } from "@codemirror/language";
-import type { EditorState, SelectionRange } from "@codemirror/state";
+import type { ChangeSpec, EditorState, SelectionRange } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 
@@ -67,5 +67,72 @@ export function toggleMark(view: EditorView, spec: MarkSpec): boolean {
     // or the key stops being a toggle.
     selection: { anchor: to + spec.open.length },
   });
+  return true;
+}
+
+const FENCE = /^\s*(?:```|~~~)/;
+const HEADING = /^#{1,6}\s/;
+/** A bullet written with the markers this rewrites, and the space after it. */
+const BULLET = /^(\s*)[*+](\s)/;
+
+/**
+ * Tidies the whole note: trailing whitespace, blank runs, headings and bullets.
+ *
+ * Line by line rather than through the syntax tree, because every rule here is
+ * about a line's own shape and the tree would only make the same reading
+ * longer. The frontmatter is YAML and a fence holds whatever it holds, so both
+ * are stepped over untouched.
+ *
+ * It writes a change per line rather than replacing the document, which is what
+ * keeps the cursor where it was: CodeMirror maps it through the changes.
+ * Returns whether anything moved.
+ */
+export function formatDocument(view: EditorView): boolean {
+  const { doc } = view.state;
+  const changes: ChangeSpec[] = [];
+  let inFront = doc.line(1).text === "---";
+  let inFence = false;
+  let blanks = 0;
+  let seen = 0;
+
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    seen++;
+
+    if (inFront) {
+      if (n > 1 && line.text === "---") inFront = false;
+      continue;
+    }
+    if (FENCE.test(line.text)) {
+      inFence = !inFence;
+      blanks = 0;
+      continue;
+    }
+    if (inFence) {
+      blanks = 0;
+      continue;
+    }
+
+    const text = line.text.replace(/\s+$/, "").replace(BULLET, "$1-$2");
+
+    if (text === "") {
+      blanks++;
+      // The second blank in a row goes, and it takes the newline in front of it
+      // rather than the one behind, so two dropped in a row cannot overlap. The
+      // first line of a note is never the second blank, so `from - 1` is safe.
+      if (blanks > 1) changes.push({ from: line.from - 1, to: line.to });
+      else if (text !== line.text) changes.push({ from: line.from, to: line.to });
+      continue;
+    }
+
+    const gap = HEADING.test(text) && blanks === 0 && seen > 1 ? "\n" : "";
+    if (gap || text !== line.text) {
+      changes.push({ from: line.from, to: line.to, insert: gap + text });
+    }
+    blanks = 0;
+  }
+
+  if (changes.length === 0) return false;
+  view.dispatch({ changes });
   return true;
 }

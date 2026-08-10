@@ -57,6 +57,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
 | `<leader>x` | Cycle the todo on this line |
+| `<leader>=` | Tidy the markdown in this note |
 | `<leader>%` | Split the pane left and right |
 | `<leader>"` | Split the pane top and bottom |
 | `<leader>1` to `<leader>0` | Go to a tab by number |
@@ -541,6 +542,16 @@ afterwards, the way an operator does.
 
 Highlight sits on Ctrl+Shift+H rather than Ctrl+H, which Chrome spends on its
 history window.
+
+`<leader>=` is the other formatting key, and it takes the whole note rather than
+one word. It cuts the trailing whitespace off every line, collapses a run of
+blank lines to one, puts a blank line in front of a heading that has none, and
+writes a `*` or `+` bullet as a `-`. It steps over two things untouched: the
+frontmatter, which is YAML and not markdown, and anything between code fences,
+which holds whatever it holds. Nothing else in the note moves, there is no
+rewrapping and no renumbering, and the cursor stays where it was. `=` is vim's
+own key for putting the formatting right; the other one, `gq`, is spent on the
+quarter's note.
 
 `==highlight==` is not part of any markdown flavour kasten loads, so
 `frontend/src/lib/markdown-highlight.ts` adds it to the parser. A delimiter

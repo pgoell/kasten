@@ -1,5 +1,12 @@
 import type { EditorView } from "@codemirror/view";
-import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-commands";
+import {
+  BOLD,
+  formatDocument,
+  HIGHLIGHT,
+  ITALIC,
+  type MarkSpec,
+  STRIKE,
+} from "@/lib/format-commands";
 import { cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
 
 /**
@@ -192,6 +199,9 @@ export interface LeaderEdit {
  * was typed into.
  */
 export const LEADER_EDITS: readonly LeaderEdit[] = [
+  // `=` is vim's own key for putting the formatting right, and `gq`, the other
+  // one, is spent on the quarter's note.
+  { key: "=", label: "Tidy the markdown in this note", run: formatDocument },
   // `i` is free after the leader, and cannot collide with vim's own `i`, which
   // needs no leader in front of it.
   { key: "i", label: "Stamp an id on this todo", run: stampIdAtCursor },

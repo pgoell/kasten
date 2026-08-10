@@ -1,7 +1,7 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { BOLD, HIGHLIGHT, ITALIC, STRIKE, toggleMark } from "@/lib/format-commands";
+import { BOLD, formatDocument, HIGHLIGHT, ITALIC, STRIKE, toggleMark } from "@/lib/format-commands";
 import { Highlight } from "@/lib/markdown-highlight";
 
 /** A view with the same markdown parser the editor uses, and nothing else. */
@@ -121,5 +121,64 @@ describe("toggleMark", () => {
     const view = open("word", 0);
 
     expect(toggleMark(view, BOLD)).toBe(true);
+  });
+});
+
+describe("formatDocument", () => {
+  it("cuts the trailing whitespace off a line", () => {
+    const view = open("hello   \nworld\t\n", 0);
+
+    expect(formatDocument(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("hello\nworld\n");
+  });
+
+  it("collapses a run of blank lines to one", () => {
+    const view = open("a\n\n\n\nb\n", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("a\n\nb\n");
+  });
+
+  it("keeps the cursor on the line it was on", () => {
+    const view = open("a\n\n\n\nb\n", 5);
+
+    formatDocument(view);
+
+    expect(view.state.selection.main.head).toBe(3);
+  });
+
+  it("puts a blank line in front of a heading that has none", () => {
+    const view = open("text\n## Heading\n", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("text\n\n## Heading\n");
+  });
+
+  it("leaves a heading on the first line where it is", () => {
+    const view = open("# Title\n\ntext\n", 0);
+
+    expect(formatDocument(view)).toBe(false);
+  });
+
+  it("writes every bullet as a dash", () => {
+    const view = open("* one\n+ two\n  * three\n", 0);
+
+    formatDocument(view);
+
+    expect(view.state.doc.toString()).toBe("- one\n- two\n  - three\n");
+  });
+
+  it("leaves what a fence holds alone", () => {
+    const view = open("```\n*  not a list   \n\n\n\nstill code\n```\n", 0);
+
+    expect(formatDocument(view)).toBe(false);
+  });
+
+  it("leaves the frontmatter alone", () => {
+    const view = open("---\nid: 1\n\n\nmodified: 2026-08-10  \n---\n\n# Title\n", 0);
+
+    expect(formatDocument(view)).toBe(false);
   });
 });
