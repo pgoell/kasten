@@ -258,7 +258,11 @@ describe("cycleTodoWrites", () => {
     });
   });
 
-  it("gives a todo already living in today's note no copy of itself", () => {
+  it("logs a todo already living in today's note, in that note, with no link", () => {
+    // The daily note is where a todo most often lives, so skipping the log
+    // there would leave `## Done` empty for the commonest way of working. The
+    // link is what a note pointing at itself does not need, and `doneLine`
+    // leaves that off on its own.
     const daily = ["# 2026-08-10 Monday", "", "## TODOs", "- [/] call the dentist ⏫", ""].join(
       "\n",
     );
@@ -267,11 +271,12 @@ describe("cycleTodoWrites", () => {
       press({ path: DAILY_PATH, text: daily, line: 4, dailyText: daily }),
     );
 
+    // One write, not two: the tick and the log land in the same note.
     expect(writes).toHaveLength(1);
     expect(writes[0]?.path).toBe(DAILY_PATH);
-    // The tick is on the line itself. A note linking to itself records nothing.
     expect(writes[0]?.text).toContain("- [x] call the dentist ⏫ ✅ 2026-08-10 🆔 kt-3f9a2c");
-    expect(writes[0]?.text).not.toContain("- ✅");
+    expect(writes[0]?.text).toContain("## Done\n- ✅ 2026-08-10 call the dentist kt-3f9a2c");
+    expect(writes[0]?.text).not.toContain("[[");
   });
 });
 

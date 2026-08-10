@@ -11,7 +11,7 @@ import { editorCommands } from "@/lib/editor-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
-import { type CycleHandler, todoCycled } from "@/lib/todo-commands";
+import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
@@ -326,6 +326,8 @@ interface EditorProps {
   onFollow?: (target: string) => void;
   /** Called with the line `<leader>x` cycled, which the done log follows. */
   onCycleTodo?: CycleHandler;
+  /** The note this holds, which tells today's own note from every other. */
+  path?: string;
 }
 
 /**
@@ -350,6 +352,7 @@ export function Editor({
   onSave,
   onFollow,
   onCycleTodo,
+  path,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -404,6 +407,7 @@ export function Editor({
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           followHandler.of((target) => onFollowRef.current?.(target)),
           todoCycled.of((cycle) => onCycleTodoRef.current?.(cycle)),
+          ...(path === undefined ? [] : [notePath.of(path)]),
           // A pane with nothing to reload answers the way a refusal does, so
           // `:e` in one is a key that does nothing rather than a key that
           // throws.
@@ -473,7 +477,10 @@ export function Editor({
       viewRef.current = null;
       view.destroy();
     };
-  }, []);
+    // The path alone, because a facet holds the value it was built with and
+    // this is the one that carries one. It never fires twice: `note-editor.tsx`
+    // keys this component on the path, so a second note is a second view.
+  }, [path]);
 
   // Declared after the mount effect so the view exists by the time this runs,
   // which is what lets one effect serve both cases: opening a note on a line,

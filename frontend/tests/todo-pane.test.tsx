@@ -155,6 +155,20 @@ describe("the todo pane", () => {
     expect(Object.values(PRIORITY_SYMBOL).some((glyph) => none.includes(glyph))).toBe(false);
   });
 
+  it("draws the year on a date outside this one, and drops it on a date in it", async () => {
+    // `Later` reaches years out, so `01-01` on two rows says nothing about
+    // which is sooner. The year earns its place exactly when it differs.
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14" },
+      { path: "a.md", line: 2, text: "- [ ] renew the passport 📅 2027-03-01" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.texts()[0]).toContain("08-14");
+    expect(pane.texts()[0]).not.toContain("2026-08-14");
+    expect(pane.texts()[1]).toContain("2027-03-01");
+  });
+
   it("draws a blocked todo muted, in the section its due date names", async () => {
     const pane = renderPane();
 

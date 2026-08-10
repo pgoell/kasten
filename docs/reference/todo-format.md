@@ -158,7 +158,9 @@ Ticking a todo done writes a line under `## Done` in today's daily note:
 
 The day it was finished, the todo's words, a link to the note it lives in, and
 its id. The link is left off when the todo already lives in the daily note being
-written, because a note pointing at itself records nothing.
+written, because a note pointing at itself records nothing. The line itself is
+still written there: the daily note is where most todos are, so skipping it
+would leave `## Done` empty for the commonest way of working.
 
 It is deliberately not a checkbox. `GET /api/todos` matches the shape of a
 checkbox line, so a `- [x]` here would put every finished todo in the pane

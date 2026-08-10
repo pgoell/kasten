@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
 import { readClock } from "@/lib/clock";
 import type { EditorCommands } from "@/lib/key-bindings";
+import { periodicNote } from "@/lib/periodic";
 
 /** Read from the same helper the command reads it from, so this cannot expire. */
 const TODAY = readClock(new Date()).date;
@@ -46,7 +47,7 @@ function content(container: HTMLElement): string {
   return (container.querySelector(".cm-content") as HTMLElement).textContent ?? "";
 }
 
-function open(initialDoc: string, commands: EditorCommands = stubCommands()) {
+function open(initialDoc: string, commands: EditorCommands = stubCommands(), path?: string) {
   const onChange = vi.fn();
   const onCycleTodo = vi.fn();
   const { container } = render(
@@ -55,6 +56,7 @@ function open(initialDoc: string, commands: EditorCommands = stubCommands()) {
       commands={commands}
       onChange={onChange}
       onCycleTodo={onCycleTodo}
+      path={path}
     />,
   );
 
@@ -435,6 +437,36 @@ describe("the leader key", () => {
       after: `- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c`,
       line: 1,
     });
+  });
+
+  it("logs a todo living in today's own note into that same buffer", () => {
+    // The one note the route cannot write, this being the buffer being typed
+    // into, so the press carries both halves and `u` takes back both.
+    const { editor, doc } = open(
+      "- [/] wire up the pane 🆔 kt-3f9a2c",
+      stubCommands(),
+      periodicNote("daily", new Date()).path,
+    );
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc()).toBe(
+      `- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c\n\n## Done\n- ✅ ${TODAY} wire up the pane kt-3f9a2c\n`,
+    );
+  });
+
+  it("leaves the log to the route for a todo living in any other note", () => {
+    const { editor, doc } = open(
+      "- [/] wire up the pane 🆔 kt-3f9a2c",
+      stubCommands(),
+      "kasten.md",
+    );
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc()).toBe(`- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c`);
   });
 
   it("stops space from moving the cursor", () => {
