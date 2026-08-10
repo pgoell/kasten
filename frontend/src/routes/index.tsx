@@ -39,7 +39,12 @@ import {
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import type { TodoState } from "@/lib/todo";
-import { addTodoInVault, cycleTodoAside, cycleTodoInVault } from "@/lib/todo-api";
+import {
+  addTodoInVault,
+  cycleTodoAside,
+  cycleTodoInVault,
+  toggleTimerInVault,
+} from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
@@ -443,6 +448,22 @@ function Home() {
   );
 
   /**
+   * Start or stop a session on the pane's `t`.
+   *
+   * The whole clock, not just the day: a session line carries the time, and
+   * reading it here keeps the pane and the rules below it functions of strings.
+   */
+  const toggleTimer = useCallback(
+    (hit: SearchHit) => {
+      void toggleTimerInVault(hit, readClock(new Date()), data ?? []).then(todosWritten, () => {
+        // The vault refused the write, or the note moved out from under the
+        // row. The list stays as it is, and the next event redraws it.
+      });
+    },
+    [data, todosWritten],
+  );
+
+  /**
    * Put a typed todo under `## TODOs` in today's note, from the pane's `a`.
    *
    * The clock is read here rather than in the prompt, so a prompt left open
@@ -679,6 +700,7 @@ function Home() {
                     onOpen={(path, hitLine) => void openInPane(path, hitLine)}
                     onCycle={cycleTodo}
                     onAdd={() => setTodoPrompt(true)}
+                    onTimer={toggleTimer}
                     focusSignal={focused ? focusSignal : 0}
                     // Read at the render rather than inside the pane, which
                     // stays a function of the strings it is handed. A tab left

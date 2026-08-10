@@ -13,6 +13,7 @@
 
 import { shiftDay } from "@/lib/clock";
 import { TAG, type Todo, type TodoPriority, type TodoState } from "@/lib/todo";
+import { parseDuration } from "@/lib/todo-time";
 
 export type DueWindow = "today" | "overdue" | "week";
 
@@ -184,6 +185,7 @@ function real(day: string): string | undefined {
 export function expandShorthand(input: string, today: string): Todo {
   let priority: TodoPriority | undefined;
   let due: string | undefined;
+  let estimate: string | undefined;
   const words: string[] = [];
 
   for (const word of input.split(/\s+/)) {
@@ -203,6 +205,13 @@ export function expandShorthand(input: string, today: string): Todo {
       }
     }
 
+    // The one path by which kasten rather than your keyboard puts a `⏲` on a
+    // line. Not a filter term: there is nothing useful to filter on.
+    if (word.startsWith("est:") && parseDuration(word.slice(4)) !== null) {
+      estimate = word.slice(4);
+      continue;
+    }
+
     words.push(word);
   }
 
@@ -216,5 +225,6 @@ export function expandShorthand(input: string, today: string): Todo {
     priority,
     created: today,
     blockedBy: [],
+    estimate,
   };
 }

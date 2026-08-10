@@ -5,6 +5,7 @@ import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
+import { dailyDate } from "@/lib/periodic";
 import {
   isOpen,
   PRIORITY_SYMBOL,
@@ -14,6 +15,7 @@ import {
   type TodoState,
 } from "@/lib/todo";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
+import { parseSession, type Session } from "@/lib/todo-time";
 import {
   descendants,
   HEADING,
@@ -26,6 +28,13 @@ import {
   treeOf,
   waiting,
 } from "@/lib/todo-view";
+
+/** One line the vault answered with, read once. A line is one or the other. */
+interface Read {
+  hit: SearchHit;
+  todo: Todo | null;
+  session: Session | null;
+}
 
 /** One drawn row: the line the vault answered with, and that line read. */
 interface Row {
@@ -89,6 +98,28 @@ function rowKey(hit: SearchHit): string {
   return `${hit.path}:${hit.line}`;
 }
 
+/**
+ * The mark a row with a timer going carries, and nothing where none is.
+ *
+ * The day comes with it where the session was opened on an earlier one, which
+ * is how a timer nobody stopped is drawn as unstopped. The year is left off:
+ * every other date on a row is cut the same way.
+ */
+function timerMark(day: string | undefined, today: string): string | null {
+  if (day === undefined) return null;
+  return day === today ? "▶" : `▶ ${day.slice(5)}`;
+}
+
+/** What a row says about the two clocks: worked, estimated, both or neither. */
+function clocks(todo: Todo): string | null {
+  if (todo.worked !== undefined && todo.estimate !== undefined) {
+    return `⏱ ${todo.worked} / ${todo.estimate}`;
+  }
+  if (todo.worked !== undefined) return `⏱ ${todo.worked}`;
+  if (todo.estimate !== undefined) return `⏲ ${todo.estimate}`;
+  return null;
+}
+
 /** The keyboard cursor, drawn the way the file tree draws its own. */
 const CURSOR = [
   "outline-1 -outline-offset-1 outline-one-cursor/45",
@@ -109,6 +140,13 @@ interface TodoPaneProps {
   onCycle: (hit: SearchHit, state?: TodoState) => void;
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
+  /**
+   * Start a session on the row's todo, or close the ones it has running.
+   *
+   * The hit for the reason `onCycle` takes one: the write reads the note off
+   * disk again, and the path and the line are how it finds the task line.
+   */
+  onTimer: (hit: SearchHit) => void;
   /** Raised by the route when this pane has been moved to. See `Editor`. */
   focusSignal: number;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
@@ -138,7 +176,15 @@ const DONE_DAYS = 7;
  * not among them, which is right: there is no buffer under this cursor, and the
  * bare `x` is the key that will act on a row.
  */
-export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today }: TodoPaneProps) {
+export function TodoPane({
+  commands,
+  onOpen,
+  onCycle,
+  onAdd,
+  onTimer,
+  focusSignal,
+  today,
+}: TodoPaneProps) {
   const [typed, setTyped] = useState("");
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
@@ -153,6 +199,18 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
 
   const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 
+  // Every line the vault answered with, read once. One endpoint answers both
+  // shapes, so a line is a todo or a session and never both, and the four memos
+  // below read this rather than parsing the same list four times over.
+  const parsed = useMemo(
+    () =>
+      (data ?? []).map((hit): Read => {
+        const todo = parseTodo(hit.text);
+        return { hit, todo, session: todo === null ? parseSession(hit.text) : null };
+      }),
+    [data],
+  );
+
   // The forest each note's todos make, and the hit each line arrived on. Both
   // the count on a row and the `n` list are questions about this one tree, and
   // it is read off every todo the vault answered with rather than off the rows
@@ -160,8 +218,7 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
   const forest = useMemo(() => {
     const notes = new Map<string, Placed[]>();
     const hits = new Map<string, SearchHit>();
-    for (const hit of data ?? []) {
-      const todo = parseTodo(hit.text);
+    for (const { hit, todo } of parsed) {
       if (todo === null) continue;
       const lines = notes.get(hit.path) ?? [];
       lines.push({ line: hit.line, todo });
@@ -189,21 +246,49 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
     }
 
     return { trees, hits, parents };
-  }, [data]);
+  }, [parsed]);
 
-  // The endpoint matches the shape of a checkbox and nothing else, so reading
-  // each line is what drops the `## Time` sessions and the finished todos. A
-  // todo whose `🛫` has not arrived goes with them: a list of things you cannot
-  // start yet is not a list of what to do.
+  // A session line is not work to do, and neither is a finished todo. A todo
+  // whose `🛫` has not arrived goes with them: a list of things you cannot start
+  // yet is not a list of what to do.
   const open = useMemo(() => {
     const found: Row[] = [];
-    for (const hit of data ?? []) {
-      const todo = parseTodo(hit.text);
+    for (const { hit, todo } of parsed) {
       if (todo === null || !isOpen(todo) || waiting(todo, today)) continue;
       found.push({ hit, todo, parent: forest.parents.get(rowKey(hit)) });
     }
     return found;
-  }, [data, today, forest]);
+  }, [parsed, today, forest]);
+
+  /**
+   * Which todos have a session running, and the day of the oldest one, keyed by
+   * id.
+   *
+   * The pane sums nothing: the `⏱` on the task line is what a row draws, and
+   * these lines are read for one thing only, which rows are going and since
+   * when. A session outside a daily note is left out for the reason a stop
+   * leaves it alone, nothing saying which day it belongs to.
+   */
+  const running = useMemo(() => {
+    const since = new Map<string, string>();
+    for (const { hit, session } of parsed) {
+      if (session?.end !== undefined || session?.id === undefined) continue;
+      const day = dailyDate(hit.path);
+      const seen = since.get(session.id);
+      if (day !== null && (seen === undefined || day < seen)) since.set(session.id, day);
+    }
+    return since;
+  }, [parsed]);
+
+  /** How many timers are going, which is sessions rather than rows: they run in parallel. */
+  const timers = useMemo(
+    () =>
+      parsed.filter(
+        ({ hit, session }) =>
+          session !== null && session.end === undefined && dailyDate(hit.path) !== null,
+      ).length,
+    [parsed],
+  );
 
   /** `3/5` for every row that has parts, keyed by the row it belongs to. */
   const progress = useMemo(() => {
@@ -245,12 +330,11 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
   const finished = useMemo(() => {
     const since = shiftDay(today, -DONE_DAYS);
     const found: Row[] = [];
-    for (const hit of data ?? []) {
-      const todo = parseTodo(hit.text);
+    for (const { hit, todo } of parsed) {
       if (todo?.done !== undefined && todo.done > since) found.push({ hit, todo });
     }
     return found;
-  }, [data, today]);
+  }, [parsed, today]);
 
   const shown = useMemo(() => {
     const terms = parseFilter(typed);
@@ -382,6 +466,11 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       case "R":
         if (at !== undefined) onCycle(at.hit, SET[key]);
         break;
+      // One key for both ends of a session: what the press does depends on
+      // whether the vault holds an open one, which only the write can see.
+      case "t":
+        if (at !== undefined) onTimer(at.hit);
+        break;
       // The one key here that writes a note nothing on screen names: the todo
       // goes into today's, wherever the cursor happens to be sitting.
       case "a":
@@ -471,6 +560,11 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
               </h3>
               {group.map(({ hit, todo, under, depth }) => {
                 const key = rowKey(hit);
+                const mark = timerMark(
+                  todo.id === undefined ? undefined : running.get(todo.id),
+                  today,
+                );
+                const time = clocks(todo);
                 // One tab stop for the whole pane: tab reaches the cursor, and
                 // the vim keys move it from there.
                 const tabIndex = key === cursorKey ? 0 : -1;
@@ -494,6 +588,9 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
                     } ${tabIndex === 0 ? CURSOR : ""}`}
                   >
                     <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>
+                    {/* Leftmost of what a row carries beyond its state, so
+                        scanning the list finds what is going. */}
+                    {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
                     {/* Between the state and the words, where the spec's mock
                         puts it, and absent rather than blank on a row that
                         carries none. */}
@@ -513,6 +610,10 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
                     {progress.has(key) && (
                       <span className="shrink-0 text-one-muted">{progress.get(key)}</span>
                     )}
+                    {/* Out of the truncation for the reason the date is. What
+                        is on the line, not a sum: a running session lands here
+                        when it is stopped. */}
+                    {time !== null && <span className="shrink-0 text-one-muted">{time}</span>}
                     {/* Out of the truncation, so a long todo loses its words
                         rather than the date they are due on. The year is cut
                         from a date inside this one, where every row shares it,
@@ -544,12 +645,13 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
           ) : (
             <>
               {shown.length - blocked} open, {blocked} blocked
+              {timers > 0 && `, ${timers} running`}
             </>
           )}
         </span>
         <span>
-          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;d done&ensp;&ensp;n
-          next&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;t timer&ensp;&ensp;d
+          done&ensp;&ensp;n next&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
         </span>
       </footer>
     </section>

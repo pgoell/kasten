@@ -334,9 +334,9 @@ across midnight keeps yesterday's idea of overdue until it reloads.
 
 `<leader>gt` fills the focused pane with every open todo in the vault, grouped
 by when it is due, under Overdue, Today, This week, Later and No date. An empty
-group draws no heading. A row is the state's symbol, the priority where there is
-one, the words, the count of its parts where it has any, and the day of the due
-date.
+group draws no heading. A row is the state's symbol, the mark where a timer is
+running on it, the priority where there is one, the words, the count of its parts
+where it has any, the two clocks and the day of the due date.
 
 A part is drawn one step in under the todo it belongs to, so the list reads the
 way the note does. Where that todo is not a row in the same group, because it
@@ -352,7 +352,7 @@ keeps the row off the list until the day it names: a list of things you cannot
 start yet is not a list of what to do. A blocked row is drawn muted and
 sits in the group its due date names rather than under a heading of its own, its
 state already being written on the line. The footer counts the rows, so many
-open and so many blocked.
+open and so many blocked, and how many timers are going where any are.
 
 Only open todos are listed. One that is done or rejected is not work, and the
 session lines `GET /api/todos` also matches are not todos, so neither is here.
@@ -363,6 +363,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | Enter | Open the note the todo is in |
 | `x` | Cycle the todo under the cursor |
 | `a` | Add a todo to today's note |
+| `t` | Start a timer on the todo under the cursor, or stop the ones it has running |
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
 | `O` `P` `X` `B` `R` | Set the row's todo to open, doing, done, blocked or rejected |
@@ -384,6 +385,18 @@ note redraws in whatever pane is showing it. Ticking one done also writes the
 and it carries the same three rules `<leader>x` carries: the parts go with a
 parent, a recurring todo gets its next copy, and the dependents of a todo that
 just closed or reopened are rewritten wherever they live.
+
+`t` starts a session on the row's todo, or closes the ones it has running, and
+writes both to the [time log](/reference/todo-format.md#the-time-log). A row
+whose todo has a session open carries `▶` after its state, and where that
+session was opened on an earlier day the mark carries the day, `▶ 08-09`, which
+is how a timer nobody stopped reads as unstopped. The row shows what is on disk:
+there is no clock ticking on it, and a session lands in `⏱` when it is stopped.
+
+The cell between the count and the date is the two clocks: `⏱ 1h20m / 2h` with
+both, `⏱ 1h20m` with only the worked total, `⏲ 2h` with only an estimate, and
+nothing with neither. It is what the line carries rather than a sum the pane
+worked out.
 
 `/` moves the focus to the filter line, because `j` and `k` have to go on moving
 the cursor. Escape or Enter hands the focus back to the list and leaves the
