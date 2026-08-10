@@ -13,7 +13,7 @@ import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
-import { createNote, fetchFiles, fetchNote, fetchTerminals } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote, fetchTerminals, type SearchHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
@@ -37,6 +37,7 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
+import { cycleTodoInVault } from "@/lib/todo-api";
 import { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
@@ -387,6 +388,30 @@ function Home() {
     [follow],
   );
 
+  /**
+   * Walk one todo on, in the vault, from the pane's `x`.
+   *
+   * The lists are asked for again rather than left to `/api/events`: the stream
+   * is the belt and this the braces, and the row you just pressed should redraw
+   * off the write it asked for. `["files"]` with it, because the one write that
+   * can make a note is the daily note the log lands in.
+   */
+  const cycleTodo = useCallback(
+    (hit: SearchHit) => {
+      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? []).then(
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["todos"] });
+          void queryClient.invalidateQueries({ queryKey: ["files"] });
+        },
+        () => {
+          // The vault refused the write, or the note moved out from under the
+          // row. The list stays as it is, and the next event redraws it.
+        },
+      );
+    },
+    [data, queryClient],
+  );
+
   const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
@@ -604,6 +629,7 @@ function Home() {
                   <TodoPane
                     commands={commands}
                     onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                    onCycle={cycleTodo}
                     focusSignal={focused ? focusSignal : 0}
                     // Read at the render rather than inside the pane, which
                     // stays a function of the strings it is handed. A tab left

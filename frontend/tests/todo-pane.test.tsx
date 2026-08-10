@@ -20,9 +20,11 @@ const TODOS = [
   { path: "projects/kasten.md", line: 20, text: "- [ ] buy milk 📅 2026-08-14 🔽" },
   { path: "projects/kasten.md", line: 21, text: "- [ ] renew the passport 📅 2026-09-01" },
   { path: "projects/kasten.md", line: 30, text: "- [ ] waiting on the API" },
-  // Neither of these is work to do: one is finished and one is a `## Time`
+  // None of these is work to do: three are finished and one is a `## Time`
   // line, which the endpoint carries back for phase 3.
-  { path: "projects/kasten.md", line: 31, text: "- [x] read the spec 📅 2026-08-10" },
+  { path: "projects/kasten.md", line: 31, text: "- [x] read the spec ✅ 2026-08-10 🆔 kt-000001" },
+  { path: "projects/kasten.md", line: 32, text: "- [x] write the spec ✅ 2026-08-08 🆔 kt-000002" },
+  { path: "projects/kasten.md", line: 33, text: "- [x] think about it ✅ 2026-08-01 🆔 kt-000003" },
   { path: "daily/2026-08-10.md", line: 5, text: "- 09:12-10:32 wire up the pane" },
 ];
 
@@ -52,11 +54,18 @@ function recorder() {
 function renderPane(hits = TODOS) {
   fetchTodos.mockResolvedValue(hits);
   const onOpen = vi.fn();
+  const onCycle = vi.fn();
   const { reached, commands } = recorder();
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <TodoPane commands={commands} onOpen={onOpen} focusSignal={0} today={TODAY} />
+      <TodoPane
+        commands={commands}
+        onOpen={onOpen}
+        onCycle={onCycle}
+        focusSignal={0}
+        today={TODAY}
+      />
     </QueryClientProvider>,
   );
 
@@ -64,6 +73,7 @@ function renderPane(hits = TODOS) {
 
   return {
     onOpen,
+    onCycle,
     reached,
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
     headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
@@ -229,12 +239,52 @@ describe("the todo pane", () => {
     const pane = renderPane();
     await waitFor(() => expect(pane.rows()).toHaveLength(6));
 
+    expect(pane.footer()).toContain("x cycle");
+    expect(pane.footer()).toContain("d done");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
-    // `x` and `d` arrive with the writes and `a` with the add prompt. `t`, `n`
-    // and `v` are later phases. A footer offering a key that does nothing is
-    // worse than one that is short.
-    expect(pane.footer()).not.toMatch(/\b(cycle|add|done|next|view|timer)\b/i);
+    // `a` arrives with the add prompt, and `t`, `n` and `v` are later phases.
+    // A footer offering a key that does nothing is worse than one that is short.
+    expect(pane.footer()).not.toMatch(/\b(add|next|view|timer)\b/i);
+  });
+
+  it("cycles the row under the cursor on x", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("j");
+    pane.press("x");
+
+    // The hit, not the todo: the write reads the note off disk again, and the
+    // path and the line are how it finds the line to cycle.
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[1]);
+  });
+
+  it("swaps the list for the last seven days of finished work on d", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("d");
+
+    // Grouped by the day they were finished rather than by when they were due,
+    // a finished todo having no due date worth grouping on. Newest day first.
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.headings()).toEqual(["2026-08-10", "2026-08-08"]);
+    expect(pane.texts()[0]).toContain("read the spec");
+    expect(pane.texts()[1]).toContain("write the spec");
+    // Nine days back is past the window.
+    expect(pane.texts().join()).not.toContain("think about it");
+  });
+
+  it("puts the open list back on a second d", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("d");
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    pane.press("d");
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
   });
 
   it("closes the pane on q", async () => {

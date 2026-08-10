@@ -56,11 +56,27 @@ interface TodoPaneProps {
   /** Reached by a leader sequence typed here, so every leader key still works. */
   commands: EditorCommands;
   onOpen: (path: string, line: number) => void;
+  /**
+   * Walk the row's todo one step on, in the vault.
+   *
+   * The hit rather than the todo: the write reads the note off disk again, and
+   * the path and the line are how it finds the line to cycle.
+   */
+  onCycle: (hit: SearchHit) => void;
   /** Raised by the route when this pane has been moved to. See `Editor`. */
   focusSignal: number;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
   today: string;
 }
+
+/**
+ * How far back `d` reaches, in days.
+ *
+ * Seven, and read the way `due:<7d` is read, so the seventh day back is already
+ * out. A list reaching to the beginning of the vault is not one anybody reads
+ * to the end of.
+ */
+const DONE_DAYS = 7;
 
 /**
  * Every open todo the vault holds, grouped by when it is due.
@@ -76,10 +92,12 @@ interface TodoPaneProps {
  * not among them, which is right: there is no buffer under this cursor, and the
  * bare `x` is the key that will act on a row.
  */
-export function TodoPane({ commands, onOpen, focusSignal, today }: TodoPaneProps) {
+export function TodoPane({ commands, onOpen, onCycle, focusSignal, today }: TodoPaneProps) {
   const [typed, setTyped] = useState("");
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
+  /** What `d` swaps in: the last seven days of finished work, in place of the list. */
+  const [showDone, setShowDone] = useState(false);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
   const panel = useRef<HTMLElement>(null);
@@ -100,9 +118,23 @@ export function TodoPane({ commands, onOpen, focusSignal, today }: TodoPaneProps
     return found;
   }, [data]);
 
+  // What `d` shows. Grouped on the day it was finished rather than on the day
+  // it was due: a finished todo has no due date worth grouping on.
+  const finished = useMemo(() => {
+    const since = shiftDay(today, -DONE_DAYS);
+    const found: Row[] = [];
+    for (const hit of data ?? []) {
+      const todo = parseTodo(hit.text);
+      if (todo?.done !== undefined && todo.done > since) found.push({ hit, todo });
+    }
+    return found;
+  }, [data, today]);
+
   const shown = useMemo(() => {
     const terms = parseFilter(typed);
-    const kept = open.filter(({ todo }) => matchesFilter(todo, terms, today));
+    const kept = (showDone ? finished : open).filter(({ todo }) =>
+      matchesFilter(todo, terms, today),
+    );
     if (terms.text === "") return kept;
     // Whatever was not a term ranks as text, the way it does everywhere else.
     // Here the ranking only decides membership: the sections set the order.
@@ -113,16 +145,24 @@ export function TodoPane({ commands, onOpen, focusSignal, today }: TodoPaneProps
       ),
     );
     return kept.filter((_, index) => reads.has(index));
-  }, [open, typed, today]);
+  }, [open, finished, showDone, typed, today]);
 
-  const groups = useMemo(
-    () =>
-      SECTIONS.map((section) => ({
-        section,
-        rows: shown.filter((row) => sectionOf(row.todo, today) === section),
-      })).filter((group) => group.rows.length > 0),
-    [shown, today],
-  );
+  // The heading is the group's name here, not a lookup at the draw, because
+  // `d` groups on a date and there is no table of every day there has been.
+  const groups = useMemo(() => {
+    if (showDone) {
+      // Newest day first, which ISO dates sort into by themselves.
+      const days = [...new Set(shown.map(({ todo }) => todo.done ?? ""))].sort().reverse();
+      return days.map((heading) => ({
+        heading,
+        rows: shown.filter(({ todo }) => todo.done === heading),
+      }));
+    }
+    return SECTIONS.map((section) => ({
+      heading: HEADING[section],
+      rows: shown.filter((row) => sectionOf(row.todo, today) === section),
+    })).filter((group) => group.rows.length > 0);
+  }, [shown, showDone, today]);
   // The same rows flattened, because `j` and `k` move down a list and a heading
   // is not a row the cursor can sit on.
   const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
@@ -193,6 +233,15 @@ export function TodoPane({ commands, onOpen, focusSignal, today }: TodoPaneProps
       case "Enter":
         if (at !== undefined) onOpen(at.hit.path, at.hit.line);
         break;
+      // The editor's `<leader>x` said without the leader, which a pane holding
+      // no buffer has no need of.
+      case "x":
+        if (at !== undefined) onCycle(at.hit);
+        break;
+      case "d":
+        setShowDone((previous) => !previous);
+        setActive(0);
+        break;
       // What vim spells a narrowing. `j` and `k` have to go on moving the
       // cursor, so the input cannot hold the focus by default.
       case "/":
@@ -245,12 +294,14 @@ export function TodoPane({ commands, onOpen, focusSignal, today }: TodoPaneProps
 
       <div className="flex-1 overflow-auto py-1">
         {rows.length === 0 ? (
-          <p className="px-3 py-1 text-[13px] text-one-muted">nothing to do</p>
+          <p className="px-3 py-1 text-[13px] text-one-muted">
+            {showDone ? "nothing finished" : "nothing to do"}
+          </p>
         ) : (
-          groups.map(({ section, rows: group }) => (
-            <div key={section}>
+          groups.map(({ heading, rows: group }) => (
+            <div key={heading}>
               <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
-                {HEADING[section]}
+                {heading}
               </h3>
               {group.map(({ hit, todo }) => {
                 const key = rowKey(hit);
@@ -302,9 +353,17 @@ export function TodoPane({ commands, onOpen, focusSignal, today }: TodoPaneProps
         className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
       >
         <span>
-          {shown.length - blocked} open, {blocked} blocked
+          {showDone ? (
+            `${shown.length} finished`
+          ) : (
+            <>
+              {shown.length - blocked} open, {blocked} blocked
+            </>
+          )}
         </span>
-        <span>/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor</span>
+        <span>
+          x cycle&ensp;&ensp;d done&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+        </span>
       </footer>
     </section>
   );
