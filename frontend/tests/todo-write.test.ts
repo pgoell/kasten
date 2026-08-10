@@ -1,5 +1,6 @@
 import { parseTodo, type Todo } from "@/lib/todo";
 import {
+  addTodoWrites,
   appendUnder,
   type CycleInput,
   cycleTodoWrites,
@@ -269,5 +270,57 @@ describe("cycleTodoWrites", () => {
     // The tick is on the line itself. A note linking to itself records nothing.
     expect(writes[0]?.text).toContain("- [x] call the dentist ⏫ ✅ 2026-08-10 🆔 kt-3f9a2c");
     expect(writes[0]?.text).not.toContain("- ✅");
+  });
+});
+
+describe("addTodoWrites", () => {
+  const ADDED = "- [ ] call the dentist #health 📅 2026-08-14 ⏫ ➕ 2026-08-10";
+
+  it("puts the todo at the end of the section the daily note already has", () => {
+    const daily = [
+      "# 2026-08-10 Monday",
+      "",
+      "[[01 Periodic/00 Daily/2026-08-09]]",
+      "",
+      "## TODOs",
+      "- [ ] buy milk",
+      "",
+    ].join("\n");
+
+    expect(addTodoWrites({ dailyPath: DAILY_PATH, dailyText: daily, todo: todo(ADDED) })).toEqual([
+      {
+        path: DAILY_PATH,
+        text: [
+          "# 2026-08-10 Monday",
+          "",
+          "[[01 Periodic/00 Daily/2026-08-09]]",
+          "",
+          "## TODOs",
+          "- [ ] buy milk",
+          ADDED,
+          "",
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("makes the section in a daily note that has none", () => {
+    // A note written before this feature landed, or one somebody wrote by hand.
+    expect(
+      addTodoWrites({ dailyPath: DAILY_PATH, dailyText: FRESH_DAILY, todo: todo(ADDED) }),
+    ).toEqual([
+      {
+        path: DAILY_PATH,
+        text: [
+          "# 2026-08-10 Monday",
+          "",
+          "[[01 Periodic/00 Daily/2026-08-09]] | [[01 Periodic/00 Daily/2026-08-11]]",
+          "",
+          "## TODOs",
+          ADDED,
+          "",
+        ].join("\n"),
+      },
+    ]);
   });
 });

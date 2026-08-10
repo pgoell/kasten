@@ -113,8 +113,13 @@ export function periodicNote(period: Period, now: Date): { path: string; body: s
   }
   nav.push(link(period, step(period, now, 1)));
 
+  // Only the day gets a section, and only this one: the add prompt writes here,
+  // and a heading nothing was put under is clutter on every week you did not
+  // use it. `## Done` and `## Time` are made by the writes that fill them.
+  const todos = period === "daily" ? "\n## TODOs\n" : "";
+
   return {
     path: `${FOLDER[period]}/${name(period, now)}.md`,
-    body: `# ${heading}\n\n${nav.join(" | ")}\n`,
+    body: `# ${heading}\n\n${nav.join(" | ")}\n${todos}`,
   };
 }

@@ -9,7 +9,49 @@
 import { createNote, fetchNote, type SearchHit, saveNote, searchNotes } from "@/lib/api";
 import { periodicNote } from "@/lib/periodic";
 import { newId, parseTodo } from "@/lib/todo";
-import { cycleTodoWrites } from "@/lib/todo-write";
+import { expandShorthand } from "@/lib/todo-shorthand";
+import { addTodoWrites, cycleTodoWrites, type Write } from "@/lib/todo-write";
+
+/**
+ * Today's daily note, and its text, which every write here lands in or beside.
+ *
+ * The clock is read here rather than off the caller's `today`, `periodicNote`
+ * wanting a date. Both come from the same wall clock one render apart. `known`
+ * is what the caller has already read, so a note in hand is not asked for twice.
+ */
+async function dailyNote(
+  paths: string[],
+  known: Record<string, string> = {},
+): Promise<{ path: string; text: string }> {
+  const daily = periodicNote("daily", new Date());
+  const text =
+    known[daily.path] ??
+    // The leading newline is the create's, the way `follow` writes one: the
+    // body lands under a frontmatter block and wants a line between.
+    (paths.includes(daily.path) ? await fetchNote(daily.path) : `\n${daily.body}`);
+  return { path: daily.path, text };
+}
+
+/** Send each write, one note at a time. */
+async function send(writes: Write[], paths: string[]): Promise<void> {
+  for (const write of writes) {
+    // A path the vault does not hold is only ever today's daily note, which a
+    // create makes along with the folders on the way to it.
+    if (paths.includes(write.path)) await saveNote(write.path, write.text);
+    else await createNote(write.path, write.text);
+  }
+}
+
+/** Put what was typed into today's note, under `## TODOs`. */
+export async function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
+  const daily = await dailyNote(paths);
+  const writes = addTodoWrites({
+    dailyPath: daily.path,
+    dailyText: daily.text,
+    todo: expandShorthand(input, today),
+  });
+  await send(writes, paths);
+}
 
 /** Read what the press needs, work out the writes, and send them. */
 export async function cycleTodoInVault(
@@ -39,30 +81,18 @@ export async function cycleTodoInVault(
     logged[path] = path === hit.path ? text : await fetchNote(path);
   }
 
-  // The clock is read here rather than off `today`, `periodicNote` wanting a
-  // date. Both come from the same wall clock one render apart.
-  const daily = periodicNote("daily", new Date());
-  const dailyText =
-    logged[daily.path] ??
-    // The leading newline is the create's, the way `follow` writes one: the
-    // body lands under a frontmatter block and wants a line between.
-    (paths.includes(daily.path) ? await fetchNote(daily.path) : `\n${daily.body}`);
+  const daily = await dailyNote(paths, logged);
 
   const writes = cycleTodoWrites({
     path: hit.path,
     text,
     line: hit.line,
     dailyPath: daily.path,
-    dailyText,
+    dailyText: daily.text,
     logged,
     today,
     id: newId(),
   });
 
-  for (const write of writes) {
-    // A path the vault does not hold is only ever today's daily note, which a
-    // create makes along with the folders on the way to it.
-    if (paths.includes(write.path)) await saveNote(write.path, write.text);
-    else await createNote(write.path, write.text);
-  }
+  await send(writes, paths);
 }

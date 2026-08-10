@@ -10,7 +10,7 @@
  * This is the one module that knows that.
  */
 
-import { cycleLine, parseTodo, type Todo } from "@/lib/todo";
+import { cycleLine, formatTodo, parseTodo, type Todo } from "@/lib/todo";
 
 /** One note as a write: where it goes and the whole of its new text. */
 export interface Write {
@@ -34,8 +34,17 @@ export interface CycleInput {
   id: string;
 }
 
+export interface AddInput {
+  dailyPath: string;
+  dailyText: string;
+  todo: Todo;
+}
+
 /** The heading the done log lives under, made on first write. */
 const DONE = "## Done";
+
+/** Where the add prompt writes. `periodic.ts` puts it in a fresh daily note. */
+const TODOS = "## TODOs";
 
 /** Any heading, which is what ends the section above it. */
 const HEADING = /^#{1,6} /;
@@ -90,6 +99,17 @@ export function dropDone(text: string, id: string): string | null {
   const lines = text.split("\n");
   const kept = lines.filter((line) => !(line.trimStart().startsWith(LOGGED) && line.includes(id)));
   return kept.length === lines.length ? null : kept.join("\n");
+}
+
+/**
+ * The one note the add prompt writes: today's, with the todo under `## TODOs`.
+ *
+ * A list of one, so the caller sends what this answers the way it sends what
+ * `cycleTodoWrites` answers. A daily note the vault does not hold yet arrives
+ * here as `periodicNote`'s body, which already carries the heading.
+ */
+export function addTodoWrites({ dailyPath, dailyText, todo }: AddInput): Write[] {
+  return [{ path: dailyPath, text: appendUnder(dailyText, TODOS, formatTodo(todo)) }];
 }
 
 /** Every note one press of the cycle changes, in the order they should be sent. */

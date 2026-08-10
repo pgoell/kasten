@@ -9,9 +9,9 @@ const MONTHLY = "01 Periodic/02 Monthly";
 const QUARTERLY = "01 Periodic/03 Quarterly";
 const YEARLY = "01 Periodic/04 Yearly";
 
-/** The line of links, which is the last line of every periodic note. */
+/** The line of links, which every periodic note carries under its heading. */
 function nav(body: string): string {
-  return body.trimEnd().split("\n").pop() ?? "";
+  return body.split("\n").find((line) => line.startsWith("[[")) ?? "";
 }
 
 /** The heading, which is the first. */
@@ -50,6 +50,20 @@ describe("the daily note", () => {
     expect(nav(periodicNote("daily", new Date(2026, 11, 31)).body)).toContain(
       `[[${DAILY}/2027-01-01]]`,
     );
+  });
+
+  it("ends with the section the add prompt writes into", () => {
+    expect(made.body).toMatch(/\n\n## TODOs\n$/);
+  });
+});
+
+describe("the other four grains", () => {
+  it("carry no TODOs section", () => {
+    // A heading with nothing under it is clutter on every week you did not use
+    // it, so only the day the prompt writes to gets one.
+    for (const period of ["weekly", "monthly", "quarterly", "yearly"] as const) {
+      expect(periodicNote(period, new Date(2026, 7, 6)).body).not.toContain("## TODOs");
+    }
   });
 });
 

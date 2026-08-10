@@ -55,6 +55,7 @@ function renderPane(hits = TODOS) {
   fetchTodos.mockResolvedValue(hits);
   const onOpen = vi.fn();
   const onCycle = vi.fn();
+  const onAdd = vi.fn();
   const { reached, commands } = recorder();
 
   render(
@@ -63,6 +64,7 @@ function renderPane(hits = TODOS) {
         commands={commands}
         onOpen={onOpen}
         onCycle={onCycle}
+        onAdd={onAdd}
         focusSignal={0}
         today={TODAY}
       />
@@ -74,6 +76,7 @@ function renderPane(hits = TODOS) {
   return {
     onOpen,
     onCycle,
+    onAdd,
     reached,
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
     headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
@@ -240,12 +243,24 @@ describe("the todo pane", () => {
     await waitFor(() => expect(pane.rows()).toHaveLength(6));
 
     expect(pane.footer()).toContain("x cycle");
+    expect(pane.footer()).toContain("a add");
     expect(pane.footer()).toContain("d done");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
-    // `a` arrives with the add prompt, and `t`, `n` and `v` are later phases.
-    // A footer offering a key that does nothing is worse than one that is short.
-    expect(pane.footer()).not.toMatch(/\b(add|next|view|timer)\b/i);
+    // `t`, `n` and `v` are later phases. A footer offering a key that does
+    // nothing is worse than one that is short.
+    expect(pane.footer()).not.toMatch(/\b(next|view|timer)\b/i);
+  });
+
+  it("opens the add prompt on a", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("a");
+
+    // No row and no hit: the todo goes into today's note, wherever the cursor
+    // happens to be sitting.
+    expect(pane.onAdd).toHaveBeenCalledTimes(1);
   });
 
   it("cycles the row under the cursor on x", async () => {

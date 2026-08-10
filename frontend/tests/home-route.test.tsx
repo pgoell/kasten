@@ -625,7 +625,10 @@ describe("the route", () => {
     const body =
       "\n# 2026-08-06 Thursday\n\n" +
       "[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] |" +
-      " [[01 Periodic/00 Daily/2026-08-07]]\n";
+      " [[01 Periodic/00 Daily/2026-08-07]]\n" +
+      // The one section a fresh note is made with. The add prompt writes here,
+      // and `## Done` and `## Time` appear when there is something to put in them.
+      "\n## TODOs\n";
     createNote.mockResolvedValue({ path, content: `---\nid: one\n---\n${body}` });
 
     const app = await renderApp();

@@ -13,6 +13,7 @@ import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
+import { TodoPrompt } from "@/components/todo-prompt";
 import { createNote, fetchFiles, fetchNote, fetchTerminals, type SearchHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
@@ -37,7 +38,7 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
-import { cycleTodoInVault } from "@/lib/todo-api";
+import { addTodoInVault, cycleTodoInVault } from "@/lib/todo-api";
 import { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
@@ -113,6 +114,9 @@ function Home() {
   // asks for all of them, so there is nothing here to start from.
   const [todosOpen, setTodosOpen] = useState(false);
   const [terminalPrompt, setTerminalPrompt] = useState(false);
+  // A flag, like the terminal prompt's: the todo is typed out rather than
+  // picked, so there is nothing here for it to start from.
+  const [todoPrompt, setTodoPrompt] = useState(false);
   // The sessions the prompt offers. Asked for only while it is open: they
   // change when something outside the browser starts one, and nothing else on
   // screen reads them, so there is no reason to hold a copy the rest of the
@@ -389,27 +393,45 @@ function Home() {
   );
 
   /**
-   * Walk one todo on, in the vault, from the pane's `x`.
+   * The two lists a todo write moves, asked for again rather than left to
+   * `/api/events`.
    *
-   * The lists are asked for again rather than left to `/api/events`: the stream
-   * is the belt and this the braces, and the row you just pressed should redraw
-   * off the write it asked for. `["files"]` with it, because the one write that
-   * can make a note is the daily note the log lands in.
+   * The stream is the belt and this the braces: the row you just pressed should
+   * redraw off the write it asked for. `["files"]` with it, because both writes
+   * can make today's daily note.
    */
+  const todosWritten = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["todos"] });
+    void queryClient.invalidateQueries({ queryKey: ["files"] });
+  }, [queryClient]);
+
+  /** Walk one todo on, in the vault, from the pane's `x`. */
   const cycleTodo = useCallback(
     (hit: SearchHit) => {
-      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? []).then(
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["todos"] });
-          void queryClient.invalidateQueries({ queryKey: ["files"] });
-        },
-        () => {
-          // The vault refused the write, or the note moved out from under the
-          // row. The list stays as it is, and the next event redraws it.
-        },
-      );
+      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? []).then(todosWritten, () => {
+        // The vault refused the write, or the note moved out from under the
+        // row. The list stays as it is, and the next event redraws it.
+      });
     },
-    [data, queryClient],
+    [data, todosWritten],
+  );
+
+  /**
+   * Put a typed todo under `## TODOs` in today's note, from the pane's `a`.
+   *
+   * The clock is read here rather than in the prompt, so a prompt left open
+   * over midnight writes the day it was taken on. The prompt shuts before the
+   * write lands: it is asking for one line, and it has that line.
+   */
+  const addTodo = useCallback(
+    (input: string) => {
+      setTodoPrompt(false);
+      void addTodoInVault(input, readClock(new Date()).date, data ?? []).then(todosWritten, () => {
+        // The vault refused the write. Nothing on screen moved with it, so
+        // there is nothing here to put back.
+      });
+    },
+    [data, todosWritten],
   );
 
   const commands = useMemo<TreeCommands>(
@@ -630,6 +652,7 @@ function Home() {
                     commands={commands}
                     onOpen={(path, hitLine) => void openInPane(path, hitLine)}
                     onCycle={cycleTodo}
+                    onAdd={() => setTodoPrompt(true)}
                     focusSignal={focused ? focusSignal : 0}
                     // Read at the render rather than inside the pane, which
                     // stays a function of the strings it is handed. A tab left
@@ -711,6 +734,15 @@ function Home() {
             moveTo((previous) => openTerminalInFocused(previous, session));
           }}
           onClose={() => setTerminalPrompt(false)}
+        />
+      )}
+      {todoPrompt && (
+        <TodoPrompt
+          onAdd={addTodo}
+          onClose={() => setTodoPrompt(false)}
+          // Read at the render, the way the pane reads it, so the line the
+          // prompt draws and the line the write makes are the same day's.
+          today={readClock(new Date()).date}
         />
       )}
       {prompt !== null && (

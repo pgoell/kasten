@@ -63,6 +63,8 @@ interface TodoPaneProps {
    * the path and the line are how it finds the line to cycle.
    */
   onCycle: (hit: SearchHit) => void;
+  /** Open the prompt that writes a todo into today's note. */
+  onAdd: () => void;
   /** Raised by the route when this pane has been moved to. See `Editor`. */
   focusSignal: number;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
@@ -92,7 +94,7 @@ const DONE_DAYS = 7;
  * not among them, which is right: there is no buffer under this cursor, and the
  * bare `x` is the key that will act on a row.
  */
-export function TodoPane({ commands, onOpen, onCycle, focusSignal, today }: TodoPaneProps) {
+export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today }: TodoPaneProps) {
   const [typed, setTyped] = useState("");
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
@@ -238,6 +240,11 @@ export function TodoPane({ commands, onOpen, onCycle, focusSignal, today }: Todo
       case "x":
         if (at !== undefined) onCycle(at.hit);
         break;
+      // The one key here that writes a note nothing on screen names: the todo
+      // goes into today's, wherever the cursor happens to be sitting.
+      case "a":
+        onAdd();
+        break;
       case "d":
         setShowDone((previous) => !previous);
         setActive(0);
@@ -362,7 +369,8 @@ export function TodoPane({ commands, onOpen, onCycle, focusSignal, today }: Todo
           )}
         </span>
         <span>
-          x cycle&ensp;&ensp;d done&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+          x cycle&ensp;&ensp;a add&ensp;&ensp;d done&ensp;&ensp;/ filter&ensp;&ensp;q
+          close&ensp;&ensp;Escape editor
         </span>
       </footer>
     </section>
