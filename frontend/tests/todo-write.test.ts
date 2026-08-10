@@ -12,6 +12,8 @@ import {
   doneLogWrites,
   dropDone,
   type LogInput,
+  type TimerInput,
+  timerWrites,
 } from "@/lib/todo-write";
 
 /** The day every test below is written against, so no assertion expires. */
@@ -596,5 +598,117 @@ describe("applyBlocked", () => {
 
   it("answers null where nothing moved", () => {
     expect(applyBlocked(["# kasten", "", "- [ ] buy milk", ""].join("\n"), CLOSED)).toBeNull();
+  });
+});
+
+/** Today's note with a todo of its own, on line 6, and no time log yet. */
+const DAILY_TODO = [
+  "# 2026-08-10 Monday",
+  "",
+  "[[01 Periodic/00 Daily/2026-08-09]] | [[01 Periodic/00 Daily/2026-08-11]]",
+  "",
+  "## TODOs",
+  "- [ ] call the dentist 🆔 kt-4c2d11",
+  "",
+].join("\n");
+
+/** The project note's line 7, which is the line every press below is on. */
+const OPEN_TASK = "- [/] wire up the pane 📅 2026-08-14 ⏫ #kasten";
+
+/** The same note with that line already named, so a press has nothing to stamp. */
+const NAMED = NOTE.replace(OPEN_TASK, `${OPEN_TASK} 🆔 kt-3f9a2c`);
+
+/** The line one press writes, once the id is on it. */
+const TASK = "- [/] wire up the pane #kasten 📅 2026-08-14 ⏫ 🆔 kt-3f9a2c";
+
+/** One press of `t`, on the project note's line 7, with nothing running. */
+function timer(over: Partial<TimerInput> = {}): TimerInput {
+  return {
+    path: NOTE_PATH,
+    line: 7,
+    dailyPath: DAILY_PATH,
+    notes: { [NOTE_PATH]: NOTE, [DAILY_PATH]: FRESH_DAILY },
+    sessions: [],
+    today: TODAY,
+    now: "14:03",
+    id: "kt-3f9a2c",
+    ...over,
+  };
+}
+
+describe("timerWrites, starting", () => {
+  it("stamps an id and opens a session in today's note", () => {
+    expect(timerWrites(timer())).toEqual([
+      { path: NOTE_PATH, text: NOTE.replace(OPEN_TASK, TASK) },
+      {
+        path: DAILY_PATH,
+        text: [
+          "# 2026-08-10 Monday",
+          "",
+          "[[01 Periodic/00 Daily/2026-08-09]] | [[01 Periodic/00 Daily/2026-08-11]]",
+          "",
+          "## Time",
+          "- 14:03-      wire up the pane #kasten [[projects/kasten]] kt-3f9a2c",
+          "",
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("leaves the task line alone where the todo is already named", () => {
+    const writes = timerWrites(timer({ notes: { [NOTE_PATH]: NAMED, [DAILY_PATH]: FRESH_DAILY } }));
+
+    expect(writes.map(({ path }) => path)).toEqual([DAILY_PATH]);
+    expect(writes[0]?.text).toContain(
+      "- 14:03-      wire up the pane #kasten [[projects/kasten]] kt-3f9a2c",
+    );
+  });
+
+  it("writes one note, and no link, for a todo living in today's own note", () => {
+    // The todo's note, the note being appended to and the note holding the
+    // session are one note here, so the three writes have to be one.
+    expect(
+      timerWrites(timer({ path: DAILY_PATH, line: 6, notes: { [DAILY_PATH]: DAILY_TODO } })),
+    ).toEqual([
+      {
+        path: DAILY_PATH,
+        text: [
+          "# 2026-08-10 Monday",
+          "",
+          "[[01 Periodic/00 Daily/2026-08-09]] | [[01 Periodic/00 Daily/2026-08-11]]",
+          "",
+          "## TODOs",
+          "- [ ] call the dentist 🆔 kt-4c2d11",
+          "",
+          "## Time",
+          "- 14:03-      call the dentist kt-4c2d11",
+          "",
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("appends under a section the note already has", () => {
+    const writes = timerWrites(timer({ notes: { [NOTE_PATH]: NAMED, [DAILY_PATH]: DAILY } }));
+
+    expect(writes[0]?.text).toBe(
+      [
+        "# 2026-08-10 Monday",
+        "",
+        "[[01 Periodic/00 Daily/2026-08-09]] | [[01 Periodic/00 Daily/2026-08-11]]",
+        "",
+        "## Done",
+        "- ✅ 2026-08-10 read the spec [[projects/kasten]] kt-000001",
+        "",
+        "## Time",
+        "- 09:12-10:32 read the spec",
+        "- 14:03-      wire up the pane #kasten [[projects/kasten]] kt-3f9a2c",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("answers with nothing where the line is no longer a todo", () => {
+    expect(timerWrites(timer({ line: 5 }))).toEqual([]);
   });
 });

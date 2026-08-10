@@ -18,6 +18,7 @@ import { periodicNote } from "@/lib/periodic";
 import { cycleLine, isOpen, newId, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { expandShorthand } from "@/lib/todo-shorthand";
+import { parseSession } from "@/lib/todo-time";
 import {
   addTodoWrites,
   applyBlocked,
@@ -25,6 +26,8 @@ import {
   closedAmong,
   cycleTodoWrites,
   doneLogWrites,
+  type SessionHit,
+  timerWrites,
   type Write,
 } from "@/lib/todo-write";
 
@@ -219,4 +222,54 @@ export async function cycleTodoInVault(
   if (now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
     await writeBackBlocked(now.id, !isOpen(now), "");
   }
+}
+
+/**
+ * Start a session on one todo, or close the ones it has running.
+ *
+ * One narrow pass rather than the vault-wide scan: `searchNotes(id)` answers
+ * with every line naming this todo, which is the whole of its log, and only the
+ * notes holding an open session are then read. A todo carrying no id is
+ * unambiguously a start, and nothing can name it, so it asks the vault nothing
+ * at all beyond its own note and today's.
+ */
+export async function toggleTimerInVault(
+  hit: SearchHit,
+  clock: { date: string; time: string },
+  paths: string[],
+): Promise<void> {
+  // The vault, not the row: the list is as old as the last fetch.
+  const text = await fetchNote(hit.path);
+  const todo = parseTodo(text.split("\n")[hit.line - 1] ?? "");
+  if (todo === null) return;
+
+  const notes: Record<string, string> = { [hit.path]: text };
+  const sessions: SessionHit[] =
+    todo.id === undefined
+      ? []
+      : (await searchNotes(todo.id)).map((found) => ({ path: found.path, text: found.text }));
+
+  // Only the notes a close would rewrite. The closed lines are read for their
+  // minutes alone, and the search already answered with those whole.
+  for (const found of sessions) {
+    const session = parseSession(found.text);
+    if (session === null || session.end !== undefined) continue;
+    notes[found.path] ??= await fetchNote(found.path);
+  }
+
+  const daily = await dailyNote(paths, notes);
+  notes[daily.path] = daily.text;
+
+  const writes = timerWrites({
+    path: hit.path,
+    line: hit.line,
+    dailyPath: daily.path,
+    notes,
+    sessions,
+    today: clock.date,
+    now: clock.time,
+    id: newId(),
+  });
+
+  await send(writes, paths);
 }

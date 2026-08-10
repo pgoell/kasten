@@ -109,6 +109,13 @@ interface TodoPaneProps {
   onCycle: (hit: SearchHit, state?: TodoState) => void;
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
+  /**
+   * Start a session on the row's todo, or close the ones it has running.
+   *
+   * The hit for the reason `onCycle` takes one: the write reads the note off
+   * disk again, and the path and the line are how it finds the task line.
+   */
+  onTimer: (hit: SearchHit) => void;
   /** Raised by the route when this pane has been moved to. See `Editor`. */
   focusSignal: number;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
@@ -138,7 +145,15 @@ const DONE_DAYS = 7;
  * not among them, which is right: there is no buffer under this cursor, and the
  * bare `x` is the key that will act on a row.
  */
-export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today }: TodoPaneProps) {
+export function TodoPane({
+  commands,
+  onOpen,
+  onCycle,
+  onAdd,
+  onTimer,
+  focusSignal,
+  today,
+}: TodoPaneProps) {
   const [typed, setTyped] = useState("");
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
@@ -381,6 +396,11 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       case "B":
       case "R":
         if (at !== undefined) onCycle(at.hit, SET[key]);
+        break;
+      // One key for both ends of a session: what the press does depends on
+      // whether the vault holds an open one, which only the write can see.
+      case "t":
+        if (at !== undefined) onTimer(at.hit);
         break;
       // The one key here that writes a note nothing on screen names: the todo
       // goes into today's, wherever the cursor happens to be sitting.

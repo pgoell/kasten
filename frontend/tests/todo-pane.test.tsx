@@ -49,6 +49,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
   const onOpen = vi.fn();
   const onCycle = vi.fn();
   const onAdd = vi.fn();
+  const onTimer = vi.fn();
   const { reached, commands } = recorder();
   const client = new QueryClient();
 
@@ -59,6 +60,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
         onOpen={onOpen}
         onCycle={onCycle}
         onAdd={onAdd}
+        onTimer={onTimer}
         focusSignal={focusSignal}
         today={TODAY}
       />
@@ -71,6 +73,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     onOpen,
     onCycle,
     onAdd,
+    onTimer,
     reached,
     /** What the vault answers with next, which is how a write reaches the pane. */
     answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos"], next)),
@@ -442,6 +445,25 @@ describe("the todo pane", () => {
     // The walk cannot reach blocked from here: a row leaves this list the
     // moment it is done, which is the state the walk passes through first.
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "blocked");
+  });
+
+  it("starts or stops the timer on the row under the cursor on t", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("j");
+    pane.press("t");
+
+    expect(pane.onTimer).toHaveBeenCalledWith(TODOS[1]);
+  });
+
+  it("does nothing on t with no row to press it on", async () => {
+    const pane = renderPane([]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(0));
+
+    pane.press("t");
+
+    expect(pane.onTimer).not.toHaveBeenCalled();
   });
 
   it("keeps the bare x walking the cycle", async () => {
