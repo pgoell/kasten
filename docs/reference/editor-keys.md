@@ -41,6 +41,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>gw` | Open this week's note |
 | `<leader>gy` | Open this year's note |
 | `<leader>h` | Move to the pane on the left |
+| `<leader>i` | Stamp an id on the todo on this line |
 | `<leader>j` | Move to the pane below |
 | `<leader>k` | Move to the pane above |
 | `<leader>l` | Move to the pane on the right |
@@ -270,10 +271,10 @@ name is how you get back to it, which is the mechanism the sessions already have
 ## Todos
 
 A todo is a checkbox line in a note, and [Todo
-format](/reference/todo-format.md) is what one is written in. Three keys reach
-them. `<leader>x` makes and walks one where you are typing, `<leader>gt` puts
-the whole vault's list in the focused pane, and `<leader>ft` opens that same
-list as an overlay.
+format](/reference/todo-format.md) is what one is written in. Four keys reach
+them. `<leader>x` makes and walks one where you are typing, `<leader>i` gives
+one a name, `<leader>gt` puts the whole vault's list in the focused pane, and
+`<leader>ft` opens that same list as an overlay.
 
 `<leader>x` cycles the line the cursor is on. A plain line becomes `- [ ]`, four
 more presses walk it through doing, done, blocked and rejected, and a sixth
@@ -292,12 +293,28 @@ A todo already living in today's note is the exception, and the better case:
 the log line goes into that same buffer, in the press's own transaction, so it
 is written by the autosave and `u` takes back both halves at once.
 
+One press can move more than the line it was typed on. Ticking a parent ticks
+[its parts](/reference/todo-format.md#subtasks), ticking a recurring todo writes
+[the next copy](/reference/todo-format.md#recurrence) above it, and closing or
+reopening a todo something waits on rewrites
+[its dependents](/reference/todo-format.md#dependencies). Every one of those in
+this note is part of the same buffer edit, so one `u` takes back all of it. A
+dependent in another note is a write the buffer cannot reach, like the log.
+
+`<leader>i` stamps an id on the todo the cursor is on, and does nothing to a
+line that is not a todo or that carries one already. It is how you name a todo
+that is still open, so a `⛔` on another line has something to point at.
+
 The editor draws each state as a symbol in place of its box, `☐ ◐ ☑ ⊘ ☒`, and
 mutes and strikes through a line that is done or rejected. A due date that has
-passed is drawn in red. The whole drawing comes off the line the cursor is on,
+passed is drawn in red. A todo with todos indented under it carries `1/3` after
+its words, counting every descendant. The whole drawing comes off the line the cursor is on,
 in insert and visual mode, the way every other construct does, so `i` hands the
 `- [x] ` back. The red is the one part that stays, because it colours text that
 is on screen either way rather than standing in for characters.
+
+The count stays while a line shows its source, for the reason the red does:
+neither stands in for a character.
 
 Today's date is read when the editor builds its rendering, so a tab left open
 across midnight keeps yesterday's idea of overdue until it reloads.
@@ -307,7 +324,15 @@ across midnight keeps yesterday's idea of overdue until it reloads.
 `<leader>gt` fills the focused pane with every open todo in the vault, grouped
 by when it is due, under Overdue, Today, This week, Later and No date. An empty
 group draws no heading. A row is the state's symbol, the priority where there is
-one, the words, and the day of the due date. A blocked row is drawn muted and
+one, the words, the count of its parts where it has any, and the day of the due
+date.
+
+The group is read off the scheduled date where the todo has one and off the due
+date otherwise, so a task due Friday and scheduled Tuesday sits under Tuesday,
+which is the day you have to act on it. A due date in the past wins over both
+and lands the row in Overdue whatever it was scheduled for. A `🛫` after today
+keeps the row off the list until the day it names: a list of things you cannot
+start yet is not a list of what to do. A blocked row is drawn muted and
 sits in the group its due date names rather than under a heading of its own, its
 state already being written on the line. The footer counts the rows, so many
 open and so many blocked.
@@ -322,6 +347,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `x` | Cycle the todo under the cursor |
 | `a` | Add a todo to today's note |
 | `d` | Show what was finished in the last seven days |
+| `n` | Show one next action per task |
 | `/` | Narrow the list |
 | `q` | Close the pane |
 | Escape | Back to the editor |
@@ -336,7 +362,10 @@ tree already does, and `<leader>gt` brings the list back in one press.
 `x` writes the vault rather than a buffer. The note the row names is read again
 first, so a row that has gone stale since the last fetch cycles nothing, and the
 note redraws in whatever pane is showing it. Ticking one done also writes the
-[done log](/reference/todo-format.md#the-done-log) line into today's daily note.
+[done log](/reference/todo-format.md#the-done-log) line into today's daily note,
+and it carries the same three rules `<leader>x` carries: the parts go with a
+parent, a recurring todo gets its next copy, and the dependents of a todo that
+just closed or reopened are rewritten wherever they live.
 
 `/` moves the focus to the filter line, because `j` and `k` have to go on moving
 the cursor. Escape or Enter hands the focus back to the list and leaves the
@@ -349,6 +378,17 @@ day it was finished rather than by when it was due, newest day first. A finished
 todo has no due date worth grouping on, and a list reaching back to the
 beginning of the vault is not one anybody reads to the end of. Pressing `d`
 again brings the open list back.
+
+`n` swaps the list for one row per top level todo, each naming the one thing
+you could start on it, which is the GTD question asked directly. That is the
+first open leaf under the todo, depth first, and `#next` on any part under it
+wins over that order. A todo with no parts is its own next action, so a flat
+list of unrelated todos reads here as it does out of this mode. Where the action
+is not the todo itself, the row draws the todo's words muted in front of the
+action's. Enter opens the action's own line, not the top level todo's. A todo
+whose every part is done, rejected or waiting on a `🛫` has no row. Pressing `n`
+again brings the full list back, and `d` and `n` swap the same list rather than
+stacking.
 
 `a` opens the add prompt over the pane. Type one line of
 [shorthand](/reference/todo-format.md#the-add-prompts-shorthand), read the line
