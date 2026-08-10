@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { sectionOf, TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo";
@@ -51,21 +51,22 @@ function recorder() {
   return { reached, commands };
 }
 
-function renderPane(hits = TODOS) {
+function renderPane(hits = TODOS, focusSignal = 0) {
   fetchTodos.mockResolvedValue(hits);
   const onOpen = vi.fn();
   const onCycle = vi.fn();
   const onAdd = vi.fn();
   const { reached, commands } = recorder();
+  const client = new QueryClient();
 
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <TodoPane
         commands={commands}
         onOpen={onOpen}
         onCycle={onCycle}
         onAdd={onAdd}
-        focusSignal={0}
+        focusSignal={focusSignal}
         today={TODAY}
       />
     </QueryClientProvider>,
@@ -78,6 +79,8 @@ function renderPane(hits = TODOS) {
     onCycle,
     onAdd,
     reached,
+    /** What the vault answers with next, which is how a write reaches the pane. */
+    answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos"], next)),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
     headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
     rows: () => screen.queryAllByRole("button"),
@@ -182,6 +185,37 @@ describe("the todo pane", () => {
     pane.press("Enter");
 
     expect(pane.onOpen).toHaveBeenCalledWith("projects/kasten.md", 12);
+  });
+
+  it("takes the focus on the render that opened it", async () => {
+    // `<leader>gt` replaces what the pane held, which unmounts the editor and
+    // drops the focus on the body. Nothing else can hand it back: this pane's
+    // first render is the moment it was moved to, unlike the file tree, which
+    // is mounted all along and must not steal the focus from under the editor.
+    const pane = renderPane(TODOS, 1);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    expect(pane.cursor()).toHaveFocus();
+  });
+
+  it("takes the focus back when a write moves the row it was on", async () => {
+    // `x` writes, the list is asked again, and the row the cursor was on is
+    // gone from it. The browser drops the focus on the body rather than passing
+    // it to whatever replaced the row, so without this the pane goes deaf to
+    // every key after the first thing you tick off.
+    const pane = renderPane(TODOS, 1);
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    expect(pane.cursor()).toHaveFocus();
+
+    pane.answer(TODOS.filter((hit) => !hit.text.includes("call the dentist")));
+    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+
+    // Where the focus is, not whether a key fired at the section works: this
+    // test's own `press` dispatches straight at the element and would pass with
+    // the focus anywhere at all.
+    expect(screen.getByRole("region", { name: "Todos" })).toContainElement(
+      document.activeElement as HTMLElement,
+    );
   });
 
   it("moves the focus to the filter line on /", async () => {

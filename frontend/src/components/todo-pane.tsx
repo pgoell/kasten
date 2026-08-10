@@ -104,8 +104,8 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
   const [pending, setPending] = useState("");
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
-  /** The signal already answered, so the first render answers nothing. */
-  const answered = useRef(focusSignal);
+  /** Whether the keys are ours, so a row that leaves can hand them back. */
+  const held = useRef(false);
 
   const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 
@@ -176,27 +176,40 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
 
   const blocked = shown.filter(({ todo }) => todo.state === "blocked").length;
 
-  // Arriving from another pane. The cursor row is the pane's only tab stop, so
-  // that is where the focus lands.
+  // Arriving from another pane, which unmounted whatever held the focus, so
+  // nothing but this can take it. The section rather than a row: the rows come
+  // with the query a render later, and the effect below moves the focus onto
+  // one the moment they do. It is also the only thing left to focus when there
+  // is nothing to do, and `q` has to work on an empty list.
+  //
+  // Unlike `file-explorer.tsx`, which guards its first render, this pane mounts
+  // when it is moved to, so its first render is the arrival.
   useEffect(() => {
-    if (focusSignal === answered.current) return;
-    answered.current = focusSignal;
-    panel.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+    if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
-  // Only when the list already holds the focus, and never while the filter
-  // does: typing narrows the list, which moves the cursor, and following it
-  // would pull the focus out of the input mid-word.
+  // Only when the keys are already ours, and never while the filter holds them:
+  // typing narrows the list, which moves the cursor, and following it would
+  // pull the focus out of the input mid-word.
+  //
+  // `dropped` is the case `contains` cannot see. `x` writes, the list is asked
+  // again, and the row the cursor was on leaves it. The browser hands the focus
+  // to the body rather than to whatever replaced the row, so without this the
+  // first thing you tick off leaves the pane deaf to every key after it.
   useEffect(() => {
     const element = panel.current;
-    if (!element?.contains(document.activeElement)) return;
+    if (!element) return;
+    const dropped = held.current && document.activeElement === document.body;
+    if (!dropped && !element.contains(document.activeElement)) return;
     if (document.activeElement === filter.current) return;
-    element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`)?.focus();
+    (element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`) ?? element).focus();
   }, [cursorKey]);
 
   /** Hand the focus back to the list, which is where the keys below act. */
   function focusList() {
-    panel.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+    const element = panel.current;
+    // The section when there is no row to land on, so the keys still reach it.
+    (element?.querySelector<HTMLElement>('[tabindex="0"]') ?? element)?.focus();
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -274,6 +287,17 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
     <section
       ref={panel}
       aria-label="Todos"
+      onFocus={() => {
+        held.current = true;
+      }}
+      // Only a move onto something outside gives the keys up. A row that
+      // unmounts fires no blur at all, which is exactly the case above.
+      onBlur={(event) => {
+        held.current = panel.current?.contains(event.relatedTarget) === true;
+      }}
+      // Focusable, but not in the tab order: the cursor row is the tab stop,
+      // and this is where the focus rests before a row exists to hold it.
+      tabIndex={-1}
       onKeyDown={onKeyDown}
       className="flex h-full flex-col bg-one-bg font-mono"
     >
