@@ -71,6 +71,9 @@ const TODOS = "## TODOs";
 /** The heading the time log lives under, made on first write as `## Done` is. */
 const TIME = "## Time";
 
+/** The latest a session could have run on the day its note is named for. */
+const LAST_MINUTE = "23:59";
+
 /** Any heading, which is what ends the section above it. */
 const HEADING = /^#{1,6} /;
 
@@ -486,7 +489,7 @@ export function closeSessions(text: string, id: string, end: string): string | n
 
 /** Every note one press of `t` changes, in the order they should be sent. */
 export function timerWrites(input: TimerInput): Write[] {
-  const { path, line, dailyPath, notes, sessions, now } = input;
+  const { path, line, dailyPath, notes, sessions, today, now } = input;
 
   const own = notes[path] ?? "";
   const lines = own.split("\n");
@@ -528,8 +531,13 @@ export function timerWrites(input: TimerInput): Write[] {
     return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
   }
 
-  for (const notePath of new Set(running.map((found) => found.path))) {
-    const closed = closeSessions(writes.get(notePath) ?? notes[notePath] ?? "", id, now);
+  // One rule for the timer somebody forgot and for the one that crossed
+  // midnight: a session is closed in the note it lives in, at the last minute of
+  // the day that note stands for. Every session in one note shares its day.
+  const end = (day: string) => (day === today ? now : LAST_MINUTE);
+
+  for (const [notePath, day] of new Map(running.map((found) => [found.path, found.day]))) {
+    const closed = closeSessions(writes.get(notePath) ?? notes[notePath] ?? "", id, end(day));
     if (closed !== null) writes.set(notePath, closed);
   }
 
@@ -537,7 +545,7 @@ export function timerWrites(input: TimerInput): Write[] {
   // the whole log rather than adding this session to whatever the line carried,
   // so correcting a session line by hand puts the total back in step.
   const total = mine.reduce(
-    (sum, { session }) => sum + minutesBetween(session.start, session.end ?? now),
+    (sum, { session, day }) => sum + minutesBetween(session.start, session.end ?? end(day)),
     0,
   );
 

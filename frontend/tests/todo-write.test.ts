@@ -14,6 +14,7 @@ import {
   type LogInput,
   type TimerInput,
   timerWrites,
+  type Write,
 } from "@/lib/todo-write";
 
 /** The day every test below is written against, so no assertion expires. */
@@ -808,5 +809,81 @@ describe("timerWrites, stopping", () => {
 
     expect(writes.map(({ path }) => path)).toEqual([DAILY_PATH]);
     expect(writes[0]?.text).toContain("- 10:32-      wire up the pane");
+  });
+});
+
+const YESTERDAY_PATH = "01 Periodic/00 Daily/2026-08-09.md";
+
+/** Yesterday's note, with whatever the log holds left open in it. */
+function yesterday(...lines: string[]): string {
+  return ["# 2026-08-09 Sunday", "", "## Time", ...lines, ""].join("\n");
+}
+
+describe("timerWrites, a session somebody forgot", () => {
+  const LEFT_OPEN = "- 14:03-      wire up the pane [[projects/kasten]] kt-3f9a2c";
+
+  it("closes it at 23:59 in the note it lives in", () => {
+    const writes = timerWrites(
+      timer({
+        notes: {
+          [NOTE_PATH]: NAMED,
+          [YESTERDAY_PATH]: yesterday(LEFT_OPEN),
+          [DAILY_PATH]: FRESH_DAILY,
+        },
+        sessions: [{ path: YESTERDAY_PATH, text: LEFT_OPEN }],
+        now: "09:00",
+      }),
+    );
+
+    // Yesterday's, not today's: kasten never splits a session across two daily
+    // notes, and 23:59 is the latest it could have run.
+    expect(writes).toEqual([
+      {
+        path: YESTERDAY_PATH,
+        text: yesterday("- 14:03-23:59 wire up the pane [[projects/kasten]] kt-3f9a2c"),
+      },
+      { path: NOTE_PATH, text: totalled("9h56m") },
+    ]);
+  });
+
+  it("closes one left open yesterday and one running today on the same press", () => {
+    const today = "- 08:00-      wire up the pane [[projects/kasten]] kt-3f9a2c";
+    const writes = timerWrites(
+      timer({
+        notes: {
+          [NOTE_PATH]: NAMED,
+          [YESTERDAY_PATH]: yesterday(LEFT_OPEN),
+          [DAILY_PATH]: timeLog(today),
+        },
+        sessions: [
+          { path: YESTERDAY_PATH, text: LEFT_OPEN },
+          { path: DAILY_PATH, text: today },
+        ],
+        now: "09:00",
+      }),
+    );
+
+    expect(writes[0]?.text).toContain("- 14:03-23:59");
+    expect(writes[1]?.text).toContain("- 08:00-09:00");
+    expect(writes[2]?.text).toBe(totalled("10h56m"));
+  });
+
+  it("records twenty minutes over midnight as nine", () => {
+    const late = "- 23:50-      wire up the pane [[projects/kasten]] kt-3f9a2c";
+    const writes = timerWrites(
+      timer({
+        notes: {
+          [NOTE_PATH]: NAMED,
+          [YESTERDAY_PATH]: yesterday(late),
+          [DAILY_PATH]: FRESH_DAILY,
+        },
+        sessions: [{ path: YESTERDAY_PATH, text: late }],
+        now: "00:10",
+      }),
+    );
+
+    // The rule, not a bug: the part that ran into today is lost, and both times
+    // are on the line for anybody who wants to correct it.
+    expect(writes[1]?.text).toBe(totalled("9m"));
   });
 });
