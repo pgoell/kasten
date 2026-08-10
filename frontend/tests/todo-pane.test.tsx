@@ -66,6 +66,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
   const onOpen = vi.fn();
   const onCycle = vi.fn();
   const onAdd = vi.fn();
+  const onEdit = vi.fn();
   const onTimer = vi.fn();
   const { reached, commands } = recorder();
   const client = new QueryClient();
@@ -77,6 +78,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
         onOpen={onOpen}
         onCycle={onCycle}
         onAdd={onAdd}
+        onEdit={onEdit}
         onTimer={onTimer}
         focusSignal={focusSignal}
         today={TODAY}
@@ -90,11 +92,19 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     onOpen,
     onCycle,
     onAdd,
+    onEdit,
     onTimer,
     reached,
     /** What the vault answers with next, which is how a write reaches the pane. */
     answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos"], next)),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
+    /** The row being edited, as the input it turns into, or null where none is. */
+    draft: () => screen.queryByLabelText("edit line"),
+    /** Type over the line being edited. */
+    write: (value: string) =>
+      fireEvent.change(screen.getByLabelText("edit line"), { target: { value } }),
+    /** A key pressed inside that input, which the list's own keys never see. */
+    send: (key: string) => fireEvent.keyDown(screen.getByLabelText("edit line"), { key }),
     /** What the header says the list is showing: a view's name, or nothing. */
     view: () => screen.queryByTestId("todo-view")?.textContent ?? "",
     headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
@@ -422,6 +432,7 @@ describe("the todo pane", () => {
 
     expect(pane.footer()).toContain("x cycle");
     expect(pane.footer()).toContain("a add");
+    expect(pane.footer()).toContain("i edit");
     expect(pane.footer()).toContain("d done");
     expect(pane.footer()).toContain("n next");
     expect(pane.footer()).toContain("O P X B R state");
@@ -440,6 +451,76 @@ describe("the todo pane", () => {
     // No row and no hit: the todo goes into today's note, wherever the cursor
     // happens to be sitting.
     expect(pane.onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("turns the row under the cursor into its own line on i", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("j");
+    pane.press("i");
+
+    // The line as the vault holds it, markdown and all: an edit reaches the
+    // fields no shorthand spells by being the line itself.
+    expect(pane.draft()).toHaveValue(TODOS[1]?.text);
+    expect(pane.draft()).toHaveFocus();
+  });
+
+  it("hands the edited line back on enter, and draws a row again", async () => {
+    const edited = "- [/] wire up the pane 📅 2026-08-10 ⏳ 2026-08-09 ⏫ #kasten";
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("j");
+    pane.press("i");
+    pane.write(edited);
+    pane.send("Enter");
+
+    // The hit and the line: the write finds the line by path and number, and
+    // puts back what the input was left holding.
+    expect(pane.onEdit).toHaveBeenCalledExactlyOnceWith(TODOS[1], edited);
+    expect(pane.draft()).toBeNull();
+  });
+
+  it("writes nothing on escape, and gives the keys back to the row", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    (pane.cursor() as HTMLElement).focus();
+    pane.press("i");
+    pane.write("- [ ] something else entirely");
+    pane.send("Escape");
+
+    expect(pane.onEdit).not.toHaveBeenCalled();
+    expect(pane.draft()).toBeNull();
+    // The keys are the row's again, so the next one moves the cursor rather
+    // than landing in an input that is no longer there.
+    expect(pane.cursor()).toHaveFocus();
+    pane.press("j");
+    pane.press("x");
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[1]);
+  });
+
+  it("keeps the list's keys off the line being edited", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("i");
+    // `x` cycles a row and `a` opens the add prompt. In here they are letters.
+    fireEvent.keyDown(pane.draft() as HTMLElement, { key: "x" });
+    fireEvent.keyDown(pane.draft() as HTMLElement, { key: "a" });
+
+    expect(pane.onCycle).not.toHaveBeenCalled();
+    expect(pane.onAdd).not.toHaveBeenCalled();
+  });
+
+  it("does nothing on i with no row to press it on", async () => {
+    const pane = renderPane([]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(0));
+
+    pane.press("i");
+
+    expect(pane.draft()).toBeNull();
   });
 
   it("cycles the row under the cursor on x", async () => {

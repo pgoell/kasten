@@ -170,6 +170,8 @@ async function renderApp() {
       (container.querySelectorAll<HTMLElement>(".cm-content")[index] as HTMLElement).focus(),
     /** The todo pane, while a pane is holding one. */
     todoPane: () => container.querySelector("[aria-label='Todos']"),
+    /** The row being edited in the pane, as the input it turns into. */
+    editedLine: () => container.querySelector("[aria-label='edit line']"),
     /** How many panes the active tab draws. */
     panes: () => container.querySelectorAll("[data-pane]").length,
     /** Whether the bar's reading is wearing the flash a refusal raises. */
@@ -663,6 +665,51 @@ describe("the route", () => {
 
     expect(app.todoPane()).toBeNull();
     expect(app.panes()).toBe(1);
+  });
+
+  it("edits a todo from the pane, and leaves the keys where the cursor is", async () => {
+    const note = ["# Kasten", "", "- [ ] call the dentist 🆔 kt-3f9a2c"].join("\n");
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), "projects/kasten.md"]);
+    fetchNote.mockImplementation(async (path: string) => VAULT[path] ?? note);
+    const row = {
+      path: "projects/kasten.md",
+      line: 3,
+      text: "- [ ] call the dentist 🆔 kt-3f9a2c",
+    };
+    const edited = "- [ ] call the dentist ⏳ 2026-08-11 🆔 kt-3f9a2c";
+    // What the vault answers once the write has landed, which is what moves the
+    // row out of No date and into This week, and so out of the DOM node the
+    // prompt took the focus from.
+    fetchTodos.mockImplementation(async () =>
+      saveNote.mock.calls.length > 0 ? [{ ...row, text: edited }] : [row],
+    );
+
+    const app = await renderApp();
+    await settle();
+    app.leader("g", "t");
+    await settle();
+
+    // Focused first, the way a pane you are pressing keys into is: the pane
+    // hands the keys back only where they were already its.
+    (app.todoPane() as HTMLElement).focus();
+    fireEvent.keyDown(app.todoPane() as HTMLElement, { key: "i" });
+    const field = app.editedLine() as HTMLInputElement;
+    // The line as the vault holds it, which is what makes `⏳` reachable: no
+    // shorthand spells a scheduled date.
+    expect(field.value).toBe("- [ ] call the dentist 🆔 kt-3f9a2c");
+
+    fireEvent.change(field, { target: { value: edited } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith(
+      "projects/kasten.md",
+      ["# Kasten", "", edited].join("\n"),
+    );
+    // The row the input replaced is gone, redrawn under another heading by the
+    // write, so the focus handed back to it landed on the body and the pane was
+    // deaf to every key after it.
+    expect(app.todoPane()?.contains(document.activeElement)).toBe(true);
   });
 
   it("opens the daily note the vault already holds without writing to it", async () => {
