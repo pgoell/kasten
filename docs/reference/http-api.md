@@ -109,7 +109,7 @@ whole match set for anything but the most common word in a vault.
 ## GET /api/todos
 
 Finds every line in the vault that could be a todo. Takes nothing and answers
-with at most 5,000 matches, in the shape `GET /api/search` returns.
+with at most 100,000 matches, in the shape `GET /api/search` returns.
 
 ```json
 [{ "path": "projects/kasten.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫" }]
@@ -125,7 +125,7 @@ It matches two shapes and nothing else:
 * a checkbox list item at any indent, in any of
   [the five states](/reference/todo-format.md#the-five-states): `- [ ]`,
   `- [/]`, `- [x]`, `- [X]`, `- [b]` or `- [-]`
-* a session line, `- 09:12-10:32 …`, closed or still running
+* a running session line, `- 14:03- …`, with no end time on it
 
 `[X]` is matched because another editor writes it that way. `[` is not one of
 the state characters, which is what keeps `- [[borges]]` out, and the `- `
@@ -133,17 +133,27 @@ anchor is what keeps `1. [ ] ordered` out. The done log's `- ✅` line does not
 match either, which is
 [the whole reason it is not a checkbox](/reference/todo-format.md#the-done-log).
 
+A closed session line, `- 09:12-10:32 …`, is deliberately not matched. The pane's
+`t` writes both spellings into the
+[time log](/reference/todo-format.md#the-time-log), and a running one comes back
+in the same pass as the todos because the view wants to know what is going. A
+closed one says nothing the task line does not already carry, the total being on
+it, and the closed ones are the half of that log that piles up. A stop reads them
+through `GET /api/search` on the todo's id instead, which is one narrow pass at
+the press rather than a growing answer on every fetch.
+
 Nothing here parses a todo. The endpoint finds the lines that could be one and
 hands them over whole, because the editor has to parse a line anyway and two
 parsers in two languages drift. Whether one of them is open, overdue or a
 subtask of the line above it is read on the client, off the same module the
-editor draws a todo with. Nothing writes a session line yet, and the pattern
-matches one anyway: one pass over the vault is the point, and the client drops
-what it did not ask for.
+editor draws a todo with. That is also how the client tells a session line from
+a todo, which is why one endpoint can answer both.
 
-The cap is 5,000 rather than search's 2,000. Search answers a keystroke and
-this answers one view, opened by one key, so the two have no reason to share a
-number.
+The cap is 100,000 rather than search's 2,000, and the two numbers are doing
+different jobs. Search guards a query that can match anything in the vault. This
+one is a backstop against a single generated file with a million list items in
+it, and nothing else: reaching it truncates the answer silently, which is why it
+sits where nothing written by hand reaches it.
 
 `rg` matches a line rather than a parse tree, so a `- [ ]` inside a fenced code
 block in a note about markdown comes back as a hit. The client cannot tell from

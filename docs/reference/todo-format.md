@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Todo format
-description: The line a todo is written on, every field it carries, the five states, the cycle, and the terms that filter one.
+description: The line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, and the terms that filter one.
 resource: frontend/src/lib/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
@@ -57,6 +57,9 @@ highest, high, medium, low and lowest, in that order. The recurrence is the one
 field whose value is free text, so it runs to the next field marker or the next
 tag rather than to the next space.
 
+Both clocks take a duration, written `2h`, `45m` or `1h20m`. Nothing else is
+one: `90`, `1h30` and `two hours` are words, not times.
+
 Only the two clocks are ours. Everything else is what the obsidian-tasks plugin
 already reads, so the vault opened in Obsidian shows working tasks rather than
 prose.
@@ -68,18 +71,20 @@ time somebody ticked something.
 `⛔` may appear more than once, each naming another todo's id, and every one is
 kept in the order it was written. Every other field appears once.
 
-Seven of these are written by kasten today: the state, the due date, the
-priority, the created date, the done date, the cancelled date and the id. The
-rest are read, carried and written back untouched. You type a scheduled date, a
-start date, a recurrence, a blocker, an estimate and a worked total yourself,
-and kasten reads all six: `⏳` and `🛫` decide
-[which group a row sits in](/reference/editor-keys.md#the-todo-pane), `⛔` hands
-kasten the state of the line it sits on, and `🔁` writes the next copy when the
-todo is ticked. Only the estimate and the worked total are carried and nothing
-else.
+Nine of these are written by kasten today: the state, the due date, the
+priority, the created date, the done date, the cancelled date, the id, the
+estimate and the worked total. The last two are the newest. `est:45m` in
+[the add prompt](#the-add-prompts-shorthand) writes the `⏲`, and every stop of
+the timer rewrites the `⏱` off [the time log](#the-time-log). The rest are read,
+carried and written back untouched: you type a scheduled date, a start date, a
+recurrence and a blocker yourself, and kasten reads all four. `⏳` and `🛫`
+decide [which group a row sits in](/reference/editor-keys.md#the-todo-pane), `⛔`
+hands kasten the state of the line it sits on, and `🔁` writes the next copy
+when the todo is ticked.
 
 There is deliberately no block anchor. The id does every job a `^anchor` would
-have done: the done log names it, dependencies name it, and so will the time log.
+have done: the done log names it, dependencies name it, and the time log names
+it.
 
 ## The five states
 
@@ -147,8 +152,9 @@ call the dentist #health 📅 2026-08-14 ⏫ ➕ 2026-08-09
 ```
 
 An id is stamped when something first needs to name the todo: on entering done,
-and on `<leader>i`, which is how you name a todo that is still open so a `⛔`
-can point at it. A todo nothing refers to never gets one, and a second
+on starting a timer, whose session line has to name it, and on `<leader>i`,
+which is how you name a todo that is still open so a `⛔` can point at it. A
+todo nothing refers to never gets one, and a second
 `<leader>i` leaves the id the first one wrote. `kt-` prefixes it so a grep for
 the id cannot hit a word of prose, and the six characters after it are hex from
 the browser's own random source, because an id goes to disk and has to be unique
@@ -316,6 +322,56 @@ The first line written into it makes `## Done`. `## TODOs`, which is where the
 add prompt writes, is in a fresh daily note from the start. Both are plain
 markdown headings and both are yours to edit.
 
+## The time log
+
+`t` in the todo pane starts a session on the todo under the cursor and writes a
+line under `## Time` in today's daily note:
+
+```markdown
+## Time
+- 09:12-10:32 wire up the pane [[projects/kasten]] kt-3f9a2c
+- 14:03-      call the dentist kt-4c2d11
+```
+
+Both clocks, the todo's words, a link to the note it lives in, and its id. The
+first line is closed and the second is still running. The times are padded to
+one width so the words line up either way, and the link is left off a todo that
+already lives in the note being written, exactly as the done log leaves it off.
+
+A start stamps an `🆔` where the todo carries none, so the session line has
+something to name. A second `t` on that row closes every session the todo has
+running and rewrites its `⏱`.
+
+Timers run in parallel and `t` touches one todo. Three going is three rows
+marked `▶` in the pane and `3 running` in its footer. A day's total is the sum
+of its intervals rather than the wall clock they span, so two todos worked in
+the same hour count an hour each.
+
+The log is the record and `⏱` is kasten's summary of it. Every stop rewrites the
+worked total as the sum of every closed session naming that todo, across the
+whole vault, and never adds to what the line carried. So a session line
+corrected by hand puts the total back in step at the next stop, and a `⏱` typed
+onto a line the log does not back is replaced.
+
+A session is closed in the note it lives in, at 23:59 when that note is not
+today's. One rule covers the timer left running on Friday and the one that ran
+past midnight: a session started at 23:50 and stopped at 00:10 records nine
+minutes rather than twenty, in the note of the day it started. kasten never
+splits a session across two daily notes. The line is text, so a number that is
+wrong is corrected by typing over it and the next stop takes the correction into
+`⏱`.
+
+A total of zero is written `⏱ 0m` rather than dropped, and an end typed before
+its start counts as nothing.
+
+A `## Time` section written by hand into a note that is not a daily note is your
+own log. kasten reads a session line for the day its note is named for, and a
+note not named for a day cannot answer that, so it neither closes those lines nor
+counts them.
+
+The first line written into it makes `## Time`, the way the first `- ✅` makes
+`## Done`.
+
 ## Filter terms
 
 The todo pane's filter line takes these:
@@ -359,6 +415,12 @@ words where you can see it, `due:whenever` included. So does a day the calendar
 does not have: `due:2026-02-30` is read back before it is taken, because a date
 nobody typed is worse on disk than no date at all.
 
+`est:` takes a duration and writes the `⏲`: `est:2h`, `est:45m` and `est:1h20m`.
+It is the one path by which kasten rather than your keyboard puts an estimate on
+a line, and it is not a filter term, there being nothing useful to filter on.
+Anything after `est:` that is not a duration stays in the words, as a mistyped
+date does.
+
 A state term is not an instruction here, a fresh todo being open, so `/doing`
 stays in the words as well. Tags stay where they were typed. The todo comes back
 open and created today.
@@ -366,13 +428,13 @@ open and created today.
 So this, typed on 2026-08-10:
 
 ```
-call the dentist due:08-14 !high #health
+call the dentist due:08-14 est:45m !high #health
 ```
 
 writes this:
 
 ```markdown
-- [ ] call the dentist #health 📅 2026-08-14 ⏫ ➕ 2026-08-10
+- [ ] call the dentist #health 📅 2026-08-14 ⏫ ➕ 2026-08-10 ⏲ 45m
 ```
 
 ## Related

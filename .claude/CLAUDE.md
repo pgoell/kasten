@@ -40,7 +40,10 @@ Real, working code, not a plan:
   `/api/todos` is search's one rg pass asked a different question: it answers
   with every checkbox line the vault holds, in search's own shape, and parses
   none of them, the client reading the format. Its pattern also matches a
-  `- HH:MM-HH:MM` session line, which nothing writes yet.
+  `- HH:MM-` session line with no end on it, which is a timer still going. A
+  closed one is deliberately left out: the total is on the task line, and the
+  closed ones are the half of that log that piles up. A stop reads them through
+  `/api/search` on the id instead.
   `/api/terminals` is the one endpoint that reads nothing of the vault: it
   lists the shell container's herdr sessions off a read-only mount of that
   container's volume, so the prompt can offer the ones that already exist.
@@ -112,9 +115,11 @@ Real, working code, not a plan:
   the row off the list until the day it names. A part is drawn one step in under
   the todo it belongs to, and where that todo is in another group or already
   done it names it in front of its own words instead.
-  Its keys are `j k Enter x O P X B R a d n / q Escape`: `x` walks a todo in the vault,
+  Its keys are `j k Enter x O P X B R a t d n / q Escape`: `x` walks a todo in the vault,
   `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
-  !high #health`, into a todo under `## TODOs` in today's note, `d` shows the
+  est:45m !high #health`, into a todo under `## TODOs` in today's note, `est:`
+  being the one path by which kasten rather than your keyboard writes a `⏲`,
+  `t` starts and stops a timer, `d` shows the
   last seven days of finished work, `n` shows one next action per top level
   todo, the first open leaf under it or whatever carries `#next`, and `/`
   narrows the list by tag, priority, state and due window. `Space f t` is the same list in the finder's panel.
@@ -123,6 +128,20 @@ Real, working code, not a plan:
   and ticking twice leaves one. It is deliberately not a checkbox, so
   `/api/todos` cannot match it. A fresh daily note carries `## TODOs`, and
   `## Done` is made by the first write into it.
+  `t` in the pane starts a session on the todo under the cursor and writes it
+  under `## Time` in today's note, `- 14:03-      the words [[the note]] kt-…`,
+  stamping an id where the todo carried none so the line has something to name.
+  A second press closes every session that todo has running and rewrites its
+  `⏱` as the sum of every closed session naming it, across the vault, read
+  through one `/api/search` on the id. The log is the record and `⏱` is the
+  summary of it, so a session line corrected by hand puts the total back in
+  step and a hand typed total the log does not back is replaced. Timers run in
+  parallel, and a row with one going carries `▶` and the pane's footer counts
+  them. A session is closed in the note it lives in, at 23:59 when that note is
+  not today's, which is one rule for the timer somebody forgot and for the one
+  that ran past midnight; a session in a note that is not a daily note is left
+  alone, nothing saying which day it belongs to. The row shows what is on disk,
+  so nothing ticks.
   `Space c s` puts a shell in the focused pane instead of a note: it asks what
   the herdr session is called, offering the ones that already exist, and
   attaches to it, starting one if nothing answers to that name. The pane speaks ttyd's WebSocket protocol itself
@@ -172,8 +191,7 @@ not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
 pick the few notes it has to read, so there is no link table either.
 
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, the timer and the `## Time` section it writes, saved todo views,
-and anything that writes to Postgres.
+two folders, saved todo views, and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 
