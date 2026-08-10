@@ -100,7 +100,8 @@ const WORKED = /⏱[ \t]+(\S+)/;
 const RECURRENCE =
   /🔁[ \t]+(.+?)(?=[ \t]*(?:📅|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🆔|⛔|⏲|⏱|#)|[ \t]*$)/;
 
-const TAG = /#[^\s#]+/g;
+/** Exported because `todo-shorthand.ts` fills the same `Todo.tags` from it. */
+export const TAG = /#[^\s#]+/g;
 
 type Fields = Omit<Todo, "indent" | "state">;
 
