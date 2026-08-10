@@ -514,6 +514,15 @@ describe("the leader key", () => {
     expect(doc()).toBe("- [b] wire up the pane");
   });
 
+  it("tidies the note's markdown on the leader's format key", () => {
+    const { editor, doc } = open("* one   \n\n\n* two");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "=" });
+
+    expect(doc()).toBe("- one\n\n- two");
+  });
+
   it("takes a part into done with its parent on a key that names done", () => {
     const { editor, doc } = open("- [ ] wire up the pane\n  - [ ] write it");
 
