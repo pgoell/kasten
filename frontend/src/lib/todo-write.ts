@@ -52,6 +52,45 @@ const HEADING = /^#{1,6} /;
 /** A log line, which is deliberately not a checkbox. See `doneLine`. */
 const LOGGED = "- ✅";
 
+/** One edit as a range in the old text and what replaces it. */
+export interface Edit {
+  from: number;
+  to: number;
+  insert: string;
+}
+
+/**
+ * The edit that puts `line` under `heading`, rather than the text it produces.
+ *
+ * Offsets because the editor needs them: a todo in today's own note logs itself
+ * into the buffer being typed into, and one CodeMirror change over a range is
+ * what keeps the undo history and the cursor whole. `appendUnder` is this
+ * applied.
+ */
+export function appendUnderEdit(text: string, heading: string, line: string): Edit {
+  const lines = text.split("\n");
+  const at = lines.indexOf(heading);
+
+  if (at === -1) {
+    // No section, so it is made at the end, off a blank line from whatever the
+    // note already ends with.
+    const trimmed = text.replace(/\n+$/, "");
+    return { from: trimmed.length, to: text.length, insert: `\n\n${heading}\n${line}\n` };
+  }
+
+  let end = at + 1;
+  while (end < lines.length && !HEADING.test(lines[end] ?? "")) end += 1;
+  while (end > at + 1 && (lines[end - 1] ?? "").trim() === "") end -= 1;
+
+  // Nothing follows the section, so the line goes on the end with a newline in
+  // front of it rather than behind.
+  if (end === lines.length) return { from: text.length, to: text.length, insert: `\n${line}` };
+
+  let offset = 0;
+  for (let index = 0; index < end; index += 1) offset += (lines[index] ?? "").length + 1;
+  return { from: offset, to: offset, insert: `${line}\n` };
+}
+
 /**
  * Put `line` at the end of `heading`'s section, making the section where there
  * is none.
@@ -61,21 +100,8 @@ const LOGGED = "- ✅";
  * belonging to the heading below.
  */
 export function appendUnder(text: string, heading: string, line: string): string {
-  const lines = text.split("\n");
-  const at = lines.indexOf(heading);
-
-  if (at === -1) {
-    // No section, so it is made at the end, off a blank line from whatever the
-    // note already ends with.
-    return `${text.replace(/\n+$/, "")}\n\n${heading}\n${line}\n`;
-  }
-
-  let end = at + 1;
-  while (end < lines.length && !HEADING.test(lines[end] ?? "")) end += 1;
-  while (end > at + 1 && (lines[end - 1] ?? "").trim() === "") end -= 1;
-
-  lines.splice(end, 0, line);
-  return lines.join("\n");
+  const { from, to, insert } = appendUnderEdit(text, heading, line);
+  return text.slice(0, from) + insert + text.slice(to);
 }
 
 /**
@@ -94,10 +120,30 @@ export function doneLine(todo: Todo, notePath: string, dailyPath: string, today:
   return parts.join(" ");
 }
 
+/** Whether a line is the log's, and names this todo. One reader, two callers. */
+function namesInLog(line: string, id: string): boolean {
+  return line.trimStart().startsWith(LOGGED) && line.includes(id);
+}
+
+/** Every `- ✅` line naming `id`, as the edit that takes it out. Newest last. */
+export function doneLineEdits(text: string, id: string): Edit[] {
+  const edits: Edit[] = [];
+  let offset = 0;
+
+  for (const line of text.split("\n")) {
+    // The newline goes with the line, or taking one out leaves a blank behind.
+    if (namesInLog(line, id))
+      edits.push({ from: offset, to: offset + line.length + 1, insert: "" });
+    offset += line.length + 1;
+  }
+
+  return edits;
+}
+
 /** Drop every `- ✅` line naming `id`. Null where the note holds none. */
 export function dropDone(text: string, id: string): string | null {
   const lines = text.split("\n");
-  const kept = lines.filter((line) => !(line.trimStart().startsWith(LOGGED) && line.includes(id)));
+  const kept = lines.filter((line) => !namesInLog(line, id));
   return kept.length === lines.length ? null : kept.join("\n");
 }
 
@@ -143,11 +189,15 @@ export function doneLogWrites(input: LogInput): Write[] {
   // is one write rather than two that overwrite each other.
   const writes = new Map<string, string>();
 
-  if (now?.state === "done" && path !== dailyPath) {
+  if (now?.state === "done") {
     // Already logged, from an earlier tick that was taken back and put on
     // again. Ticking twice leaves one line rather than a pile.
     const already = Object.values(logged).some((note) => dropDone(note, now.id ?? "") !== null);
     if (!already) {
+      // A todo living in today's note is logged there like any other. The
+      // daily note is where most todos are written, so skipping it would leave
+      // `## Done` empty for the commonest way of working. What such a line does
+      // not need is the link, and `doneLine` leaves that off on its own.
       writes.set(dailyPath, appendUnder(dailyText, DONE, doneLine(now, path, dailyPath, today)));
     }
   }
@@ -177,15 +227,16 @@ export function cycleTodoWrites(input: CycleInput): Write[] {
 
   const writes = new Map<string, string>([[path, own]]);
 
-  // The log reads the cycled text where the todo and its own log line share a
-  // note, so the drop below cannot throw the cycled line away.
+  // The log reads the cycled text wherever it lands in the same note as the
+  // todo, so neither half can throw the other away. That is both the daily
+  // note a todo lives in and any note holding a stray log line.
   const seen = logged[path] === undefined ? logged : { ...logged, [path]: own };
   for (const write of doneLogWrites({
     was,
     now,
     path,
     dailyPath,
-    dailyText,
+    dailyText: path === dailyPath ? own : dailyText,
     logged: seen,
     today,
   })) {

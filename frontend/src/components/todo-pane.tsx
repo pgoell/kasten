@@ -364,10 +364,15 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
                     )}
                     <span className="min-w-0 flex-1 truncate">{todo.text}</span>
                     {/* Out of the truncation, so a long todo loses its words
-                        rather than the date they are due on. The year is the
-                        heading's job: every row under one shares it. */}
+                        rather than the date they are due on. The year is cut
+                        from a date inside this one, where every row shares it,
+                        and kept on any other: `Later` reaches years out, and
+                        two rows reading `01-01` say nothing about which is
+                        sooner. */}
                     {todo.due !== undefined && (
-                      <span className="shrink-0 text-one-muted">{todo.due.slice(5)}</span>
+                      <span className="shrink-0 text-one-muted">
+                        {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
+                      </span>
                     )}
                   </button>
                 );

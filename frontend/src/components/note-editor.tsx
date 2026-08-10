@@ -99,6 +99,7 @@ export const NoteEditor = memo(function NoteEditor({
       onSave={onSave}
       onFollow={onFollow}
       onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
+      path={path}
     />
   );
 });

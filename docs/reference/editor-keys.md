@@ -288,6 +288,10 @@ the other four touch the buffer and nothing else. `u` puts the line back and
 leaves the log entry where it is, because undo is this document's history and
 the log is not in it. Press the key again to put the log right.
 
+A todo already living in today's note is the exception, and the better case:
+the log line goes into that same buffer, in the press's own transaction, so it
+is written by the autosave and `u` takes back both halves at once.
+
 The editor draws each state as a symbol in place of its box, `☐ ◐ ☑ ⊘ ☒`, and
 mutes and strikes through a line that is done or rejected. A due date that has
 passed is drawn in red. The whole drawing comes off the line the cursor is on,
