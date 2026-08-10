@@ -64,6 +64,11 @@ services:
     # Run as pascal, for the reason the backend does: this writes the vault
     # through a bind mount, and root-owned notes would need sudo to edit.
     user: "1000:1000"
+    environment:
+      # Where an agent in here reaches the backend, which is what the vault's
+      # agent note tells it to use to tick a todo. By name on the `web`
+      # network, the same route Caddy takes.
+      KASTEN_API: http://kasten-backend-prod:8000
     volumes:
       # The same host directory the backend mounts. An absolute path rather
       # than ${HOME}, matching how the vault mount above is written.

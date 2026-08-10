@@ -443,6 +443,26 @@ other line with it: a heading, a paragraph, an indented item, a bullet with no
 colon and one naming no terms are all read as prose, so the note is readable
 while it is half written.
 
+## The agent note
+
+`99 Misc/01 Config/01 Agents/How-To-TODO.md` says all of the above to an agent
+working in the vault: the fields, their values, the states, the field order, and
+the writes a completion is. A note like any other, so read it, edit it or delete
+it.
+
+The backend writes it at startup into a vault holding none, rather than a key
+press writing it the way [Saved views](#saved-views) are written. The agents
+that read it are not all inside the app: one in a terminal pane and one on your
+laptop find it the same way, by opening the note, and the second never presses a
+key in kasten. A deleted one comes back the next time the backend starts.
+
+The rule it carries: edit the markdown directly for everything, and tick a todo
+done through `PUT /api/files/{path}`. Everything else about a todo is one line
+of text, while a completion also stamps the line, writes
+[the done log](#the-done-log), may write [the next copy](#recurrence) and may
+reopen what waited on it. `KASTEN_API` in the shell container holds the address
+to send that to.
+
 ## The add prompt's shorthand
 
 `a` and `s` in the todo pane read the same words as instructions rather than as

@@ -86,6 +86,11 @@ services:
     # Run as you, for the reason the backend does: this container writes into
     # the bind-mounted vault, and root-owned notes would need sudo to edit.
     user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    environment:
+      # Where an agent in here reaches the backend, which is what the vault's
+      # agent note tells it to use to tick a todo. By name on the `web`
+      # network, so nothing has to be published to the host.
+      KASTEN_API: http://backend-dev:8000
     volumes:
       - ./vault:/vault
       # The agents' home, and nothing of the host's. Claude Code and codex are

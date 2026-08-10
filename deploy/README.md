@@ -161,6 +161,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 
 The shell mounts the same host vault directory the backend does, and the two environments do not share it: `./vault` in the repo for dev, `/home/pascal/kasten-data/vault` for prod. It does not get the docker socket.
 
+It carries `KASTEN_API`, the backend's address on the `web` network, `http://backend-dev:8000` in dev and `http://kasten-backend-prod:8000` in prod. The vault's own `99 Misc/01 Config/01 Agents/How-To-TODO.md` tells an agent in there to tick a todo through `PUT /api/files/{path}`, and that is where it sends it. Nothing is published to the host for it, and `curl` and `jq` are in the image for the same reason.
+
 It does not get your home directory either. Claude Code and codex are installed fresh in the image and sign themselves in inside the container, into the `kasten-shell-home` named volume; no `~/.claude`, `~/.claude.json` or `~/.codex` from the host is mounted. So the first agent you start in there asks you to log in, once, and the volume keeps it across rebuilds and releases. That is the point: an agent in this container is its own install with its own settings, and the vault is the only thing it shares with you.
 
 ## Looking at dev in a browser
