@@ -112,6 +112,51 @@ export function nextActionOf(node: Node, today: string): Node | null {
   );
 }
 
+/** Where the vault keeps its named filters. One note, not a setting. */
+export const VIEWS_NOTE = "99 Misc/01 Config/todo-views.md";
+
+/**
+ * What the first `v` writes into a vault holding no views note.
+ *
+ * One view per family of term, so the note a reader opens to change teaches the
+ * syntax they are about to write.
+ */
+export const DEFAULT_VIEWS = `# Todo views
+
+- today: due:today
+- doing: /doing
+- important: !highest !high
+`;
+
+/** One named filter, the filter kept as written and read by `parseFilter`. */
+export interface View {
+  name: string;
+  filter: string;
+}
+
+/** A view: a list item at the left margin, a name, a colon, then the terms. */
+const VIEW = /^- ([^:]+):[ \t]*(\S.*)$/;
+
+/**
+ * The views a note holds, in the order it holds them.
+ *
+ * A line that does not fit is skipped rather than reported: the note is edited
+ * by hand, so it is half written most of the times this reads it, and a heading
+ * or a paragraph in it is not a mistake. `[^:]+` cannot cross a colon, so the
+ * split lands on the first one and a filter carrying its own, `due:<7d`,
+ * survives on the right of it.
+ */
+export function parseViews(text: string): View[] {
+  const views: View[] = [];
+  for (const line of text.split("\n")) {
+    const found = VIEW.exec(line);
+    if (found?.[1] !== undefined && found[2] !== undefined) {
+      views.push({ name: found[1].trim(), filter: found[2].trim() });
+    }
+  }
+  return views;
+}
+
 /** How many descendants are closed, and how many there are. Null with none. */
 export function progressOf(node: Node): { closed: number; total: number } | null {
   const under = descendants(node);

@@ -1,8 +1,10 @@
 import { parseTodo, type Todo } from "@/lib/todo";
 import {
+  DEFAULT_VIEWS,
   type Node,
   nextActionOf,
   type Placed,
+  parseViews,
   progressOf,
   sectionOf,
   treeOf,
@@ -188,5 +190,55 @@ describe("nextActionOf", () => {
 
   it("answers nothing where every part is closed", () => {
     expect(nextActionOf(root("- [ ] a", "  - [x] b", "  - [-] c"), TODAY)).toBeNull();
+  });
+});
+
+describe("parseViews", () => {
+  it("reads one view per list item, name and filter apart", () => {
+    const views = parseViews(
+      "# Todo views\n\n- today: due:today\n- doing: /doing\n- late: due:overdue\n",
+    );
+
+    expect(views).toEqual([
+      { name: "today", filter: "due:today" },
+      { name: "doing", filter: "/doing" },
+      { name: "late", filter: "due:overdue" },
+    ]);
+  });
+
+  it("splits on the first colon, so a filter carrying one survives", () => {
+    expect(parseViews("- this week: due:<7d !high")).toEqual([
+      { name: "this week", filter: "due:<7d !high" },
+    ]);
+  });
+
+  it("skips a line that is not a view and keeps the good one beside it", () => {
+    const views = parseViews(
+      [
+        "A paragraph about views.",
+        "- no colon here",
+        "- empty:",
+        "- : nameless",
+        "- good: #kasten",
+      ].join("\n"),
+    );
+
+    expect(views).toEqual([{ name: "good", filter: "#kasten" }]);
+  });
+
+  it("reads no view off an indented list item", () => {
+    expect(parseViews("  - nested: #kasten")).toEqual([]);
+  });
+
+  it("answers with nothing for an empty note", () => {
+    expect(parseViews("")).toEqual([]);
+  });
+
+  it("reads back the note kasten writes", () => {
+    expect(parseViews(DEFAULT_VIEWS).map((view) => view.name)).toEqual([
+      "today",
+      "doing",
+      "important",
+    ]);
   });
 });
