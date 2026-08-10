@@ -3,12 +3,26 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { PRIORITY_SYMBOL } from "@/lib/todo";
+import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
 
 // Standing in for the module rather than for `fetch`, the way the search
 // panel's tests do: what the pane owns is what it asks the vault for, not the
 // HTTP underneath.
-const { fetchTodos } = vi.hoisted(() => ({ fetchTodos: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchTodos }));
+const { fetchTodos, fetchNote, fetchFiles } = vi.hoisted(() => ({
+  fetchTodos: vi.fn(),
+  fetchNote: vi.fn(),
+  fetchFiles: vi.fn(),
+}));
+vi.mock("@/lib/api", () => ({ fetchTodos, fetchNote, fetchFiles }));
+
+// A vault that already holds the views note, which is what every test below
+// but the ones about `v` reads.
+beforeEach(() => {
+  fetchNote.mockReset();
+  fetchFiles.mockReset();
+  fetchNote.mockResolvedValue(DEFAULT_VIEWS);
+  fetchFiles.mockResolvedValue([VIEWS_NOTE]);
+});
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-08-10";
@@ -78,6 +92,8 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     /** What the vault answers with next, which is how a write reaches the pane. */
     answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos"], next)),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
+    /** What the header says the list is showing: a view's name, or nothing. */
+    view: () => screen.queryByTestId("todo-view")?.textContent ?? "",
     headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
     rows: () => screen.queryAllByRole("button"),
     texts: () => screen.queryAllByRole("button").map((row) => row.textContent ?? ""),
@@ -409,9 +425,7 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
     expect(pane.footer()).toContain("t timer");
-    // `v` is a later phase. A footer offering a key that does nothing is worse
-    // than one that is short.
-    expect(pane.footer()).not.toMatch(/\bview\b/i);
+    expect(pane.footer()).toContain("v view");
   });
 
   it("opens the add prompt on a", async () => {
@@ -588,5 +602,82 @@ describe("the todo pane", () => {
     expect(pane.texts()[1]).not.toContain("/");
     expect(pane.texts()[2]).toContain("⏲ 2h");
     expect(pane.texts()[3]).not.toMatch(/[⏱⏲]/);
+  });
+
+  it("puts the first view's terms in the filter line on v", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("today"));
+    expect(fetchNote).toHaveBeenCalledWith("99 Misc/01 Config/todo-views.md");
+    expect(pane.filter().value).toBe("due:today");
+    // The two due today, and neither of the four that are not.
+    expect(pane.rows()).toHaveLength(2);
+    expect(pane.texts().join()).toContain("wire up the pane");
+    expect(pane.texts().join()).not.toContain("call the dentist");
+  });
+
+  it("walks to the next view on a second v", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("doing"));
+    expect(pane.filter().value).toBe("/doing");
+    expect(pane.rows()).toHaveLength(1);
+  });
+
+  it("gives the whole list back one press past the last view", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    // One press per view the defaults hold, which lands on the last of them.
+    pane.press("v");
+    pane.press("v");
+    pane.press("v");
+    await waitFor(() => expect(pane.view()).toBe("important"));
+    pane.press("v");
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+    expect(pane.view()).toBe("");
+    expect(pane.filter().value).toBe("");
+  });
+
+  it("takes the name out of the header when the line is typed into", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+    await waitFor(() => expect(pane.view()).toBe("today"));
+    pane.type("#kasten");
+
+    await waitFor(() => expect(pane.view()).toBe(""));
+    expect(pane.filter().value).toBe("#kasten");
+  });
+
+  it("says so and narrows nothing where the vault answers with no views", async () => {
+    fetchNote.mockRejectedValueOnce(new Error("GET /api/files/… failed with 404"));
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("no views"));
+    expect(pane.rows()).toHaveLength(6);
+  });
+
+  it("says so for a note holding no line it can read", async () => {
+    fetchNote.mockResolvedValue("# Todo views\n\nNone written yet.\n");
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("no views"));
+    expect(pane.rows()).toHaveLength(6);
   });
 });

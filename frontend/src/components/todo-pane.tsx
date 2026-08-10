@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchTodos, type SearchHit } from "@/lib/api";
+import { fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
@@ -22,10 +22,12 @@ import {
   type Node,
   nextActionOf,
   type Placed,
+  parseViews,
   progressOf,
   SECTIONS,
   sectionOf,
   treeOf,
+  VIEWS_NOTE,
   waiting,
 } from "@/lib/todo-view";
 
@@ -186,6 +188,10 @@ export function TodoPane({
   today,
 }: TodoPaneProps) {
   const [typed, setTyped] = useState("");
+  /** Whether `v` has been pressed, which is what asks the vault for the views. */
+  const [asked, setAsked] = useState(false);
+  /** How many times `v` has been pressed. Which view that is, is read below. */
+  const [picked, setPicked] = useState(0);
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
   /** Which list is drawn: the open todos, `d`'s finished ones, or `n`'s actions. */
@@ -198,6 +204,38 @@ export function TodoPane({
   const held = useRef(false);
 
   const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
+
+  // The listing is already in the cache, put there by the route, so this asks
+  // whether the vault holds the views note without a request, and without a
+  // `try` around a `GET` that would have to tell a missing note from a backend
+  // that is down.
+  const { data: files } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
+  const missing = files !== undefined && !files.includes(VIEWS_NOTE);
+
+  const { data: note, isFetching: reading } = useQuery({
+    queryKey: ["note", VIEWS_NOTE],
+    queryFn: () => fetchNote(VIEWS_NOTE),
+    // Not on every pane open: most of them never reach a view, and the key is
+    // the one the editor reads notes with, so the answer is shared and the
+    // route's event handler keeps it fresh.
+    enabled: asked && files !== undefined && !missing,
+    // A note that is not there is an answer, not a blip.
+    retry: false,
+  });
+  const views = useMemo(() => parseViews(note ?? ""), [note]);
+
+  // Off the count rather than off a stored index: the press that starts the
+  // read happens with no views in hand, and this resolves it the moment they
+  // arrive. The slot past the last view is no view at all, which is how one
+  // more press gives the whole list back.
+  const slot = views.length === 0 ? 0 : picked % (views.length + 1);
+  const view = slot === 0 ? undefined : views[slot - 1];
+  /** What the list is filtered by: the view where one is showing, else what was typed. */
+  const line = view?.filter ?? typed;
+  // One slot for two answers, which cannot both be true. `no views` is the last
+  // resort, for a note holding no line this can read and for a create the vault
+  // refused: a key that does nothing and says nothing reads as broken.
+  const named = view?.name ?? (asked && !reading && views.length === 0 ? "no views" : undefined);
 
   // Every line the vault answered with, read once. One endpoint answers both
   // shapes, so a line is a todo or a session and never both, and the four memos
@@ -337,7 +375,7 @@ export function TodoPane({
   }, [parsed, today]);
 
   const shown = useMemo(() => {
-    const terms = parseFilter(typed);
+    const terms = parseFilter(line);
     const lists: Record<Mode, Row[]> = { open, done: finished, next };
     const kept = lists[mode].filter(({ todo }) => matchesFilter(todo, terms, today));
     if (terms.text === "") return kept;
@@ -350,7 +388,7 @@ export function TodoPane({
       ),
     );
     return kept.filter((_, index) => reads.has(index));
-  }, [open, finished, next, mode, typed, today]);
+  }, [open, finished, next, mode, line, today]);
 
   // The heading is the group's name here, not a lookup at the draw, because
   // `d` groups on a date and there is no table of every day there has been.
@@ -486,6 +524,13 @@ export function TodoPane({
         setMode((previous) => (previous === "next" ? "open" : "next"));
         setActive(0);
         break;
+      // ponytail: walking is the whole of the picker. An overlay is what to
+      // write the day a vault holds more views than are comfortable to walk.
+      case "v":
+        setAsked(true);
+        setPicked(picked + 1);
+        setActive(0);
+        break;
       // What vim spells a narrowing. `j` and `k` have to go on moving the
       // cursor, so the input cannot hold the focus by default.
       case "/":
@@ -529,9 +574,13 @@ export function TodoPane({
         <span className={LABEL}>todos</span>
         <input
           ref={filter}
-          value={typed}
+          value={line}
+          // A keystroke here carries the view's terms into `typed` whole, so
+          // the line goes on saying what the list is filtered by and the header
+          // stops naming a view it no longer holds.
           onChange={(event) => {
             setTyped(event.target.value);
+            setPicked(0);
             setActive(0);
           }}
           // Both ways out of the input, and both leave the filter applied.
@@ -545,6 +594,11 @@ export function TodoPane({
           spellCheck={false}
           className={INPUT}
         />
+        {named !== undefined && (
+          <span data-testid="todo-view" className={LABEL}>
+            {named}
+          </span>
+        )}
       </header>
 
       <div className="flex-1 overflow-auto py-1">
@@ -651,7 +705,8 @@ export function TodoPane({
         </span>
         <span>
           x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;t timer&ensp;&ensp;d
-          done&ensp;&ensp;n next&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+          done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/ filter&ensp;&ensp;q
+          close&ensp;&ensp;Escape editor
         </span>
       </footer>
     </section>

@@ -376,6 +376,7 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   },
   { key: "d", label: "Show what was finished in the last seven days" },
   { key: "n", label: "Show one next action per task" },
+  { key: "v", label: "Show the next saved view, or all todos again" },
   { key: "O", label: "Set the todo under the cursor to open" },
   { key: "P", label: "Set the todo under the cursor to doing" },
   { key: "X", label: "Set the todo under the cursor to done" },
