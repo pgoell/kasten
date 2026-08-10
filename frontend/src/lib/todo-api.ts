@@ -9,8 +9,9 @@
 import { createNote, fetchNote, type SearchHit, saveNote, searchNotes } from "@/lib/api";
 import { periodicNote } from "@/lib/periodic";
 import { newId, parseTodo } from "@/lib/todo";
+import type { TodoCycle } from "@/lib/todo-commands";
 import { expandShorthand } from "@/lib/todo-shorthand";
-import { addTodoWrites, cycleTodoWrites, type Write } from "@/lib/todo-write";
+import { addTodoWrites, cycleTodoWrites, doneLogWrites, type Write } from "@/lib/todo-write";
 
 /**
  * Today's daily note, and its text, which every write here lands in or beside.
@@ -51,6 +52,53 @@ export async function addTodoInVault(input: string, today: string, paths: string
     todo: expandShorthand(input, today),
   });
   await send(writes, paths);
+}
+
+/**
+ * The notes a `<leader>x` moves besides the one it was typed into.
+ *
+ * The buffer already carries the cycled line and autosave writes it, so this
+ * writes the `## Done` log and nothing else. It reads the vault only for a
+ * press that enters or leaves done, which is two presses out of six.
+ *
+ * A write to the note the key was typed into is dropped: the buffer owns that
+ * note, and a `PUT` over it would land on text somebody is still typing. The
+ * one thing that costs is a log line that somehow sits in the same note as its
+ * todo, which nothing kasten writes ever does.
+ */
+export async function logCycledTodoInVault(
+  path: string,
+  cycle: TodoCycle,
+  today: string,
+  paths: string[],
+): Promise<void> {
+  const was = parseTodo(cycle.before);
+  const now = parseTodo(cycle.after);
+  if (was?.state !== "done" && now?.state !== "done") return;
+
+  const id = now?.state === "done" ? now.id : was?.id;
+  const logged: Record<string, string> = {};
+  if (id !== undefined) {
+    for (const found of await searchNotes(id)) {
+      if (found.path !== path) logged[found.path] ??= await fetchNote(found.path);
+    }
+  }
+
+  const daily = await dailyNote(paths, logged);
+  const writes = doneLogWrites({
+    was,
+    now,
+    path,
+    dailyPath: daily.path,
+    dailyText: daily.text,
+    logged,
+    today,
+  });
+
+  await send(
+    writes.filter((write) => write.path !== path),
+    paths,
+  );
 }
 
 /** Read what the press needs, work out the writes, and send them. */

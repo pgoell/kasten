@@ -281,6 +281,13 @@ gives the words back as prose. It edits the buffer, so `u` undoes it and the
 autosave writes it. [The cycle](/reference/todo-format.md#the-cycle) says what
 each press stamps.
 
+The press that enters or leaves done also moves
+[the done log](/reference/todo-format.md#the-done-log), which lives in another
+note and which no buffer edit can reach. Only those two presses read the vault;
+the other four touch the buffer and nothing else. `u` puts the line back and
+leaves the log entry where it is, because undo is this document's history and
+the log is not in it. Press the key again to put the log right.
+
 The editor draws each state as a symbol in place of its box, `☐ ◐ ☑ ⊘ ☒`, and
 mutes and strikes through a line that is done or rejected. A due date that has
 passed is drawn in red. The whole drawing comes off the line the cursor is on,

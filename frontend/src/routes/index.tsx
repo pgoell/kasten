@@ -38,7 +38,8 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
-import { addTodoInVault, cycleTodoInVault } from "@/lib/todo-api";
+import { addTodoInVault, cycleTodoInVault, logCycledTodoInVault } from "@/lib/todo-api";
+import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
@@ -405,6 +406,26 @@ function Home() {
     void queryClient.invalidateQueries({ queryKey: ["files"] });
   }, [queryClient]);
 
+  /**
+   * Follow a `<leader>x` into the vault, from the editor.
+   *
+   * The buffer already carries the cycled line and autosave writes it, so this
+   * moves the `## Done` log and nothing else. It reads nothing at all for a
+   * press that touches neither end of done, which is most of them.
+   */
+  const logCycledTodo = useCallback(
+    (path: string, cycle: TodoCycle) => {
+      void logCycledTodoInVault(path, cycle, readClock(new Date()).date, data ?? []).then(
+        todosWritten,
+        () => {
+          // The vault refused the write. The line in the buffer stands, and the
+          // log is one `<leader>x` away from being asked for again.
+        },
+      );
+    },
+    [data, todosWritten],
+  );
+
   /** Walk one todo on, in the vault, from the pane's `x`. */
   const cycleTodo = useCallback(
     (hit: SearchHit) => {
@@ -712,6 +733,7 @@ function Home() {
                     onReload={focused ? reload : undefined}
                     onSave={save}
                     onFollow={follow}
+                    onCycleTodo={logCycledTodo}
                   />
                 )
               }

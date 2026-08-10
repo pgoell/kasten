@@ -5,7 +5,9 @@ import {
   type CycleInput,
   cycleTodoWrites,
   doneLine,
+  doneLogWrites,
   dropDone,
+  type LogInput,
 } from "@/lib/todo-write";
 
 /** The day every test below is written against, so no assertion expires. */
@@ -270,6 +272,54 @@ describe("cycleTodoWrites", () => {
     // The tick is on the line itself. A note linking to itself records nothing.
     expect(writes[0]?.text).toContain("- [x] call the dentist ⏫ ✅ 2026-08-10 🆔 kt-3f9a2c");
     expect(writes[0]?.text).not.toContain("- ✅");
+  });
+});
+
+/** One press read as the log alone, which is what the editor's key needs. */
+function logged(over: Partial<LogInput> = {}): LogInput {
+  return {
+    was: todo("- [/] wire up the pane #kasten"),
+    now: todo("- [x] wire up the pane #kasten ✅ 2026-08-10 🆔 kt-3f9a2c"),
+    path: NOTE_PATH,
+    dailyPath: DAILY_PATH,
+    dailyText: FRESH_DAILY,
+    logged: {},
+    today: TODAY,
+    ...over,
+  };
+}
+
+describe("doneLogWrites", () => {
+  // The log on its own, without the note the todo lives in. `<leader>x` cycles
+  // the buffer and autosave writes that note, so the key needs the other half
+  // and only the other half.
+  it("logs a todo that has entered done, and writes no note of its own", () => {
+    const writes = doneLogWrites(logged());
+
+    expect(writes.map((write) => write.path)).toEqual([DAILY_PATH]);
+    expect(writes[0]?.text).toContain(
+      "- ✅ 2026-08-10 wire up the pane #kasten [[projects/kasten]] kt-3f9a2c",
+    );
+  });
+
+  it("drops the line again when the todo leaves done", () => {
+    const writes = doneLogWrites(
+      logged({
+        was: todo("- [x] read the spec ✅ 2026-08-10 🆔 kt-000001"),
+        now: todo("- [b] read the spec 🆔 kt-000001"),
+        logged: { [DAILY_PATH]: DAILY },
+      }),
+    );
+
+    expect(writes.map((write) => write.path)).toEqual([DAILY_PATH]);
+    expect(writes[0]?.text).not.toContain("kt-000001");
+  });
+
+  it("writes nothing at all where the press touched neither end of done", () => {
+    const was = todo("- [ ] buy milk");
+    const now = todo("- [/] buy milk");
+
+    expect(doneLogWrites(logged({ was, now }))).toEqual([]);
   });
 });
 

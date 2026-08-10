@@ -11,6 +11,7 @@ import { editorCommands } from "@/lib/editor-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
+import { type CycleHandler, todoCycled } from "@/lib/todo-commands";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
@@ -323,6 +324,8 @@ interface EditorProps {
   onSave?: (doc: string) => void;
   /** Called with the note a `[[link]]` names when `gf` follows it. */
   onFollow?: (target: string) => void;
+  /** Called with the line `<leader>x` cycled, which the done log follows. */
+  onCycleTodo?: CycleHandler;
 }
 
 /**
@@ -346,6 +349,7 @@ export function Editor({
   onChange,
   onSave,
   onFollow,
+  onCycleTodo,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -359,6 +363,7 @@ export function Editor({
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const onFollowRef = useRef(onFollow);
+  const onCycleTodoRef = useRef(onCycleTodo);
   const allowReloadRef = useRef(allowReload);
   const onReloadRef = useRef(onReload);
 
@@ -367,9 +372,10 @@ export function Editor({
     onChangeRef.current = onChange;
     onSaveRef.current = onSave;
     onFollowRef.current = onFollow;
+    onCycleTodoRef.current = onCycleTodo;
     allowReloadRef.current = allowReload;
     onReloadRef.current = onReload;
-  }, [commands, onChange, onSave, onFollow, allowReload, onReload]);
+  }, [commands, onChange, onSave, onFollow, onCycleTodo, allowReload, onReload]);
 
   useEffect(() => {
     const parent = host.current;
@@ -397,6 +403,7 @@ export function Editor({
           backticks(),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           followHandler.of((target) => onFollowRef.current?.(target)),
+          todoCycled.of((cycle) => onCycleTodoRef.current?.(cycle)),
           // A pane with nothing to reload answers the way a refusal does, so
           // `:e` in one is a key that does nothing rather than a key that
           // throws.

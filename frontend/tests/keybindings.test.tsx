@@ -48,13 +48,20 @@ function content(container: HTMLElement): string {
 
 function open(initialDoc: string, commands: EditorCommands = stubCommands()) {
   const onChange = vi.fn();
+  const onCycleTodo = vi.fn();
   const { container } = render(
-    <Editor initialDoc={initialDoc} commands={commands} onChange={onChange} />,
+    <Editor
+      initialDoc={initialDoc}
+      commands={commands}
+      onChange={onChange}
+      onCycleTodo={onCycleTodo}
+    />,
   );
 
   return {
     container,
     editor: container.querySelector(".cm-content") as HTMLElement,
+    onCycleTodo,
     /** The document itself, which the rendered text hides the marks of. */
     doc: () => (onChange.mock.lastCall?.[0] as string | undefined) ?? initialDoc,
   };
@@ -412,6 +419,22 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "x" });
 
     expect(doc()).toBe(`- [ ] lain ➕ ${TODAY}`);
+  });
+
+  it("reports the line it cycled, so the done log can follow it", () => {
+    // The press edits the buffer and autosave writes it, which is what keeps
+    // `u` working. The `## Done` line lands in another note, so the route has
+    // to be told, and it is told what the line read before and after.
+    const { editor, onCycleTodo } = open("- [/] wire up the pane 🆔 kt-3f9a2c");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(onCycleTodo).toHaveBeenCalledWith({
+      before: "- [/] wire up the pane 🆔 kt-3f9a2c",
+      after: `- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c`,
+      line: 1,
+    });
   });
 
   it("stops space from moving the cursor", () => {
