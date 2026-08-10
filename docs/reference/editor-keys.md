@@ -31,11 +31,13 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
+| `<leader>ft` | Open the todo overlay |
 | `<leader>gb` | Show what links to the open note |
 | `<leader>gd` | Open today's note |
 | `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
 | `<leader>gq` | Open this quarter's note |
+| `<leader>gt` | Put the todo list in the focused pane |
 | `<leader>gw` | Open this week's note |
 | `<leader>gy` | Open this year's note |
 | `<leader>h` | Move to the pane on the left |
@@ -48,6 +50,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>rf` | Open the rename prompt |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
+| `<leader>x` | Cycle the todo on this line |
 | `<leader>%` | Split the pane left and right |
 | `<leader>"` | Split the pane top and bottom |
 | `<leader>1` to `<leader>0` | Go to a tab by number |
@@ -102,8 +105,8 @@ and start again from on and open when you reload the page.
 ## Panes and tabs
 
 The window divides the way tmux divides a terminal. A tab holds panes, a pane
-holds one note or one terminal, and every key above applies to the pane that has
-the focus.
+holds one note, one terminal or the todo list, and every key above applies to
+the pane that has the focus.
 
 `<leader>%` and `<leader>"` are tmux's own split keys, and the shape of each
 character says which way the pane divides: `%` sets the new pane beside this
@@ -147,13 +150,15 @@ goes through.
 tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
-left focused, or for the herdr session when that pane holds a terminal.
+left focused, for the herdr session when that pane holds a terminal, and
+`todos` when it holds the todo list.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
-holding a note it writes the note and empties the pane. On an empty pane it
-closes the pane. On the last pane of a tab it closes the tab. On the last pane
-of the last tab it does nothing, because a window with nothing on screen is not
-a state worth reaching.
+holding a note it writes the note and empties the pane, and it takes a terminal
+or the todo list out of a pane the same way. On an empty pane it closes the
+pane. On the last pane of a tab it closes the tab. On the last pane of the last
+tab it does nothing, because a window with nothing on screen is not a state
+worth reaching.
 
 An empty pane is an editor on an empty document, which is what the window has
 always shown with no note open. Text typed into one goes nowhere and closing
@@ -261,6 +266,109 @@ dropping every key until you clicked into it.
 A terminal pane is not in the URL. `?note=` names a note, and a terminal names
 nothing, so a reload comes back to an empty pane. `<leader>cs` and the session
 name is how you get back to it, which is the mechanism the sessions already have.
+
+## Todos
+
+A todo is a checkbox line in a note, and [Todo
+format](/reference/todo-format.md) is what one is written in. Three keys reach
+them. `<leader>x` makes and walks one where you are typing, `<leader>gt` puts
+the whole vault's list in the focused pane, and `<leader>ft` opens that same
+list as an overlay.
+
+`<leader>x` cycles the line the cursor is on. A plain line becomes `- [ ]`, four
+more presses walk it through doing, done, blocked and rejected, and a sixth
+gives the words back as prose. It edits the buffer, so `u` undoes it and the
+autosave writes it. [The cycle](/reference/todo-format.md#the-cycle) says what
+each press stamps.
+
+The editor draws each state as a symbol in place of its box, `☐ ◐ ☑ ⊘ ☒`, and
+mutes and strikes through a line that is done or rejected. A due date that has
+passed is drawn in red. The whole drawing comes off the line the cursor is on,
+in insert and visual mode, the way every other construct does, so `i` hands the
+`- [x] ` back. The red is the one part that stays, because it colours text that
+is on screen either way rather than standing in for characters.
+
+Today's date is read when the editor builds its rendering, so a tab left open
+across midnight keeps yesterday's idea of overdue until it reloads.
+
+## The todo pane
+
+`<leader>gt` fills the focused pane with every open todo in the vault, grouped
+by when it is due, under Overdue, Today, This week, Later and No date. An empty
+group draws no heading. A row is the state's symbol, the priority where there is
+one, the words, and the day of the due date. A blocked row is drawn muted and
+sits in the group its due date names rather than under a heading of its own, its
+state already being written on the line. The footer counts the rows, so many
+open and so many blocked.
+
+Only open todos are listed. One that is done or rejected is not work, and the
+session lines `GET /api/todos` also matches are not todos, so neither is here.
+
+| Key | Does |
+| --- | --- |
+| `j` / `k` | Move the cursor down or up |
+| Enter | Open the note the todo is in |
+| `x` | Cycle the todo under the cursor |
+| `a` | Add a todo to today's note |
+| `d` | Show what was finished in the last seven days |
+| `/` | Narrow the list |
+| `q` | Close the pane |
+| Escape | Back to the editor |
+
+Leader sequences work here too, so `<leader>gd` opens today's note from inside
+the pane. `<leader>x` is not among them, and that is right: there is no buffer
+under this cursor, and the bare `x` is the key that acts on a row.
+
+Enter opens the note into this pane, which is what clicking a row in the file
+tree already does, and `<leader>gt` brings the list back in one press.
+
+`x` writes the vault rather than a buffer. The note the row names is read again
+first, so a row that has gone stale since the last fetch cycles nothing, and the
+note redraws in whatever pane is showing it. Ticking one done also writes the
+[done log](/reference/todo-format.md#the-done-log) line into today's daily note.
+
+`/` moves the focus to the filter line, because `j` and `k` have to go on moving
+the cursor. Escape or Enter hands the focus back to the list and leaves the
+filter applied. [Filter terms](/reference/todo-format.md#filter-terms) are what
+it takes. Anything that is not a term ranks as text, and here the ranking
+decides only which rows stay: the groups keep the order.
+
+`d` swaps the list for what was finished in the last seven days, grouped by the
+day it was finished rather than by when it was due, newest day first. A finished
+todo has no due date worth grouping on, and a list reaching back to the
+beginning of the vault is not one anybody reads to the end of. Pressing `d`
+again brings the open list back.
+
+`a` opens the add prompt over the pane. Type one line of
+[shorthand](/reference/todo-format.md#the-add-prompts-shorthand), read the line
+it will write under the input, and Enter puts it under `## TODOs` in today's
+daily note, making that note where the vault has none. Escape closes and writes
+nothing, and Enter on an empty input does nothing.
+
+The pane is not in the URL. Terminal panes are not either, and the arrangement
+of panes is already lost on a reload, so a reload comes back to an empty pane
+and `<leader>gt` is one press.
+
+The list is read again on every write the vault reports over `/api/events`, so a
+todo written by an agent or over ssh appears without a reload.
+
+## The todo overlay
+
+`<leader>ft` asks the same question in the panel the finder and search use:
+ranked list on the left, the note under the highlight rendered on the right, and
+Enter opens it on the todo's line. A row is the note, the line number, the
+todo's state symbol beside its words, and the due date where it has one. The
+keys are [the note search's](#the-note-search).
+
+It is that panel's backlinks mode rather than its search mode. The vault is
+asked once and typing only ranks what came back, because what there is to do is
+a set the vault decides and the input was never choosing the rows. So there is
+no debounce here and no scan per keystroke.
+
+The line underneath says `no open todos` for a vault with nothing to do in it.
+
+The overlay and the pane share one answer, so opening one after the other reads
+the vault once.
 
 ## Formatting
 

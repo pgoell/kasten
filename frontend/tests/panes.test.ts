@@ -11,6 +11,7 @@ import {
   nextPane,
   openInFocused,
   openTerminalInFocused,
+  openTodosInFocused,
   panesOf,
   removeFocused,
   splitFocused,
@@ -296,6 +297,28 @@ describe("a terminal in a pane", () => {
 
     expect(tabPanes(layout).map((pane) => pane.term ?? null)).toEqual([null, "kasten"]);
     expect(notes(layout)).toEqual(["moved/a.md", null]);
+  });
+});
+
+describe("the todo list in a pane", () => {
+  it("takes the note out of the pane it replaces, keeping its id", () => {
+    const before = emptyLayout("a.md", 12);
+    const layout = openTodosInFocused(before);
+
+    expect(focusedPane(layout).todos).toBe(true);
+    expect(focusedPane(layout).path).toBeUndefined();
+    expect(focusedPane(layout).line).toBeUndefined();
+    // The tab names its focused pane by id, so a new one would lose track of it.
+    expect(focusedPane(layout).id).toBe(focusedPane(before).id);
+  });
+
+  it("is taken out of the pane by a clear, leaving the pane on screen", () => {
+    // What `<leader>q` reaches. Emptying rather than removing, so a window
+    // holding only the todo list has a way back to an editor.
+    const layout = clearFocused(openTodosInFocused(emptyLayout()));
+
+    expect(focusedPane(layout).todos).toBeUndefined();
+    expect(tabPanes(layout)).toHaveLength(1);
   });
 });
 

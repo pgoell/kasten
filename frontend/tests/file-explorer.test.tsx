@@ -63,6 +63,8 @@ function Harness({
         renameFolder: onRenameFolder ?? (() => {}),
         findNote: onFindNote ?? (() => {}),
         searchNotes: onSearchNotes ?? (() => {}),
+        findTodos: () => {},
+        openTodos: () => {},
         showBacklinks: () => {},
         showLinksOut: () => {},
         openDaily: () => {},

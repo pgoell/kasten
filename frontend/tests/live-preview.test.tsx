@@ -197,6 +197,76 @@ describe("live preview", () => {
     expect(nested?.style.paddingLeft).toBe("3.2em");
   });
 
+  it("draws each of the five todo states in place of its box", () => {
+    // The symbol is a `::before` the way the bullet's dot is, and jsdom
+    // computes neither, so the class that carries it is what is read here.
+    for (const [box, state] of [
+      [" ", "open"],
+      ["/", "doing"],
+      ["x", "done"],
+      ["b", "blocked"],
+      ["-", "rejected"],
+    ]) {
+      const { container, unmount } = render(<Editor initialDoc={`- [${box}] task`} />);
+
+      expect(content(container)).toBe("task");
+      expect(container.querySelector(`.cm-todo-${state}`)).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it("draws a bullet holding a wikilink as a bullet, that being no todo", () => {
+    const { container } = render(<Editor initialDoc="- [[borges]]" />);
+
+    expect(container.querySelector("[class*='cm-todo']")).toBeNull();
+    expect(container.querySelector(".cm-bullet")).not.toBeNull();
+  });
+
+  it("hands the box back on the line being edited", async () => {
+    const { container } = render(<Editor initialDoc={"- [/] task"} />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    // The symbol goes with it, or the line carries the drawing and its source.
+    await waitFor(() => expect(content(container)).toContain("- [/] "));
+    expect(container.querySelector("[class*='cm-todo']")).toBeNull();
+  });
+
+  it("keeps the cursor out of the box it hid", () => {
+    // The hidden run on a todo is six characters rather than the bullet's two,
+    // so the walk that keeps a cursor off them has further to go.
+    const { container } = render(<Editor initialDoc="- [ ] task" />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "0" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(content(container)).toBe("ask");
+  });
+
+  it("colours a due date that has passed", () => {
+    // Two dates nothing can reach, so the assertion holds on any day the suite
+    // runs: one before every possible today and one after.
+    const { container } = render(
+      <Editor initialDoc={"- [ ] late 📅 1970-01-01\n- [ ] soon 📅 2999-01-01"} />,
+    );
+
+    const overdue = container.querySelectorAll(".cm-todo-overdue");
+    expect(overdue).toHaveLength(1);
+    expect(overdue[0]?.textContent).toBe("📅 1970-01-01");
+  });
+
+  it("keeps the overdue colour on the line being edited", async () => {
+    // Unlike the symbol, the red stands in for nothing: it is colour on text
+    // that is on the screen whether the line shows its source or not.
+    const { container } = render(<Editor initialDoc={"- [ ] late 📅 1970-01-01"} />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toContain("- [ ] "));
+    expect(container.querySelectorAll(".cm-todo-overdue")).toHaveLength(1);
+  });
+
   it("leaves the text of tables and code fences untouched", () => {
     // A fence is drawn as a block but nothing in it is hidden: the language and
     // the backticks are part of what you came to read. A table gets neither,

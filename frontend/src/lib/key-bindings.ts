@@ -1,4 +1,6 @@
+import type { EditorView } from "@codemirror/view";
 import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-commands";
+import { cycleTodoAtCursor } from "@/lib/todo-commands";
 
 /**
  * Every binding the app owns, in one table.
@@ -24,6 +26,10 @@ export interface EditorCommands {
   findNote(): void;
   /** Open search over note content, which starts from nowhere the way the finder does. */
   searchNotes(): void;
+  /** Open the todo overlay, which ranks every todo the vault holds. */
+  findTodos(): void;
+  /** Put the todo list in the focused pane, replacing whatever was there. */
+  openTodos(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */
@@ -114,6 +120,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // reason the two belong together: one finds a note by its name, the other by
   // what is written in it.
   { key: "fg", label: "Search note content", command: "searchNotes" },
+  // The third of the `f` group. A todo is another thing you go looking for by
+  // name, so it sits beside the note and the line rather than under `g`, which
+  // is where the pane holding the same list lives.
+  { key: "ft", label: "Find a todo", command: "findTodos" },
   // `g` for go, then the direction. Obsidian calls the pair backlinks and
   // outgoing links, and `b` and `o` are those two words. Neither can be a bare
   // letter: `b` folds the tree away and `o` opens a line in vim.
@@ -125,6 +135,9 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
   { key: "gq", label: "Open this quarter's note", command: "openQuarterly" },
+  // `g` for go, and the pane it goes to holds the todos. `ct` is spent on a
+  // tab, which is why this is not under `c`.
+  { key: "gt", label: "Open the todo pane", command: "openTodos" },
   { key: "gw", label: "Open this week's note", command: "openWeekly" },
   { key: "gy", label: "Open this year's note", command: "openYearly" },
   // The directions vim already reads, one press from the leader. Which pane is
@@ -161,6 +174,27 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "%", label: "Split the pane left and right", command: "splitRight" },
   { key: '"', label: "Split the pane top and bottom", command: "splitDown" },
   { key: "?", label: "Show the keys", command: "showHelp" },
+];
+
+export interface LeaderEdit {
+  /** The keys pressed after the leader, as in `LEADER`. */
+  key: string;
+  label: string;
+  run: (view: EditorView) => void;
+}
+
+/**
+ * Leader keys that edit the buffer, so they name no command on `EditorCommands`.
+ *
+ * Every row of `LEADER` names something the route provides, and the route has
+ * no view to write into. These carry the work itself instead, the way `FORMAT`
+ * carries its spec, and `editor-commands.ts` hands each one the view the key
+ * was typed into.
+ */
+export const LEADER_EDITS: readonly LeaderEdit[] = [
+  // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
+  // binding spell a tick, and bare `x` in normal mode is vim's own cut.
+  { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },
 ];
 
 /**
@@ -301,5 +335,23 @@ export const TREE: readonly { key: string; label: string }[] = [
   { key: "s", label: "Search every note's content" },
   { key: "r", label: "Rename the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
+  { key: "Escape", label: "Back to the editor" },
+];
+
+/**
+ * What the keys do inside the todo pane.
+ *
+ * Display only, the way `TREE` is: the pane resolves its own keys in one
+ * switch. It lists the whole set the phase arrives at, so the reference page
+ * and the help panel describe one pane rather than each other.
+ */
+export const TODO_PANE: readonly { key: string; label: string }[] = [
+  { key: "j / k", label: "Move the cursor down or up" },
+  { key: "Enter", label: "Open the note the todo is in" },
+  { key: "x", label: "Cycle the todo under the cursor" },
+  { key: "a", label: "Add a todo to today's note" },
+  { key: "d", label: "Show what was finished in the last seven days" },
+  { key: "/", label: "Narrow the list" },
+  { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Back to the editor" },
 ];

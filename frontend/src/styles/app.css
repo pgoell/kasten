@@ -149,6 +149,54 @@ body {
   color: var(--color-one-accent);
 }
 
+/* A todo is a bullet whose dot says what state it is in. The box is hidden
+   along with the dash, so the symbol hangs where the dot would have, one step
+   wider because a box is wider than a dot. */
+.cm-todo {
+  text-indent: -1.4em;
+}
+
+.cm-todo-open::before {
+  content: "☐ ";
+  color: var(--color-one-muted);
+}
+
+.cm-todo-doing::before {
+  content: "◐ ";
+  color: var(--color-one-accent);
+}
+
+.cm-todo-done::before {
+  content: "☑ ";
+  color: var(--color-one-green);
+}
+
+/* Yellow, the colour this palette waits in. Blocked is not a failure and not a
+   finish: it is a todo somebody else is holding. */
+.cm-todo-blocked::before {
+  content: "⊘ ";
+  color: var(--color-one-yellow);
+}
+
+.cm-todo-rejected::before {
+  content: "☒ ";
+  color: var(--color-one-muted);
+}
+
+/* Off the list either way, whether it was finished or dropped, so the words
+   step back the way a struck-through span does. */
+.cm-todo-done,
+.cm-todo-rejected {
+  color: var(--color-one-muted);
+  text-decoration: line-through;
+}
+
+/* A date that has passed. Red on the text rather than on the row: the row is
+   still a todo like any other, and one word of it is the news. */
+.cm-todo-overdue {
+  color: var(--color-one-warn);
+}
+
 /* A wikilink wears what a markdown link wears. Both open something, and which
    of the two it is is already on the screen: one shows a note's name, the
    other the words someone wrote over a URL. */

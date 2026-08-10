@@ -11,7 +11,10 @@ event loop for as long as it runs; this one holds it for none of it.
 
 import asyncio
 from pathlib import Path
-from typing import NamedTuple, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 MOST_HITS = 2_000
 """How many matching lines come back at most.
@@ -92,36 +95,29 @@ async def notes_holding(root: Path, text: str) -> list[str]:
     return [str(Path(path).relative_to(root)) for path in found if path]
 
 
-async def search_vault(root: Path, query: str) -> list[Hit]:
-    """Every line in the vault containing `query`, ignoring case, up to `MOST_HITS`."""
-    # An empty literal matches every line there is, so the query that has not
-    # been typed yet would be the most expensive one the vault can answer.
-    #
-    # A vault that is not there needs no guard of its own. rg says so on stderr
-    # and writes nothing to stdout, which arrives here as no matches, and
-    # asking the filesystem first would only be a blocking call on the way to
-    # the same answer.
-    if not query.strip():
-        return []
+async def scan_vault(root: Path, matcher: Sequence[str], cap: int) -> list[Hit]:
+    """Every line rg matches, up to `cap`. `matcher` carries the pattern and its flags.
 
+    Every reader of lines goes through here, so the two cannot drift into
+    reporting a hit differently. What a reader chooses is the pattern, how it is
+    read and how many lines it is worth waiting for; everything else about the
+    scan is the same question asked of the same vault.
+
+    A vault that is not there needs no guard. rg says so on stderr and writes
+    nothing to stdout, which arrives here as no matches, and asking the
+    filesystem first would only be a blocking call on the way to the same answer.
+    """
     process = await asyncio.create_subprocess_exec(
         "rg",
-        # A literal, so `index.` finds the end of a sentence and a half-typed
-        # `[[like` is a query rather than an error. Nothing here is a regex,
-        # and the client is what makes the result feel fuzzy.
-        "--fixed-strings",
-        "--ignore-case",
         "--line-number",
         "--with-filename",
         "--no-heading",
         "--null",
-        # Search has to see exactly what `GET /api/files` lists, and these are
+        # A reader has to see exactly what `GET /api/files` lists, and these are
         # where rg would otherwise disagree with it.
         *SEEN_BY_THE_LISTING,
-        # `-e` so a query starting with a dash is a query and not a flag, and
-        # `--` so the same is true of the path after it.
-        "-e",
-        query,
+        *matcher,
+        # `--` so a path starting with a dash is a path and not a flag.
         "--",
         str(root),
         stdout=asyncio.subprocess.PIPE,
@@ -138,7 +134,7 @@ async def search_vault(root: Path, query: str) -> list[Hit]:
         path, _, rest = raw.decode("utf-8", "replace").rstrip("\n").partition("\0")
         number, _, text = rest.partition(":")
         hits.append(Hit(path=str(Path(path).relative_to(root)), line=int(number), text=text))
-        if len(hits) == MOST_HITS:
+        if len(hits) == cap:
             break
 
     # Counted here rather than handed to `--max-count`, which counts per file
@@ -149,3 +145,18 @@ async def search_vault(root: Path, query: str) -> list[Hit]:
         process.kill()
     await process.wait()
     return hits
+
+
+async def search_vault(root: Path, query: str) -> list[Hit]:
+    """Every line in the vault containing `query`, ignoring case, up to `MOST_HITS`."""
+    # An empty literal matches every line there is, so the query that has not
+    # been typed yet would be the most expensive one the vault can answer.
+    if not query.strip():
+        return []
+
+    # A literal, so `index.` finds the end of a sentence and a half-typed
+    # `[[like` is a query rather than an error. Nothing here is a regex, and the
+    # client is what makes the result feel fuzzy. `-e` so a query starting with
+    # a dash is a query and not a flag.
+    matcher = ("--fixed-strings", "--ignore-case", "-e", query)
+    return await scan_vault(root, matcher, MOST_HITS)

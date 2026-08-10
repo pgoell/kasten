@@ -1,0 +1,402 @@
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fetchTodos, type SearchHit } from "@/lib/api";
+import { shiftDay } from "@/lib/clock";
+import { rankLines } from "@/lib/fuzzy";
+import { type EditorCommands, LEADER } from "@/lib/key-bindings";
+import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
+import { isOpen, PRIORITY_SYMBOL, parseTodo, STATE_SYMBOL, type Todo } from "@/lib/todo";
+import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
+
+export type Section = "overdue" | "today" | "week" | "later" | "none";
+
+/** In the order the pane draws them: what is late first, what has no date last. */
+const SECTIONS: readonly Section[] = ["overdue", "today", "week", "later", "none"];
+
+const HEADING: Record<Section, string> = {
+  overdue: "Overdue",
+  today: "Today",
+  week: "This week",
+  later: "Later",
+  none: "No date",
+};
+
+/**
+ * Which group a todo belongs to, read off its due date alone.
+ *
+ * The scheduled and start dates are phase 2, and they are what move a row out
+ * of the group its due date names, so phase 1 reads `📅` and nothing else. ISO
+ * dates sort as strings, which is the whole of the maths.
+ */
+export function sectionOf(todo: Todo, today: string): Section {
+  if (todo.due === undefined) return "none";
+  if (todo.due < today) return "overdue";
+  if (todo.due === today) return "today";
+  // The window `due:<7d` names, so the seventh day out is already later.
+  return todo.due < shiftDay(today, 7) ? "week" : "later";
+}
+
+/** One drawn row: the line the vault answered with, and that line read. */
+interface Row {
+  hit: SearchHit;
+  todo: Todo;
+}
+
+function rowKey(hit: SearchHit): string {
+  return `${hit.path}:${hit.line}`;
+}
+
+/** The keyboard cursor, drawn the way the file tree draws its own. */
+const CURSOR = [
+  "outline-1 -outline-offset-1 outline-one-cursor/45",
+  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
+].join(" ");
+
+interface TodoPaneProps {
+  /** Reached by a leader sequence typed here, so every leader key still works. */
+  commands: EditorCommands;
+  onOpen: (path: string, line: number) => void;
+  /**
+   * Walk the row's todo one step on, in the vault.
+   *
+   * The hit rather than the todo: the write reads the note off disk again, and
+   * the path and the line are how it finds the line to cycle.
+   */
+  onCycle: (hit: SearchHit) => void;
+  /** Open the prompt that writes a todo into today's note. */
+  onAdd: () => void;
+  /** Raised by the route when this pane has been moved to. See `Editor`. */
+  focusSignal: number;
+  /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
+  today: string;
+}
+
+/**
+ * How far back `d` reaches, in days.
+ *
+ * Seven, and read the way `due:<7d` is read, so the seventh day back is already
+ * out. A list reaching to the beginning of the vault is not one anybody reads
+ * to the end of.
+ */
+const DONE_DAYS = 7;
+
+/**
+ * Every open todo the vault holds, grouped by when it is due.
+ *
+ * A third thing a pane can hold, beside a note and a terminal. It asks the
+ * vault once and narrows what came back, the way the todo overlay does and for
+ * the same reason: what there is to do is a set the vault decides, and the
+ * filter line was never choosing the rows. The two share a query key, so
+ * opening one after the other reads one answer.
+ *
+ * The keys are resolved the way `file-explorer.tsx` resolves its own, a pending
+ * sequence first, so the leader reaches everything from in here. `<leader>x` is
+ * not among them, which is right: there is no buffer under this cursor, and the
+ * bare `x` is the key that will act on a row.
+ */
+export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today }: TodoPaneProps) {
+  const [typed, setTyped] = useState("");
+  /** Which row the keys act on. */
+  const [active, setActive] = useState(0);
+  /** What `d` swaps in: the last seven days of finished work, in place of the list. */
+  const [showDone, setShowDone] = useState(false);
+  /** The keys of an unfinished leader sequence, starting with the space. */
+  const [pending, setPending] = useState("");
+  const panel = useRef<HTMLElement>(null);
+  const filter = useRef<HTMLInputElement>(null);
+  /** Whether the keys are ours, so a row that leaves can hand them back. */
+  const held = useRef(false);
+
+  const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
+
+  // The endpoint matches the shape of a checkbox and nothing else, so reading
+  // each line is what drops the `## Time` sessions and the finished todos.
+  const open = useMemo(() => {
+    const found: Row[] = [];
+    for (const hit of data ?? []) {
+      const todo = parseTodo(hit.text);
+      if (todo !== null && isOpen(todo)) found.push({ hit, todo });
+    }
+    return found;
+  }, [data]);
+
+  // What `d` shows. Grouped on the day it was finished rather than on the day
+  // it was due: a finished todo has no due date worth grouping on.
+  const finished = useMemo(() => {
+    const since = shiftDay(today, -DONE_DAYS);
+    const found: Row[] = [];
+    for (const hit of data ?? []) {
+      const todo = parseTodo(hit.text);
+      if (todo?.done !== undefined && todo.done > since) found.push({ hit, todo });
+    }
+    return found;
+  }, [data, today]);
+
+  const shown = useMemo(() => {
+    const terms = parseFilter(typed);
+    const kept = (showDone ? finished : open).filter(({ todo }) =>
+      matchesFilter(todo, terms, today),
+    );
+    if (terms.text === "") return kept;
+    // Whatever was not a term ranks as text, the way it does everywhere else.
+    // Here the ranking only decides membership: the sections set the order.
+    const reads = new Set(
+      rankLines(
+        kept.map(({ todo }) => todo.text),
+        terms.text,
+      ),
+    );
+    return kept.filter((_, index) => reads.has(index));
+  }, [open, finished, showDone, typed, today]);
+
+  // The heading is the group's name here, not a lookup at the draw, because
+  // `d` groups on a date and there is no table of every day there has been.
+  const groups = useMemo(() => {
+    if (showDone) {
+      // Newest day first, which ISO dates sort into by themselves.
+      const days = [...new Set(shown.map(({ todo }) => todo.done ?? ""))].sort().reverse();
+      return days.map((heading) => ({
+        heading,
+        rows: shown.filter(({ todo }) => todo.done === heading),
+      }));
+    }
+    return SECTIONS.map((section) => ({
+      heading: HEADING[section],
+      rows: shown.filter((row) => sectionOf(row.todo, today) === section),
+    })).filter((group) => group.rows.length > 0);
+  }, [shown, showDone, today]);
+  // The same rows flattened, because `j` and `k` move down a list and a heading
+  // is not a row the cursor can sit on.
+  const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+
+  // Narrowing the list can strand the cursor past the end of it.
+  const cursor = Math.min(active, Math.max(rows.length - 1, 0));
+  const at = rows[cursor];
+  const cursorKey = at === undefined ? "" : rowKey(at.hit);
+
+  const blocked = shown.filter(({ todo }) => todo.state === "blocked").length;
+
+  // Arriving from another pane, which unmounted whatever held the focus, so
+  // nothing but this can take it. The section rather than a row: the rows come
+  // with the query a render later, and the effect below moves the focus onto
+  // one the moment they do. It is also the only thing left to focus when there
+  // is nothing to do, and `q` has to work on an empty list.
+  //
+  // Unlike `file-explorer.tsx`, which guards its first render, this pane mounts
+  // when it is moved to, so its first render is the arrival.
+  useEffect(() => {
+    if (focusSignal) panel.current?.focus();
+  }, [focusSignal]);
+
+  // Only when the keys are already ours, and never while the filter holds them:
+  // typing narrows the list, which moves the cursor, and following it would
+  // pull the focus out of the input mid-word.
+  //
+  // `dropped` is the case `contains` cannot see. `x` writes, the list is asked
+  // again, and the row the cursor was on leaves it. The browser hands the focus
+  // to the body rather than to whatever replaced the row, so without this the
+  // first thing you tick off leaves the pane deaf to every key after it.
+  useEffect(() => {
+    const element = panel.current;
+    if (!element) return;
+    const dropped = held.current && document.activeElement === document.body;
+    if (!dropped && !element.contains(document.activeElement)) return;
+    if (document.activeElement === filter.current) return;
+    (element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`) ?? element).focus();
+  }, [cursorKey]);
+
+  /** Hand the focus back to the list, which is where the keys below act. */
+  function focusList() {
+    const element = panel.current;
+    // The section when there is no row to land on, so the keys still reach it.
+    (element?.querySelector<HTMLElement>('[tabindex="0"]') ?? element)?.focus();
+  }
+
+  function onKeyDown(event: React.KeyboardEvent) {
+    // Typing into the filter is not the list's keys: `j` there is a letter.
+    if (event.target === filter.current) return;
+    const { key } = event;
+
+    if (pending) {
+      const sequence = pending + key;
+      const wanted = sequence.slice(1);
+      const binding = LEADER.find((entry) => entry.key === wanted);
+      // A leader key can be more than one letter, so a sequence that still
+      // prefixes one waits for the rest instead of being dropped.
+      const partial = !binding && LEADER.some((entry) => entry.key.startsWith(wanted));
+      setPending(partial ? sequence : "");
+
+      if (binding) {
+        event.preventDefault();
+        // With no argument, every one of them: no row here names a note the
+        // way the file tree's cursor does.
+        commands[binding.command]();
+      }
+      return;
+    }
+
+    switch (key) {
+      case "j":
+        setActive(Math.min(cursor + 1, rows.length - 1));
+        break;
+      case "k":
+        setActive(Math.max(cursor - 1, 0));
+        break;
+      case " ":
+        setPending(key);
+        break;
+      case "Enter":
+        if (at !== undefined) onOpen(at.hit.path, at.hit.line);
+        break;
+      // The editor's `<leader>x` said without the leader, which a pane holding
+      // no buffer has no need of.
+      case "x":
+        if (at !== undefined) onCycle(at.hit);
+        break;
+      // The one key here that writes a note nothing on screen names: the todo
+      // goes into today's, wherever the cursor happens to be sitting.
+      case "a":
+        onAdd();
+        break;
+      case "d":
+        setShowDone((previous) => !previous);
+        setActive(0);
+        break;
+      // What vim spells a narrowing. `j` and `k` have to go on moving the
+      // cursor, so the input cannot hold the focus by default.
+      case "/":
+        filter.current?.focus();
+        break;
+      case "q":
+        commands.closeNote();
+        break;
+      case "Escape":
+        // The editor is the only other place the focus belongs, and it owns no
+        // React handle here, so the pane finds it the way the reader sees it.
+        document.querySelector<HTMLElement>(".cm-content")?.focus();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  }
+
+  return (
+    // The handler sits on the pane, not the rows: the keys act on the row the
+    // cursor is on, which is not always the one holding focus.
+    <section
+      ref={panel}
+      aria-label="Todos"
+      onFocus={() => {
+        held.current = true;
+      }}
+      // Only a move onto something outside gives the keys up. A row that
+      // unmounts fires no blur at all, which is exactly the case above.
+      onBlur={(event) => {
+        held.current = panel.current?.contains(event.relatedTarget) === true;
+      }}
+      // Focusable, but not in the tab order: the cursor row is the tab stop,
+      // and this is where the focus rests before a row exists to hold it.
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+      className="flex h-full flex-col bg-one-bg font-mono"
+    >
+      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+        <span className={LABEL}>todos</span>
+        <input
+          ref={filter}
+          value={typed}
+          onChange={(event) => {
+            setTyped(event.target.value);
+            setActive(0);
+          }}
+          // Both ways out of the input, and both leave the filter applied.
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" && event.key !== "Enter") return;
+            event.preventDefault();
+            focusList();
+          }}
+          aria-label="filter todos"
+          autoComplete="off"
+          spellCheck={false}
+          className={INPUT}
+        />
+      </header>
+
+      <div className="flex-1 overflow-auto py-1">
+        {rows.length === 0 ? (
+          <p className="px-3 py-1 text-[13px] text-one-muted">
+            {showDone ? "nothing finished" : "nothing to do"}
+          </p>
+        ) : (
+          groups.map(({ heading, rows: group }) => (
+            <div key={heading}>
+              <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
+                {heading}
+              </h3>
+              {group.map(({ hit, todo }) => {
+                const key = rowKey(hit);
+                // One tab stop for the whole pane: tab reaches the cursor, and
+                // the vim keys move it from there.
+                const tabIndex = key === cursorKey ? 0 : -1;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    data-row={key}
+                    tabIndex={tabIndex}
+                    onClick={() => onOpen(hit.path, hit.line)}
+                    title={key}
+                    // A blocked row is drawn muted rather than gathered under a
+                    // heading of its own: its state is written on the line, and
+                    // the date group is still where the work belongs.
+                    className={`${ROW} flex gap-2 ${
+                      todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
+                    } ${tabIndex === 0 ? CURSOR : ""}`}
+                  >
+                    <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>
+                    {/* Between the state and the words, where the spec's mock
+                        puts it, and absent rather than blank on a row that
+                        carries none. */}
+                    {todo.priority !== undefined && (
+                      <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{todo.text}</span>
+                    {/* Out of the truncation, so a long todo loses its words
+                        rather than the date they are due on. The year is the
+                        heading's job: every row under one shares it. */}
+                    {todo.due !== undefined && (
+                      <span className="shrink-0 text-one-muted">{todo.due.slice(5)}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Only the keys this phase binds. A footer offering one that does
+          nothing is worse than a short one. */}
+      <footer
+        data-testid="todo-footer"
+        className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
+      >
+        <span>
+          {showDone ? (
+            `${shown.length} finished`
+          ) : (
+            <>
+              {shown.length - blocked} open, {blocked} blocked
+            </>
+          )}
+        </span>
+        <span>
+          x cycle&ensp;&ensp;a add&ensp;&ensp;d done&ensp;&ensp;/ filter&ensp;&ensp;q
+          close&ensp;&ensp;Escape editor
+        </span>
+      </footer>
+    </section>
+  );
+}

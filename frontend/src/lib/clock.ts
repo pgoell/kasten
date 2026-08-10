@@ -41,6 +41,18 @@ export function isoWeek(date: Date): { year: number; week: number } {
   return { year, week: Math.floor((thisWeeksThursday - yearStart) / DAY_MS / 7) + 1 };
 }
 
+/**
+ * A `YYYY-MM-DD` moved by whole days.
+ *
+ * UTC throughout, so the hour a daylight saving change takes away cannot land
+ * the answer on the day before, which is the same care `isoWeek` takes above.
+ */
+export function shiftDay(day: string, days: number): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  at.setUTCDate(at.getUTCDate() + days);
+  return at.toISOString().slice(0, 10);
+}
+
 export interface Clock {
   weekday: string;
   /** ISO 8601, the shape the vault names its daily notes in. */

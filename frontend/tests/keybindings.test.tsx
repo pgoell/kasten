@@ -1,7 +1,11 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
+import { readClock } from "@/lib/clock";
 import type { EditorCommands } from "@/lib/key-bindings";
+
+/** Read from the same helper the command reads it from, so this cannot expire. */
+const TODAY = readClock(new Date()).date;
 
 function stubCommands() {
   return {
@@ -13,6 +17,8 @@ function stubCommands() {
     renameNote: vi.fn(),
     findNote: vi.fn(),
     searchNotes: vi.fn(),
+    findTodos: vi.fn(),
+    openTodos: vi.fn(),
     showBacklinks: vi.fn(),
     showLinksOut: vi.fn(),
     openDaily: vi.fn(),
@@ -142,6 +148,20 @@ describe("the leader key", () => {
 
     expect(commands.searchNotes).toHaveBeenCalledTimes(1);
     expect(commands.findNote).not.toHaveBeenCalled();
+  });
+
+  it("runs the todo overlay command on space then f then t", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "f" });
+    fireEvent.keyDown(editor, { key: "t" });
+
+    expect(commands.findTodos).toHaveBeenCalledTimes(1);
+    // The third member of the `f` group, and neither of the other two fires.
+    expect(commands.findNote).not.toHaveBeenCalled();
+    expect(commands.searchNotes).not.toHaveBeenCalled();
   });
 
   it("runs the backlinks command on space then g then b", () => {
@@ -372,16 +392,39 @@ describe("the leader key", () => {
     }
   });
 
-  it("stops space from moving the cursor", () => {
-    const { container, editor } = open("plain");
+  it("makes a todo of the line under the cursor on space then x", () => {
+    const { editor, doc } = open("plain");
 
-    // Vim ships `<Space>` bound to `l`. Were it still bound, the space would
-    // step onto the `l` and `x` would cut it, leaving "pain". Read through a
-    // delete because moving a cursor leaves the text alone either way.
     fireEvent.keyDown(editor, { key: " " });
     fireEvent.keyDown(editor, { key: "x" });
 
-    expect(content(container)).toBe("plain");
+    expect(doc()).toBe(`- [ ] plain ➕ ${TODAY}`);
+  });
+
+  it("leaves the cursor on the words rather than inside the box it wrote", () => {
+    const { editor, doc } = open("plain");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+    // The box is hidden and drawn as a symbol, so a cursor left where it was
+    // would sit on a character nobody can see and this press would cut the
+    // dash rather than the first letter.
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc()).toBe(`- [ ] lain ➕ ${TODAY}`);
+  });
+
+  it("stops space from moving the cursor", () => {
+    const { editor, doc } = open("plain");
+
+    // Vim ships `<Space>` bound to `l`. Were it still bound, the space would
+    // step onto the `l` and the `x` sequence would never form, leaving "pain".
+    // Read through the document rather than the screen: `<Space>x` now hides
+    // the box it writes, so the rendered text would look right either way.
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc()).toBe(`- [ ] plain ➕ ${TODAY}`);
   });
 });
 

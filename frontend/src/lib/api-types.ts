@@ -99,6 +99,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Todos
+         * @description Find every checkbox line and every time session line in the vault.
+         *
+         *     Candidate lines, not todos. Whether one of these is open, overdue or a
+         *     subtask of the line above it is read on the client, off the same parser the
+         *     editor draws a todo with, so the vault has one reader of the format rather
+         *     than two in two languages.
+         *
+         *     Answers in search's shape, which is what lets the overlay rank these through
+         *     the ranking it already has and open a note on the line it found.
+         */
+        get: operations["list_todos_api_todos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -452,6 +480,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_todos_api_todos_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchHit"][];
                 };
             };
         };

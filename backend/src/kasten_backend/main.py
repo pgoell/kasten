@@ -13,6 +13,7 @@ from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vau
 from kasten_backend.frontmatter import stamp
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
+from kasten_backend.todos import find_todos
 from kasten_backend.vault import (
     create_note,
     list_markdown_files,
@@ -168,6 +169,22 @@ async def search_files(
     subsequence match to mean something over prose, where it matches everything.
     """
     hits = await search_vault(settings.vault_path, q)
+    return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.get("/api/todos")
+async def list_todos(settings: Annotated[Settings, Depends(get_settings)]) -> list[SearchHit]:
+    """Find every checkbox line and every time session line in the vault.
+
+    Candidate lines, not todos. Whether one of these is open, overdue or a
+    subtask of the line above it is read on the client, off the same parser the
+    editor draws a todo with, so the vault has one reader of the format rather
+    than two in two languages.
+
+    Answers in search's shape, which is what lets the overlay rank these through
+    the ranking it already has and open a note on the line it found.
+    """
+    hits = await find_todos(settings.vault_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
 
 

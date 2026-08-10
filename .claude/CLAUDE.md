@@ -18,9 +18,9 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Ten
-  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/terminals`,
-  `/api/events`, `GET`,
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Eleven
+  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/todos`,
+  `/api/terminals`, `/api/events`, `GET`,
   `POST`, `PUT` and `PATCH` on `/api/files/{path}`, and `PATCH` on
   `/api/folders/{path}`. A create starts a
   note holding its frontmatter, and the text under it when a body comes with
@@ -37,6 +37,10 @@ Real, working code, not a plan:
   events, one per note with a sha256 of what is on disk, plus one `listing`
   when the shape of the vault moved, which is how a folder move arrives.
   Nothing under a dot-directory is reported, so the jj repo stays off it.
+  `/api/todos` is search's one rg pass asked a different question: it answers
+  with every checkbox line the vault holds, in search's own shape, and parses
+  none of them, the client reading the format. Its pattern also matches a
+  `- HH:MM-HH:MM` session line, which nothing writes yet.
   `/api/terminals` is the one endpoint that reads nothing of the vault: it
   lists the shell container's herdr sessions off a read-only mount of that
   container's volume, so the prompt can offer the ones that already exist.
@@ -68,6 +72,24 @@ Real, working code, not a plan:
   links: back one, up to the note holding it, and on one, written whether or
   not those notes exist yet, so `gf` walks the chain and makes what it reaches.
   The week is the ISO one, counted from its Thursday.
+  A todo is a checkbox line in a note, and the line is the whole record: five
+  states, `[ ] [/] [x] [b] [-]`, and every field beside them spelled the way
+  obsidian-tasks spells it, the dates `📅 ⏳ 🛫 ➕ ✅ ❌`, a priority glyph, and
+  `🔁 🆔 ⛔ ⏲ ⏱`. `Space x` cycles the line under the cursor, stamping the
+  created date, the done date, the id and the cancelled date as it goes, and the
+  editor draws each state as a symbol with an overdue date in red. `Space g t`
+  puts the list in the focused pane, a third thing a pane can hold beside a note
+  and a terminal, grouped under Overdue, Today, This week, Later and No date.
+  Its keys are `j k Enter x a d / q Escape`: `x` walks a todo in the vault, `a`
+  opens a prompt turning one line of shorthand, `call the dentist due:08-14
+  !high #health`, into a todo under `## TODOs` in today's note, `d` shows the
+  last seven days of finished work, and `/` narrows the list by tag, priority,
+  state and due window. `Space f t` is the same list in the finder's panel.
+  Ticking a todo done also writes a `- ✅` line under `## Done` in today's note,
+  linking back and naming the id; un-ticking drops that line wherever it landed,
+  and ticking twice leaves one. It is deliberately not a checkbox, so
+  `/api/todos` cannot match it. A fresh daily note carries `## TODOs`, and
+  `## Done` is made by the first write into it.
   `Space c s` puts a shell in the focused pane instead of a note: it asks what
   the herdr session is called, offering the ones that already exist, and
   attaches to it, starting one if nothing answers to that name. The pane speaks ttyd's WebSocket protocol itself
@@ -117,7 +139,9 @@ not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
 pick the few notes it has to read, so there is no link table either.
 
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, and anything that writes to Postgres.
+two folders, todo subtasks, dependencies and recurrence, the timer and the
+`## Time` section it writes, saved todo views, and anything that writes to
+Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 

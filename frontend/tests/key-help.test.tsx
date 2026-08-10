@@ -6,8 +6,10 @@ import {
   FORMAT,
   INDENT,
   LEADER,
+  LEADER_EDITS,
   TERMINAL,
   TERMINAL_CHORD,
+  TODO_PANE,
   TREE,
 } from "@/lib/key-bindings";
 
@@ -53,6 +55,17 @@ describe("KeyHelp", () => {
     for (const { key, label } of LEADER) {
       // The key's own row, not the label anywhere on the panel: a terminal
       // chord carries the same sentence as the leader key doing the same job.
+      expect(group("Leader").getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
+    }
+  });
+
+  it("lists every leader key that writes to the note", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    // A second table, and one group: these name no command on `EditorCommands`
+    // because they edit the buffer, but they are pressed like every other
+    // leader key and belong on the panel beside them.
+    for (const { key, label } of LEADER_EDITS) {
       expect(group("Leader").getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
     }
   });
@@ -103,8 +116,18 @@ describe("KeyHelp", () => {
   it("lists every tree key", () => {
     render(<KeyHelp onClose={() => {}} />);
 
-    for (const { label } of TREE) {
-      expect(screen.getByText(label)).toBeInTheDocument();
+    // Scoped to the group, because the todo pane below binds `j / k`, `q` and
+    // `Escape` to the same sentences: two panels, two rows, one spelling.
+    for (const { key, label } of TREE) {
+      expect(group("File tree").getByText(key).nextElementSibling).toHaveTextContent(label);
+    }
+  });
+
+  it("lists every todo pane key", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    for (const { key, label } of TODO_PANE) {
+      expect(group("Todos").getByText(key).nextElementSibling).toHaveTextContent(label);
     }
   });
 
@@ -164,6 +187,8 @@ describe("the key tables", () => {
       renameNote: () => {},
       findNote: () => {},
       searchNotes: () => {},
+      findTodos: () => {},
+      openTodos: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},
       openDaily: () => {},
@@ -204,6 +229,8 @@ describe("the key tables", () => {
       renameNote: () => {},
       findNote: () => {},
       searchNotes: () => {},
+      findTodos: () => {},
+      openTodos: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},
       openDaily: () => {},

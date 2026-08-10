@@ -30,6 +30,14 @@ export interface Pane {
    * with no code at all, because following a move keys on `path`.
    */
   term?: string;
+  /**
+   * Set on a pane holding the todo list, absent on every other.
+   *
+   * A third field beside `path` and `term` for the reason `term` is a third
+   * field: a union would rewrite every `pane.path` read site to buy an
+   * invariant one branch in the route already holds.
+   */
+  todos?: boolean;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -169,6 +177,20 @@ export function openTerminalInFocused(layout: Layout, session: string): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, term: session }),
+  });
+}
+
+/**
+ * Put the todo list in the focused pane, replacing whatever was there.
+ *
+ * Written whole for the reason the two above write one whole: the note and the
+ * line it opened on are gone, not left behind under the list.
+ */
+export function openTodosInFocused(layout: Layout): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, todos: true }),
   });
 }
 

@@ -47,6 +47,23 @@ export async function fetchTerminals(): Promise<string[]> {
 }
 
 /**
+ * Every todo line and every time session line the vault holds.
+ *
+ * Candidate lines, not todos. The backend matches the shape of a checkbox and
+ * nothing more, so reading the state, the dates and whether a line is still
+ * open is this side's job, done by the same parser the editor draws with.
+ */
+export async function fetchTodos(): Promise<SearchHit[]> {
+  const { data, response } = await client.GET("/api/todos");
+
+  if (!data) {
+    throw new Error(`GET /api/todos failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
  * Every line in the vault holding `query`, as the backend found them.
  *
  * A literal match and nothing more. Ranking these is the caller's job, which

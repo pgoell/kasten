@@ -114,6 +114,29 @@
         }
       }
     },
+    "/api/todos": {
+      "get": {
+        "summary": "List Todos",
+        "description": "Find every checkbox line and every time session line in the vault.\n\nCandidate lines, not todos. Whether one of these is open, overdue or a\nsubtask of the line above it is read on the client, off the same parser the\neditor draws a todo with, so the vault has one reader of the format rather\nthan two in two languages.\n\nAnswers in search's shape, which is what lets the overlay rank these through\nthe ranking it already has and open a note on the line it found.",
+        "operationId": "list_todos_api_todos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "type": "array",
+                  "title": "Response List Todos Api Todos Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events": {
       "get": {
         "summary": "Stream Events",

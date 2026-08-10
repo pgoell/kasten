@@ -1,7 +1,7 @@
 import { Facet } from "@codemirror/state";
 import { type CodeMirrorV, Vim } from "@replit/codemirror-vim";
 import { toggleMark } from "@/lib/format-commands";
-import { type EditorCommands, FORMAT, LEADER, TAB_KEYS } from "@/lib/key-bindings";
+import { type EditorCommands, FORMAT, LEADER, LEADER_EDITS, TAB_KEYS } from "@/lib/key-bindings";
 
 /**
  * Carries the app's commands on the editor state.
@@ -27,6 +27,16 @@ for (const { key, command } of LEADER) {
   const name = `kastenLeader:${command}`;
   Vim.defineAction(name, (cm: CodeMirrorV) => {
     cm.cm6.state.facet(editorCommands)?.[command]();
+  });
+  Vim.mapCommand(`<Space>${key}`, "action", name, {}, { context: "normal" });
+}
+
+// Their own loop, because these write to the buffer rather than reaching a
+// command on the route, so what they need is the view the key was typed into.
+for (const { key, run } of LEADER_EDITS) {
+  const name = `kastenEdit:${key}`;
+  Vim.defineAction(name, (cm: CodeMirrorV) => {
+    run(cm.cm6);
   });
   Vim.mapCommand(`<Space>${key}`, "action", name, {}, { context: "normal" });
 }
