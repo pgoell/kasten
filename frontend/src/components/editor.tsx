@@ -415,6 +415,7 @@ export function Editor({
             renameNote: (startPath) => commandsRef.current?.renameNote(startPath),
             findNote: () => commandsRef.current?.findNote(),
             searchNotes: () => commandsRef.current?.searchNotes(),
+            findTodos: () => commandsRef.current?.findTodos(),
             showBacklinks: () => commandsRef.current?.showBacklinks(),
             showLinksOut: () => commandsRef.current?.showLinksOut(),
             openDaily: () => commandsRef.current?.openDaily(),

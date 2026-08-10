@@ -17,6 +17,7 @@ function stubCommands() {
     renameNote: vi.fn(),
     findNote: vi.fn(),
     searchNotes: vi.fn(),
+    findTodos: vi.fn(),
     showBacklinks: vi.fn(),
     showLinksOut: vi.fn(),
     openDaily: vi.fn(),
@@ -146,6 +147,20 @@ describe("the leader key", () => {
 
     expect(commands.searchNotes).toHaveBeenCalledTimes(1);
     expect(commands.findNote).not.toHaveBeenCalled();
+  });
+
+  it("runs the todo overlay command on space then f then t", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "f" });
+    fireEvent.keyDown(editor, { key: "t" });
+
+    expect(commands.findTodos).toHaveBeenCalledTimes(1);
+    // The third member of the `f` group, and neither of the other two fires.
+    expect(commands.findNote).not.toHaveBeenCalled();
+    expect(commands.searchNotes).not.toHaveBeenCalled();
   });
 
   it("runs the backlinks command on space then g then b", () => {

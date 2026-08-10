@@ -105,6 +105,9 @@ function Home() {
   // already in hand, this one asks the backend on a delay, and the two share
   // no state worth folding together.
   const [searchOpen, setSearchOpen] = useState(false);
+  // A flag like the search's: the vault holds one set of todos and the panel
+  // asks for all of them, so there is nothing here to start from.
+  const [todosOpen, setTodosOpen] = useState(false);
   const [terminalPrompt, setTerminalPrompt] = useState(false);
   // The sessions the prompt offers. Asked for only while it is open: they
   // change when something outside the browser starts one, and nothing else on
@@ -448,6 +451,8 @@ function Home() {
       findNote: () => setFinderOpen(true),
       // The same, and for the same reason.
       searchNotes: () => setSearchOpen(true),
+      // The same, and for the same reason.
+      findTodos: () => setTodosOpen(true),
       // The one command that needs a note open, because what it shows is what
       // links to that note. With an empty pane there is nothing to ask about,
       // and doing nothing is how the key says so.
@@ -693,21 +698,24 @@ function Home() {
           }}
         />
       )}
-      {/* One panel for both, because backlinks are the same list of lines from
-          the vault, ranked the same way, opened the same way. Only where the
-          lines come from differs. */}
-      {(searchOpen || backlinksOf !== undefined) && (
+      {/* One panel for all three, because backlinks and todos are the same list
+          of lines from the vault, ranked the same way, opened the same way.
+          Only where the lines come from differs. */}
+      {(searchOpen || backlinksOf !== undefined || todosOpen) && (
         <NoteSearch
           backlinksOf={backlinksOf}
+          todos={todosOpen}
           paths={data}
           onOpen={(path, hitLine) => {
             setSearchOpen(false);
             setBacklinksOf(undefined);
+            setTodosOpen(false);
             void openInPane(path, hitLine);
           }}
           onClose={() => {
             setSearchOpen(false);
             setBacklinksOf(undefined);
+            setTodosOpen(false);
           }}
         />
       )}

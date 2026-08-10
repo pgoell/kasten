@@ -58,6 +58,22 @@ const BOX: Record<TodoState, string> = {
   rejected: "-",
 };
 
+/**
+ * How each state is drawn where a list is drawn rather than edited.
+ *
+ * Here rather than in the panel that first wanted it, because the pane wants
+ * the same five and a second copy would be five characters to keep in step by
+ * hand. `.cm-todo-*` in `app.css` is the third copy and cannot be this one:
+ * the editor draws its symbol in a `::before`, which no module can reach.
+ */
+export const STATE_SYMBOL: Record<TodoState, string> = {
+  open: "☐",
+  doing: "◐",
+  done: "☑",
+  blocked: "⊘",
+  rejected: "☒",
+};
+
 const PRIORITIES: Record<TodoPriority, string> = {
   highest: "🔺",
   high: "⏫",

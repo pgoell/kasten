@@ -1,7 +1,7 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
-import { fetchNote, type SearchHit, searchNotes } from "@/lib/api";
+import { fetchNote, fetchTodos, type SearchHit, searchNotes } from "@/lib/api";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
 import { noteName } from "@/lib/note-path";
 import {
@@ -18,6 +18,7 @@ import {
   ROW,
   STATUS,
 } from "@/lib/overlay-styles";
+import { isOpen, parseTodo, STATE_SYMBOL } from "@/lib/todo";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 interface NoteSearchProps {
@@ -35,7 +36,19 @@ interface NoteSearchProps {
   backlinksOf?: string;
   /** Every path in the vault, which is what turns a link's name into a path. */
   paths?: string[];
+  /** Rank every todo in the vault instead of searching, the way backlinks rank. */
+  todos?: boolean;
 }
+
+/** Which of the three lists the panel is drawing, and where its lines come from. */
+type SearchMode = "search" | "backlinks" | "todos";
+
+/** The word over the input, and the name a screen reader reads the dialog by. */
+const LABEL_OF: Record<SearchMode, { input: string; dialog: string }> = {
+  search: { input: "search notes", dialog: "Search notes" },
+  backlinks: { input: "backlinks", dialog: "Backlinks" },
+  todos: { input: "todos", dialog: "Todos" },
+};
 
 /** Rows the list will mount. Beyond this, another letter narrows faster than a scroll. */
 const VISIBLE_HITS = 20;
@@ -83,12 +96,13 @@ function windowAround(text: string, line: number): { lines: string[]; from: numb
  * running. Saying "no notes match" while the answer is on its way is the lie
  * worth going to this length to avoid.
  *
- * Backlinks skip the first of those: the query is the note's own name and was
- * never waiting to be typed, so there is no state where nothing has been asked.
+ * Backlinks and todos skip the first of those: neither query was ever waiting to
+ * be typed, so there is no state where nothing has been asked.
  */
-function hint(typed: string, pending: boolean, matches: number, backlinks: boolean): string {
+function hint(typed: string, pending: boolean, matches: number, mode: SearchMode): string {
   if (pending) return "reading the vault";
-  if (backlinks) return matches === 0 ? "nothing links here" : "";
+  if (mode === "todos") return matches === 0 ? "no open todos" : "";
+  if (mode === "backlinks") return matches === 0 ? "nothing links here" : "";
   if (!typed) return "type to search every note";
   return matches === 0 ? "no notes match" : "";
 }
@@ -112,8 +126,12 @@ function hint(typed: string, pending: boolean, matches: number, backlinks: boole
  * note's own name, and typing only ranks what came back. That works because the
  * two stages already split this way. What links to a note is a fixed set the
  * vault decides, and the input was never choosing the lines here anyway.
+ *
+ * `todos` is that mode read once more, off `/api/todos`. What the vault holds
+ * to do is a fixed set for the same reason, so there is no debounce here and no
+ * scan per keystroke.
  */
-export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchProps) {
+export function NoteSearch({ onOpen, onClose, backlinksOf, paths, todos }: NoteSearchProps) {
   const [query, setQuery] = useState("");
   /** What a typed query settled on, which trails what has been typed. */
   const [settled, setSettled] = useState("");
@@ -123,6 +141,9 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
   /** Set once a note is on its way open, and the focus then belongs to the editor. */
   const opening = useRef(false);
   const listId = useId();
+
+  const mode: SearchMode =
+    todos === true ? "todos" : backlinksOf === undefined ? "search" : "backlinks";
 
   const typed = query.trim();
   // What the vault is asked for. Backlinks ask for the note's name, and ask
@@ -134,14 +155,19 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
   useEffect(() => {
     // Nothing to settle where the query is fixed, and a timer over it would
     // only be a second answer to a question already asked.
-    if (name !== undefined) return;
+    if (mode !== "search") return;
     const timer = setTimeout(() => setSettled(typed), SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [typed, name]);
+  }, [typed, mode]);
 
   const search = useQuery({
-    queryKey: ["search", asked],
-    queryFn: asked === "" ? skipToken : () => searchNotes(asked),
+    // The todo list shares its key with the pane, so the two read one answer.
+    ...(mode === "todos"
+      ? { queryKey: ["todos"], queryFn: fetchTodos }
+      : {
+          queryKey: ["search", asked],
+          queryFn: asked === "" ? skipToken : () => searchNotes(asked),
+        }),
     // What keeps the last answer on screen while the next one is fetched, and
     // so what there is to narrow in the meantime.
     placeholderData: keepPreviousData,
@@ -155,13 +181,23 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
   // tells the two apart. Resolving each target against the listing is what
   // keeps `[[borges]]` and `[[reading/borges]]` both counting, and a link to
   // another note of the same name in another folder not counting at all.
+  //
+  // The todo endpoint matches the shape of a checkbox and nothing else, so the
+  // same reading cuts its answer down: a session line is not a todo and a
+  // finished one is not work.
   const found = useMemo(() => {
     const hits = search.data ?? [];
+    if (mode === "todos") {
+      return hits.filter((hit) => {
+        const todo = parseTodo(hit.text);
+        return todo !== null && isOpen(todo);
+      });
+    }
     if (backlinksOf === undefined) return hits;
     return hits.filter((hit) =>
       wikiLinkTargets(hit.text).some((target) => wikiLinkPath(target, paths ?? []) === backlinksOf),
     );
-  }, [search.data, backlinksOf, paths]);
+  }, [search.data, mode, backlinksOf, paths]);
   // Derived from the answer and not from the query, so every keystroke between
   // two answers ranks a set that was prepared once.
   const candidates = useMemo(() => lineCandidates(found.map((hit) => hit.text)), [found]);
@@ -275,7 +311,7 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={backlinksOf === undefined ? "Search notes" : "Backlinks"}
+      aria-label={LABEL_OF[mode].dialog}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className={BACKDROP}
@@ -285,7 +321,7 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
       <div className={`${PANEL} ${PANEL_WIDE}`}>
         <div className={HEADER_ROW}>
           <label htmlFor={`${listId}-query`} className={LABEL}>
-            {backlinksOf === undefined ? "search notes" : "backlinks"}
+            {LABEL_OF[mode].input}
           </label>
           <input
             id={`${listId}-query`}
@@ -315,6 +351,10 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
               {hits.map((index, row) => {
                 const hit = found[index];
                 if (hit === undefined) return null;
+                // Null on every mode but todos, and on a todo line the filter
+                // above cannot hand back, which is why the row still draws the
+                // line it was given rather than nothing at all.
+                const todo = mode === "todos" ? parseTodo(hit.text) : null;
                 return (
                   <button
                     key={`${hit.path}:${hit.line}`}
@@ -335,7 +375,14 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
                     </span>
                     {/* The line itself never wraps: one row per hit is what
                         makes the list countable at a glance. */}
-                    <span className="min-w-0 flex-1 truncate text-one-fg">{hit.text}</span>
+                    <span className="min-w-0 flex-1 truncate text-one-fg">
+                      {todo === null ? hit.text : `${STATE_SYMBOL[todo.state]} ${todo.text}`}
+                    </span>
+                    {/* Out of the truncation, so a long todo loses its words
+                        rather than the date they are due on. */}
+                    {todo?.due !== undefined && (
+                      <span className="shrink-0 text-one-muted">📅 {todo.due}</span>
+                    )}
                   </button>
                 );
               })}
@@ -370,9 +417,7 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths }: NoteSearchPr
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className={STATUS}>
-          {hint(typed, search.isFetching, hits.length, backlinksOf !== undefined)}
-        </output>
+        <output className={STATUS}>{hint(typed, search.isFetching, hits.length, mode)}</output>
       </div>
     </div>
   );

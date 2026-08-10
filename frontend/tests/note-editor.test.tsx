@@ -64,6 +64,7 @@ function OpenNote({ path }: { path: string }) {
       renameNote: () => {},
       findNote: vi.fn(),
       searchNotes: vi.fn(),
+      findTodos: vi.fn(),
       showBacklinks: vi.fn(),
       showLinksOut: vi.fn(),
       openDaily: vi.fn(),

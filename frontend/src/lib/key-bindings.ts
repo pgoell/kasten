@@ -26,6 +26,8 @@ export interface EditorCommands {
   findNote(): void;
   /** Open search over note content, which starts from nowhere the way the finder does. */
   searchNotes(): void;
+  /** Open the todo overlay, which ranks every todo the vault holds. */
+  findTodos(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */
@@ -116,6 +118,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // reason the two belong together: one finds a note by its name, the other by
   // what is written in it.
   { key: "fg", label: "Search note content", command: "searchNotes" },
+  // The third of the `f` group. A todo is another thing you go looking for by
+  // name, so it sits beside the note and the line rather than under `g`, which
+  // is where the pane holding the same list lives.
+  { key: "ft", label: "Find a todo", command: "findTodos" },
   // `g` for go, then the direction. Obsidian calls the pair backlinks and
   // outgoing links, and `b` and `o` are those two words. Neither can be a bare
   // letter: `b` folds the tree away and `o` opens a line in vim.
