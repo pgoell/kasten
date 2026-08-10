@@ -366,6 +366,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `t` | Start a timer on the todo under the cursor, or stop the ones it has running |
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
+| `v` | Show the next saved view, or all todos again |
 | `O` `P` `X` `B` `R` | Set the row's todo to open, doing, done, blocked or rejected |
 | `/` | Narrow the list |
 | `q` | Close the pane |
@@ -403,6 +404,16 @@ the cursor. Escape or Enter hands the focus back to the list and leaves the
 filter applied. [Filter terms](/reference/todo-format.md#filter-terms) are what
 it takes. Anything that is not a term ranks as text, and here the ranking
 decides only which rows stay: the groups keep the order.
+
+`v` walks the [saved views](/reference/todo-format.md#saved-views), one press to
+the next. The terms of the view showing sit in the filter line, where they can be
+read and edited, and its name sits in the header beside them. One more press past
+the last view empties the line and gives the whole list back. Typing over the
+terms makes them a filter you typed and takes the name out of the header: the
+header names a view or it names nothing. The first press in a vault with no views
+note writes it, holding three defaults, the way the periodic keys make the note
+they open, and the header reads `no views` where the note holds no line the pane
+can read.
 
 `d` swaps the list for what was finished in the last seven days, grouped by the
 day it was finished rather than by when it was due, newest day first. A finished
