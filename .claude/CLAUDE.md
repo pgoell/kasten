@@ -77,7 +77,9 @@ Real, working code, not a plan:
   obsidian-tasks spells it, the dates `📅 ⏳ 🛫 ➕ ✅ ❌`, a priority glyph, and
   `🔁 🆔 ⛔ ⏲ ⏱`. `Space x` cycles the line under the cursor, stamping the
   created date, the done date, the id and the cancelled date as it goes, and the
-  editor draws each state as a symbol with an overdue date in red. `Space g t`
+  editor draws each state as a symbol with an overdue date in red. The press
+  that enters or leaves done moves the done log too, that being the one part of
+  a press no buffer edit can reach; `u` puts the line back and leaves the log. `Space g t`
   puts the list in the focused pane, a third thing a pane can hold beside a note
   and a terminal, grouped under Overdue, Today, This week, Later and No date.
   Its keys are `j k Enter x a d / q Escape`: `x` walks a todo in the vault, `a`

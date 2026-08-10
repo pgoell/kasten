@@ -112,19 +112,36 @@ export function addTodoWrites({ dailyPath, dailyText, todo }: AddInput): Write[]
   return [{ path: dailyPath, text: appendUnder(dailyText, TODOS, formatTodo(todo)) }];
 }
 
-/** Every note one press of the cycle changes, in the order they should be sent. */
-export function cycleTodoWrites(input: CycleInput): Write[] {
-  const { path, text, line, dailyPath, dailyText, logged, today, id } = input;
+export interface LogInput {
+  /** The todo as the line read before the press, or null where it was not one. */
+  was: Todo | null;
+  /** The todo as the line reads after it, or null where it is no longer one. */
+  now: Todo | null;
+  /** Where the todo lives, which is what the log line links to. */
+  path: string;
+  dailyPath: string;
+  dailyText: string;
+  /** Every note holding a `- ✅` line naming this todo's id, keyed by path. */
+  logged: Record<string, string>;
+  today: string;
+}
 
-  const lines = text.split("\n");
-  const was = parseTodo(lines[line - 1] ?? "");
-  const cycled = cycleLine(lines[line - 1] ?? "", today, id);
-  lines[line - 1] = cycled;
-  const now = parseTodo(cycled);
+/**
+ * Every note the `## Done` log moves, and nothing else.
+ *
+ * Its own function because the two keys that cycle a todo need different halves
+ * of a press. The pane's `x` writes the todo's note itself; `<leader>x` edits
+ * the buffer and leaves that note to autosave, so it needs this half alone.
+ *
+ * A press that touches neither end of done answers nothing, which is what lets
+ * the caller skip reading the vault for four presses out of six.
+ */
+export function doneLogWrites(input: LogInput): Write[] {
+  const { was, now, path, dailyPath, dailyText, logged, today } = input;
 
   // Keyed by path, so a note that both holds the todo and holds its log line
   // is one write rather than two that overwrite each other.
-  const writes = new Map<string, string>([[path, lines.join("\n")]]);
+  const writes = new Map<string, string>();
 
   if (now?.state === "done" && path !== dailyPath) {
     // Already logged, from an earlier tick that was taken back and put on
@@ -142,6 +159,37 @@ export function cycleTodoWrites(input: CycleInput): Write[] {
       const dropped = dropDone(writes.get(loggedPath) ?? loggedText, was.id);
       if (dropped !== null) writes.set(loggedPath, dropped);
     }
+  }
+
+  return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
+}
+
+/** Every note one press of the cycle changes, in the order they should be sent. */
+export function cycleTodoWrites(input: CycleInput): Write[] {
+  const { path, text, line, dailyPath, dailyText, logged, today, id } = input;
+
+  const lines = text.split("\n");
+  const was = parseTodo(lines[line - 1] ?? "");
+  const cycled = cycleLine(lines[line - 1] ?? "", today, id);
+  lines[line - 1] = cycled;
+  const now = parseTodo(cycled);
+  const own = lines.join("\n");
+
+  const writes = new Map<string, string>([[path, own]]);
+
+  // The log reads the cycled text where the todo and its own log line share a
+  // note, so the drop below cannot throw the cycled line away.
+  const seen = logged[path] === undefined ? logged : { ...logged, [path]: own };
+  for (const write of doneLogWrites({
+    was,
+    now,
+    path,
+    dailyPath,
+    dailyText,
+    logged: seen,
+    today,
+  })) {
+    writes.set(write.path, write.text);
   }
 
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));

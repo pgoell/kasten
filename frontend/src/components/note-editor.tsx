@@ -3,6 +3,7 @@ import { memo } from "react";
 import { Editor } from "@/components/editor";
 import { fetchNote } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
+import type { TodoCycle } from "@/lib/todo-commands";
 
 interface NoteEditorProps {
   /** Vault-relative path of the note to open. */
@@ -25,6 +26,13 @@ interface NoteEditorProps {
   onReload?: (force: boolean) => Promise<string | null>;
   /** Called with the note a `[[link]]` names, which only the route can resolve. */
   onFollow: (target: string) => void;
+  /**
+   * Called with the line `<leader>x` cycled, which the done log follows.
+   *
+   * The path comes from here rather than from the route's closure, this being
+   * the component that knows which note the key was typed into.
+   */
+  onCycleTodo?: (path: string, cycle: TodoCycle) => void;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-muted";
@@ -52,6 +60,7 @@ export const NoteEditor = memo(function NoteEditor({
   onChange,
   onSave,
   onFollow,
+  onCycleTodo,
   allowReload,
   onReload,
 }: NoteEditorProps) {
@@ -89,6 +98,7 @@ export const NoteEditor = memo(function NoteEditor({
       onChange={onChange}
       onSave={onSave}
       onFollow={onFollow}
+      onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
     />
   );
 });
