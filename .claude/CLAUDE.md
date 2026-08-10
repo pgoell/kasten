@@ -47,6 +47,12 @@ Real, working code, not a plan:
   `/api/terminals` is the one endpoint that reads nothing of the vault: it
   lists the shell container's herdr sessions off a read-only mount of that
   container's volume, so the prompt can offer the ones that already exist.
+  Starting the backend writes `99 Misc/01 Config/01 Agents/How-To-TODO.md`
+  into a vault holding none: the note telling an agent how this vault's todos
+  are written, every field and its values, and that ticking one done goes
+  through `PUT /api/files/{path}` while everything else is a text edit. At
+  startup rather than on a key press, because the agents reading it are not all
+  inside the app.
   Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
@@ -199,7 +205,10 @@ Real, working code, not a plan:
   that would leave the note refuses and flashes the bar, the pane and tab
   keys included, and only a mouse click into another pane still writes past it.
 - `shell/`: a Dockerfile and a herdr config. ttyd over herdr on a node base,
-  with the vault mounted and jj, rg, git, Claude Code and codex beside it. The
+  with the vault mounted and jj, rg, git, curl, jq, Claude Code and codex
+  beside it. It carries `KASTEN_API`, the backend's address on the `web`
+  network, which is where the agent note tells an agent in here to send a
+  completion. The
   config is the one this VPS runs, migrated from its tmux config, baked into
   the image and read through `HERDR_CONFIG_PATH`. The
   agents are fresh installs signing themselves in inside the container, into a

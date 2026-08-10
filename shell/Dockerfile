@@ -53,8 +53,11 @@ RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
 
 FROM node:24-bookworm-slim AS runtime
 
+# curl and jq are for the backend: an agent in here completes a todo through
+# `PUT /api/files`, which the vault's own `99 Misc/01 Config/01 Agents` note
+# tells it to do, and node's `fetch` is a poor way to spell that in a shell.
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y git ca-certificates less \
+    && apt-get install --no-install-recommends -y git ca-certificates less curl jq \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ttyd /usr/local/bin/ttyd /usr/local/bin/ttyd

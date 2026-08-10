@@ -1,6 +1,7 @@
 """FastAPI application entrypoint."""
 
 import asyncio
+from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Annotated
 
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.frontmatter import stamp
+from kasten_backend.guide import write_guide
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
 from kasten_backend.todos import find_todos
@@ -35,7 +37,19 @@ if TYPE_CHECKING:
 
     from kasten_backend.events import VaultEvent
 
-app = FastAPI(title="kasten", version=version("kasten-backend"))
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Give the vault the agent guide before the first request is served.
+
+    The settings are read rather than injected: there is no request to depend
+    on, and the vault the process serves is the vault this writes into.
+    """
+    await write_guide(get_settings().vault_path)
+    yield
+
+
+app = FastAPI(title="kasten", version=version("kasten-backend"), lifespan=lifespan)
 """The number is read off the installed package rather than written here.
 
 Two copies of it drifted apart once already: the release was cut, the tag moved
