@@ -363,6 +363,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | Enter | Open the note the todo is in |
 | `x` | Cycle the todo under the cursor |
 | `a` | Add a todo to today's note |
+| `s` | Add a part of the todo under the cursor |
 | `i` | Edit the row's own line, in place |
 | `t` | Start a timer on the todo under the cursor, or stop the ones it has running |
 | `d` | Show what was finished in the last seven days |
@@ -443,6 +444,18 @@ stacking.
 it will write under the input, and Enter puts it under `## TODOs` in today's
 daily note, making that note where the vault has none. Escape closes and writes
 nothing, and Enter on an empty input does nothing.
+
+`s` opens that same prompt on the row under the cursor, and what it takes lands
+as a part of that todo: in the note the todo lives in, one step further in, after
+the parts it already has. The header reads `part` rather than `todo` and names
+the todo it is going under, those being the whole of the difference between the
+two presses. The shorthand is the same, so a part arrives with its date and its
+priority already on it, and the count on the parent's row moves the moment it
+lands.
+
+The note is read again first and the parent's line checked against the row, the
+way an edit checks it: the part is placed off that line, so a row the vault has
+moved past writes nothing rather than hanging it under whatever now sits there.
 
 `i` turns the row under the cursor into the line it was read from, markdown and
 emoji as the note holds them, and Enter writes back exactly what you leave in

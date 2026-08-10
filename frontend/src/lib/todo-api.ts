@@ -26,6 +26,7 @@ import {
   closedAmong,
   cycleTodoWrites,
   doneLogWrites,
+  insertSubtask,
   type SessionHit,
   timerWrites,
   type Write,
@@ -94,6 +95,29 @@ export async function editTodoInVault(hit: SearchHit, line: string): Promise<voi
 
   lines[hit.line - 1] = line;
   await saveNote(hit.path, lines.join("\n"));
+}
+
+/**
+ * Put a typed todo into the note the row's todo lives in, as a part of it.
+ *
+ * The same shorthand the add prompt takes, so a part arrives with its date and
+ * its priority already on it. The old line is checked against the row for the
+ * reason an edit checks it: the part is placed off the parent's own line, so a
+ * note that moved under a stale row would hang it under whatever now sits
+ * there.
+ *
+ * No `paths` and no `send`: the parent came out of a note the vault holds.
+ */
+export async function addSubtaskInVault(
+  hit: SearchHit,
+  input: string,
+  today: string,
+): Promise<void> {
+  const text = await fetchNote(hit.path);
+  if (text.split("\n")[hit.line - 1] !== hit.text) return;
+
+  const moved = insertSubtask(text, hit.line, expandShorthand(input, today));
+  if (moved !== null) await saveNote(hit.path, moved);
 }
 
 /**

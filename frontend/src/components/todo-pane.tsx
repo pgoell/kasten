@@ -144,6 +144,13 @@ interface TodoPaneProps {
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
   /**
+   * Open that same prompt on a row, so what it takes lands as a part of it.
+   *
+   * The hit for the reason `onCycle` takes one: the part is written into the
+   * note the parent lives in, beside the line it hangs off.
+   */
+  onSubtask: (hit: SearchHit) => void;
+  /**
    * Put the line the row was read from back in its note, edited.
    *
    * The hit for the reason `onCycle` takes one, and the line beside it because
@@ -192,6 +199,7 @@ export function TodoPane({
   onOpen,
   onCycle,
   onAdd,
+  onSubtask,
   onEdit,
   onTimer,
   focusSignal,
@@ -608,6 +616,11 @@ export function TodoPane({
       case "a":
         onAdd();
         break;
+      // `a` said of the row rather than of the day: the same prompt, and what
+      // it takes goes in beside the cursor's own line as a part of it.
+      case "s":
+        if (at !== undefined) onSubtask(at.hit);
+        break;
       // vim's own key for starting to type where the cursor is. The line is
       // the whole record, so the row becomes that line and you edit it there.
       case "i":
@@ -841,8 +854,8 @@ export function TodoPane({
           )}
         </span>
         <span>
-          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;i edit&ensp;&ensp;t
-          timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/
+          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
+          edit&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/
           filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
         </span>
       </footer>
