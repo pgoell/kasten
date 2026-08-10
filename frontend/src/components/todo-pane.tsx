@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
@@ -17,6 +17,7 @@ import {
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import { parseSession, type Session } from "@/lib/todo-time";
 import {
+  DEFAULT_VIEWS,
   descendants,
   HEADING,
   type Node,
@@ -202,6 +203,9 @@ export function TodoPane({
   const filter = useRef<HTMLInputElement>(null);
   /** Whether the keys are ours, so a row that leaves can hand them back. */
   const held = useRef(false);
+  /** Set as a create goes out, so a second press does not send another. */
+  const making = useRef(false);
+  const queryClient = useQueryClient();
 
   const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 
@@ -236,6 +240,33 @@ export function TodoPane({
   // resort, for a note holding no line this can read and for a create the vault
   // refused: a key that does nothing and says nothing reads as broken.
   const named = view?.name ?? (asked && !reading && views.length === 0 ? "no views" : undefined);
+
+  /**
+   * Write the note the vault has none of, holding the defaults.
+   *
+   * From the key rather than from a `queryFn`: a write in there runs again on
+   * every refetch, and react-query refetches on window focus. `picked` is
+   * already 1 by the time this lands, so the press that made the note is the
+   * press that shows its first view.
+   */
+  function makeViews() {
+    making.current = true;
+    void createNote(VIEWS_NOTE, DEFAULT_VIEWS).then(
+      (made) => {
+        // What the read would have answered with. It stays disabled until the
+        // listing catches up, and a disabled query still reads its cache, so
+        // seeding the key is what puts the new views on this press.
+        queryClient.setQueryData(["note", VIEWS_NOTE], made.content);
+        // The tree gains a note. `/api/events` says so too; this is the braces.
+        void queryClient.invalidateQueries({ queryKey: ["files"] });
+      },
+      () => {
+        // The vault refused it. The header says `no views`, and the next press
+        // asks again, which is what the flag going back down is for.
+        making.current = false;
+      },
+    );
+  }
 
   // Every line the vault answered with, read once. One endpoint answers both
   // shapes, so a line is a todo or a session and never both, and the four memos
@@ -530,6 +561,7 @@ export function TodoPane({
         setAsked(true);
         setPicked(picked + 1);
         setActive(0);
+        if (missing && !making.current) makeViews();
         break;
       // What vim spells a narrowing. `j` and `k` have to go on moving the
       // cursor, so the input cannot hold the focus by default.

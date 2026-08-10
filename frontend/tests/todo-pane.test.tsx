@@ -8,20 +8,23 @@ import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
 // Standing in for the module rather than for `fetch`, the way the search
 // panel's tests do: what the pane owns is what it asks the vault for, not the
 // HTTP underneath.
-const { fetchTodos, fetchNote, fetchFiles } = vi.hoisted(() => ({
+const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
   fetchTodos: vi.fn(),
   fetchNote: vi.fn(),
   fetchFiles: vi.fn(),
+  createNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ fetchTodos, fetchNote, fetchFiles }));
+vi.mock("@/lib/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
 
 // A vault that already holds the views note, which is what every test below
 // but the ones about `v` reads.
 beforeEach(() => {
   fetchNote.mockReset();
   fetchFiles.mockReset();
+  createNote.mockReset();
   fetchNote.mockResolvedValue(DEFAULT_VIEWS);
   fetchFiles.mockResolvedValue([VIEWS_NOTE]);
+  createNote.mockResolvedValue({ path: VIEWS_NOTE, content: DEFAULT_VIEWS });
 });
 
 /** The day every test below is written against, so no assertion expires. */
@@ -661,6 +664,53 @@ describe("the todo pane", () => {
 
   it("says so and narrows nothing where the vault answers with no views", async () => {
     fetchNote.mockRejectedValueOnce(new Error("GET /api/files/… failed with 404"));
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("no views"));
+    expect(pane.rows()).toHaveLength(6);
+  });
+
+  it("writes the views note on the first v in a vault with none", async () => {
+    fetchFiles.mockResolvedValue(["projects/kasten.md"]);
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("today"));
+    expect(createNote).toHaveBeenCalledWith("99 Misc/01 Config/todo-views.md", DEFAULT_VIEWS);
+    expect(pane.filter().value).toBe("due:today");
+    expect(pane.rows()).toHaveLength(2);
+  });
+
+  it("sends one create however fast the second v comes", async () => {
+    fetchFiles.mockResolvedValue(["projects/kasten.md"]);
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("doing"));
+    expect(createNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes nothing where the vault already holds the note", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("v");
+
+    await waitFor(() => expect(pane.view()).toBe("today"));
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("says so where the vault refuses the create", async () => {
+    fetchFiles.mockResolvedValue(["projects/kasten.md"]);
+    createNote.mockRejectedValueOnce(new Error("POST /api/files/… failed with 500"));
     const pane = renderPane();
     await waitFor(() => expect(pane.rows()).toHaveLength(6));
 
