@@ -409,9 +409,10 @@ function Home() {
   /**
    * Follow a `<leader>x` into the vault, from the editor.
    *
-   * The buffer already carries the cycled line and autosave writes it, so this
-   * moves the `## Done` log and nothing else. It reads nothing at all for a
-   * press that touches neither end of done, which is most of them.
+   * The buffer already carries every line of this note the press moved and
+   * autosave writes them, so this moves the `## Done` log and the dependents
+   * living in other notes. It reads nothing at all for a press that neither
+   * touches an end of done nor moves a blocker, which is half of them.
    */
   const logCycledTodo = useCallback(
     (path: string, cycle: TodoCycle) => {

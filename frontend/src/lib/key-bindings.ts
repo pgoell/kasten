@@ -192,11 +192,11 @@ export interface LeaderEdit {
  * was typed into.
  */
 export const LEADER_EDITS: readonly LeaderEdit[] = [
-  // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
-  // binding spell a tick, and bare `x` in normal mode is vim's own cut.
   // `i` is free after the leader, and cannot collide with vim's own `i`, which
   // needs no leader in front of it.
   { key: "i", label: "Stamp an id on this todo", run: stampIdAtCursor },
+  // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
+  // binding spell a tick, and bare `x` in normal mode is vim's own cut.
   { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },
 ];
 
