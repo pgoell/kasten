@@ -250,6 +250,40 @@ describe("cycleLines", () => {
     );
   });
 
+  it("puts the next copy of a recurring todo above the line it ticked", () => {
+    const note = ["- [/] water the plants 🔁 every week 📅 2026-08-10"];
+
+    // One entry holding two lines, not two changes at one offset: the fresh
+    // copy first and the line that was ticked under it.
+    expect(cycle(note, 1)).toEqual(
+      new Map([
+        [
+          1,
+          [
+            "- [ ] water the plants 📅 2026-08-17 🔁 every week",
+            `- [x] water the plants 📅 2026-08-10 🔁 every week ✅ ${TODAY} 🆔 kt-3f9a2c`,
+          ].join("\n"),
+        ],
+      ]),
+    );
+  });
+
+  it("writes no copy on the press that leaves done", () => {
+    const note = [`- [x] water the plants 🔁 every week 📅 2026-08-10 ✅ ${TODAY} 🆔 kt-000001`];
+
+    expect(cycle(note, 1).get(1)).toBe(
+      "- [b] water the plants 📅 2026-08-10 🔁 every week 🆔 kt-000001",
+    );
+  });
+
+  it("cascades and copies in the one map, and gives no part a copy of its own", () => {
+    const note = ["- [/] water the plants 🔁 every week 📅 2026-08-10", "  - [ ] the fern"];
+    const moved = cycle(note, 1);
+
+    expect(moved.get(1)?.split("\n")).toHaveLength(2);
+    expect(moved.get(2)).toBe(`  - [x] the fern ✅ ${TODAY}`);
+  });
+
   it("lets the cascade keep a line the writeback also points at", () => {
     // The child waits on its own parent, so both rules name line 2. The map is
     // what stops the two of them handing CodeMirror one line twice.

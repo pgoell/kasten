@@ -11,6 +11,7 @@
  */
 
 import { cycleLine, formatTodo, isOpen, parseTodo, type Todo } from "@/lib/todo";
+import { nextOccurrence } from "@/lib/todo-recur";
 import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
@@ -348,6 +349,15 @@ export function cycleLines({
       // never hand CodeMirror one line twice.
       if (!moved.has(at)) moved.set(at, insert);
     }
+  }
+
+  // Last, and folded into the pressed line's own entry rather than added beside
+  // it: one change over one range, so nothing has to reason about how an
+  // insertion and a replacement at one position order. The completed line stays
+  // where it is with its `✅`, and the note carries the history in place.
+  if (was !== null && was.state !== "done" && now?.state === "done") {
+    const fresh = nextOccurrence(was, today);
+    if (fresh !== null) moved.set(line, `${formatTodo(fresh)}\n${cycled}`);
   }
 
   return moved;

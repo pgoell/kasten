@@ -486,6 +486,23 @@ describe("the leader key", () => {
     expect(doc()).toBe(note);
   });
 
+  it("leaves a recurring todo's next copy above it, and takes both back on u", () => {
+    const note = "- [/] water the plants 🔁 every week 📅 2999-01-07";
+    const { editor, doc } = open(note);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    const lines = doc().split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe("- [ ] water the plants 📅 2999-01-14 🔁 every week");
+    expect(lines[1]).toContain("✅");
+
+    fireEvent.keyDown(editor, { key: "u" });
+
+    expect(doc()).toBe(note);
+  });
+
   it("reports the line it cycled, so the done log can follow it", () => {
     // The press edits the buffer and autosave writes it, which is what keeps
     // `u` working. The `## Done` line lands in another note, so the route has
