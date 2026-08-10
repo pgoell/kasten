@@ -423,6 +423,31 @@ describe("the leader key", () => {
     expect(doc()).toBe(`- [ ] lain ➕ ${TODAY}`);
   });
 
+  it("takes a parent's parts into done with it, in one press", () => {
+    const { editor, doc } = open("- [/] wire up the pane\n  - [ ] write it\n  - [ ] ship it");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    const lines = doc().split("\n");
+    // The parent's id is whatever `newId` made, so it is matched rather than
+    // written out. Neither part gets one: nothing names a part.
+    expect(lines[0]).toMatch(new RegExp(`^- \\[x\\] wire up the pane ✅ ${TODAY} 🆔 kt-\\w{6}$`));
+    expect(lines[1]).toBe(`  - [x] write it ✅ ${TODAY}`);
+    expect(lines[2]).toBe(`  - [x] ship it ✅ ${TODAY}`);
+  });
+
+  it("puts every line the cascade moved back on one u", () => {
+    const note = "- [/] wire up the pane\n  - [ ] write it\n  - [ ] ship it";
+    const { editor, doc } = open(note);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+    fireEvent.keyDown(editor, { key: "u" });
+
+    expect(doc()).toBe(note);
+  });
+
   it("reports the line it cycled, so the done log can follow it", () => {
     // The press edits the buffer and autosave writes it, which is what keeps
     // `u` working. The `## Done` line lands in another note, so the route has

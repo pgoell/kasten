@@ -10,7 +10,8 @@
  * This is the one module that knows that.
  */
 
-import { cycleLine, formatTodo, parseTodo, type Todo } from "@/lib/todo";
+import { cycleLine, formatTodo, isOpen, parseTodo, type Todo } from "@/lib/todo";
+import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
 export interface Write {
@@ -214,15 +215,75 @@ export function doneLogWrites(input: LogInput): Write[] {
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
 }
 
+export interface CycleLinesInput {
+  /** The whole note, split on newlines. */
+  lines: string[];
+  /** Which line the press is on, counting from one. */
+  line: number;
+  today: string;
+  /** A fresh id, used only when the todo enters done carrying none. */
+  id: string;
+}
+
+/**
+ * The todo the press is on, as a node of its note's tree. Null where it is not
+ * one, and null for a todo nothing hangs off, which needs no tree walked.
+ */
+function nodeAt(lines: string[], line: number): Node | null {
+  const placed: Placed[] = [];
+  for (const [index, text] of lines.entries()) {
+    const todo = parseTodo(text);
+    if (todo !== null) placed.push({ line: index + 1, todo });
+  }
+
+  for (const root of treeOf(placed)) {
+    const found = [root, ...descendants(root)].find((node) => node.line === line);
+    if (found !== undefined) return found;
+  }
+  return null;
+}
+
+/**
+ * Every line of this note one press rewrites, keyed by line number.
+ *
+ * One map rather than three passes of edits, so no two rules can claim a line
+ * and hand CodeMirror an overlapping change. A value may hold a newline, which
+ * is how the recurrence copy arrives above the line it belongs to.
+ */
+export function cycleLines({ lines, line, today, id }: CycleLinesInput): Map<number, string> {
+  const before = lines[line - 1] ?? "";
+  const was = parseTodo(before);
+  const cycled = cycleLine(before, today, id);
+  const moved = new Map<number, string>([[line, cycled]]);
+
+  // Finishing the whole thing finishes the parts, so entering done takes every
+  // open descendant with it. Leaving done cascades nothing, and ticking the
+  // last part leaves the parent alone: that inference is the one often wrong.
+  if (was?.state !== "done" && parseTodo(cycled)?.state === "done") {
+    const node = nodeAt(lines, line);
+    for (const part of node === null ? [] : descendants(node)) {
+      // No id on a part: nothing names it, the log writes one line for the
+      // press, and that line names the parent.
+      if (isOpen(part.todo)) {
+        moved.set(part.line, formatTodo({ ...part.todo, state: "done", done: today }));
+      }
+    }
+  }
+
+  return moved;
+}
+
 /** Every note one press of the cycle changes, in the order they should be sent. */
 export function cycleTodoWrites(input: CycleInput): Write[] {
   const { path, text, line, dailyPath, dailyText, logged, today, id } = input;
 
   const lines = text.split("\n");
   const was = parseTodo(lines[line - 1] ?? "");
-  const cycled = cycleLine(lines[line - 1] ?? "", today, id);
-  lines[line - 1] = cycled;
-  const now = parseTodo(cycled);
+  // The line the press was on, read on its own: its entry in the map can hold
+  // the recurrence copy as well, and the log is about the todo that was ticked.
+  const now = parseTodo(cycleLine(lines[line - 1] ?? "", today, id));
+
+  for (const [at, insert] of cycleLines({ lines, line, today, id })) lines[at - 1] = insert;
   const own = lines.join("\n");
 
   const writes = new Map<string, string>([[path, own]]);

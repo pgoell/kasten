@@ -3,6 +3,7 @@ import {
   addTodoWrites,
   appendUnder,
   type CycleInput,
+  cycleLines,
   cycleTodoWrites,
   doneLine,
   doneLogWrites,
@@ -168,6 +169,62 @@ describe("dropDone", () => {
     const note = ["- [x] wire up the pane ✅ 2026-08-10 🆔 kt-3f9a2c", ""].join("\n");
 
     expect(dropDone(note, "kt-3f9a2c")).toBeNull();
+  });
+});
+
+/** One press over a note's lines, which is what the cascade is a rule about. */
+function cycle(note: string[], line: number) {
+  return cycleLines({ lines: note, line, today: TODAY, id: "kt-3f9a2c" });
+}
+
+describe("cycleLines", () => {
+  it("answers the one line the press moved, where nothing hangs off it", () => {
+    expect(cycle(["- [ ] buy milk"], 1)).toEqual(new Map([[1, "- [/] buy milk"]]));
+  });
+
+  it("takes every open part into done with the parent", () => {
+    const note = [
+      "- [/] wire up the pane",
+      "  - [x] read the spec ✅ 2026-08-01 🆔 kt-000001",
+      "  - [ ] write it",
+      "  - [b] ship it",
+    ];
+
+    // No entry for the child that was already done: it is where it belongs.
+    // The blocked one is not done, so the parent's tick takes it too.
+    expect(cycle(note, 1)).toEqual(
+      new Map([
+        [1, `- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c`],
+        [3, `  - [x] write it ✅ ${TODAY}`],
+        [4, `  - [x] ship it ✅ ${TODAY}`],
+      ]),
+    );
+  });
+
+  it("reaches a grandchild and leaves a rejected part alone", () => {
+    const note = ["- [/] a", "  - [ ] b", "    - [ ] c", "  - [-] d ❌ 2026-08-01"];
+
+    expect([...cycle(note, 1).keys()]).toEqual([1, 2, 3]);
+  });
+
+  it("stamps no id on a part it ticked, nothing naming one", () => {
+    const note = ["- [/] a", "  - [ ] b"];
+    const moved = cycle(note, 1);
+
+    expect(moved.get(1)).toContain("🆔 kt-3f9a2c");
+    expect(moved.get(2)).not.toContain("🆔");
+  });
+
+  it("leaves the parts where they are when the parent leaves done", () => {
+    const note = [`- [x] a ✅ ${TODAY} 🆔 kt-000001`, `  - [x] b ✅ ${TODAY}`];
+
+    expect(cycle(note, 1)).toEqual(new Map([[1, "- [b] a 🆔 kt-000001"]]));
+  });
+
+  it("leaves the parent alone when the last part is ticked", () => {
+    const note = ["- [/] a", `  - [x] b ✅ ${TODAY}`, "  - [/] c"];
+
+    expect(cycle(note, 3)).toEqual(new Map([[3, `  - [x] c ✅ ${TODAY} 🆔 kt-3f9a2c`]]));
   });
 });
 

@@ -3,7 +3,7 @@ import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
 import { periodicNote } from "@/lib/periodic";
 import { cycleLine, newId, parseTodo } from "@/lib/todo";
-import { appendUnderEdit, doneLine, doneLineEdits, type Edit } from "@/lib/todo-write";
+import { appendUnderEdit, cycleLines, doneLine, doneLineEdits, type Edit } from "@/lib/todo-write";
 
 /** Where the box ends on a line that has one, which is where the words start. */
 const BOX = /^[ \t]*- \[.\] /;
@@ -83,14 +83,25 @@ function logEdits(doc: string, before: string, after: string, path: string | und
 export function cycleTodoAtCursor(view: EditorView): void {
   const { state } = view;
   const line = state.doc.lineAt(state.selection.main.head);
-  const cycled = cycleLine(line.text, readClock(new Date()).date, newId());
+  const today = readClock(new Date()).date;
+  const id = newId();
+  const doc = state.doc.toString();
+  const cycled = cycleLine(line.text, today, id);
   const cycleHandler = state.facet(todoCycled);
   const path = state.facet(notePath);
 
+  // Every line of this note the press rewrites, the cascade among them. One map
+  // rather than a pass per rule, so no two of them can claim a line and hand
+  // this an overlapping change.
+  const moved = cycleLines({ lines: doc.split("\n"), line: line.number, today, id });
+
   const changes = ChangeSet.of(
     [
-      { from: line.from, to: line.to, insert: cycled },
-      ...logEdits(state.doc.toString(), line.text, cycled, path),
+      ...[...moved].map(([at, insert]) => {
+        const held = state.doc.line(at);
+        return { from: held.from, to: held.to, insert };
+      }),
+      ...logEdits(doc, line.text, cycled, path),
     ],
     state.doc.length,
   );
