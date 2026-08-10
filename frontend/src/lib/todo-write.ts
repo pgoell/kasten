@@ -21,7 +21,13 @@ import {
   type TodoState,
 } from "@/lib/todo";
 import { nextOccurrence } from "@/lib/todo-recur";
-import { formatSession, parseSession, type Session } from "@/lib/todo-time";
+import {
+  formatDuration,
+  formatSession,
+  minutesBetween,
+  parseSession,
+  type Session,
+} from "@/lib/todo-time";
 import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
@@ -463,6 +469,21 @@ export function sessionOf(todo: Todo, notePath: string, dailyPath: string, start
   };
 }
 
+/** Close every open session naming `id`, at `end`. Null where none moved. */
+export function closeSessions(text: string, id: string, end: string): string | null {
+  const lines = text.split("\n");
+  let moved = false;
+
+  for (const [index, line] of lines.entries()) {
+    const session = parseSession(line);
+    if (session === null || session.end !== undefined || session.id !== id) continue;
+    lines[index] = formatSession({ ...session, end });
+    moved = true;
+  }
+
+  return moved ? lines.join("\n") : null;
+}
+
 /** Every note one press of `t` changes, in the order they should be sent. */
 export function timerWrites(input: TimerInput): Write[] {
   const { path, line, dailyPath, notes, sessions, now } = input;
@@ -503,7 +524,28 @@ export function timerWrites(input: TimerInput): Write[] {
     const daily = writes.get(dailyPath) ?? notes[dailyPath] ?? "";
     const session = sessionOf({ ...todo, id }, path, dailyPath, now);
     writes.set(dailyPath, appendUnder(daily, TIME, formatSession(session)));
+
+    return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
   }
+
+  for (const notePath of new Set(running.map((found) => found.path))) {
+    const closed = closeSessions(writes.get(notePath) ?? notes[notePath] ?? "", id, now);
+    if (closed !== null) writes.set(notePath, closed);
+  }
+
+  // The log is the record, and `⏱` is kasten's summary of it: every stop sums
+  // the whole log rather than adding this session to whatever the line carried,
+  // so correcting a session line by hand puts the total back in step.
+  const total = mine.reduce(
+    (sum, { session }) => sum + minutesBetween(session.start, session.end ?? now),
+    0,
+  );
+
+  // The text as the closes left it, because a todo living in today's own note
+  // is both the note being closed in and the note carrying the task line.
+  const after = (writes.get(path) ?? own).split("\n");
+  after[line - 1] = formatTodo({ ...todo, id, worked: formatDuration(total) });
+  writes.set(path, after.join("\n"));
 
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
 }

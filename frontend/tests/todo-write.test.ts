@@ -712,3 +712,101 @@ describe("timerWrites, starting", () => {
     expect(timerWrites(timer({ line: 5 }))).toEqual([]);
   });
 });
+
+const SESSION_OPEN = "- 09:12-      wire up the pane #kasten [[projects/kasten]] kt-3f9a2c";
+const SESSION_CLOSED = "- 09:12-10:32 wire up the pane #kasten [[projects/kasten]] kt-3f9a2c";
+
+/** Today's note with the time log holding the lines it is given. */
+function timeLog(...lines: string[]): string {
+  return [
+    "# 2026-08-10 Monday",
+    "",
+    "[[01 Periodic/00 Daily/2026-08-09]] | [[01 Periodic/00 Daily/2026-08-11]]",
+    "",
+    "## Time",
+    ...lines,
+    "",
+  ].join("\n");
+}
+
+/** The task line as a stop leaves it, the total read off the log. */
+function worked(total: string): string {
+  return `- [/] wire up the pane #kasten 📅 2026-08-14 ⏫ ⏱ ${total} 🆔 kt-3f9a2c`;
+}
+
+/** The named task line rewritten with a total, which is what a stop writes. */
+function totalled(total: string, task = `${OPEN_TASK} 🆔 kt-3f9a2c`): string {
+  return NOTE.replace(OPEN_TASK, task).replace(task, worked(total));
+}
+
+/** One press of `t` with `lines` in today's log, which is where a stop looks. */
+function stop(lines: string[], over: Partial<TimerInput> = {}): Write[] {
+  return timerWrites(
+    timer({
+      notes: { [NOTE_PATH]: NAMED, [DAILY_PATH]: timeLog(...lines) },
+      sessions: lines.map((text) => ({ path: DAILY_PATH, text })),
+      now: "10:32",
+      ...over,
+    }),
+  );
+}
+
+describe("timerWrites, stopping", () => {
+  it("closes the session and writes the total onto the task line", () => {
+    expect(stop([SESSION_OPEN])).toEqual([
+      { path: DAILY_PATH, text: timeLog(SESSION_CLOSED) },
+      { path: NOTE_PATH, text: totalled("1h20m") },
+    ]);
+  });
+
+  it("sums the log rather than adding to what the line carried", () => {
+    const earlier = "- 11:00-11:20 wire up the pane [[projects/kasten]] kt-3f9a2c";
+
+    expect(stop([earlier, SESSION_OPEN])[1]?.text).toBe(totalled("1h40m"));
+  });
+
+  it("replaces a total the log does not back", () => {
+    // The log is the record with times and dates in it. `⏱` is kasten's
+    // summary of it, so a number typed over the top is the one that gives way.
+    const typed = `${OPEN_TASK} ⏱ 9h 🆔 kt-3f9a2c`;
+    const writes = stop([SESSION_OPEN], {
+      notes: { [NOTE_PATH]: NOTE.replace(OPEN_TASK, typed), [DAILY_PATH]: timeLog(SESSION_OPEN) },
+    });
+
+    expect(writes[1]?.text).toBe(totalled("1h20m", typed));
+  });
+
+  it("closes every session running on the todo, and counts them all", () => {
+    const second = "- 10:00-      wire up the pane [[projects/kasten]] kt-3f9a2c";
+    const writes = stop([SESSION_OPEN, second]);
+
+    expect(writes[0]?.text).toBe(
+      timeLog(SESSION_CLOSED, "- 10:00-10:32 wire up the pane [[projects/kasten]] kt-3f9a2c"),
+    );
+    expect(writes[1]?.text).toBe(totalled("1h52m"));
+  });
+
+  it("writes a zero total rather than dropping it", () => {
+    const now = "- 10:32-      wire up the pane [[projects/kasten]] kt-3f9a2c";
+
+    expect(stop([now])[1]?.text).toBe(totalled("0m"));
+  });
+
+  it("counts an interval typed in backwards as nothing", () => {
+    const backwards = "- 12:00-11:00 wire up the pane [[projects/kasten]] kt-3f9a2c";
+
+    expect(stop([backwards, SESSION_OPEN])[1]?.text).toBe(totalled("1h20m"));
+  });
+
+  it("leaves a session in a note that is not a daily one alone", () => {
+    // A `## Time` section written by hand into a project note is somebody's own
+    // log: nothing says which day it belongs to, so a press starts instead.
+    const writes = stop([], {
+      sessions: [{ path: NOTE_PATH, text: SESSION_OPEN }],
+      notes: { [NOTE_PATH]: NAMED, [DAILY_PATH]: FRESH_DAILY },
+    });
+
+    expect(writes.map(({ path }) => path)).toEqual([DAILY_PATH]);
+    expect(writes[0]?.text).toContain("- 10:32-      wire up the pane");
+  });
+});
