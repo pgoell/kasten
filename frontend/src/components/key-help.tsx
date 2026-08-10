@@ -4,6 +4,7 @@ import {
   FORMAT,
   INDENT,
   LEADER,
+  LEADER_EDITS,
   TAB_KEYS,
   TERMINAL,
   TERMINAL_CHORD,
@@ -85,7 +86,13 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       // A leader key can be more than one letter, and the letters are spaced so
       // that `cf` reads as the two presses it is rather than as one key.
       keys: [
-        ...LEADER.map(({ key, label }) => ({ key: `Space ${[...key].join(" ")}`, label })),
+        // Two tables, one group. The keys are pressed the same way; what
+        // divides them is that these write to the note rather than naming a
+        // command the route provides, and nobody reading the panel cares.
+        ...[...LEADER, ...LEADER_EDITS].map(({ key, label }) => ({
+          key: `Space ${[...key].join(" ")}`,
+          label,
+        })),
         // The ten digits on one row. Ten rows carrying the same sentence would
         // bury every other key on the panel.
         {

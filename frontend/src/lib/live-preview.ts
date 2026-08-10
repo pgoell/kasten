@@ -3,6 +3,8 @@ import type { Extension, Line, Range, Text } from "@codemirror/state";
 import { EditorSelection, EditorState, type RangeSet, StateField } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
+import { readClock } from "@/lib/clock";
+import { parseTodo } from "@/lib/todo";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
 import { vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
@@ -13,6 +15,21 @@ const HEADING = /^ATXHeading([1-6])$/;
 
 /** How far one level of list nesting shifts a rendered item, in `em`. */
 const BULLET_INDENT = 1.6;
+
+/** A todo's due date and the marker in front of it, which is what turns red. */
+const DUE = /📅[ \t]+(\d{4}-\d{2}-\d{2})/;
+
+/**
+ * Today, read once when the module loads.
+ *
+ * ponytail: a tab left open across midnight keeps yesterday's idea of overdue
+ * until it reloads. The upgrade is a facet carrying the date through the
+ * editor, which is more machinery than one colour is worth.
+ */
+const TODAY = readClock(new Date()).date;
+
+/** How far past the list mark a box reaches: ` [s]`, whatever the indent is. */
+const BOX_WIDTH = 4;
 
 /**
  * How many lists a list item sits inside.
@@ -160,16 +177,35 @@ function build(state: EditorState): Live {
       // in for comes back, or the line carries two bullets. An ordered list is
       // left alone throughout: its number is content, not decoration.
       if (isBullet) {
+        // The state is read off the line rather than off a node: the parser
+        // emits `TaskMarker` for `[ ]` and `[x]` and for nothing else, so three
+        // of the five states have no node to hang a rendering on. Reading it
+        // through `parseTodo` is also what stops the drawing and the writes
+        // disagreeing about what counts as a todo.
+        const todo = parseTodo(line.text);
+        const due = todo === null ? null : DUE.exec(line.text);
+
+        // Red on the date itself, so unlike everything below it this stays
+        // while the line shows its source: it colours text that is on the
+        // screen either way rather than standing in for characters.
+        if (due && due[1] !== undefined && due[1] < TODAY) {
+          const at = line.from + due.index;
+          decorations.push(
+            Decoration.mark({ class: "cm-todo-overdue" }).range(at, at + due[0].length),
+          );
+        }
+
         if (revealed) return;
         decorations.push(
           Decoration.line({
-            class: "cm-bullet",
+            class: todo === null ? "cm-bullet" : `cm-todo cm-todo-${todo.state}`,
             attributes: { style: `padding-left: ${BULLET_INDENT * listDepth(node.node)}em` },
           }).range(line.from),
         );
         // From the start of the line, not the mark: the spaces that nest the
-        // item go too, their job now done by the padding above.
-        hideLeader(line.from, node.to, line);
+        // item go too, their job now done by the padding above. On a todo the
+        // box goes with them, the symbol standing in for the whole of it.
+        hideLeader(line.from, todo === null ? node.to : node.to + BOX_WIDTH, line);
         return;
       }
 

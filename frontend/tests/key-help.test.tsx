@@ -6,6 +6,7 @@ import {
   FORMAT,
   INDENT,
   LEADER,
+  LEADER_EDITS,
   TERMINAL,
   TERMINAL_CHORD,
   TREE,
@@ -53,6 +54,17 @@ describe("KeyHelp", () => {
     for (const { key, label } of LEADER) {
       // The key's own row, not the label anywhere on the panel: a terminal
       // chord carries the same sentence as the leader key doing the same job.
+      expect(group("Leader").getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
+    }
+  });
+
+  it("lists every leader key that writes to the note", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    // A second table, and one group: these name no command on `EditorCommands`
+    // because they edit the buffer, but they are pressed like every other
+    // leader key and belong on the panel beside them.
+    for (const { key, label } of LEADER_EDITS) {
       expect(group("Leader").getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
     }
   });

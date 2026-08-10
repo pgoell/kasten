@@ -1,4 +1,6 @@
+import type { EditorView } from "@codemirror/view";
 import { BOLD, HIGHLIGHT, ITALIC, type MarkSpec, STRIKE } from "@/lib/format-commands";
+import { cycleTodoAtCursor } from "@/lib/todo-commands";
 
 /**
  * Every binding the app owns, in one table.
@@ -161,6 +163,27 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "%", label: "Split the pane left and right", command: "splitRight" },
   { key: '"', label: "Split the pane top and bottom", command: "splitDown" },
   { key: "?", label: "Show the keys", command: "showHelp" },
+];
+
+export interface LeaderEdit {
+  /** The keys pressed after the leader, as in `LEADER`. */
+  key: string;
+  label: string;
+  run: (view: EditorView) => void;
+}
+
+/**
+ * Leader keys that edit the buffer, so they name no command on `EditorCommands`.
+ *
+ * Every row of `LEADER` names something the route provides, and the route has
+ * no view to write into. These carry the work itself instead, the way `FORMAT`
+ * carries its spec, and `editor-commands.ts` hands each one the view the key
+ * was typed into.
+ */
+export const LEADER_EDITS: readonly LeaderEdit[] = [
+  // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
+  // binding spell a tick, and bare `x` in normal mode is vim's own cut.
+  { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },
 ];
 
 /**
