@@ -327,6 +327,12 @@ group draws no heading. A row is the state's symbol, the priority where there is
 one, the words, the count of its parts where it has any, and the day of the due
 date.
 
+A part is drawn one step in under the todo it belongs to, so the list reads the
+way the note does. Where that todo is not a row in the same group, because it
+carries a date of its own or because it is already done, the part goes back to
+the edge and names it in front of its own words instead: an indent under
+whichever row happened to land above it would be a lie about the note.
+
 The group is read off the scheduled date where the todo has one and off the due
 date otherwise, so a task due Friday and scheduled Tuesday sits under Tuesday,
 which is the day you have to act on it. A due date in the past wins over both

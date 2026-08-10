@@ -104,7 +104,9 @@ Real, working code, not a plan:
   and a terminal, grouped under Overdue, Today, This week, Later and No date.
   A row sits in the group its scheduled date names where it has one and its due
   date otherwise, a past due date wins over both, and a `🛫` after today keeps
-  the row off the list until the day it names.
+  the row off the list until the day it names. A part is drawn one step in under
+  the todo it belongs to, and where that todo is in another group or already
+  done it names it in front of its own words instead.
   Its keys are `j k Enter x a d n / q Escape`: `x` walks a todo in the vault,
   `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
   !high #health`, into a todo under `## TODOs` in today's note, `d` shows the

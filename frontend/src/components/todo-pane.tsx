@@ -24,9 +24,47 @@ import {
 interface Row {
   hit: SearchHit;
   todo: Todo;
-  /** The todo this one is a part of, drawn in front of it. Only `n` sets it. */
+  /** The todo this one is a part of, drawn in front of it where it is not above it. */
   under?: string;
+  /** What this hangs off, which decides the indent once the group is known. */
+  parent?: Placed;
+  /** How many steps in the row is drawn, counted inside its own group. */
+  depth?: number;
 }
+
+/**
+ * Where each row of one group sits: a step in under whatever it hangs off, or
+ * back at the edge naming it.
+ *
+ * Read inside the group rather than off the todo's own indent, because a part
+ * can land in a group its parent is not in: a `📅` of its own puts it there,
+ * and a parent that is done is not on this list at all. Drawing such a row
+ * indented would hang it off whichever row happens to sit above it, which is a
+ * lie about the note. So it goes back to the edge and names its parent instead.
+ *
+ * One pass is enough: a part is always further down its note than what holds
+ * it, and the rows of a group keep the order the vault answered in.
+ */
+function nest(rows: Row[]): Row[] {
+  const depth = new Map<string, number>();
+
+  return rows.map((row) => {
+    const above =
+      row.parent === undefined ? undefined : depth.get(`${row.hit.path}:${row.parent.line}`);
+    depth.set(rowKey(row.hit), above === undefined ? 0 : above + 1);
+
+    // `n` names the todo its row is an action on, and keeps that name here.
+    return above === undefined
+      ? { ...row, depth: 0, under: row.under ?? row.parent?.todo.text }
+      : { ...row, depth: above + 1 };
+  });
+}
+
+/** How far one step of nesting shifts a row, in `rem`, past the list's own padding. */
+const STEP = 1.1;
+
+/** The padding `ROW` carries, which a nested row has to start from. */
+const GUTTER = 0.75;
 
 /** Which list the pane is showing. `d` and `n` each toggle their own back. */
 type Mode = "open" | "done" | "next";
@@ -98,19 +136,6 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
 
   const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 
-  // The endpoint matches the shape of a checkbox and nothing else, so reading
-  // each line is what drops the `## Time` sessions and the finished todos. A
-  // todo whose `🛫` has not arrived goes with them: a list of things you cannot
-  // start yet is not a list of what to do.
-  const open = useMemo(() => {
-    const found: Row[] = [];
-    for (const hit of data ?? []) {
-      const todo = parseTodo(hit.text);
-      if (todo !== null && isOpen(todo) && !waiting(todo, today)) found.push({ hit, todo });
-    }
-    return found;
-  }, [data, today]);
-
   // The forest each note's todos make, and the hit each line arrived on. Both
   // the count on a row and the `n` list are questions about this one tree, and
   // it is read off every todo the vault answered with rather than off the rows
@@ -135,8 +160,33 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
         treeOf([...lines].sort((one, other) => one.line - other.line)),
       ]),
     );
-    return { trees, hits };
+    // What each todo hangs off, so a row can be drawn under it or, where that
+    // one is not on screen, name it.
+    const parents = new Map<string, Placed>();
+    for (const [path, roots] of trees) {
+      for (const root of roots) {
+        for (const node of [root, ...descendants(root)]) {
+          for (const child of node.children) parents.set(`${path}:${child.line}`, node);
+        }
+      }
+    }
+
+    return { trees, hits, parents };
   }, [data]);
+
+  // The endpoint matches the shape of a checkbox and nothing else, so reading
+  // each line is what drops the `## Time` sessions and the finished todos. A
+  // todo whose `🛫` has not arrived goes with them: a list of things you cannot
+  // start yet is not a list of what to do.
+  const open = useMemo(() => {
+    const found: Row[] = [];
+    for (const hit of data ?? []) {
+      const todo = parseTodo(hit.text);
+      if (todo === null || !isOpen(todo) || waiting(todo, today)) continue;
+      found.push({ hit, todo, parent: forest.parents.get(rowKey(hit)) });
+    }
+    return found;
+  }, [data, today, forest]);
 
   /** `3/5` for every row that has parts, keyed by the row it belongs to. */
   const progress = useMemo(() => {
@@ -214,7 +264,7 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
     }
     return SECTIONS.map((section) => ({
       heading: HEADING[section],
-      rows: shown.filter((row) => sectionOf(row.todo, today) === section),
+      rows: nest(shown.filter((row) => sectionOf(row.todo, today) === section)),
     })).filter((group) => group.rows.length > 0);
   }, [shown, mode, today]);
   // The same rows flattened, because `j` and `k` move down a list and a heading
@@ -392,7 +442,7 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
               <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
                 {heading}
               </h3>
-              {group.map(({ hit, todo, under }) => {
+              {group.map(({ hit, todo, under, depth }) => {
                 const key = rowKey(hit);
                 // One tab stop for the whole pane: tab reaches the cursor, and
                 // the vim keys move it from there.
@@ -406,6 +456,9 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
                     tabIndex={tabIndex}
                     onClick={() => onOpen(hit.path, hit.line)}
                     title={key}
+                    // A step in per level of nesting, so the list reads the way
+                    // the note does. `ROW` carries the first one as padding.
+                    style={{ paddingLeft: `${GUTTER + (depth ?? 0) * STEP}rem` }}
                     // A blocked row is drawn muted rather than gathered under a
                     // heading of its own: its state is written on the line, and
                     // the date group is still where the work belongs.

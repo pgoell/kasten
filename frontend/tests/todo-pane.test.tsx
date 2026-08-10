@@ -122,6 +122,43 @@ describe("the todo pane", () => {
     expect(pane.texts()[1]).not.toContain("/");
   });
 
+  /** One note whose tree straddles two groups, which is what the nesting reads. */
+  const NESTED_ROWS = [
+    { path: "a.md", line: 1, text: "- [/] finish todo story" },
+    { path: "a.md", line: 2, text: "  - [ ] phase2" },
+    { path: "a.md", line: 3, text: "    - [ ] phase2a" },
+    { path: "a.md", line: 4, text: "- [/] safari preparation 📅 2026-08-10" },
+    { path: "a.md", line: 5, text: "  - [ ] check list" },
+  ];
+
+  it("draws a part indented under the todo it belongs to", async () => {
+    const pane = renderPane(NESTED_ROWS);
+    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+
+    // Today holds safari preparation; the rest are under No date, in note order.
+    const [, root, part, deeper] = pane.rows() as HTMLElement[];
+    expect(root?.textContent).toContain("finish todo story");
+    expect(part?.textContent).toContain("phase2");
+    expect(deeper?.textContent).toContain("phase2a");
+
+    const indent = (row: HTMLElement | undefined) =>
+      Number.parseFloat(row?.style.paddingLeft ?? "0");
+    expect(indent(part)).toBeGreaterThan(indent(root));
+    expect(indent(deeper)).toBeGreaterThan(indent(part));
+  });
+
+  it("names the parent of a part whose parent is in another group", async () => {
+    const pane = renderPane(NESTED_ROWS);
+    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+
+    // `check list` hangs off `safari preparation`, which is due today and so
+    // sits in another group. An indent under `phase2a` would be a lie.
+    const rows = pane.rows() as HTMLElement[];
+    const orphan = rows.find((row) => row.textContent?.includes("check list"));
+    expect(orphan?.textContent).toContain("safari preparation");
+    expect(orphan?.style.paddingLeft).toBe(rows[1]?.style.paddingLeft);
+  });
+
   /** Two notes, one holding a small tree and one holding a todo on its own. */
   const NESTED = [
     { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10" },
