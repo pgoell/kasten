@@ -75,20 +75,49 @@ Real, working code, not a plan:
   A todo is a checkbox line in a note, and the line is the whole record: five
   states, `[ ] [/] [x] [b] [-]`, and every field beside them spelled the way
   obsidian-tasks spells it, the dates `📅 ⏳ 🛫 ➕ ✅ ❌`, a priority glyph, and
-  `🔁 🆔 ⛔ ⏲ ⏱`. `Space x` cycles the line under the cursor, stamping the
-  created date, the done date, the id and the cancelled date as it goes, and the
-  editor draws each state as a symbol with an overdue date in red. The press
+  `🔁 🆔 ⛔ ⏲ ⏱`. `Space x` walks the line under the cursor
+  through the work, plain line to open to doing to done and out to a plain line
+  again, stamping the created date, the done date and the id as it goes, and the
+  editor draws each state as a symbol with an overdue date in red. Blocked and
+  rejected are not on the walk: five keys set a state straight, `Space s o p x b
+  r` in the editor and `O P X B R` in the pane, stamping and dragging what the
+  walk does. Done is the walk's last state because a list of open work loses the
+  row there, which once put blocked and rejected out of the pane's reach.
+  `Space i` stamps an id on its own, which is how an open todo gets a name for a
+  `⛔` to point at.
+  A todo indented under another is a part of it, the indent being the whole
+  rule, and the parent carries `1/3` after its words in the editor and on its
+  row, counting every descendant. Ticking a parent ticks every open part with
+  it, in one press one `u` takes back, and writes one `- ✅` line naming the
+  parent. Ticking the last part leaves the parent alone.
+  `⛔` names another todo's id and hands kasten the choice between `[ ]` and
+  `[b]` on that line: closing or reopening the blocker rewrites every dependent
+  naming it, wherever it lives, reading `GET /api/todos` once to find them and
+  reading only the notes that hold one. `[/]`, `[x]` and `[-]` are never
+  touched, a dependent opens only when every blocker on it is closed, and a
+  `⛔` naming an id no note holds changes nothing.
+  `🔁 every week`, `every 3 days` and the `when done` suffix are read, and
+  ticking such a todo leaves the completed line where it is and puts the next
+  copy above it, one period on, with every date it carries moved by the same
+  number of days and the id and the done date dropped. A month rule clamps to
+  the last day of a month too short for the day. The press
   that enters or leaves done moves the done log too. For a todo in another note
   that is a write no buffer edit can reach, so `u` puts the line back and leaves
   the log; for one already in today's note the log lands in the same buffer, in
   the same transaction, and `u` takes back both. `Space g t`
   puts the list in the focused pane, a third thing a pane can hold beside a note
   and a terminal, grouped under Overdue, Today, This week, Later and No date.
-  Its keys are `j k Enter x a d / q Escape`: `x` walks a todo in the vault, `a`
-  opens a prompt turning one line of shorthand, `call the dentist due:08-14
+  A row sits in the group its scheduled date names where it has one and its due
+  date otherwise, a past due date wins over both, and a `🛫` after today keeps
+  the row off the list until the day it names. A part is drawn one step in under
+  the todo it belongs to, and where that todo is in another group or already
+  done it names it in front of its own words instead.
+  Its keys are `j k Enter x O P X B R a d n / q Escape`: `x` walks a todo in the vault,
+  `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
   !high #health`, into a todo under `## TODOs` in today's note, `d` shows the
-  last seven days of finished work, and `/` narrows the list by tag, priority,
-  state and due window. `Space f t` is the same list in the finder's panel.
+  last seven days of finished work, `n` shows one next action per top level
+  todo, the first open leaf under it or whatever carries `#next`, and `/`
+  narrows the list by tag, priority, state and due window. `Space f t` is the same list in the finder's panel.
   Ticking a todo done also writes a `- ✅` line under `## Done` in today's note,
   linking back and naming the id; un-ticking drops that line wherever it landed,
   and ticking twice leaves one. It is deliberately not a checkbox, so
@@ -143,9 +172,8 @@ not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
 pick the few notes it has to read, so there is no link table either.
 
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, todo subtasks, dependencies and recurrence, the timer and the
-`## Time` section it writes, saved todo views, and anything that writes to
-Postgres.
+two folders, the timer and the `## Time` section it writes, saved todo views,
+and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 

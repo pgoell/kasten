@@ -423,6 +423,118 @@ describe("the leader key", () => {
     expect(doc()).toBe(`- [ ] lain ➕ ${TODAY}`);
   });
 
+  it("takes a parent's parts into done with it, in one press", () => {
+    const { editor, doc } = open("- [/] wire up the pane\n  - [ ] write it\n  - [ ] ship it");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    const lines = doc().split("\n");
+    // The parent's id is whatever `newId` made, so it is matched rather than
+    // written out. Neither part gets one: nothing names a part.
+    expect(lines[0]).toMatch(new RegExp(`^- \\[x\\] wire up the pane ✅ ${TODAY} 🆔 kt-\\w{6}$`));
+    expect(lines[1]).toBe(`  - [x] write it ✅ ${TODAY}`);
+    expect(lines[2]).toBe(`  - [x] ship it ✅ ${TODAY}`);
+  });
+
+  it("puts every line the cascade moved back on one u", () => {
+    const note = "- [/] wire up the pane\n  - [ ] write it\n  - [ ] ship it";
+    const { editor, doc } = open(note);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+    fireEvent.keyDown(editor, { key: "u" });
+
+    expect(doc()).toBe(note);
+  });
+
+  it("stamps an id on the todo under the cursor on space then i", () => {
+    // The spec's second stamp, the one entering done is not: a `⛔` is written
+    // by hand and needs an id to name.
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    expect(doc()).toMatch(/^- \[ \] wire up the pane 🆔 kt-\w{6}$/);
+  });
+
+  it("leaves the id it wrote on a second press", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "i" });
+    const stamped = doc();
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    expect(doc()).toBe(stamped);
+  });
+
+  it("moves a dependent in the same note in the press that closes its blocker", () => {
+    const note = "- [/] ship it 🆔 kt-000001\n- [b] write the docs ⛔ kt-000001";
+    const { editor, doc } = open(note);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc().split("\n")[1]).toBe("- [ ] write the docs ⛔ kt-000001");
+
+    fireEvent.keyDown(editor, { key: "u" });
+
+    // One press, so one undo takes back both lines.
+    expect(doc()).toBe(note);
+  });
+
+  it("leaves a recurring todo's next copy above it, and takes both back on u", () => {
+    const note = "- [/] water the plants 🔁 every week 📅 2999-01-07";
+    const { editor, doc } = open(note);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    const lines = doc().split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe("- [ ] water the plants 📅 2999-01-14 🔁 every week");
+    expect(lines[1]).toContain("✅");
+
+    fireEvent.keyDown(editor, { key: "u" });
+
+    expect(doc()).toBe(note);
+  });
+
+  it("sets the state a leader s key names, from wherever the line was", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "b" });
+
+    // Blocked is not on the walk, so this key is the only way to it.
+    expect(doc()).toBe("- [b] wire up the pane");
+  });
+
+  it("takes a part into done with its parent on a key that names done", () => {
+    const { editor, doc } = open("- [ ] wire up the pane\n  - [ ] write it");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    // Straight to done from open, and the cascade goes with it exactly as it
+    // does when the walk arrives there.
+    expect(doc().split("\n")[1]).toBe(`  - [x] write it ✅ ${TODAY}`);
+  });
+
+  it("waits for the second letter rather than acting on space then s", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+
+    expect(doc()).toBe("- [ ] wire up the pane");
+  });
+
   it("reports the line it cycled, so the done log can follow it", () => {
     // The press edits the buffer and autosave writes it, which is what keeps
     // `u` working. The `## Done` line lands in another note, so the route has

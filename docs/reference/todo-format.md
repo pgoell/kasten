@@ -70,12 +70,16 @@ kept in the order it was written. Every other field appears once.
 
 Seven of these are written by kasten today: the state, the due date, the
 priority, the created date, the done date, the cancelled date and the id. The
-rest are read, carried and written back untouched. Nothing in the app sets a
-scheduled date, a start date, a recurrence, a blocker, an estimate or a worked
-total yet.
+rest are read, carried and written back untouched. You type a scheduled date, a
+start date, a recurrence, a blocker, an estimate and a worked total yourself,
+and kasten reads all six: `⏳` and `🛫` decide
+[which group a row sits in](/reference/editor-keys.md#the-todo-pane), `⛔` hands
+kasten the state of the line it sits on, and `🔁` writes the next copy when the
+todo is ticked. Only the estimate and the worked total are carried and nothing
+else.
 
 There is deliberately no block anchor. The id does every job a `^anchor` would
-have done: the done log names it, and so will dependencies and the time log.
+have done: the done log names it, dependencies name it, and so will the time log.
 
 ## The five states
 
@@ -108,18 +112,29 @@ A blocked todo is open work.
 | a plain line | `[ ]` | `➕` today, unless the line already carries one |
 | `[ ]` | `[/]` | nothing |
 | `[/]` | `[x]` | `✅` today, and `🆔` unless the line already carries one |
-| `[x]` | `[b]` | strips the `✅` it wrote |
-| `[b]` | `[-]` | `❌` today |
+| `[x]` | a plain line | strips the `✅` it wrote |
+| `[b]` | `[/]` | nothing |
 | `[-]` | a plain line | strips the `❌` it wrote |
+
+The walk is the work: not started, started, finished, and out of the list again.
+Blocked and rejected are things that happen to work rather than steps in it, so
+neither is on the walk and each has [a key of its own](#setting-a-state). That
+is also what puts done last. A list of open work loses a row the moment it is
+done, so a walk with two closed states in it could never reach the second: from
+the todo pane the old order made blocked and rejected unreachable, because the
+row left the list at done and took the rest of the walk with it.
+
+The walk picks a blocked line up where the work left off, at doing, rather than
+at the start of it. A todo somebody blocked is one somebody had begun.
 
 The first step reads the fields already on the line, so a todo written out by
 hand arrives carrying them. It takes the line's bullet off where it had one, the
 box standing in for it.
 
-The last step drops the bullet, the box and the `❌`, and keeps every other
-field, so six more presses give the todo back with its dates. It rebuilds the
-line the way every other step does, which is why the tags come back in front of
-the fields:
+Either step out drops the bullet, the box and the stamp its own state wrote, and
+keeps every other field, so three more presses give the todo back with its
+dates. It rebuilds the line the way every other step does, which is why the tags
+come back in front of the fields:
 
 ```markdown
 - [-] call the dentist 📅 2026-08-14 ⏫ ➕ 2026-08-09 ❌ 2026-08-10 #health
@@ -131,11 +146,34 @@ becomes
 call the dentist #health 📅 2026-08-14 ⏫ ➕ 2026-08-09
 ```
 
-An id is stamped when something first needs to name the todo, which today is on
-entering done. A todo nothing refers to never gets one. `kt-` prefixes it so a
-grep for the id cannot hit a word of prose, and the six characters after it are
-hex from the browser's own random source, because an id goes to disk and has to
-be unique across machines.
+An id is stamped when something first needs to name the todo: on entering done,
+and on `<leader>i`, which is how you name a todo that is still open so a `⛔`
+can point at it. A todo nothing refers to never gets one, and a second
+`<leader>i` leaves the id the first one wrote. `kt-` prefixes it so a grep for
+the id cannot hit a word of prose, and the six characters after it are hex from
+the browser's own random source, because an id goes to disk and has to be unique
+across machines.
+
+Ticking a parent takes its parts with it, and ticking a recurring todo writes
+the next copy. [Subtasks](#subtasks) and [Recurrence](#recurrence) below say
+what those two presses write.
+
+## Setting a state
+
+Five keys put a line straight into one state from wherever it was: `O`, `P`,
+`X`, `B` and `R` in the todo pane, and `<leader>so`, `<leader>sp`,
+`<leader>sx`, `<leader>sb` and `<leader>sr` in the editor. `p` is in progress,
+`d` being spent on the done list.
+
+A state is worth the same whichever key wrote it. Entering done stamps `✅`
+today and an `🆔` where the line carries none, entering rejected stamps `❌`
+today, and leaving either drops the stamp it wrote, exactly as the walk does.
+A key aimed at the state a line is already in changes nothing. A plain line
+becomes a todo in that state, carrying the `➕` the walk would have stamped.
+
+Everything a press drags with it comes too: a parent set to done takes its open
+parts, a recurring todo set to done writes its next copy, and a todo carrying an
+`🆔` set into or out of done moves what waits on it.
 
 ## The field order
 
@@ -147,6 +185,108 @@ The words come first, then every field the line carries, in this order:
 
 One decision made in one place, so a note stays consistent however it was
 edited. A line already in this order comes back byte for byte.
+
+## Subtasks
+
+A todo indented under another is a part of it:
+
+```markdown
+- [/] safari packing 📅 2026-08-14
+  - [x] passport ✅ 2026-08-09
+  - [ ] esim
+    - [ ] pick a plan
+```
+
+The indent is the whole rule. A todo belongs to the nearest todo above it
+carrying a smaller indent, and nothing ends a block: prose between two todos
+leaves the nesting alone, which is what markdown itself does and what lets the
+pane, which never sees that prose, read the same tree the editor reads.
+
+A parent shows `1/3` after its words, in the editor and on its row in the pane.
+The count is every descendant rather than the direct children, so a part with
+parts of its own counts each of them, and a part that is done or rejected counts
+as closed. A todo with no parts shows nothing.
+
+Ticking a parent done ticks every part that is still open, stamping today's
+`✅` on each and leaving a part that was already done or rejected where it is.
+Blocked counts as open, so a `[b]` part goes done with the rest. One
+`- ✅` line is written for the press, naming the parent, because six lines for
+one press is noise, and no part gets an id, nothing naming one. It is one
+buffer edit, so one `u` puts every line back.
+
+Ticking the last part leaves the parent alone, and un-ticking a parent leaves
+its parts done. Both directions are the spec's own asymmetry: finishing the
+whole thing finishes the parts, while a parent usually has work of its own that
+no part names.
+
+## Dependencies
+
+`⛔` names another todo's id, and says this todo waits on that one:
+
+```markdown
+- [/] ship the release 🆔 kt-c0ffee
+- [b] write the docs ⛔ kt-c0ffee
+```
+
+Closing or reopening the blocker rewrites every dependent naming it, in
+whichever note each one lives in, so the line says the truth without anything
+having to work it out at read time. The write runs from the blocker's side
+only: a `⛔` typed by hand takes effect the next time its blocker moves.
+
+`⛔` on a line hands kasten the choice between `[ ]` and `[b]` there, and
+nothing else. `[/]`, `[x]` and `[-]` are never touched, so a state you set by
+hand cannot be destroyed by a blocker changing. A `[b]` carrying no `⛔` means
+waiting on something outside the vault and is left alone entirely. Cycling a
+dependent from `[b]` to `[ ]` by hand is undone the next time the blocker moves,
+which is the intended behaviour: the way to unblock something is to close what
+blocks it, or to delete the `⛔`.
+
+A line may carry several `⛔`, and it opens only when every one of them is
+closed. A `⛔` naming an id no note holds changes nothing: an unresolvable
+blocker reads as open, so nothing is opened on a guess and nothing is destroyed
+by a blocker that has been deleted.
+
+One level per write. If A blocks B and B blocks C, closing A opens B, and C is
+opened by the write that closes B rather than by the same pass.
+
+## Recurrence
+
+`🔁` says a todo comes back:
+
+```
+every day | every week | every month | every year
+every <n> days | every <n> weeks | every <n> months | every <n> years
+```
+
+and any of them may end `when done`. A rule this cannot read stays in the words,
+where you can see it, and writes nothing.
+
+Ticking a recurring todo done leaves the completed line where it is with its
+`✅` and puts the fresh copy above it, so the note carries the history of the
+recurrence in place:
+
+```markdown
+- [ ] water the plants 📅 2026-08-17 🔁 every week
+- [x] water the plants 📅 2026-08-10 🔁 every week ✅ 2026-08-10 🆔 kt-c11d88
+```
+
+The copy is counted off the due date, or off the scheduled date, or off the
+start date, whichever the todo has first. `when done` counts off the day it was
+ticked instead. Every other date on the line moves by the same number of days,
+so the gaps between due, scheduled and start survive the period.
+
+A month rule counts calendar months and clamps to the last day of one that is
+too short: the thirty-first of January one month on is the twenty-eighth of
+February, not the third of March. A year rule does the same to the twenty-ninth
+of February.
+
+The copy is open and carries no `✅`, no `❌`, no `🆔` and no `⏱`: those name
+the instance that was finished, which the done log links to. The `➕` stays,
+that being the recurrence's own birthday.
+
+A recurring todo carrying no date at all is ticked like any other and writes no
+copy. There is nothing to count from, and a copy with no date is the same todo
+written twice.
 
 ## The done log
 

@@ -244,6 +244,31 @@ describe("live preview", () => {
     expect(content(container)).toBe("ask");
   });
 
+  it("counts a parent's parts after its line, reaching the grandchildren", () => {
+    const lines = [
+      "- [/] parent",
+      "  - [x] one",
+      "  - [-] two",
+      "  - [ ] three",
+      "    - [x] four",
+      "    - [ ] five",
+    ];
+    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+
+    const counts = container.querySelectorAll(".cm-todo-progress");
+    expect(counts).toHaveLength(2);
+    // The parent's own count, and `three` carrying its two of its own.
+    expect(counts[0]?.textContent).toBe("3/5");
+    expect(counts[1]?.textContent).toBe("1/2");
+  });
+
+  it("counts nothing on a list of todos that nest under nothing", () => {
+    const lines = ["- [ ] one", "- [x] two", "- [ ] three"];
+    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+
+    expect(container.querySelectorAll(".cm-todo-progress")).toHaveLength(0);
+  });
+
   it("colours a due date that has passed", () => {
     // Two dates nothing can reach, so the assertion holds on any day the suite
     // runs: one before every possible today and one after.

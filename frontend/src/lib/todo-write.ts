@@ -10,7 +10,17 @@
  * This is the one module that knows that.
  */
 
-import { cycleLine, formatTodo, parseTodo, type Todo } from "@/lib/todo";
+import {
+  cycleLine,
+  formatTodo,
+  isOpen,
+  parseTodo,
+  setStateOn,
+  type Todo,
+  type TodoState,
+} from "@/lib/todo";
+import { nextOccurrence } from "@/lib/todo-recur";
+import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
 export interface Write {
@@ -32,6 +42,10 @@ export interface CycleInput {
   today: string;
   /** A fresh id, used only when the todo enters done carrying none. */
   id: string;
+  /** Whether a blocker is closed, as far as the caller can see. */
+  closed: Closed;
+  /** The state the key named, or nothing where the key walks the cycle. */
+  state?: TodoState;
 }
 
 export interface AddInput {
@@ -214,15 +228,172 @@ export function doneLogWrites(input: LogInput): Write[] {
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
 }
 
+/**
+ * Whether a blocker is closed, or nothing where the caller cannot see it.
+ *
+ * Nothing reads as still open, so a dependent is never opened on a guess. The
+ * buffer builds this from the document it holds; the vault writer builds it
+ * from every todo the vault holds.
+ */
+export type Closed = (id: string) => boolean | undefined;
+
+/** A resolver over the todos in hand. An id none of them carries answers nothing. */
+export function closedAmong(todos: Todo[]): Closed {
+  const states = new Map<string, boolean>();
+  for (const todo of todos) if (todo.id !== undefined) states.set(todo.id, !isOpen(todo));
+  return (id) => states.get(id);
+}
+
+/**
+ * Every `⛔` line in `lines` whose state kasten owns and whose blockers
+ * disagree with it, keyed by line number.
+ *
+ * `⛔` on a line means kasten owns the choice between `[ ]` and `[b]` there.
+ * `[/]`, `[x]` and `[-]` are never touched, so a state set by hand cannot be
+ * destroyed by a blocker moving.
+ */
+export function blockedLines(lines: string[], closed: Closed): Map<number, string> {
+  const moved = new Map<number, string>();
+
+  for (const [index, text] of lines.entries()) {
+    const todo = parseTodo(text);
+    if (todo === null || todo.blockedBy.length === 0) continue;
+    if (todo.state !== "open" && todo.state !== "blocked") continue;
+
+    // Every blocker has to be closed, and one this cannot see reads as open.
+    const held = todo.blockedBy.some((blocker) => closed(blocker) !== true);
+    const state = held ? "blocked" : "open";
+    if (todo.state !== state) moved.set(index + 1, formatTodo({ ...todo, state }));
+  }
+
+  return moved;
+}
+
+/** `blockedLines` applied to a note. Null where nothing moved, as `dropDone` is. */
+export function applyBlocked(text: string, closed: Closed): string | null {
+  const lines = text.split("\n");
+  const moved = blockedLines(lines, closed);
+  if (moved.size === 0) return null;
+
+  for (const [at, insert] of moved) lines[at - 1] = insert;
+  return lines.join("\n");
+}
+
+export interface CycleLinesInput {
+  /** The whole note, split on newlines. */
+  lines: string[];
+  /** Which line the press is on, counting from one. */
+  line: number;
+  today: string;
+  /** A fresh id, used only when the todo enters done carrying none. */
+  id: string;
+  /** Whether a blocker is closed. The press's own todo is answered from the press. */
+  closed: Closed;
+  /** The state the key named, or nothing where the key walks the cycle. */
+  state?: TodoState;
+}
+
+/** The line one press writes, whether it walks the cycle or names a state. */
+function pressed(line: string, today: string, id: string, state?: TodoState): string {
+  return state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id);
+}
+
+/**
+ * The todo the press is on, as a node of its note's tree. Null where it is not
+ * one, and null for a todo nothing hangs off, which needs no tree walked.
+ */
+function nodeAt(lines: string[], line: number): Node | null {
+  const placed: Placed[] = [];
+  for (const [index, text] of lines.entries()) {
+    const todo = parseTodo(text);
+    if (todo !== null) placed.push({ line: index + 1, todo });
+  }
+
+  for (const root of treeOf(placed)) {
+    const found = [root, ...descendants(root)].find((node) => node.line === line);
+    if (found !== undefined) return found;
+  }
+  return null;
+}
+
+/**
+ * Every line of this note one press rewrites, keyed by line number.
+ *
+ * One map rather than three passes of edits, so no two rules can claim a line
+ * and hand CodeMirror an overlapping change. A value may hold a newline, which
+ * is how the recurrence copy arrives above the line it belongs to.
+ */
+export function cycleLines({
+  lines,
+  line,
+  today,
+  id,
+  closed,
+  state,
+}: CycleLinesInput): Map<number, string> {
+  const before = lines[line - 1] ?? "";
+  const was = parseTodo(before);
+  const cycled = pressed(before, today, id, state);
+  const now = parseTodo(cycled);
+  const moved = new Map<number, string>([[line, cycled]]);
+
+  // Finishing the whole thing finishes the parts, so entering done takes every
+  // open descendant with it. Leaving done cascades nothing, and ticking the
+  // last part leaves the parent alone: that inference is the one often wrong.
+  if (was?.state !== "done" && now?.state === "done") {
+    const node = nodeAt(lines, line);
+    for (const part of node === null ? [] : descendants(node)) {
+      // No id on a part: nothing names it, the log writes one line for the
+      // press, and that line names the parent.
+      if (isOpen(part.todo)) {
+        moved.set(part.line, formatTodo({ ...part.todo, state: "done", done: today }));
+      }
+    }
+  }
+
+  // From the blocker's side and only from there: closing or reopening a todo
+  // that carries an id is what moves the lines waiting on it. A press that
+  // leaves the line no longer a todo moves nothing, nothing being able to
+  // resolve it any more.
+  if (was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now)) {
+    const after = [...lines];
+    for (const [at, insert] of moved) after[at - 1] = insert;
+    // The press is newer than whatever the caller can see, so this one id is
+    // answered off the line the press just wrote.
+    const resolve: Closed = (blocker) => (blocker === now.id ? !isOpen(now) : closed(blocker));
+
+    for (const [at, insert] of blockedLines(after, resolve)) {
+      // The press and the cascade keep the lines they claimed. Two rules must
+      // never hand CodeMirror one line twice.
+      if (!moved.has(at)) moved.set(at, insert);
+    }
+  }
+
+  // Last, and folded into the pressed line's own entry rather than added beside
+  // it: one change over one range, so nothing has to reason about how an
+  // insertion and a replacement at one position order. The completed line stays
+  // where it is with its `✅`, and the note carries the history in place.
+  if (was !== null && was.state !== "done" && now?.state === "done") {
+    const fresh = nextOccurrence(was, today);
+    if (fresh !== null) moved.set(line, `${formatTodo(fresh)}\n${cycled}`);
+  }
+
+  return moved;
+}
+
 /** Every note one press of the cycle changes, in the order they should be sent. */
 export function cycleTodoWrites(input: CycleInput): Write[] {
-  const { path, text, line, dailyPath, dailyText, logged, today, id } = input;
+  const { path, text, line, dailyPath, dailyText, logged, today, id, closed, state } = input;
 
   const lines = text.split("\n");
   const was = parseTodo(lines[line - 1] ?? "");
-  const cycled = cycleLine(lines[line - 1] ?? "", today, id);
-  lines[line - 1] = cycled;
-  const now = parseTodo(cycled);
+  // The line the press was on, read on its own: its entry in the map can hold
+  // the recurrence copy as well, and the log is about the todo that was ticked.
+  const now = parseTodo(pressed(lines[line - 1] ?? "", today, id, state));
+
+  for (const [at, insert] of cycleLines({ lines, line, today, id, closed, state })) {
+    lines[at - 1] = insert;
+  }
   const own = lines.join("\n");
 
   const writes = new Map<string, string>([[path, own]]);

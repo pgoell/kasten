@@ -212,8 +212,32 @@ export function isOpen(todo: Todo): boolean {
   return todo.state !== "done" && todo.state !== "rejected";
 }
 
+/** A plain line read as the todo it is about to become, keeping its fields. */
+function todoOf(line: string, today: string): Todo {
+  const found = PLAIN.exec(line);
+  const fields = readFields(found?.[2] ?? "");
+  return {
+    indent: (found?.[1] ?? "").length,
+    state: "open",
+    ...fields,
+    created: fields.created ?? today,
+  };
+}
+
+/** Out of the cycle: the bullet and the box go, and the fields stay. */
+function proseOf(todo: Todo): string {
+  return `${" ".repeat(todo.indent)}${tail(todo)}`;
+}
+
 /**
  * One step round the cycle.
+ *
+ * The walk is the work: open, doing, done, and out to a plain line again.
+ * Blocked and rejected are things that happen to work rather than steps in it,
+ * so neither is on the walk and both are set by a key of their own. That is
+ * also what puts done last: a list of open work loses the row at the end of the
+ * walk rather than in the middle of it, where the two states past it were once
+ * unreachable from the pane.
  *
  * `today` and `id` are passed in rather than read here, so a press is a
  * function over a string and its test needs no clock. `id` is used only when a
@@ -222,35 +246,49 @@ export function isOpen(todo: Todo): boolean {
 export function cycleLine(line: string, today: string, id: string): string {
   const todo = parseTodo(line);
 
-  if (todo === null) {
-    // A plain line becomes an open todo, keeping whatever fields were written
-    // on it. Its bullet goes: the box stands in for one, and the last step of
-    // the cycle writes no bullet back.
-    const found = PLAIN.exec(line);
-    const fields = readFields(found?.[2] ?? "");
-    return formatTodo({
-      indent: (found?.[1] ?? "").length,
-      state: "open",
-      ...fields,
-      created: fields.created ?? today,
-    });
-  }
+  // A plain line becomes an open todo, keeping whatever fields were written on
+  // it. Its bullet goes: the box stands in for one, and the step out of the
+  // cycle writes no bullet back.
+  if (todo === null) return formatTodo(todoOf(line, today));
 
   switch (todo.state) {
     case "open":
       return formatTodo({ ...todo, state: "doing" });
+    // Picked up where the work left off, rather than at the start of it: a
+    // blocked todo is one somebody had already begun.
+    case "blocked":
+      return formatTodo({ ...todo, state: "doing" });
     case "doing":
       return formatTodo({ ...todo, state: "done", done: today, id: todo.id ?? id });
+    // Both ways out, each dropping the stamp its own state wrote. Every other
+    // field stays, so three more presses give the todo back with its dates.
     case "done":
-      return formatTodo({ ...todo, state: "blocked", done: undefined });
-    case "blocked":
-      return formatTodo({ ...todo, state: "rejected", cancelled: today });
+      return proseOf({ ...todo, done: undefined });
     case "rejected":
-      // Out of the cycle. The bullet and the box go, and the `❌` goes with the
-      // state that wrote it. Every other field stays, so six more presses give
-      // the todo back with its dates.
-      return `${" ".repeat(todo.indent)}${tail({ ...todo, cancelled: undefined })}`;
+      return proseOf({ ...todo, cancelled: undefined });
   }
+}
+
+/**
+ * Put one line in the state a key named, from wherever it was.
+ *
+ * The stamps are the cycle's, because a state is worth the same whichever key
+ * wrote it: entering done stamps the date and an id, entering rejected stamps
+ * its own date, and leaving either drops the stamp it wrote. A line already in
+ * that state comes back untouched, so the caller can tell a press that changed
+ * nothing.
+ */
+export function setStateOn(line: string, state: TodoState, today: string, id: string): string {
+  const todo = parseTodo(line) ?? todoOf(line, today);
+  if (parseTodo(line)?.state === state) return line;
+
+  return formatTodo({
+    ...todo,
+    state,
+    done: state === "done" ? (todo.done ?? today) : undefined,
+    cancelled: state === "rejected" ? (todo.cancelled ?? today) : undefined,
+    id: state === "done" ? (todo.id ?? id) : todo.id,
+  });
 }
 
 /** `kt-` and six hex characters. From the platform, because an id goes to disk. */

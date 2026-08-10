@@ -1,10 +1,11 @@
 import { syntaxTree } from "@codemirror/language";
 import type { Extension, Line, Range, Text } from "@codemirror/state";
 import { EditorSelection, EditorState, type RangeSet, StateField } from "@codemirror/state";
-import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/clock";
 import { parseTodo } from "@/lib/todo";
+import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
 import { vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
@@ -65,6 +66,34 @@ const INLINE: Record<string, { mark: string; class: string }> = {
 };
 
 /**
+ * `3/5` drawn after a parent's line.
+ *
+ * A widget rather than a class on the text, there being no text to hang it on:
+ * the count is a reading of the lines below and nothing in the document says it.
+ */
+class Progress extends WidgetType {
+  private readonly label: string;
+
+  // Written out rather than as a parameter property, which `erasableSyntaxOnly`
+  // does not allow: that syntax is the one piece of TypeScript that emits code.
+  constructor(label: string) {
+    super();
+    this.label = label;
+  }
+
+  override eq(other: Progress): boolean {
+    return other.label === this.label;
+  }
+
+  toDOM(): HTMLElement {
+    const span = document.createElement("span");
+    span.className = "cm-todo-progress";
+    span.textContent = this.label;
+    return span;
+  }
+}
+
+/**
  * What the editor is showing, and which parts of the document it is not.
  *
  * The two travel together because the selection filter has to know where the
@@ -93,6 +122,8 @@ function isLineRevealed(state: EditorState, line: Line): boolean {
 function build(state: EditorState): Live {
   const decorations: Range<Decoration>[] = [];
   const hidden: Range<Decoration>[] = [];
+  /** Every todo line, gathered as the bullets go by, for the counts below. */
+  const placed: Placed[] = [];
 
   const hide = (from: number, to: number) => {
     const range = HIDDEN.range(from, to);
@@ -185,6 +216,10 @@ function build(state: EditorState): Live {
         const todo = parseTodo(line.text);
         const due = todo === null ? null : DUE.exec(line.text);
 
+        // Inside the branch that already parsed the line, so no line is read
+        // twice and no second pass over the document is added.
+        if (todo !== null) placed.push({ line: line.number, todo });
+
         // Red on the date itself, so unlike everything below it this stays
         // while the line shows its source: it colours text that is on the
         // screen either way rather than standing in for characters.
@@ -256,6 +291,23 @@ function build(state: EditorState): Live {
       hide(close.from, close.to);
     },
   });
+
+  // After the walk, because what a parent counts is the lines under it, which
+  // are read once the whole note has gone by. Pushing out of order is safe:
+  // `Decoration.set` sorts. The count stays while a line shows its source, the
+  // way the overdue red does, standing in for no character either.
+  for (const root of treeOf(placed)) {
+    for (const node of [root, ...descendants(root)]) {
+      const progress = progressOf(node);
+      if (progress === null) continue;
+      decorations.push(
+        Decoration.widget({
+          widget: new Progress(`${progress.closed}/${progress.total}`),
+          side: 1,
+        }).range(state.doc.line(node.line).to),
+      );
+    }
+  }
 
   return {
     decorations: Decoration.set(decorations, true),

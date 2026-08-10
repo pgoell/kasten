@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { sectionOf, TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo";
+import { PRIORITY_SYMBOL } from "@/lib/todo";
 
 // Standing in for the module rather than for `fetch`, the way the search
 // panel's tests do: what the pane owns is what it asks the vault for, not the
@@ -27,13 +27,6 @@ const TODOS = [
   { path: "projects/kasten.md", line: 33, text: "- [x] think about it ✅ 2026-08-01 🆔 kt-000003" },
   { path: "daily/2026-08-10.md", line: 5, text: "- 09:12-10:32 wire up the pane" },
 ];
-
-/** A todo out of one of the lines above, for the tests that want a record. */
-function todo(line: string): Todo {
-  const found = parseTodo(line);
-  if (found === null) throw new Error(`not a todo: ${line}`);
-  return found;
-}
 
 /**
  * Every command, recording which one was reached.
@@ -94,31 +87,146 @@ function renderPane(hits = TODOS, focusSignal = 0) {
   };
 }
 
-describe("sectionOf", () => {
-  it("reads a date before today as overdue", () => {
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-09"), TODAY)).toBe("overdue");
-  });
-
-  it("reads today as today", () => {
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-10"), TODAY)).toBe("today");
-  });
-
-  it("reads the next seven days as this week", () => {
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-11"), TODAY)).toBe("week");
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-16"), TODAY)).toBe("week");
-  });
-
-  it("reads anything further out as later", () => {
-    // Seven days out is the first day past the window, the way `due:<7d` reads.
-    expect(sectionOf(todo("- [ ] a 📅 2026-08-17"), TODAY)).toBe("later");
-  });
-
-  it("reads a todo with no due date as no date", () => {
-    expect(sectionOf(todo("- [ ] a"), TODAY)).toBe("none");
-  });
-});
-
 describe("the todo pane", () => {
+  it("keeps a todo off the list until the day it starts", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 🛫 2026-08-11" },
+      { path: "a.md", line: 2, text: "- [ ] call the dentist 📅 2026-08-14" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.texts().join()).not.toContain("buy milk");
+  });
+
+  it("shows one whose start date has arrived", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 🛫 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.texts()[0]).toContain("buy milk");
+  });
+
+  it("counts a parent's parts on its row, and counts nothing on a row with none", async () => {
+    // The closed parts are off the list themselves, so the count is read off
+    // every todo the note holds rather than off the rows on screen.
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10" },
+      { path: "a.md", line: 2, text: "  - [x] read the spec ✅ 2026-08-10" },
+      { path: "a.md", line: 3, text: "  - [-] argue about it" },
+      { path: "a.md", line: 4, text: "  - [ ] write it" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.texts()[0]).toContain("2/3");
+    expect(pane.texts()[1]).not.toContain("/");
+  });
+
+  /** One note whose tree straddles two groups, which is what the nesting reads. */
+  const NESTED_ROWS = [
+    { path: "a.md", line: 1, text: "- [/] finish todo story" },
+    { path: "a.md", line: 2, text: "  - [ ] phase2" },
+    { path: "a.md", line: 3, text: "    - [ ] phase2a" },
+    { path: "a.md", line: 4, text: "- [/] safari preparation 📅 2026-08-10" },
+    { path: "a.md", line: 5, text: "  - [ ] check list" },
+  ];
+
+  it("draws a part indented under the todo it belongs to", async () => {
+    const pane = renderPane(NESTED_ROWS);
+    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+
+    // Today holds safari preparation; the rest are under No date, in note order.
+    const [, root, part, deeper] = pane.rows() as HTMLElement[];
+    expect(root?.textContent).toContain("finish todo story");
+    expect(part?.textContent).toContain("phase2");
+    expect(deeper?.textContent).toContain("phase2a");
+
+    const indent = (row: HTMLElement | undefined) =>
+      Number.parseFloat(row?.style.paddingLeft ?? "0");
+    expect(indent(part)).toBeGreaterThan(indent(root));
+    expect(indent(deeper)).toBeGreaterThan(indent(part));
+  });
+
+  it("names the parent of a part whose parent is in another group", async () => {
+    const pane = renderPane(NESTED_ROWS);
+    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+
+    // `check list` hangs off `safari preparation`, which is due today and so
+    // sits in another group. An indent under `phase2a` would be a lie.
+    const rows = pane.rows() as HTMLElement[];
+    const orphan = rows.find((row) => row.textContent?.includes("check list"));
+    expect(orphan?.textContent).toContain("safari preparation");
+    expect(orphan?.style.paddingLeft).toBe(rows[1]?.style.paddingLeft);
+  });
+
+  /** Two notes, one holding a small tree and one holding a todo on its own. */
+  const NESTED = [
+    { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10" },
+    { path: "a.md", line: 2, text: "  - [x] read the spec ✅ 2026-08-10" },
+    { path: "a.md", line: 3, text: "  - [ ] write it" },
+    { path: "a.md", line: 4, text: "    - [ ] draft it" },
+    { path: "b.md", line: 7, text: "- [ ] buy milk 📅 2026-08-14" },
+  ];
+
+  it("shows one next action per top level todo on n", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("n");
+
+    // One row per open root: the tree in `a.md` and the lone todo in `b.md`.
+    // The tree's row names the grandchild, that being the first open leaf.
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    const drafting = pane.texts().find((text) => text.includes("draft it")) ?? "";
+    expect(drafting).toContain("wire up the pane");
+    expect(pane.texts().join()).toContain("buy milk");
+  });
+
+  it("opens the next action's own line rather than the root's", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("n");
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    // `buy milk` is due this week and sorts above the undated row under it.
+    pane.press("j");
+    pane.press("Enter");
+
+    expect(pane.onOpen).toHaveBeenCalledWith("a.md", 4);
+  });
+
+  it("swaps the done list for the next actions rather than showing both", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("d");
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    pane.press("n");
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.texts().join()).not.toContain("read the spec");
+  });
+
+  it("puts the full list back on a second n", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("n");
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    pane.press("n");
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+  });
+
+  it("draws a scheduled todo under the day it is scheduled for", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 ⏳ 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.headings()).toEqual(["Today"]);
+  });
+
   it("draws one heading per section that has rows, in order", async () => {
     const pane = renderPane();
 
@@ -293,11 +401,13 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("x cycle");
     expect(pane.footer()).toContain("a add");
     expect(pane.footer()).toContain("d done");
+    expect(pane.footer()).toContain("n next");
+    expect(pane.footer()).toContain("O P X B R state");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
-    // `t`, `n` and `v` are later phases. A footer offering a key that does
-    // nothing is worse than one that is short.
-    expect(pane.footer()).not.toMatch(/\b(next|view|timer)\b/i);
+    // `t` and `v` are later phases. A footer offering a key that does nothing
+    // is worse than one that is short.
+    expect(pane.footer()).not.toMatch(/\b(view|timer)\b/i);
   });
 
   it("opens the add prompt on a", async () => {
@@ -321,6 +431,26 @@ describe("the todo pane", () => {
     // The hit, not the todo: the write reads the note off disk again, and the
     // path and the line are how it finds the line to cycle.
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[1]);
+  });
+
+  it("sets the state a shifted key names on the row under the cursor", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("B");
+
+    // The walk cannot reach blocked from here: a row leaves this list the
+    // moment it is done, which is the state the walk passes through first.
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "blocked");
+  });
+
+  it("keeps the bare x walking the cycle", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("x");
+
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0]);
   });
 
   it("swaps the list for the last seven days of finished work on d", async () => {

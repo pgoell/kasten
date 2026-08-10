@@ -38,7 +38,8 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
-import { addTodoInVault, cycleTodoInVault, logCycledTodoInVault } from "@/lib/todo-api";
+import type { TodoState } from "@/lib/todo";
+import { addTodoInVault, cycleTodoAside, cycleTodoInVault } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { parseVaultEvent } from "@/lib/vault-events";
@@ -409,13 +410,14 @@ function Home() {
   /**
    * Follow a `<leader>x` into the vault, from the editor.
    *
-   * The buffer already carries the cycled line and autosave writes it, so this
-   * moves the `## Done` log and nothing else. It reads nothing at all for a
-   * press that touches neither end of done, which is most of them.
+   * The buffer already carries every line of this note the press moved and
+   * autosave writes them, so this moves the `## Done` log and the dependents
+   * living in other notes. It reads nothing at all for a press that neither
+   * touches an end of done nor moves a blocker, which is half of them.
    */
   const logCycledTodo = useCallback(
     (path: string, cycle: TodoCycle) => {
-      void logCycledTodoInVault(path, cycle, readClock(new Date()).date, data ?? []).then(
+      void cycleTodoAside(path, cycle, readClock(new Date()).date, data ?? []).then(
         todosWritten,
         () => {
           // The vault refused the write. The line in the buffer stands, and the
@@ -426,13 +428,16 @@ function Home() {
     [data, todosWritten],
   );
 
-  /** Walk one todo on, in the vault, from the pane's `x`. */
+  /** Walk one todo on, in the vault, from the pane's `x`, or set the state a key named. */
   const cycleTodo = useCallback(
-    (hit: SearchHit) => {
-      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? []).then(todosWritten, () => {
-        // The vault refused the write, or the note moved out from under the
-        // row. The list stays as it is, and the next event redraws it.
-      });
+    (hit: SearchHit, state?: TodoState) => {
+      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state).then(
+        todosWritten,
+        () => {
+          // The vault refused the write, or the note moved out from under the
+          // row. The list stays as it is, and the next event redraws it.
+        },
+      );
     },
     [data, todosWritten],
   );

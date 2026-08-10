@@ -6,12 +6,27 @@
  * server in front of them.
  */
 
-import { createNote, fetchNote, type SearchHit, saveNote, searchNotes } from "@/lib/api";
+import {
+  createNote,
+  fetchNote,
+  fetchTodos,
+  type SearchHit,
+  saveNote,
+  searchNotes,
+} from "@/lib/api";
 import { periodicNote } from "@/lib/periodic";
-import { newId, parseTodo } from "@/lib/todo";
+import { cycleLine, isOpen, newId, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { expandShorthand } from "@/lib/todo-shorthand";
-import { addTodoWrites, cycleTodoWrites, doneLogWrites, type Write } from "@/lib/todo-write";
+import {
+  addTodoWrites,
+  applyBlocked,
+  type Closed,
+  closedAmong,
+  cycleTodoWrites,
+  doneLogWrites,
+  type Write,
+} from "@/lib/todo-write";
 
 /**
  * Today's daily note, and its text, which every write here lands in or beside.
@@ -55,18 +70,54 @@ export async function addTodoInVault(input: string, today: string, paths: string
 }
 
 /**
+ * Point every dependent of the todo that just moved at its new state.
+ *
+ * One `GET /api/todos` answers both halves of the question: which lines name
+ * this id, and whether each other blocker they name is closed. Only the notes
+ * holding a dependent are read and only the ones that change are written, which
+ * is how `links.py` narrows a vault-wide rewrite and for the same reason.
+ *
+ * No `paths` and no `send`: a dependent lives in a note the vault already
+ * holds, so every write here is a save and none of them can be a create.
+ */
+async function writeBackBlocked(
+  blockerId: string,
+  closedNow: boolean,
+  skip: string,
+): Promise<void> {
+  const todos = await fetchTodos();
+  const seen = closedAmong(todos.flatMap((hit) => parseTodo(hit.text) ?? []));
+  // The press is newer than the fetch, which is a render older than the line
+  // it just wrote.
+  const closed: Closed = (id) => (id === blockerId ? closedNow : seen(id));
+
+  const dependents = new Set(
+    todos
+      .filter(
+        (hit) => hit.path !== skip && parseTodo(hit.text)?.blockedBy.includes(blockerId) === true,
+      )
+      .map((hit) => hit.path),
+  );
+
+  for (const path of dependents) {
+    const moved = applyBlocked(await fetchNote(path), closed);
+    if (moved !== null) await saveNote(path, moved);
+  }
+}
+
+/**
  * The notes a `<leader>x` moves besides the one it was typed into.
  *
  * The buffer already carries the cycled line and autosave writes it, so this
- * writes the `## Done` log and nothing else. It reads the vault only for a
- * press that enters or leaves done, which is two presses out of six.
+ * writes the `## Done` log and the dependents living in other notes. It reads
+ * the vault only for a press that enters or leaves done or moves a blocker,
+ * which is three presses out of six.
  *
  * A write to the note the key was typed into is dropped: the buffer owns that
  * note, and a `PUT` over it would land on text somebody is still typing. The
- * one thing that costs is a log line that somehow sits in the same note as its
- * todo, which nothing kasten writes ever does.
+ * dependents in there travelled with the press for the same reason.
  */
-export async function logCycledTodoInVault(
+export async function cycleTodoAside(
   path: string,
   cycle: TodoCycle,
   today: string,
@@ -74,31 +125,38 @@ export async function logCycledTodoInVault(
 ): Promise<void> {
   const was = parseTodo(cycle.before);
   const now = parseTodo(cycle.after);
-  if (was?.state !== "done" && now?.state !== "done") return;
 
-  const id = now?.state === "done" ? now.id : was?.id;
-  const logged: Record<string, string> = {};
-  if (id !== undefined) {
-    for (const found of await searchNotes(id)) {
-      if (found.path !== path) logged[found.path] ??= await fetchNote(found.path);
+  if (was?.state === "done" || now?.state === "done") {
+    const id = now?.state === "done" ? now.id : was?.id;
+    const logged: Record<string, string> = {};
+    if (id !== undefined) {
+      for (const found of await searchNotes(id)) {
+        if (found.path !== path) logged[found.path] ??= await fetchNote(found.path);
+      }
     }
+
+    const daily = await dailyNote(paths, logged);
+    const writes = doneLogWrites({
+      was,
+      now,
+      path,
+      dailyPath: daily.path,
+      dailyText: daily.text,
+      logged,
+      today,
+    });
+
+    await send(
+      writes.filter((write) => write.path !== path),
+      paths,
+    );
   }
 
-  const daily = await dailyNote(paths, logged);
-  const writes = doneLogWrites({
-    was,
-    now,
-    path,
-    dailyPath: daily.path,
-    dailyText: daily.text,
-    logged,
-    today,
-  });
-
-  await send(
-    writes.filter((write) => write.path !== path),
-    paths,
-  );
+  // Only a press that closed or reopened a todo something can name moves what
+  // waits on it. The dependents in this very note travelled with the press.
+  if (was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now)) {
+    await writeBackBlocked(now.id, !isOpen(now), path);
+  }
 }
 
 /** Read what the press needs, work out the writes, and send them. */
@@ -106,6 +164,7 @@ export async function cycleTodoInVault(
   hit: SearchHit,
   today: string,
   paths: string[],
+  state?: TodoState,
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
@@ -130,6 +189,10 @@ export async function cycleTodoInVault(
   }
 
   const daily = await dailyNote(paths, logged);
+  const id = newId();
+  // The whole vault's blockers, off the one pass the pane already asked for.
+  // The pressed todo answers off the press itself, inside `cycleLines`.
+  const closed = closedAmong((await fetchTodos()).flatMap((found) => parseTodo(found.text) ?? []));
 
   const writes = cycleTodoWrites({
     path: hit.path,
@@ -139,8 +202,21 @@ export async function cycleTodoInVault(
     dailyText: daily.text,
     logged,
     today,
-    id: newId(),
+    id,
+    closed,
+    state,
   });
 
   await send(writes, paths);
+
+  // After the send, so the dependents in this note are read as the write above
+  // left them. No note is skipped: this half can see every blocker, where the
+  // press could see only the ones in the note it moved.
+  const line = text.split("\n")[hit.line - 1] ?? "";
+  const now = parseTodo(
+    state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id),
+  );
+  if (now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
+    await writeBackBlocked(now.id, !isOpen(now), "");
+  }
 }
