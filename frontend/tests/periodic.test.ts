@@ -1,4 +1,4 @@
-import { periodicNote } from "@/lib/periodic";
+import { dailyDate, periodicNote } from "@/lib/periodic";
 
 // Built from local parts rather than parsed from a string, because a bare ISO
 // date parses as UTC and a note is named for the day the reader is having.
@@ -54,6 +54,20 @@ describe("the daily note", () => {
 
   it("ends with the section the add prompt writes into", () => {
     expect(made.body).toMatch(/\n\n## TODOs\n$/);
+  });
+});
+
+describe("dailyDate", () => {
+  it("answers with the day a daily note is named for", () => {
+    expect(dailyDate(periodicNote("daily", new Date(2026, 7, 6)).path)).toBe("2026-08-06");
+  });
+
+  it("answers with nothing for a note named for anything else", () => {
+    // Closing a session needs the day its note stands for, and only the day
+    // notes have one.
+    expect(dailyDate(periodicNote("weekly", new Date(2026, 7, 6)).path)).toBeNull();
+    expect(dailyDate("projects/kasten.md")).toBeNull();
+    expect(dailyDate(`${DAILY}/backlog.md`)).toBeNull();
   });
 });
 

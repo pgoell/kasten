@@ -27,6 +27,18 @@ const FOLDER: Record<Period, string> = {
   yearly: `${ROOT}/04 Yearly`,
 };
 
+/**
+ * The day a daily note is named for, or nothing where the path is not one.
+ *
+ * The reverse of the name above, and built off the same table so the two cannot
+ * drift. A session left open is closed at the end of the day its note stands
+ * for, and a note not named for a day cannot say which day that is.
+ */
+export function dailyDate(path: string): string | null {
+  const found = new RegExp(`^${FOLDER.daily}/(\\d{4}-\\d{2}-\\d{2})\\.md$`).exec(path);
+  return found?.[1] ?? null;
+}
+
 /** What holds each kind, which the note links up to. A year is held by nothing. */
 const ABOVE: Record<Period, Period | null> = {
   daily: "weekly",
