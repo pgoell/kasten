@@ -408,9 +408,10 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("O P X B R state");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
-    // `t` and `v` are later phases. A footer offering a key that does nothing
-    // is worse than one that is short.
-    expect(pane.footer()).not.toMatch(/\b(view|timer)\b/i);
+    expect(pane.footer()).toContain("t timer");
+    // `v` is a later phase. A footer offering a key that does nothing is worse
+    // than one that is short.
+    expect(pane.footer()).not.toMatch(/\bview\b/i);
   });
 
   it("opens the add prompt on a", async () => {
@@ -522,5 +523,70 @@ describe("the todo pane", () => {
     pane.press("t");
 
     expect(pane.reached).toEqual(["createTab"]);
+  });
+  const DAILY = "01 Periodic/00 Daily";
+
+  /** Three todos with a timer going, one without, and the sessions naming them. */
+  const RUNNING = [
+    { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10 🆔 kt-000001" },
+    { path: "a.md", line: 2, text: "- [ ] call the dentist 📅 2026-08-10 🆔 kt-000002" },
+    { path: "a.md", line: 3, text: "- [ ] buy milk 📅 2026-08-10 🆔 kt-000003" },
+    { path: "a.md", line: 4, text: "- [ ] read the spec 📅 2026-08-10" },
+    {
+      path: `${DAILY}/2026-08-10.md`,
+      line: 9,
+      text: "- 09:12-      wire up the pane [[a]] kt-000001",
+    },
+    {
+      path: `${DAILY}/2026-08-10.md`,
+      line: 10,
+      text: "- 11:00-      call the dentist [[a]] kt-000002",
+    },
+    { path: `${DAILY}/2026-08-09.md`, line: 9, text: "- 14:03-      buy milk [[a]] kt-000003" },
+  ];
+
+  it("marks the rows with a timer going and counts them in the footer", async () => {
+    const pane = renderPane(RUNNING);
+
+    // Four rows and not seven: a session line is not a row of its own.
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    expect(pane.footer()).toContain("3 running");
+    expect(pane.texts()[0]).toContain("▶");
+    expect(pane.texts()[1]).toContain("▶");
+    expect(pane.texts()[3]).not.toContain("▶");
+  });
+
+  it("names the day of a session left open on an earlier one", async () => {
+    const pane = renderPane(RUNNING);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    // A timer nobody stopped yesterday, which is what the day beside the mark
+    // is there to say.
+    expect(pane.texts()[2]).toContain("▶ 08-09");
+    // A session opened today carries no day: only an unstopped one needs it.
+    expect(pane.texts()[0]).not.toMatch(/▶ /);
+  });
+
+  it("counts nothing running where nothing is", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    expect(pane.footer()).not.toContain("running");
+  });
+
+  it("draws the worked total against the estimate", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10 ⏲ 2h ⏱ 1h20m" },
+      { path: "a.md", line: 2, text: "- [ ] call the dentist 📅 2026-08-10 ⏱ 1h20m" },
+      { path: "a.md", line: 3, text: "- [ ] buy milk 📅 2026-08-10 ⏲ 2h" },
+      { path: "a.md", line: 4, text: "- [ ] read the spec 📅 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    expect(pane.texts()[0]).toContain("⏱ 1h20m / 2h");
+    expect(pane.texts()[1]).toContain("⏱ 1h20m");
+    expect(pane.texts()[1]).not.toContain("/");
+    expect(pane.texts()[2]).toContain("⏲ 2h");
+    expect(pane.texts()[3]).not.toMatch(/[⏱⏲]/);
   });
 });
