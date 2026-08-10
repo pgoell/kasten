@@ -8,11 +8,12 @@ a test each.
 
 from typing import TYPE_CHECKING
 
-from kasten_backend.todos import MOST_TODOS
+import kasten_backend.todos
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import pytest
     from httpx import AsyncClient
 
 
@@ -52,7 +53,50 @@ async def test_tells_a_todo_from_a_bullet_that_only_looks_like_one(
 
     response = await client.get("/api/todos")
 
-    assert [hit["text"] for hit in response.json()] == ["- 09:12-10:32 wire up the pane kt-3f9a2c"]
+    assert response.json() == []
+
+
+async def test_finds_a_running_session_line(client: AsyncClient, vault: Path) -> None:
+    write(
+        vault,
+        "01 Periodic/00 Daily/2026-08-10.md",
+        "## Time\n- 14:03-      wire up the pane kt-3f9a2c\n  - 08:00- a part\n",
+    )
+
+    response = await client.get("/api/todos")
+
+    assert [hit["text"] for hit in response.json()] == [
+        "- 14:03-      wire up the pane kt-3f9a2c",
+        "  - 08:00- a part",
+    ]
+
+
+async def test_leaves_a_closed_session_line_out(client: AsyncClient, vault: Path) -> None:
+    write(
+        vault,
+        "01 Periodic/00 Daily/2026-08-10.md",
+        "## Time\n- 09:12-10:32 wire up the pane [[projects/kasten]] kt-3f9a2c\n",
+    )
+
+    response = await client.get("/api/todos")
+
+    # The view wants to know what is running. Closed sessions are the one pile
+    # in the vault that only grows, and every write refetches this.
+    assert response.json() == []
+
+
+async def test_tells_a_session_line_from_what_only_looks_like_one(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(
+        vault,
+        "kasten.md",
+        "- 9:12- one digit hour\n- ✅ 2026-08-10 done log line kt-3f9a2c\n- 09:12 no dash at all\n",
+    )
+
+    response = await client.get("/api/todos")
+
+    assert response.json() == []
 
 
 async def test_finds_a_todo_at_any_indent(client: AsyncClient, vault: Path) -> None:
@@ -74,12 +118,17 @@ async def test_answers_with_nothing_for_a_note_holding_neither(
     assert response.json() == []
 
 
-async def test_stops_at_the_cap(client: AsyncClient, vault: Path) -> None:
-    write(vault, "kasten.md", "- [ ] open\n" * (MOST_TODOS + 100))
+async def test_stops_at_the_cap(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write(vault, "kasten.md", "- [ ] open\n" * 5)
+    # `find_todos` reads the constant at call time, so the cap is moved rather
+    # than a note written long enough to reach the real one.
+    monkeypatch.setattr(kasten_backend.todos, "MOST_TODOS", 3)
 
     response = await client.get("/api/todos")
 
-    assert len(response.json()) == MOST_TODOS
+    assert len(response.json()) == 3
 
 
 async def test_answers_with_nothing_for_a_vault_that_is_not_there(
