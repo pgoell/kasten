@@ -73,6 +73,30 @@ export async function addTodoInVault(input: string, today: string, paths: string
 }
 
 /**
+ * Put one edited line back where the row found it, exactly as it was left.
+ *
+ * No rule and no reformatting: the line is the whole record, so an edit is the
+ * line itself and whatever it now says is what kasten will read out of it next.
+ * That is what reaches the fields the shorthand does not spell, `🔁` and `⏳`
+ * among them.
+ *
+ * The note is read again and the old line checked against the row the prompt
+ * opened on, which is stricter than the guard the cycle uses and has to be: a
+ * cycle rewrites the line it finds, where this replaces it, so a note that
+ * moved under a stale row would lose whatever now sits at that number.
+ *
+ * No `paths` and no `send`: the line came out of a note the vault holds.
+ */
+export async function editTodoInVault(hit: SearchHit, line: string): Promise<void> {
+  const text = await fetchNote(hit.path);
+  const lines = text.split("\n");
+  if (lines[hit.line - 1] !== hit.text) return;
+
+  lines[hit.line - 1] = line;
+  await saveNote(hit.path, lines.join("\n"));
+}
+
+/**
  * Point every dependent of the todo that just moved at its new state.
  *
  * One `GET /api/todos` answers both halves of the question: which lines name

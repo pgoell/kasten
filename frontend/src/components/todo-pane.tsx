@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
@@ -144,6 +144,14 @@ interface TodoPaneProps {
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
   /**
+   * Put the line the row was read from back in its note, edited.
+   *
+   * The hit for the reason `onCycle` takes one, and the line beside it because
+   * this is the one press that carries text: what the reader left in the input
+   * is what the vault gets.
+   */
+  onEdit: (hit: SearchHit, line: string) => void;
+  /**
    * Start a session on the row's todo, or close the ones it has running.
    *
    * The hit for the reason `onCycle` takes one: the write reads the note off
@@ -184,6 +192,7 @@ export function TodoPane({
   onOpen,
   onCycle,
   onAdd,
+  onEdit,
   onTimer,
   focusSignal,
   today,
@@ -199,8 +208,16 @@ export function TodoPane({
   const [mode, setMode] = useState<Mode>("open");
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
+  /**
+   * The row being edited and the line as it now stands, or null while none is.
+   *
+   * The key rather than the hit: the row it belongs to is looked up at the
+   * press, and holding the text here is what lets the input be the row itself.
+   */
+  const [editing, setEditing] = useState<{ key: string; line: string } | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
+  const draft = useRef<HTMLInputElement>(null);
   /** Whether the keys are ours, so a row that leaves can hand them back. */
   const held = useRef(false);
   /** Set as a create goes out, so a second press does not send another. */
@@ -448,6 +465,18 @@ export function TodoPane({
 
   const blocked = shown.filter(({ todo }) => todo.state === "blocked").length;
 
+  /**
+   * Hand the focus back to the list, which is where the keys below act.
+   *
+   * Wrapped because an effect calls it too, and it reads nothing but refs, so
+   * one instance stands for the life of the pane.
+   */
+  const focusList = useCallback(() => {
+    const element = panel.current;
+    // The section when there is no row to land on, so the keys still reach it.
+    (element?.querySelector<HTMLElement>('[tabindex="0"]') ?? element)?.focus();
+  }, []);
+
   // Arriving from another pane, which unmounted whatever held the focus, so
   // nothing but this can take it. The section rather than a row: the rows come
   // with the query a render later, and the effect below moves the focus onto
@@ -468,25 +497,59 @@ export function TodoPane({
   // again, and the row the cursor was on leaves it. The browser hands the focus
   // to the body rather than to whatever replaced the row, so without this the
   // first thing you tick off leaves the pane deaf to every key after it.
+  //
+  // On the rows as well as on the cursor, because a redraw can unmount the row
+  // the focus is on without moving the cursor off it: an edit that gives a todo
+  // a date moves its row to another group, which is a different element for the
+  // same `path:line`.
+  //
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `rows` is the trigger and not a value this reads. That the list redrew is exactly what says the row holding the focus may be gone.
   useEffect(() => {
     const element = panel.current;
     if (!element) return;
     const dropped = held.current && document.activeElement === document.body;
     if (!dropped && !element.contains(document.activeElement)) return;
+    // An input holding the keys keeps them. Both are typed into while the list
+    // under them can move: the filter narrows it, and the vault can answer
+    // mid-edit.
     if (document.activeElement === filter.current) return;
+    if (document.activeElement === draft.current) return;
     (element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`) ?? element).focus();
-  }, [cursorKey]);
+  }, [cursorKey, rows]);
 
-  /** Hand the focus back to the list, which is where the keys below act. */
-  function focusList() {
-    const element = panel.current;
-    // The section when there is no row to land on, so the keys still reach it.
-    (element?.querySelector<HTMLElement>('[tabindex="0"]') ?? element)?.focus();
-  }
+  // The row that has become an input, or nothing while every row is a row. Its
+  // own name because the effect below turns on which row it is: typing is not a
+  // reason to move the cursor inside it again.
+  const editingKey = editing?.key;
+
+  // The row has just become an input, so the keys go to it rather than to the
+  // list the row was a row of, and back to the row when it is a row again.
+  //
+  // Here rather than in the key that closes it, because at the press the input
+  // is still what is drawn: the row it goes back to does not exist until this
+  // render. Off `held` rather than off what has the focus, for the reason the
+  // effect above reads `dropped`: an input that unmounts fires no blur, so the
+  // browser has already left the focus on the body by now. Only when the keys
+  // were ours, so a mount cannot take them from another pane.
+  useEffect(() => {
+    if (editingKey === undefined) {
+      if (held.current) focusList();
+      return;
+    }
+
+    draft.current?.focus();
+    // At the end rather than over the whole line: an edit starts on a line that
+    // is already right in the middle, and one keystroke onto a selected line
+    // would wipe it.
+    const at = draft.current?.value.length ?? 0;
+    draft.current?.setSelectionRange(at, at);
+  }, [editingKey, focusList]);
 
   function onKeyDown(event: React.KeyboardEvent) {
-    // Typing into the filter is not the list's keys: `j` there is a letter.
-    if (event.target === filter.current) return;
+    // Typing into an input is not the list's keys: `j` in one is a letter. The
+    // filter is one, the row being edited is the other, and the pane holds no
+    // third.
+    if (event.target instanceof HTMLInputElement) return;
     const { key } = event;
 
     if (pending) {
@@ -544,6 +607,11 @@ export function TodoPane({
       // goes into today's, wherever the cursor happens to be sitting.
       case "a":
         onAdd();
+        break;
+      // vim's own key for starting to type where the cursor is. The line is
+      // the whole record, so the row becomes that line and you edit it there.
+      case "i":
+        if (at !== undefined) setEditing({ key: cursorKey, line: at.hit.text });
         break;
       // One field rather than a boolean each: `d` and `n` swap the same list,
       // and two flags could both be on.
@@ -654,6 +722,45 @@ export function TodoPane({
                 // One tab stop for the whole pane: tab reaches the cursor, and
                 // the vim keys move it from there.
                 const tabIndex = key === cursorKey ? 0 : -1;
+                // A step in per level of nesting, so the list reads the way the
+                // note does. `ROW` carries the first one as padding.
+                const indent = { paddingLeft: `${GUTTER + (depth ?? 0) * STEP}rem` };
+
+                // The whole row, because the whole line is what is edited: the
+                // box and every field are on it, and the symbols this draws in
+                // their place are a reading of the line rather than the line.
+                if (key === editing?.key) {
+                  return (
+                    <input
+                      key={key}
+                      ref={draft}
+                      value={editing.line}
+                      onChange={(event) => setEditing({ key, line: event.target.value })}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== "Escape") return;
+                        event.preventDefault();
+                        // Nothing left in it is nothing to write. Deleting a
+                        // todo is not what this key is.
+                        if (event.key === "Enter" && editing.line.trim() !== "") {
+                          onEdit(hit, editing.line);
+                        }
+                        setEditing(null);
+                      }}
+                      aria-label="edit line"
+                      autoComplete="off"
+                      spellCheck={false}
+                      style={indent}
+                      // Its own classes rather than `ROW` and `INPUT`: the
+                      // overlay input is written to disappear into a panel,
+                      // `outline-none` and `bg-transparent`, and both of those
+                      // win over the two things this row has to say. It is a
+                      // row of the list, at the list's size, wearing the
+                      // keyboard cursor's own outline, because this row is
+                      // where the keys are going.
+                      className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor"
+                    />
+                  );
+                }
 
                 return (
                   <button
@@ -663,9 +770,7 @@ export function TodoPane({
                     tabIndex={tabIndex}
                     onClick={() => onOpen(hit.path, hit.line)}
                     title={key}
-                    // A step in per level of nesting, so the list reads the way
-                    // the note does. `ROW` carries the first one as padding.
-                    style={{ paddingLeft: `${GUTTER + (depth ?? 0) * STEP}rem` }}
+                    style={indent}
                     // A blocked row is drawn muted rather than gathered under a
                     // heading of its own: its state is written on the line, and
                     // the date group is still where the work belongs.
@@ -736,9 +841,9 @@ export function TodoPane({
           )}
         </span>
         <span>
-          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;t timer&ensp;&ensp;d
-          done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/ filter&ensp;&ensp;q
-          close&ensp;&ensp;Escape editor
+          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;i edit&ensp;&ensp;t
+          timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/
+          filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
         </span>
       </footer>
     </section>

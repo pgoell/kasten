@@ -43,6 +43,7 @@ import {
   addTodoInVault,
   cycleTodoAside,
   cycleTodoInVault,
+  editTodoInVault,
   toggleTimerInVault,
 } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
@@ -149,6 +150,17 @@ function Home() {
   // twice is two refusals and both have to read as one. How long the flash
   // lasts is the bar's own business.
   const [refused, setRefused] = useState(0);
+
+  /**
+   * Hand the keys back to the pane a prompt was opened over.
+   *
+   * The prompt gives the focus back to the element it took it from, and a write
+   * that moves the row it was taken from leaves that element detached: the
+   * browser then holds the focus on the body and the pane is deaf to every key
+   * after it. This is the signal the pane already answers to when a key moves
+   * to it, and it lands after the prompt's own handback.
+   */
+  const refocusPane = useCallback(() => setFocusSignal((previous) => previous + 1), []);
 
   /**
    * Decline a key where the reader can see it: the bar's one reading flashes.
@@ -473,12 +485,30 @@ function Home() {
   const addTodo = useCallback(
     (input: string) => {
       setTodoPrompt(false);
+      refocusPane();
       void addTodoInVault(input, readClock(new Date()).date, data ?? []).then(todosWritten, () => {
         // The vault refused the write. Nothing on screen moved with it, so
         // there is nothing here to put back.
       });
     },
-    [data, todosWritten],
+    [data, todosWritten, refocusPane],
+  );
+
+  /**
+   * Put an edited line back in its note, from the pane's `e`.
+   *
+   * No clock: the line is written as it was typed, so there is no date for
+   * kasten to stamp on it. The pane has already put the row back and taken the
+   * keys with it; this is only the write.
+   */
+  const editTodo = useCallback(
+    (hit: SearchHit, line: string) => {
+      void editTodoInVault(hit, line).then(todosWritten, () => {
+        // The vault refused the write, or the note moved out from under the
+        // row. The list stays as it is, and the next event redraws it.
+      });
+    },
+    [todosWritten],
   );
 
   const commands = useMemo<TreeCommands>(
@@ -700,6 +730,7 @@ function Home() {
                     onOpen={(path, hitLine) => void openInPane(path, hitLine)}
                     onCycle={cycleTodo}
                     onAdd={() => setTodoPrompt(true)}
+                    onEdit={editTodo}
                     onTimer={toggleTimer}
                     focusSignal={focused ? focusSignal : 0}
                     // Read at the render rather than inside the pane, which
@@ -788,7 +819,10 @@ function Home() {
       {todoPrompt && (
         <TodoPrompt
           onAdd={addTodo}
-          onClose={() => setTodoPrompt(false)}
+          onClose={() => {
+            setTodoPrompt(false);
+            refocusPane();
+          }}
           // Read at the render, the way the pane reads it, so the line the
           // prompt draws and the line the write makes are the same day's.
           today={readClock(new Date()).date}

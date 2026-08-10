@@ -363,6 +363,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | Enter | Open the note the todo is in |
 | `x` | Cycle the todo under the cursor |
 | `a` | Add a todo to today's note |
+| `i` | Edit the row's own line, in place |
 | `t` | Start a timer on the todo under the cursor, or stop the ones it has running |
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
@@ -442,6 +443,29 @@ stacking.
 it will write under the input, and Enter puts it under `## TODOs` in today's
 daily note, making that note where the vault has none. Escape closes and writes
 nothing, and Enter on an empty input does nothing.
+
+`i` turns the row under the cursor into the line it was read from, markdown and
+emoji as the note holds them, and Enter writes back exactly what you leave in
+it. No overlay and no shorthand: the line is the whole record, so an edit is the
+line itself, and that is what reaches the fields nothing else here can set, `🔁`
+and `⏳` among them. The words, the dates, the priority and the state are all in
+reach, and so is the indent that makes a todo a part of another. What the row
+draws is a reading of that line, which is why the whole row gives way to it
+rather than the words alone.
+
+The key is vim's: `i` starts typing where the cursor is, here as in a buffer.
+While the line is open the list's keys are its: `x` is a letter in there, not a
+cycle. Escape puts the row back and writes nothing, Enter writes and puts it
+back, and an input left empty writes nothing either, deleting a todo not being
+what this key is. What kasten writes on a line it writes in one order; a line
+edited here keeps whatever order you leave it in until the next press rebuilds
+it.
+
+The note is read again first and the old line checked against the row, so an
+edit onto a row that has gone stale writes nothing rather than replacing
+whatever now sits at that line. Nothing follows the edit: a `## Done` line or a
+session line naming a todo you have just reworded goes on saying what it said,
+those being the record of what happened rather than a copy of the task.
 
 The pane is not in the URL. Terminal panes are not either, and the arrangement
 of panes is already lost on a reload, so a reload comes back to an empty pane
