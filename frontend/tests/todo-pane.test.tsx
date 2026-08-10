@@ -122,6 +122,65 @@ describe("the todo pane", () => {
     expect(pane.texts()[1]).not.toContain("/");
   });
 
+  /** Two notes, one holding a small tree and one holding a todo on its own. */
+  const NESTED = [
+    { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10" },
+    { path: "a.md", line: 2, text: "  - [x] read the spec ✅ 2026-08-10" },
+    { path: "a.md", line: 3, text: "  - [ ] write it" },
+    { path: "a.md", line: 4, text: "    - [ ] draft it" },
+    { path: "b.md", line: 7, text: "- [ ] buy milk 📅 2026-08-14" },
+  ];
+
+  it("shows one next action per top level todo on n", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("n");
+
+    // One row per open root: the tree in `a.md` and the lone todo in `b.md`.
+    // The tree's row names the grandchild, that being the first open leaf.
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    const drafting = pane.texts().find((text) => text.includes("draft it")) ?? "";
+    expect(drafting).toContain("wire up the pane");
+    expect(pane.texts().join()).toContain("buy milk");
+  });
+
+  it("opens the next action's own line rather than the root's", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("n");
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    // `buy milk` is due this week and sorts above the undated row under it.
+    pane.press("j");
+    pane.press("Enter");
+
+    expect(pane.onOpen).toHaveBeenCalledWith("a.md", 4);
+  });
+
+  it("swaps the done list for the next actions rather than showing both", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("d");
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    pane.press("n");
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.texts().join()).not.toContain("read the spec");
+  });
+
+  it("puts the full list back on a second n", async () => {
+    const pane = renderPane(NESTED);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    pane.press("n");
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    pane.press("n");
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+  });
+
   it("draws a scheduled todo under the day it is scheduled for", async () => {
     const pane = renderPane([
       { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-14 ⏳ 2026-08-10" },
@@ -305,11 +364,12 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("x cycle");
     expect(pane.footer()).toContain("a add");
     expect(pane.footer()).toContain("d done");
+    expect(pane.footer()).toContain("n next");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
-    // `t`, `n` and `v` are later phases. A footer offering a key that does
-    // nothing is worse than one that is short.
-    expect(pane.footer()).not.toMatch(/\b(next|view|timer)\b/i);
+    // `t` and `v` are later phases. A footer offering a key that does nothing
+    // is worse than one that is short.
+    expect(pane.footer()).not.toMatch(/\b(view|timer)\b/i);
   });
 
   it("opens the add prompt on a", async () => {

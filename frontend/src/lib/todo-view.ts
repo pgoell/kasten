@@ -87,6 +87,31 @@ export function descendants(node: Node): Node[] {
   return node.children.flatMap((child) => [child, ...descendants(child)]);
 }
 
+/** The tag that says which part to do first, whatever the order says. */
+const NEXT = "#next";
+
+/**
+ * The one thing that could be done next under `node`.
+ *
+ * `#next` on any descendant wins. Otherwise it is the first open leaf, depth
+ * first. A todo with no children is its own next action. Null where nothing
+ * under it can be started, which is every part done, rejected or waiting on a
+ * start date that has not arrived.
+ */
+export function nextActionOf(node: Node, today: string): Node | null {
+  const startable = [node, ...descendants(node)].filter(
+    (one) => isOpen(one.todo) && !waiting(one.todo, today),
+  );
+
+  return (
+    startable.find((one) => one.todo.tags.includes(NEXT)) ??
+    // A leaf, so the answer is a thing you can sit down to rather than a
+    // heading over three more questions.
+    startable.find((one) => one.children.length === 0) ??
+    null
+  );
+}
+
 /** How many descendants are closed, and how many there are. Null with none. */
 export function progressOf(node: Node): { closed: number; total: number } | null {
   const under = descendants(node);

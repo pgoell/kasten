@@ -10,6 +10,8 @@ import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import {
   descendants,
   HEADING,
+  type Node,
+  nextActionOf,
   type Placed,
   progressOf,
   SECTIONS,
@@ -22,7 +24,12 @@ import {
 interface Row {
   hit: SearchHit;
   todo: Todo;
+  /** The todo this one is a part of, drawn in front of it. Only `n` sets it. */
+  under?: string;
 }
+
+/** Which list the pane is showing. `d` and `n` each toggle their own back. */
+type Mode = "open" | "done" | "next";
 
 function rowKey(hit: SearchHit): string {
   return `${hit.path}:${hit.line}`;
@@ -80,8 +87,8 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
   const [typed, setTyped] = useState("");
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
-  /** What `d` swaps in: the last seven days of finished work, in place of the list. */
-  const [showDone, setShowDone] = useState(false);
+  /** Which list is drawn: the open todos, `d`'s finished ones, or `n`'s actions. */
+  const [mode, setMode] = useState<Mode>("open");
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
   const panel = useRef<HTMLElement>(null);
@@ -104,25 +111,38 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
     return found;
   }, [data, today]);
 
-  // `3/5` for every row that has parts, keyed by the row it belongs to. Read
-  // off every todo the vault answered with rather than off the rows on screen,
-  // the closed parts being exactly what the list above leaves out.
-  const progress = useMemo(() => {
+  // The forest each note's todos make, and the hit each line arrived on. Both
+  // the count on a row and the `n` list are questions about this one tree, and
+  // it is read off every todo the vault answered with rather than off the rows
+  // on screen: a closed part is exactly what the list above leaves out.
+  const forest = useMemo(() => {
     const notes = new Map<string, Placed[]>();
+    const hits = new Map<string, SearchHit>();
     for (const hit of data ?? []) {
       const todo = parseTodo(hit.text);
       if (todo === null) continue;
       const lines = notes.get(hit.path) ?? [];
       lines.push({ line: hit.line, todo });
       notes.set(hit.path, lines);
+      hits.set(rowKey(hit), hit);
     }
 
+    // By line, because the tree is read off the order the note holds them in
+    // and rg answers a note's hits in whatever order it found them.
+    const trees = new Map(
+      [...notes].map(([path, lines]): [string, Node[]] => [
+        path,
+        treeOf([...lines].sort((one, other) => one.line - other.line)),
+      ]),
+    );
+    return { trees, hits };
+  }, [data]);
+
+  /** `3/5` for every row that has parts, keyed by the row it belongs to. */
+  const progress = useMemo(() => {
     const labels = new Map<string, string>();
-    for (const [path, lines] of notes) {
-      // By line, because the tree is read off the order the note holds them in
-      // and rg answers a note's hits in whatever order it found them.
-      const sorted = [...lines].sort((one, other) => one.line - other.line);
-      for (const root of treeOf(sorted)) {
+    for (const [path, roots] of forest.trees) {
+      for (const root of roots) {
         for (const node of [root, ...descendants(root)]) {
           const count = progressOf(node);
           if (count !== null) labels.set(`${path}:${node.line}`, `${count.closed}/${count.total}`);
@@ -130,7 +150,28 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       }
     }
     return labels;
-  }, [data]);
+  }, [forest]);
+
+  // What `n` shows: one row per open top level todo, naming the one thing that
+  // could be started on it. A todo with no parts is its own next action, so a
+  // flat list reads here exactly as it does out of this mode.
+  const next = useMemo(() => {
+    const found: Row[] = [];
+    for (const [path, roots] of forest.trees) {
+      for (const root of roots) {
+        if (!isOpen(root.todo)) continue;
+        const action = nextActionOf(root, today);
+        const hit = action === null ? undefined : forest.hits.get(`${path}:${action.line}`);
+        if (action === null || hit === undefined) continue;
+        found.push({
+          hit,
+          todo: action.todo,
+          under: action.line === root.line ? undefined : root.todo.text,
+        });
+      }
+    }
+    return found;
+  }, [forest, today]);
 
   // What `d` shows. Grouped on the day it was finished rather than on the day
   // it was due: a finished todo has no due date worth grouping on.
@@ -146,9 +187,8 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
 
   const shown = useMemo(() => {
     const terms = parseFilter(typed);
-    const kept = (showDone ? finished : open).filter(({ todo }) =>
-      matchesFilter(todo, terms, today),
-    );
+    const lists: Record<Mode, Row[]> = { open, done: finished, next };
+    const kept = lists[mode].filter(({ todo }) => matchesFilter(todo, terms, today));
     if (terms.text === "") return kept;
     // Whatever was not a term ranks as text, the way it does everywhere else.
     // Here the ranking only decides membership: the sections set the order.
@@ -159,12 +199,12 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       ),
     );
     return kept.filter((_, index) => reads.has(index));
-  }, [open, finished, showDone, typed, today]);
+  }, [open, finished, next, mode, typed, today]);
 
   // The heading is the group's name here, not a lookup at the draw, because
   // `d` groups on a date and there is no table of every day there has been.
   const groups = useMemo(() => {
-    if (showDone) {
+    if (mode === "done") {
       // Newest day first, which ISO dates sort into by themselves.
       const days = [...new Set(shown.map(({ todo }) => todo.done ?? ""))].sort().reverse();
       return days.map((heading) => ({
@@ -176,7 +216,7 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       heading: HEADING[section],
       rows: shown.filter((row) => sectionOf(row.todo, today) === section),
     })).filter((group) => group.rows.length > 0);
-  }, [shown, showDone, today]);
+  }, [shown, mode, today]);
   // The same rows flattened, because `j` and `k` move down a list and a heading
   // is not a row the cursor can sit on.
   const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
@@ -270,8 +310,14 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       case "a":
         onAdd();
         break;
+      // One field rather than a boolean each: `d` and `n` swap the same list,
+      // and two flags could both be on.
       case "d":
-        setShowDone((previous) => !previous);
+        setMode((previous) => (previous === "done" ? "open" : "done"));
+        setActive(0);
+        break;
+      case "n":
+        setMode((previous) => (previous === "next" ? "open" : "next"));
         setActive(0);
         break;
       // What vim spells a narrowing. `j` and `k` have to go on moving the
@@ -338,7 +384,7 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
       <div className="flex-1 overflow-auto py-1">
         {rows.length === 0 ? (
           <p className="px-3 py-1 text-[13px] text-one-muted">
-            {showDone ? "nothing finished" : "nothing to do"}
+            {mode === "done" ? "nothing finished" : "nothing to do"}
           </p>
         ) : (
           groups.map(({ heading, rows: group }) => (
@@ -346,7 +392,7 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
               <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
                 {heading}
               </h3>
-              {group.map(({ hit, todo }) => {
+              {group.map(({ hit, todo, under }) => {
                 const key = rowKey(hit);
                 // One tab stop for the whole pane: tab reaches the cursor, and
                 // the vim keys move it from there.
@@ -373,6 +419,12 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
                         carries none. */}
                     {todo.priority !== undefined && (
                       <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
+                    )}
+                    {/* What this is a part of, in front of the part itself, so
+                        a next action reads as work on something. Muted: the row
+                        is about the action, and this says where it sits. */}
+                    {under !== undefined && (
+                      <span className="max-w-[40%] shrink-0 truncate text-one-muted">{under}</span>
                     )}
                     <span className="min-w-0 flex-1 truncate">{todo.text}</span>
                     {/* Between the words and the date, where the spec's mock
@@ -407,7 +459,7 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
         className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
       >
         <span>
-          {showDone ? (
+          {mode === "done" ? (
             `${shown.length} finished`
           ) : (
             <>
@@ -416,8 +468,8 @@ export function TodoPane({ commands, onOpen, onCycle, onAdd, focusSignal, today 
           )}
         </span>
         <span>
-          x cycle&ensp;&ensp;a add&ensp;&ensp;d done&ensp;&ensp;/ filter&ensp;&ensp;q
-          close&ensp;&ensp;Escape editor
+          x cycle&ensp;&ensp;a add&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;/
+          filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
         </span>
       </footer>
     </section>

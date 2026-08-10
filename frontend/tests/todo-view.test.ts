@@ -1,5 +1,13 @@
 import { parseTodo, type Todo } from "@/lib/todo";
-import { type Node, type Placed, progressOf, sectionOf, treeOf, waiting } from "@/lib/todo-view";
+import {
+  type Node,
+  nextActionOf,
+  type Placed,
+  progressOf,
+  sectionOf,
+  treeOf,
+  waiting,
+} from "@/lib/todo-view";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-08-10";
@@ -144,5 +152,41 @@ describe("progressOf", () => {
 
   it("answers nothing for a todo with no parts", () => {
     expect(progressOf(root("- [ ] a"))).toBeNull();
+  });
+});
+
+describe("nextActionOf", () => {
+  it("answers the first part that is still open", () => {
+    const parent = root("- [ ] a", "  - [x] b", "  - [ ] c", "  - [ ] d");
+
+    expect(nextActionOf(parent, TODAY)?.todo.text).toBe("c");
+  });
+
+  it("lets a #next anywhere under it win over the obvious order", () => {
+    const flat = root("- [ ] a", "  - [ ] b", "  - [ ] c", "  - [ ] d #next");
+    const deep = root("- [ ] a", "  - [ ] b", "  - [ ] c", "    - [ ] d #next");
+
+    expect(nextActionOf(flat, TODAY)?.todo.text).toBe("d #next");
+    expect(nextActionOf(deep, TODAY)?.todo.text).toBe("d #next");
+  });
+
+  it("answers a leaf rather than the parent holding it", () => {
+    const parent = root("- [ ] a", "  - [ ] b", "    - [ ] c", "  - [ ] d");
+
+    expect(nextActionOf(parent, TODAY)?.todo.text).toBe("c");
+  });
+
+  it("reads a todo with no parts as its own next action", () => {
+    expect(nextActionOf(root("- [ ] a"), TODAY)?.todo.text).toBe("a");
+  });
+
+  it("passes over a part that has not started yet", () => {
+    const parent = root("- [ ] a", "  - [ ] b 🛫 2026-08-11", "  - [ ] c");
+
+    expect(nextActionOf(parent, TODAY)?.todo.text).toBe("c");
+  });
+
+  it("answers nothing where every part is closed", () => {
+    expect(nextActionOf(root("- [ ] a", "  - [x] b", "  - [-] c"), TODAY)).toBeNull();
   });
 });

@@ -351,6 +351,7 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "x", label: "Cycle the todo under the cursor" },
   { key: "a", label: "Add a todo to today's note" },
   { key: "d", label: "Show what was finished in the last seven days" },
+  { key: "n", label: "Show one next action per task" },
   { key: "/", label: "Narrow the list" },
   { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Back to the editor" },
