@@ -196,7 +196,9 @@ Real, working code, not a plan:
   The note in the focused pane lives in the URL as `?note=` and the line as
   `?line=`, and the note follows a folder that moves out from under it. The
   frontmatter is drawn as YAML rather than as markdown, and the cursor opens on
-  the first line under it.
+  the first line under it. The gutter counts vim's way, the cursor's line
+  carrying its own number and every other line the distance to it, which is the
+  count `10j` and `d5k` take.
   One `EventSource` on `/api/events` answers what the vault does behind the
   app: the tree refetches its listing, a note nobody is typing into takes the
   new text with the cursor where it was, and one holding unsaved edits stops

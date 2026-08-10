@@ -118,6 +118,19 @@ counts them in the raw text, and the filter then walks the result out of any
 hidden run. Three characters of markdown are not always three characters of
 prose, so the cursor sometimes stops earlier than the count suggests.
 
+## The gutter counts from the cursor
+
+The line numbers are vim's `number relativenumber`: the line the cursor sits on
+carries its own number and every other line carries its distance from it. That
+is the number the keys want. `10j`, `d5k` and `>3j` all take a count, and
+reading it off the gutter beats counting rows.
+
+CodeMirror's `lineNumbers` takes the formatter, so the whole change is one, but
+it redraws only when something else tells the gutter to. That something is
+`highlightActiveLineGutter`, which moves its marker when the cursor changes
+line, which is exactly when these numbers change. Both come from `basicSetup`,
+so dropping the highlight would freeze the counting.
+
 ## What it does not render
 
 Tables and images keep their syntax. Both need widget decorations, which means
