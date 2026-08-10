@@ -115,14 +115,20 @@ Real, working code, not a plan:
   the row off the list until the day it names. A part is drawn one step in under
   the todo it belongs to, and where that todo is in another group or already
   done it names it in front of its own words instead.
-  Its keys are `j k Enter x O P X B R a t d n / q Escape`: `x` walks a todo in the vault,
+  Its keys are `j k Enter x O P X B R a t d n v / q Escape`: `x` walks a todo in the vault,
   `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
   est:45m !high #health`, into a todo under `## TODOs` in today's note, `est:`
   being the one path by which kasten rather than your keyboard writes a `⏲`,
   `t` starts and stops a timer, `d` shows the
   last seven days of finished work, `n` shows one next action per top level
   todo, the first open leaf under it or whatever carries `#next`, and `/`
-  narrows the list by tag, priority, state and due window. `Space f t` is the same list in the finder's panel.
+  narrows the list by tag, priority, state and due window. `v` walks the named
+  filters `99 Misc/01 Config/todo-views.md` holds, one per list item, name up to
+  the first colon and terms after it: the terms of the one showing sit in the
+  filter line and its name in the header, one press past the last gives the whole
+  list back, and typing over the terms clears the name. The first `v` in a vault
+  with no such note writes it, holding `today`, `doing` and `important`, the way
+  the periodic keys write the note they open. `Space f t` is the same list in the finder's panel.
   Ticking a todo done also writes a `- ✅` line under `## Done` in today's note,
   linking back and naming the id; un-ticking drops that line wherever it landed,
   and ticking twice leaves one. It is deliberately not a checkbox, so
@@ -191,7 +197,7 @@ not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
 pick the few notes it has to read, so there is no link table either.
 
 Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, saved todo views, and anything that writes to Postgres.
+two folders, and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 

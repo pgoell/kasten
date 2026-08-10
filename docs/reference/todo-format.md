@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Todo format
-description: The line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, and the terms that filter one.
+description: The line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the terms that filter one, and the note that saves them.
 resource: frontend/src/lib/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
@@ -393,6 +393,33 @@ excludes the tag.
 
 A `-` on a word that is not a term is kept, because `-later` is then something
 you typed to look for. A bare `#` names no tag and is a word like any other.
+
+## Saved views
+
+`99 Misc/01 Config/todo-views.md` holds named filters, one per list item, and
+`v` in the todo pane walks them. A plain note, so a view is written and edited
+like any other line of the vault.
+
+```markdown
+# Todo views
+
+- today: due:today
+- doing: /doing
+- important: !highest !high
+```
+
+A view is a list item at the left margin: the name up to the first colon, the
+filter terms after it, read by the table above. A filter carrying a colon of its
+own, `due:<7d`, splits where it should, the name never crossing one.
+
+The first `v` in a vault holding no such note writes it with those three views,
+the way the periodic keys make the note they open. Change them by opening the
+note.
+
+Everything else in the note is skipped, and a line that is skipped takes no
+other line with it: a heading, a paragraph, an indented item, a bullet with no
+colon and one naming no terms are all read as prose, so the note is readable
+while it is half written.
 
 ## The add prompt's shorthand
 
