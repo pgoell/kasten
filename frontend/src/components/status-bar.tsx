@@ -54,6 +54,17 @@ const SAVE_LABEL: Record<SaveStatus, string> = {
   conflict: "Changed on disk",
 };
 
+/**
+ * What to do about the two readings that need doing something about.
+ *
+ * The other three settle themselves, so naming a key under them would be
+ * telling the reader to act on a note that is already written.
+ */
+const SAVE_FIX: Partial<Record<SaveStatus, string>> = {
+  error: "Your text is still here. :w or ctrl+s writes it again.",
+  conflict: "Somebody else wrote this note. :w keeps your text, :e! takes the vault's.",
+};
+
 // Any smaller and the arrowheads close up into blobs at this stroke width.
 const ICON = "size-4 shrink-0";
 
@@ -107,6 +118,8 @@ function Warning() {
 interface StatusBarProps {
   /** Absent while no note is open, when there is nothing to say about one. */
   status?: SaveStatus;
+  /** What the vault answered a failed write with, shown under the reading. */
+  reason?: string;
   /**
    * Raised each time a key was refused, which flashes the reading below.
    *
@@ -125,7 +138,7 @@ interface StatusBarProps {
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({ status, flash }: StatusBarProps) {
+export function StatusBar({ status, reason, flash }: StatusBarProps) {
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
   // holding no note, would play it again with nothing refused. `animationend`
@@ -152,11 +165,17 @@ export function StatusBar({ status, flash }: StatusBarProps) {
           <span
             key={flash}
             data-testid="save-status"
+            // Still one image to a screen reader, text beside the sign or not:
+            // the label below says the reading once, and the role keeps the
+            // visible copy of it from being read out a second time.
             role="img"
             aria-label={SAVE_LABEL[status]}
-            title={SAVE_LABEL[status]}
+            // Three lines on hover, the last of them the way out. A `title` and
+            // not a tooltip of our own: this is one string a browser already
+            // knows how to show, and it costs nothing to carry.
+            title={[SAVE_LABEL[status], reason, SAVE_FIX[status]].filter(Boolean).join("\n")}
             // Inline by default, and a transform does nothing to an inline box.
-            className={flashing ? "inline-block animate-flash" : undefined}
+            className={`inline-flex items-center gap-1.5 ${flashing ? "animate-flash" : ""}`}
           >
             {/* The conflict wears the warning rather than the ring for the
                 reason the failure does: nothing is on its way to the vault,
@@ -165,6 +184,14 @@ export function StatusBar({ status, flash }: StatusBarProps) {
               <Warning />
             ) : (
               <Spinner spinning={status !== "saved"} />
+            )}
+            {/* Only the two that want the reader. A 16px sign in the corner is
+                easy to type straight past, and typing past this one loses the
+                text. `aria-hidden`, the label above already saying it. */}
+            {SAVE_FIX[status] && (
+              <span aria-hidden="true" className="text-[11px] text-one-warn">
+                {SAVE_LABEL[status]}
+              </span>
             )}
           </span>
         )}

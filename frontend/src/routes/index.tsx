@@ -91,7 +91,7 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
-  const { status, change, save, saveFirst, revert, isConflicted, allowReload, reconcile } =
+  const { status, reason, change, save, saveFirst, revert, isConflicted, allowReload, reconcile } =
     useAutosave(pane.path);
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
@@ -813,7 +813,11 @@ function Home() {
           </div>
         </div>
       </div>
-      <StatusBar status={pane.path === undefined ? undefined : status} flash={refused} />
+      <StatusBar
+        status={pane.path === undefined ? undefined : status}
+        reason={reason}
+        flash={refused}
+      />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {terminalPrompt && (
         <TerminalPrompt

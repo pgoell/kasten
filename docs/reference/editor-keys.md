@@ -1006,6 +1006,12 @@ you are not typing into simply takes the new text, with the cursor where you
 left it. A note holding unsaved edits keeps them instead: autosave stops, and
 the status bar wears the warning sign, labelled `Changed on disk`.
 
+The two readings that want you write their name beside the sign rather than
+leaving a 16px icon in the corner to be noticed, and hovering either one says
+more: `Changed on disk` names both ways out, and a write that failed carries
+what the vault answered, `PUT /api/files/index.md failed with 500`, under the
+reminder that your text is still here and `:w` sends it again.
+
 Two commands end that state, and they are the two answers to the one question
 it asks, which writer wins. `:w` writes your buffer over the vault and keeps
 what you typed. `:e!` throws your buffer away and takes what the vault holds.

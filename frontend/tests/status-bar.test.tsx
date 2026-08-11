@@ -26,6 +26,36 @@ describe("StatusBar", () => {
     );
   });
 
+  it("names the trouble beside the sign, which a 16px icon on its own does not", () => {
+    render(<StatusBar status="conflict" />);
+
+    expect(screen.getByText("Changed on disk")).toBeInTheDocument();
+  });
+
+  it("says nothing beside the ring while the writing is going fine", () => {
+    render(<StatusBar status="saving" />);
+
+    expect(screen.queryByText("Saving")).toBeNull();
+  });
+
+  it("says on hover what the vault answered and what to do about it", () => {
+    const { container } = render(
+      <StatusBar status="error" reason="PUT /api/files/index.md failed with 500" />,
+    );
+
+    const title = container.querySelector("[data-testid='save-status']")?.getAttribute("title");
+    expect(title).toContain("PUT /api/files/index.md failed with 500");
+    expect(title).toContain(":w");
+  });
+
+  it("says on hover both ways out of a note that changed on disk", () => {
+    const { container } = render(<StatusBar status="conflict" />);
+
+    const title = container.querySelector("[data-testid='save-status']")?.getAttribute("title");
+    expect(title).toContain(":w");
+    expect(title).toContain(":e!");
+  });
+
   it("shows the warning sign rather than the ring when the note changed on disk", () => {
     // A spinning ring reads as a write on its way out, and while the note
     // stands conflicted nothing is on its way anywhere until `:w`.

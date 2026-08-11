@@ -21,6 +21,10 @@ export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict";
  */
 export function useAutosave(path: string | undefined) {
   const [status, setStatus] = useState<SaveStatus>("saved");
+  // What the vault answered the failed write with, kept for the bar to show on
+  // hover. `error` says a write did not land; only this says whether that was
+  // the proxy, the disk or a bad path, which is what decides the next move.
+  const [reason, setReason] = useState<string | undefined>(undefined);
   // The text waiting to go out, or null when disk is up to date. A ref, not
   // state: a keystroke must not re-render the tree around CodeMirror.
   const pending = useRef<string | null>(null);
@@ -61,6 +65,7 @@ export function useAutosave(path: string | undefined) {
     conflicted.current = false;
     const sent = reverts.current;
     setStatus("saving");
+    setReason(undefined);
 
     return saveNote(path, content).then(
       (note) => {
@@ -98,7 +103,7 @@ export function useAutosave(path: string | undefined) {
         }
         return true;
       },
-      () => {
+      (failure: unknown) => {
         // Nothing to hold and nothing to warn about once the reader has thrown
         // this text away: the buffer holds the vault's version, and the retry
         // would be a retry of an edit that no longer exists anywhere.
@@ -107,6 +112,7 @@ export function useAutosave(path: string | undefined) {
         // Hold on to the text: the next keystroke or `:w` tries again.
         pending.current ??= content;
         setStatus("error");
+        setReason(failure instanceof Error ? failure.message : String(failure));
         return false;
       },
     );
@@ -147,6 +153,7 @@ export function useAutosave(path: string | undefined) {
     conflicted.current = false;
     reverts.current += 1;
     setStatus("saved");
+    setReason(undefined);
     return true;
   }, []);
 
@@ -232,5 +239,5 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
-  return { status, change, save, saveFirst, revert, isConflicted, allowReload, reconcile };
+  return { status, reason, change, save, saveFirst, revert, isConflicted, allowReload, reconcile };
 }

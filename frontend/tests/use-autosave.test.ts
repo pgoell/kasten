@@ -72,6 +72,7 @@ function renderAutosave(path = "index.md") {
       return outcome;
     },
     status: () => result.current.status,
+    reason: () => result.current.reason,
     /** Ask the way the editor asks, with the text it is about to put in. */
     allowReload: (text: string) => {
       let allowed: boolean | undefined;
@@ -280,6 +281,22 @@ describe("useAutosave", () => {
 
     expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited");
     expect(note.status()).toBe("saved");
+  });
+
+  it("keeps why the write failed, and drops it once one goes through", async () => {
+    // The status says a write failed; only this says what the vault answered,
+    // which is the difference between a retry and a look at the server.
+    const note = renderAutosave();
+    const write = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    await write.break();
+    expect(note.reason()).toBe("PUT /api/files/index.md failed with 500");
+
+    await act(async () => note.save());
+
+    expect(note.reason()).toBeUndefined();
   });
 
   it("asks for no reload when the write the vault reports is its own", async () => {
