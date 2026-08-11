@@ -2,6 +2,7 @@
 
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlsplit
@@ -18,6 +19,14 @@ from kasten_backend.guide import write_guide
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
 from kasten_backend.todos import find_todos
+from kasten_backend.trash import (
+    Entry,
+    list_trash,
+    move_to_trash,
+    purge_trash,
+    resolve_entry,
+    restore,
+)
 from kasten_backend.vault import (
     create_note,
     list_markdown_files,
@@ -42,12 +51,14 @@ if TYPE_CHECKING:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Give the vault the agent guide before the first request is served.
+    """Give the vault the agent guide, and empty what the trash has held too long.
 
     The settings are read rather than injected: there is no request to depend
     on, and the vault the process serves is the vault this writes into.
     """
-    await write_guide(get_settings().vault_path)
+    settings = get_settings()
+    await write_guide(settings.vault_path)
+    await purge_trash(settings.vault_path, settings.trash_days)
     yield
 
 
@@ -181,6 +192,35 @@ class SearchHit(BaseModel):
 
     text: str
     """The line itself, for the client to show and to rank."""
+
+
+class TrashEntry(BaseModel):
+    """One deleted note or folder, waiting in the trash."""
+
+    entry: str
+    """Where it sits under `.trash`, which is the name a restore takes.
+
+    Its own field rather than something the client builds out of the two below,
+    because the spelling is the backend's: it is a path in the vault's own
+    trash, and a client that assembled it would be a second copy of that rule.
+    """
+
+    path: str
+    """Where it lived in the vault, and where a restore puts it back."""
+
+    deleted: datetime
+    """When it was deleted, UTC, off the entry's own name."""
+
+    @classmethod
+    def of(cls, found: Entry) -> TrashEntry:
+        """Read one off what the trash answered with."""
+        return cls(entry=found.entry, path=found.path, deleted=found.deleted)
+
+
+class Restored(BaseModel):
+    """Where a restored note or folder landed, which is where it was."""
+
+    path: str
 
 
 @app.get("/api/health")
@@ -579,3 +619,93 @@ async def move_folder(
     await snapshot(settings.vault_path)
 
     return Folder(path=relative)
+
+
+@app.delete("/api/files/{path:path}")
+async def delete_file(
+    path: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> TrashEntry:
+    """Take one note out of the vault, and hold it in the trash.
+
+    A `DELETE` that keeps the note is not a contradiction: what the vault holds
+    is what these routes answer about, and the note stops being one of them the
+    moment it moves. Nothing lists it, nothing searches it and no path reaches
+    it, because everything here refuses a hidden folder.
+
+    A missing note is a 404, matching the read, the write and the move, so a
+    note you cannot open is a note you cannot delete.
+
+    The links pointing at it are left alone. A `[[link]]` names a note rather
+    than a place, the editor already draws one nothing answers to as missing,
+    and rewriting the vault to say a note is gone would be the one edit a
+    restore could not take back.
+    """
+    note = resolve_note(settings.vault_path, path)
+    if note is None:
+        raise HTTPException(status_code=404, detail="No such note")
+
+    relative = relative_path(settings.vault_path, note)
+
+    return TrashEntry.of(await move_to_trash(settings.vault_path, note, relative))
+
+
+@app.delete("/api/folders/{path:path}")
+async def delete_folder(
+    path: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> TrashEntry:
+    """Take one folder out of the vault, and every note under it with it.
+
+    Its own route rather than the one above, for the reason the folder's move
+    has one: `/api/files/inbox` cannot mean the folder here and nothing at all
+    on a `GET`. A source that is not a folder is a 404, a note at that path
+    included, so the one way to delete a note stays the route above.
+
+    One entry in the trash, not one per note. The folder went in one rename and
+    it comes back in one, so the thing you get back is the folder you deleted
+    rather than a list of notes to put back yourself.
+    """
+    folder = resolve_folder(settings.vault_path, path)
+    if folder is None:
+        raise HTTPException(status_code=404, detail="No such folder")
+
+    relative = relative_path(settings.vault_path, folder)
+
+    return TrashEntry.of(await move_to_trash(settings.vault_path, folder, relative))
+
+
+@app.get("/api/trash")
+async def read_trash(settings: Annotated[Settings, Depends(get_settings)]) -> list[TrashEntry]:
+    """Everything the trash is holding, newest first.
+
+    Read off the names in `.trash` rather than out of a list somebody has to
+    keep in step. The name of an entry says where it came from and when it
+    went, which is the whole record, so a note moved out of the trash by hand
+    stops being on this list by the same act.
+    """
+    return [TrashEntry.of(found) for found in list_trash(settings.vault_path)]
+
+
+@app.patch("/api/trash/{entry:path}")
+async def restore_entry(
+    entry: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> Restored:
+    """Put one entry back where it was deleted from.
+
+    `PATCH`, and no body, for the reason a move is one: this changes where
+    something lives, and where it should live is already written in the entry's
+    own name. An entry the trash has not got is a 404, and a path something has
+    taken since is a 409, which is the create's answer and the move's.
+    """
+    found = resolve_entry(settings.vault_path, entry)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No such entry")
+
+    target = resolve_folder_path(settings.vault_path, found.path)
+    if target is None:
+        raise HTTPException(status_code=400, detail="The vault will not take that path")
+    if target.exists():
+        raise HTTPException(status_code=409, detail="Something is already there")
+
+    await restore(settings.vault_path, found)
+
+    return Restored(path=found.path)

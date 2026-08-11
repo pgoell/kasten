@@ -29,6 +29,8 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>ct` | Start a tab, on one empty pane |
 | `<leader>cw` | Import a web page into the inbox |
+| `<leader>df` | Move the open note into the trash |
+| `<leader>du` | Put the last deleted note or folder back |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
@@ -93,6 +95,25 @@ path stays a path and a bare name stays a bare name, so `[[borges]]` is left
 alone by a move between folders and follows a change of name. Renaming a folder
 does the same for every note it carries. [The link panels](#the-link-panels)
 cover the two ways to read those links.
+
+`<leader>df` takes the note out of the vault, and `<leader>du` puts the last
+deleted one back. The pane holding the note empties, and so does every other
+pane holding it, since one note can be open in several at once. The tree's own
+`d` deletes a row of either kind, the way its `r` renames one, and it is the
+only way to delete a folder: a folder and everything under it go as one entry
+and come back as one.
+
+Nothing asks first, because nothing is lost. The note is moved into a hidden
+`.trash` folder in the vault, where the listing, search, the event stream and
+every route refuse to look at it, and it waits there for thirty days. Text still
+waiting to be written is saved before it goes, so the trash holds what you last
+typed. `<leader>du` reads the trash rather than remembering what this tab did,
+so it reaches a delete made in another tab, before a reload, or by hand in a
+terminal pane, and it flashes the bar when there is nothing to put back or
+something has taken the path since. Links pointing at a deleted note are left
+alone and draw as links to a note that is not there.
+[Deleting a note](/explanation/deleting-a-note.md) covers why it works this way,
+and [Configuration](/reference/configuration.md) how to change the thirty days.
 
 `<leader>gb` and `<leader>go` are a pair and need a note open, one showing what
 links to it and the other what it links to. Both do nothing with no note on
@@ -841,6 +862,7 @@ a tree that has hidden it.
 | `f` | Open the note finder |
 | `s` | Open search over note content |
 | `r` | Rename the note or folder under the cursor |
+| `d` | Delete the note or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 

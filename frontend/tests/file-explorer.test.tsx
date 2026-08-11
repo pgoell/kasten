@@ -27,6 +27,8 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onCreateNote?: (startPath?: string) => void;
   onRenameNote?: (startPath?: string) => void;
   onRenameFolder?: (startPath: string) => void;
+  onDeleteNote?: (startPath?: string) => void;
+  onDeleteFolder?: (startPath: string) => void;
   onFindNote?: () => void;
   onSearchNotes?: () => void;
 };
@@ -36,6 +38,8 @@ function Harness({
   onCreateNote,
   onRenameNote,
   onRenameFolder,
+  onDeleteNote,
+  onDeleteFolder,
   onFindNote,
   onSearchNotes,
   ...props
@@ -61,6 +65,9 @@ function Harness({
         createNote: onCreateNote ?? (() => {}),
         renameNote: onRenameNote ?? (() => {}),
         renameFolder: onRenameFolder ?? (() => {}),
+        deleteNote: onDeleteNote ?? (() => {}),
+        deleteFolder: onDeleteFolder ?? (() => {}),
+        restoreDeleted: () => {},
         findNote: onFindNote ?? (() => {}),
         searchNotes: onSearchNotes ?? (() => {}),
         findTodos: () => {},
@@ -375,6 +382,45 @@ describe("the tree keyboard", () => {
     press("r");
 
     expect(onRenameNote).toHaveBeenCalledWith("projects/kasten.md");
+  });
+
+  it("deletes the note under the cursor on d", () => {
+    const onDeleteNote = vi.fn();
+    renderTree({ onDeleteNote });
+
+    press("G");
+    press("k");
+    expect(cursor()).toHaveAttribute("title", "projects/kasten.md");
+    press("d");
+
+    expect(onDeleteNote).toHaveBeenCalledWith("projects/kasten.md");
+  });
+
+  it("deletes the folder under the cursor on d", () => {
+    const onDeleteFolder = vi.fn();
+    const onDeleteNote = vi.fn();
+    renderTree({ onDeleteFolder, onDeleteNote });
+
+    expect(cursor()).toHaveTextContent("daily");
+    press("d");
+
+    expect(onDeleteFolder).toHaveBeenCalledWith("daily");
+    expect(onDeleteNote).not.toHaveBeenCalled();
+  });
+
+  it("keeps the focus in the tree when the deleted row goes", () => {
+    // Without this the keyboard is dead after `d`: the row that had the focus
+    // is unmounted when the listing comes back without it, and the browser
+    // hands the focus to the body rather than to the row that took its place.
+    const { rerender } = render(<Harness paths={["index.md", "other.md"]} />);
+    cursor().focus();
+    expect(cursor()).toHaveFocus();
+
+    press("d");
+    rerender(<Harness paths={["other.md"]} />);
+
+    expect(document.body).not.toHaveFocus();
+    expect(cursor()).toHaveFocus();
   });
 
   it("renames the folder under the cursor on r", () => {

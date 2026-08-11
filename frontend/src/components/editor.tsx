@@ -445,6 +445,8 @@ export function Editor({
             // No path: the editor holds one note, and the route already knows
             // which. The tree is the caller that names one.
             renameNote: (startPath) => commandsRef.current?.renameNote(startPath),
+            deleteNote: (startPath) => commandsRef.current?.deleteNote(startPath),
+            restoreDeleted: () => commandsRef.current?.restoreDeleted(),
             findNote: () => commandsRef.current?.findNote(),
             searchNotes: () => commandsRef.current?.searchNotes(),
             findTodos: () => commandsRef.current?.findTodos(),

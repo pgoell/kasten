@@ -29,6 +29,13 @@ export interface EditorCommands {
   createNote(startPath?: string): void;
   /** The note to rename, which the tree knows and the editor leaves to the route. */
   renameNote(startPath?: string): void;
+  /**
+   * Move a note into the vault's trash. The tree names one, the editor means
+   * the one in the focused pane.
+   */
+  deleteNote(startPath?: string): void;
+  /** Put the last deleted note or folder back where it was. */
+  restoreDeleted(): void;
   /** Open the finder, which ranks the whole vault and needs nothing to start from. */
   findNote(): void;
   /** Open search over note content, which starts from nowhere the way the finder does. */
@@ -87,6 +94,8 @@ export interface EditorCommands {
  */
 export interface TreeCommands extends EditorCommands {
   renameFolder(startPath: string): void;
+  /** Move a folder into the trash, and every note under it with it. */
+  deleteFolder(startPath: string): void;
 }
 
 /**
@@ -123,6 +132,15 @@ export const LEADER: readonly LeaderBinding[] = [
   // leaves behind is a note. `w` for the web, the thing being made a note of,
   // the way `f` is a file and `s` a shell.
   { key: "cw", label: "Import a web page into the inbox", command: "importPage" },
+  // The `d` group, shaped like `cf` and `rf`: the group letter, then the thing.
+  // What it deletes is the note in the focused pane, and the tree's own `d`
+  // reaches a note or a folder the cursor is on.
+  { key: "df", label: "Delete the note", command: "deleteNote" },
+  // Beside the delete rather than on a bare `u`, which vim owns as undo and
+  // which this is not: a delete is a write to the vault and the buffer's undo
+  // stack knows nothing about it. `u` for what the second letter means
+  // everywhere else in the app.
+  { key: "du", label: "Undo the last delete", command: "restoreDeleted" },
   // Tab used to be the way into the tree, and binding it to indent took that
   // away. This is the way back in, and it unfolds the panel first.
   { key: "e", label: "Focus the file tree", command: "focusTree" },
@@ -371,6 +389,9 @@ export const TREE: readonly { key: string; label: string }[] = [
   // `s` and not `g`: `g` opens `gg` here, so it cannot be a command of its own.
   { key: "s", label: "Search every note's content" },
   { key: "r", label: "Rename the note or folder under the cursor" },
+  // `d` for delete, and it reaches a folder the way `r` does, the tree being
+  // the one place that can point at one.
+  { key: "d", label: "Delete the note or folder under the cursor" },
   { key: "q", label: "Close the file tree" },
   { key: "Escape", label: "Back to the editor" },
 ];

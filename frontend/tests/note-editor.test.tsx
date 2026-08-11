@@ -62,6 +62,8 @@ function OpenNote({ path }: { path: string }) {
       showHelp: () => {},
       createNote: () => {},
       renameNote: () => {},
+      deleteNote: () => {},
+      restoreDeleted: () => {},
       findNote: vi.fn(),
       searchNotes: vi.fn(),
       findTodos: vi.fn(),

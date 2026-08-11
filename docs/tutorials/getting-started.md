@@ -225,13 +225,14 @@ and keeps no history, so an overwrite is final.
 
 ## What you cannot do yet
 
-Notes can be made, opened, edited, renamed and moved from the browser, and so
-can folders, except that a folder is never made on its own: it comes into being
-when a note names it. Nothing can be deleted, so getting rid of a note is still
-a file you delete yourself. Every note can be searched by what is written in
-it, with `<leader>fg`, and `[[wikilinks]]` are followed with `gf` or Enter, read both
-ways with `<leader>gb` and `<leader>go`, and carried along when the note or the
-folder they name is renamed.
+Notes can be made, opened, edited, renamed, moved and deleted from the browser,
+and so can folders, except that a folder is never made on its own: it comes into
+being when a note names it. A delete is not final: the note waits in a hidden
+`.trash` in the vault for thirty days, and `<leader>du` puts the last one back.
+Two folders cannot be merged into one. Every note can be searched by what is
+written in it, with `<leader>fg`, and `[[wikilinks]]` are followed with `gf` or
+Enter, read both ways with `<leader>gb` and `<leader>go`, and carried along when
+the note or the folder they name is renamed.
 Tables and images keep their syntax on screen, because live preview does not
 render them yet.
 

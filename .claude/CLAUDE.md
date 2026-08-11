@@ -18,17 +18,28 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Twelve
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Sixteen
   endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/todos`,
-  `/api/terminals`, `/api/fetch`, `/api/events`, `GET`,
-  `POST`, `PUT` and `PATCH` on `/api/files/{path}`, and `PATCH` on
-  `/api/folders/{path}`. A create starts a
+  `/api/terminals`, `/api/fetch`, `/api/events`, `/api/trash`, `GET`,
+  `POST`, `PUT`, `PATCH` and `DELETE` on `/api/files/{path}`, `PATCH` and
+  `DELETE` on `/api/folders/{path}`, and `PATCH` on `/api/trash/{entry}`.
+  A create starts a
   note holding its frontmatter, and the text under it when a body comes with
   the request, and makes the folders on the way to it; a `PATCH`
   gives a note or a folder a new path and takes the folders it emptied with it. A folder moves in
   one rename, so its whole subtree arrives together. Both moves rewrite every
   `[[link]]` in the vault that named what moved, each in the spelling it had,
-  reading only the notes rg names rather than the whole vault. All four writes are
+  reading only the notes rg names rather than the whole vault. A `DELETE` moves
+  a note or a folder into `.trash` inside the vault instead of removing it,
+  keeping its path and stamping the moment onto its leaf, which is the whole
+  record: `/api/trash` reads it back off the names, newest first, and a `PATCH`
+  on one puts it where it came from, refusing a path something has taken since.
+  A folder goes as one entry and comes back as one, and links to a deleted note
+  are left dangling. Startup drops what has been in there longer than
+  `KASTEN_TRASH_DAYS`, which is the one place a note is removed for good. The
+  trash is invisible without a line of work, every reader of the vault already
+  refusing a dot-directory, and it is not left to jj because jj is optional.
+  All these writes are
   recorded in the vault's jj repo, one change per note, and skipped when the
   vault has none. Every note carries a `---` block holding a uuid7 `id`, a
   `created` date and a `modified` date; a create writes it and a save rewrites
@@ -65,7 +76,11 @@ Real, working code, not a plan:
   One prompt does three jobs: `Space c f` makes a note at a path you type,
   `Space r f` moves one that is there, and the tree's own `r` renames whatever
   the cursor sits on, a folder included. The tree's `c` is `Space c f` from
-  there. All three complete the vault's folders. A finder opens a note by name:
+  there. All three complete the vault's folders. `Space d f` puts the open note
+  in the trash and `Space d u` takes the last delete back, reading the trash
+  rather than remembering it; the tree's `d` deletes the row under the cursor,
+  a folder included, the way its `r` renames one. Nothing asks first, the trash
+  being the confirmation, and the panes holding a deleted note empty. A finder opens a note by name:
   `Space f f`, or `f` in the tree, ranks every note in the vault against what
   you type and shows the one under the highlight beside the list. Search reads
   what is written in the notes instead: `Space f g`, or `s` in the tree, asks
@@ -245,8 +260,8 @@ Search reads the vault with rg on every query and indexes nothing, so it is
 not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
 pick the few notes it has to read, so there is no link table either.
 
-Not built yet: deleting notes or folders, making a folder on its own, merging
-two folders, and anything that writes to Postgres.
+Not built yet: making a folder on its own, merging two folders, browsing the
+trash beyond `<leader>du`, and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 

@@ -36,6 +36,9 @@ const {
   createNote,
   renameNote,
   moveFolder,
+  deleteNote,
+  fetchTrash,
+  restoreEntry,
   fetchTerminals,
   fetchTodos,
 } = vi.hoisted(() => ({
@@ -46,6 +49,9 @@ const {
   createNote: vi.fn(),
   renameNote: vi.fn(),
   moveFolder: vi.fn(),
+  deleteNote: vi.fn(),
+  fetchTrash: vi.fn(),
+  restoreEntry: vi.fn(),
   // The terminal prompt asks for these when it opens. No route test opens
   // it, so an empty list is the whole of what this has to answer.
   fetchTerminals: vi.fn().mockResolvedValue([]),
@@ -61,6 +67,9 @@ vi.mock("@/lib/api", () => ({
   createNote,
   renameNote,
   moveFolder,
+  deleteNote,
+  fetchTrash,
+  restoreEntry,
   fetchTerminals,
   fetchTodos,
 }));
@@ -645,6 +654,95 @@ describe("the route", () => {
     // anything typed by then is unsaved text over a note that changed on disk.
     expect(saveNote).not.toHaveBeenCalled();
     expect(app.text()).toContain("2026-08-06 Thursday");
+  });
+
+  it("moves the open note into the trash and empties the pane", async () => {
+    deleteNote.mockResolvedValue({
+      entry: "index.md@2026-08-11T14-03-02.481337",
+      path: "index.md",
+      deleted: "2026-08-11T14:03:02Z",
+    });
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader("d", "f");
+    await settle();
+
+    expect(deleteNote).toHaveBeenCalledWith("index.md");
+    // The pane is empty, so nothing on screen is holding a note that is gone,
+    // and the listing is asked for again.
+    expect(app.text()).toBe("");
+    expect(fetchFiles.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("writes what is waiting before it deletes the note", async () => {
+    // The trash holds what was on disk, so the text typed a moment ago has to
+    // be on disk before the note moves into it.
+    deleteNote.mockResolvedValue({
+      entry: "index.md@2026-08-11T14-03-02.481337",
+      path: "index.md",
+      deleted: "2026-08-11T14:03:02Z",
+    });
+    const app = await editing();
+
+    app.leader("d", "f");
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note");
+    // A call that never happened has no order, and `0` is below every real one,
+    // so a delete that skipped the save fails here rather than passing empty.
+    expect(saveNote.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteNote.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("refuses to delete a note that changed on disk", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    app.leader("d", "f");
+    await settle();
+
+    expect(deleteNote).not.toHaveBeenCalled();
+    expect(app.status()).toBe("Changed on disk");
+  });
+
+  it("puts the last deleted note back and opens it", async () => {
+    fetchTrash.mockResolvedValue([
+      {
+        entry: "other.md@2026-08-11T14-03-02.481337",
+        path: "other.md",
+        deleted: "2026-08-11T14:03:02Z",
+      },
+    ]);
+    restoreEntry.mockResolvedValue("other.md");
+    const app = await renderApp();
+    await settle();
+
+    app.leader("d", "u");
+    await settle();
+
+    expect(restoreEntry).toHaveBeenCalledWith("other.md@2026-08-11T14-03-02.481337");
+    expect(app.text()).toBe("the other note");
+  });
+
+  it("flashes the bar when the trash has nothing to put back", async () => {
+    fetchTrash.mockResolvedValue([]);
+    const app = await renderApp();
+    await settle();
+    // With a note open, because the bar is what a refusal is seen in and an
+    // empty pane draws no reading at all.
+    app.click("index.md");
+    await settle();
+
+    app.leader("d", "u");
+    await settle();
+
+    expect(restoreEntry).not.toHaveBeenCalled();
+    expect(app.flashing()).toBe(true);
   });
 
   it("puts the todo list in the focused pane and takes it back out", async () => {

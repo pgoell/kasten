@@ -29,6 +29,20 @@ Dev points at kasten's own compose Postgres, published on the host at 5434. It
 cannot use the shared `postgres` container on the VPS: that one publishes no
 host port, and the dev backend runs on the host rather than in a container.
 
+## KASTEN_TRASH_DAYS
+
+```
+30
+```
+
+How long a deleted note waits in the vault's `.trash` before it is dropped for
+good. Counted from the moment in the entry's own name, and read at startup,
+which is when the trash is emptied.
+
+Long enough to notice the delete was a mistake, short enough that the trash is
+not a second vault. The reasoning is in
+[Deleting a note](/explanation/deleting-a-note.md).
+
 ## KASTEN_VAULT_PATH
 
 ```
@@ -43,5 +57,6 @@ the repo root. Production overrides this with the absolute container path
 
 ## Related
 
-* [The vault and the derived index](/explanation/vault-and-derived-index.md) - what these two settings mean to each other
+* [The vault and the derived index](/explanation/vault-and-derived-index.md) - what these settings mean to each other
+* [Deleting a note](/explanation/deleting-a-note.md) - what the trash is for
 * [Two environments](/explanation/environments.md) - the values dev and prod actually run with
