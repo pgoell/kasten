@@ -40,6 +40,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
 | `<leader>gq` | Open this quarter's note |
+| `<leader>gr` | Read this note's book in a pane beside it |
 | `<leader>gt` | Put the todo list in the focused pane |
 | `<leader>gw` | Open this week's note |
 | `<leader>gy` | Open this year's note |
@@ -295,6 +296,54 @@ dropping every key until you clicked into it.
 A terminal pane is not in the URL. `?note=` names a note, and a terminal names
 nothing, so a reload comes back to an empty pane. `<leader>cs` and the session
 name is how you get back to it, which is the mechanism the sessions already have.
+
+## The book pane
+
+`<leader>gr` opens the book that sits beside the open note and puts it in a new
+pane to the right, with the note still on screen. The book is the note's path
+with the suffix swapped, so `20 Literature/DDIA.md` is read beside
+`20 Literature/DDIA.epub` and nothing anywhere records that pair.
+[Books in the vault](/explanation/books-in-the-vault.md) says why.
+
+A note with no book beside it draws a panel naming the path it wanted, rather
+than an empty reader. So does a book the reader cannot open.
+
+The keys below are the only ones the pane answers. They are not leader keys:
+the pane holds a document you page with the space bar in every other reader, so
+the leader would cost you the space bar for nothing.
+
+| Key | Does |
+| --- | --- |
+| `h` | Turn back a page |
+| `l` | Turn forward a page |
+| `q` | Take the book out of the pane |
+| `Ctrl+Shift+H` `J` `K` `L` `O` | Walk the panes, as in a terminal |
+| `Ctrl+Shift+Q` | Take the book out of the pane |
+
+The three bare keys answer an unmodified press only, so `Ctrl+H` is left to the
+browser's history window. The chords are the terminal's own, read from
+`TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts`, so
+retuning one retunes both panes.
+
+They work after a click into a paragraph, which is worth stating because it is
+the case the pane is built around: the book renders inside an iframe, an event
+does not cross a document boundary, and a handler on the pane alone would stop
+answering the moment you clicked the text. The pane puts the same handler on
+every chapter document the renderer reports.
+
+A click inside the book also tells the route that this pane has the focus.
+Nothing else would: a paragraph cannot hold focus, so a click in there fires no
+focus event on any ancestor, and without the report `q` would close some other
+pane's note.
+
+A book pane is not in the URL. `?note=` names the note in the focused pane, and
+a reader holds none, so opening one empties `?note=` and a reload comes back to
+an empty pane. Closing the reader puts the note back in the URL as soon as the
+focus reaches it.
+
+Moving the folder that holds the pair carries the reader with it. Renaming the
+note alone does not, because the epub stays where it was, and the reader then
+says its note is gone.
 
 ## Importing a web page
 

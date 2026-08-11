@@ -7,3 +7,4 @@ keyboard; they answer "why" rather than "how".
 * [Two environments](environments.md) - why dev and prod are deployed in deliberately different ways
 * [Deleting a note](deleting-a-note.md) - why a delete moves the note into a hidden folder instead of removing it
 * [Live preview and the vim mode](live-preview.md) - why the editor renders markdown in normal mode and shows you the source in insert mode
+* [Books in the vault](books-in-the-vault.md) - why a book is its note's path with the suffix swapped, and why the vault's history never takes a copy of one
