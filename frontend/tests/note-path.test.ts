@@ -1,4 +1,4 @@
-import { describeFolderPath, describeNotePath } from "@/lib/note-path";
+import { bookPath, describeFolderPath, describeNotePath } from "@/lib/note-path";
 
 const PATHS = ["daily/2026-08-05.md", "index.md", "projects/kasten/api-design.md"];
 
@@ -249,5 +249,15 @@ describe("describeFolderPath", () => {
     // Not a collision: leaving a name alone is nothing to do, and the prompt
     // closes on it rather than refusing.
     expect(describeFolderPath("daily", PATHS, SOURCE)).toEqual({ kind: "open", path: "daily" });
+  });
+});
+
+describe("bookPath", () => {
+  it("swaps the note's suffix for the book's", () => {
+    expect(bookPath("20 Literature/Books/DDIA.md")).toBe("20 Literature/Books/DDIA.epub");
+  });
+
+  it("leaves a dot in a folder name alone", () => {
+    expect(bookPath("a.b/c.md")).toBe("a.b/c.epub");
   });
 });

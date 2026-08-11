@@ -1,6 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { PaneLayout, TabStrip } from "@/components/pane-layout";
-import { activeTab, addTab, emptyLayout, type Layout, splitFocused, tabPanes } from "@/lib/panes";
+import {
+  activeTab,
+  addTab,
+  emptyLayout,
+  type Layout,
+  openBookBeside,
+  splitFocused,
+  tabPanes,
+} from "@/lib/panes";
 
 /** Draw one tab's panes the way the route does, with a button to focus in each. */
 function draw(layout: Layout, onFocus = vi.fn()) {
@@ -124,5 +132,15 @@ describe("TabStrip", () => {
     screen.getByRole("tab", { name: /a$/ }).click();
 
     expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
+  it("names a tab whose focused pane holds a book after the note", () => {
+    // Without this, `tabLabel` reads `term`, `todos` then `path` and calls a
+    // reader `empty`, and every other test in this branch still passes.
+    const layout = addTab(openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md"));
+
+    render(<TabStrip layout={layout} onSelect={() => {}} />);
+
+    expect(screen.getByRole("tab", { name: /DDIA/ })).toBeInTheDocument();
   });
 });

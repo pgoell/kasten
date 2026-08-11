@@ -9,6 +9,7 @@ import {
   type Layout,
   mapPanes,
   nextPane,
+  openBookBeside,
   openInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -325,5 +326,32 @@ describe("the todo list in a pane", () => {
 describe("panesOf", () => {
   it("reads a bare pane as one pane", () => {
     expect(panesOf(at(emptyLayout().tabs, 0).root)).toHaveLength(1);
+  });
+});
+
+describe("a book in a pane beside its note", () => {
+  it("splits the focused pane and puts the book in the new one", () => {
+    const layout = openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md");
+
+    // The note stays where it was. A key called "read this book beside this
+    // note" must not eat the note.
+    expect(tabPanes(layout).map((pane) => pane.path ?? null)).toEqual(["lit/DDIA.md", null]);
+    expect(tabPanes(layout).map((pane) => pane.book ?? null)).toEqual([null, "lit/DDIA.md"]);
+  });
+
+  it("leaves the focus on the reader", () => {
+    const layout = openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md");
+
+    expect(focusedPane(layout).book).toBe("lit/DDIA.md");
+  });
+
+  it("goes to the pane already reading that book rather than making a second", () => {
+    const once = openBookBeside(emptyLayout("lit/DDIA.md"), "lit/DDIA.md");
+    const reader = focusedPane(once).id;
+
+    const twice = openBookBeside(nextPane(once), "lit/DDIA.md");
+
+    expect(tabPanes(twice)).toHaveLength(2);
+    expect(focusedPane(twice).id).toBe(reader);
   });
 });
