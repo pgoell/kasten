@@ -35,6 +35,12 @@ export class FakeView extends HTMLElement {
   static initWith: (() => Promise<void>) | null = null;
   /** Whether the next view's renderer has `setStyles`, which a fixed-layout one has not. */
   static withStyles = true;
+  /**
+   * Whether the next view's `init` navigates nowhere, leaving `lastLocation`
+   * falsy. That is what a cfi naming a spine item the book has not got does:
+   * the renderer refuses the index and returns without loading a section.
+   */
+  static navigatesNowhere = false;
 
   opened: File | null = null;
   started = false;
@@ -51,6 +57,8 @@ export class FakeView extends HTMLElement {
    * field cannot tell a second `init` from a first.
    */
   inits: object[] = [];
+  /** Where the view says it is, which stays null while nothing has loaded. */
+  lastLocation: { cfi: string } | null = null;
   renderer: { setStyles?: (css: string) => void };
   /** The document foliate would hand out per section. Tests fire their events on it. */
   section: Document = document.implementation.createHTMLDocument("section");
@@ -74,6 +82,13 @@ export class FakeView extends HTMLElement {
 
   async init(options: object): Promise<void> {
     this.inits.push(options);
+    // Filled before the await, the way the real library fills it: a section
+    // that loads at all relocates through the load-time expand
+    // (`paginator.js:272-280, 409, 673`), which is well before an anchor can
+    // throw. Filled after, a rejecting `init` would leave it falsy, the
+    // fallback would fire, and the shape this fake exists to model could not
+    // be arranged at all.
+    if (!FakeView.navigatesNowhere) this.lastLocation = { cfi: "epubcfi(/6/2)" };
     if (FakeView.initWith) await FakeView.initWith();
     this.started = true;
   }
@@ -112,6 +127,7 @@ export function resetFoliateFake(): void {
   FakeView.openWith = null;
   FakeView.initWith = null;
   FakeView.withStyles = true;
+  FakeView.navigatesNowhere = false;
 }
 
 /** The view the pane built, which is the last one made. */

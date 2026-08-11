@@ -26,6 +26,21 @@ interface FoliateView extends HTMLElement {
   prev(): void;
   /** Built by `open`, and a fixed-layout book's renderer has no `setStyles`. */
   renderer?: { setStyles?: (css: string) => void };
+  /** Where the view says it is. Filled by every relocate, nulled by `close`. */
+  lastLocation?: object | null;
+}
+
+/**
+ * Whether something thrown is an error object, from this realm or the book's.
+ *
+ * `instanceof Error` is not enough here, and the difference is not academic. A
+ * stale bookmark ends in `range.setStart(null, …)` on a range built in the
+ * book's own iframe, so the `TypeError` that comes back carries that document's
+ * `Error` and reads as false against this one. `Object.prototype.toString` asks
+ * about the internal slot instead, which no realm boundary hides.
+ */
+function isError(thrown: unknown): boolean {
+  return Object.prototype.toString.call(thrown) === "[object Error]";
 }
 
 interface BookPaneProps {
@@ -207,13 +222,39 @@ export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPa
         // navigates nowhere, so a pane that stops above draws a blank page and
         // every key looks broken. Undefined is the front of the book, which is
         // what `init` falls through to.
-        await view.init({ lastLocation: readField(text, "reading") });
+        try {
+          await view.init({ lastLocation: readField(text, "reading") });
+        } catch (error_) {
+          // A stale bookmark, not a broken book. A cfi naming a spine item this
+          // book has and a node path that chapter has not loads the section and
+          // then throws out of `anchor(doc)`, and the reader is left at the top
+          // of the chapter the cfi named, which beats the front of the book.
+          // Anything that is not an error came from somewhere this cannot
+          // report on.
+          if (!isError(error_)) throw error_;
+        }
+        // The pane went away while that was in flight. Checked here as well as
+        // after `open`, or the fallback below builds a view over a closed one.
+        if (cancelled) {
+          view.close();
+          return;
+        }
+        // Nothing rendered at all, so nothing loaded. That is the other stale
+        // bookmark: a cfi naming a spine item this book has not got resolves to
+        // `{ index: -1 }`, which `init` takes and the renderer then refuses, so
+        // `init`'s own front-of-book branch never runs and the pane draws a
+        // blank page. Only that shape reaches here, because any section that
+        // loads at all fills `lastLocation` through the load-time expand
+        // (`paginator.js:272-280, 409, 673`), which is why the catch above and
+        // not this line is what answers the throw.
+        if (!view.lastLocation) await view.init({});
         if (cancelled) view.close();
       } catch (error_) {
-        // Every way a book fails to open arrives as an `Error`: a `NotFoundError`
+        // Every way a book fails to open arrives as an error: a `NotFoundError`
         // from foliate, a throw from the zip reader for a file that is not an
-        // archive. Anything else came from somewhere this cannot report on.
-        if (!(error_ instanceof Error)) throw error_;
+        // archive, the retry above failing too. Anything else came from
+        // somewhere this cannot report on.
+        if (!isError(error_)) throw error_;
         if (!cancelled) setBroken(true);
       }
     }

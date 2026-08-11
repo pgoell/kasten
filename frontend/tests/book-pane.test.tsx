@@ -137,6 +137,24 @@ describe("BookPane", () => {
     expect(panel()).toBeNull();
   });
 
+  it("builds nothing over a view the pane has already closed", async () => {
+    // A cleanup nulls `lastLocation` in the real library too (`view.js:304`),
+    // so without the check between the two the fallback navigates a closed view.
+    FakeView.navigatesNowhere = true;
+    const init = deferred();
+    FakeView.initWith = () => init.promise;
+    const { unmount } = draw();
+
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+    unmount();
+    await act(async () => {
+      init.resolve();
+      await init.promise;
+    });
+
+    expect(lastView().inits).toHaveLength(1);
+  });
+
   it("says which book it wanted when the vault has none", async () => {
     fetchBook.mockRejectedValue(new Error("GET /api/assets failed with 404"));
 
@@ -163,12 +181,48 @@ describe("BookPane", () => {
     await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
   });
 
-  it("says so when the first navigation fails", async () => {
+  it("says so when the first navigation fails and nothing loaded", async () => {
+    // Both halves, because a throw on its own is a stale bookmark now: the
+    // panel is drawn only where the retry below fails too, which is a book
+    // foliate opened and cannot render a page of.
+    FakeView.navigatesNowhere = true;
     FakeView.initWith = () => Promise.reject(new Error("nowhere to go"));
 
     draw();
 
     await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
+  });
+
+  it("goes to the front of the book when the saved place loaded nothing", async () => {
+    // A cfi naming a spine item this book has not got: `resolveCFI` answers
+    // `{ index: -1 }`, `init` takes that and the renderer refuses the index, so
+    // the pane draws a blank page and every key looks broken.
+    FakeView.navigatesNowhere = true;
+    fetchNote.mockResolvedValue(noteWith(CFI));
+
+    draw();
+
+    await waitFor(() => expect(lastView().inits).toHaveLength(2));
+    expect(lastView().inits[1]).not.toHaveProperty("lastLocation");
+    expect(panel()).toBeNull();
+  });
+
+  it("draws the book when the saved place threw on its way in", async () => {
+    // The other stale bookmark: an `idref` this book has and a node path it
+    // has not, which throws out of `anchor(doc)` after the section has loaded.
+    // Written this way round on purpose, because the obvious reading is wrong:
+    // `lastLocation` is set by then, so the fallback never fires and it is the
+    // catch that answers this shape.
+    FakeView.initWith = () => Promise.reject(new Error("range.setStart"));
+    fetchNote.mockResolvedValue(noteWith(CFI));
+
+    draw();
+
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+    // Let the rest of `draw` run, so a second `init` would be in by now.
+    await act(async () => {});
+    expect(panel()).toBeNull();
+    expect(lastView().inits).toHaveLength(1);
   });
 
   it("says so when the note it reads beside has left the vault", async () => {

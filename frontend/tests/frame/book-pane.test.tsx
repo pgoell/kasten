@@ -29,6 +29,17 @@ const NOTE = "20 Literature/Plain.md";
  */
 const CHAPTER_TWO = "epubcfi(/6/4!/4/4/1:0)";
 
+/**
+ * A bookmark from another edition, in the two shapes it fails in.
+ *
+ * `MISSING_SPINE` names an `itemref` this package has not got, so `resolveCFI`
+ * answers `{ index: -1 }`, the renderer refuses it and nothing loads.
+ * `MISSING_NODE` names one it has and a child of the body that chapter has not,
+ * so the section loads and then `range.setStart` throws on a null node.
+ */
+const MISSING_SPINE = "epubcfi(/6/99!/4/4/1:0)";
+const MISSING_NODE = "epubcfi(/6/4!/4/22/1:0)";
+
 /** The literature note as the vault holds it, with a place in it. */
 function noteAt(cfi: string): string {
   return `---\nid: one\nreading: ${cfi}\n---\n# Plain\n`;
@@ -101,6 +112,16 @@ async function clickInside(pane: Element, doc: Document, selector: string) {
   });
 }
 
+/**
+ * Wait for the rest of `draw` to run, which the `load` event is in the middle of.
+ *
+ * The anchor is resolved after the section has loaded, so a case asserting that
+ * no error panel was drawn has to let the failure arrive before it says so.
+ */
+function drawn(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 300));
+}
+
 let mounted: { root: Root; container: HTMLElement } | null = null;
 
 /**
@@ -169,6 +190,25 @@ describe("the reader over a real book", () => {
 
     await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
     expect(sections[0]?.title).toBe("Two");
+  }, 30_000);
+
+  it("draws a chapter when the saved place names a spine item this book has not", async () => {
+    const { container } = await drawBook(noteAt(MISSING_SPINE));
+
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    await drawn();
+    expect(container.querySelector("[role='alert']")).toBeNull();
+  }, 30_000);
+
+  it("draws a chapter when the saved place names a node this chapter has not", async () => {
+    const { container } = await drawBook(noteAt(MISSING_NODE));
+
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    await drawn();
+    // The chapter the stale cfi named, which is a better landing than the front
+    // of the book and is what the catch leaves behind.
+    expect(sections[0]?.title).toBe("Two");
+    expect(container.querySelector("[role='alert']")).toBeNull();
   }, 30_000);
 
   it("answers a click and the keys that follow it, from inside the iframe", async () => {
