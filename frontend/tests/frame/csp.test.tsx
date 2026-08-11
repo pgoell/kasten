@@ -128,6 +128,8 @@ describe("a script inside a real book", () => {
           commands={stubCommands()}
           focusSignal={0}
           onFocus={() => {}}
+          onMoved={() => {}}
+          onLeaving={() => {}}
         />
       </QueryClientProvider>,
     );

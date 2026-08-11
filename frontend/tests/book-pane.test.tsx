@@ -40,6 +40,8 @@ defineFoliateFake();
 function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
   const commands = stubCommands();
   const onFocus = vi.fn();
+  const onMoved = vi.fn();
+  const onLeaving = vi.fn();
   const client = new QueryClient({
     // Never stale, so nothing refetches behind a test that already has its blob.
     defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
@@ -56,6 +58,8 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
         commands={commands}
         focusSignal={focusSignal}
         onFocus={onFocus}
+        onMoved={onMoved}
+        onLeaving={onLeaving}
       />
     </QueryClientProvider>
   );
@@ -65,6 +69,8 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
     ...view,
     commands,
     onFocus,
+    onMoved,
+    onLeaving,
     /** Hand the pane another focus signal, the way the route does. */
     signal: (focusSignal: number) => view.rerender(tree(focusSignal)),
     /** The pane's own wrapper, which is what a signal puts the cursor on. */
@@ -420,5 +426,132 @@ describe("the keys inside a book", () => {
     lastView().section.dispatchEvent(new Event("focusin", { bubbles: true }));
 
     expect(pane.onFocus).toHaveBeenCalled();
+  });
+});
+
+describe("where the reader got to", () => {
+  beforeEach(() => {
+    resetFoliateFake();
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchNote.mockResolvedValue("");
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.resetAllMocks();
+  });
+
+  /** Draw a book, with the renderer ready to emit. */
+  async function reading() {
+    const pane = draw();
+    await waitFor(() => expect(lastView().started).toBe(true));
+    return pane;
+  }
+
+  /** What foliate's paginator emits when the page moves. */
+  function relocate(detail: { reason?: string; index?: number; range?: Range | null } = {}) {
+    act(() => lastView().emitRelocate(detail));
+  }
+
+  it("reports every move but the one that opened the book", async () => {
+    // One case and not two: "the first is not reported" passes on its own while
+    // nothing is listening at all, so the count is what makes this red.
+    FakeView.cfis = ["first", "second", "third"];
+    const pane = await reading();
+
+    relocate({ reason: "page" });
+    relocate({ reason: "page" });
+    relocate({ reason: "page" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(2);
+    expect(pane.onMoved).toHaveBeenNthCalledWith(1, "second");
+    expect(pane.onMoved).toHaveBeenNthCalledWith(2, "third");
+  });
+
+  it("builds the cfi out of what the event carried", async () => {
+    // The renderer's detail holds no cfi (`paginator.js:960-969`), so the pane
+    // asks the view for one with the index and range it was handed.
+    await reading();
+    const range = document.createRange();
+
+    relocate({ reason: "page", index: 7, range });
+
+    expect(lastView().asked).toEqual([{ index: 7, range }]);
+  });
+
+  it("says so on the way out", async () => {
+    const pane = await reading();
+
+    pane.unmount();
+
+    expect(pane.onLeaving).toHaveBeenCalledTimes(1);
+  });
+  it("reports no resize as a page turn", async () => {
+    // The case that pins listening on the renderer at all. The paginator
+    // re-renders through `#scrollToAnchor` inside its own `ResizeObserver`, so
+    // folding the tree or resizing the window relocates with nobody moving.
+    FakeView.cfis = ["first", "second"];
+    const pane = await reading();
+
+    // Before the opening navigation, which it must not spend the drop on.
+    relocate({ reason: "anchor" });
+    relocate({ reason: "page" });
+    relocate({ reason: "anchor" });
+    relocate({ reason: "page" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+    expect(pane.onMoved).toHaveBeenCalledWith("second");
+  });
+
+  it("reports the page moving to show a selection as nothing", async () => {
+    FakeView.cfis = ["first", "second"];
+    const pane = await reading();
+
+    relocate({ reason: "selection" });
+    relocate({ reason: "page" });
+    relocate({ reason: "selection" });
+    relocate({ reason: "page" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+    expect(pane.onMoved).toHaveBeenCalledWith("second");
+  });
+
+  it("reports a move carrying no reason at all", async () => {
+    // A scrolled flow's keyboard turn and a fixed layout jump both arrive with
+    // nothing naming them. This passes before the refusals exist, so it guards
+    // against an allowlist creeping in rather than being a red step.
+    FakeView.cfis = ["first", "second"];
+    const pane = await reading();
+
+    relocate({ reason: "page" });
+    relocate({});
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+    expect(pane.onMoved).toHaveBeenCalledWith("second");
+  });
+
+  it("reports nothing for a turn that settled on the page it was already on", async () => {
+    // `#scrollTo` fires its relocate when the offset it was given is the one it
+    // is already at, which is what a touch fling settling back does.
+    FakeView.cfis = ["first", "second", "second"];
+    const pane = await reading();
+
+    relocate({ reason: "page" });
+    relocate({ reason: "snap" });
+    relocate({ reason: "snap" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+  });
+
+  it("hears nothing once the pane has gone", async () => {
+    // Passes before the behaviour exists, the cleanup already taking the
+    // listener off, so it is a regression guard rather than a red step.
+    const pane = await reading();
+    const view = lastView();
+
+    pane.unmount();
+    act(() => view.emitRelocate({ reason: "page" }));
+
+    expect(pane.onMoved).not.toHaveBeenCalled();
   });
 });

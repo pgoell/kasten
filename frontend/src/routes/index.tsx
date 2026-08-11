@@ -997,6 +997,8 @@ function Home() {
                     // other pane takes, deliberate lack of a conflict guard
                     // included: the browser has already moved the focus.
                     onFocus={() => setLayout((previous) => focusPane(previous, shown.id))}
+                    onMoved={() => {}}
+                    onLeaving={() => {}}
                   />
                 ) : shown.term !== undefined ? (
                   <TerminalPane

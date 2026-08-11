@@ -149,7 +149,15 @@ async function drawBook(note = "") {
 
   root.render(
     <QueryClientProvider client={client}>
-      <BookPane note={NOTE} paths={[NOTE]} commands={commands} focusSignal={0} onFocus={onFocus} />
+      <BookPane
+        note={NOTE}
+        paths={[NOTE]}
+        commands={commands}
+        focusSignal={0}
+        onFocus={onFocus}
+        onMoved={() => {}}
+        onLeaving={() => {}}
+      />
     </QueryClientProvider>,
   );
 

@@ -25,6 +25,11 @@ export function deferred(): Deferred {
   return { promise, resolve };
 }
 
+/** What `open` builds, and what the pane hangs its `relocate` listener on. */
+interface FakeRenderer extends EventTarget {
+  setStyles?: (css: string) => void;
+}
+
 export class FakeView extends HTMLElement {
   /** Every view built since the last reset, so a test can count the live ones. */
   static made: FakeView[] = [];
@@ -41,6 +46,16 @@ export class FakeView extends HTMLElement {
    * the renderer refuses the index and returns without loading a section.
    */
   static navigatesNowhere = false;
+  /**
+   * What `getCFI` answers, call by call, and a derived one once it runs out.
+   *
+   * Per call rather than one fixed string, because a fixed answer makes every
+   * relocate after the first an unchanged cfi, which the pane refuses: half the
+   * cases below would then report nothing against code that is right. A test
+   * that wants two equal answers, which is the fling settling on the same page,
+   * loads two equal ones here.
+   */
+  static cfis: string[] = [];
 
   opened: File | null = null;
   started = false;
@@ -59,20 +74,32 @@ export class FakeView extends HTMLElement {
   inits: object[] = [];
   /** Where the view says it is, which stays null while nothing has loaded. */
   lastLocation: { cfi: string } | null = null;
-  renderer: { setStyles?: (css: string) => void };
+  renderer: FakeRenderer;
+  /** Every `getCFI` call, so a test can see what the pane asked about. */
+  asked: { index: number; range: Range | null }[] = [];
   /** The document foliate would hand out per section. Tests fire their events on it. */
   section: Document = document.implementation.createHTMLDocument("section");
 
   constructor() {
     super();
     FakeView.made.push(this);
-    this.renderer = FakeView.withStyles
-      ? {
-          setStyles: (css: string) => {
-            this.styles = css;
-          },
-        }
-      : {};
+    this.renderer = new EventTarget();
+    if (FakeView.withStyles)
+      this.renderer.setStyles = (css: string) => {
+        this.styles = css;
+      };
+  }
+
+  getCFI(index: number, range: Range | null): string {
+    this.asked.push({ index, range });
+    return FakeView.cfis[this.asked.length - 1] ?? `cfi-${index}-${this.asked.length}`;
+  }
+
+  /** What the renderer emits when the page moves, carrying why it moved. */
+  emitRelocate(detail: { reason?: string; index?: number; range?: Range | null } = {}): void {
+    this.renderer.dispatchEvent(
+      new CustomEvent("relocate", { detail: { index: 0, range: null, ...detail } }),
+    );
   }
 
   async open(file: File): Promise<void> {
@@ -128,6 +155,7 @@ export function resetFoliateFake(): void {
   FakeView.initWith = null;
   FakeView.withStyles = true;
   FakeView.navigatesNowhere = false;
+  FakeView.cfis = [];
 }
 
 /** The view the pane built, which is the last one made. */
