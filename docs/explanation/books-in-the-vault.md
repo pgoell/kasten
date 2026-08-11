@@ -83,6 +83,42 @@ so writing it wakes no client and shows up nowhere in the app.
 None of this hides a note from search. `search.py` runs rg with `--no-ignore`,
 so the ignore file governs jj and nothing else.
 
+## How it keeps your place
+
+Close a book mid-chapter and opening it again puts you back on the page you
+left. The record is one line in the note's own frontmatter:
+
+```markdown
+reading: epubcfi(/6/14!/4/2/2/1:0)
+```
+
+That field is the whole of it. Delete the line and you lose a bookmark, which is
+what a bookmark is worth; nothing on disk or in Postgres knows where you were.
+The client writes it, the way it writes `source` on a clipped page, and it is
+yours from that moment.
+
+The write waits a minute after the last page turn, and it is skipped while the
+note is in the pane you are typing into. That buys three costs worth knowing.
+
+**Turning pages eventually writes the note.** A `PUT` stamps `modified` and
+records a jj change, so the history says you edited a note when you only read
+one. One change per minute of reading rather than one per page, which is the
+whole reason for the wait. Writing the field without the stamp means a new
+endpoint, and it is the fix if the noise ever annoys.
+
+**Closing the browser tab loses up to a minute of position.** The write waits
+for quiet and the tab does not. `beforeunload` cannot wait for a `PUT`, and
+`sendBeacon` cannot read a note and then write it, so the honest answer is the
+minute. Closing the reader with `q` writes at once, which covers every way of
+putting a book down except closing the window on it.
+
+**A save from an editor that loaded the note before the bookmark landed drops
+the bookmark.** Every field in the block comes from the text the client sends,
+so a buffer holding the note from before carries no `reading:` and the save
+takes it out. The cache is moved to the note the vault answered with, so a clean
+editor holds the bookmark within a render; a buffer with unsaved text in it is
+the case that cannot be reached, and the next page turn writes the line again.
+
 ## What the reader does to the URL
 
 `?note=` names the note in the **focused** pane, and opening a book leaves the

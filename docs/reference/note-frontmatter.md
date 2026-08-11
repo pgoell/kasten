@@ -45,12 +45,21 @@ Anything else in the block is copied through a save unread, in the order it was
 written, nested lists and mappings included. kasten neither adds nor removes it.
 Deleting one of your own fields is an edit like any other and it stays deleted.
 
-One thing kasten writes lands in this half of the block:
-[an imported web page](/reference/editor-keys.md#importing-a-web-page) arrives
+Two things kasten writes land in this half of the block.
+[An imported web page](/reference/editor-keys.md#importing-a-web-page) arrives
 carrying `source`, and `author` and `published` where the page named them. They
 are written once, by the client, in the text it hands to `POST`, and they are
 yours from that moment: a save copies them through and deleting one keeps it
 deleted.
+
+The second is `reading:`, which
+[the book pane](/reference/editor-keys.md#the-book-pane) writes into a
+literature note as you turn pages. It holds an epubcfi naming the page you
+stopped on, and the reader passes it back to foliate when the book opens again.
+The client writes this one too, into the text it hands to `PUT`, so the same
+rule holds: deleting the line loses a bookmark and nothing else, and
+[Books in the vault](/explanation/books-in-the-vault.md#how-it-keeps-your-place)
+says what that costs.
 
 The block is not parsed as YAML. Three keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from
