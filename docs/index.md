@@ -24,5 +24,5 @@ second, looking things up comes third, understanding comes last.
 ## Elsewhere
 
 * [README](../README.md) - what kasten is, in a paragraph
-* [deploy/README.md](../deploy/README.md) - the dev and prod runbook, next to the compose files it describes
+* [deploy/](../deploy/README.md) - the prod compose file, with the runbook itself in [Deploy to the VPS](/how-to/deploy-to-the-vps.md)
 * [log.md](/log.md) - what changed in this bundle, by date

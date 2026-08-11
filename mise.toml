@@ -42,7 +42,7 @@ run = "bun run dev"
 # Reload servers in containers with the working tree bind-mounted, reached
 # through Caddy at kasten-dev.pascalkraus.com. Editing a file reloads the
 # running service. Nothing about dev goes through GitHub Actions; production is
-# the opposite, images only, built in CI. See deploy/README.md.
+# the opposite, images only, built in CI. See docs/explanation/environments.md.
 
 [tasks."dev:up"]
 description = "Start the hosted dev environment (db + reload servers)"

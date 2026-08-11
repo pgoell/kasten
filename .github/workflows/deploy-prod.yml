@@ -85,13 +85,13 @@ jobs:
           cp deploy/compose.yaml "$DEPLOY_DIR/compose.yaml"
 
           if [ ! -f "$DEPLOY_DIR/.env.prod" ]; then
-            echo "::error::Missing $DEPLOY_DIR/.env.prod. Follow the bootstrap in deploy/README.md."
+            echo "::error::Missing $DEPLOY_DIR/.env.prod. Follow the bootstrap in docs/how-to/deploy-to-the-vps.md."
             exit 1
           fi
           # Refuse to start if the vault mount is missing. Compose would happily
           # create an empty directory and the notebook would come up blank.
           if [ ! -d /home/pascal/kasten-data/vault ]; then
-            echo "::error::Missing /home/pascal/kasten-data/vault. Follow the bootstrap in deploy/README.md."
+            echo "::error::Missing /home/pascal/kasten-data/vault. Follow the bootstrap in docs/how-to/deploy-to-the-vps.md."
             exit 1
           fi
 

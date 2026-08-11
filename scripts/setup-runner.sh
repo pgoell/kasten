@@ -6,8 +6,8 @@
 # Runners are per repository for a user account, so the Klassenzeit and website
 # runners on this box cannot serve kasten. This adds a third.
 #
-# deploy/README.md documents the system-service alternative if you would rather
-# match the other two.
+# docs/how-to/deploy-to-the-vps.md documents the system-service alternative if
+# you would rather match the other two.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

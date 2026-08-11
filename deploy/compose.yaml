@@ -7,7 +7,7 @@
 #
 # Nothing here is ever built on the server. Images come from GHCR, built by
 # .github/workflows/deploy-prod.yml. The dev environment does not use this
-# file at all; see deploy/README.md.
+# file at all; see docs/how-to/deploy-to-the-vps.md.
 
 services:
   kasten-migrate-prod:
