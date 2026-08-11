@@ -339,6 +339,12 @@ group draws no heading. A row is the state's symbol, the mark where a timer is
 running on it, the priority where there is one, the words, the count of its parts
 where it has any, the two clocks and the day of the due date.
 
+Inside a group the important work comes first: highest, high, medium, then what
+carries no priority at all, then low and lowest, which is where obsidian-tasks
+reads a bare line. Two rows of the same priority keep the order the vault
+answered in. A part sorts with the todo it hangs off rather than on its own
+priority, so it never leaves it.
+
 A part is drawn one step in under the todo it belongs to, so the list reads the
 way the note does. Where that todo is not a row in the same group, because it
 carries a date of its own or because it is already done, the part goes back to

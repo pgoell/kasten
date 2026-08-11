@@ -296,6 +296,24 @@ describe("the todo pane", () => {
     expect(pane.texts().join()).not.toContain("09:12");
   });
 
+  it("puts the important work first inside a group, parts staying under it", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] buy milk 📅 2026-08-10 🔽" },
+      { path: "a.md", line: 2, text: "- [ ] file the tax 📅 2026-08-10" },
+      { path: "a.md", line: 3, text: "- [ ] call the dentist 📅 2026-08-10 🔺" },
+      { path: "a.md", line: 4, text: "  - [ ] find the number 📅 2026-08-10 ⏬" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    // No priority sits between medium and low, so the tax beats the milk. The
+    // part travels with the dentist however low it is.
+    const [first, second, third, fourth] = pane.texts();
+    expect(first).toContain("call the dentist");
+    expect(second).toContain("find the number");
+    expect(third).toContain("file the tax");
+    expect(fourth).toContain("buy milk");
+  });
+
   it("draws the priority a row carries, and nothing where it carries none", async () => {
     const pane = renderPane();
 

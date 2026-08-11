@@ -13,6 +13,7 @@ import {
   parseTodo,
   STATE_SYMBOL,
   type Todo,
+  type TodoPriority,
   type TodoState,
 } from "@/lib/todo";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
@@ -79,6 +80,39 @@ function nest(rows: Row[]): Row[] {
       ? { ...row, depth: 0, under: row.under ?? row.parent?.todo.text }
       : { ...row, depth: above + 1 };
   });
+}
+
+/**
+ * Where each priority sorts. No priority sits between medium and low, the way
+ * obsidian-tasks reads a bare line: a normal task beats one marked down.
+ */
+const RANK: Record<TodoPriority, number> = { highest: 0, high: 1, medium: 2, low: 4, lowest: 5 };
+const NORMAL = 3;
+
+/**
+ * One group's rows, the important work first.
+ *
+ * What sorts is not the rows but the run each one heads: a part whose parent is
+ * in this group joins the run above it, so it travels with what holds it
+ * whatever its own priority says, and `nest` still meets a parent before its
+ * children. Stable, so the order the vault answered in decides a tie.
+ */
+function byPriority(rows: Row[]): Row[] {
+  const here = new Set(rows.map((row) => rowKey(row.hit)));
+  const runs: Row[][] = [];
+
+  for (const row of rows) {
+    const last = runs[runs.length - 1];
+    const held = row.parent !== undefined && here.has(`${row.hit.path}:${row.parent.line}`);
+    if (held && last !== undefined) last.push(row);
+    else runs.push([row]);
+  }
+
+  const rank = (run: Row[]) => {
+    const priority = run[0]?.todo.priority;
+    return priority === undefined ? NORMAL : RANK[priority];
+  };
+  return runs.sort((a, b) => rank(a) - rank(b)).flat();
 }
 
 /** How far one step of nesting shifts a row, in `rem`, past the list's own padding. */
@@ -461,7 +495,7 @@ export function TodoPane({
     }
     return SECTIONS.map((section) => ({
       heading: HEADING[section],
-      rows: nest(shown.filter((row) => sectionOf(row.todo, today) === section)),
+      rows: nest(byPriority(shown.filter((row) => sectionOf(row.todo, today) === section))),
     })).filter((group) => group.rows.length > 0);
   }, [shown, mode, today]);
   // The same rows flattened, because `j` and `k` move down a list and a heading
