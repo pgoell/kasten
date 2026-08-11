@@ -63,6 +63,10 @@ export interface EditorCommands {
   openYearly(): void;
   /** Read the focused pane's note's book in a pane beside it. */
   openBook(): void;
+  /** Sit the focused pane's note as a practice exam, in that pane. */
+  openExam(): void;
+  /** Show or hide the archive in the tree, the finder, search and the todos. */
+  toggleArchive(): void;
   /** Start a tab holding one empty pane, and go to it. */
   createTab(): void;
   /** Open a terminal in the focused pane, attached to a herdr session by name. */
@@ -119,6 +123,10 @@ export interface LeaderBinding {
 }
 
 export const LEADER: readonly LeaderBinding[] = [
+  // `a` for archive, and a bare letter because it is a mode rather than a
+  // place: it changes what every one of the four lookups below answers with,
+  // the way `p` changes what the editor draws.
+  { key: "a", label: "Show the archive in searches", command: "toggleArchive" },
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
   // Two letters, the way Obsidian and every vim config spell a create: `c` for
   // the group and `f` for the thing. Both the editor and the tree resolve a
@@ -165,6 +173,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // letter of what it covers. `go` is spent above, so the month takes `m` and
   // nothing here has to move for it.
   { key: "gd", label: "Open today's note", command: "openDaily" },
+  // `g` for go and `e` for exam. It sits with `gr` rather than under `c`: both
+  // turn the note in the pane into something else to read, and neither creates
+  // anything until you finish.
+  { key: "ge", label: "Sit this note as a practice exam", command: "openExam" },
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
   { key: "gq", label: "Open this quarter's note", command: "openQuarterly" },

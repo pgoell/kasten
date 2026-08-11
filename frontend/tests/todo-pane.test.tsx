@@ -99,7 +99,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     onTimer,
     reached,
     /** What the vault answers with next, which is how a write reaches the pane. */
-    answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos"], next)),
+    answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos", false], next)),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
     /** The row being edited, as the input it turns into, or null where none is. */
     draft: () => screen.queryByLabelText("edit line"),

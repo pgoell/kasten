@@ -127,6 +127,11 @@ export interface paths {
          *     A literal match, not a regex and not a fuzzy one. The client ranks what
          *     comes back, which is what makes the finder feel fuzzy without asking a
          *     subsequence match to mean something over prose, where it matches everything.
+         *
+         *     `archive` walks the archive folder too. Off by default, because what is
+         *     filed away is not usually what is being looked for, and the cap on what
+         *     comes back means an archive left in would eventually push live notes out of
+         *     the answer rather than merely lengthening it.
          */
         get: operations["search_files_api_search_get"];
         put?: never;
@@ -155,6 +160,10 @@ export interface paths {
          *
          *     Answers in search's shape, which is what lets the overlay rank these through
          *     the ranking it already has and open a note on the line it found.
+         *
+         *     `archive` walks the archive folder too, and is off for the reason it is off
+         *     on a search: a finished project's open checkboxes are true of the note and
+         *     false of the week.
          */
         get: operations["list_todos_api_todos_get"];
         put?: never;
@@ -670,6 +679,7 @@ export interface operations {
         parameters: {
             query: {
                 q: string;
+                archive?: boolean;
             };
             header?: never;
             path?: never;
@@ -699,7 +709,9 @@ export interface operations {
     };
     list_todos_api_todos_get: {
         parameters: {
-            query?: never;
+            query?: {
+                archive?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -713,6 +725,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

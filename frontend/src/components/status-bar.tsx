@@ -130,6 +130,15 @@ interface StatusBarProps {
    * bar unmounts.
    */
   flash?: number;
+  /**
+   * Whether the archive is in what the four lookups answer with.
+   *
+   * Shown because it is a mode, and a mode with nothing on screen saying so is
+   * the one you forget you are in: a note missing from the finder would read as
+   * a note missing from the vault. It sits in the left column, which the layout
+   * has always kept empty for the save ring's sake.
+   */
+  archive?: boolean;
 }
 
 /**
@@ -138,7 +147,7 @@ interface StatusBarProps {
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({ status, reason, flash }: StatusBarProps) {
+export function StatusBar({ status, reason, flash, archive }: StatusBarProps) {
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
   // holding no note, would play it again with nothing refused. `animationend`
@@ -158,7 +167,13 @@ export function StatusBar({ status, reason, flash }: StatusBarProps) {
     // not take, so the reading sits on the middle of the window and does not
     // shift sideways when the save ring appears beside it.
     <footer className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center bg-one-panel px-3">
-      <div />
+      <div>
+        {archive === true && (
+          <span data-testid="archive-shown" className="text-[11px] text-one-muted">
+            archive
+          </span>
+        )}
+      </div>
       <Clock />
       <div className="justify-self-end">
         {status && (

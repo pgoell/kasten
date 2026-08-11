@@ -70,8 +70,10 @@ export async function fetchTerminals(): Promise<string[]> {
  * nothing more, so reading the state, the dates and whether a line is still
  * open is this side's job, done by the same parser the editor draws with.
  */
-export async function fetchTodos(): Promise<SearchHit[]> {
-  const { data, response } = await client.GET("/api/todos");
+export async function fetchTodos(archive = false): Promise<SearchHit[]> {
+  const { data, response } = await client.GET("/api/todos", {
+    params: { query: { archive } },
+  });
 
   if (!data) {
     throw new Error(`GET /api/todos failed with ${response.status}`);
@@ -87,9 +89,9 @@ export async function fetchTodos(): Promise<SearchHit[]> {
  * is what lets a keystroke narrow the answer already in hand rather than wait
  * for the next one.
  */
-export async function searchNotes(query: string): Promise<SearchHit[]> {
+export async function searchNotes(query: string, archive = false): Promise<SearchHit[]> {
   const { data, response } = await client.GET("/api/search", {
-    params: { query: { q: query } },
+    params: { query: { q: query, archive } },
   });
 
   if (!data) {

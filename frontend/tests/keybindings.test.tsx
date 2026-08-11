@@ -11,6 +11,7 @@ const TODAY = readClock(new Date()).date;
 function stubCommands() {
   return {
     toggleTree: vi.fn(),
+    toggleArchive: vi.fn(),
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
     showHelp: vi.fn(),
@@ -30,6 +31,7 @@ function stubCommands() {
     openQuarterly: vi.fn(),
     openYearly: vi.fn(),
     openBook: vi.fn(),
+    openExam: vi.fn(),
     focusTree: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),

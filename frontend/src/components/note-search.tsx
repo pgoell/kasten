@@ -38,6 +38,12 @@ interface NoteSearchProps {
   paths?: string[];
   /** Rank every todo in the vault instead of searching, the way backlinks rank. */
   todos?: boolean;
+  /**
+   * Whether the archive is in the answer, which the route holds and one key
+   * flips. In the query key as well as the request, so the two readings are two
+   * cached answers rather than one that goes stale on a toggle.
+   */
+  archive?: boolean;
 }
 
 /** Which of the three lists the panel is drawing, and where its lines come from. */
@@ -131,7 +137,14 @@ function hint(typed: string, pending: boolean, matches: number, mode: SearchMode
  * to do is a fixed set for the same reason, so there is no debounce here and no
  * scan per keystroke.
  */
-export function NoteSearch({ onOpen, onClose, backlinksOf, paths, todos }: NoteSearchProps) {
+export function NoteSearch({
+  onOpen,
+  onClose,
+  backlinksOf,
+  paths,
+  todos,
+  archive = false,
+}: NoteSearchProps) {
   const [query, setQuery] = useState("");
   /** What a typed query settled on, which trails what has been typed. */
   const [settled, setSettled] = useState("");
@@ -163,10 +176,10 @@ export function NoteSearch({ onOpen, onClose, backlinksOf, paths, todos }: NoteS
   const search = useQuery({
     // The todo list shares its key with the pane, so the two read one answer.
     ...(mode === "todos"
-      ? { queryKey: ["todos"], queryFn: fetchTodos }
+      ? { queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) }
       : {
-          queryKey: ["search", asked],
-          queryFn: asked === "" ? skipToken : () => searchNotes(asked),
+          queryKey: ["search", asked, archive],
+          queryFn: asked === "" ? skipToken : () => searchNotes(asked, archive),
         }),
     // What keeps the last answer on screen while the next one is fetched, and
     // so what there is to narrow in the meantime.

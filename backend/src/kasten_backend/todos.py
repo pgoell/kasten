@@ -55,8 +55,14 @@ todo's id: one narrow pass at the press, for one todo.
 TODO_PATTERN = f"{TODO_LINE}|{SESSION_LINE}"
 
 
-async def find_todos(root: Path) -> list[Hit]:
-    """Every todo line and every time session line the vault holds, up to `MOST_TODOS`."""
+async def find_todos(root: Path, skip: str | None = None) -> list[Hit]:
+    """Every todo line and every time session line the vault holds, up to `MOST_TODOS`.
+
+    `skip` names a folder to walk past, which is how the archive stays off the
+    todo list by default. A finished project's open checkboxes are the clearest
+    case of work that is not work: they are true of the note and false of the
+    week, and left in they are the rows that make the pane not worth opening.
+    """
     # `-e` so the pattern, which opens with a caret and holds a dash, is a
     # pattern and not a flag.
-    return await scan_vault(root, ("-e", TODO_PATTERN), MOST_TODOS)
+    return await scan_vault(root, ("-e", TODO_PATTERN), MOST_TODOS, skip)

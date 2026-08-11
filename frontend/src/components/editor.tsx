@@ -437,6 +437,7 @@ export function Editor({
           // re-render never has to rebuild the view to refresh a callback.
           editorCommands.of({
             toggleTree: () => commandsRef.current?.toggleTree(),
+            toggleArchive: () => commandsRef.current?.toggleArchive(),
             togglePreview: () => commandsRef.current?.togglePreview(),
             closeNote: () => commandsRef.current?.closeNote(),
             showHelp: () => commandsRef.current?.showHelp(),
@@ -459,6 +460,7 @@ export function Editor({
             openQuarterly: () => commandsRef.current?.openQuarterly(),
             openYearly: () => commandsRef.current?.openYearly(),
             openBook: () => commandsRef.current?.openBook(),
+            openExam: () => commandsRef.current?.openExam(),
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),
             importPage: () => commandsRef.current?.importPage(),

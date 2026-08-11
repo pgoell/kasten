@@ -328,20 +328,27 @@ async def fetch_page(url: str) -> Page:
 
 @app.get("/api/search")
 async def search_files(
-    q: str, settings: Annotated[Settings, Depends(get_settings)]
+    q: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
 ) -> list[SearchHit]:
     """Find every line in the vault containing `q`, ignoring case.
 
     A literal match, not a regex and not a fuzzy one. The client ranks what
     comes back, which is what makes the finder feel fuzzy without asking a
     subsequence match to mean something over prose, where it matches everything.
+
+    `archive` walks the archive folder too. Off by default, because what is
+    filed away is not usually what is being looked for, and the cap on what
+    comes back means an archive left in would eventually push live notes out of
+    the answer rather than merely lengthening it.
     """
-    hits = await search_vault(settings.vault_path, q)
+    hits = await search_vault(settings.vault_path, q, None if archive else settings.archive_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
 
 
 @app.get("/api/todos")
-async def list_todos(settings: Annotated[Settings, Depends(get_settings)]) -> list[SearchHit]:
+async def list_todos(
+    settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
+) -> list[SearchHit]:
     """Find every checkbox line and every time session line in the vault.
 
     Candidate lines, not todos. Whether one of these is open, overdue or a
@@ -351,8 +358,12 @@ async def list_todos(settings: Annotated[Settings, Depends(get_settings)]) -> li
 
     Answers in search's shape, which is what lets the overlay rank these through
     the ranking it already has and open a note on the line it found.
+
+    `archive` walks the archive folder too, and is off for the reason it is off
+    on a search: a finished project's open checkboxes are true of the note and
+    false of the week.
     """
-    hits = await find_todos(settings.vault_path)
+    hits = await find_todos(settings.vault_path, None if archive else settings.archive_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
 
 

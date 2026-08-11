@@ -9,6 +9,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 export function stubCommands() {
   return {
     toggleTree: vi.fn(),
+    toggleArchive: vi.fn(),
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
     showHelp: vi.fn(),
@@ -29,6 +30,7 @@ export function stubCommands() {
     openQuarterly: vi.fn(),
     openYearly: vi.fn(),
     openBook: vi.fn(),
+    openExam: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),
     importPage: vi.fn(),

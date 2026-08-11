@@ -115,8 +115,8 @@ for by hand, by somebody who could have opened it in a tab.
 
 ## GET /api/search
 
-Finds every line in the vault holding `q`, ignoring case. Takes one query
-parameter, `q`, and answers with at most 2,000 matches.
+Finds every line in the vault holding `q`, ignoring case. Takes `q` and an
+optional `archive`, and answers with at most 2,000 matches.
 
 ```json
 [{ "path": "projects/kasten.md", "line": 4, "text": "Postgres holds a derived index." }]
@@ -144,6 +144,12 @@ A blank or whitespace-only `q` answers with nothing rather than everything. An
 empty literal matches every line there is, which would make the query nobody
 has finished typing the most expensive one the vault can answer.
 
+`archive` defaults to false, which walks past the folder
+[KASTEN_ARCHIVE_PATH](/reference/configuration.md#kasten_archive_path) names.
+This matters more than it looks next to the cap below: an archive that grows
+without bound would eventually push live notes out of the answer rather than
+merely lengthening it. `archive=true` walks it.
+
 The cap of 2,000 is about what crosses the wire, not what the machine can do:
 `rg` reads the whole vault in about the same time whatever the cap. Because the
 client ranks everything it is handed and cuts afterwards, the rows on screen
@@ -152,8 +158,9 @@ whole match set for anything but the most common word in a vault.
 
 ## GET /api/todos
 
-Finds every line in the vault that could be a todo. Takes nothing and answers
-with at most 100,000 matches, in the shape `GET /api/search` returns.
+Finds every line in the vault that could be a todo. Takes an optional
+`archive` and answers with at most 100,000 matches, in the shape
+`GET /api/search` returns.
 
 ```json
 [{ "path": "projects/kasten.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫" }]

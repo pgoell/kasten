@@ -58,6 +58,7 @@ function Harness({
       onOpenChange={onOpenChange}
       commands={{
         toggleTree: () => onOpenChange(!open),
+        toggleArchive: () => {},
         togglePreview: () => {},
         closeNote: () => {},
         showHelp: () => {},
@@ -80,6 +81,7 @@ function Harness({
         openQuarterly: () => {},
         openYearly: () => {},
         openBook: () => {},
+        openExam: () => {},
         createTab: () => {},
         openTerminal: () => {},
         importPage: () => {},

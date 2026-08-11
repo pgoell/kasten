@@ -196,6 +196,15 @@ interface TodoPaneProps {
    */
   onEdit: (hit: SearchHit, line: string) => void;
   /**
+   * Whether the archive is on the list, which the route holds and one key flips.
+   *
+   * In the query key as well as the request, so the two readings are two cached
+   * answers rather than one that goes stale on a toggle. The search panel keys
+   * its own todo query the same way, which is what keeps the pane and the
+   * overlay reading one answer.
+   */
+  archive?: boolean;
+  /**
    * Start a session on the row's todo, or close the ones it has running.
    *
    * The hit for the reason `onCycle` takes one: the write reads the note off
@@ -241,6 +250,7 @@ export function TodoPane({
   onTimer,
   focusSignal,
   today,
+  archive = false,
 }: TodoPaneProps) {
   const [typed, setTyped] = useState("");
   /** Whether `v` has been pressed, which is what asks the vault for the views. */
@@ -269,7 +279,7 @@ export function TodoPane({
   const making = useRef(false);
   const queryClient = useQueryClient();
 
-  const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
+  const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
 
   // The listing is already in the cache, put there by the route, so this asks
   // whether the vault holds the views note without a request, and without a

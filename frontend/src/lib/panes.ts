@@ -46,6 +46,14 @@ export interface Pane {
    * `term` and `todos` are the third and the second, written out above.
    */
   book?: string;
+  /**
+   * The note whose practice exam this pane is sitting, absent otherwise.
+   *
+   * A fifth optional field for the reason `book` is the fourth, written out
+   * above. It carries the note's path rather than a parsed exam: the pane reads
+   * the note itself, so nothing here has to know what an exam is.
+   */
+  exam?: string;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -199,6 +207,22 @@ export function openTodosInFocused(layout: Layout): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, todos: true }),
+  });
+}
+
+/**
+ * Sit a note's practice exam in the focused pane, replacing whatever was there.
+ *
+ * Over the note rather than beside it, which is where this parts company with
+ * `openBookBeside`. A book is read alongside the note you are writing about it;
+ * an exam is the note, asked one question at a time, and putting the answers
+ * next to the questions is exactly what a sitting must not do.
+ */
+export function openExamInFocused(layout: Layout, note: string): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, exam: note }),
   });
 }
 

@@ -30,6 +30,24 @@ class Settings(BaseSettings):
     answers with an empty list and the notebook is unaffected.
     """
 
+    archive_path: str = "98 Archive"
+    """The folder holding what is finished, left out of the two rg passes.
+
+    An ordinary folder in the vault, and the only thing kasten knows about it is
+    this name. Nothing writes into it, nothing moves anything into it, and a
+    note in it opens and saves like any other; a search and the todo list simply
+    do not walk it unless they are asked to.
+
+    The listing is deliberately not filtered by it. `GET /api/files` is what
+    resolves a `[[wikilink]]`, and a link to an archived note that read as a
+    dead one would make a second note in the inbox out of a note the vault
+    already holds.
+
+    A setting rather than a constant because the number in front is one vault's
+    filing convention, not kasten's. Set it to something no folder is called and
+    nothing is left out of anything.
+    """
+
     trash_days: int = 30
     """How long a deleted note waits in `.trash` before it is dropped for good.
 
