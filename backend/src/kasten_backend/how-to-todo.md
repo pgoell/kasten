@@ -220,3 +220,10 @@ between two todos ends nothing. Indent with spaces, two per level.
 
 kasten counts the parts and shows `1/3` after the parent's words. Do not write
 that count yourself; it is drawn, not stored.
+
+A part carrying no `📅`, `⏳`, `🛫` or priority of its own is read as having the
+one the todo above it carries, however many steps up that is. So do not copy a
+parent's date onto its parts: write it once, and write a date on a part only
+where that part is due on a different day from the whole. `🆔`, `➕`, `✅`, `❌`,
+`⛔`, `🔁`, `⏲` and `⏱` are never taken from a parent, each saying something
+about one line.

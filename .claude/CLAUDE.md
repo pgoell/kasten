@@ -108,7 +108,12 @@ Real, working code, not a plan:
   rule, and the parent carries `1/3` after its words in the editor and on its
   row, counting every descendant. Ticking a parent ticks every open part with
   it, in one press one `u` takes back, and writes one `- ✅` line naming the
-  parent. Ticking the last part leaves the parent alone.
+  parent. Ticking the last part leaves the parent alone. A part is read as
+  carrying the due date, the scheduled date, the start date and the priority of
+  the nearest todo above it that has one, and anything it spells for itself
+  wins; nothing else comes down, and nothing is written into the line, so the
+  pane groups an undated part with its parent while the note goes on saying
+  only what was typed.
   `⛔` names another todo's id and hands kasten the choice between `[ ]` and
   `[b]` on that line: closing or reopening the blocker rewrites every dependent
   naming it, wherever it lives, reading `GET /api/todos` once to find them and

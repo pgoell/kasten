@@ -82,6 +82,39 @@ export function treeOf(placed: Placed[]): Node[] {
   return roots;
 }
 
+/**
+ * The forest with each part's missing dates and priority filled in from the
+ * todo that holds it.
+ *
+ * When to act on a part and how much it matters are questions about the work
+ * the parent names, so a part that spells neither is due when its parent is.
+ * Anything it spells for itself wins, and that is the whole of the override.
+ *
+ * Read here rather than written into the note: the line goes on saying only
+ * what somebody typed on it, and a parent's date moving moves every part with
+ * it. Deliberately not inside `treeOf`, which the cascade tick reads and writes
+ * its nodes back out of, where a filled field would land on a part's own line.
+ *
+ * The other fields say something about one line rather than about the work:
+ * `🆔` names it, `➕ ✅ ❌` stamp what happened to it, `⏲` and `⏱` measure it,
+ * `⛔` waits on something and `🔁` copies it. Passing any of those down would
+ * say of five lines what was written of one.
+ */
+export function inherited(roots: Node[], from?: Todo): Node[] {
+  return roots.map((node) => {
+    const todo: Todo = {
+      ...node.todo,
+      due: node.todo.due ?? from?.due,
+      scheduled: node.todo.scheduled ?? from?.scheduled,
+      start: node.todo.start ?? from?.start,
+      priority: node.todo.priority ?? from?.priority,
+    };
+    // What this one ended up with, not what it was handed, so a part several
+    // steps down takes each field off the nearest todo above it carrying one.
+    return { ...node, todo, children: inherited(node.children, todo) };
+  });
+}
+
 /** Every todo under `node`, depth first, `node` itself left out. */
 export function descendants(node: Node): Node[] {
   return node.children.flatMap((child) => [child, ...descendants(child)]);

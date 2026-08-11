@@ -224,6 +224,24 @@ carrying a smaller indent, and nothing ends a block: prose between two todos
 leaves the nesting alone, which is what markdown itself does and what lets the
 pane, which never sees that prose, read the same tree the editor reads.
 
+A part takes what the todo above it carries and does not spell for itself: the
+due date, the scheduled date, the start date and the priority. `esim` above is
+due 2026-08-14, and so is `pick a plan`, each field coming off the nearest todo
+above it that carries one. A part that spells its own wins, and that is the
+whole of the override: `- [ ] esim 📅 2026-08-12` is due on the twelfth whatever
+its parent says.
+
+Nothing else comes down. `🆔` names one line, `➕`, `✅` and `❌` stamp what
+happened to it, `⏲` and `⏱` measure it, `⛔` waits on something and `🔁` copies
+it: passing any of those down would say of five lines what was written of one.
+
+This is read rather than written. The line still says only what somebody typed
+on it, so moving a parent's date moves every part with it, and what the vault
+holds is what you would write by hand. The pane is where it shows: an undated
+part sits in its parent's group, drawn under it, with that date on the row, and
+a part whose parent has a `🛫` in the future waits with it. The editor draws the
+note, so a part's line shows the date it carries and no other.
+
 A parent shows `1/3` after its words, in the editor and on its row in the pane.
 The count is every descendant rather than the direct children, so a part with
 parts of its own counts each of them, and a part that is done or rejected counts

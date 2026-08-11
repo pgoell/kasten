@@ -23,6 +23,7 @@ import {
   DEFAULT_VIEWS,
   descendants,
   HEADING,
+  inherited,
   type Node,
   nextActionOf,
   type Placed,
@@ -361,21 +362,24 @@ export function TodoPane({
     const trees = new Map(
       [...notes].map(([path, lines]): [string, Node[]] => [
         path,
-        treeOf([...lines].sort((one, other) => one.line - other.line)),
+        inherited(treeOf([...lines].sort((one, other) => one.line - other.line))),
       ]),
     );
     // What each todo hangs off, so a row can be drawn under it or, where that
-    // one is not on screen, name it.
+    // one is not on screen, name it, and each todo with what it took off its
+    // parent, which is what every row below is drawn and grouped from.
     const parents = new Map<string, Placed>();
+    const todos = new Map<string, Todo>();
     for (const [path, roots] of trees) {
       for (const root of roots) {
         for (const node of [root, ...descendants(root)]) {
+          todos.set(`${path}:${node.line}`, node.todo);
           for (const child of node.children) parents.set(`${path}:${child.line}`, node);
         }
       }
     }
 
-    return { trees, hits, parents };
+    return { trees, hits, parents, todos };
   }, [parsed]);
 
   // A session line is not work to do, and neither is a finished todo. A todo
@@ -384,8 +388,11 @@ export function TodoPane({
   const open = useMemo(() => {
     const found: Row[] = [];
     for (const { hit, todo } of parsed) {
-      if (todo === null || !isOpen(todo) || waiting(todo, today)) continue;
-      found.push({ hit, todo, parent: forest.parents.get(rowKey(hit)) });
+      // The todo as the tree left it, so a part carrying no date of its own
+      // waits, groups and sorts with whatever holds it.
+      const full = forest.todos.get(rowKey(hit)) ?? todo;
+      if (full === null || !isOpen(full) || waiting(full, today)) continue;
+      found.push({ hit, todo: full, parent: forest.parents.get(rowKey(hit)) });
     }
     return found;
   }, [parsed, today, forest]);
@@ -461,10 +468,13 @@ export function TodoPane({
     const since = shiftDay(today, -DONE_DAYS);
     const found: Row[] = [];
     for (const { hit, todo } of parsed) {
-      if (todo?.done !== undefined && todo.done > since) found.push({ hit, todo });
+      // The tree's todo for the reason `open` reads it: one list cannot draw a
+      // part's inherited date while the other draws it blank.
+      const full = forest.todos.get(rowKey(hit)) ?? todo;
+      if (full?.done !== undefined && full.done > since) found.push({ hit, todo: full });
     }
     return found;
-  }, [parsed, today]);
+  }, [parsed, today, forest]);
 
   const shown = useMemo(() => {
     const terms = parseFilter(line);
