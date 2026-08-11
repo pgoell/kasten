@@ -12,6 +12,9 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.14",
     "fastapi[standard]>=0.135",
+    # Reached for directly by `/api/fetch`, and not only through the test
+    # client fastapi's standard extra brings it in for.
+    "httpx>=0.28",
     "markdown-it-py>=3.0",
     "psycopg[binary]>=3.3",
     "pydantic-settings>=2.7",

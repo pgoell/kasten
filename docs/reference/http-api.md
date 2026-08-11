@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves eleven endpoints. Six read, four write, and one streams. The
+The backend serves twelve endpoints. Seven read, four write, and one streams. The
 interactive schema is at `/docs` while the backend runs, and the
 machine-readable one at `/openapi.json`.
 
@@ -68,6 +68,50 @@ request from the browser's side.
 An absent directory is not an error and answers `[]`. The mount is optional and
 the shell container need not be up for the notebook to work, so the terminal
 prompt falls back to a bare input that takes a name typed by hand.
+
+## GET /api/fetch
+
+Reads one web page off the internet and hands it back unchanged. Takes one
+query parameter, `url`, and answers with the markup and the address the page
+finally came from.
+
+```json
+{ "url": "https://example.com/2025/post", "html": "<!doctype html>…" }
+```
+
+The other endpoint that touches nothing of the vault, and the only one that
+goes outside the machine. It writes nothing: turning the markup into a note is
+[defuddle](https://github.com/kepano/defuddle) running in the browser, and the
+note is made through `POST /api/files/{path}` like any other.
+
+The extraction has to be there and the fetch has to be here. defuddle reads a
+DOM and the browser is where the DOM is; a second extractor in Python would
+read the same pages differently. The browser, meanwhile, will ask another
+origin for a page and then refuse to let a script read the answer, so the
+request goes out from the server.
+
+`url` must be `http` or `https`. That check is the trust boundary and it runs
+before anything is opened: `file:///etc/passwd` would otherwise read the
+container's disk and hand it to the browser. Anything else is a `400`.
+
+The address that comes back is the one after redirects, because a page's
+relative links are relative to that and the client resolves them.
+
+Three refusals beside the scheme, and each says which it is, because the reader
+is looking at the address they pasted and is the one who can fix it:
+
+* `415` when the answer is not HTML, which is what a link to a PDF gets
+* `502` with the number when the page answered `400` or worse
+* `502` when the page is bigger than 8 MB, counted as the bytes arrive rather
+  than believed off `content-length`, or when it did not answer inside twenty
+  seconds
+
+A page that answers `404` is a `502` here rather than a `404`, which would say
+this endpoint is missing rather than that the page is.
+
+The request goes out under a browser's user agent string. A great many sites
+answer an unfamiliar agent with a challenge page, and this is one page asked
+for by hand, by somebody who could have opened it in a tab.
 
 ## GET /api/search
 

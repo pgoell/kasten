@@ -75,6 +75,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch Page
+         * @description Read one web page off the internet and hand it back unchanged.
+         *
+         *     The only endpoint that reads something other than the vault, and it writes
+         *     nothing: what comes back is markup, and turning it into a note happens in
+         *     the browser, where defuddle runs. That is where it has to run. defuddle is
+         *     a DOM library, the browser has the DOM, and the alternative is a second
+         *     extractor in Python that would read the same pages differently.
+         *
+         *     Fetching cannot happen there, though: a page from another origin is one the
+         *     browser will request and not let the script read, so the request comes from
+         *     here.
+         *
+         *     http and https and nothing else. The scheme is the trust boundary: `file://`
+         *     would read this container's disk and hand it to the browser, and the check
+         *     is made before anything is opened.
+         *
+         *     A page that could not be read is a 502 rather than the status the other end
+         *     gave. The reader asked kasten for a note and kasten could not get one; a
+         *     404 here would say the endpoint is missing.
+         */
+        get: operations["fetch_page_api_fetch_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -360,6 +398,16 @@ export interface components {
             path: string;
         };
         /**
+         * Page
+         * @description One web page as it arrived, for the client to make a note out of.
+         */
+        Page: {
+            /** Url */
+            url: string;
+            /** Html */
+            html: string;
+        };
+        /**
          * SearchHit
          * @description One line in the vault that matched, and enough to open the note on it.
          */
@@ -449,6 +497,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+        };
+    };
+    fetch_page_api_fetch_get: {
+        parameters: {
+            query: {
+                url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

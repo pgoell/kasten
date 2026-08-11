@@ -58,6 +58,8 @@ export interface EditorCommands {
   createTab(): void;
   /** Open a terminal in the focused pane, attached to a herdr session by name. */
   openTerminal(): void;
+  /** Ask for a web address, and put the page it names in the inbox as a note. */
+  importPage(): void;
   /** Put an empty pane beside this one, and move to it. */
   splitRight(): void;
   /** Put an empty pane under this one, and move to it. */
@@ -117,6 +119,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // The other half of the `c` group. A tab is a thing you create, so it belongs
   // beside the note rather than under a group of its own.
   { key: "ct", label: "Create a tab", command: "createTab" },
+  // The fourth of the `c` group, and a create like the rest of them: what it
+  // leaves behind is a note. `w` for the web, the thing being made a note of,
+  // the way `f` is a file and `s` a shell.
+  { key: "cw", label: "Import a web page into the inbox", command: "importPage" },
   // Tab used to be the way into the tree, and binding it to indent took that
   // away. This is the way back in, and it unfolds the panel first.
   { key: "e", label: "Focus the file tree", command: "focusTree" },

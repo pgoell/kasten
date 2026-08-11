@@ -28,6 +28,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>cf` | Open the new note prompt |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>ct` | Start a tab, on one empty pane |
+| `<leader>cw` | Import a web page into the inbox |
 | `<leader>e` | Move the focus to the file tree |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
@@ -273,6 +274,35 @@ dropping every key until you clicked into it.
 A terminal pane is not in the URL. `?note=` names a note, and a terminal names
 nothing, so a reload comes back to an empty pane. `<leader>cs` and the session
 name is how you get back to it, which is the mechanism the sessions already have.
+
+## Importing a web page
+
+`<leader>cw` puts a web page in the vault as a note. It opens a prompt that
+takes one address; paste it, press Enter, and the page arrives in `00 Inbox`
+under its own title, open in the focused pane.
+
+The reading is [defuddle](https://github.com/kepano/defuddle), the extractor
+behind Obsidian's web clipper, running in the browser. So a page lands looking
+the way the same page lands in an Obsidian vault: the article and not the
+navigation, the footer or the cookie banner, headings and lists and code fences
+kept, and every relative link made absolute so it still leads somewhere. The
+backend's part is [the fetch](/reference/http-api.md#get-apifetch) alone.
+
+The note is named after the page's title, with the characters a path or a
+`[[link]]` cannot hold taken out and the name cut at 80. A page with no title
+at all is named after the site it came from.
+
+Its frontmatter carries `source`, and `author` and `published` where the page
+names them, beside the `id`, `created` and `modified` every note gets. The
+title is the note's first heading as well as its name.
+
+Clipping a page twice makes one note: the second press opens the note that is
+already there rather than writing a copy beside it. Editing what you clipped is
+what the vault is for, so it is never overwritten.
+
+A page that could not be read leaves the prompt open with the reason in it and
+the address still in the input, which is where half of these are fixed: a
+mistyped path, or a page that wants a login.
 
 ## Todos
 

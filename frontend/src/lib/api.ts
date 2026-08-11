@@ -10,12 +10,26 @@ export type Folder = components["schemas"]["Folder"];
 /** One line of one note that matched a search, and where to find it. */
 export type SearchHit = components["schemas"]["SearchHit"];
 
+/** One web page the backend read for us: where it came from, and its markup. */
+export type Page = components["schemas"]["Page"];
+
 /**
  * Calls into the backend, typed from its OpenAPI schema.
  *
  * Run `mise run fe:types` after changing a route to regenerate `api-types.ts`.
  */
 const client = createClient<paths>();
+
+/**
+ * What the backend said went wrong, or nothing where it said nothing.
+ *
+ * Every other call here reports its own status code, which is all a reader of
+ * the console needs. A clip is the one whose failure is put in front of the
+ * person who pressed the key, and `detail` is the sentence written for them.
+ */
+function reason(error: { detail?: unknown } | undefined): string | null {
+  return typeof error?.detail === "string" ? error.detail : null;
+}
 
 /** Vault-relative paths of every note, sorted by the backend. */
 export async function fetchFiles(): Promise<string[]> {
@@ -165,6 +179,29 @@ export async function saveNote(path: string, content: string): Promise<Note> {
 
   if (!data) {
     throw new Error(`PUT /api/files/${path} failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * Read one web page through the backend, which is the only thing that can.
+ *
+ * The browser will ask another origin for a page and refuse to let a script
+ * read the answer, so the request goes out from the server. What comes back is
+ * markup and the address it finally came from; making a note of it happens
+ * here, in `clip.ts`.
+ *
+ * The message is the backend's own words rather than a status code: this is
+ * the one call whose failure is read by the person who asked for it.
+ */
+export async function fetchPage(url: string): Promise<Page> {
+  const { data, error, response } = await client.GET("/api/fetch", {
+    params: { query: { url } },
+  });
+
+  if (!data) {
+    throw new Error(reason(error) ?? `GET /api/fetch failed with ${response.status}`);
   }
 
   return data;

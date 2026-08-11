@@ -67,6 +67,7 @@ const INERT: TreeCommands = {
   renameFolder: () => {},
   createTab: () => {},
   openTerminal: () => {},
+  importPage: () => {},
   splitRight: () => {},
   splitDown: () => {},
   nextPane: () => {},

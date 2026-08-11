@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ClipPrompt } from "@/components/clip-prompt";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
@@ -14,7 +15,15 @@ import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
-import { createNote, fetchFiles, fetchNote, fetchTerminals, type SearchHit } from "@/lib/api";
+import {
+  createNote,
+  fetchFiles,
+  fetchNote,
+  fetchPage,
+  fetchTerminals,
+  type SearchHit,
+} from "@/lib/api";
+import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { type Direction, paneToward } from "@/lib/pane-direction";
@@ -123,6 +132,9 @@ function Home() {
   // asks for all of them, so there is nothing here to start from.
   const [todosOpen, setTodosOpen] = useState(false);
   const [terminalPrompt, setTerminalPrompt] = useState(false);
+  // A flag like the terminal's: what the prompt takes is typed, not picked, so
+  // there is nothing to open it on.
+  const [clipPrompt, setClipPrompt] = useState(false);
   // Whether the todo prompt is open, and the row it opened on where `s` opened
   // it. The todo is typed out rather than picked, so the parent is the whole of
   // what this holds: it decides which note the line lands in.
@@ -414,6 +426,39 @@ function Home() {
   );
 
   /**
+   * Read a web page and put it in the inbox, then open the note it became.
+   *
+   * Not through `follow`, which is the other place a note is made and opened
+   * together: that one writes the body under the block the backend stamps, and
+   * a clipping brings a block of its own that has to be the first line for the
+   * backend to read the fields in it.
+   *
+   * A page clipped twice is one note. Opening what is already there beats both
+   * a second copy under a name with a number after it and a refusal over a note
+   * the reader would have to go and find.
+   *
+   * Nothing is caught. What throws here is what the prompt puts on screen, and
+   * it is the only thing that can: the reader is looking at the address that
+   * failed and is the one who can fix it.
+   */
+  const clip = useCallback(
+    async (url: string) => {
+      const page = await fetchPage(url);
+      const { path, body } = clipPage(page.html, page.url);
+      const made = (data ?? []).includes(path) ? null : await createNote(path, body);
+
+      if (made !== null) {
+        queryClient.setQueryData(["note", made.path], made.content);
+        void queryClient.invalidateQueries({ queryKey: ["files"] });
+      }
+
+      setClipPrompt(false);
+      await openInPane(made?.path ?? path);
+    },
+    [data, queryClient, openInPane],
+  );
+
+  /**
    * The two lists a todo write moves, asked for again rather than left to
    * `/api/events`.
    *
@@ -637,6 +682,10 @@ function Home() {
       // No save first: opening the prompt moves no path. Naming a session does
       // replace what is in the pane, and that is asked on the way out below.
       openTerminal: () => setTerminalPrompt(true),
+      // No save first, for the reason the terminal's prompt needs none: opening
+      // it moves no path. The note it makes is opened through `openInPane`,
+      // which asks.
+      importPage: () => setClipPrompt(true),
       // A bare `nextPane` and `goToTab` inside these reach the imports, not the
       // keys they are written beside: an object literal's keys are not names in
       // the scope its values are written in.
@@ -819,6 +868,15 @@ function Home() {
         flash={refused}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
+      {clipPrompt && (
+        <ClipPrompt
+          onClip={clip}
+          onClose={() => {
+            setClipPrompt(false);
+            refocusPane();
+          }}
+        />
+      )}
       {terminalPrompt && (
         <TerminalPrompt
           sessions={terminals ?? []}
