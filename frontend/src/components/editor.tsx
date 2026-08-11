@@ -4,7 +4,7 @@ import { markdownLanguage } from "@codemirror/lang-markdown";
 import { Annotation, Compartment, EditorState, Facet, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { Vim, vim } from "@replit/codemirror-vim";
+import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 import { backticks } from "@/lib/backticks";
@@ -60,6 +60,20 @@ function follow(view: EditorView): boolean {
 
 Vim.defineAction("kastenFollowLink", (cm: { cm6: EditorView }) => follow(cm.cm6));
 Vim.mapCommand("gf", "action", "kastenFollowLink", {}, { context: "normal" });
+
+/**
+ * Enter follows the link too, and moves the way vim moves off one.
+ *
+ * A mapping takes the key whether or not the action did anything, and vim
+ * reads a bare `<CR>` as `j^`, so a line holding no link would lose the motion
+ * to a key that did nothing. Handing those two keys back is what keeps it.
+ */
+Vim.defineAction("kastenFollowLinkOrDown", (cm: CM5EditorInterface) => {
+  if (follow(cm.cm6)) return;
+  Vim.handleKey(cm, "j", "user");
+  Vim.handleKey(cm, "^", "user");
+});
+Vim.mapCommand("<CR>", "action", "kastenFollowLinkOrDown", {}, { context: "normal" });
 
 /**
  * Carries the reload callback, for the reason `saveHandler` carries the other.

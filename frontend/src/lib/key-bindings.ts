@@ -340,7 +340,8 @@ export const INDENT: readonly { key: string; label: string }[] = [
  * what it reaches is a handler on the view and not one of the commands above.
  */
 export const FOLLOW: readonly { key: string; label: string }[] = [
-  { key: "gf", label: "Open the note the wikilink names" },
+  // Vim reads a bare Enter as `j^`, and off a link that is still what it does.
+  { key: "gf / Enter", label: "Open the note the wikilink names" },
 ];
 
 /**

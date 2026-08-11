@@ -22,6 +22,16 @@ const MARK = 2;
 const SUFFIX = ".md";
 
 /**
+ * Where a note made from a bare name is written.
+ *
+ * A name says which note, never where it belongs, so following a link to one
+ * nobody has written has to put it somewhere. The inbox is the folder for a
+ * note with nowhere to be yet, and a target spelling a path is still taken at
+ * its word.
+ */
+const INBOX = "00 Inbox";
+
+/**
  * `[[note]]`, which no markdown flavour we load parses.
  *
  * One element rather than a delimiter pair: what sits between the brackets is
@@ -107,7 +117,7 @@ export function wikiLinkAt(state: EditorState, pos: number): string | null {
  * note and not a place: `[[borges]]` finds `reading/borges.md` from any note.
  * A target with a slash in it is a path, and is taken at its word. Either way
  * the answer is a path, so a name nothing answers to is the path the note
- * would be made at.
+ * would be made at, and for a bare name that path is in the inbox.
  */
 export function wikiLinkPath(target: string, paths: string[]): string {
   const typed = target.trim();
@@ -118,7 +128,7 @@ export function wikiLinkPath(target: string, paths: string[]): string {
   const found = paths.find(
     (other) => other.slice(other.lastIndexOf("/") + 1).toLowerCase() === name,
   );
-  return found ?? path;
+  return found ?? `${INBOX}/${path}`;
 }
 
 /** Whether the vault holds the note `[[target]]` names. */

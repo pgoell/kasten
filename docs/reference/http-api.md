@@ -409,7 +409,9 @@ other, which carries its links to itself along with it.
 The rule a target is read by is the editor's, so what a rename follows is what
 `gf` opens: a target with a slash is a path, a bare name is looked for anywhere
 in the vault, and the note at the vault root wins a tie. A link the vault
-already answers with another note is therefore left alone. The rule is written
+already answers with another note is therefore left alone. Where nothing answers
+the two part: the editor puts the note it is about to make in `00 Inbox`, and a
+rename leaves the name where it stands, there being no note to follow. The rule is written
 out twice, in `backend/src/kasten_backend/links.py` and in
 `frontend/src/lib/wikilink.ts`, which is what the editor resolving a link
 without asking the server costs.

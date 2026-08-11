@@ -134,6 +134,33 @@ describe("Editor", () => {
     expect(onFollow).toHaveBeenCalledWith("borges");
   });
 
+  it("follows the wikilink under the cursor on Enter", () => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "w" });
+    fireEvent.keyDown(content, { key: "Enter", keyCode: 13 });
+
+    expect(onFollow).toHaveBeenCalledWith("borges");
+  });
+
+  it("moves the way vim moves on Enter outside a wikilink", () => {
+    // Vim reads `<CR>` as `j^`, and a mapping takes the key whether or not it
+    // followed anything, so the line under the cursor is what says the motion
+    // survived the mapping.
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor initialDoc={"plain words\n  second line"} onFollow={onFollow} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "Enter", keyCode: 13 });
+
+    expect(onFollow).not.toHaveBeenCalled();
+    expect(deleteCurrentLine(container)).toBe("plain words");
+  });
+
   it("follows a wikilink on ctrl+click, the way a browser opens a link", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
