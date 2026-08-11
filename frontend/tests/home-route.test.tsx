@@ -3,6 +3,9 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import type { VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
+import { defineFoliateFake, resetFoliateFake } from "./foliate-fake";
+
+defineFoliateFake();
 
 /**
  * The route itself, mounted, because its own lines are what nothing else pins.
@@ -41,6 +44,7 @@ const {
   restoreEntry,
   fetchTerminals,
   fetchTodos,
+  fetchBook,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -58,6 +62,9 @@ const {
   // The todo pane asks for these the moment it opens. Nothing here is about
   // what the vault holds to do, so an empty list is the whole of the answer.
   fetchTodos: vi.fn().mockResolvedValue([]),
+  // A reader mounted by these tests reads this off the factory. Left out, it
+  // is undefined, the query throws and every case sees the error panel.
+  fetchBook: vi.fn().mockResolvedValue(new Blob(["a book"])),
 }));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
@@ -72,7 +79,15 @@ vi.mock("@/lib/api", () => ({
   restoreEntry,
   fetchTerminals,
   fetchTodos,
+  fetchBook,
 }));
+
+// The route imports `BookPane`, which imports foliate for its side effect. With
+// the real library these tests build a real `View` over a few bytes of Blob,
+// `makeBook` matches none of the formats it knows and throws, and every case
+// expecting a reader sees the error panel. The empty factory is deliberate: see
+// `book-pane.test.tsx`.
+vi.mock("foliate-js/view.js", () => ({}));
 
 const VAULT: Record<string, string> = {
   "index.md": "the index note",
@@ -179,6 +194,8 @@ async function renderApp() {
       (container.querySelectorAll<HTMLElement>(".cm-content")[index] as HTMLElement).focus(),
     /** The todo pane, while a pane is holding one. */
     todoPane: () => container.querySelector("[aria-label='Todos']"),
+    /** The reader, while a pane is holding one. */
+    reader: () => container.querySelector("foliate-view"),
     /** The row being edited in the pane, as the input it turns into. */
     editedLine: () => container.querySelector("[aria-label='edit line']"),
     /** How many panes the active tab draws. */
@@ -226,6 +243,8 @@ describe("the route", () => {
     // it and a query function answering undefined is an error rather than an
     // empty list.
     fetchTodos.mockResolvedValue([]);
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    resetFoliateFake();
   });
 
   afterEach(() => {
@@ -825,5 +844,76 @@ describe("the route", () => {
     expect(createNote).not.toHaveBeenCalled();
     expect(saveNote).not.toHaveBeenCalled();
     expect(app.text()).toContain("2026-08-06 Thursday");
+  });
+
+  it("opens the note's book in a pane beside it", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader("g", "r");
+    await settle();
+
+    expect(app.panes()).toBe(2);
+    expect(app.reader()).not.toBeNull();
+    // The note is still on screen. A key called "read this book beside this
+    // note" must not eat the note.
+    expect(app.text()).toContain("the index note");
+  });
+
+  it("does nothing with no note in the focused pane", async () => {
+    // Passes before the binding exists, an unbound key doing nothing, so this
+    // is a guard against a later regression rather than a red step.
+    const app = await renderApp();
+    await settle();
+
+    app.leader("g", "r");
+    await settle();
+
+    expect(app.panes()).toBe(1);
+    expect(app.reader()).toBeNull();
+  });
+
+  it("takes the reader out of its pane and leaves the note pane alone", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("g", "r");
+    await settle();
+    // Emptying rather than removing, the way a terminal and the todo list are
+    // taken out. Without `pane.book` on that branch the key removes the pane.
+    app.leader("q");
+    await settle();
+
+    expect(app.reader()).toBeNull();
+    expect(app.panes()).toBe(2);
+    expect(app.text()).toContain("the index note");
+  });
+
+  it("closes the pane the focus is in rather than the reader it came from", async () => {
+    // Closing acts on the pane the focus is in, not on the reader it came from.
+    //
+    // The plan filed this as the case pinning `pane.book` in the commands memo.
+    // It is not: `movePane` carries `pane.id`, so the memo already recomputes on
+    // every move of the focus, and the suite stays green with `pane.book` taken
+    // out of the list. What keeps it there is biome's `useExhaustiveDependencies`,
+    // which the memo body's read of `pane.book` makes an error to omit.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("g", "r");
+    await settle();
+    app.leader("%");
+    await settle();
+    expect(app.panes()).toBe(3);
+
+    app.leader("q");
+    await settle();
+
+    expect(app.panes()).toBe(2);
+    expect(app.reader()).not.toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BookPane } from "@/components/book-pane";
 import { ClipPrompt } from "@/components/clip-prompt";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
@@ -42,6 +43,7 @@ import {
   type Layout,
   mapPanes,
   nextPane,
+  openBookBeside,
   openInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -712,7 +714,7 @@ function Home() {
         // back to an editor and no way to reach any leader key. Nothing is
         // lost: closing the socket detaches a client, and the herdr session
         // goes on running.
-        if (pane.term !== undefined || pane.todos === true) {
+        if (pane.term !== undefined || pane.todos === true || pane.book !== undefined) {
           moveTo(clearFocused);
           return;
         }
@@ -799,6 +801,17 @@ function Home() {
       openMonthly: () => openPeriodic("monthly"),
       openQuarterly: () => openPeriodic("quarterly"),
       openYearly: () => openPeriodic("yearly"),
+      // Needs a note in the focused pane, the way `showBacklinks` does: the
+      // book is that note's path with the suffix swapped, and there is nothing
+      // to swap without one. No `saveFirst`, unlike `openTodos`: this splits
+      // rather than replaces, so the editor holding the note stays mounted and
+      // nothing unsaved is unmounted. `moveTo` is what refuses the key while
+      // that note stands conflicted.
+      openBook: () => {
+        if (pane.path === undefined) return;
+        const note = pane.path;
+        moveTo((previous) => openBookBeside(previous, note));
+      },
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -837,6 +850,7 @@ function Home() {
       pane.path,
       pane.term,
       pane.todos,
+      pane.book,
       data,
       queryClient,
     ],
@@ -931,6 +945,18 @@ function Home() {
                     // something makes it render, which is what the event stream
                     // does the moment anything is written.
                     today={readClock(new Date()).date}
+                  />
+                ) : shown.book !== undefined ? (
+                  <BookPane
+                    note={shown.book}
+                    paths={data}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
+                    // A click inside foliate's iframe reaches no ancestor, so
+                    // the pane says so itself. The same path a click into any
+                    // other pane takes, deliberate lack of a conflict guard
+                    // included: the browser has already moved the focus.
+                    onFocus={() => setLayout((previous) => focusPane(previous, shown.id))}
                   />
                 ) : shown.term !== undefined ? (
                   <TerminalPane

@@ -138,6 +138,14 @@ export default defineConfig({
           // names this project, so it never shares a worker pool with the jsdom
           // suite and has nothing to be sequenced away from.
           include: ["tests/frame/**/*.test.tsx"],
+          // Chromium raises "ResizeObserver loop completed with undelivered
+          // notifications" as a window error, and vitest counts one of those
+          // as a failed run. foliate's paginator columnises to the box it is
+          // in and resizes inside its own observer, which is exactly what the
+          // notice reports, and nothing has gone wrong. Named to the message,
+          // so every other unhandled error still fails.
+          onUnhandledError: (error: unknown) =>
+            !(error instanceof Error && error.message.includes("ResizeObserver loop")),
           browser: {
             enabled: true,
             provider: playwright(),

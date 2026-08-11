@@ -458,6 +458,7 @@ export function Editor({
             openMonthly: () => commandsRef.current?.openMonthly(),
             openQuarterly: () => commandsRef.current?.openQuarterly(),
             openYearly: () => commandsRef.current?.openYearly(),
+            openBook: () => commandsRef.current?.openBook(),
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),
             importPage: () => commandsRef.current?.importPage(),

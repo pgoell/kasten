@@ -75,6 +75,7 @@ function OpenNote({ path }: { path: string }) {
       openMonthly: vi.fn(),
       openQuarterly: vi.fn(),
       openYearly: vi.fn(),
+      openBook: vi.fn(),
       focusTree: () => {},
       createTab: () => {},
       openTerminal: () => {},

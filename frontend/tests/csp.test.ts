@@ -6,9 +6,9 @@ const NGINX = readFileSync(path.join(import.meta.dirname, "../nginx.conf"), "utf
 
 /** The one policy nginx serves, read back out of the block that serves the app. */
 function nginxPolicy(): string {
-  const found = NGINX.match(/add_header\s+Content-Security-Policy\s+"([^"]*)"/);
-  if (!found) throw new Error("nginx.conf carries no Content-Security-Policy header");
-  return found[1];
+  const found = NGINX.match(/add_header\s+Content-Security-Policy\s+"([^"]*)"/)?.[1];
+  if (found === undefined) throw new Error("nginx.conf carries no Content-Security-Policy header");
+  return found;
 }
 
 /** Whitespace and a trailing semicolon are spelling, not policy. */

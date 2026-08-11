@@ -336,7 +336,9 @@ it looks right.
 
 - **No bare catchalls.** No untyped `catch` in TypeScript, no bare `except:` in
   Python. Catch the error you can handle and let the rest propagate.
-- **No dynamic imports.** Keep the dependency graph analyzable.
+- **No dynamic imports.** Keep the dependency graph analyzable. The ban is on
+  kasten's own code; SHA-pinned third-party source may use them, which foliate
+  does to pick a book's format.
 - **Comments explain why.** The code already says what it does. A comment earns
   its place by recording the constraint, the surprise or the reason for a
   choice that looks odd. Match the density of the surrounding file.

@@ -79,6 +79,7 @@ function Harness({
         openMonthly: () => {},
         openQuarterly: () => {},
         openYearly: () => {},
+        openBook: () => {},
         createTab: () => {},
         openTerminal: () => {},
         importPage: () => {},
