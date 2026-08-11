@@ -356,7 +356,11 @@ date otherwise, so a task due Friday and scheduled Tuesday sits under Tuesday,
 which is the day you have to act on it. A due date in the past wins over both
 and lands the row in Overdue whatever it was scheduled for. A `🛫` after today
 keeps the row off the list until the day it names: a list of things you cannot
-start yet is not a list of what to do. A blocked row is drawn muted and
+start yet is not a list of what to do. All three dates and the priority are read
+off the todo above where a part spells none of its own, so an undated part sits
+in its parent's group with its parent's date on the row, and one whose parent
+has not started yet waits with it. [Subtasks](/reference/todo-format.md#subtasks)
+says what comes down and what never does. A blocked row is drawn muted and
 sits in the group its due date names rather than under a heading of its own, its
 state already being written on the line. The footer counts the rows, so many
 open and so many blocked, and how many timers are going where any are.

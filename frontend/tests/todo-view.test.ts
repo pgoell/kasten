@@ -1,6 +1,7 @@
 import { parseTodo, type Todo } from "@/lib/todo";
 import {
   DEFAULT_VIEWS,
+  inherited,
   type Node,
   nextActionOf,
   type Placed,
@@ -126,6 +127,78 @@ describe("treeOf", () => {
 
     expect(roots[0]?.line).toBe(1);
     expect(roots[0]?.children[0]?.line).toBe(2);
+  });
+
+  it("copies no field from a parent onto its parts", () => {
+    // The cascade tick reads this tree and writes its nodes back out, so a
+    // field filled in here would land on the part's own line in the vault.
+    const roots = treeOf(placed("- [ ] a 📅 2026-08-14", "  - [ ] b"));
+
+    expect(roots[0]?.children[0]?.todo.due).toBeUndefined();
+  });
+});
+
+describe("inherited", () => {
+  /** The first root of those lines, with what a part takes filled in. */
+  function filled(...lines: string[]): Node {
+    const [first] = inherited(treeOf(placed(...lines)));
+    if (first === undefined) throw new Error("no todo in those lines");
+    return first;
+  }
+
+  it("gives a part the due date the todo above it carries", () => {
+    expect(filled("- [ ] a 📅 2026-08-14", "  - [ ] b").children[0]?.todo.due).toBe("2026-08-14");
+  });
+
+  it("leaves a part that spells a date of its own alone", () => {
+    expect(filled("- [ ] a 📅 2026-08-14", "  - [ ] b 📅 2026-08-11").children[0]?.todo.due).toBe(
+      "2026-08-11",
+    );
+  });
+
+  it("passes the scheduled and start dates down too", () => {
+    const part = filled("- [ ] a ⏳ 2026-08-12 🛫 2026-08-11", "  - [ ] b").children[0]?.todo;
+
+    expect(part?.scheduled).toBe("2026-08-12");
+    expect(part?.start).toBe("2026-08-11");
+  });
+
+  it("passes what a part took on to the parts of that part", () => {
+    const parent = filled("- [ ] a 📅 2026-08-14", "  - [ ] b", "    - [ ] c");
+
+    expect(parent.children[0]?.children[0]?.todo.due).toBe("2026-08-14");
+  });
+
+  it("takes each field off the nearest todo above it that carries one", () => {
+    const parent = filled("- [ ] a 📅 2026-08-14 ⏫", "  - [ ] b 📅 2026-08-11", "    - [ ] c");
+    const part = parent.children[0]?.children[0]?.todo;
+
+    expect(part?.due).toBe("2026-08-11");
+    expect(part?.priority).toBe("high");
+  });
+
+  it("copies nothing that names one line rather than the work", () => {
+    const parent = filled(
+      "- [ ] a 🔁 every week ➕ 2026-08-01 ⏲ 2h ⏱ 30m 🆔 kt-abc123 ⛔ kt-000000",
+      "  - [ ] b",
+    );
+    const part = parent.children[0]?.todo;
+
+    expect(part?.id).toBeUndefined();
+    expect(part?.created).toBeUndefined();
+    expect(part?.recurrence).toBeUndefined();
+    expect(part?.estimate).toBeUndefined();
+    expect(part?.worked).toBeUndefined();
+    expect(part?.blockedBy).toEqual([]);
+  });
+
+  it("leaves the shape, the lines and the words as they were", () => {
+    const parent = filled("- [ ] a 📅 2026-08-14", "  - [ ] b");
+
+    expect(parent.line).toBe(1);
+    expect(parent.children[0]?.line).toBe(2);
+    expect(parent.children[0]?.todo.text).toBe("b");
+    expect(parent.children[0]?.todo.state).toBe("open");
   });
 });
 
