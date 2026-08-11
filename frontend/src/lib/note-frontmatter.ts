@@ -45,15 +45,42 @@ function split(text: string): { block: string[]; body: string[] } | null {
   return { block: lines.slice(1, end), body: lines.slice(end + 1) };
 }
 
-/** The line of `block` setting `name`, or undefined where no line does. */
-function lineFor(block: string[], name: string): string | undefined {
-  return block.find((line) => KEY.exec(line)?.[1] === name);
+/** Where in `block` the line setting `name` is, or -1 where no line does. */
+function fieldAt(block: string[], name: string): number {
+  return block.findIndex((line) => KEY.exec(line)?.[1] === name);
 }
 
 /** The value `name` is set to in the note's block, or undefined where none is. */
 export function readField(text: string, name: string): string | undefined {
-  const line = lineFor(split(text)?.block ?? [], name);
+  const block = split(text)?.block ?? [];
+  const line = block[fieldAt(block, name)];
   // Everything after the first colon: a field name carries no colon, and an
   // epubcfi carries one that has to survive.
   return line === undefined ? undefined : line.slice(line.indexOf(":") + 1).trim();
+}
+
+/**
+ * `text` with `name` set to `value`, minting the block where the note has none.
+ *
+ * The value goes in plain and unquoted. YAML takes an epubcfi as a scalar,
+ * none of its colons being followed by a space, and a caller wanting to store a
+ * value that carries `: ` has to quote it itself.
+ */
+export function setField(text: string, name: string, value: string): string {
+  const line = `${name}: ${value}`;
+  const parts = split(text);
+  // No block, which a bare horizontal rule at the top of a note also reads as.
+  // The note goes under the new one whole rather than being rewritten.
+  if (parts === null) return [FENCE, line, FENCE, text].join("\n");
+
+  const at = fieldAt(parts.block, name);
+  const block =
+    at === -1
+      ? // At the foot of the block, above the closing fence, which is where
+        // `stamp()` appends `modified` (`frontmatter.py:85-87`).
+        [...parts.block, line]
+      : // In place, so the fields around it keep the order they were written in.
+        parts.block.map((held, index) => (index === at ? line : held));
+
+  return [FENCE, ...block, FENCE, ...parts.body].join("\n");
 }

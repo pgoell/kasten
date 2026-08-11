@@ -7,7 +7,7 @@
  * the client is the only thing that can write `reading:`.
  */
 
-import { readField } from "@/lib/note-frontmatter";
+import { readField, setField } from "@/lib/note-frontmatter";
 
 const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
 
@@ -61,5 +61,63 @@ describe("readField", () => {
     const text = note("---", "shelf:", "  reading: no", "---", "# DDIA");
 
     expect(readField(text, "reading")).toBeUndefined();
+  });
+});
+
+describe("setField", () => {
+  it("replaces the line where it stands", () => {
+    // In place, so the fields around it keep the order they were written in,
+    // which is what `stamp()` does with `modified` (`frontmatter.py:85-87`).
+    const text = note("---", "id: one", "reading: old", "author: Kleppmann", "---", "# DDIA");
+
+    expect(setField(text, "reading", CFI)).toBe(
+      note("---", "id: one", `reading: ${CFI}`, "author: Kleppmann", "---", "# DDIA"),
+    );
+  });
+
+  it("appends a field the block has not got above the closing fence", () => {
+    const text = note("---", "id: one", "created: then", "modified: now", "---", "# DDIA");
+
+    expect(setField(text, "reading", CFI)).toBe(
+      note("---", "id: one", "created: then", "modified: now", `reading: ${CFI}`, "---", "# DDIA"),
+    );
+  });
+
+  it("mints a block for a note that has none", () => {
+    expect(setField("# DDIA\n", "reading", CFI)).toBe(
+      note("---", `reading: ${CFI}`, "---", "# DDIA\n"),
+    );
+  });
+
+  it("mints one above a horizontal rule rather than writing into it", () => {
+    const text = note("---", "# DDIA");
+
+    expect(setField(text, "reading", CFI)).toBe(
+      note("---", `reading: ${CFI}`, "---", "---", "# DDIA"),
+    );
+  });
+
+  it("leaves an indented line of the same name alone", () => {
+    const text = note("---", "shelf:", "  reading: no", "---", "# DDIA");
+
+    expect(setField(text, "reading", CFI)).toBe(
+      note("---", "shelf:", "  reading: no", `reading: ${CFI}`, "---", "# DDIA"),
+    );
+  });
+
+  it("keeps a note that is only a block", () => {
+    expect(setField(note("---", "id: one", "---"), "reading", CFI)).toBe(
+      note("---", "id: one", `reading: ${CFI}`, "---"),
+    );
+  });
+
+  it("writes the value plain, so it reads back whole", () => {
+    // YAML takes an epubcfi as a plain scalar: none of its colons is followed
+    // by a space. A caller wanting to store a value carrying `: ` has to quote
+    // it, and that caller does not exist.
+    const written = setField("# DDIA", "reading", CFI);
+
+    expect(written).toContain(`reading: ${CFI}`);
+    expect(readField(written, "reading")).toBe(CFI);
   });
 });
