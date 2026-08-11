@@ -3,7 +3,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import type { VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
-import { defineFoliateFake, resetFoliateFake } from "./foliate-fake";
+import { defineFoliateFake, lastView, resetFoliateFake } from "./foliate-fake";
 
 defineFoliateFake();
 
@@ -196,6 +196,11 @@ async function renderApp() {
     todoPane: () => container.querySelector("[aria-label='Todos']"),
     /** The reader, while a pane is holding one. */
     reader: () => container.querySelector("foliate-view"),
+    /** Which pane the route is drawing as the focused one, by position. */
+    focusedPane: () =>
+      [...container.querySelectorAll("[data-pane]")].findIndex((pane) =>
+        pane.className.includes("border-one-accent"),
+      ),
     /** The row being edited in the pane, as the input it turns into. */
     editedLine: () => container.querySelector("[aria-label='edit line']"),
     /** How many panes the active tab draws. */
@@ -915,5 +920,27 @@ describe("the route", () => {
 
     expect(app.panes()).toBe(2);
     expect(app.reader()).not.toBeNull();
+  });
+
+  it("moves the focus to the reader when a click lands inside the book", async () => {
+    // The pane emits the call and the frame test proves it does, but that test
+    // mounts no route. Without this a route passing a no-op, or the wrong pane
+    // id, keeps every other test green.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("g", "r");
+    await settle();
+    act(() => lastView().emitLoad());
+    app.leader("o");
+    await settle();
+    expect(app.focusedPane()).toBe(0);
+
+    await act(async () => {
+      lastView().section.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+
+    expect(app.focusedPane()).toBe(1);
   });
 });

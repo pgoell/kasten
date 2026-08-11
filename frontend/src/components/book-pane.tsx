@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchBook } from "@/lib/api";
-import type { EditorCommands } from "@/lib/key-bindings";
+import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { bookPath } from "@/lib/note-path";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
@@ -70,11 +70,71 @@ function pageStyles(): string {
  * a folder move carries the pair and a rename of the note alone orphans the
  * book, which this says out loud.
  */
-export function BookPane({ note, paths, focusSignal }: BookPaneProps) {
+export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPaneProps) {
   const wrapper = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<FoliateView | null>(null);
   /** Whether foliate could not read what the vault handed it. */
   const [broken, setBroken] = useState(false);
+
+  // Read through refs, the way `terminal-pane.tsx` reads the same prop. The
+  // view is built in one effect keyed on the bytes, and naming these in its
+  // dependencies would rebuild it every time the route's memo took a new
+  // identity, which is on every vault write.
+  const commandsRef = useRef(commands);
+  const onFocusRef = useRef(onFocus);
+  useEffect(() => {
+    commandsRef.current = commands;
+    onFocusRef.current = onFocus;
+  });
+
+  /**
+   * Every key the reader answers, whichever document it was pressed in.
+   *
+   * The modifiers are compared for equality rather than tested for truth, the
+   * way `terminal-pane.tsx` compares them: Chrome spends `Ctrl+H` on its
+   * history window, and a handler reading `event.key` alone would turn that
+   * into a page turn.
+   */
+  const onKeyDown = useCallback((event: KeyboardEvent) => {
+    const chord =
+      event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
+      event.shiftKey === TERMINAL_CHORD.shiftKey &&
+      event.altKey === TERMINAL_CHORD.altKey &&
+      event.metaKey === TERMINAL_CHORD.metaKey;
+
+    if (chord) {
+      // From `TERMINAL` rather than a table of this pane's own, so retuning a
+      // chord retunes both panes.
+      const binding = TERMINAL.find((row) => row.key === event.key);
+      if (binding === undefined) return;
+      event.preventDefault();
+      commandsRef.current[binding.command]();
+      return;
+    }
+
+    if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+
+    // No leader: the pane holds a document you page with the space bar in every
+    // other reader, and the chords already carry the way out.
+    if (event.key === "l") viewRef.current?.next();
+    else if (event.key === "h") viewRef.current?.prev();
+    else if (event.key === "q") commandsRef.current.closeNote();
+    else return;
+
+    event.preventDefault();
+  }, []);
+
+  /** That a click or a Tab landed in the book, which no ancestor is told. */
+  const report = useCallback(() => onFocusRef.current(), []);
+
+  // On the wrapper as well as on every section, and in an effect of its own so
+  // it survives a book that never opened: the error panel answers `q` too.
+  useEffect(() => {
+    const element = wrapper.current;
+    element?.addEventListener("keydown", onKeyDown);
+    return () => element?.removeEventListener("keydown", onKeyDown);
+  }, [onKeyDown]);
 
   // A query rather than an effect, so two panes reading one book share the blob
   // and so an upload has a key to invalidate.
@@ -92,7 +152,27 @@ export function BookPane({ note, paths, focusSignal }: BookPaneProps) {
     setBroken(false);
     let cancelled = false;
     const view = document.createElement("foliate-view") as FoliateView;
+    viewRef.current = view;
     element.append(view);
+
+    // Registered before the book opens, so the first section's document does
+    // not slip past. Keys pressed inside foliate's iframe reach neither this
+    // wrapper nor the window, an event not crossing a document boundary, and a
+    // click inside it fires no focus event on any ancestor either. This is the
+    // only seam: foliate builds both iframes behind closed shadow roots.
+    const sections: Document[] = [];
+    function onLoad(event: Event) {
+      const { doc } = (event as CustomEvent<{ doc: Document }>).detail;
+      doc.addEventListener("keydown", onKeyDown);
+      // Two listeners for two ways in, and neither covers the other. A
+      // paragraph cannot hold focus, so a real click fires `pointerdown`,
+      // `mousedown` and `click` here and nothing else; Tab into one of the
+      // book's links fires only `focusin`.
+      doc.addEventListener("pointerdown", report);
+      doc.addEventListener("focusin", report);
+      sections.push(doc);
+    }
+    view.addEventListener("load", onLoad);
     // `View.open` takes a `File` and calls `makeBook` itself, so kasten imports
     // nothing of the library but the module. Built out here because a hoisted
     // function body does not see the narrowing the guard above did.
@@ -129,10 +209,17 @@ export function BookPane({ note, paths, focusSignal }: BookPaneProps) {
 
     return () => {
       cancelled = true;
+      view.removeEventListener("load", onLoad);
+      for (const doc of sections) {
+        doc.removeEventListener("keydown", onKeyDown);
+        doc.removeEventListener("pointerdown", report);
+        doc.removeEventListener("focusin", report);
+      }
+      viewRef.current = null;
       view.close();
       view.remove();
     };
-  }, [blob, note]);
+  }, [blob, note, onKeyDown, report]);
 
   // Mount included, the way the editor and the terminal read the same prop: a
   // freshly split pane is created focused and its first render is the only

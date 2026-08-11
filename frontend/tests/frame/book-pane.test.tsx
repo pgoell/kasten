@@ -9,9 +9,14 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
+import { userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 import plainUrl from "../fixtures/plain.epub?url";
 import { stubCommands } from "../stub-commands";
+// The app's own stylesheet, because the pane is sized by Tailwind's `h-full`
+// and a wrapper of no height is a pane Playwright refuses to click and a
+// paginator with nothing to columnise into.
+import "@/styles/app.css";
 
 const NOTE = "20 Literature/Plain.md";
 
@@ -26,6 +31,9 @@ vi.mock("@/lib/api", () => ({ fetchBook }));
 /** Every `relocate` foliate emitted, recorded from before the first navigation. */
 const located: { cfi?: string }[] = [];
 
+/** Every section document foliate reported, which is the only way inside. */
+const sections: Document[] = [];
+
 /**
  * Listen on the document in the capture phase, before anything mounts.
  *
@@ -39,6 +47,45 @@ document.addEventListener(
   (event) => located.push((event as CustomEvent<{ cfi?: string }>).detail),
   true,
 );
+document.addEventListener(
+  "load",
+  (event) => {
+    const { doc } = (event as CustomEvent<{ doc?: Document }>).detail ?? {};
+    if (doc) sections.push(doc);
+  },
+  true,
+);
+
+/**
+ * Click at a point inside the section document, the way a reader does.
+ *
+ * Both of foliate's shadow roots are closed, so no locator reaches inside. The
+ * document comes from foliate's own `load` event, and its iframe is reachable
+ * as `defaultView.frameElement`, which works through a closed root because the
+ * document is same origin. A bare `element.click()` proves neither focus nor
+ * key delivery, which is most of what this file is for.
+ */
+async function clickInside(pane: Element, doc: Document, selector: string) {
+  const target = doc.querySelector(selector);
+  const frame = doc.defaultView?.frameElement;
+  if (!target || !frame) throw new Error(`nothing at ${selector} inside the book`);
+
+  // The pane rather than the paragraph, at the paragraph's place. Handing the
+  // paragraph itself to `userEvent.click` resolves no locator, and the provider
+  // falls back to `element.click()`, which fires a lone synthetic `click`: no
+  // `pointerdown`, no focus, nothing this test is here to prove. Playwright
+  // positions a click relative to the element it is given, so the sum of the
+  // three rectangles puts a real pointer on the words.
+  const outer = frame.getBoundingClientRect();
+  const inner = target.getBoundingClientRect();
+  const box = pane.getBoundingClientRect();
+  await userEvent.click(pane, {
+    position: {
+      x: outer.left + inner.left + inner.width / 2 - box.left,
+      y: outer.top + inner.top + inner.height / 2 - box.top,
+    },
+  });
+}
 
 let mounted: { root: Root; container: HTMLElement } | null = null;
 
@@ -70,6 +117,7 @@ async function drawBook() {
 describe("the reader over a real book", () => {
   beforeEach(() => {
     located.length = 0;
+    sections.length = 0;
   });
 
   afterEach(async () => {
@@ -92,4 +140,31 @@ describe("the reader over a real book", () => {
 
     await vi.waitFor(() => expect(located.length).toBeGreaterThan(0), { timeout: 10_000 });
   }, 20_000);
+
+  it("answers a click and the keys that follow it, from inside the iframe", async () => {
+    // The case the whole design is arranged around. An event does not cross a
+    // document boundary, so a handler on the pane's wrapper alone works right
+    // up until somebody clicks a paragraph, which is what a reader does first.
+    const { commands, onFocus, container } = await drawBook();
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    await vi.waitFor(() => expect(located.length).toBeGreaterThan(0), { timeout: 10_000 });
+    const doc = sections[0] as Document;
+
+    const seen: string[] = [];
+    for (const kind of ["pointerdown", "mousedown", "click", "focusin"])
+      doc.addEventListener(kind, () => seen.push(kind));
+    await clickInside(container.querySelector("[data-book-pane]") as Element, doc, "p");
+
+    // Asserted before a single key is pressed, which is what proves the
+    // pointer path reaches out of the iframe at all.
+    expect(seen).toContain("pointerdown");
+    expect(onFocus).toHaveBeenCalled();
+
+    const before = located.length;
+    await userEvent.keyboard("l");
+    await vi.waitFor(() => expect(located.length).toBeGreaterThan(before), { timeout: 10_000 });
+
+    await userEvent.keyboard("{Control>}{Shift>}L{/Shift}{/Control}");
+    await vi.waitFor(() => expect(commands.paneRight).toHaveBeenCalled(), { timeout: 10_000 });
+  }, 30_000);
 });

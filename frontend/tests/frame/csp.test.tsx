@@ -4,10 +4,33 @@
  * Real Chromium, because jsdom enforces no Content Security Policy at all and
  * would pass every assertion here with no policy served.
  *
- * The book documents are hand-built rather than read out of an epub: nothing
- * has opened a book yet at this point in the branch, and the mechanism under
- * test is the blob URL, which is what foliate hands the iframe.
+ * The first four cases build their book documents by hand, because the
+ * mechanism under test is the blob URL, which is what foliate hands the iframe.
+ * The last one reads a real epub through the real reader.
  */
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createRoot } from "react-dom/client";
+import { BookPane } from "@/components/book-pane";
+import scriptedUrl from "../fixtures/scripted.epub?url";
+import { stubCommands } from "../stub-commands";
+import "@/styles/app.css";
+
+const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
+// The Perf job runs no backend, so the pane must not fetch. See
+// `tests/frame/book-pane.test.tsx` for why seeding the query is a trap.
+vi.mock("@/lib/api", () => ({ fetchBook }));
+
+/** Every section document foliate reported, which is the only way inside. */
+const sections: Document[] = [];
+document.addEventListener(
+  "load",
+  (event) => {
+    const { doc } = (event as CustomEvent<{ doc?: Document }>).detail ?? {};
+    if (doc) sections.push(doc);
+  },
+  true,
+);
 
 /** Every blob URL this file made, revoked after each test. */
 const made: string[] = [];
@@ -76,4 +99,45 @@ describe("a book's own scripts", () => {
 
     expect(doc.title).toBe("SAFE");
   });
+});
+
+describe("a script inside a real book", () => {
+  it("does not run when foliate opens the file", async () => {
+    // Slice 3 proved the mechanism with hand-built documents because no reader
+    // existed yet. This proves it through foliate's own blob rewriting, on the
+    // same file the box check reads.
+    fetchBook.mockResolvedValue(await (await fetch(scriptedUrl)).blob());
+    const pageTitle = document.title;
+    const container = document.createElement("div");
+    container.style.cssText = "width: 600px; height: 400px;";
+    document.body.append(container);
+    const root = createRoot(container);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
+    });
+
+    root.render(
+      <QueryClientProvider client={client}>
+        <BookPane
+          note="20 Literature/Scripted.md"
+          paths={["20 Literature/Scripted.md"]}
+          commands={stubCommands()}
+          focusSignal={0}
+          onFocus={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    const doc = sections[0] as Document;
+
+    // The book's own title, which the script sets first, and the page's, which
+    // it also reaches for.
+    expect(doc.title).toBe("SAFE");
+    expect(document.title).toBe(pageTitle);
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    root.unmount();
+    container.remove();
+  }, 30_000);
 });

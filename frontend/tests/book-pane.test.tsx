@@ -211,3 +211,104 @@ describe("BookPane", () => {
     expect(lastView().closes).toBe(2);
   });
 });
+
+describe("the keys inside a book", () => {
+  beforeEach(() => {
+    resetFoliateFake();
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.resetAllMocks();
+  });
+
+  /** Draw a book and hand back the section document foliate reports. */
+  async function opened() {
+    const pane = draw();
+    await waitFor(() => expect(lastView().started).toBe(true));
+    // The seam every key and focus test fires on: a handler on the wrapper
+    // alone never sees any of these, an event not crossing a document boundary.
+    act(() => lastView().emitLoad());
+    return pane;
+  }
+
+  function press(target: Document | Element, key: string, held: KeyboardEventInit = {}) {
+    target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...held }));
+  }
+
+  it("turns the page forward on l", async () => {
+    await opened();
+
+    press(lastView().section, "l");
+
+    expect(lastView().nexts).toBe(1);
+  });
+
+  it("turns the page back on h", async () => {
+    await opened();
+
+    press(lastView().section, "h");
+
+    expect(lastView().prevs).toBe(1);
+  });
+
+  it("closes the reader on q", async () => {
+    const pane = await opened();
+
+    press(lastView().section, "q");
+
+    expect(pane.commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("walks the panes on the terminal chord", async () => {
+    // Tested here as well as in Chromium because this is the project that runs
+    // on every push.
+    const pane = await opened();
+
+    press(lastView().section, "L", { ctrlKey: true, shiftKey: true });
+
+    expect(pane.commands.paneRight).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves ctrl+h to the browser", async () => {
+    // Chrome spends that chord on its history window, and a handler reading
+    // `event.key` without the modifiers would steal it.
+    await opened();
+
+    press(lastView().section, "h", { ctrlKey: true });
+
+    expect(lastView().prevs).toBe(0);
+  });
+
+  it("answers a key pressed on the pane itself", async () => {
+    // The handler goes on the wrapper as well as on every section, and the
+    // frame test only ever presses inside the iframe.
+    const pane = await opened();
+
+    press(pane.wrapper() as Element, "l");
+
+    expect(lastView().nexts).toBe(1);
+  });
+
+  it("reports a click in the book as the pane taking the focus", async () => {
+    // A click inside foliate's iframe fires no focus event on any ancestor, so
+    // the route would go on believing another pane is focused and `q` would
+    // close that pane's note.
+    const pane = await opened();
+
+    lastView().section.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+
+    expect(pane.onFocus).toHaveBeenCalled();
+  });
+
+  it("reports a tab into one of the book's links the same way", async () => {
+    // Two listeners for two ways in, and neither covers the other: a paragraph
+    // cannot hold focus, so a click fires no `focusin` at all.
+    const pane = await opened();
+
+    lastView().section.dispatchEvent(new Event("focusin", { bubbles: true }));
+
+    expect(pane.onFocus).toHaveBeenCalled();
+  });
+});
