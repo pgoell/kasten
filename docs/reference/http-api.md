@@ -268,7 +268,8 @@ exist reads as one nothing ever happens in, so a fresh checkout still serves.
 The stream must not be compressed on the way out. A proxy that gzips it buffers
 the whole response, and the client then holds a connection that never delivers
 a byte and never errors either.
-[deploy/README.md](../../deploy/README.md) gives the Caddy fix.
+[Two environments](/explanation/environments.md#constraints-the-box-imposes)
+gives the Caddy fix.
 
 ## GET /api/assets/{path}
 

@@ -4,325 +4,23 @@ A self-hosted markdown notebook with wikilinks and backlinks, in the shape of
 Obsidian but served as a web page. Single user, running on a Hetzner VPS behind
 oauth2-proxy.
 
-## The one rule
+## The layout
 
-The vault is a directory of `.md` files and it is the source of truth. Postgres
-holds a derived index only, and you must be able to drop the schema and rebuild
-it from the vault. Nothing that only exists in the database is allowed to
-matter.
-
-Check any change you make against that rule before you write it. The reasoning
-is in [The vault and the derived index](../docs/explanation/vault-and-derived-index.md).
-
-## What exists today
-
-Real, working code, not a plan:
-
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv.
-  Seventeen endpoints, `/api/health`, `/api/files`, `/api/search`,
-  `/api/todos`, `/api/terminals`, `/api/fetch`, `/api/events`, `/api/trash`,
-  `GET` on `/api/assets/{path}`, `GET`,
-  `POST`, `PUT`, `PATCH` and `DELETE` on `/api/files/{path}`, `PATCH` and
-  `DELETE` on `/api/folders/{path}`, and `PATCH` on `/api/trash/{entry}`.
-  A create starts a
-  note holding its frontmatter, and the text under it when a body comes with
-  the request, and makes the folders on the way to it; a `PATCH`
-  gives a note or a folder a new path and takes the folders it emptied with it. A folder moves in
-  one rename, so its whole subtree arrives together. Both moves rewrite every
-  `[[link]]` in the vault that named what moved, each in the spelling it had,
-  reading only the notes rg names rather than the whole vault. A `DELETE` moves
-  a note or a folder into `.trash` inside the vault instead of removing it,
-  keeping its path and stamping the moment onto its leaf, which is the whole
-  record: `/api/trash` reads it back off the names, newest first, and a `PATCH`
-  on one puts it where it came from, refusing a path something has taken since.
-  A folder goes as one entry and comes back as one, and links to a deleted note
-  are left dangling. Startup drops what has been in there longer than
-  `KASTEN_TRASH_DAYS`, which is the one place a note is removed for good. The
-  trash is invisible without a line of work, every reader of the vault already
-  refusing a dot-directory, and it is not left to jj because jj is optional.
-  All these writes are
-  recorded in the vault's jj repo, one change per note, and skipped when the
-  vault has none. Every note carries a `---` block holding a uuid7 `id`, a
-  `created` date and a `modified` date; a create writes it and a save rewrites
-  the date, keeping the id, the creation date and every field that is not
-  kasten's. `/api/events` streams every change to the vault as server-sent
-  events, one per note with a sha256 of what is on disk, plus one `listing`
-  when the shape of the vault moved, which is how a folder move arrives.
-  Nothing under a dot-directory is reported, so the jj repo stays off it.
-  `/api/todos` is search's one rg pass asked a different question: it answers
-  with every checkbox line the vault holds, in search's own shape, and parses
-  none of them, the client reading the format. Its pattern also matches a
-  `- HH:MM-` session line with no end on it, which is a timer still going. A
-  closed one is deliberately left out: the total is on the task line, and the
-  closed ones are the half of that log that piles up. A stop reads them through
-  `/api/search` on the id instead.
-  `/api/assets/{path}` is the one endpoint that answers with bytes: it resolves
-  a path, checks for `.epub` and streams the file, never opening the archive.
-  Startup also writes `vault/.gitignore` holding `*.epub` and `.*.tmp`, before
-  the guide, so no snapshot can take a book that is already sitting there. jj
-  tracks any untracked file under a megabyte and every save snapshots, so
-  without those two lines a note saved beside a book would put the book in the
-  history for good. Ignoring is not untracking, and `jj file untrack` is the
-  way out for one already in there.
-  `/api/fetch` is the other endpoint that reads nothing of the vault, and the
-  only one that goes outside the machine: it reads one web page and hands the
-  markup back untouched, http and https only, counting the bytes as they arrive
-  rather than believing `content-length`, and naming each refusal so the prompt
-  can show it. Making a note of that page happens in the browser.
-  `/api/terminals` is the one endpoint that reads nothing of the vault: it
-  lists the shell container's herdr sessions off a read-only mount of that
-  container's volume, so the prompt can offer the ones that already exist.
-  Starting the backend writes `99 Misc/01 Config/01 Agents/How-To-TODO.md` and
-  `How-To-Exam.md` beside it into a vault holding none: the notes telling an
-  agent how this vault's todos and its practice exams are written, every field
-  and its values, and that ticking a todo done goes
-  through `PUT /api/files/{path}` while everything else is a text edit. At
-  startup rather than on a key press, because the agents reading them are not
-  all inside the app. Each is written on its own, so a vault that kept one and
-  deleted the other gets back what it is missing.
-  `/api/search` and `/api/todos` take an `archive` flag, off by default, which
-  is the one thing kasten knows about `KASTEN_ARCHIVE_PATH`, `98 Archive`: rg is
-  handed a glob that walks past it. Not an optimisation. Search caps its answer
-  at 2,000 lines, so an archive left in would eventually push live notes out of
-  it rather than merely padding it. `/api/files` is deliberately never filtered,
-  that listing being what resolves a `[[wikilink]]`, and a link into the archive
-  reading as dead would make an empty second copy in `00 Inbox`; a move's link
-  rewrite skips nothing either. The folder is otherwise ordinary and nothing
-  writes into it.
-  Settings via pydantic-settings with the `KASTEN_` prefix.
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Settings
+  through pydantic-settings with the `KASTEN_` prefix. Every endpoint and what
+  it answers with is in [the HTTP API](../docs/reference/http-api.md).
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
-  CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
-  that opens the note you click and writes it back as you type, or on `:w`.
-  One prompt does three jobs: `Space c f` makes a note at a path you type,
-  `Space r f` moves one that is there, and the tree's own `r` renames whatever
-  the cursor sits on, a folder included. The tree's `c` is `Space c f` from
-  there. All three complete the vault's folders. `Space d f` puts the open note
-  in the trash and `Space d u` takes the last delete back, reading the trash
-  rather than remembering it; the tree's `d` deletes the row under the cursor,
-  a folder included, the way its `r` renames one. Nothing asks first, the trash
-  being the confirmation, and the panes holding a deleted note empty. A finder opens a note by name:
-  `Space f f`, or `f` in the tree, ranks every note in the vault against what
-  you type and shows the one under the highlight beside the list. Search reads
-  what is written in the notes instead: `Space f g`, or `s` in the tree, asks
-  rg for the lines holding what you type and ranks them here, and Enter opens
-  the note on the line. `[[wikilinks]]` render as the note's name, and `gf`,
-  Enter or ctrl+click opens it: a target with a slash is a path, a bare name is
-  looked for anywhere in the vault, and a name nothing answers to is made in
-  `00 Inbox` and opened. Enter off a link still moves the way vim's `<CR>` does.
-  Typing `[[` offers the vault's notes and closes the link it completes, and a
-  link to a note that is not there yet is drawn muted and dotted. Both read the
-  listing off the editor state, which the route reconfigures as it changes.
-  The links are read both ways from a panel: `Space g b` shows what links to the
-  open note, drawn as search draws its hits, and `Space g o` shows what it links
-  to, drawn as the finder draws its notes. Tab walks the rows in either.
-  Five more `g` keys open the note covering today: `Space g d` the day,
-  `g w` the week, `g m` the month, `g q` the quarter and `g y` the year. They
-  live under `01 Periodic`, one numbered folder each, and the key makes the
-  note if the vault has none. A fresh one carries a heading and one line of
-  links: back one, up to the note holding it, and on one, written whether or
-  not those notes exist yet, so `gf` walks the chain and makes what it reaches.
-  The week is the ISO one, counted from its Thursday.
-  A todo is a checkbox line in a note, and the line is the whole record: five
-  states, `[ ] [/] [x] [b] [-]`, and every field beside them spelled the way
-  obsidian-tasks spells it, the dates `📅 ⏳ 🛫 ➕ ✅ ❌`, a priority glyph, and
-  `🔁 🆔 ⛔ ⏲ ⏱`. `Space x` walks the line under the cursor
-  through the work, plain line to open to doing to done and out to a plain line
-  again, stamping the created date, the done date and the id as it goes, and the
-  editor draws each state as a symbol with an overdue date in red. Blocked and
-  rejected are not on the walk: five keys set a state straight, `Space s o p x b
-  r` in the editor and `O P X B R` in the pane, stamping and dragging what the
-  walk does. Done is the walk's last state because a list of open work loses the
-  row there, which once put blocked and rejected out of the pane's reach.
-  `Space i` stamps an id on its own, which is how an open todo gets a name for a
-  `⛔` to point at.
-  A glyph is easy to read and hard to type, so a colon on a todo line offers the
-  fields that line has not got, by name: `:due` writes the `📅` and offers
-  `today`, `tomorrow` and the seven weekdays after it, each beside the date it
-  means, `:high` writes the `⏫`, `:weekly` writes `🔁 every week`, and
-  `:estimate` writes the `⏲` and offers `15m` up to `4h`. Tab takes what the
-  list highlights, a link's completion included. `➕ ✅ ❌ 🆔` and `⛔` are
-  deliberately off it. The pane's `i` draws the same fields as buttons under the
-  line it is editing, off the same reading of it, reached by Tab or by a click,
-  and the add prompt draws them under its input in the shorthand's own spelling.
-  One table of fields answers all three, each field carrying both spellings.
-  A todo indented under another is a part of it, the indent being the whole
-  rule, and the parent carries `1/3` after its words in the editor and on its
-  row, counting every descendant. Ticking a parent ticks every open part with
-  it, in one press one `u` takes back, and writes one `- ✅` line naming the
-  parent. Ticking the last part leaves the parent alone. A part is read as
-  carrying the due date, the scheduled date, the start date and the priority of
-  the nearest todo above it that has one, and anything it spells for itself
-  wins; nothing else comes down, and nothing is written into the line, so the
-  pane groups an undated part with its parent while the note goes on saying
-  only what was typed.
-  `⛔` names another todo's id and hands kasten the choice between `[ ]` and
-  `[b]` on that line: closing or reopening the blocker rewrites every dependent
-  naming it, wherever it lives, reading `GET /api/todos` once to find them and
-  reading only the notes that hold one. `[/]`, `[x]` and `[-]` are never
-  touched, a dependent opens only when every blocker on it is closed, and a
-  `⛔` naming an id no note holds changes nothing.
-  `🔁 every week`, `every 3 days` and the `when done` suffix are read, and
-  ticking such a todo leaves the completed line where it is and puts the next
-  copy above it, one period on, with every date it carries moved by the same
-  number of days and the id and the done date dropped. A month rule clamps to
-  the last day of a month too short for the day. The press
-  that enters or leaves done moves the done log too. For a todo in another note
-  that is a write no buffer edit can reach, so `u` puts the line back and leaves
-  the log; for one already in today's note the log lands in the same buffer, in
-  the same transaction, and `u` takes back both. `Space g t`
-  puts the list in the focused pane, a third thing a pane can hold beside a note
-  and a terminal, grouped under Overdue, Today, This week, Later and No date.
-  A row sits in the group its scheduled date names where it has one and its due
-  date otherwise, a past due date wins over both, and a `🛫` after today keeps
-  the row off the list until the day it names. A part is drawn one step in under
-  the todo it belongs to, and where that todo is in another group or already
-  done it names it in front of its own words instead.
-  Its keys are `j k Enter x O P X B R a s i t d n v / q Escape`: `x` walks a todo in the vault,
-  `a` opens a prompt turning one line of shorthand, `call the dentist due:08-14
-  est:45m !high #health`, into a todo under `## TODOs` in today's note, its
-  terms being `due: sched: start: every: est:` and the five `!` priorities,
-  `est:` the one path by which kasten rather than your keyboard writes a `⏲`
-  and `every:week` the rule with its space taken out,
-  `s` opens that same prompt on the row under the cursor and puts what it takes
-  in as a part of it, in that todo's own note, two spaces in from its line and
-  after the parts it already has, declining a row the vault has moved past,
-  `i` turns the row into the line as the note holds it, vim's own key for
-  typing where the cursor is and writes back what you
-  leave in it, which is how a state or an indent is changed, and it
-  declines a row the vault has moved past rather than overwriting whatever now
-  sits at that line,
-  `t` starts and stops a timer, `d` shows the
-  last seven days of finished work, `n` shows one next action per top level
-  todo, the first open leaf under it or whatever carries `#next`, and `/`
-  narrows the list by tag, priority, state and due window. `v` walks the named
-  filters `99 Misc/01 Config/todo-views.md` holds, one per list item, name up to
-  the first colon and terms after it: the terms of the one showing sit in the
-  filter line and its name in the header, one press past the last gives the whole
-  list back, and typing over the terms clears the name. The first `v` in a vault
-  with no such note writes it, holding `today`, `doing` and `important`, the way
-  the periodic keys write the note they open. `Space f t` is the same list in the finder's panel.
-  Ticking a todo done also writes a `- ✅` line under `## Done` in today's note,
-  linking back and naming the id; un-ticking drops that line wherever it landed,
-  and ticking twice leaves one. It is deliberately not a checkbox, so
-  `/api/todos` cannot match it. A fresh daily note carries `## TODOs`, and
-  `## Done` is made by the first write into it.
-  `t` in the pane starts a session on the todo under the cursor and writes it
-  under `## Time` in today's note, `- 14:03-      the words [[the note]] kt-…`,
-  stamping an id where the todo carried none so the line has something to name.
-  A second press closes every session that todo has running and rewrites its
-  `⏱` as the sum of every closed session naming it, across the vault, read
-  through one `/api/search` on the id. The log is the record and `⏱` is the
-  summary of it, so a session line corrected by hand puts the total back in
-  step and a hand typed total the log does not back is replaced. Timers run in
-  parallel, and a row with one going carries `▶` and the pane's footer counts
-  them. A session is closed in the note it lives in, at 23:59 when that note is
-  not today's, which is one rule for the timer somebody forgot and for the one
-  that ran past midnight; a session in a note that is not a daily note is left
-  alone, nothing saying which day it belongs to. The row shows what is on disk,
-  so nothing ticks.
-  `Space g r` opens the book that sits beside the open note in a pane to the
-  right, with the note still on screen. A book is the note's path with the
-  suffix swapped and nothing records the pair, so a folder move carries both
-  and a rename of the note alone orphans the epub, which the reader says out
-  loud. The reader is foliate-js pinned to a SHA, and `h`, `l` and `q` turn the
-  page and close it, answered on the pane and on every chapter document foliate
-  reports, because an event does not cross a document boundary and a handler on
-  the pane alone stops working the moment you click a paragraph. A click in
-  there also reports the focus, nothing else telling the route which pane you
-  are in. A book's own HTML is stopped from running by one Content Security
-  Policy, written once in `frontend/src/lib/csp.ts` and served by nginx in
-  production and by a Vite plugin with a minted nonce in development; the
-  iframe sandbox is foliate's and cannot be reached, which
-  [Books in the vault](../docs/explanation/books-in-the-vault.md) explains.
-  `Space g e` sits the open note as a practice exam in its own pane, a fifth
-  thing a pane can hold beside a note, a terminal, the todo list and a book. An exam is one note and the note is the whole exam;
-  nothing marks one, so a note holding a `### Question` heading with lettered
-  options under it is an exam and one holding neither is not, which is
-  `parseTodo`'s bargain with a line. The format was read off the four Claude
-  certification exams the vault already held rather than imposed on them, and
-  then loosened everywhere that was free, those being one exam series among
-  however many come next: `Question` or `Q`, any heading level, the answer under
-  the question or in a key at the back keyed by number, `Correct` or `Answer`,
-  an em-dash or a hyphen, bold options or bare, `select TWO` or `choose 2`, and
-  any heading at all as the section a question is scored under. An answer under
-  the question wins over the key, the key being where a stale copy lives. A
-  question whose answer is not a letter cannot be asked, so it is left out and
-  the footer says how many, `ccar-p` holding five of them. `A` to `J` pick,
-  `h l` walk, `r` shows the answer and the rationale, `g` scores and `q`
-  closes. Finishing writes one note per sitting into a folder beside the exam,
-  holding the score, the score per section and every missed question with what
-  you answered and why it was wrong; the exam note is never written to. Answers
-  are held in the browser until `g`, so a reload loses a sitting, and nothing is
-  shuffled.
-  `Space a` shows or hides the archive in the tree, the finder, search and the
-  todos, one mode rather than a filter term on each, and the status bar says
-  which one you are in. It is React state, so a reload puts it back to hidden.
-  `Space c w` takes one web address and puts the page in `00 Inbox` as a note,
-  open in the focused pane. The reading is defuddle, kepano's extractor and the
-  one behind Obsidian's web clipper, running here because it reads a DOM; the
-  backend only fetches, a script not being allowed to read another origin's
-  answer. The note is named after the page's title, headed by it, and carries
-  `source` and whatever the page says about its author and its date. A page
-  clipped twice opens the note it made the first time.
-  `Space c s` puts a shell in the focused pane instead of a note: it asks what
-  the herdr session is called, offering the ones that already exist, and
-  attaches to it, starting one if nothing answers to that name. The pane speaks ttyd's WebSocket protocol itself
-  through a pure codec and an xterm terminal, painted in One and fitted to the
-  pane, so a terminal pane and a note pane are one window. The leader cannot
-  reach into a focused terminal, the leader being the space bar and a shell
-  needing it, so six `ctrl-shift` chords walk the panes and close one:
-  `H J K L` for the directions, `O` for the next and `Q` to close. Closing a
-  pane detaches a client rather than killing the session, so the session
-  outlives the pane, the tab and the browser.
-  The window divides the way tmux divides a terminal. `Space %` and `Space "`
-  split the focused pane left and right or top and bottom, `Space h j k l`
-  moves to the pane in that direction and `Space o` walks them in order,
-  and `Space c t` starts a tab, walked with `Space t l` and `Space t h`
-  or reached by `Space 1` to `Space 0`. A split makes an empty pane and moves
-  to it, and every key above acts on the pane that has the focus. `Space q`
-  walks back out one press at a time: the note, then the pane, then the tab,
-  and it stops at the last pane of the last tab. The arrangement lives in React
-  state, so a reload drops it.
-  The note in the focused pane lives in the URL as `?note=` and the line as
-  `?line=`, and the note follows a folder that moves out from under it. The
-  frontmatter is drawn as YAML rather than as markdown, and the cursor opens on
-  the first line under it. The gutter counts vim's way, the cursor's line
-  carrying its own number and every other line the distance to it, which is the
-  count `10j` and `d5k` take.
-  One `EventSource` on `/api/events` answers what the vault does behind the
-  app: the tree refetches its listing, a note nobody is typing into takes the
-  new text with the cursor where it was, and one holding unsaved edits stops
-  autosaving and reads `Changed on disk`. Two commands end that: `:w` keeps
-  your text and `:e!` takes the vault's. Until one of them does, every key
-  that would leave the note refuses and flashes the bar, the pane and tab
-  keys included, and only a mouse click into another pane still writes past it.
-- `shell/`: a Dockerfile and a herdr config. ttyd over herdr on a node base,
-  with the vault mounted and jj, rg, git, curl, jq, Claude Code and codex
-  beside it. It carries `KASTEN_API`, the backend's address on the `web`
-  network, which is where the agent note tells an agent in here to send a
-  completion. The
-  config is the one this VPS runs, migrated from its tmux config, baked into
-  the image and read through `HERDR_CONFIG_PATH`. The
-  agents are fresh installs signing themselves in inside the container, into a
-  named volume; nothing of the host's home is mounted, so the vault is the only
-  thing they share with you. It publishes no port; the only route in is a Caddy
-  `handle /term/*` carrying `import oauth2_auth`. The one dev service built on
-  the box, because there is no reload loop to bind-mount a tree into.
-- `deploy/`: dev and prod compose files. Dev bind-mounts the tree and reloads;
-  prod pulls GHCR images and deploys from a GitHub release. Three images now,
-  the shell among them.
+  CodeMirror 6 with vim mode, xterm, bun. Every key is in
+  [the editor keys](../docs/reference/editor-keys.md).
+- `shell/`: ttyd over herdr on a node base, with the vault mounted and jj, rg,
+  git, curl, jq, Claude Code and codex beside it. It publishes no port, the way
+  in being a Caddy `handle /term/*` behind oauth2-proxy.
 - `vault/`: the notes, and a colocated jj repo holding their history.
+- `compose.yaml` and `compose.dev.yml` at the root run dev. `deploy/` holds the
+  prod compose.
 
-Search reads the vault with rg on every query and indexes nothing, so it is
-not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
-pick the few notes it has to read, so there is no link table either.
-
-Not built yet: making a folder on its own, merging two folders, browsing the
-trash beyond `<leader>du`, uploading a book from the app, remembering where you
-stopped reading one, shuffling an exam or resuming a sitting after a reload,
-and anything that writes to Postgres.
-The database schema is empty beyond Alembic's own table. Do not document these
-as though they exist.
+Details of a feature belong in `docs/`, not here. This file goes stale the
+moment it starts describing behaviour.
 
 ## Commands
 
@@ -337,13 +35,6 @@ mise run test       # backend and frontend tests
 mise run lint       # ruff, ty, biome
 mise run db:migrate # apply migrations to the dev database
 ```
-
-Two failure modes worth knowing before you lose an hour to them:
-
-- A git hook that hangs printing nothing is mise waiting to trust the config.
-  Run `mise trust`. Every fresh clone and every new worktree hits this.
-- Frontend tests failing locally while CI is green usually means `node_modules`
-  is a bun install on top of an old pnpm tree. Delete it and reinstall.
 
 ## Documentation
 
@@ -366,30 +57,19 @@ When you add or change a page:
   `docs/log.md`.
 - Never add AI attribution, so no `generated:` or `verified:` frontmatter.
 
-Deployment stays in `deploy/README.md`, next to the compose files it describes.
+Deployment is documentation like everything else: the runbook is
+[Deploy to the VPS](../docs/how-to/deploy-to-the-vps.md) and the reasoning is
+[Two environments](../docs/explanation/environments.md). `deploy/README.md`
+only points at them.
 
 Documentation describes what the code does now. If a change makes a page wrong,
 fix the page in the same pull request.
 
 ## Development workflow
 
-Test-driven, red-green-refactor. Write the failing test, watch it fail for the
-right reason, then write the code. The repo has real tests on both sides:
-pytest in `backend/tests/`, vitest in `frontend/tests/`.
+Work happens on a branch and lands through a pull request. 
 
-Work happens on a branch and lands through a pull request. Lefthook runs `lint`
-before a commit and the tests plus the frontend typecheck before a push. CI
-runs Lint and Test, and both must pass before main will take the merge. Main
-requires linear history and merge commits are off, so squash or rebase.
-
-The version lives in `backend/pyproject.toml` and nowhere else; the backend
-reads it back off the installed package. A release is a bump plus a tag, and the
-deploy workflow refuses one whose tag disagrees. The sequence, and how to read
-the next number off the commit subjects, is in
 [Cut a release](../docs/how-to/cut-a-release.md).
-
-Verify before you claim. A change is done when you have run the thing, not when
-it looks right.
 
 ## Coding standards
 
@@ -409,18 +89,3 @@ it looks right.
   rule. Nothing enforces this automatically, so it is on you.
 - **Never add AI attribution** to commits, PRs, code or docs. No "Generated
   with", no "Co-Authored-By: Claude".
-
-## Writing style
-
-Applies to all prose: docs, commit messages, PR bodies, code comments.
-
-- No em-dashes (—) or en-dashes (–). Rewrite with commas, periods, colons,
-  semicolons, parentheses, or split the sentence.
-- No hyphens standing in for punctuation mid-sentence. Hyphens inside compound
-  words are fine, and markdown horizontal rules are structural.
-- Short words over long ones, active over passive, and cut what does not earn
-  its place.
-
-One exception, and it is deliberate: `index.md` files in `docs/` use the
-`* [Title](url) - description` form because OKF specifies that shape for
-directory listings.
