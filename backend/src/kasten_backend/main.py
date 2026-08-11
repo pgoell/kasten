@@ -42,7 +42,7 @@ from kasten_backend.vault import (
     resolve_path,
     write_note,
 )
-from kasten_backend.vcs import begin_change, snapshot
+from kasten_backend.vcs import begin_change, snapshot, write_ignores
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -58,6 +58,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     on, and the vault the process serves is the vault this writes into.
     """
     settings = get_settings()
+    # Before the guide, whose write takes a jj snapshot. A book already sitting
+    # in the vault would be swept into it.
+    write_ignores(settings.vault_path)
     await write_guide(settings.vault_path)
     await purge_trash(settings.vault_path, settings.trash_days)
     yield
