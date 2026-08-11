@@ -7,6 +7,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [mise tasks](mise-tasks.md) - every task defined in mise.toml, by group
 * [HTTP API](http-api.md) - every endpoint the backend serves, with its response shape
 * [Note frontmatter](note-frontmatter.md) - the YAML block every note carries, which fields kasten manages, and when they are written
+* [Exam format](exam-format.md) - the note a practice exam is written in, every part it can carry, the two places an answer goes, what a sitting scores, and where the result note lands
 * [Todo format](todo-format.md) - the line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the terms that filter one, and the note that saves them
 * [Configuration](configuration.md) - every backend setting, its default, and where the values come from
 * [Editor keys](editor-keys.md) - every keyboard binding kasten adds, the mode each one applies in, the prompt, finder and search they open, and how a wikilink is followed

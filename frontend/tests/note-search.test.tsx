@@ -61,7 +61,7 @@ it("asks the vault for what was typed", async () => {
 
   search.type("postgres");
 
-  await waitFor(() => expect(searchNotes).toHaveBeenCalledWith("postgres"));
+  await waitFor(() => expect(searchNotes).toHaveBeenCalledWith("postgres", false));
 });
 
 it("asks nothing of the vault until the typing settles", async () => {
@@ -73,7 +73,7 @@ it("asks nothing of the vault until the typing settles", async () => {
 
   // One query for the word, not one per letter. Every keystroke firing its own
   // scan is the thing the delay exists to stop.
-  await waitFor(() => expect(searchNotes).toHaveBeenCalledWith("pos"));
+  await waitFor(() => expect(searchNotes).toHaveBeenCalledWith("pos", false));
   expect(searchNotes).toHaveBeenCalledTimes(1);
 });
 
@@ -248,7 +248,7 @@ describe("backlinks", () => {
 
     // Every link to the note carries its name, whether it spelled the path out
     // or not, so the name is the one query that cannot miss one.
-    await waitFor(() => expect(searchNotes).toHaveBeenCalledWith("borges"));
+    await waitFor(() => expect(searchNotes).toHaveBeenCalledWith("borges", false));
   });
 
   it("keeps the lines that link here and drops the ones that only say the name", async () => {

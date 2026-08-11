@@ -47,6 +47,7 @@ const NOTES = 10000;
 /** The keys reach these. Nothing here presses one. */
 const INERT: TreeCommands = {
   toggleTree: () => {},
+  toggleArchive: () => {},
   togglePreview: () => {},
   closeNote: () => {},
   showHelp: () => {},
@@ -68,6 +69,7 @@ const INERT: TreeCommands = {
   openQuarterly: vi.fn(),
   openYearly: vi.fn(),
   openBook: vi.fn(),
+  openExam: vi.fn(),
   renameFolder: () => {},
   createTab: () => {},
   openTerminal: () => {},

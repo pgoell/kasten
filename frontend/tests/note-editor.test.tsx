@@ -57,6 +57,7 @@ function OpenNote({ path }: { path: string }) {
   const commands = useMemo<EditorCommands>(
     () => ({
       toggleTree: () => {},
+      toggleArchive: () => {},
       togglePreview: () => {},
       closeNote: () => {},
       showHelp: () => {},
@@ -76,6 +77,7 @@ function OpenNote({ path }: { path: string }) {
       openQuarterly: vi.fn(),
       openYearly: vi.fn(),
       openBook: vi.fn(),
+      openExam: vi.fn(),
       focusTree: () => {},
       createTab: () => {},
       openTerminal: () => {},

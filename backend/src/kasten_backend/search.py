@@ -47,6 +47,35 @@ class Hit(NamedTuple):
 SEEN_BY_THE_LISTING = ("--no-ignore", "--glob", "*.md")
 
 
+def skipping(folder: str | None) -> tuple[str, ...]:
+    """The flags that keep a folder out of a scan, or none at all.
+
+    The leading `**/` is not decoration. rg matches a glob against the path it
+    prints, and the scans below hand it the vault as an absolute path, so a
+    pattern anchored the gitignore way, `98 Archive/**`, is matched against
+    `/home/pascal/kasten-data/vault/98 Archive/old.md` and never fires. The
+    absolute path cannot be built into the glob instead: a vault living under a
+    directory whose name holds `[`, `*` or `?` would turn into a pattern that
+    means something else.
+
+    So this is unanchored, and the cost is stated rather than hidden: a folder
+    of this name nested anywhere in the vault is skipped too, not only the one
+    at the top. For a filing convention that is the wanted reading, and
+    `98 Archived plans` is untouched either way because a path component has to
+    match the name whole.
+
+    It goes after `SEEN_BY_THE_LISTING`, where rg's last-match-wins rule lets a
+    negation overrule the `*.md` whitelist in front of it.
+
+    Note what this is not applied to: `notes_holding` below, which is what a
+    move reads to find the notes naming what moved. An archived note holding a
+    link is still a link to rewrite, and skipping it there would leave a broken
+    one behind. Leaving a folder out of a search is a convenience; leaving it
+    out of a rewrite is data loss.
+    """
+    return () if folder is None or folder == "" else ("--glob", f"!**/{folder}/**")
+
+
 class SearchError(RuntimeError):
     """rg could not read the whole vault, so its answer is not the whole answer.
 
@@ -95,7 +124,9 @@ async def notes_holding(root: Path, text: str) -> list[str]:
     return [str(Path(path).relative_to(root)) for path in found if path]
 
 
-async def scan_vault(root: Path, matcher: Sequence[str], cap: int) -> list[Hit]:
+async def scan_vault(
+    root: Path, matcher: Sequence[str], cap: int, skip: str | None = None
+) -> list[Hit]:
     """Every line rg matches, up to `cap`. `matcher` carries the pattern and its flags.
 
     Every reader of lines goes through here, so the two cannot drift into
@@ -116,6 +147,7 @@ async def scan_vault(root: Path, matcher: Sequence[str], cap: int) -> list[Hit]:
         # A reader has to see exactly what `GET /api/files` lists, and these are
         # where rg would otherwise disagree with it.
         *SEEN_BY_THE_LISTING,
+        *skipping(skip),
         *matcher,
         # `--` so a path starting with a dash is a path and not a flag.
         "--",
@@ -147,8 +179,14 @@ async def scan_vault(root: Path, matcher: Sequence[str], cap: int) -> list[Hit]:
     return hits
 
 
-async def search_vault(root: Path, query: str) -> list[Hit]:
-    """Every line in the vault containing `query`, ignoring case, up to `MOST_HITS`."""
+async def search_vault(root: Path, query: str, skip: str | None = None) -> list[Hit]:
+    """Every line in the vault containing `query`, ignoring case, up to `MOST_HITS`.
+
+    `skip` names a folder to walk past, which is how the archive stays out of a
+    search by default. It matters more here than it looks: `MOST_HITS` caps what
+    comes back, so an archive that grows without bound would eventually crowd
+    live notes out of the answer rather than merely padding it.
+    """
     # An empty literal matches every line there is, so the query that has not
     # been typed yet would be the most expensive one the vault can answer.
     if not query.strip():
@@ -159,4 +197,4 @@ async def search_vault(root: Path, query: str) -> list[Hit]:
     # client is what makes the result feel fuzzy. `-e` so a query starting with
     # a dash is a query and not a flag.
     matcher = ("--fixed-strings", "--ignore-case", "-e", query)
-    return await scan_vault(root, matcher, MOST_HITS)
+    return await scan_vault(root, matcher, MOST_HITS, skip)

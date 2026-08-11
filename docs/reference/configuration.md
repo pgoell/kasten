@@ -29,6 +29,25 @@ Dev points at kasten's own compose Postgres, published on the host at 5434. It
 cannot use the shared `postgres` container on the VPS: that one publishes no
 host port, and the dev backend runs on the host rather than in a container.
 
+## KASTEN_ARCHIVE_PATH
+
+```
+98 Archive
+```
+
+The folder holding what is finished, which `GET /api/search` and
+`GET /api/todos` walk past unless the request asks for it.
+
+An ordinary folder in the vault, and this name is the only thing kasten knows
+about it. Nothing writes into it, nothing moves anything into it, and a note in
+it opens, saves, renames and deletes like any other.
+
+`GET /api/files` is deliberately never filtered by it. That listing is what
+resolves a `[[wikilink]]`, and a link to an archived note reading as a dead one
+would make a second note in the inbox out of a note the vault already holds.
+
+Set it to a name no folder has and nothing is left out of anything.
+
 ## KASTEN_TRASH_DAYS
 
 ```

@@ -27,6 +27,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
+| `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
 | `<leader>ct` | Start a tab, on one empty pane |
 | `<leader>cw` | Import a web page into the inbox |
 | `<leader>df` | Move the open note into the trash |
@@ -37,6 +38,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>ft` | Open the todo overlay |
 | `<leader>gb` | Show what links to the open note |
 | `<leader>gd` | Open today's note |
+| `<leader>ge` | Sit the open note as a practice exam |
 | `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
 | `<leader>gq` | Open this quarter's note |

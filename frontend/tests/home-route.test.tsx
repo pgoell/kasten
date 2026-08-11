@@ -1072,4 +1072,59 @@ describe("a reader when the vault moves under it", () => {
     expect(fetchBook).toHaveBeenCalledTimes(1);
     expect(app.alert()).not.toBeNull();
   });
+  describe("the archive", () => {
+    /** A vault holding one live note and one filed away. */
+    const FILED = ["index.md", "98 Archive/old cert.md"];
+
+    it("keeps the archive out of the tree until the key asks for it", async () => {
+      fetchFiles.mockResolvedValue(FILED);
+      const app = await renderApp();
+      await settle();
+
+      // The folder, not the note in it: the tree draws a folder folded, so its
+      // name appearing is the whole of what the toggle changes up here.
+      expect(app.tree().textContent).not.toContain("98 Archive");
+
+      app.leader("a");
+      await settle();
+
+      expect(app.tree().textContent).toContain("98 Archive");
+    });
+
+    it("asks the vault for the archive once the key is on, and not before", async () => {
+      // Through the todo overlay, which is the one lookup that asks the vault
+      // the moment it opens. What is pinned is that the flag reaches the
+      // request at all: without it the backend goes on skipping the archive
+      // whatever the key says, and the toggle would half work.
+      fetchFiles.mockResolvedValue(FILED);
+      const app = await renderApp();
+      await settle();
+
+      app.leader("f", "t");
+      await settle();
+      expect(fetchTodos).toHaveBeenCalledWith(false);
+
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+      await settle();
+      app.leader("a");
+      await settle();
+      app.leader("f", "t");
+      await settle();
+
+      expect(fetchTodos).toHaveBeenCalledWith(true);
+    });
+
+    it("says on the status bar when the archive is showing", async () => {
+      fetchFiles.mockResolvedValue(FILED);
+      const app = await renderApp();
+      await settle();
+
+      expect(document.querySelector("[data-testid='archive-shown']")).toBeNull();
+
+      app.leader("a");
+      await settle();
+
+      expect(document.querySelector("[data-testid='archive-shown']")).not.toBeNull();
+    });
+  });
 });

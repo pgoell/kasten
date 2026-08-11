@@ -72,12 +72,23 @@ Real, working code, not a plan:
   `/api/terminals` is the one endpoint that reads nothing of the vault: it
   lists the shell container's herdr sessions off a read-only mount of that
   container's volume, so the prompt can offer the ones that already exist.
-  Starting the backend writes `99 Misc/01 Config/01 Agents/How-To-TODO.md`
-  into a vault holding none: the note telling an agent how this vault's todos
-  are written, every field and its values, and that ticking one done goes
+  Starting the backend writes `99 Misc/01 Config/01 Agents/How-To-TODO.md` and
+  `How-To-Exam.md` beside it into a vault holding none: the notes telling an
+  agent how this vault's todos and its practice exams are written, every field
+  and its values, and that ticking a todo done goes
   through `PUT /api/files/{path}` while everything else is a text edit. At
-  startup rather than on a key press, because the agents reading it are not all
-  inside the app.
+  startup rather than on a key press, because the agents reading them are not
+  all inside the app. Each is written on its own, so a vault that kept one and
+  deleted the other gets back what it is missing.
+  `/api/search` and `/api/todos` take an `archive` flag, off by default, which
+  is the one thing kasten knows about `KASTEN_ARCHIVE_PATH`, `98 Archive`: rg is
+  handed a glob that walks past it. Not an optimisation. Search caps its answer
+  at 2,000 lines, so an archive left in would eventually push live notes out of
+  it rather than merely padding it. `/api/files` is deliberately never filtered,
+  that listing being what resolves a `[[wikilink]]`, and a link into the archive
+  reading as dead would make an empty second copy in `00 Inbox`; a move's link
+  rewrite skips nothing either. The folder is otherwise ordinary and nothing
+  writes into it.
   Settings via pydantic-settings with the `KASTEN_` prefix.
 - `frontend/`: React 19, Vite, TanStack Router and Query, Tailwind 4,
   CodeMirror 6 with vim mode, bun. A vault file tree, and a markdown editor
@@ -223,6 +234,29 @@ Real, working code, not a plan:
   production and by a Vite plugin with a minted nonce in development; the
   iframe sandbox is foliate's and cannot be reached, which
   [Books in the vault](../docs/explanation/books-in-the-vault.md) explains.
+  `Space g e` sits the open note as a practice exam in its own pane, a fifth
+  thing a pane can hold beside a note, a terminal, the todo list and a book. An exam is one note and the note is the whole exam;
+  nothing marks one, so a note holding a `### Question` heading with lettered
+  options under it is an exam and one holding neither is not, which is
+  `parseTodo`'s bargain with a line. The format was read off the four Claude
+  certification exams the vault already held rather than imposed on them, and
+  then loosened everywhere that was free, those being one exam series among
+  however many come next: `Question` or `Q`, any heading level, the answer under
+  the question or in a key at the back keyed by number, `Correct` or `Answer`,
+  an em-dash or a hyphen, bold options or bare, `select TWO` or `choose 2`, and
+  any heading at all as the section a question is scored under. An answer under
+  the question wins over the key, the key being where a stale copy lives. A
+  question whose answer is not a letter cannot be asked, so it is left out and
+  the footer says how many, `ccar-p` holding five of them. `A` to `J` pick,
+  `h l` walk, `r` shows the answer and the rationale, `g` scores and `q`
+  closes. Finishing writes one note per sitting into a folder beside the exam,
+  holding the score, the score per section and every missed question with what
+  you answered and why it was wrong; the exam note is never written to. Answers
+  are held in the browser until `g`, so a reload loses a sitting, and nothing is
+  shuffled.
+  `Space a` shows or hides the archive in the tree, the finder, search and the
+  todos, one mode rather than a filter term on each, and the status bar says
+  which one you are in. It is React state, so a reload puts it back to hidden.
   `Space c w` takes one web address and puts the page in `00 Inbox` as a note,
   open in the focused pane. The reading is defuddle, kepano's extractor and the
   one behind Obsidian's web clipper, running here because it reads a DOM; the
@@ -285,7 +319,8 @@ pick the few notes it has to read, so there is no link table either.
 
 Not built yet: making a folder on its own, merging two folders, browsing the
 trash beyond `<leader>du`, uploading a book from the app, remembering where you
-stopped reading one, and anything that writes to Postgres.
+stopped reading one, shuffling an exam or resuming a sitting after a reload,
+and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 

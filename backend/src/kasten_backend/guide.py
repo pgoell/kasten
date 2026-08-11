@@ -1,13 +1,17 @@
-"""The note that tells an agent how this vault's todos are written.
+"""The notes that tell an agent how this vault's own formats are written.
 
-Every vault gets one, written at startup when it holds none, because the agents
-that read it do not all live in the app: one in a terminal pane and one on your
-laptop both find it by opening the note. A key press could not write it, since
-the agent outside the app never presses one.
+Every vault gets them, written at startup when it holds none, because the agents
+that read them do not all live in the app: one in a terminal pane and one on
+your laptop both find them by opening the note. A key press could not write
+them, since the agent outside the app never presses one.
 
-It is a note like any other after that. Edit it, move it, delete it; a deleted
-one comes back the next time the backend starts, which is the same bargain the
-saved views note makes.
+They are notes like any other after that. Edit one, move it, delete it; a
+deleted one comes back the next time the backend starts, which is the same
+bargain the saved views note makes.
+
+Two of them now. A todo is a line and an exam is a note, and neither format is
+guessable from the other, so each gets the page it needs rather than one page
+trying to be both.
 """
 
 from pathlib import Path
@@ -17,26 +21,33 @@ from kasten_backend.vault import create_note, resolve_path
 from kasten_backend.vcs import begin_change, snapshot
 
 GUIDE_PATH = "99 Misc/01 Config/01 Agents/How-To-TODO.md"
-"""Where it lives, beside the saved views the todo pane writes."""
+"""Where the todo guide lives, beside the saved views the todo pane writes."""
 
-GUIDE_TEXT = (Path(__file__).parent / "how-to-todo.md").read_text(encoding="utf-8")
-"""What it says, read off the package once rather than spelled in Python.
+EXAM_GUIDE_PATH = "99 Misc/01 Config/01 Agents/How-To-Exam.md"
+"""Where the exam guide lives, beside the one above."""
 
-Markdown in a Python string is markdown nobody can read in a diff, and this one
-is the length of a documentation page.
-"""
+# Read off the package once rather than spelled in Python. Markdown in a Python
+# string is markdown nobody can read in a diff, and both of these are the length
+# of a documentation page.
+GUIDES = {
+    GUIDE_PATH: (Path(__file__).parent / "how-to-todo.md").read_text(encoding="utf-8"),
+    EXAM_GUIDE_PATH: (Path(__file__).parent / "how-to-exam.md").read_text(encoding="utf-8"),
+}
 
 
 async def write_guide(root: Path) -> None:
-    """Write the guide into `root`, unless the vault holds one already.
+    """Write the guides into `root`, skipping each one the vault already holds.
 
-    Bracketed by a jj change the way every other write is, so the note arrives
-    in the history rather than as a surprise in somebody's next diff.
+    Each is bracketed by a jj change the way every other write is, so the note
+    arrives in the history rather than as a surprise in somebody's next diff.
+    One at a time rather than one change for both, so a vault that has kept one
+    and deleted the other gets a change naming what actually came back.
     """
-    note = resolve_path(root, GUIDE_PATH)
-    if note is None or note.exists():
-        return
+    for path, text in GUIDES.items():
+        note = resolve_path(root, path)
+        if note is None or note.exists():
+            continue
 
-    await begin_change(root, GUIDE_PATH)
-    create_note(note, stamp(GUIDE_TEXT))
-    await snapshot(root)
+        await begin_change(root, path)
+        create_note(note, stamp(text))
+        await snapshot(root)

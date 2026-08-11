@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookPane } from "@/components/book-pane";
 import { ClipPrompt } from "@/components/clip-prompt";
 import { Editor } from "@/components/editor";
+import { ExamPane } from "@/components/exam-pane";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
@@ -28,6 +29,7 @@ import {
   restoreEntry,
   type SearchHit,
 } from "@/lib/api";
+import { visible } from "@/lib/archive";
 import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
@@ -44,6 +46,7 @@ import {
   mapPanes,
   nextPane,
   openBookBeside,
+  openExamInFocused,
   openInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -84,6 +87,15 @@ interface HomeSearch {
 
 function Home() {
   const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
+  /**
+   * Whether the archive is in what the four lookups answer with.
+   *
+   * React state and nothing more, so a reload puts it back to hidden. That is
+   * the same bargain the pane arrangement makes, and the safer default of the
+   * two: a lookup that quietly kept showing finished work would be the mode you
+   * forgot you were in.
+   */
+  const [archive, setArchive] = useState(false);
   const { note, line } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
@@ -714,7 +726,12 @@ function Home() {
         // back to an editor and no way to reach any leader key. Nothing is
         // lost: closing the socket detaches a client, and the herdr session
         // goes on running.
-        if (pane.term !== undefined || pane.todos === true || pane.book !== undefined) {
+        if (
+          pane.term !== undefined ||
+          pane.todos === true ||
+          pane.book !== undefined ||
+          pane.exam !== undefined
+        ) {
           moveTo(clearFocused);
           return;
         }
@@ -725,6 +742,9 @@ function Home() {
         if (await saveFirst()) moveTo(clearFocused);
       },
       showHelp: () => setHelpOpen(true),
+      // No `saveFirst`: this opens nothing and moves no path, it only changes
+      // what four lookups answer with.
+      toggleArchive: () => setArchive((previous) => !previous),
       // Saved first the way a rename is, and for the same reason: the note a
       // create makes is opened in the focused pane, which moves the autosave's
       // path out from under text still waiting for the note being left.
@@ -812,6 +832,14 @@ function Home() {
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
       },
+      // Saved first the way `openTodos` is, and for the same reason: this
+      // replaces the focused pane, so text still waiting would be written to a
+      // pane the autosave no longer follows.
+      openExam: async () => {
+        if (pane.path === undefined) return;
+        const note = pane.path;
+        if (await saveFirst()) moveTo((previous) => openExamInFocused(previous, note));
+      },
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -851,6 +879,7 @@ function Home() {
       pane.term,
       pane.todos,
       pane.book,
+      pane.exam,
       data,
       queryClient,
     ],
@@ -895,7 +924,10 @@ function Home() {
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer
-          paths={data ?? []}
+          // Filtered here rather than at the fetch. The unfiltered listing is
+          // what resolves a `[[wikilink]]`, so the editors below still get
+          // `data` whole and `gf` into the archive works with this off.
+          paths={visible(data ?? [], archive)}
           openPath={pane.path}
           onOpenFile={(path) => void openInPane(path)}
           open={treeOpen}
@@ -938,6 +970,7 @@ function Home() {
                     onSubtask={(hit) => setTodoPrompt({ parent: hit })}
                     onEdit={editTodo}
                     onTimer={toggleTimer}
+                    archive={archive}
                     focusSignal={focused ? focusSignal : 0}
                     // Read at the render rather than inside the pane, which
                     // stays a function of the strings it is handed. A tab left
@@ -945,6 +978,13 @@ function Home() {
                     // something makes it render, which is what the event stream
                     // does the moment anything is written.
                     today={readClock(new Date()).date}
+                  />
+                ) : shown.exam !== undefined ? (
+                  <ExamPane
+                    note={shown.exam}
+                    commands={commands}
+                    onOpen={(path) => void openInPane(path)}
+                    focusSignal={focused ? focusSignal : 0}
                   />
                 ) : shown.book !== undefined ? (
                   <BookPane
@@ -1021,6 +1061,7 @@ function Home() {
         status={pane.path === undefined ? undefined : status}
         reason={reason}
         flash={refused}
+        archive={archive}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {clipPrompt && (
@@ -1108,7 +1149,9 @@ function Home() {
           same. Only how short the list is differs. */}
       {(finderOpen || linksOut !== null) && (
         <NoteFinder
-          paths={linksOut ?? data ?? []}
+          // The outgoing links are left whole: a link this note really holds is
+          // worth showing wherever it points, archive included.
+          paths={linksOut ?? visible(data ?? [], archive)}
           outgoing={linksOut !== null}
           onOpen={(path) => {
             setFinderOpen(false);
@@ -1132,6 +1175,7 @@ function Home() {
         <NoteSearch
           backlinksOf={backlinksOf}
           todos={todosOpen}
+          archive={archive}
           paths={data}
           onOpen={(path, hitLine) => {
             setSearchOpen(false);

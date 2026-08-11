@@ -113,7 +113,7 @@
     "/api/search": {
       "get": {
         "summary": "Search Files",
-        "description": "Find every line in the vault containing `q`, ignoring case.\n\nA literal match, not a regex and not a fuzzy one. The client ranks what\ncomes back, which is what makes the finder feel fuzzy without asking a\nsubsequence match to mean something over prose, where it matches everything.",
+        "description": "Find every line in the vault containing `q`, ignoring case.\n\nA literal match, not a regex and not a fuzzy one. The client ranks what\ncomes back, which is what makes the finder feel fuzzy without asking a\nsubsequence match to mean something over prose, where it matches everything.\n\n`archive` walks the archive folder too. Off by default, because what is\nfiled away is not usually what is being looked for, and the cap on what\ncomes back means an archive left in would eventually push live notes out of\nthe answer rather than merely lengthening it.",
         "operationId": "search_files_api_search_get",
         "parameters": [
           {
@@ -123,6 +123,16 @@
             "schema": {
               "type": "string",
               "title": "Q"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
             }
           }
         ],
@@ -157,19 +167,41 @@
     "/api/todos": {
       "get": {
         "summary": "List Todos",
-        "description": "Find every checkbox line and every time session line in the vault.\n\nCandidate lines, not todos. Whether one of these is open, overdue or a\nsubtask of the line above it is read on the client, off the same parser the\neditor draws a todo with, so the vault has one reader of the format rather\nthan two in two languages.\n\nAnswers in search's shape, which is what lets the overlay rank these through\nthe ranking it already has and open a note on the line it found.",
+        "description": "Find every checkbox line and every time session line in the vault.\n\nCandidate lines, not todos. Whether one of these is open, overdue or a\nsubtask of the line above it is read on the client, off the same parser the\neditor draws a todo with, so the vault has one reader of the format rather\nthan two in two languages.\n\nAnswers in search's shape, which is what lets the overlay rank these through\nthe ranking it already has and open a note on the line it found.\n\n`archive` walks the archive folder too, and is off for the reason it is off\non a search: a finished project's open checkboxes are true of the note and\nfalse of the week.",
         "operationId": "list_todos_api_todos_get",
+        "parameters": [
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/SearchHit"
                   },
-                  "type": "array",
                   "title": "Response List Todos Api Todos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
