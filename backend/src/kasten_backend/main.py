@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
@@ -35,6 +35,7 @@ from kasten_backend.vault import (
     relative_path,
     rename_folder,
     rename_note,
+    resolve_asset,
     resolve_folder,
     resolve_folder_path,
     resolve_note,
@@ -421,6 +422,30 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
             watching.cancel()
 
     return StreamingResponse(report(), media_type="text/event-stream")
+
+
+@app.get("/api/assets/{path:path}", response_class=FileResponse)
+async def read_asset(
+    path: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> FileResponse:
+    """Read one book out of the vault.
+
+    The only endpoint that answers with bytes rather than with a note. It
+    resolves a path, checks a suffix and streams a file; it never opens the
+    archive, so nothing here knows what an epub is beyond its name.
+
+    No `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and
+    starlette reads it off the path. `Range` comes free with `FileResponse` and
+    nothing uses it, the client asking for the whole file once.
+
+    Deliberately unpaired. Getting a book into the vault is the shell pane's job
+    for now.
+    """
+    asset = resolve_asset(settings.vault_path, path)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="No such book")
+
+    return FileResponse(asset)
 
 
 @app.get("/api/files/{path:path}")

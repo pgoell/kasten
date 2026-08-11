@@ -13,6 +13,13 @@ if TYPE_CHECKING:
 SUFFIX = ".md"
 """What a note's name ends in, which is the one rule a folder does not share."""
 
+ASSET_SUFFIX = ".epub"
+"""What a book's name ends in.
+
+Spelled out rather than passed in. kasten reads one format, and nothing here
+promises anything about mobi or cbz.
+"""
+
 _NAME_LIMIT_BYTES = 255
 """The longest one path segment may be, in UTF-8 bytes.
 
@@ -132,6 +139,33 @@ def resolve_path(root: Path, relative: str) -> Path | None:
     """
     path = _resolve_inside(root, relative)
     if path is None or path.suffix != SUFFIX:
+        return None
+
+    return path
+
+
+def resolve_asset_path(root: Path, relative: str) -> Path | None:
+    """Return the real path of a legal book location under `root`, or None.
+
+    What `resolve_path` is to a note, read for a book. The suffix is the one
+    rule that differs, and it is the one rule out here.
+    """
+    path = _resolve_inside(root, relative)
+    if path is None or path.suffix != ASSET_SUFFIX:
+        return None
+
+    return path
+
+
+def resolve_asset(root: Path, relative: str) -> Path | None:
+    """Return the real path of one book under `root`, or None when there is none.
+
+    The `is_file` is what makes the 404 real. Starlette's `FileResponse` stats
+    the path inside `__call__` and raises for one that is absent and again for
+    one that is not a regular file, which reaches the client as a 500.
+    """
+    path = resolve_asset_path(root, relative)
+    if path is None or not path.is_file():
         return None
 
     return path
