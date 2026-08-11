@@ -43,6 +43,14 @@ export class FakeView extends HTMLElement {
   nexts = 0;
   prevs = 0;
   styles: string | null = null;
+  /**
+   * The options of every `init` call, in order.
+   *
+   * An array rather than a field holding the last: with no `reading:` set, `{}`
+   * and `{ lastLocation: undefined }` are equal to `toEqual`, so a last-call
+   * field cannot tell a second `init` from a first.
+   */
+  inits: object[] = [];
   renderer: { setStyles?: (css: string) => void };
   /** The document foliate would hand out per section. Tests fire their events on it. */
   section: Document = document.implementation.createHTMLDocument("section");
@@ -64,7 +72,8 @@ export class FakeView extends HTMLElement {
     if (FakeView.openWith) await FakeView.openWith();
   }
 
-  async init(_options: object): Promise<void> {
+  async init(options: object): Promise<void> {
+    this.inits.push(options);
     if (FakeView.initWith) await FakeView.initWith();
     this.started = true;
   }

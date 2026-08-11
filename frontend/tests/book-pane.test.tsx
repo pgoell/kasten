@@ -6,8 +6,8 @@ import { bookPath } from "@/lib/note-path";
 import { deferred, defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
 import { stubCommands } from "./stub-commands";
 
-const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchBook }));
+const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
+vi.mock("@/lib/api", () => ({ fetchBook, fetchNote }));
 
 // The factory is not optional. A bare `vi.mock(path)` automocks, and vitest's
 // automock keeps the module body and replaces only its exports, so the real
@@ -20,6 +20,20 @@ const BOOK = "20 Literature/DDIA.epub";
 
 /** What the One background reads as, so the styling case has a value to find. */
 const BACKGROUND = "#282c34";
+
+/** A place in a book, as the note's block holds it. */
+const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
+
+/** The literature note, with `reading:` set or with nothing in the block. */
+function noteWith(cfi?: string): string {
+  return [
+    "---",
+    "id: one",
+    ...(cfi === undefined ? [] : [`reading: ${cfi}`]),
+    "---",
+    "# DDIA",
+  ].join("\n");
+}
 
 defineFoliateFake();
 
@@ -67,6 +81,10 @@ describe("BookPane", () => {
   beforeEach(() => {
     resetFoliateFake();
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    // A string and not undefined: the pane reads a field off what this answers,
+    // and `mockResolvedValue(undefined)` is a default too, one that draws the
+    // error panel over every case in this file.
+    fetchNote.mockResolvedValue("");
     document.documentElement.style.setProperty("--color-one-bg", BACKGROUND);
   });
 
@@ -78,6 +96,43 @@ describe("BookPane", () => {
   it("draws the book once the bytes arrive", async () => {
     draw();
 
+    await waitFor(() => expect(lastView().started).toBe(true));
+    expect(panel()).toBeNull();
+  });
+
+  it("opens the book where the note says the reader stopped", async () => {
+    fetchNote.mockResolvedValue(noteWith(CFI));
+
+    draw();
+
+    await waitFor(() => expect(lastView().started).toBe(true));
+    expect(lastView().inits[0]).toEqual({ lastLocation: CFI });
+  });
+
+  it("opens a book whose note names no place at the front", async () => {
+    fetchNote.mockResolvedValue(noteWith());
+
+    draw();
+
+    await waitFor(() => expect(lastView().started).toBe(true));
+    // The key present and undefined, rather than the value alone: `view.init({})`
+    // carries no `lastLocation` either, so asserting undefined would pass before
+    // the pane read anything at all.
+    const [first] = lastView().inits;
+    expect(first).toHaveProperty("lastLocation");
+    expect(first).toEqual({ lastLocation: undefined });
+  });
+
+  it("still draws the book when its note cannot be read", async () => {
+    // A book whose note the vault will not answer for is still a book you can
+    // read, so the failure arm answers with no text rather than the panel.
+    fetchNote.mockRejectedValue(new Error("GET /api/files/20 Literature/DDIA.md failed with 404"));
+
+    draw();
+
+    // That the note was asked for at all, for the reason above: nothing calls
+    // it before this slice, so a case looking only at the panel starts green.
+    await waitFor(() => expect(fetchNote).toHaveBeenCalledWith(NOTE));
     await waitFor(() => expect(lastView().started).toBe(true));
     expect(panel()).toBeNull();
   });
@@ -216,6 +271,7 @@ describe("the keys inside a book", () => {
   beforeEach(() => {
     resetFoliateFake();
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchNote.mockResolvedValue("");
   });
 
   afterEach(() => {

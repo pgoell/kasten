@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchBook } from "@/lib/api";
+import { fetchBook, fetchNote } from "@/lib/api";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
+import { readField } from "@/lib/note-frontmatter";
 import { bookPath } from "@/lib/note-path";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
@@ -188,14 +189,25 @@ export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPa
           view.close();
           return;
         }
+        // Where the reader stopped, which is one line of the note's own block.
+        // A two-arm `then` and not a catch: a book whose note the vault will
+        // not answer for is still a book you can read, and drawing
+        // `No book at ...` over a working epub because a `GET` blipped would be
+        // a lie. So the failure arm answers with no text and the book opens at
+        // the front.
+        const text = await fetchNote(note).then(
+          (held) => held,
+          () => "",
+        );
         // The `?.` is load-bearing. foliate swaps in `fixed-layout.js` for a
         // pre-paginated book and that renderer has no `setStyles`, so a plain
         // call throws on a valid epub.
         view.renderer?.setStyles?.(pageStyles());
         // Not optional. `View.open` builds the renderer and mounts it but
         // navigates nowhere, so a pane that stops above draws a blank page and
-        // every key looks broken.
-        await view.init({});
+        // every key looks broken. Undefined is the front of the book, which is
+        // what `init` falls through to.
+        await view.init({ lastLocation: readField(text, "reading") });
         if (cancelled) view.close();
       } catch (error_) {
         // Every way a book fails to open arrives as an `Error`: a `NotFoundError`

@@ -20,13 +20,27 @@ import "@/styles/app.css";
 
 const NOTE = "20 Literature/Plain.md";
 
-const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
+/**
+ * The top of the fixture's second chapter, spelled against its own spine.
+ *
+ * `/6/4` is the second `itemref` in the package, which is what `resolveCFI`
+ * turns into a spine index, and `/4/4/1:0` is the start of the one paragraph in
+ * that chapter's body.
+ */
+const CHAPTER_TWO = "epubcfi(/6/4!/4/4/1:0)";
+
+/** The literature note as the vault holds it, with a place in it. */
+function noteAt(cfi: string): string {
+  return `---\nid: one\nreading: ${cfi}\n---\n# Plain\n`;
+}
+
+const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
 // The Perf job runs no backend and vite proxies `/api` to a dead port, so the
 // pane must not fetch here. Seeding the query instead is a trap: seeded data is
 // stale at once under the default staleTime, so mounting refetches against the
 // dead proxy anyway and the rejection swaps the error panel in over a book that
 // already drew.
-vi.mock("@/lib/api", () => ({ fetchBook }));
+vi.mock("@/lib/api", () => ({ fetchBook, fetchNote }));
 
 /** Every `relocate` foliate emitted, recorded from before the first navigation. */
 const located: { cfi?: string }[] = [];
@@ -89,8 +103,15 @@ async function clickInside(pane: Element, doc: Document, selector: string) {
 
 let mounted: { root: Root; container: HTMLElement } | null = null;
 
-async function drawBook() {
+/**
+ * Mount the reader over the fixture, beside a note the caller writes.
+ *
+ * `note` is the literature note's whole text, which is where `reading:` lives
+ * and so where the restore cases put the cfi they are about.
+ */
+async function drawBook(note = "") {
   fetchBook.mockResolvedValue(await (await fetch(plainUrl)).blob());
+  fetchNote.mockResolvedValue(note);
   const commands = stubCommands();
   const onFocus = vi.fn();
   const container = document.createElement("div");
@@ -140,6 +161,15 @@ describe("the reader over a real book", () => {
 
     await vi.waitFor(() => expect(located.length).toBeGreaterThan(0), { timeout: 10_000 });
   }, 20_000);
+
+  it("opens the chapter the note's own cfi names", async () => {
+    // The claim jsdom cannot make: the fake resolves whatever the test says,
+    // and what is in question is what foliate does with a real spine.
+    await drawBook(noteAt(CHAPTER_TWO));
+
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    expect(sections[0]?.title).toBe("Two");
+  }, 30_000);
 
   it("answers a click and the keys that follow it, from inside the iframe", async () => {
     // The case the whole design is arranged around. An event does not cross a
