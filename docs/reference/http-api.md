@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves twelve endpoints. Seven read, four write, and one streams. The
-interactive schema is at `/docs` while the backend runs, and the
+The backend serves sixteen endpoints. Eight read, seven write, and one streams.
+The interactive schema is at `/docs` while the backend runs, and the
 machine-readable one at `/openapi.json`.
 
 ## GET /api/health
@@ -585,7 +585,124 @@ would otherwise read the same. jj matches the content across each note, so the
 change reads as the renames it is rather than one subtree deleted and another
 added.
 
+## DELETE /api/files/{path}
+
+Takes one note out of the vault and holds it in the trash.
+
+```json
+{
+  "entry": "00 Inbox/borges.md@2026-08-11T14-03-02.481337",
+  "path": "00 Inbox/borges.md",
+  "deleted": "2026-08-11T14:03:02Z"
+}
+```
+
+`entry` is where the note now sits under `.trash`, and it is the name
+[the restore](#patch-apitrashentry) takes. `path` is where it lived, which is
+where a restore puts it back. `deleted` is the moment in the entry's own name.
+
+A `DELETE` that keeps the note is not a contradiction. What these routes answer
+about is what the vault holds, and the note stops being one of them the moment
+it moves: nothing lists it, nothing searches it, and no path in a URL reaches
+it, because every route refuses a hidden folder. Why it waits there rather than
+going is [Deleting a note](/explanation/deleting-a-note.md).
+
+The trash mirrors the vault. A note keeps its path and its leaf takes the moment
+it went, so the name is the whole record: where it came from, when, and no way
+to collide with a note deleted from the same path later.
+
+The folders the note came out of go with it, exactly as
+[a move](#what-a-move-leaves-behind) takes them.
+
+Links pointing at the note are left alone. A `[[link]]` names a note rather than
+a place, the editor already draws one nothing answers to as missing, and
+rewriting the vault to say a note is gone would be the one edit a restore could
+not take back.
+
+### What a delete refuses
+
+* `404` when there is no note at the path in the URL. Everything `GET` and `PUT`
+  refuse is refused here too, so a note you cannot open is a note you cannot
+  delete.
+
+A delete that lands is recorded the way a save is, named
+`vault: .trash/<entry>`. The entry rather than the note, so a delete never
+amends the change holding the edit before it and the text you last typed stays
+reachable. jj matches the content across the move and records it as a rename.
+
+## DELETE /api/folders/{path}
+
+Takes one folder out of the vault, and every note under it with it.
+
+```json
+{
+  "entry": "reading@2026-08-11T14-03-02.481337",
+  "path": "reading",
+  "deleted": "2026-08-11T14:03:02Z"
+}
+```
+
+One entry, not one per note. The folder goes in one rename and comes back in
+one, so what you get back is the folder you deleted rather than a list of notes
+to put back yourself.
+
+Its own route rather than the one above, for the reason
+[the folder move](#patch-apifolderspath) has one.
+
+### What a folder delete refuses
+
+* `404` when there is no folder at the path in the URL. A note at that path is a
+  `404` too, so the one way to delete a note stays the route above, and so is
+  the vault root.
+
+## GET /api/trash
+
+Everything the trash is holding, newest first.
+
+```json
+[
+  {
+    "entry": "00 Inbox/borges.md@2026-08-11T14-03-02.481337",
+    "path": "00 Inbox/borges.md",
+    "deleted": "2026-08-11T14:03:02Z"
+  }
+]
+```
+
+Read off the names in `.trash` rather than out of a list somebody has to keep in
+step with it. The name of an entry is the record, so a note moved out of the
+trash by hand stops being on this list by the same act.
+
+Newest first because the entry anyone wants back is usually the last one they
+deleted, and `<leader>du` takes the first row without asking.
+
+## PATCH /api/trash/{entry}
+
+Puts one entry back where it was deleted from.
+
+```json
+{ "path": "00 Inbox/borges.md" }
+```
+
+`PATCH` and no body, for the reason [a move](#patch-apifilespath) is a `PATCH`:
+this changes where something lives, and where it should live is already written
+in the entry's own name.
+
+The folders on the way back are made, the way a create makes them, because the
+delete took the empty ones with it.
+
+### What a restore refuses
+
+* `404` when the trash has no such entry. A path that climbs out of the trash is
+  a `404` too, the entry going through the same rule a note's path does.
+* `409` when something has taken the path since. The entry is left in the trash.
+* `400` when the vault will not take the path at all, which by then means
+  something is standing where one of its folders has to go.
+
+A restore that lands is recorded the way a save is, named `vault: <path>`.
+
 ## Related
 
+* [Deleting a note](/explanation/deleting-a-note.md) - why a delete keeps the note
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md) - push a change here through to the frontend
 * [Configuration](/reference/configuration.md) - which directory `/api/files` reads

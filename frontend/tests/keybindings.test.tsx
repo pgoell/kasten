@@ -16,6 +16,8 @@ function stubCommands() {
     showHelp: vi.fn(),
     createNote: vi.fn(),
     renameNote: vi.fn(),
+    deleteNote: vi.fn(),
+    restoreDeleted: vi.fn(),
     findNote: vi.fn(),
     searchNotes: vi.fn(),
     findTodos: vi.fn(),
@@ -135,6 +137,42 @@ describe("the leader key", () => {
     expect(commands.renameNote).toHaveBeenCalledTimes(1);
     // The editor names no note, so the route renames the one that is open.
     expect(commands.renameNote).toHaveBeenCalledWith(undefined);
+  });
+
+  it("runs the delete command on space then d then f", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "d" });
+    fireEvent.keyDown(editor, { key: "f" });
+
+    expect(commands.deleteNote).toHaveBeenCalledTimes(1);
+    // The editor names no note, so the route deletes the one that is open.
+    expect(commands.deleteNote).toHaveBeenCalledWith(undefined);
+  });
+
+  it("runs the restore command on space then d then u", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "d" });
+    fireEvent.keyDown(editor, { key: "u" });
+
+    expect(commands.restoreDeleted).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves vim's own d alone", () => {
+    // The leader is the space bar, so `dd` is still vim's delete line.
+    const commands = stubCommands();
+    const { editor, container } = open("first\nsecond", commands);
+
+    fireEvent.keyDown(editor, { key: "d" });
+    fireEvent.keyDown(editor, { key: "d" });
+
+    expect(commands.deleteNote).not.toHaveBeenCalled();
+    expect(content(container)).toBe("second");
   });
 
   it("runs the find command on space then f then f", () => {

@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     answers with an empty list and the notebook is unaffected.
     """
 
+    trash_days: int = 30
+    """How long a deleted note waits in `.trash` before it is dropped for good.
+
+    Long enough to notice the delete was a mistake, short enough that the trash
+    is not a second vault. Counted from the moment in the entry's own name, and
+    read at startup, which is when the trash is emptied.
+    """
+
     vault_path: Path = Path("vault")
     """Directory of markdown files. This is the source of truth.
 

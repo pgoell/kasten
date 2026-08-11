@@ -366,3 +366,61 @@ async def test_creates_a_note_in_a_vault_that_is_not_a_repo(
 
     assert response.status_code == 201
     assert not (vault / ".jj").exists()
+
+
+async def test_names_the_change_after_the_entry_a_delete_made(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    (versioned_vault / "index.md").write_text("# index")
+
+    entry = (await client.delete("/api/files/index.md")).json()["entry"]
+
+    assert descriptions(versioned_vault)[0] == f"vault: .trash/{entry}"
+
+
+async def test_keeps_the_edit_before_a_delete_in_its_own_change(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # The entry names the change, so a delete never amends the change holding
+    # the save before it and the text that was written is still reachable.
+    (versioned_vault / "index.md").write_text("# index")
+
+    await client.put("/api/files/index.md", json={"content": "# the last thing I typed\n"})
+    await client.delete("/api/files/index.md")
+
+    assert descriptions(versioned_vault)[1] == "vault: index.md"
+    # `root:` because a bare path is read relative to the working directory.
+    shown = jj(versioned_vault, "file", "show", "-r", "@-", "root:index.md")
+    assert "the last thing I typed" in shown
+
+
+async def test_records_a_delete_as_a_rename_into_the_trash(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    (versioned_vault / "index.md").write_text("# index")
+
+    entry = (await client.delete("/api/files/index.md")).json()["entry"]
+
+    assert moved_paths(versioned_vault, "@") == [f"index.md -> .trash/{entry}"]
+
+
+async def test_names_the_change_after_the_note_a_restore_puts_back(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    (versioned_vault / "index.md").write_text("# index")
+    entry = (await client.delete("/api/files/index.md")).json()["entry"]
+
+    await client.patch(f"/api/trash/{entry}")
+
+    assert descriptions(versioned_vault)[0] == "vault: index.md"
+
+
+async def test_deletes_a_note_in_a_vault_that_is_not_a_repo(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "index.md").write_text("# index")
+
+    response = await client.delete("/api/files/index.md")
+
+    assert response.status_code == 200
+    assert (vault / ".trash" / response.json()["entry"]).read_text() == "# index"

@@ -383,6 +383,44 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "Delete File",
+        "description": "Take one note out of the vault, and hold it in the trash.\n\nA `DELETE` that keeps the note is not a contradiction: what the vault holds\nis what these routes answer about, and the note stops being one of them the\nmoment it moves. Nothing lists it, nothing searches it and no path reaches\nit, because everything here refuses a hidden folder.\n\nA missing note is a 404, matching the read, the write and the move, so a\nnote you cannot open is a note you cannot delete.\n\nThe links pointing at it are left alone. A `[[link]]` names a note rather\nthan a place, the editor already draws one nothing answers to as missing,\nand rewriting the vault to say a note is gone would be the one edit a\nrestore could not take back.",
+        "operationId": "delete_file_api_files__path__delete",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrashEntry"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/folders/{path}": {
@@ -418,6 +456,107 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Folder"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Folder",
+        "description": "Take one folder out of the vault, and every note under it with it.\n\nIts own route rather than the one above, for the reason the folder's move\nhas one: `/api/files/inbox` cannot mean the folder here and nothing at all\non a `GET`. A source that is not a folder is a 404, a note at that path\nincluded, so the one way to delete a note stays the route above.\n\nOne entry in the trash, not one per note. The folder went in one rename and\nit comes back in one, so the thing you get back is the folder you deleted\nrather than a list of notes to put back yourself.",
+        "operationId": "delete_folder_api_folders__path__delete",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrashEntry"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trash": {
+      "get": {
+        "summary": "Read Trash",
+        "description": "Everything the trash is holding, newest first.\n\nRead off the names in `.trash` rather than out of a list somebody has to\nkeep in step. The name of an entry says where it came from and when it\nwent, which is the whole record, so a note moved out of the trash by hand\nstops being on this list by the same act.",
+        "operationId": "read_trash_api_trash_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrashEntry"
+                  },
+                  "type": "array",
+                  "title": "Response Read Trash Api Trash Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trash/{entry}": {
+      "patch": {
+        "summary": "Restore Entry",
+        "description": "Put one entry back where it was deleted from.\n\n`PATCH`, and no body, for the reason a move is one: this changes where\nsomething lives, and where it should live is already written in the entry's\nown name. An entry the trash has not got is a 404, and a path something has\ntaken since is a 409, which is the create's answer and the move's.",
+        "operationId": "restore_entry_api_trash__entry__patch",
+        "parameters": [
+          {
+            "name": "entry",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Entry"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Restored"
                 }
               }
             }
@@ -559,6 +698,20 @@
         "title": "Page",
         "description": "One web page as it arrived, for the client to make a note out of."
       },
+      "Restored": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "Restored",
+        "description": "Where a restored note or folder landed, which is where it was."
+      },
       "SearchHit": {
         "properties": {
           "path": {
@@ -582,6 +735,31 @@
         ],
         "title": "SearchHit",
         "description": "One line in the vault that matched, and enough to open the note on it."
+      },
+      "TrashEntry": {
+        "properties": {
+          "entry": {
+            "type": "string",
+            "title": "Entry"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "deleted": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entry",
+          "path",
+          "deleted"
+        ],
+        "title": "TrashEntry",
+        "description": "One deleted note or folder, waiting in the trash."
       },
       "ValidationError": {
         "properties": {

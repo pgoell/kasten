@@ -267,7 +267,24 @@ export interface paths {
          *     behind.
          */
         post: operations["create_file_api_files__path__post"];
-        delete?: never;
+        /**
+         * Delete File
+         * @description Take one note out of the vault, and hold it in the trash.
+         *
+         *     A `DELETE` that keeps the note is not a contradiction: what the vault holds
+         *     is what these routes answer about, and the note stops being one of them the
+         *     moment it moves. Nothing lists it, nothing searches it and no path reaches
+         *     it, because everything here refuses a hidden folder.
+         *
+         *     A missing note is a 404, matching the read, the write and the move, so a
+         *     note you cannot open is a note you cannot delete.
+         *
+         *     The links pointing at it are left alone. A `[[link]]` names a note rather
+         *     than a place, the editor already draws one nothing answers to as missing,
+         *     and rewriting the vault to say a note is gone would be the one edit a
+         *     restore could not take back.
+         */
+        delete: operations["delete_file_api_files__path__delete"];
         options?: never;
         head?: never;
         /**
@@ -303,7 +320,20 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Folder
+         * @description Take one folder out of the vault, and every note under it with it.
+         *
+         *     Its own route rather than the one above, for the reason the folder's move
+         *     has one: `/api/files/inbox` cannot mean the folder here and nothing at all
+         *     on a `GET`. A source that is not a folder is a 404, a note at that path
+         *     included, so the one way to delete a note stays the route above.
+         *
+         *     One entry in the trash, not one per note. The folder went in one rename and
+         *     it comes back in one, so the thing you get back is the folder you deleted
+         *     rather than a list of notes to put back yourself.
+         */
+        delete: operations["delete_folder_api_folders__path__delete"];
         options?: never;
         head?: never;
         /**
@@ -330,6 +360,56 @@ export interface paths {
          *     path alone.
          */
         patch: operations["move_folder_api_folders__path__patch"];
+        trace?: never;
+    };
+    "/api/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Trash
+         * @description Everything the trash is holding, newest first.
+         *
+         *     Read off the names in `.trash` rather than out of a list somebody has to
+         *     keep in step. The name of an entry says where it came from and when it
+         *     went, which is the whole record, so a note moved out of the trash by hand
+         *     stops being on this list by the same act.
+         */
+        get: operations["read_trash_api_trash_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trash/{entry}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Restore Entry
+         * @description Put one entry back where it was deleted from.
+         *
+         *     `PATCH`, and no body, for the reason a move is one: this changes where
+         *     something lives, and where it should live is already written in the entry's
+         *     own name. An entry the trash has not got is a 404, and a path something has
+         *     taken since is a 409, which is the create's answer and the move's.
+         */
+        patch: operations["restore_entry_api_trash__entry__patch"];
         trace?: never;
     };
 }
@@ -408,6 +488,14 @@ export interface components {
             html: string;
         };
         /**
+         * Restored
+         * @description Where a restored note or folder landed, which is where it was.
+         */
+        Restored: {
+            /** Path */
+            path: string;
+        };
+        /**
          * SearchHit
          * @description One line in the vault that matched, and enough to open the note on it.
          */
@@ -418,6 +506,21 @@ export interface components {
             line: number;
             /** Text */
             text: string;
+        };
+        /**
+         * TrashEntry
+         * @description One deleted note or folder, waiting in the trash.
+         */
+        TrashEntry: {
+            /** Entry */
+            entry: string;
+            /** Path */
+            path: string;
+            /**
+             * Deleted
+             * Format: date-time
+             */
+            deleted: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -704,6 +807,37 @@ export interface operations {
             };
         };
     };
+    delete_file_api_files__path__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     move_file_api_files__path__patch: {
         parameters: {
             query?: never;
@@ -739,6 +873,37 @@ export interface operations {
             };
         };
     };
+    delete_folder_api_folders__path__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     move_folder_api_folders__path__patch: {
         parameters: {
             query?: never;
@@ -761,6 +926,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Folder"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_trash_api_trash_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashEntry"][];
+                };
+            };
+        };
+    };
+    restore_entry_api_trash__entry__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Restored"];
                 };
             };
             /** @description Validation Error */

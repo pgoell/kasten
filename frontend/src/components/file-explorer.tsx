@@ -376,6 +376,9 @@ export function FileExplorer({
   const nav = useRef<HTMLElement>(null);
   /** The signal already answered, so the first render answers nothing. */
   const answered = useRef(focusSignal);
+  /** Whether the panel is waiting for a row of its own to go, so it can take
+   * the focus back off the body when it does. */
+  const deleting = useRef(false);
   const tree = useMemo(() => buildTree(paths), [paths]);
   const rows = useMemo(() => flattenRows(tree, expanded), [tree, expanded]);
   // Collapsing a folder can strand the cursor past the end of the list.
@@ -392,9 +395,27 @@ export function FileExplorer({
 
   // Only when the panel already holds the focus. Moving the cursor from inside
   // the editor, which `<leader>b` does, must not drag the focus along with it.
+  //
+  // A delete from the tree is the one case where it does not hold it any more
+  // and should: the row it was on has just gone from the list, and a removed
+  // element takes the focus to the body with it. So `d` says it is expecting a
+  // row to go, and the focus lands on the cursor row when it does. The body is
+  // part of the test, not decoration: it is what nothing holding the focus
+  // looks like, and it is what keeps a refused delete from pulling the focus
+  // out of the editor later.
   useEffect(() => {
     const panel = nav.current;
-    if (!panel?.contains(document.activeElement)) return;
+    if (!panel) return;
+
+    const deleted = deleting.current;
+    deleting.current = false;
+    if (
+      !panel.contains(document.activeElement) &&
+      !(deleted && document.activeElement === document.body)
+    ) {
+      return;
+    }
+
     panel.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`)?.focus();
   }, [cursorKey]);
 
@@ -452,6 +473,15 @@ export function FileExplorer({
     if (!node) return;
     if (node.kind === "file") commands.renameNote(node.path);
     else commands.renameFolder(node.path);
+  }
+
+  function deleteRow() {
+    const node = rows[cursor]?.node;
+    if (!node) return;
+
+    deleting.current = true;
+    if (node.kind === "file") commands.deleteNote(node.path);
+    else commands.deleteFolder(node.path);
   }
 
   /**
@@ -512,6 +542,11 @@ export function FileExplorer({
         break;
       case "r":
         renameRow();
+        break;
+      // Both kinds, the way `r` takes both. Nothing asks first: the note goes
+      // to the trash rather than away, and `<leader>du` is the way back.
+      case "d":
+        deleteRow();
         break;
       // Unlike `c` and `r`, this takes nothing from the row the cursor is on:
       // the finder ranks the whole vault and starts from nowhere.
