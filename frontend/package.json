@@ -32,6 +32,7 @@
     "@xterm/xterm": "6.0.0",
     "codemirror": "^6.0.2",
     "defuddle": "^0.19.2",
+    "foliate-js": "github:johnfactotum/foliate-js#78914aef4466eb960965702401634c2cb348e9b1",
     "openapi-fetch": "^0.17.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

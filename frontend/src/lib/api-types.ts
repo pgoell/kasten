@@ -201,6 +201,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Asset
+         * @description Read one book out of the vault.
+         *
+         *     The only endpoint that answers with bytes rather than with a note. It
+         *     resolves a path, checks a suffix and streams a file; it never opens the
+         *     archive, so nothing here knows what an epub is beyond its name.
+         *
+         *     No `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and
+         *     starlette reads it off the path. `Range` comes free with `FileResponse` and
+         *     nothing uses it, the client asking for the whole file once.
+         *
+         *     Deliberately unpaired. Getting a book into the vault is the shell pane's job
+         *     for now.
+         */
+        get: operations["read_asset_api_assets__path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/files/{path}": {
         parameters: {
             query?: never;
@@ -702,6 +733,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    read_asset_api_assets__path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

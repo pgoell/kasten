@@ -18,9 +18,10 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Sixteen
-  endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/todos`,
-  `/api/terminals`, `/api/fetch`, `/api/events`, `/api/trash`, `GET`,
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv.
+  Seventeen endpoints, `/api/health`, `/api/files`, `/api/search`,
+  `/api/todos`, `/api/terminals`, `/api/fetch`, `/api/events`, `/api/trash`,
+  `GET` on `/api/assets/{path}`, `GET`,
   `POST`, `PUT`, `PATCH` and `DELETE` on `/api/files/{path}`, `PATCH` and
   `DELETE` on `/api/folders/{path}`, and `PATCH` on `/api/trash/{entry}`.
   A create starts a
@@ -55,6 +56,14 @@ Real, working code, not a plan:
   closed one is deliberately left out: the total is on the task line, and the
   closed ones are the half of that log that piles up. A stop reads them through
   `/api/search` on the id instead.
+  `/api/assets/{path}` is the one endpoint that answers with bytes: it resolves
+  a path, checks for `.epub` and streams the file, never opening the archive.
+  Startup also writes `vault/.gitignore` holding `*.epub` and `.*.tmp`, before
+  the guide, so no snapshot can take a book that is already sitting there. jj
+  tracks any untracked file under a megabyte and every save snapshots, so
+  without those two lines a note saved beside a book would put the book in the
+  history for good. Ignoring is not untracking, and `jj file untrack` is the
+  way out for one already in there.
   `/api/fetch` is the other endpoint that reads nothing of the vault, and the
   only one that goes outside the machine: it reads one web page and hands the
   markup back untouched, http and https only, counting the bytes as they arrive
@@ -200,6 +209,20 @@ Real, working code, not a plan:
   that ran past midnight; a session in a note that is not a daily note is left
   alone, nothing saying which day it belongs to. The row shows what is on disk,
   so nothing ticks.
+  `Space g r` opens the book that sits beside the open note in a pane to the
+  right, with the note still on screen. A book is the note's path with the
+  suffix swapped and nothing records the pair, so a folder move carries both
+  and a rename of the note alone orphans the epub, which the reader says out
+  loud. The reader is foliate-js pinned to a SHA, and `h`, `l` and `q` turn the
+  page and close it, answered on the pane and on every chapter document foliate
+  reports, because an event does not cross a document boundary and a handler on
+  the pane alone stops working the moment you click a paragraph. A click in
+  there also reports the focus, nothing else telling the route which pane you
+  are in. A book's own HTML is stopped from running by one Content Security
+  Policy, written once in `frontend/src/lib/csp.ts` and served by nginx in
+  production and by a Vite plugin with a minted nonce in development; the
+  iframe sandbox is foliate's and cannot be reached, which
+  [Books in the vault](../docs/explanation/books-in-the-vault.md) explains.
   `Space c w` takes one web address and puts the page in `00 Inbox` as a note,
   open in the focused pane. The reading is defuddle, kepano's extractor and the
   one behind Obsidian's web clipper, running here because it reads a DOM; the
@@ -261,7 +284,8 @@ not a reason to start writing to Postgres. A move's link rewrite uses rg too, to
 pick the few notes it has to read, so there is no link table either.
 
 Not built yet: making a folder on its own, merging two folders, browsing the
-trash beyond `<leader>du`, and anything that writes to Postgres.
+trash beyond `<leader>du`, uploading a book from the app, remembering where you
+stopped reading one, and anything that writes to Postgres.
 The database schema is empty beyond Alembic's own table. Do not document these
 as though they exist.
 
@@ -336,7 +360,9 @@ it looks right.
 
 - **No bare catchalls.** No untyped `catch` in TypeScript, no bare `except:` in
   Python. Catch the error you can handle and let the rest propagate.
-- **No dynamic imports.** Keep the dependency graph analyzable.
+- **No dynamic imports.** Keep the dependency graph analyzable. The ban is on
+  kasten's own code; SHA-pinned third-party source may use them, which foliate
+  does to pick a book's format.
 - **Comments explain why.** The code already says what it does. A comment earns
   its place by recording the constraint, the surprise or the reason for a
   choice that looks odd. Match the density of the surrounding file.

@@ -19,6 +19,16 @@ export function noteName(path: string): string {
 }
 
 /**
+ * The book that sits beside a note, which is the note's path with the suffix swapped.
+ *
+ * The whole sidecar convention is this line. Nothing stores a book's path, so
+ * there is no field to keep in step with where the note went.
+ */
+export function bookPath(note: string): string {
+  return note.replace(/\.md$/, ".epub");
+}
+
+/**
  * The typed path with the slashes tidied.
  *
  * A vault path is relative and its separator is a single slash, so a doubled or

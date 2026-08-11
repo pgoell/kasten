@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves sixteen endpoints. Eight read, seven write, and one streams.
+The backend serves seventeen endpoints. Nine read, seven write, and one streams.
 The interactive schema is at `/docs` while the backend runs, and the
 machine-readable one at `/openapi.json`.
 
@@ -262,6 +262,28 @@ The stream must not be compressed on the way out. A proxy that gzips it buffers
 the whole response, and the client then holds a connection that never delivers
 a byte and never errors either.
 [deploy/README.md](../../deploy/README.md) gives the Caddy fix.
+
+## GET /api/assets/{path}
+
+Reads one book out of the vault and answers with the bytes. `path` is a
+vault-relative POSIX path ending in `.epub`, and a slash inside it may be sent
+raw or percent-encoded.
+
+The reply is the file, with `content-type: application/epub+zip` off the
+suffix. Nothing here opens the archive: this resolves a path, checks the
+suffix and streams a file, so a `.epub` holding anything at all is served
+unchanged and the reader in the browser is what decides whether it is a book.
+`Range` comes free with the file response and nothing uses it, the client
+asking for the whole file once.
+
+Anything that is not a readable `.epub` file inside the vault is a `404`, on
+the same rules the note read follows: a path that climbs out with `..` or an
+absolute one, a symlink pointing outside, a hidden segment, a `.md` path, a
+directory whose name ends in `.epub`, and a file that is not there.
+
+There is no `POST`. A book gets into the vault from the shell pane or from
+outside the app, and [Books in the vault](/explanation/books-in-the-vault.md)
+covers why nothing in the vault records where one lives.
 
 ## GET /api/files/{path}
 

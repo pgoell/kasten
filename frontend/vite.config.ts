@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
+import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { devPolicy } from "./src/lib/csp.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
 
@@ -23,8 +26,42 @@ const hosted = PUBLIC_HOST
     }
   : {};
 
+/**
+ * Serve development the production policy, with the one directive it has to change.
+ *
+ * `apply: "serve"` keeps the nonce out of the build, which carries no inline
+ * script and needs none. The nonce is minted here, at plugin construction, so
+ * it changes every dev server start: a literal would be readable by anybody who
+ * has seen this repo, and a book can carry a `nonce="…"` of its own.
+ *
+ * One plugin owns both halves so the header and the stamp cannot drift. Vite's
+ * own tag hook reads `html.cspNonce` off the config and stamps every script,
+ * style and preload link it emits, so the app's tags pass and a book's do not.
+ *
+ * `server.headers`, and not a `configureServer` middleware. vitest's browser
+ * plugin is `enforce: "pre"`, so a plain plugin's middleware installs behind its
+ * tester middleware and never runs for the document the frame tests live in,
+ * while vitest's own first middleware copies these headers onto every response.
+ */
+function devCsp(): Plugin {
+  const nonce = randomUUID();
+  return {
+    name: "kasten-dev-csp",
+    apply: "serve",
+    config: () => ({
+      html: { cspNonce: nonce },
+      server: { headers: { "Content-Security-Policy": devPolicy(nonce) } },
+    }),
+  };
+}
+
 export default defineConfig({
-  plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), tailwindcss()],
+  plugins: [
+    tanstackRouter({ target: "react", autoCodeSplitting: true }),
+    react(),
+    tailwindcss(),
+    devCsp(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
@@ -101,6 +138,14 @@ export default defineConfig({
           // names this project, so it never shares a worker pool with the jsdom
           // suite and has nothing to be sequenced away from.
           include: ["tests/frame/**/*.test.tsx"],
+          // Chromium raises "ResizeObserver loop completed with undelivered
+          // notifications" as a window error, and vitest counts one of those
+          // as a failed run. foliate's paginator columnises to the box it is
+          // in and resizes inside its own observer, which is exactly what the
+          // notice reports, and nothing has gone wrong. Named to the message,
+          // so every other unhandled error still fails.
+          onUnhandledError: (error: unknown) =>
+            !(error instanceof Error && error.message.includes("ResizeObserver loop")),
           browser: {
             enabled: true,
             provider: playwright(),

@@ -271,3 +271,27 @@ export async function restoreEntry(entry: string): Promise<string> {
 
   return data.path;
 }
+
+/**
+ * Read one book out of the vault, whole.
+ *
+ * Plain `fetch` rather than the generated client, for the reason the route
+ * opens its `EventSource` by hand: with `response_class=FileResponse` and no
+ * hand written `responses={...}` block, FastAPI documents a 200 carrying no
+ * content schema at all, so `openapi-fetch` has no typed body to hand back and
+ * would buy nothing. Adding that block to please a client that wants bytes is
+ * boilerplate in the endpoint.
+ *
+ * `encodeURIComponent` spells a slash `%2F`, which uvicorn unquotes before
+ * starlette routes. Every note read in this app already relies on that, the
+ * generated client encoding its path parameters the same way.
+ */
+export async function fetchBook(path: string): Promise<Blob> {
+  const response = await fetch(`/api/assets/${encodeURIComponent(path)}`);
+
+  if (!response.ok) {
+    throw new Error(`GET /api/assets/${path} failed with ${response.status}`);
+  }
+
+  return response.blob();
+}

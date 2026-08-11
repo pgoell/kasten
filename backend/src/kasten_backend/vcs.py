@@ -26,6 +26,41 @@ logger = logging.getLogger(__name__)
 DESCRIPTION = "vault: {path}"
 """How a change is named. The path is how one note's change is told from another's."""
 
+IGNORES = ("*.epub", ".*.tmp")
+"""What the vault's history never takes a copy of.
+
+A book, because jj tracks any untracked file under a megabyte and a save's
+snapshot would sweep one in. And the temp file a write lands in first, because
+that snapshot runs while an upload is still streaming into it, which would put
+half a book in the history for good.
+"""
+
+
+def write_ignores(root: Path) -> None:
+    """Give the vault a `.gitignore` holding `IGNORES`, keeping every other line.
+
+    Unconditional, with no `is_versioned` check in front of it. A `.gitignore`
+    in a vault that is not a repo costs one hidden file and protects the vault
+    somebody runs `jj git init` in next week.
+
+    Written straight rather than through `resolve_path`, which refuses every dot
+    segment on purpose. That same rule keeps the file out of `/api/files` and out
+    of `/api/events`, so writing it wakes no client. Nothing here hides a note
+    from search either: `search.py` runs rg with `--no-ignore`.
+
+    Ignoring is not untracking. A book already in the history stays in it, and
+    `jj file untrack` is the way out.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / ".gitignore"
+    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+
+    missing = [line for line in IGNORES if line not in lines]
+    if not missing:
+        return
+
+    path.write_text("".join(f"{line}\n" for line in [*lines, *missing]), encoding="utf-8")
+
 
 def is_versioned(root: Path) -> bool:
     """Report whether the vault is a jj repo."""

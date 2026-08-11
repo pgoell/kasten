@@ -67,6 +67,7 @@ const INERT: TreeCommands = {
   openMonthly: vi.fn(),
   openQuarterly: vi.fn(),
   openYearly: vi.fn(),
+  openBook: vi.fn(),
   renameFolder: () => {},
   createTab: () => {},
   openTerminal: () => {},

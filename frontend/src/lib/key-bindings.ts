@@ -61,6 +61,8 @@ export interface EditorCommands {
   openMonthly(): void;
   openQuarterly(): void;
   openYearly(): void;
+  /** Read the focused pane's note's book in a pane beside it. */
+  openBook(): void;
   /** Start a tab holding one empty pane, and go to it. */
   createTab(): void;
   /** Open a terminal in the focused pane, attached to a herdr session by name. */
@@ -166,6 +168,9 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
   { key: "gq", label: "Open this quarter's note", command: "openQuarterly" },
+  // `g` for go and `r` for read. The book is the note's path with the suffix
+  // swapped, so the key needs nothing but a note in the focused pane.
+  { key: "gr", label: "Read this note's book beside it", command: "openBook" },
   // `g` for go, and the pane it goes to holds the todos. `ct` is spent on a
   // tab, which is why this is not under `c`.
   { key: "gt", label: "Open the todo pane", command: "openTodos" },

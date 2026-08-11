@@ -38,6 +38,14 @@ export interface Pane {
    * invariant one branch in the route already holds.
    */
   todos?: boolean;
+  /**
+   * The literature note whose book this pane is reading, absent otherwise.
+   *
+   * The note's path, not the book's: the note is the handle, and the reader
+   * swaps the suffix to find the epub. A fourth optional field for the reason
+   * `term` and `todos` are the third and the second, written out above.
+   */
+  book?: string;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -191,6 +199,29 @@ export function openTodosInFocused(layout: Layout): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, todos: true }),
+  });
+}
+
+/**
+ * Put a note's book in a new pane beside it, or go to the one already reading it.
+ *
+ * Beside, not over. It does not mirror `openTodosInFocused`, which replaces the
+ * focused pane whole: a key called "read this book beside this note" must not
+ * eat the note.
+ *
+ * `splitFocused` already makes the empty pane and moves the focus to it, so the
+ * new pane's id is the tab's focus by the time this writes the book in.
+ */
+export function openBookBeside(layout: Layout, note: string): Layout {
+  const reading = tabPanes(layout).find((pane) => pane.book === note);
+  if (reading) return focusPane(layout, reading.id);
+
+  const split = splitFocused(layout, "row");
+  const tab = activeTab(split);
+
+  return withTab(split, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, book: note }),
   });
 }
 

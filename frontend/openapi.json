@@ -194,6 +194,39 @@
         }
       }
     },
+    "/api/assets/{path}": {
+      "get": {
+        "summary": "Read Asset",
+        "description": "Read one book out of the vault.\n\nThe only endpoint that answers with bytes rather than with a note. It\nresolves a path, checks a suffix and streams a file; it never opens the\narchive, so nothing here knows what an epub is beyond its name.\n\nNo `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and\nstarlette reads it off the path. `Range` comes free with `FileResponse` and\nnothing uses it, the client asking for the whole file once.\n\nDeliberately unpaired. Getting a book into the vault is the shell pane's job\nfor now.",
+        "operationId": "read_asset_api_assets__path__get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/files/{path}": {
       "get": {
         "summary": "Read File",
