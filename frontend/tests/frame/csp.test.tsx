@@ -16,10 +16,10 @@ import scriptedUrl from "../fixtures/scripted.epub?url";
 import { stubCommands } from "../stub-commands";
 import "@/styles/app.css";
 
-const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
+const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
 // The Perf job runs no backend, so the pane must not fetch. See
 // `tests/frame/book-pane.test.tsx` for why seeding the query is a trap.
-vi.mock("@/lib/api", () => ({ fetchBook }));
+vi.mock("@/lib/api", () => ({ fetchBook, fetchNote }));
 
 /** Every section document foliate reported, which is the only way inside. */
 const sections: Document[] = [];
@@ -107,6 +107,10 @@ describe("a script inside a real book", () => {
     // existed yet. This proves it through foliate's own blob rewriting, on the
     // same file the box check reads.
     fetchBook.mockResolvedValue(await (await fetch(scriptedUrl)).blob());
+    // The pane reads its note before it navigates, and a factory missing an
+    // export throws the moment it is called. This file mounts the pane only to
+    // prove the policy, which is what makes it the one nobody thinks of.
+    fetchNote.mockResolvedValue("");
     const pageTitle = document.title;
     const container = document.createElement("div");
     container.style.cssText = "width: 600px; height: 400px;";
@@ -124,6 +128,8 @@ describe("a script inside a real book", () => {
           commands={stubCommands()}
           focusSignal={0}
           onFocus={() => {}}
+          onMoved={() => {}}
+          onLeaving={() => {}}
         />
       </QueryClientProvider>,
     );

@@ -8,6 +8,13 @@ const QUIET_MS = 800;
 
 export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict";
 
+/** One fewer write in the air for `note`, taking the entry when it reaches none. */
+function lower(counts: Map<string, number>, note: string): void {
+  const left = (counts.get(note) ?? 0) - 1;
+  if (left > 0) counts.set(note, left);
+  else counts.delete(note);
+}
+
 /**
  * Writes one note back to the vault as it is edited.
  *
@@ -49,6 +56,24 @@ export function useAutosave(path: string | undefined) {
   // screen. Reverts are counted rather than flagged because a second `:e!`
   // during the same write has to read as another one.
   const reverts = useRef(0);
+  // The notes a write is on its way to, counted rather than flagged: `:w`
+  // during a quiet write puts two in the air for one note, and the first to
+  // answer must not read as the last. By path, because the tail this answers is
+  // the note just left: its text is still in flight while this hook has already
+  // moved on, and nothing else on the route can see that write.
+  const writing = useRef(new Map<string, number>());
+  // What the route wrote into this note, by the digest the event will carry and
+  // the text the cache will hold. Its own store rather than `lastWritten` and
+  // `lastText`, which the hook's own writes overwrite: a bookmark landing
+  // between a save and the event that save raises would take the slot, and the
+  // editor would then read its own write as somebody else's and lock. Which is
+  // the fault this exists to prevent, arrived at from the other side.
+  //
+  // A map rather than one slot, because one slot needs a promise about how far
+  // apart two bookmark writes can be, and nothing here enforces one. An entry
+  // goes when its event arrives, and one whose event never comes outlives its
+  // note, which is the staleness `lastWritten` has always carried.
+  const adopted = useRef(new Map<string, string>());
   const queryClient = useQueryClient();
 
   /** Resolves to whether the vault holds the text, so `<leader>q` can refuse. */
@@ -66,9 +91,12 @@ export function useAutosave(path: string | undefined) {
     const sent = reverts.current;
     setStatus("saving");
     setReason(undefined);
+    const to = path;
+    writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
 
     return saveNote(path, content).then(
       (note) => {
+        lower(writing.current, to);
         // The note that came back and never the text that was sent: the two
         // differ by the `modified` stamp `PUT` writes, so what is on disk is
         // this one. Hashing the other would recognise nothing and read every
@@ -104,6 +132,11 @@ export function useAutosave(path: string | undefined) {
         return true;
       },
       (failure: unknown) => {
+        // At the top of the arm and not at the foot of it: the line below
+        // returns early on a write that failed after a `:e!`, and a count
+        // lowered under it would leak for the life of the page, leaving that
+        // note reading as busy and never written to again.
+        lower(writing.current, to);
         // Nothing to hold and nothing to warn about once the reader has thrown
         // this text away: the buffer holds the vault's version, and the retry
         // would be a retry of an edit that no longer exists anywhere.
@@ -166,6 +199,45 @@ export function useAutosave(path: string | undefined) {
    */
   const isConflicted = useCallback(() => conflicted.current, []);
 
+  /**
+   * Whether text for `note` is already on its way to the vault.
+   *
+   * The map alone, and no reading of `pending`: pending text belongs to the note
+   * this hook follows, and the route's own first guard already refuses that note
+   * by name, so a clause here would be a second answer to a question already
+   * answered.
+   */
+  const isWriting = useCallback((note: string) => writing.current.has(note), []);
+
+  /**
+   * Take a write the route made into `note` as one this hook knows about.
+   *
+   * A bookmark is a write nobody asked for and nobody can be expected to
+   * settle, so the conflict it would otherwise raise is refused here instead.
+   * The note is checked against the path of the render this was read in: the
+   * route reads `adopt` off a ref every render refreshes, so the question is
+   * asked when the `PUT` answers rather than when it started, by which point
+   * the reader may have clicked into the note.
+   */
+  const adopt = useCallback(
+    (note: string, content: string) => {
+      if (note !== path) return;
+
+      void digestOf(content).then(
+        (digest) => {
+          adopted.current.set(digest, content);
+        },
+        (error: unknown) => {
+          // `crypto.subtle` missing outside a secure context, the way the save
+          // path reads the same failure. Wrong in the direction that costs a
+          // conflict the reader clears with `:w`.
+          if (!(error instanceof TypeError)) throw error;
+        },
+      );
+    },
+    [path],
+  );
+
   const change = useCallback(
     (doc: string) => {
       pending.current = doc;
@@ -196,6 +268,10 @@ export function useAutosave(path: string | undefined) {
   const allowReload = useCallback((text: string): boolean => {
     if (pending.current === null) return true;
     if (text === lastText.current) return false;
+    // A write the route made into this note, reaching the editor through the
+    // cache. Refused the way our own answer is, and for the same reason: it
+    // carries no words the reader has not got.
+    for (const held of adopted.current.values()) if (held === text) return false;
 
     conflicted.current = true;
     setStatus("conflict");
@@ -212,6 +288,9 @@ export function useAutosave(path: string | undefined) {
     // and reading one as somebody else's would flag a conflict on every save
     // the typing carried on through.
     if (digest !== null && digest === lastWritten.current) return false;
+    // A write the route made, coming back off the stream. The entry goes with
+    // it: one event answers one write.
+    if (digest !== null && adopted.current.delete(digest)) return false;
     if (pending.current === null) return true;
 
     // Nothing is discarded and nothing is written. The buffer keeps the
@@ -239,5 +318,17 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
-  return { status, reason, change, save, saveFirst, revert, isConflicted, allowReload, reconcile };
+  return {
+    status,
+    reason,
+    change,
+    save,
+    saveFirst,
+    revert,
+    isConflicted,
+    isWriting,
+    adopt,
+    allowReload,
+    reconcile,
+  };
 }

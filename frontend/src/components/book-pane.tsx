@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchBook } from "@/lib/api";
+import { fetchBook, fetchNote } from "@/lib/api";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
+import { readField } from "@/lib/note-frontmatter";
 import { bookPath } from "@/lib/note-path";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
@@ -24,7 +25,24 @@ interface FoliateView extends HTMLElement {
   next(): void;
   prev(): void;
   /** Built by `open`, and a fixed-layout book's renderer has no `setStyles`. */
-  renderer?: { setStyles?: (css: string) => void };
+  renderer?: EventTarget & { setStyles?: (css: string) => void };
+  /** Where the view says it is. Filled by every relocate, nulled by `close`. */
+  lastLocation?: object | null;
+  /** The cfi for a place the renderer reported. A null range answers the section's own. */
+  getCFI(index: number, range: Range | null): string;
+}
+
+/**
+ * Whether something thrown is an error object, from this realm or the book's.
+ *
+ * `instanceof Error` is not enough here, and the difference is not academic. A
+ * stale bookmark ends in `range.setStart(null, …)` on a range built in the
+ * book's own iframe, so the `TypeError` that comes back carries that document's
+ * `Error` and reads as false against this one. `Object.prototype.toString` asks
+ * about the internal slot instead, which no realm boundary hides.
+ */
+function isError(thrown: unknown): boolean {
+  return Object.prototype.toString.call(thrown) === "[object Error]";
 }
 
 interface BookPaneProps {
@@ -42,6 +60,10 @@ interface BookPaneProps {
    * pane.
    */
   onFocus: () => void;
+  /** Where the reader turned to, after every move but the one that opened the book. */
+  onMoved: (cfi: string) => void;
+  /** The pane is going away, so whatever it last reported should be written now. */
+  onLeaving: () => void;
 }
 
 /**
@@ -70,7 +92,15 @@ function pageStyles(): string {
  * a folder move carries the pair and a rename of the note alone orphans the
  * book, which this says out loud.
  */
-export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPaneProps) {
+export function BookPane({
+  note,
+  paths,
+  commands,
+  focusSignal,
+  onFocus,
+  onMoved,
+  onLeaving,
+}: BookPaneProps) {
   const wrapper = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<FoliateView | null>(null);
@@ -83,9 +113,13 @@ export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPa
   // identity, which is on every vault write.
   const commandsRef = useRef(commands);
   const onFocusRef = useRef(onFocus);
+  const onMovedRef = useRef(onMoved);
+  const onLeavingRef = useRef(onLeaving);
   useEffect(() => {
     commandsRef.current = commands;
     onFocusRef.current = onFocus;
+    onMovedRef.current = onMoved;
+    onLeavingRef.current = onLeaving;
   });
 
   /**
@@ -173,6 +207,47 @@ export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPa
       sections.push(doc);
     }
     view.addEventListener("load", onLoad);
+
+    // The renderer `open` builds, held so the cleanup takes the listener off
+    // the object it put it on. `close()` leaves the property in place
+    // (`view.js:297-299`), so the two are the same thing either way.
+    let renderer: FoliateView["renderer"];
+    /** Where the reader was last reported to be, which the first move is not. */
+    let last: string | undefined;
+
+    function onRelocate(event: Event) {
+      const { reason, index, range } = (
+        event as CustomEvent<{ reason?: string; index: number; range: Range | null }>
+      ).detail;
+      // `anchor` is a re-render at the place you were already at, which is what
+      // a resize of the pane produces, and `selection` is the page moving to
+      // show what you selected. Neither is somewhere you turned to. Everything
+      // else is, `navigation` included: turning past the end of a chapter goes
+      // through `#goTo` and arrives as that rather than as `page`.
+      //
+      // Refused by name rather than allowed by name, on purpose. A scrolled
+      // flow's keyboard turn carries no reason at all and so does a fixed
+      // layout jump, so an allowlist of the three reasons foliate itself calls
+      // movement would drop a page turn with no way to see it.
+      if (reason === "anchor" || reason === "selection") return;
+
+      // The detail carries no cfi (`paginator.js:960-969`), so the pane builds
+      // one with the view's own reading of the index and range it was handed.
+      const cfi = view.getCFI(index, range);
+      // A turn that moved nothing still reports: `#scrollTo` fires its relocate
+      // when the offset it was given is the offset it is already at, which is
+      // what a touch fling settling on the same page does.
+      if (cfi === last) return;
+      const first = last === undefined;
+      last = cfi;
+      // The first move left is the navigation `init` performs, which is either
+      // the place just restored or the front of the book, and neither is
+      // somewhere you turned to. Reporting it would write the note on every
+      // open, and with a string that differs from the one on disk even when the
+      // page is the same.
+      if (!first) onMovedRef.current(cfi);
+    }
+
     // `View.open` takes a `File` and calls `makeBook` itself, so kasten imports
     // nothing of the library but the module. Built out here because a hoisted
     // function body does not see the narrowing the guard above did.
@@ -188,20 +263,66 @@ export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPa
           view.close();
           return;
         }
+        // Where the reader stopped, which is one line of the note's own block.
+        // A two-arm `then` and not a catch: a book whose note the vault will
+        // not answer for is still a book you can read, and drawing
+        // `No book at ...` over a working epub because a `GET` blipped would be
+        // a lie. So the failure arm answers with no text and the book opens at
+        // the front.
+        const text = await fetchNote(note).then(
+          (held) => held,
+          () => "",
+        );
+        // On the renderer and not on the view, and this is the one thing here
+        // most likely to be built wrong. The view re-emits its renderer's
+        // `relocate` without the `reason` (`view.js:329-337`), and without the
+        // reason there is no telling a page turn from a re-render: the
+        // paginator's own `ResizeObserver` re-renders through `#scrollToAnchor`
+        // (`paginator.js:430, 754-761`), so folding the tree or resizing the
+        // window would write a bookmark with nobody having moved.
+        renderer = view.renderer;
+        renderer?.addEventListener("relocate", onRelocate);
         // The `?.` is load-bearing. foliate swaps in `fixed-layout.js` for a
         // pre-paginated book and that renderer has no `setStyles`, so a plain
         // call throws on a valid epub.
         view.renderer?.setStyles?.(pageStyles());
         // Not optional. `View.open` builds the renderer and mounts it but
         // navigates nowhere, so a pane that stops above draws a blank page and
-        // every key looks broken.
-        await view.init({});
+        // every key looks broken. Undefined is the front of the book, which is
+        // what `init` falls through to.
+        try {
+          await view.init({ lastLocation: readField(text, "reading") });
+        } catch (error_) {
+          // A stale bookmark, not a broken book. A cfi naming a spine item this
+          // book has and a node path that chapter has not loads the section and
+          // then throws out of `anchor(doc)`, and the reader is left at the top
+          // of the chapter the cfi named, which beats the front of the book.
+          // Anything that is not an error came from somewhere this cannot
+          // report on.
+          if (!isError(error_)) throw error_;
+        }
+        // The pane went away while that was in flight. Checked here as well as
+        // after `open`, or the fallback below builds a view over a closed one.
+        if (cancelled) {
+          view.close();
+          return;
+        }
+        // Nothing rendered at all, so nothing loaded. That is the other stale
+        // bookmark: a cfi naming a spine item this book has not got resolves to
+        // `{ index: -1 }`, which `init` takes and the renderer then refuses, so
+        // `init`'s own front-of-book branch never runs and the pane draws a
+        // blank page. Only that shape reaches here, because any section that
+        // loads at all fills `lastLocation` through the load-time expand
+        // (`paginator.js:272-280, 409, 673`), which is why the catch above and
+        // not this line is what answers the throw.
+        if (!view.lastLocation) await view.init({});
         if (cancelled) view.close();
       } catch (error_) {
-        // Every way a book fails to open arrives as an `Error`: a `NotFoundError`
+        // Every way a book fails to open arrives as an error: a `NotFoundError`
         // from foliate, a throw from the zip reader for a file that is not an
-        // archive. Anything else came from somewhere this cannot report on.
-        if (!(error_ instanceof Error)) throw error_;
+        // archive, the retry above failing too. Anything else came from
+        // somewhere this cannot report on.
+        if (!isError(error_)) throw error_;
         if (!cancelled) setBroken(true);
       }
     }
@@ -210,6 +331,7 @@ export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPa
     return () => {
       cancelled = true;
       view.removeEventListener("load", onLoad);
+      renderer?.removeEventListener("relocate", onRelocate);
       for (const doc of sections) {
         doc.removeEventListener("keydown", onKeyDown);
         doc.removeEventListener("pointerdown", report);
@@ -232,6 +354,14 @@ export function BookPane({ note, paths, commands, focusSignal, onFocus }: BookPa
   useEffect(() => {
     if (focusSignal) wrapper.current?.focus();
   }, [focusSignal]);
+
+  // One effect whose only job is its cleanup. Not folded into the view's, which
+  // tears down whenever the blob or the note changes and would then say this on
+  // a rebuild rather than on the way out. The cleanup belongs to the mount
+  // render, so it reads the callback off the ref at the moment it runs: closing
+  // over the prop would flush against the note the pane held when it mounted,
+  // which a folder move has since changed.
+  useEffect(() => () => onLeavingRef.current(), []);
 
   // The listing having not arrived is not the same as the note being gone, so
   // an undefined `paths` says nothing.

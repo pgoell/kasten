@@ -6,8 +6,8 @@ import { bookPath } from "@/lib/note-path";
 import { deferred, defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
 import { stubCommands } from "./stub-commands";
 
-const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchBook }));
+const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
+vi.mock("@/lib/api", () => ({ fetchBook, fetchNote }));
 
 // The factory is not optional. A bare `vi.mock(path)` automocks, and vitest's
 // automock keeps the module body and replaces only its exports, so the real
@@ -21,11 +21,27 @@ const BOOK = "20 Literature/DDIA.epub";
 /** What the One background reads as, so the styling case has a value to find. */
 const BACKGROUND = "#282c34";
 
+/** A place in a book, as the note's block holds it. */
+const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
+
+/** The literature note, with `reading:` set or with nothing in the block. */
+function noteWith(cfi?: string): string {
+  return [
+    "---",
+    "id: one",
+    ...(cfi === undefined ? [] : [`reading: ${cfi}`]),
+    "---",
+    "# DDIA",
+  ].join("\n");
+}
+
 defineFoliateFake();
 
 function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
   const commands = stubCommands();
   const onFocus = vi.fn();
+  const onMoved = vi.fn();
+  const onLeaving = vi.fn();
   const client = new QueryClient({
     // Never stale, so nothing refetches behind a test that already has its blob.
     defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
@@ -42,6 +58,8 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
         commands={commands}
         focusSignal={focusSignal}
         onFocus={onFocus}
+        onMoved={onMoved}
+        onLeaving={onLeaving}
       />
     </QueryClientProvider>
   );
@@ -51,6 +69,8 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
     ...view,
     commands,
     onFocus,
+    onMoved,
+    onLeaving,
     /** Hand the pane another focus signal, the way the route does. */
     signal: (focusSignal: number) => view.rerender(tree(focusSignal)),
     /** The pane's own wrapper, which is what a signal puts the cursor on. */
@@ -67,6 +87,10 @@ describe("BookPane", () => {
   beforeEach(() => {
     resetFoliateFake();
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    // A string and not undefined: the pane reads a field off what this answers,
+    // and `mockResolvedValue(undefined)` is a default too, one that draws the
+    // error panel over every case in this file.
+    fetchNote.mockResolvedValue("");
     document.documentElement.style.setProperty("--color-one-bg", BACKGROUND);
   });
 
@@ -80,6 +104,61 @@ describe("BookPane", () => {
 
     await waitFor(() => expect(lastView().started).toBe(true));
     expect(panel()).toBeNull();
+  });
+
+  it("opens the book where the note says the reader stopped", async () => {
+    fetchNote.mockResolvedValue(noteWith(CFI));
+
+    draw();
+
+    await waitFor(() => expect(lastView().started).toBe(true));
+    expect(lastView().inits[0]).toEqual({ lastLocation: CFI });
+  });
+
+  it("opens a book whose note names no place at the front", async () => {
+    fetchNote.mockResolvedValue(noteWith());
+
+    draw();
+
+    await waitFor(() => expect(lastView().started).toBe(true));
+    // The key present and undefined, rather than the value alone: `view.init({})`
+    // carries no `lastLocation` either, so asserting undefined would pass before
+    // the pane read anything at all.
+    const [first] = lastView().inits;
+    expect(first).toHaveProperty("lastLocation");
+    expect(first).toEqual({ lastLocation: undefined });
+  });
+
+  it("still draws the book when its note cannot be read", async () => {
+    // A book whose note the vault will not answer for is still a book you can
+    // read, so the failure arm answers with no text rather than the panel.
+    fetchNote.mockRejectedValue(new Error("GET /api/files/20 Literature/DDIA.md failed with 404"));
+
+    draw();
+
+    // That the note was asked for at all, for the reason above: nothing calls
+    // it before this slice, so a case looking only at the panel starts green.
+    await waitFor(() => expect(fetchNote).toHaveBeenCalledWith(NOTE));
+    await waitFor(() => expect(lastView().started).toBe(true));
+    expect(panel()).toBeNull();
+  });
+
+  it("builds nothing over a view the pane has already closed", async () => {
+    // A cleanup nulls `lastLocation` in the real library too (`view.js:304`),
+    // so without the check between the two the fallback navigates a closed view.
+    FakeView.navigatesNowhere = true;
+    const init = deferred();
+    FakeView.initWith = () => init.promise;
+    const { unmount } = draw();
+
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+    unmount();
+    await act(async () => {
+      init.resolve();
+      await init.promise;
+    });
+
+    expect(lastView().inits).toHaveLength(1);
   });
 
   it("says which book it wanted when the vault has none", async () => {
@@ -108,12 +187,48 @@ describe("BookPane", () => {
     await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
   });
 
-  it("says so when the first navigation fails", async () => {
+  it("says so when the first navigation fails and nothing loaded", async () => {
+    // Both halves, because a throw on its own is a stale bookmark now: the
+    // panel is drawn only where the retry below fails too, which is a book
+    // foliate opened and cannot render a page of.
+    FakeView.navigatesNowhere = true;
     FakeView.initWith = () => Promise.reject(new Error("nowhere to go"));
 
     draw();
 
     await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
+  });
+
+  it("goes to the front of the book when the saved place loaded nothing", async () => {
+    // A cfi naming a spine item this book has not got: `resolveCFI` answers
+    // `{ index: -1 }`, `init` takes that and the renderer refuses the index, so
+    // the pane draws a blank page and every key looks broken.
+    FakeView.navigatesNowhere = true;
+    fetchNote.mockResolvedValue(noteWith(CFI));
+
+    draw();
+
+    await waitFor(() => expect(lastView().inits).toHaveLength(2));
+    expect(lastView().inits[1]).not.toHaveProperty("lastLocation");
+    expect(panel()).toBeNull();
+  });
+
+  it("draws the book when the saved place threw on its way in", async () => {
+    // The other stale bookmark: an `idref` this book has and a node path it
+    // has not, which throws out of `anchor(doc)` after the section has loaded.
+    // Written this way round on purpose, because the obvious reading is wrong:
+    // `lastLocation` is set by then, so the fallback never fires and it is the
+    // catch that answers this shape.
+    FakeView.initWith = () => Promise.reject(new Error("range.setStart"));
+    fetchNote.mockResolvedValue(noteWith(CFI));
+
+    draw();
+
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+    // Let the rest of `draw` run, so a second `init` would be in by now.
+    await act(async () => {});
+    expect(panel()).toBeNull();
+    expect(lastView().inits).toHaveLength(1);
   });
 
   it("says so when the note it reads beside has left the vault", async () => {
@@ -216,6 +331,7 @@ describe("the keys inside a book", () => {
   beforeEach(() => {
     resetFoliateFake();
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchNote.mockResolvedValue("");
   });
 
   afterEach(() => {
@@ -310,5 +426,132 @@ describe("the keys inside a book", () => {
     lastView().section.dispatchEvent(new Event("focusin", { bubbles: true }));
 
     expect(pane.onFocus).toHaveBeenCalled();
+  });
+});
+
+describe("where the reader got to", () => {
+  beforeEach(() => {
+    resetFoliateFake();
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchNote.mockResolvedValue("");
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.resetAllMocks();
+  });
+
+  /** Draw a book, with the renderer ready to emit. */
+  async function reading() {
+    const pane = draw();
+    await waitFor(() => expect(lastView().started).toBe(true));
+    return pane;
+  }
+
+  /** What foliate's paginator emits when the page moves. */
+  function relocate(detail: { reason?: string; index?: number; range?: Range | null } = {}) {
+    act(() => lastView().emitRelocate(detail));
+  }
+
+  it("reports every move but the one that opened the book", async () => {
+    // One case and not two: "the first is not reported" passes on its own while
+    // nothing is listening at all, so the count is what makes this red.
+    FakeView.cfis = ["first", "second", "third"];
+    const pane = await reading();
+
+    relocate({ reason: "page" });
+    relocate({ reason: "page" });
+    relocate({ reason: "page" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(2);
+    expect(pane.onMoved).toHaveBeenNthCalledWith(1, "second");
+    expect(pane.onMoved).toHaveBeenNthCalledWith(2, "third");
+  });
+
+  it("builds the cfi out of what the event carried", async () => {
+    // The renderer's detail holds no cfi (`paginator.js:960-969`), so the pane
+    // asks the view for one with the index and range it was handed.
+    await reading();
+    const range = document.createRange();
+
+    relocate({ reason: "page", index: 7, range });
+
+    expect(lastView().asked).toEqual([{ index: 7, range }]);
+  });
+
+  it("says so on the way out", async () => {
+    const pane = await reading();
+
+    pane.unmount();
+
+    expect(pane.onLeaving).toHaveBeenCalledTimes(1);
+  });
+  it("reports no resize as a page turn", async () => {
+    // The case that pins listening on the renderer at all. The paginator
+    // re-renders through `#scrollToAnchor` inside its own `ResizeObserver`, so
+    // folding the tree or resizing the window relocates with nobody moving.
+    FakeView.cfis = ["first", "second"];
+    const pane = await reading();
+
+    // Before the opening navigation, which it must not spend the drop on.
+    relocate({ reason: "anchor" });
+    relocate({ reason: "page" });
+    relocate({ reason: "anchor" });
+    relocate({ reason: "page" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+    expect(pane.onMoved).toHaveBeenCalledWith("second");
+  });
+
+  it("reports the page moving to show a selection as nothing", async () => {
+    FakeView.cfis = ["first", "second"];
+    const pane = await reading();
+
+    relocate({ reason: "selection" });
+    relocate({ reason: "page" });
+    relocate({ reason: "selection" });
+    relocate({ reason: "page" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+    expect(pane.onMoved).toHaveBeenCalledWith("second");
+  });
+
+  it("reports a move carrying no reason at all", async () => {
+    // A scrolled flow's keyboard turn and a fixed layout jump both arrive with
+    // nothing naming them. This passes before the refusals exist, so it guards
+    // against an allowlist creeping in rather than being a red step.
+    FakeView.cfis = ["first", "second"];
+    const pane = await reading();
+
+    relocate({ reason: "page" });
+    relocate({});
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+    expect(pane.onMoved).toHaveBeenCalledWith("second");
+  });
+
+  it("reports nothing for a turn that settled on the page it was already on", async () => {
+    // `#scrollTo` fires its relocate when the offset it was given is the one it
+    // is already at, which is what a touch fling settling back does.
+    FakeView.cfis = ["first", "second", "second"];
+    const pane = await reading();
+
+    relocate({ reason: "page" });
+    relocate({ reason: "snap" });
+    relocate({ reason: "snap" });
+
+    expect(pane.onMoved).toHaveBeenCalledTimes(1);
+  });
+
+  it("hears nothing once the pane has gone", async () => {
+    // Passes before the behaviour exists, the cleanup already taking the
+    // listener off, so it is a regression guard rather than a red step.
+    const pane = await reading();
+    const view = lastView();
+
+    pane.unmount();
+    act(() => view.emitRelocate({ reason: "page" }));
+
+    expect(pane.onMoved).not.toHaveBeenCalled();
   });
 });

@@ -55,6 +55,12 @@ function renderAutosave(path = "index.md") {
   return {
     change: (doc: string) => act(() => result.current.change(doc)),
     save: () => act(() => result.current.save()),
+    /** Start a save and leave it in flight, which is `:w` during a quiet write. */
+    startSave: () => {
+      act(() => {
+        void result.current.save();
+      });
+    },
     /** Save the way a key that does something else saves, and report the answer. */
     saveFirst: async () => {
       let outcome: boolean | undefined;
@@ -80,6 +86,16 @@ function renderAutosave(path = "index.md") {
         allowed = result.current.allowReload(text);
       });
       return allowed;
+    },
+    /** Whether text for `of` is on its way to the vault, as the route asks. */
+    isWriting: (of: string) => result.current.isWriting(of),
+    /** Tell the hook a write the route made was its own. */
+    adopt: (of: string, content: string) => act(() => result.current.adopt(of, content)),
+    /** Throw the buffer away, which is what `:e!` does. */
+    revert: (force: boolean) => {
+      act(() => {
+        result.current.revert(force);
+      });
     },
     reconcile: (digest: string | null) => {
       let reload: boolean | undefined;
@@ -426,6 +442,150 @@ describe("useAutosave", () => {
 
     expect(await note.saveFirst()).toBe(false);
     expect(saveNote).not.toHaveBeenCalled();
+    expect(note.status()).toBe("conflict");
+  });
+  it("says a write is in the air for the note it was typed into", async () => {
+    // Off a count of its own and not off `pending`, which `save` empties on the
+    // way out: a note whose text is between the keyboard and the disk would
+    // otherwise read as clean.
+    const note = renderAutosave();
+    const write = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    expect(note.isWriting("index.md")).toBe(true);
+
+    await write.finish();
+
+    expect(note.isWriting("index.md")).toBe(false);
+  });
+
+  it("counts the writes rather than flagging them", async () => {
+    // `:w` during a quiet write puts two in the air for one note, and the first
+    // to answer must not read as the last. A flag passes every other case here.
+    const note = renderAutosave();
+    const quiet = pendingSave();
+    const asked = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    note.change("# edited again");
+    note.startSave();
+    await quiet.finish();
+    expect(note.isWriting("index.md")).toBe(true);
+
+    await asked.finish();
+
+    expect(note.isWriting("index.md")).toBe(false);
+  });
+
+  it("answers about the note named, not about the one it is following", async () => {
+    // The tail this exists for: moving to another pane flushes the note being
+    // left, and the hook's own path has moved on while that write is still out.
+    const note = renderAutosave("index.md");
+    const write = pendingSave();
+
+    note.change("# edited");
+    note.open("daily/2026-08-05.md");
+
+    expect(note.isWriting("index.md")).toBe(true);
+    expect(note.isWriting("daily/2026-08-05.md")).toBe(false);
+    await write.finish();
+    expect(note.isWriting("index.md")).toBe(false);
+  });
+
+  it("says nothing is in the air after a write that failed on discarded text", async () => {
+    // The failure arm returns early once the reader has thrown the text away,
+    // so a count lowered at the end of it leaks for the life of the page and
+    // that note is never bookmarked again.
+    const note = renderAutosave();
+    const write = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    note.revert(true);
+    await write.break();
+
+    expect(note.isWriting("index.md")).toBe(false);
+  });
+  it("takes a write the route made as one of its own", async () => {
+    const note = renderAutosave();
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+    await hashed();
+
+    expect(note.reconcile(await digestOf(bookmark))).toBe(false);
+    expect(note.status()).toBe("unsaved");
+  });
+
+  it("takes the same write coming back through the editor", async () => {
+    // The other reader of it: the cache moves first, the editor's reload effect
+    // asks, and the adopted text is what makes it refuse without flagging.
+    const note = renderAutosave();
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+    await hashed();
+
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("unsaved");
+  });
+
+  it("still knows its own write when a bookmark lands between it and its event", async () => {
+    // What fails when the adopted write shares `lastWritten`: the hook reads
+    // its own save as somebody else's and locks the editor, which is the exact
+    // fault `adopt` exists to prevent, reached from the other side.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    await idle();
+    await hashed();
+    note.change("# edited more");
+    note.adopt("index.md", "a bookmark landing in between");
+    await hashed();
+
+    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
+    expect(note.status()).toBe("unsaved");
+  });
+
+  it("takes nothing for a note it is not following", async () => {
+    const note = renderAutosave();
+    const bookmark = "another note\nreading: epubcfi(/6/4)";
+
+    note.change("# edited");
+    note.adopt("other.md", bookmark);
+    await hashed();
+
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("knows two adopted writes, in either order of arrival", async () => {
+    // A map rather than one slot, which would rest on a promise about how far
+    // apart two bookmark writes can be that nothing here enforces.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.adopt("index.md", "the first bookmark");
+    note.adopt("index.md", "the second bookmark");
+    await hashed();
+
+    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
+    expect(note.reconcile(await digestOf("the first bookmark"))).toBe(false);
+    expect(note.status()).toBe("unsaved");
+  });
+
+  it("flags text it has not been told about yet", async () => {
+    // Why the route adopts before it moves the cache. Nothing is adopted here,
+    // so this passes before `adopt` exists and guards the other direction.
+    const note = renderAutosave();
+
+    note.change("# edited");
+
+    expect(note.allowReload("a bookmark nobody mentioned")).toBe(false);
     expect(note.status()).toBe("conflict");
   });
 });

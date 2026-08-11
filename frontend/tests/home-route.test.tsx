@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import type { VaultEvent } from "@/lib/vault-events";
+import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
-import { defineFoliateFake, lastView, resetFoliateFake } from "./foliate-fake";
+import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
 
 defineFoliateFake();
 
@@ -224,6 +224,8 @@ async function renderApp() {
     editedLine: () => container.querySelector("[aria-label='edit line']"),
     /** How many panes the active tab draws. */
     panes: () => container.querySelectorAll("[data-pane]").length,
+    /** What the cache holds for a note, which is what the editor reloads off. */
+    cached: (of: string) => queryClient.getQueryData<string>(["note", of]),
     /** Whether the bar's reading is wearing the flash a refusal raises. */
     flashing: () =>
       container.querySelector("[data-testid='save-status']")?.className.includes("animate-flash") ??
@@ -249,6 +251,17 @@ async function settle() {
       await vi.advanceTimersByTimeAsync(0);
     });
   }
+}
+
+// crypto finishes a digest off the event loop, which no fake timer reaches, so
+// the real timer is kept from before the fakes go in.
+const realTimeout = globalThis.setTimeout;
+
+/** Let the digest of a write the route made land, which takes a real tick. */
+async function hashed() {
+  await act(async () => {
+    await new Promise((resolve) => realTimeout(resolve, 0));
+  });
 }
 
 describe("the route", () => {
@@ -1072,6 +1085,237 @@ describe("a reader when the vault moves under it", () => {
     expect(fetchBook).toHaveBeenCalledTimes(1);
     expect(app.alert()).not.toBeNull();
   });
+  describe("keeping your place", () => {
+    /** What the pane reports, and what the note ends up carrying. */
+    const PLACE = "epubcfi(/6/4!/4/4/1:0)";
+
+    /** How long the bookmark waits for quiet. */
+    const WAIT = 60_000;
+
+    /**
+     * A page turn, as the renderer reports one.
+     *
+     * Two are needed before anything is reported, the first being the
+     * navigation `init` performs, and the two must carry two positions or the
+     * pane's own dedupe swallows the second.
+     */
+    function turn() {
+      act(() => lastView().emitRelocate({ reason: "page" }));
+    }
+
+    /** Turn the page twice, which is one reported move. */
+    function turnedTo(cfi: string) {
+      FakeView.cfis = ["the page it opened on", cfi];
+      turn();
+      turn();
+    }
+
+    // Unmounted here rather than by the hook outside, so the flush the reader's
+    // own teardown runs is finished with before the mocks are reset. A write
+    // left in the air lands inside the next test carrying this one's position.
+    afterEach(async () => {
+      cleanup();
+      await settle();
+    });
+
+    /** Let the whole wait pass, and whatever it started settle. */
+    async function waited() {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(WAIT);
+      });
+      await settle();
+    }
+
+    it("writes where the reader got to once the reading stops", async () => {
+      await reading();
+
+      turnedTo(PLACE);
+      await settle();
+      expect(saveNote).not.toHaveBeenCalled();
+
+      await waited();
+
+      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`reading: ${PLACE}`));
+    });
+
+    it("puts the note the vault answered with in the cache", async () => {
+      // What the editor reloads off, so a clean buffer holds the bookmark
+      // within a render and its next save carries it.
+      const app = await reading();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(app.cached(LIT)).toBe(saveNote.mock.calls[0]?.[1]);
+    });
+
+    it("reads nothing at all while the note is in the focused pane", async () => {
+      // The read and not the write, because asserting only that `saveNote` was
+      // not called stays green with this guard removed and the second reading
+      // of it left in.
+      const app = await reading();
+      // The baseline is the point: the editor read the note when it opened and
+      // the pane read it again to restore, so a bare "never called" cannot pass.
+      fetchNote.mockClear();
+
+      app.leader("o");
+      await settle();
+      turnedTo(PLACE);
+      await waited();
+
+      expect(fetchNote).not.toHaveBeenCalled();
+    });
+
+    it("reads nothing while a write of the note's own text is still out", async () => {
+      // The tail the focused-pane guard cannot see: moving to the reader
+      // flushes the note being left, and that write is still in the air with
+      // the focus already gone. Without this case the route can drop its
+      // `isWriting` call and every other test stays green.
+      const app = await reading();
+      app.leader("o");
+      await settle();
+      app.press("x");
+      await settle();
+
+      let written: (() => void) | undefined;
+      saveNote.mockImplementationOnce(
+        (path: string, content: string) =>
+          new Promise((resolve) => {
+            written = () => resolve({ path, content });
+          }),
+      );
+      app.leader("o");
+      await settle();
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      fetchNote.mockClear();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(fetchNote).not.toHaveBeenCalled();
+      written?.();
+    });
+
+    it("writes nothing into a note that has left the listing", async () => {
+      // With the read answering normally, so this fails for the right reason.
+      // Letting it fail instead would pass with the guard removed, the write
+      // stopping at the read either way.
+      await reading();
+      turnedTo(PLACE);
+      await settle();
+
+      fetchFiles.mockResolvedValue(["index.md"]);
+      act(() => stream().send({ path: LIT, change: "removed", digest: null }));
+      await settle();
+      fetchNote.mockClear();
+
+      await waited();
+
+      expect(fetchNote).not.toHaveBeenCalled();
+      expect(saveNote).not.toHaveBeenCalled();
+    });
+
+    it("writes nothing when the note takes the focus during the read", async () => {
+      // The save that starts in the same tick as the write. The read took a
+      // round trip, and the note can take the focus inside it.
+      const app = await reading();
+      turnedTo(PLACE);
+      await settle();
+
+      let answer: (() => void) | undefined;
+      fetchNote.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            answer = () => resolve("# DDIA");
+          }),
+      );
+      await waited();
+      expect(fetchNote).toHaveBeenCalledWith(LIT);
+
+      app.leader("o");
+      await settle();
+      answer?.();
+      await settle();
+
+      expect(saveNote).not.toHaveBeenCalled();
+    });
+
+    it("drops the wait when the note takes the focus", async () => {
+      // The focus moving away again before the timer would have fired is what
+      // keeps this honest: the guard alone would otherwise pass it.
+      const app = await reading();
+      turnedTo(PLACE);
+      await settle();
+
+      app.leader("o");
+      await settle();
+      app.leader("o");
+      await settle();
+      await waited();
+
+      expect(saveNote).not.toHaveBeenCalled();
+    });
+
+    it("never lets its own write reach the editor as somebody else's", async () => {
+      // The one case here that drives a real CodeMirror mid-write, because
+      // nothing else can pin that the route calls `adopt` at all. The order is
+      // exact: the write has to start with the reader focused and land with the
+      // note focused, or `adopt` refuses a note the hook is not following.
+      const app = await reading();
+      turnedTo(PLACE);
+      await settle();
+
+      let sent = "";
+      let land: (() => void) | undefined;
+      saveNote.mockImplementationOnce(
+        (path: string, content: string) =>
+          new Promise((resolve) => {
+            sent = content;
+            land = () => resolve({ path, content });
+          }),
+      );
+      await waited();
+      expect(saveNote).toHaveBeenCalledOnce();
+
+      app.leader("o");
+      await settle();
+      app.press("x");
+      await settle();
+      const typed = app.text();
+
+      land?.();
+      await hashed();
+      // The cache reaching the editor, which is the half the event never
+      // exercises: `setQueryData` notifies on a zero-delay timer, the reload
+      // effect asks `allowReload`, and the adopted text is what makes it refuse
+      // without a word.
+      await settle();
+
+      // And then the same write off the stream, which is what `reconcile`
+      // answers. In this order because a matched digest takes the entry out of
+      // the map and `allowReload` does not, which is the app's own order too: a
+      // zero-delay timer beats a `PUT` plus a watcher debounce every time.
+      const digest = await digestOf(sent);
+      act(() => stream().send({ path: LIT, change: "written", digest }));
+      await settle();
+
+      expect(app.status()).not.toBe("Changed on disk");
+      expect(app.text()).toBe(typed);
+    });
+
+    it("writes at once when the reader is closed", async () => {
+      const app = await reading();
+
+      turnedTo(PLACE);
+      await settle();
+
+      app.leader("q");
+      await settle();
+
+      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`reading: ${PLACE}`));
+    });
+  });
+
   describe("the archive", () => {
     /** A vault holding one live note and one filed away. */
     const FILED = ["index.md", "98 Archive/old cert.md"];

@@ -310,6 +310,12 @@ with the suffix swapped, so `20 Literature/DDIA.md` is read beside
 A note with no book beside it draws a panel naming the path it wanted, rather
 than an empty reader. So does a book the reader cannot open.
 
+Opening a book again puts you back on the page you stopped at. The place is one
+line in the note's own block, `reading:`, written a minute after the last page
+turn and whenever you close the reader.
+[How it keeps your place](/explanation/books-in-the-vault.md#how-it-keeps-your-place)
+says what that line costs.
+
 The keys below are the only ones the pane answers. They are not leader keys:
 the pane holds a document you page with the space bar in every other reader, so
 the leader would cost you the space bar for nothing.

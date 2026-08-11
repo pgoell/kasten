@@ -20,13 +20,38 @@ import "@/styles/app.css";
 
 const NOTE = "20 Literature/Plain.md";
 
-const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
+/**
+ * The top of the fixture's second chapter, spelled against its own spine.
+ *
+ * `/6/4` is the second `itemref` in the package, which is what `resolveCFI`
+ * turns into a spine index, and `/4/4/1:0` is the start of the one paragraph in
+ * that chapter's body.
+ */
+const CHAPTER_TWO = "epubcfi(/6/4!/4/4/1:0)";
+
+/**
+ * A bookmark from another edition, in the two shapes it fails in.
+ *
+ * `MISSING_SPINE` names an `itemref` this package has not got, so `resolveCFI`
+ * answers `{ index: -1 }`, the renderer refuses it and nothing loads.
+ * `MISSING_NODE` names one it has and a child of the body that chapter has not,
+ * so the section loads and then `range.setStart` throws on a null node.
+ */
+const MISSING_SPINE = "epubcfi(/6/99!/4/4/1:0)";
+const MISSING_NODE = "epubcfi(/6/4!/4/22/1:0)";
+
+/** The literature note as the vault holds it, with a place in it. */
+function noteAt(cfi: string): string {
+  return `---\nid: one\nreading: ${cfi}\n---\n# Plain\n`;
+}
+
+const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
 // The Perf job runs no backend and vite proxies `/api` to a dead port, so the
 // pane must not fetch here. Seeding the query instead is a trap: seeded data is
 // stale at once under the default staleTime, so mounting refetches against the
 // dead proxy anyway and the rejection swaps the error panel in over a book that
 // already drew.
-vi.mock("@/lib/api", () => ({ fetchBook }));
+vi.mock("@/lib/api", () => ({ fetchBook, fetchNote }));
 
 /** Every `relocate` foliate emitted, recorded from before the first navigation. */
 const located: { cfi?: string }[] = [];
@@ -87,10 +112,27 @@ async function clickInside(pane: Element, doc: Document, selector: string) {
   });
 }
 
+/**
+ * Wait for the rest of `draw` to run, which the `load` event is in the middle of.
+ *
+ * The anchor is resolved after the section has loaded, so a case asserting that
+ * no error panel was drawn has to let the failure arrive before it says so.
+ */
+function drawn(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 300));
+}
+
 let mounted: { root: Root; container: HTMLElement } | null = null;
 
-async function drawBook() {
+/**
+ * Mount the reader over the fixture, beside a note the caller writes.
+ *
+ * `note` is the literature note's whole text, which is where `reading:` lives
+ * and so where the restore cases put the cfi they are about.
+ */
+async function drawBook(note = "") {
   fetchBook.mockResolvedValue(await (await fetch(plainUrl)).blob());
+  fetchNote.mockResolvedValue(note);
   const commands = stubCommands();
   const onFocus = vi.fn();
   const container = document.createElement("div");
@@ -107,7 +149,15 @@ async function drawBook() {
 
   root.render(
     <QueryClientProvider client={client}>
-      <BookPane note={NOTE} paths={[NOTE]} commands={commands} focusSignal={0} onFocus={onFocus} />
+      <BookPane
+        note={NOTE}
+        paths={[NOTE]}
+        commands={commands}
+        focusSignal={0}
+        onFocus={onFocus}
+        onMoved={() => {}}
+        onLeaving={() => {}}
+      />
     </QueryClientProvider>,
   );
 
@@ -140,6 +190,34 @@ describe("the reader over a real book", () => {
 
     await vi.waitFor(() => expect(located.length).toBeGreaterThan(0), { timeout: 10_000 });
   }, 20_000);
+
+  it("opens the chapter the note's own cfi names", async () => {
+    // The claim jsdom cannot make: the fake resolves whatever the test says,
+    // and what is in question is what foliate does with a real spine.
+    await drawBook(noteAt(CHAPTER_TWO));
+
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    expect(sections[0]?.title).toBe("Two");
+  }, 30_000);
+
+  it("draws a chapter when the saved place names a spine item this book has not", async () => {
+    const { container } = await drawBook(noteAt(MISSING_SPINE));
+
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    await drawn();
+    expect(container.querySelector("[role='alert']")).toBeNull();
+  }, 30_000);
+
+  it("draws a chapter when the saved place names a node this chapter has not", async () => {
+    const { container } = await drawBook(noteAt(MISSING_NODE));
+
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    await drawn();
+    // The chapter the stale cfi named, which is a better landing than the front
+    // of the book and is what the catch leaves behind.
+    expect(sections[0]?.title).toBe("Two");
+    expect(container.querySelector("[role='alert']")).toBeNull();
+  }, 30_000);
 
   it("answers a click and the keys that follow it, from inside the iframe", async () => {
     // The case the whole design is arranged around. An event does not cross a
