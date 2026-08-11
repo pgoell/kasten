@@ -181,6 +181,13 @@ async function renderApp() {
       input.value = command;
       fireEvent.keyDown(input, { key: "Enter", keyCode: 13 });
     },
+    /** Unfold a folder the way a reader does, by clicking its row. */
+    expand: (name: string) =>
+      fireEvent.click(
+        [...container.querySelectorAll<HTMLElement>("[data-row]")].find(
+          (row) => row.textContent === name,
+        ) as HTMLElement,
+      ),
     /** Open a note the way a reader does, by clicking its row in the tree. */
     click: (path: string) =>
       fireEvent.click(container.querySelector(`[title='${path}']`) as HTMLElement),
@@ -196,6 +203,18 @@ async function renderApp() {
     todoPane: () => container.querySelector("[aria-label='Todos']"),
     /** The reader, while a pane is holding one. */
     reader: () => container.querySelector("foliate-view"),
+    /** The panel a reader draws instead of a book. */
+    alert: () => container.querySelector("[role='alert']"),
+    /** The tree's own panel, which is where its bare keys are pressed. */
+    tree: () => container.querySelector("[aria-label='Vault']") as HTMLElement,
+    /** The prompt's input, while one is open. */
+    prompt: () => container.querySelector("input") as HTMLInputElement,
+    /** Type a path into the open prompt and take it. */
+    fill: (value: string) => {
+      const input = container.querySelector("input") as HTMLInputElement;
+      fireEvent.change(input, { target: { value } });
+      fireEvent.keyDown(input, { key: "Enter" });
+    },
     /** Which pane the route is drawing as the focused one, by position. */
     focusedPane: () =>
       [...container.querySelectorAll("[data-pane]")].findIndex((pane) =>
@@ -942,5 +961,115 @@ describe("the route", () => {
     });
 
     expect(app.focusedPane()).toBe(1);
+  });
+});
+
+describe("a reader when the vault moves under it", () => {
+  const LIT = "20 Literature/DDIA.md";
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue([LIT, "index.md"]);
+    fetchNote.mockResolvedValue("# DDIA");
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    resetFoliateFake();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  /** Open the literature note and its book beside it. */
+  async function reading() {
+    const app = await renderApp();
+    await settle();
+    // The tree opens folded, so the note's row is not drawn until its folder is.
+    app.expand("20 Literature");
+    await settle();
+    app.click(LIT);
+    await settle();
+    app.leader("g", "r");
+    await settle();
+    expect(app.reader()).not.toBeNull();
+    return app;
+  }
+
+  /** Rename the folder the tree's cursor starts on, which is the literature one. */
+  async function renameFolder(app: Awaited<ReturnType<typeof reading>>, to: string) {
+    app.leader("e");
+    await settle();
+    fireEvent.keyDown(app.tree(), { key: "r" });
+    await settle();
+    app.fill(to);
+    await settle();
+  }
+
+  it("follows the note when its folder moves", async () => {
+    const app = await reading();
+    expect(fetchBook).toHaveBeenCalledWith("20 Literature/DDIA.epub");
+    moveFolder.mockResolvedValue({ path: "Literature" });
+    fetchFiles.mockResolvedValue(["Literature/DDIA.md", "index.md"]);
+
+    await renameFolder(app, "Literature");
+
+    expect(fetchBook).toHaveBeenCalledWith("Literature/DDIA.epub");
+    // The moved note and its book are both fresh queries, and the clock has to
+    // run for their answers rather than only the microtasks `settle` flushes.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(app.reader()).not.toBeNull();
+    expect(app.alert()).toBeNull();
+  });
+
+  it("leaves every other reader where it was", async () => {
+    // `noteAfterPrompt` answers undefined for a pane the move did not touch, so
+    // assigning its result straight to `book` would empty every reader in the
+    // window whenever any folder moved.
+    fetchFiles.mockResolvedValue([LIT, "elsewhere/note.md", "index.md"]);
+    const app = await reading();
+    // Folded again, so the row under the cursor's first step is the other
+    // folder rather than the note inside this one.
+    app.expand("20 Literature");
+    await settle();
+    moveFolder.mockResolvedValue({ path: "somewhere" });
+
+    app.leader("e");
+    await settle();
+    fireEvent.keyDown(app.tree(), { key: "j" });
+    fireEvent.keyDown(app.tree(), { key: "r" });
+    await settle();
+    app.fill("somewhere");
+    await settle();
+
+    expect(app.reader()).not.toBeNull();
+    expect(fetchBook).toHaveBeenCalledTimes(1);
+  });
+
+  it("says its note is gone when the note alone is renamed", async () => {
+    // A rename moves the note and leaves the epub where it was, so rewriting
+    // `book` here would aim the reader at a file that is not the book it holds.
+    const app = await reading();
+    // Back to the note's own pane: a rename acts on the focused pane's note.
+    app.leader("o");
+    await settle();
+    renameNote.mockResolvedValue({ path: "20 Literature/Designing.md", content: "# DDIA" });
+    fetchFiles.mockResolvedValue(["20 Literature/Designing.md", "index.md"]);
+
+    app.leader("r", "f");
+    await settle();
+    app.fill("20 Literature/Designing.md");
+    await settle();
+
+    expect(fetchBook).toHaveBeenCalledTimes(1);
+    expect(app.alert()).not.toBeNull();
   });
 });

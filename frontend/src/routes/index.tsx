@@ -1086,7 +1086,17 @@ function Home() {
                   // holding something the move did not touch.
                   mapPanes(previous, (shown) => {
                     const next = noteAfterPrompt(mode, startPath, path, shown.path);
-                    return next === undefined ? shown : { ...shown, path: next };
+                    // A reader follows a folder and never a rename. A rename
+                    // moves the note and leaves the epub where it was, so
+                    // rewriting `book` here would aim the reader at a file that
+                    // is not the book it is reading. Undefined keeps the old
+                    // value, which is what a move that touched nothing answers.
+                    const book =
+                      (mode === "folder"
+                        ? noteAfterPrompt(mode, startPath, path, shown.book)
+                        : undefined) ?? shown.book;
+                    const moved = next === undefined ? shown : { ...shown, path: next };
+                    return book === shown.book ? moved : { ...moved, book };
                   }),
             );
           }}
