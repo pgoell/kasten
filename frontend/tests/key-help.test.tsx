@@ -279,6 +279,13 @@ describe("the key tables", () => {
     expect(new Set(TERMINAL.map(({ key }) => key)).size).toBe(TERMINAL.length);
   });
 
+  it("gives every leader binding its own key, across both tables", () => {
+    // The panel builds its rows into a Map keyed by this, so a key spelled
+    // twice loses a row rather than showing two, and nothing says which.
+    const all = [...LEADER, ...LEADER_EDITS];
+    expect(new Set(all.map(({ key }) => key)).size).toBe(all.length);
+  });
+
   it("spells a terminal chord with the letter shift actually produces", () => {
     // The trap `FORMAT` carries below: `KeyboardEvent.key` is the uppercase
     // letter while shift is down, so a row spelled "h" can never fire.
