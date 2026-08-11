@@ -4,7 +4,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Annotated
+from urllib.parse import urlsplit
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -77,6 +79,35 @@ two. It matches `KEEPALIVE_SECONDS` by coincidence rather than by need.
 """
 
 
+PAGE_LIMIT_BYTES = 8 * 1024 * 1024
+"""The most of one web page this will read into memory before giving up.
+
+An article is a few hundred kilobytes and this is twenty times that, so the
+number is not a limit anybody meets by reading. It is there because the other
+end of this request is a stranger, and `content-length` is a claim rather than
+a fact: the bytes are counted as they arrive.
+"""
+
+PAGE_FAILED = 400
+"""The status at which a page counts as not having been read.
+
+The line HTTP itself draws, and named because a bare 400 in a comparison says
+nothing about which of the two numbers on that line is which.
+"""
+
+PAGE_TIMEOUT_SECONDS = 20.0
+"""How long a page has to answer before the reader is told it did not."""
+
+PAGE_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+"""What this calls itself when it asks for a page.
+
+A browser's string rather than kasten's, because a great many sites answer an
+unfamiliar agent with a challenge page or a 403, and the page being asked for
+is one the reader is sitting in front of and could have opened in a tab. It is
+a request for one page, made by hand, not a crawl.
+"""
+
+
 class Health(BaseModel):
     """Liveness response."""
 
@@ -125,6 +156,20 @@ class FolderMove(BaseModel):
     path: str
 
 
+class Page(BaseModel):
+    """One web page as it arrived, for the client to make a note out of."""
+
+    url: str
+    """Where the page finally came from, redirects followed.
+
+    Not the address that was asked for. A page's relative links are relative to
+    this, and the client resolves them.
+    """
+
+    html: str
+    """The page's markup, untouched."""
+
+
 class SearchHit(BaseModel):
     """One line in the vault that matched, and enough to open the note on it."""
 
@@ -170,6 +215,71 @@ async def list_terminals(settings: Annotated[Settings, Depends(get_settings)]) -
     if not root.is_dir():
         return []
     return sorted(entry.name for entry in root.iterdir() if entry.is_dir())
+
+
+@app.get("/api/fetch")
+async def fetch_page(url: str) -> Page:
+    """Read one web page off the internet and hand it back unchanged.
+
+    The only endpoint that reads something other than the vault, and it writes
+    nothing: what comes back is markup, and turning it into a note happens in
+    the browser, where defuddle runs. That is where it has to run. defuddle is
+    a DOM library, the browser has the DOM, and the alternative is a second
+    extractor in Python that would read the same pages differently.
+
+    Fetching cannot happen there, though: a page from another origin is one the
+    browser will request and not let the script read, so the request comes from
+    here.
+
+    http and https and nothing else. The scheme is the trust boundary: `file://`
+    would read this container's disk and hand it to the browser, and the check
+    is made before anything is opened.
+
+    A page that could not be read is a 502 rather than the status the other end
+    gave. The reader asked kasten for a note and kasten could not get one; a
+    404 here would say the endpoint is missing.
+    """
+    if urlsplit(url).scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="Only http and https addresses")
+
+    try:
+        async with (
+            httpx.AsyncClient(
+                follow_redirects=True,
+                timeout=PAGE_TIMEOUT_SECONDS,
+                headers={"user-agent": PAGE_AGENT},
+            ) as reader,
+            reader.stream("GET", url) as response,
+        ):
+            # Read rather than raised for, so what reaches the reader is the
+            # number and not httpx's paragraph about it. The prompt puts this
+            # sentence on screen.
+            if response.status_code >= PAGE_FAILED:
+                raise HTTPException(
+                    status_code=502, detail=f"That page answered {response.status_code}"
+                )
+
+            if "html" not in response.headers.get("content-type", ""):
+                raise HTTPException(status_code=415, detail="That address is not a web page")
+
+            # Streamed rather than read whole, so the count below is the way out
+            # of a page that never ends rather than a look at what has already
+            # been held in memory.
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                body += chunk
+                if len(body) > PAGE_LIMIT_BYTES:
+                    raise HTTPException(status_code=502, detail="That page is too big to read")
+
+            # The header's charset, and utf-8 when it names none. A page that
+            # declares its encoding in a meta tag and not in its headers is read
+            # as utf-8, which is right for almost all of them and legible for
+            # the rest: a replaced character is a typo, a raised decode error is
+            # no note at all.
+            html = body.decode(response.charset_encoding or "utf-8", errors="replace")
+            return Page(url=str(response.url), html=html)
+    except httpx.HTTPError as error:
+        raise HTTPException(status_code=502, detail=f"Could not read that page: {error}") from error
 
 
 @app.get("/api/search")

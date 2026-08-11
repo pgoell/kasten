@@ -74,6 +74,7 @@ function Harness({
         openYearly: () => {},
         createTab: () => {},
         openTerminal: () => {},
+        importPage: () => {},
         splitRight: () => {},
         splitDown: () => {},
         nextPane: () => {},

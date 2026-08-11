@@ -45,6 +45,13 @@ Anything else in the block is copied through a save unread, in the order it was
 written, nested lists and mappings included. kasten neither adds nor removes it.
 Deleting one of your own fields is an edit like any other and it stays deleted.
 
+One thing kasten writes lands in this half of the block:
+[an imported web page](/reference/editor-keys.md#importing-a-web-page) arrives
+carrying `source`, and `author` and `published` where the page named them. They
+are written once, by the client, in the text it hands to `POST`, and they are
+yours from that moment: a save copies them through and deleting one keeps it
+deleted.
+
 The block is not parsed as YAML. Three keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from
 reordering keys, requoting strings or dropping comments.

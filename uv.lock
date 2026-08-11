@@ -385,6 +385,7 @@ source = { editable = "backend" }
 dependencies = [
     { name = "alembic" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "httpx" },
     { name = "markdown-it-py" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
@@ -396,6 +397,7 @@ dependencies = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.135" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3" },
     { name = "pydantic-settings", specifier = ">=2.7" },

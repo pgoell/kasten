@@ -76,6 +76,7 @@ function OpenNote({ path }: { path: string }) {
       focusTree: () => {},
       createTab: () => {},
       openTerminal: () => {},
+      importPage: () => {},
       splitRight: () => {},
       splitDown: () => {},
       nextPane: () => {},

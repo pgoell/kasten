@@ -458,6 +458,7 @@ export function Editor({
             openYearly: () => commandsRef.current?.openYearly(),
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),
+            importPage: () => commandsRef.current?.importPage(),
             splitRight: () => commandsRef.current?.splitRight(),
             splitDown: () => commandsRef.current?.splitDown(),
             nextPane: () => commandsRef.current?.nextPane(),

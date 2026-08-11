@@ -30,6 +30,7 @@ function stubCommands() {
     focusTree: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),
+    importPage: vi.fn(),
     splitRight: vi.fn(),
     splitDown: vi.fn(),
     nextPane: vi.fn(),

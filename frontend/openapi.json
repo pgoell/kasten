@@ -70,6 +70,46 @@
         }
       }
     },
+    "/api/fetch": {
+      "get": {
+        "summary": "Fetch Page",
+        "description": "Read one web page off the internet and hand it back unchanged.\n\nThe only endpoint that reads something other than the vault, and it writes\nnothing: what comes back is markup, and turning it into a note happens in\nthe browser, where defuddle runs. That is where it has to run. defuddle is\na DOM library, the browser has the DOM, and the alternative is a second\nextractor in Python that would read the same pages differently.\n\nFetching cannot happen there, though: a page from another origin is one the\nbrowser will request and not let the script read, so the request comes from\nhere.\n\nhttp and https and nothing else. The scheme is the trust boundary: `file://`\nwould read this container's disk and hand it to the browser, and the check\nis made before anything is opened.\n\nA page that could not be read is a 502 rather than the status the other end\ngave. The reader asked kasten for a note and kasten could not get one; a\n404 here would say the endpoint is missing.",
+        "operationId": "fetch_page_api_fetch_get",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Url"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/search": {
       "get": {
         "summary": "Search Files",
@@ -499,6 +539,25 @@
         ],
         "title": "NoteMove",
         "description": "Where a note should live from now on. Where it lives today comes from the URL."
+      },
+      "Page": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "html": {
+            "type": "string",
+            "title": "Html"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "html"
+        ],
+        "title": "Page",
+        "description": "One web page as it arrived, for the client to make a note out of."
       },
       "SearchHit": {
         "properties": {

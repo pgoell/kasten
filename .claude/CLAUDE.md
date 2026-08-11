@@ -18,9 +18,9 @@ is in [The vault and the derived index](../docs/explanation/vault-and-derived-in
 
 Real, working code, not a plan:
 
-- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Eleven
+- `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Twelve
   endpoints, `/api/health`, `/api/files`, `/api/search`, `/api/todos`,
-  `/api/terminals`, `/api/events`, `GET`,
+  `/api/terminals`, `/api/fetch`, `/api/events`, `GET`,
   `POST`, `PUT` and `PATCH` on `/api/files/{path}`, and `PATCH` on
   `/api/folders/{path}`. A create starts a
   note holding its frontmatter, and the text under it when a body comes with
@@ -44,6 +44,11 @@ Real, working code, not a plan:
   closed one is deliberately left out: the total is on the task line, and the
   closed ones are the half of that log that piles up. A stop reads them through
   `/api/search` on the id instead.
+  `/api/fetch` is the other endpoint that reads nothing of the vault, and the
+  only one that goes outside the machine: it reads one web page and hands the
+  markup back untouched, http and https only, counting the bytes as they arrive
+  rather than believing `content-length`, and naming each refusal so the prompt
+  can show it. Making a note of that page happens in the browser.
   `/api/terminals` is the one endpoint that reads nothing of the vault: it
   lists the shell container's herdr sessions off a read-only mount of that
   container's volume, so the prompt can offer the ones that already exist.
@@ -180,6 +185,13 @@ Real, working code, not a plan:
   that ran past midnight; a session in a note that is not a daily note is left
   alone, nothing saying which day it belongs to. The row shows what is on disk,
   so nothing ticks.
+  `Space c w` takes one web address and puts the page in `00 Inbox` as a note,
+  open in the focused pane. The reading is defuddle, kepano's extractor and the
+  one behind Obsidian's web clipper, running here because it reads a DOM; the
+  backend only fetches, a script not being allowed to read another origin's
+  answer. The note is named after the page's title, headed by it, and carries
+  `source` and whatever the page says about its author and its date. A page
+  clipped twice opens the note it made the first time.
   `Space c s` puts a shell in the focused pane instead of a note: it asks what
   the herdr session is called, offering the ones that already exist, and
   attaches to it, starting one if nothing answers to that name. The pane speaks ttyd's WebSocket protocol itself
