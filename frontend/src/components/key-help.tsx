@@ -11,6 +11,7 @@ import {
   TODO_PANE,
   TREE,
 } from "@/lib/key-bindings";
+import { HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 
 /** Vim's spelling of a key is for vim. This is the one on the keyboard. */
 function readable(key: string) {
@@ -43,15 +44,73 @@ interface Group {
   keys: readonly { key: string; label: string }[];
 }
 
+/**
+ * The ten tab digits, under a name no sequence of leader keys can spell.
+ *
+ * One row rather than ten, because ten rows carrying the same sentence would
+ * bury every other key on the panel. It is looked up by name below like a
+ * binding, and the space in the name is what keeps it out of the way of one.
+ */
+const TAB_DIGITS = "tab digits";
+
+/**
+ * The leader's keys, cut into the groups they were designed in.
+ *
+ * `LEADER` is alphabetical, which is the order for a table nobody reads and
+ * the wrong one for a panel somebody scans: `cf`, `df` and `rf` are one job in
+ * three places. The order inside a group is this list's. A key named nowhere
+ * here falls into the last group rather than off the panel, so a new binding
+ * needs no edit in this file to show up.
+ */
+const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
+  { title: "Panes", keys: ["%", '"', "h", "j", "k", "l", "o", "q"] },
+  { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
+  { title: "Notes", keys: ["cf", "rf", "df", "du", "cw"] },
+  { title: "Find", keys: ["ff", "fg", "ft"] },
+  { title: "Go to", keys: ["gd", "gw", "gm", "gq", "gy", "gb", "go", "gr", "ge", "gt"] },
+  { title: "Todos", keys: ["x", "i", "so", "sp", "sx", "sb", "sr"] },
+];
+
+/** The leader groups above, filled from the two tables the keys live in. */
+function leaderGroups(): Group[] {
+  // A leader key can be more than one letter, and the letters are spaced so
+  // that `cf` reads as the two presses it is rather than as one key.
+  const rows = new Map(
+    [...LEADER, ...LEADER_EDITS].map(({ key, label }) => [
+      key,
+      { key: `Space ${[...key].join(" ")}`, label },
+    ]),
+  );
+  rows.set(TAB_DIGITS, {
+    key: `Space ${TAB_KEYS[0]} … ${TAB_KEYS[TAB_KEYS.length - 1]}`,
+    label: "Go to a tab by number",
+  });
+
+  const named = LEADER_GROUPS.map(({ title, keys }) => ({
+    title,
+    keys: keys.flatMap((key) => {
+      const row = rows.get(key);
+      rows.delete(key);
+      return row ? [row] : [];
+    }),
+  }));
+
+  // Whatever was named nowhere above, in the table's own order: the toggles,
+  // the terminal, the formatter and this panel's own key.
+  return [...named, { title: "The rest", keys: [...rows.values()] }];
+}
+
 function Table({ title, keys }: Group) {
   return (
-    <section>
-      <h3 className="mb-2 text-[11px] tracking-wider text-one-muted uppercase">{title}</h3>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13px]">
+    // A group is one card and a card never straddles two columns, so the panel
+    // reflows as the window changes without cutting a group in half.
+    <section className="mb-4 break-inside-avoid">
+      <h3 className={`${LABEL} mb-1`}>{title}</h3>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-[13px] leading-snug">
         {keys.map(({ key, label }) => (
           <div key={key} className="contents">
             <dt className="text-right whitespace-nowrap text-one-accent">{key}</dt>
-            <dd className="text-one-fg">{label}</dd>
+            <dd className="text-one-muted">{label}</dd>
           </div>
         ))}
       </dl>
@@ -65,6 +124,10 @@ function Table({ title, keys }: Group) {
  * Everything on it is read from `key-bindings.ts`, the same table the vim
  * registrations are built from, so a key cannot appear here and be missing
  * from the editor.
+ *
+ * It is laid out in columns rather than one long list because the map is
+ * ninety-odd keys: a single column is a page and a half of scrolling, and the
+ * point of the panel is answering a question at a glance.
  */
 export function KeyHelp({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -82,26 +145,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
   }, []);
 
   const groups: Group[] = [
-    {
-      title: "Leader",
-      // A leader key can be more than one letter, and the letters are spaced so
-      // that `cf` reads as the two presses it is rather than as one key.
-      keys: [
-        // Two tables, one group. The keys are pressed the same way; what
-        // divides them is that these write to the note rather than naming a
-        // command the route provides, and nobody reading the panel cares.
-        ...[...LEADER, ...LEADER_EDITS].map(({ key, label }) => ({
-          key: `Space ${[...key].join(" ")}`,
-          label,
-        })),
-        // The ten digits on one row. Ten rows carrying the same sentence would
-        // bury every other key on the panel.
-        {
-          key: `Space ${TAB_KEYS[0]} … ${TAB_KEYS[TAB_KEYS.length - 1]}`,
-          label: "Go to a tab by number",
-        },
-      ],
-    },
+    ...leaderGroups(),
     {
       title: "Editor",
       keys: [
@@ -117,7 +161,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       keys: TERMINAL.map(({ key, label }) => ({ key: chordLabel(key), label })),
     },
     { title: "File tree", keys: TREE },
-    { title: "Todos", keys: TODO_PANE },
+    { title: "Todo pane", keys: TODO_PANE },
   ];
 
   return (
@@ -134,13 +178,19 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       }}
       className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 focus:outline-none"
     >
-      <div className="max-h-[80vh] overflow-auto rounded-md border border-one-line bg-one-panel px-6 py-5 font-mono shadow-xl">
-        <div className="flex flex-col gap-5">
+      {/* The finder's panel, wider: this is the fourth thing the app draws over
+          the editor and reads as the same object, but it holds a map rather
+          than a list, and the width is what keeps the map off a scrollbar. */}
+      <div className={`${PANEL} max-h-[88vh] w-[min(84rem,95vw)]`}>
+        <div className={HEADER_ROW}>
+          <span className={LABEL}>Keys</span>
+        </div>
+        <div className="min-h-0 columns-1 gap-x-8 overflow-auto px-4 py-3 md:columns-2 xl:columns-3">
           {groups.map((group) => (
             <Table key={group.title} {...group} />
           ))}
         </div>
-        <p className="mt-5 text-[11px] text-one-muted">Escape or q to close</p>
+        <p className={STATUS}>Escape or q to close</p>
       </div>
     </div>
   );

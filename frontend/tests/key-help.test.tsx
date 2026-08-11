@@ -55,7 +55,11 @@ describe("KeyHelp", () => {
     for (const { key, label } of LEADER) {
       // The key's own row, not the label anywhere on the panel: a terminal
       // chord carries the same sentence as the leader key doing the same job.
-      expect(group("Leader").getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
+      //
+      // Unscoped, unlike the groups below, and that is the claim: the panel
+      // cuts these keys into groups of its own, and a key that landed in two
+      // of them or in none fails right here.
+      expect(screen.getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
     }
   });
 
@@ -66,7 +70,7 @@ describe("KeyHelp", () => {
     // because they edit the buffer, but they are pressed like every other
     // leader key and belong on the panel beside them.
     for (const { key, label } of LEADER_EDITS) {
-      expect(group("Leader").getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
+      expect(screen.getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
     }
   });
 
@@ -127,7 +131,7 @@ describe("KeyHelp", () => {
     render(<KeyHelp onClose={() => {}} />);
 
     for (const { key, label } of TODO_PANE) {
-      expect(group("Todos").getByText(key).nextElementSibling).toHaveTextContent(label);
+      expect(group("Todo pane").getByText(key).nextElementSibling).toHaveTextContent(label);
     }
   });
 
