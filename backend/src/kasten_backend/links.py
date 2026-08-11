@@ -39,6 +39,11 @@ def link_path(target: str, paths: list[str]) -> str:
     is looked for anywhere in the vault, ignoring case, so `[[borges]]` names
     `reading/borges.md` from any note. `paths` arrives sorted, so a note of that
     name at the vault root wins over one in a folder.
+
+    A name nothing answers to comes back as it was written, where the editor's
+    copy answers `00 Inbox/<name>.md`. That is a rule about where a note is made
+    and not about which note a link names: what this feeds is a mapping keyed by
+    notes that exist, which a path nothing answers to is not in either way.
     """
     typed = target.strip()
     path = typed if typed.endswith(SUFFIX) else f"{typed}{SUFFIX}"

@@ -577,12 +577,17 @@ other mark is hidden, and `i` on that line hands them back.
 | Key | Does | Mode |
 | --- | --- | --- |
 | `gf` | Open the note the wikilink names | normal |
+| Enter | The same, one key | normal |
 | Ctrl+click | The same, with the mouse | any |
 
 `gf` is vim's own go-to-file, and it reads the link under the cursor. Anywhere
 in the name will do, the last letter included: the closing `]]` is hidden, so
 the cursor cannot rest between the name and what follows it, and both edges
 count as on the link.
+
+Enter does the same on one key. Off a link it does what vim does with a bare
+`<CR>`, which is move to the first word of the next line, so nothing is lost on
+a line holding no link.
 
 Ctrl+click, or Cmd+click, is the same command with the mouse, and it is the
 modifier that browsers already spend on opening a link. A plain click is left
@@ -600,7 +605,9 @@ What the target names is decided against the vault's own listing:
   ignoring case, so `[[borges]]` opens `reading/borges.md` from any note. A
   note of that name at the vault root wins over one in a folder.
 * A target nothing answers to is a note that is not there yet. Following it
-  makes an empty note at that path, folders on the way included, and opens it.
+  makes an empty note there, folders on the way included, and opens it. A name
+  says which note and never where it belongs, so a bare one lands in
+  `00 Inbox`; a target that spelled a path out is made at the path it spelled.
 
 That last one is the point of writing a link before the note: `gf` is where the
 note begins. It uses [POST /api/files/{path}](/reference/http-api.md), so a path

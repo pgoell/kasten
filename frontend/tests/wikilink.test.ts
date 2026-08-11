@@ -89,7 +89,17 @@ describe("wikiLinkPath", () => {
   });
 
   it("names the path a create would make when nothing answers to the name", () => {
-    expect(wikiLinkPath("borges the elder", PATHS)).toBe("borges the elder.md");
+    // A bare name says nothing about where the note belongs, and the inbox is
+    // where a note with nowhere to be goes.
+    expect(wikiLinkPath("borges the elder", PATHS)).toBe("00 Inbox/borges the elder.md");
+  });
+
+  it("still finds a note the inbox already holds by its bare name", () => {
+    expect(wikiLinkPath("cortazar", ["00 Inbox/cortazar.md"])).toBe("00 Inbox/cortazar.md");
+  });
+
+  it("leaves a path with a slash out of the inbox, wherever it points", () => {
+    expect(wikiLinkPath("notes/borges", PATHS)).toBe("notes/borges.md");
   });
 
   // A name is looked for anywhere; a path says where, and is taken at its word.

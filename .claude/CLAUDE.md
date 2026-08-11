@@ -65,9 +65,10 @@ Real, working code, not a plan:
   you type and shows the one under the highlight beside the list. Search reads
   what is written in the notes instead: `Space f g`, or `s` in the tree, asks
   rg for the lines holding what you type and ranks them here, and Enter opens
-  the note on the line. `[[wikilinks]]` render as the note's name, and `gf` or
-  ctrl+click opens it: a target with a slash is a path, a bare name is looked
-  for anywhere in the vault, and a name nothing answers to is made and opened.
+  the note on the line. `[[wikilinks]]` render as the note's name, and `gf`,
+  Enter or ctrl+click opens it: a target with a slash is a path, a bare name is
+  looked for anywhere in the vault, and a name nothing answers to is made in
+  `00 Inbox` and opened. Enter off a link still moves the way vim's `<CR>` does.
   Typing `[[` offers the vault's notes and closes the link it completes, and a
   link to a note that is not there yet is drawn muted and dotted. Both read the
   listing off the editor state, which the route reconfigures as it changes.
