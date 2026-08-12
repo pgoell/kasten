@@ -229,12 +229,21 @@ export interface paths {
          *     starlette reads it off the path. `Range` comes free with `FileResponse` and
          *     nothing uses it, the client asking for the whole file once.
          *
-         *     Deliberately unpaired. Getting a book into the vault is the shell pane's job
-         *     for now.
+         *     The `POST` below is the other half. Between them a book gets into the vault
+         *     and back out of it without a terminal.
          */
         get: operations["read_asset_api_assets__path__get"];
         put?: never;
-        post?: never;
+        /**
+         * Write Asset
+         * @description Put one book into the vault, and never over one already there.
+         *
+         *     Both decorator arguments earn their place. Without `status_code` the runtime
+         *     answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
+         *     documents the 201 as JSON carrying an empty schema, and
+         *     `openapi-typescript` turns that into a body for a response that has none.
+         */
+        post: operations["write_asset_api_assets__path__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -771,6 +780,35 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_asset_api_assets__path__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

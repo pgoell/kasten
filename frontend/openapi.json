@@ -229,7 +229,7 @@
     "/api/assets/{path}": {
       "get": {
         "summary": "Read Asset",
-        "description": "Read one book out of the vault.\n\nThe only endpoint that answers with bytes rather than with a note. It\nresolves a path, checks a suffix and streams a file; it never opens the\narchive, so nothing here knows what an epub is beyond its name.\n\nNo `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and\nstarlette reads it off the path. `Range` comes free with `FileResponse` and\nnothing uses it, the client asking for the whole file once.\n\nDeliberately unpaired. Getting a book into the vault is the shell pane's job\nfor now.",
+        "description": "Read one book out of the vault.\n\nThe only endpoint that answers with bytes rather than with a note. It\nresolves a path, checks a suffix and streams a file; it never opens the\narchive, so nothing here knows what an epub is beyond its name.\n\nNo `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and\nstarlette reads it off the path. `Range` comes free with `FileResponse` and\nnothing uses it, the client asking for the whole file once.\n\nThe `POST` below is the other half. Between them a book gets into the vault\nand back out of it without a terminal.",
         "operationId": "read_asset_api_assets__path__get",
         "parameters": [
           {
@@ -244,6 +244,37 @@
         ],
         "responses": {
           "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Asset",
+        "description": "Put one book into the vault, and never over one already there.\n\nBoth decorator arguments earn their place. Without `status_code` the runtime\nanswers 201 while OpenAPI documents a 200; without `response_class` FastAPI\ndocuments the 201 as JSON carrying an empty schema, and\n`openapi-typescript` turns that into a body for a response that has none.",
+        "operationId": "write_asset_api_assets__path__post",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
             "description": "Successful Response"
           },
           "422": {
