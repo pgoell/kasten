@@ -38,6 +38,7 @@ import {
 import { visible } from "@/lib/archive";
 import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
+import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { setField } from "@/lib/note-frontmatter";
 import { bookNote, importedNote, noteName } from "@/lib/note-path";
@@ -65,7 +66,7 @@ import {
   tabPanes,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
-import { parseTodo, type TodoState } from "@/lib/todo";
+import { newId, parseTodo, type TodoState } from "@/lib/todo";
 import {
   addSubtaskInVault,
   addTodoInVault,
@@ -77,6 +78,7 @@ import {
 import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
+import { useNoteWrites } from "@/lib/use-note-writes";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
 
@@ -425,6 +427,13 @@ function Home() {
     return () => stream.close();
   }, [queryClient]);
 
+  // Both whole-note writers the route owns go through this, so a bookmark
+  // cannot overtake a highlight into the same file. The editor's own save
+  // stays outside it: `useAutosave` counts what is in the air already, and
+  // holding a reader's save behind another writer's is worse than the race it
+  // would end.
+  const write = useNoteWrites();
+
   /**
    * Write one reading position into the note beside the book.
    *
@@ -434,72 +443,126 @@ function Home() {
    *
    * Answers whether the vault took it. A no leaves the position waiting for the
    * next chance, and nothing here throws.
+   *
+   * Through the gate, so a bookmark can now wait behind a highlight rather than
+   * racing it. `useBookmark`'s own drop-if-busy rule is untouched: the note
+   * counts as in flight the whole time it waits here.
    */
   const writePosition = useCallback(
-    async (note: string, cfi: string): Promise<boolean> => {
-      // Skip while somebody could be typing into it: the note is the focused
-      // pane's, or a write of its own text is already on its way to the vault.
-      // Whether or not that pane is dirty, which tightens the master spec.
-      // `PUT` is last writer wins with no precondition, so a save landing
-      // between the read below and the write is overwritten by the older text
-      // plus one field, and the cache then hands that older text back to a
-      // buffer its own save has just emptied. The focused pane is the only pane
-      // that can be typed into, so refusing it outright shuts a window that is
-      // otherwise a whole round trip wide.
-      //
-      // Off the ref rather than out of the render, because a timer that fired
-      // reads what is true now and not what was true when it was set.
-      const focused = focusedNote.current;
-      if (focused.path === note || focused.isWriting(note)) return false;
+    (note: string, cfi: string): Promise<boolean> =>
+      write(note, async () => {
+        // Skip while somebody could be typing into it: the note is the focused
+        // pane's, or a write of its own text is already on its way to the vault.
+        // Whether or not that pane is dirty, which tightens the master spec.
+        // `PUT` is last writer wins with no precondition, so a save landing
+        // between the read below and the write is overwritten by the older text
+        // plus one field, and the cache then hands that older text back to a
+        // buffer its own save has just emptied. The focused pane is the only pane
+        // that can be typed into, so refusing it outright shuts a window that is
+        // otherwise a whole round trip wide.
+        //
+        // Off the ref rather than out of the render, because a timer that fired
+        // reads what is true now and not what was true when it was set.
+        const focused = focusedNote.current;
+        if (focused.path === note || focused.isWriting(note)) return false;
 
-      // Stop for good once the note has left the listing. Read out of the cache
-      // the way the event handler reads it, so no dependency on `data` puts a
-      // fresh callback in front of the timer. A listing that has not arrived
-      // refuses the write too, which is stricter than the pane's own reading of
-      // the same fact and deliberately so: not knowing yet is a reason to draw
-      // nothing, and it is not a reason to write into a vault whose shape you
-      // do not know.
-      if (!queryClient.getQueryData<string[]>(["files"])?.includes(note)) return false;
+        // Stop for good once the note has left the listing. Read out of the cache
+        // the way the event handler reads it, so no dependency on `data` puts a
+        // fresh callback in front of the timer. A listing that has not arrived
+        // refuses the write too, which is stricter than the pane's own reading of
+        // the same fact and deliberately so: not knowing yet is a reason to draw
+        // nothing, and it is not a reason to write into a vault whose shape you
+        // do not know.
+        if (!queryClient.getQueryData<string[]>(["files"])?.includes(note)) return false;
 
-      const text = await fetchNote(note).then(
-        (held) => held,
-        // Deleted or renamed since, which the write has no answer to.
-        () => null,
-      );
-      if (text === null) return false;
+        const text = await fetchNote(note).then(
+          (held) => held,
+          // Deleted or renamed since, which the write has no answer to.
+          () => null,
+        );
+        if (text === null) return false;
 
-      // Asked again, because the read took a round trip and the note can take
-      // the focus inside it. This is the reading that catches a save starting
-      // in the same tick as the write.
-      const now = focusedNote.current;
-      if (now.path === note || now.isWriting(note)) return false;
+        // Asked again, because the read took a round trip and the note can take
+        // the focus inside it. This is the reading that catches a save starting
+        // in the same tick as the write.
+        const now = focusedNote.current;
+        if (now.path === note || now.isWriting(note)) return false;
 
-      const written = await saveNote(note, setField(text, "reading", cfi)).then(
-        (landed) => landed,
-        () => null,
-      );
-      if (written === null) return false;
+        const written = await saveNote(note, setField(text, "reading", cfi)).then(
+          (landed) => landed,
+          () => null,
+        );
+        if (written === null) return false;
 
-      // Say it was ours, and say it before the cache moves. The order is load
-      // bearing: the cache is what the editor reloads off, and adopting after
-      // it would let that reload ask about a write the hook had not been told
-      // about yet. `use-autosave.test.ts` pins that reading one layer down.
-      //
-      // Off the ref again rather than off the read above, so this is the hook
-      // that follows the note now: the reader may have clicked into it while
-      // the write was out, which is the whole case `adopt` exists for.
-      focusedNote.current.adopt(note, written.content);
-      // `setQueryData` and not an invalidation: what `PUT` answers is the note
-      // as it landed, stamp included, so there is nothing to go and read again.
-      // The stream invalidates a moment later anyway, which is the belt to
-      // these braces.
-      queryClient.setQueryData(["note", note], written.content);
-      return true;
-    },
-    [queryClient],
+        // Say it was ours, and say it before the cache moves. The order is load
+        // bearing: the cache is what the editor reloads off, and adopting after
+        // it would let that reload ask about a write the hook had not been told
+        // about yet. `use-autosave.test.ts` pins that reading one layer down.
+        //
+        // Off the ref again rather than off the read above, so this is the hook
+        // that follows the note now: the reader may have clicked into it while
+        // the write was out, which is the whole case `adopt` exists for.
+        focusedNote.current.adopt(note, written.content);
+        // `setQueryData` and not an invalidation: what `PUT` answers is the note
+        // as it landed, stamp included, so there is nothing to go and read again.
+        // The stream invalidates a moment later anyway, which is the belt to
+        // these braces.
+        queryClient.setQueryData(["note", note], written.content);
+        return true;
+      }),
+    [queryClient, write],
   );
 
   const { moved, flush, cancel } = useBookmark(writePosition);
+
+  /**
+   * Write a passage the reader took into the note beside the book.
+   *
+   * No focus rule and no dirty rule, which is the one place this and the
+   * bookmark differ on purpose: nobody pressed a key for a bookmark. A
+   * highlight is a press, so it is written whether or not you are typing in
+   * that note, and the bar saying the note changed on disk is information
+   * rather than rudeness.
+   *
+   * `invalidateQueries` and not `setQueryData` for the same reason: what comes
+   * back is read again, so a clean editor picks the highlight up and a dirty
+   * one raises the conflict it should. No `adopt` either.
+   */
+  const takeHighlight = useCallback(
+    (note: string, passage: Passage): Promise<void> =>
+      write(note, async () => {
+        // The press clears the bar, which is the rule the upload settled.
+        setNotice(undefined);
+        // Read out of the cache the way the bookmark's own write reads it. The
+        // pane already draws `No book at ...`, so this is the sentence for the
+        // key rather than the only word about it.
+        if (!queryClient.getQueryData<string[]>(["files"])?.includes(note)) {
+          setNotice("That note has left the vault");
+          return;
+        }
+
+        const text = await fetchNote(note).then(
+          (held) => held,
+          () => null,
+        );
+        if (text === null) {
+          setNotice("The note could not be read");
+          return;
+        }
+
+        const written = await saveNote(note, addHighlight(text, passage, newId("hl-"))).then(
+          (landed) => landed,
+          () => null,
+        );
+        if (written === null) {
+          setNotice("The highlight was not written");
+          return;
+        }
+
+        void queryClient.invalidateQueries({ queryKey: ["note", note] });
+      }),
+    [queryClient, write],
+  );
 
   // The focused pane's note is the only note that can be typed into, so its
   // taking the focus is the earliest signal there is that typing may start.
@@ -1376,6 +1439,7 @@ function Home() {
                     // move that rewrites `book` moves both callbacks with it.
                     onMoved={(cfi) => moved(book, cfi)}
                     onLeaving={() => flush(book)}
+                    onTake={(passage) => void takeHighlight(book, passage)}
                   />
                 ) : image !== undefined ? (
                   <ImagePane

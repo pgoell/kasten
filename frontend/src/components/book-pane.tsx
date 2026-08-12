@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
 import { fetchBook, fetchNote } from "@/lib/api";
+import type { Passage } from "@/lib/highlight";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { readField } from "@/lib/note-frontmatter";
 import { bookPath } from "@/lib/note-path";
@@ -30,6 +31,14 @@ interface FoliateView extends HTMLElement {
   renderer?: EventTarget & { setStyles?: (css: string) => void };
   /** Assigned by `open` after it awaits `makeBook`, so absent while one opens. */
   book?: { toc?: TocItem[] | null };
+  /**
+   * Set by `open` from the book's own `rendition:layout` (`view.js:254`).
+   *
+   * A pre-paginated book breaks three of the take's assumptions at once: a
+   * spread shows two documents, the location names one side and carries no
+   * range, and both frames are scaled. So the pane reports no selection there.
+   */
+  isFixedLayout?: boolean;
   /** Take the reader to an href out of the book's own contents. */
   goTo(target: string): Promise<unknown>;
   /**
@@ -38,8 +47,14 @@ interface FoliateView extends HTMLElement {
    * `tocItem` is the entry the reader is inside, which is the very object
    * `book.toc` holds rather than a copy of it. `fraction` is how far through
    * the whole book the page is, which the renderer's own event does not carry.
+   * `section` counts the spine, and is there for every book this app can open
+   * (`view.js:240-247`, `epub.js:1056`).
    */
-  lastLocation?: { tocItem?: TocItem; fraction?: number } | null;
+  lastLocation?: {
+    tocItem?: TocItem;
+    fraction?: number;
+    section?: { current: number; total: number };
+  } | null;
   /** The cfi for a place the renderer reported. A null range answers the section's own. */
   getCFI(index: number, range: Range | null): string;
 }
@@ -76,6 +91,8 @@ interface BookPaneProps {
   onMoved: (cfi: string) => void;
   /** The pane is going away, so whatever it last reported should be written now. */
   onLeaving: () => void;
+  /** A passage the reader took, by the button or by `y`. */
+  onTake: (passage: Passage) => void;
 }
 
 /**
@@ -112,6 +129,7 @@ export function BookPane({
   onFocus,
   onMoved,
   onLeaving,
+  onTake,
 }: BookPaneProps) {
   const wrapper = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -127,6 +145,21 @@ export function BookPane({
   // handler with a new identity on every `t` would tear the book down and open
   // it again, losing the page.
   const contentsOpen = useRef(false);
+  /**
+   * What is selected in the book now, or null for nothing.
+   *
+   * A ref for the same reason `contentsOpen` is one, and the argument is worth
+   * the lines because both wrong answers look right: `onKeyDown` is a
+   * `useCallback` with no dependencies, so a `y` branch closing over a piece of
+   * state would read the mount value, which is nothing, for the life of the
+   * pane, and naming that state in the callback's dependencies would rebuild
+   * the reader on every drag.
+   *
+   * The whole passage is decided here, at the moment the selection is made,
+   * and never asked about again: everything true of a passage is true when you
+   * select it and may not be a second later.
+   */
+  const taking = useRef<{ passage: Passage; range: Range; backward: boolean } | null>(null);
 
   // Read through refs, the way `terminal-pane.tsx` reads the same prop. The
   // view is built in one effect keyed on the bytes, and naming these in its
@@ -136,12 +169,31 @@ export function BookPane({
   const onFocusRef = useRef(onFocus);
   const onMovedRef = useRef(onMoved);
   const onLeavingRef = useRef(onLeaving);
+  const onTakeRef = useRef(onTake);
   useEffect(() => {
     commandsRef.current = commands;
     onFocusRef.current = onFocus;
     onMovedRef.current = onMoved;
     onLeavingRef.current = onLeaving;
+    onTakeRef.current = onTake;
   });
+
+  /**
+   * Report what is selected and put the selection away.
+   *
+   * One path for the button and for `y`, so there is one answer to what is
+   * selected. It asks foliate nothing: the passage was decided when the
+   * selection was made. Clearing the selection is the only signal the pane
+   * gives that the press landed, and the document to clear it in comes off the
+   * range rather than out of a fourth field on the ref.
+   */
+  const take = useCallback(() => {
+    const held = taking.current;
+    if (held === null) return;
+    onTakeRef.current(held.passage);
+    taking.current = null;
+    held.range.startContainer.ownerDocument?.getSelection()?.removeAllRanges();
+  }, []);
 
   /**
    * Every key the reader answers, whichever document it was pressed in.
@@ -151,55 +203,65 @@ export function BookPane({
    * history window, and a handler reading `event.key` alone would turn that
    * into a page turn.
    */
-  const onKeyDown = useCallback((event: KeyboardEvent) => {
-    // The contents render inside the wrapper, whose listener is a native one,
-    // while React delegates every event from the root container above it. So a
-    // key pressed in the contents reaches this handler first, and without this
-    // `q` in there closes the reader and `l` turns a page behind the panel.
-    if (contentsOpen.current) return;
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      // The contents render inside the wrapper, whose listener is a native one,
+      // while React delegates every event from the root container above it. So a
+      // key pressed in the contents reaches this handler first, and without this
+      // `q` in there closes the reader and `l` turns a page behind the panel.
+      if (contentsOpen.current) return;
 
-    const chord =
-      event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
-      event.shiftKey === TERMINAL_CHORD.shiftKey &&
-      event.altKey === TERMINAL_CHORD.altKey &&
-      event.metaKey === TERMINAL_CHORD.metaKey;
+      const chord =
+        event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
+        event.shiftKey === TERMINAL_CHORD.shiftKey &&
+        event.altKey === TERMINAL_CHORD.altKey &&
+        event.metaKey === TERMINAL_CHORD.metaKey;
 
-    if (chord) {
-      // From `TERMINAL` rather than a table of this pane's own, so retuning a
-      // chord retunes both panes.
-      const binding = TERMINAL.find((row) => row.key === event.key);
-      if (binding === undefined) return;
+      if (chord) {
+        // From `TERMINAL` rather than a table of this pane's own, so retuning a
+        // chord retunes both panes.
+        const binding = TERMINAL.find((row) => row.key === event.key);
+        if (binding === undefined) return;
+        event.preventDefault();
+        commandsRef.current[binding.command]();
+        return;
+      }
+
+      if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+
+      // No leader: the pane holds a document you page with the space bar in every
+      // other reader, and the chords already carry the way out.
+      if (event.key === "l") viewRef.current?.next();
+      else if (event.key === "h") viewRef.current?.prev();
+      else if (event.key === "q") commandsRef.current.closeNote();
+      // Nothing selected is nothing to take, the way `t` on a book still opening
+      // is nothing to draw.
+      else if (event.key === "y") take();
+      else if (event.key === "t") {
+        const book = viewRef.current?.book;
+        // On the book and not on its toc. The view is in the ref from the moment
+        // the element is built, which is a long way before `open` has unzipped a
+        // 30MB epub, and an empty list drawn in that window would report a book
+        // still loading as a book with no contents.
+        if (book === undefined) return;
+        contentsOpen.current = true;
+        const rows = tocRows(book.toc);
+        // foliate's own id, stamped on the toc items by `assignIDs` and handed
+        // back on `lastLocation.tocItem`, so this is one number against another
+        // rather than kasten matching labels. No match answers -1, which the
+        // contents clamp to the first row.
+        const current = viewRef.current?.lastLocation?.tocItem?.id;
+        setContents({ rows, start: rows.findIndex((row) => row.id === current) });
+      } else return;
+
       event.preventDefault();
-      commandsRef.current[binding.command]();
-      return;
-    }
-
-    if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
-
-    // No leader: the pane holds a document you page with the space bar in every
-    // other reader, and the chords already carry the way out.
-    if (event.key === "l") viewRef.current?.next();
-    else if (event.key === "h") viewRef.current?.prev();
-    else if (event.key === "q") commandsRef.current.closeNote();
-    else if (event.key === "t") {
-      const book = viewRef.current?.book;
-      // On the book and not on its toc. The view is in the ref from the moment
-      // the element is built, which is a long way before `open` has unzipped a
-      // 30MB epub, and an empty list drawn in that window would report a book
-      // still loading as a book with no contents.
-      if (book === undefined) return;
-      contentsOpen.current = true;
-      const rows = tocRows(book.toc);
-      // foliate's own id, stamped on the toc items by `assignIDs` and handed
-      // back on `lastLocation.tocItem`, so this is one number against another
-      // rather than kasten matching labels. No match answers -1, which the
-      // contents clamp to the first row.
-      const current = viewRef.current?.lastLocation?.tocItem?.id;
-      setContents({ rows, start: rows.findIndex((row) => row.id === current) });
-    } else return;
-
-    event.preventDefault();
-  }, []);
+      // `take` is the only name here that is not a ref, and it is a `useCallback`
+      // with no dependencies of its own, so this handler's identity is still
+      // fixed for the life of the pane and the view effect naming it rebuilds
+      // nothing.
+    },
+    [take],
+  );
 
   /** That a click or a Tab landed in the book, which no ancestor is told. */
   const report = useCallback(() => onFocusRef.current(), []);
@@ -269,9 +331,59 @@ export function BookPane({
       // book's links fires only `focusin`.
       doc.addEventListener("pointerdown", report);
       doc.addEventListener("focusin", report);
+      doc.addEventListener("selectionchange", onSelectionChange);
+      // Another section is on the page, so a held range points into a document
+      // that has been removed from the tree (`paginator.js:666-676`). The
+      // chapter travels with the passage, so this is no longer about the
+      // label; it is about the range.
+      if (taking.current?.range.startContainer.ownerDocument !== doc) taking.current = null;
       sections.push(doc);
     }
     view.addEventListener("load", onLoad);
+
+    /** The chapter the page is in, as the note is to name it. */
+    function chapterNow(): string {
+      const label = view.lastLocation?.tocItem?.label;
+      // `trim` and not foliate's own normaliser, which strips ASCII whitespace
+      // alone (`epub.js:64-67`) while the nav path falls back to a raw `title`
+      // attribute nothing normalises. A label of one non-breaking space is
+      // truthy to the library and empty here, which is what keeps the chapter
+      // line from being a bare caret.
+      if (label !== undefined && label !== null && label.trim() !== "") return label;
+      // The book's own words or a number, and never the section document's
+      // `<title>`: a great many books put the book's title in every chapter
+      // file, so that fallback would write the same wrong words throughout.
+      return `Section ${(view.lastLocation?.section?.current ?? 0) + 1}`;
+    }
+
+    function onSelectionChange(event: Event) {
+      // Not a fixed-layout book. A spread shows two documents, the location
+      // names one side and carries no range, and both frames are scaled, so
+      // every part of a take there would be wrong rather than missing.
+      if (view.isFixedLayout) return;
+
+      const doc = event.currentTarget as Document;
+      const selection = doc.getSelection();
+      // `selection.toString()` and never `range.toString()`: measured in
+      // Chromium, a range runs two paragraphs together where a selection keeps
+      // the break, and that break is what the whole format rests on.
+      const text = selection === null ? "" : selection.toString();
+      if (selection === null || selection.rangeCount === 0 || text.trim() === "") {
+        taking.current = null;
+        return;
+      }
+
+      // The chapter is written on the first change of a selection and kept.
+      // A chapter can change with no document loading, one spine file often
+      // holding several, so a drag that runs past a boundary would otherwise
+      // be named for wherever it came to rest.
+      const chapter = taking.current?.passage.chapter ?? chapterNow();
+      taking.current = {
+        passage: { text, chapter },
+        range: selection.getRangeAt(0),
+        backward: false,
+      };
+    }
 
     // The renderer `open` builds, held so the cleanup takes the listener off
     // the object it put it on. `close()` leaves the property in place
@@ -413,6 +525,7 @@ export function BookPane({
         doc.removeEventListener("keydown", onKeyDown);
         doc.removeEventListener("pointerdown", report);
         doc.removeEventListener("focusin", report);
+        doc.removeEventListener("selectionchange", onSelectionChange);
       }
       viewRef.current = null;
       view.close();

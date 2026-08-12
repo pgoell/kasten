@@ -92,7 +92,17 @@ export class FakeView extends HTMLElement {
    * the real one comes out of `TOCProgress.getProgress` over the very objects
    * `book.toc` holds, so a case that wants one assigns it itself.
    */
-  lastLocation: { cfi: string; tocItem?: TocItem; fraction?: number } | null = null;
+  lastLocation: {
+    cfi: string;
+    tocItem?: TocItem;
+    fraction?: number;
+    section?: { current: number; total: number };
+  } | null = null;
+  /**
+   * Whether the book is pre-paginated, which the real view reads off its own
+   * rendition (`view.js:254`). The pane refuses to report a selection in one.
+   */
+  isFixedLayout = false;
   /** Every href `goTo` was asked for, in order. */
   gone: string[] = [];
   renderer: FakeRenderer;
@@ -130,10 +140,11 @@ export class FakeView extends HTMLElement {
   emitRelocate(
     detail: { reason?: string; index?: number; range?: Range | null; fraction?: number } = {},
     whole?: number,
+    section: { current: number; total: number } = { current: 0, total: 1 },
   ): void {
     // Written before the dispatch, the way `View.#onRelocate` assigns
     // `lastLocation` and only then re-emits (`view.js:334,337`).
-    this.lastLocation = { cfi: "epubcfi(/6/2)", ...this.lastLocation, fraction: whole };
+    this.lastLocation = { cfi: "epubcfi(/6/2)", ...this.lastLocation, fraction: whole, section };
     this.renderer.dispatchEvent(
       new CustomEvent("relocate", { detail: { index: 0, range: null, ...detail } }),
     );
@@ -178,10 +189,48 @@ export class FakeView extends HTMLElement {
     this.prevs += 1;
   }
 
-  /** What foliate emits per section, which is where the pane hangs its handlers. */
-  emitLoad(): void {
-    this.dispatchEvent(new CustomEvent("load", { detail: { doc: this.section, index: 0 } }));
+  /**
+   * What foliate emits per section, which is where the pane hangs its handlers.
+   *
+   * `doc` is the section's own document, and a case hands over a second one to
+   * arrange a chapter turn: crossing a section takes the old document off the
+   * page, and a range pointing into it must not be taken from.
+   */
+  emitLoad(doc: Document = this.section): void {
+    this.dispatchEvent(new CustomEvent("load", { detail: { doc, index: 0 } }));
   }
+}
+
+/**
+ * Put a selection in a section document and say so, the way a drag does.
+ *
+ * jsdom implements neither `getSelection` on a document made by
+ * `createHTMLDocument` nor the `selectionchange` a browser fires, so both are
+ * arranged here. The selection carries its anchor and focus because the pane
+ * reads the direction off them, `removeAllRanges` because the take puts the
+ * selection away, and a range whose `startContainer` belongs to `doc` because
+ * that is how the take finds the document to clear in. A throw inside a
+ * listener goes to jsdom's virtual console, so a missing one of these fails
+ * somewhere else entirely.
+ *
+ * The caller wraps this in `act`: the pane answers it with a state update.
+ */
+export function selectIn(doc: Document, text: string): void {
+  const node = doc.createTextNode(text);
+  const range = doc.createRange();
+  range.selectNodeContents(node);
+  doc.getSelection = () =>
+    ({
+      toString: () => text,
+      rangeCount: 1,
+      getRangeAt: () => range,
+      anchorNode: node,
+      anchorOffset: 0,
+      focusNode: node,
+      focusOffset: text.length,
+      removeAllRanges: () => {},
+    }) as unknown as Selection;
+  doc.dispatchEvent(new Event("selectionchange"));
 }
 
 /**

@@ -150,6 +150,7 @@ async function drawBook(note = "", book = plainUrl) {
   fetchNote.mockResolvedValue(note);
   const commands = stubCommands();
   const onFocus = vi.fn();
+  const onTake = vi.fn();
   const container = document.createElement("div");
   // A real box, because the paginator columnises to the element it is in and a
   // pane of no size draws no page.
@@ -172,11 +173,12 @@ async function drawBook(note = "", book = plainUrl) {
         onFocus={onFocus}
         onMoved={() => {}}
         onLeaving={() => {}}
+        onTake={onTake}
       />
     </QueryClientProvider>,
   );
 
-  return { commands, onFocus, container };
+  return { commands, onFocus, onTake, container };
 }
 
 describe("the reader over a real book", () => {
