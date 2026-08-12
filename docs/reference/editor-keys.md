@@ -324,11 +324,12 @@ the leader would cost you the space bar for nothing.
 | --- | --- |
 | `h` | Turn back a page |
 | `l` | Turn forward a page |
+| `t` | Open the contents |
 | `q` | Take the book out of the pane |
 | `Ctrl+Shift+H` `J` `K` `L` `O` | Walk the panes, as in a terminal |
 | `Ctrl+Shift+Q` | Take the book out of the pane |
 
-The three bare keys answer an unmodified press only, so `Ctrl+H` is left to the
+The four bare keys answer an unmodified press only, so `Ctrl+H` is left to the
 browser's history window. The chords are the terminal's own, read from
 `TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts`, so
 retuning one retunes both panes.
@@ -338,6 +339,19 @@ the case the pane is built around: the book renders inside an iframe, an event
 does not cross a document boundary, and a handler on the pane alone would stop
 answering the moment you clicked the text. The pane puts the same handler on
 every chapter document the renderer reports.
+
+`t` draws the book's contents over the page, and only over the pane, so the
+note beside it stays on screen. `j` and `k` walk the chapters, Enter opens the
+one under the cursor, and Escape puts the list away with the book still on the
+page you were on. The cursor opens on the chapter you are in, so walking back to
+chapter one is `k` held down rather than a hunt. The list is the publisher's
+own, so a nested chapter is drawn indented, and a part heading the book gave no
+link to is a row Enter does nothing on. A book whose publisher wrote no contents
+says so instead of drawing an empty box.
+
+The line at the bottom of the pane says how far through the whole book you are,
+to the nearest percent. It counts every chapter rather than the one you are in,
+and it says nothing at all where the book gives no honest number to count.
 
 A click inside the book also tells the route that this pane has the focus.
 Nothing else would: a paragraph cannot hold focus, so a click in there fires no
