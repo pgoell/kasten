@@ -72,6 +72,46 @@ function isError(thrown: unknown): boolean {
   return Object.prototype.toString.call(thrown) === "[object Error]";
 }
 
+/**
+ * Whether the selection runs backwards, which says which end the hand is at.
+ *
+ * The way foliate reads it (`selectionIsBackward`, `paginator.js:153-158`): a
+ * range built from the anchor to the focus collapses when the focus lies before
+ * the anchor. A `Range` is always in document order, so nothing later can
+ * recover which end a drag finished at.
+ */
+function runsBackward(doc: Document, selection: Selection): boolean {
+  const { anchorNode, focusNode } = selection;
+  if (anchorNode === null || focusNode === null) return false;
+  const probe = doc.createRange();
+  probe.setStart(anchorNode, selection.anchorOffset);
+  probe.setEnd(focusNode, selection.focusOffset);
+  return probe.collapsed;
+}
+
+/**
+ * The button drawn over a selection, which is the mouse's half of `y`.
+ *
+ * The transform puts its middle over the middle of the words and its bottom
+ * edge on their top, so the placement is one rule rather than "above and to the
+ * left". `h-6` is 24px and the label makes it about 40px wide, which is what
+ * `INSET` below is measured against.
+ */
+const TAKE =
+  "absolute flex h-6 -translate-x-1/2 -translate-y-full items-center rounded border border-one-muted bg-one-bg px-2 font-mono text-one-fg text-xs";
+
+/**
+ * How far from the pane's edges the button's own point is kept.
+ *
+ * It has to cover **half the button's width and the whole of its height**,
+ * because the transform above moves the box by both. Written beside the class
+ * list for that reason: 24px tall and about 40px wide, so this is comfortably
+ * over the larger of 24 and 20. A selection off the drawn page maps well
+ * outside the pane, the paginator having expanded the iframe to the whole
+ * columnised chapter, and the wrapper hides no overflow of its own.
+ */
+const INSET = 32;
+
 interface BookPaneProps {
   /** The literature note this reads beside. The book is its path, suffix swapped. */
   note: string;
@@ -145,6 +185,8 @@ export function BookPane({
   // handler with a new identity on every `t` would tear the book down and open
   // it again, losing the page.
   const contentsOpen = useRef(false);
+  /** Where to draw the button, or null to draw none. The only part of this that renders. */
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   /**
    * What is selected in the book now, or null for nothing.
    *
@@ -192,6 +234,7 @@ export function BookPane({
     if (held === null) return;
     onTakeRef.current(held.passage);
     taking.current = null;
+    setAt(null);
     held.range.startContainer.ownerDocument?.getSelection()?.removeAllRanges();
   }, []);
 
@@ -341,6 +384,34 @@ export function BookPane({
     }
     view.addEventListener("load", onLoad);
 
+    /**
+     * Where the button goes for a selection, or null where the iframe is out
+     * of reach, which is jsdom and nothing else.
+     *
+     * The rectangle at the end the drag finished at: `getClientRects` answers
+     * in document order, so that is the last one running forwards and the
+     * first one running backwards, and the button belongs at the end the hand
+     * is at.
+     */
+    function place(range: Range, backward: boolean): { x: number; y: number } | null {
+      const frame = range.startContainer.ownerDocument?.defaultView?.frameElement;
+      const pane = wrapper.current;
+      if (!frame || pane === null) return null;
+
+      const rects = range.getClientRects();
+      const rect = backward ? rects[0] : rects[rects.length - 1];
+      if (rect === undefined) return null;
+
+      const outer = frame.getBoundingClientRect();
+      const box = pane.getBoundingClientRect();
+      const x = outer.left + rect.left + rect.width / 2 - box.left;
+      const y = outer.top + rect.top - box.top;
+      return {
+        x: Math.min(Math.max(x, INSET), box.width - INSET),
+        y: Math.min(Math.max(y, INSET), box.height),
+      };
+    }
+
     /** The chapter the page is in, as the note is to name it. */
     function chapterNow(): string {
       const label = view.lastLocation?.tocItem?.label;
@@ -370,6 +441,7 @@ export function BookPane({
       const text = selection === null ? "" : selection.toString();
       if (selection === null || selection.rangeCount === 0 || text.trim() === "") {
         taking.current = null;
+        setAt(null);
         return;
       }
 
@@ -378,11 +450,10 @@ export function BookPane({
       // holding several, so a drag that runs past a boundary would otherwise
       // be named for wherever it came to rest.
       const chapter = taking.current?.passage.chapter ?? chapterNow();
-      taking.current = {
-        passage: { text, chapter },
-        range: selection.getRangeAt(0),
-        backward: false,
-      };
+      const range = selection.getRangeAt(0);
+      const backward = runsBackward(doc, selection);
+      taking.current = { passage: { text, chapter }, range, backward };
+      setAt(place(range, backward));
     }
 
     // The renderer `open` builds, held so the cleanup takes the listener off
@@ -407,6 +478,16 @@ export function BookPane({
       // The `typeof` is not decoration: `Number.isFinite` takes `unknown` and
       // narrows nothing, so the multiply below would not compile without it.
       setProgress(typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null);
+
+      // The button follows the words. foliate turns the page up to 700ms after
+      // you let go of a selection that ran past the edge
+      // (`checkPointerSelection`, `paginator.js:586-594`), so without this the
+      // button would go on pointing at a place the words have left. Off the
+      // ref, which is the other reason the ref exists: this closure is built
+      // once with the view and would otherwise read the selection the pane had
+      // when the book opened, which is nothing.
+      const held = taking.current;
+      setAt(held === null ? null : place(held.range, held.backward));
 
       // `anchor` is a re-render at the place you were already at, which is what
       // a resize of the pane produces, and `selection` is the page moving to
@@ -575,6 +656,20 @@ export function BookPane({
       <footer className={STATUS}>
         {progress === null ? "" : `${Math.round(progress * 100)}%`}
       </footer>
+      {at && (
+        // No z-index, so the contents overlay at `z-10` covers it and takes the
+        // clicks while it is open, which is the answer the key handler gives by
+        // returning early.
+        <button
+          type="button"
+          data-take
+          onClick={take}
+          style={{ left: at.x, top: at.y }}
+          className={TAKE}
+        >
+          Take
+        </button>
+      )}
       {contents && (
         <BookContents
           rows={contents.rows}

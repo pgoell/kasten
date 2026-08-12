@@ -775,6 +775,19 @@ describe("taking a passage into the note", () => {
     expect(pane.onTake).not.toHaveBeenCalled();
   });
 
+  it("draws no button where the iframe cannot be reached", async () => {
+    // Which is every case in this file: the fake's section document comes from
+    // `createHTMLDocument` and has no `defaultView`, so there is no frame to
+    // map through. It keeps this file honest about the half of the feature it
+    // cannot test, and it fails against a `place` that assumes a frame.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+
+    selects("A sentence worth keeping.");
+
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+  });
+
   it("builds no second view when the selection changes", async () => {
     // The other half, and the case above does not catch it: naming the
     // selection in the view effect's dependencies tears the book down and
