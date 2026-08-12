@@ -46,7 +46,9 @@ const {
   fetchTerminals,
   fetchTodos,
   fetchBook,
-  uploadBook,
+  uploadAsset,
+  fetchImages,
+  deleteImage,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -67,7 +69,11 @@ const {
   // A reader mounted by these tests reads this off the factory. Left out, it
   // is undefined, the query throws and every case sees the error panel.
   fetchBook: vi.fn().mockResolvedValue(new Blob(["a book"])),
-  uploadBook: vi.fn().mockResolvedValue(undefined),
+  uploadAsset: vi.fn().mockResolvedValue(undefined),
+  // Every note the editor opens asks for these, for the completion inside a
+  // `![](`. Nothing here is about images, so an empty list is the whole answer.
+  fetchImages: vi.fn().mockResolvedValue([]),
+  deleteImage: vi.fn(),
 }));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
@@ -83,7 +89,9 @@ vi.mock("@/lib/api", () => ({
   fetchTerminals,
   fetchTodos,
   fetchBook,
-  uploadBook,
+  uploadAsset,
+  fetchImages,
+  deleteImage,
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.
@@ -209,6 +217,8 @@ async function renderApp() {
       (container.querySelectorAll<HTMLElement>(".cm-content")[index] as HTMLElement).focus(),
     /** The todo pane, while a pane is holding one. */
     todoPane: () => container.querySelector("[aria-label='Todos']"),
+    /** The image pane, while a pane is holding one. */
+    imagePane: () => container.querySelector("[data-image-pane]"),
     /** The reader, while a pane is holding one. */
     reader: () => container.querySelector("foliate-view"),
     /** The panel a reader draws instead of a book. */
@@ -307,6 +317,9 @@ describe("the route", () => {
     // empty list.
     fetchTodos.mockResolvedValue([]);
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    // Reset with the rest, for the reason `fetchTodos` is: a query function
+    // answering undefined is an error rather than an empty list.
+    fetchImages.mockResolvedValue([]);
     resetFoliateFake();
   });
 
@@ -1595,9 +1608,10 @@ describe("putting a book in the vault", () => {
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchImages.mockResolvedValue([]);
     // Re-armed with the rest: `resetAllMocks` takes the answer off them, and a
     // call that hands back undefined instead of a promise throws on `await`.
-    uploadBook.mockResolvedValue(undefined);
+    uploadAsset.mockResolvedValue(undefined);
     createNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     resetFoliateFake();
   });
@@ -1660,7 +1674,7 @@ describe("putting a book in the vault", () => {
     await settle();
 
     // Not `index.epub`. The book is not named after whatever note was open.
-    expect(uploadBook).toHaveBeenCalledWith(BOOK, file);
+    expect(uploadAsset).toHaveBeenCalledWith(BOOK, file);
     expect(createNote).toHaveBeenCalledWith(NOTE, "# Talk Like TED\n");
   });
 
@@ -1693,7 +1707,7 @@ describe("putting a book in the vault", () => {
     // The book goes up first, so a refusal leaves no orphan note behind.
     const app = await renderApp();
     await settle();
-    uploadBook.mockRejectedValue(new Error("A book is already there"));
+    uploadAsset.mockRejectedValue(new Error("A book is already there"));
 
     pick(app, "Talk Like TED.epub");
     await settle();
@@ -1707,7 +1721,7 @@ describe("putting a book in the vault", () => {
     // is no status to name.
     const app = await renderApp();
     await settle();
-    uploadBook.mockRejectedValue("no response");
+    uploadAsset.mockRejectedValue("no response");
 
     pick(app, "Talk Like TED.epub");
     await settle();
@@ -1722,7 +1736,7 @@ describe("putting a book in the vault", () => {
     pick(app, "///.epub");
     await settle();
 
-    expect(uploadBook).not.toHaveBeenCalled();
+    expect(uploadAsset).not.toHaveBeenCalled();
     expect(app.notice()).toBe("The vault will not take that name");
   });
 
@@ -1733,7 +1747,7 @@ describe("putting a book in the vault", () => {
     pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES + 1);
     await settle();
 
-    expect(uploadBook).not.toHaveBeenCalled();
+    expect(uploadAsset).not.toHaveBeenCalled();
     expect(app.notice()).toBe("That book is too big");
   });
 
@@ -1747,7 +1761,7 @@ describe("putting a book in the vault", () => {
     const file = pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES);
     await settle();
 
-    expect(uploadBook).toHaveBeenCalledWith(BOOK, file);
+    expect(uploadAsset).toHaveBeenCalledWith(BOOK, file);
   });
 
   it("tells a reader already open on that path about the book that arrived", async () => {
@@ -1779,7 +1793,7 @@ describe("putting a book in the vault", () => {
     // old sentence, because you asked for a fresh go at it.
     const app = await renderApp();
     await settle();
-    uploadBook.mockRejectedValue(new Error("A book is already there"));
+    uploadAsset.mockRejectedValue(new Error("A book is already there"));
     pick(app, "Talk Like TED.epub");
     await settle();
     expect(app.notice()).toBe("A book is already there");
@@ -1788,5 +1802,98 @@ describe("putting a book in the vault", () => {
     await settle();
 
     expect(app.notice()).toBeNull();
+  });
+});
+
+describe("looking at an image", () => {
+  const SHOT = "99 Misc/shot.png";
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([SHOT]);
+    deleteImage.mockResolvedValue({ entry: `${SHOT}@20260812T180000Z`, path: SHOT, deleted: "" });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  it("shows the image in the pane the note was in", async () => {
+    const app = await renderApp();
+    // Settled first: the listing arrives after the first render, and the row is
+    // not in the tree until it does. The folder is drawn from the image's own
+    // path, no note living in `99 Misc`.
+    await settle();
+    app.expand("99 Misc");
+
+    app.click(SHOT);
+    await settle();
+
+    expect(app.imagePane()).not.toBeNull();
+    expect(app.imagePane()?.querySelector("img")?.getAttribute("src")).toBe(
+      `/api/assets/${encodeURI(SHOT)}`,
+    );
+  });
+
+  it("hands the pane back to an editor on the leader then q", async () => {
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    app.click(SHOT);
+    await settle();
+
+    // Pressed into the pane itself, the image pane holding the focus and there
+    // being no `.cm-content` on screen to press into.
+    const pane = app.imagePane() as HTMLElement;
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "q" });
+    await settle();
+
+    expect(app.imagePane()).toBeNull();
+    // Emptied rather than removed: the pane is still there, holding an editor.
+    expect(app.text()).toBe("");
+  });
+
+  it("takes the image out of the vault on d in the tree, and off the screen", async () => {
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    // Walked to with the keys rather than clicked: a click opens a row without
+    // moving the tree's own cursor, and `d` acts on the cursor.
+    fireEvent.keyDown(app.tree(), { key: "j" });
+    fireEvent.keyDown(app.tree(), { key: "Enter" });
+    await settle();
+
+    fireEvent.keyDown(app.tree(), { key: "d" });
+    fetchImages.mockResolvedValue([]);
+    await settle();
+
+    expect(deleteImage).toHaveBeenCalledWith(SHOT);
+    // Emptied rather than left showing a picture the vault no longer has.
+    expect(app.imagePane()).toBeNull();
+    expect(app.tree().textContent).not.toContain("shot.png");
+  });
+
+  it("refetches the listing when the vault says a file that is not a note changed", async () => {
+    const app = await renderApp();
+    await settle();
+    fetchImages.mockResolvedValue([SHOT, "99 Misc/another.png"]);
+
+    // What an image pasted anywhere, or dropped in over a terminal, arrives as.
+    stream().send({ path: "", change: "listing", digest: null });
+    await settle();
+
+    app.expand("99 Misc");
+    expect(app.tree().textContent).toContain("another.png");
   });
 });

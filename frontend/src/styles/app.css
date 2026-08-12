@@ -215,6 +215,19 @@ body {
   text-decoration: underline;
 }
 
+/* The picture an `![](path)` is drawn as. Its own line's worth of height and
+   never wider than the column: a screenshot is two thousand pixels across and
+   the note is not, and `height: auto` is what keeps it from being squashed.
+   `vertical-align` because the widget replaces inline text, whose baseline
+   would otherwise leave a gap under the image. */
+.cm-image {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: top;
+  border-radius: 3px;
+}
+
 /* A link to a note nobody has written yet. Muted and dotted rather than
    crossed out or coloured like a warning: it is an invitation, not a mistake,
    and following it is what writes the note. */

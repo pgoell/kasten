@@ -29,6 +29,7 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onRenameFolder?: (startPath: string) => void;
   onDeleteNote?: (startPath?: string) => void;
   onDeleteFolder?: (startPath: string) => void;
+  onDeleteImage?: (startPath: string) => void;
   onFindNote?: () => void;
   onSearchNotes?: () => void;
 };
@@ -40,6 +41,7 @@ function Harness({
   onRenameFolder,
   onDeleteNote,
   onDeleteFolder,
+  onDeleteImage,
   onFindNote,
   onSearchNotes,
   ...props
@@ -53,6 +55,7 @@ function Harness({
     <FileExplorer
       paths={PATHS}
       onOpenFile={() => {}}
+      onOpenImage={() => {}}
       {...props}
       open={props.open ?? open}
       onOpenChange={onOpenChange}
@@ -68,6 +71,7 @@ function Harness({
         renameFolder: onRenameFolder ?? (() => {}),
         deleteNote: onDeleteNote ?? (() => {}),
         deleteFolder: onDeleteFolder ?? (() => {}),
+        deleteImage: onDeleteImage ?? (() => {}),
         restoreDeleted: () => {},
         findNote: onFindNote ?? (() => {}),
         searchNotes: onSearchNotes ?? (() => {}),
@@ -769,5 +773,73 @@ describe("folding on open", () => {
 
     expect(screen.queryByText("2026-08-04")).toBeNull();
     expect(screen.getByText("index")).toBeInTheDocument();
+  });
+});
+
+describe("images in the tree", () => {
+  const IMAGES = ["99 Misc/02 Assets/01 Images/2026-08-12-abcdef01.png"];
+
+  it("draws an image row with its suffix, beside the notes", () => {
+    renderTree({ images: IMAGES });
+
+    // The suffix stays: the vault holds one kind of note and five kinds of
+    // image, so it is news on this row where `.md` is noise on the others.
+    expect(screen.getByText("2026-08-12-abcdef01.png")).toBeInTheDocument();
+  });
+
+  it("shows an image rather than opening it as a note, on a click", () => {
+    const onOpenFile = vi.fn();
+    const onOpenImage = vi.fn();
+    renderTree({ images: IMAGES, onOpenFile, onOpenImage });
+
+    fireEvent.click(screen.getByText("2026-08-12-abcdef01.png"));
+
+    expect(onOpenImage).toHaveBeenCalledWith(IMAGES[0]);
+    expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it("does the same from the keyboard", () => {
+    const onOpenFile = vi.fn();
+    const onOpenImage = vi.fn();
+    renderTree({ images: IMAGES, onOpenFile, onOpenImage });
+
+    // `99 Misc` sorts ahead of `daily`, so the image is three rows in: the
+    // folder, the folder inside it, the folder inside that, then the row.
+    press("G");
+    press("g");
+    press("g");
+    press("j");
+    press("j");
+    press("j");
+    press("Enter");
+
+    expect(onOpenImage).toHaveBeenCalledWith(IMAGES[0]);
+    expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it("deletes an image rather than trying to delete it as a note, on d", () => {
+    const onDeleteImage = vi.fn();
+    const onDeleteNote = vi.fn();
+    renderTree({ images: IMAGES, onDeleteImage, onDeleteNote });
+
+    press("G");
+    press("g");
+    press("g");
+    press("j");
+    press("j");
+    press("j");
+    press("d");
+
+    expect(onDeleteImage).toHaveBeenCalledWith(IMAGES[0]);
+    expect(onDeleteNote).not.toHaveBeenCalled();
+  });
+
+  it("marks the image the focused pane is showing as the current row", () => {
+    renderTree({ images: IMAGES, openPath: IMAGES[0] });
+
+    expect(screen.getByText("2026-08-12-abcdef01.png").closest("button")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });

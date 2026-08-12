@@ -54,6 +54,15 @@ export interface Pane {
    * the note itself, so nothing here has to know what an exam is.
    */
   exam?: string;
+  /**
+   * The image this pane is showing, absent otherwise.
+   *
+   * The image's own path and not a note's, which is where this parts company
+   * with `book` and `exam`: an image is referenced by any number of notes and
+   * belongs to none of them, so there is no note to hold it by. A sixth
+   * optional field for the reason `book` is the fourth, written out above.
+   */
+  image?: string;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -223,6 +232,21 @@ export function openExamInFocused(layout: Layout, note: string): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, exam: note }),
+  });
+}
+
+/**
+ * Show an image in the focused pane, replacing whatever was there.
+ *
+ * Over the pane rather than beside it, the way the todo list and an exam
+ * replace one: the tree is what opens an image, and a row of the tree opens
+ * what it names where the last row opened.
+ */
+export function openImageInFocused(layout: Layout, path: string): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, image: path }),
   });
 }
 

@@ -12,6 +12,8 @@ interface NoteEditorProps {
   preview: boolean;
   /** Every note in the vault, which the editor completes and resolves against. */
   paths?: string[];
+  /** Every image in the vault, which the editor completes a `![](` against. */
+  images?: string[];
   /** Line to open on, which a search hit names and nothing else does. */
   startLine?: number;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
@@ -33,6 +35,8 @@ interface NoteEditorProps {
    * the component that knows which note the key was typed into.
    */
   onCycleTodo?: (path: string, cycle: TodoCycle) => void;
+  /** Called with a sentence for the reader when a pasted image is refused. */
+  onNotice?: (message: string) => void;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-muted";
@@ -54,6 +58,7 @@ export const NoteEditor = memo(function NoteEditor({
   commands,
   preview,
   paths,
+  images,
   startLine,
   focusSignal,
   focused,
@@ -61,6 +66,7 @@ export const NoteEditor = memo(function NoteEditor({
   onSave,
   onFollow,
   onCycleTodo,
+  onNotice,
   allowReload,
   onReload,
 }: NoteEditorProps) {
@@ -90,6 +96,7 @@ export const NoteEditor = memo(function NoteEditor({
       commands={commands}
       preview={preview}
       paths={paths}
+      images={images}
       startLine={startLine}
       focusSignal={focusSignal}
       focused={focused}
@@ -99,6 +106,7 @@ export const NoteEditor = memo(function NoteEditor({
       onSave={onSave}
       onFollow={onFollow}
       onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
+      onNotice={onNotice}
       path={path}
     />
   );

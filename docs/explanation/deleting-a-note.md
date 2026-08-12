@@ -35,6 +35,12 @@ holding the note the moment it moves, and no route can reach it afterwards.
 So the note is gone by every definition the app has, and the only thing that
 knows otherwise is a shell in the vault directory.
 
+An image goes the same way, through `DELETE /api/assets/{path}`, and everything
+below holds for it unchanged: the entry's name is the whole record, the restore
+reads it back, and nothing asks first. That is the point of moving rather than
+removing. The trash was written for notes and took an image the day images
+arrived, with one rule added and none changed.
+
 ## The name is the whole record
 
 There is no list of what was deleted, and nothing keeps one in step with the

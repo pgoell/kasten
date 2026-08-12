@@ -6,6 +6,7 @@ import { ClipPrompt } from "@/components/clip-prompt";
 import { Editor } from "@/components/editor";
 import { ExamPane } from "@/components/exam-pane";
 import { FileExplorer } from "@/components/file-explorer";
+import { ImagePane } from "@/components/image-pane";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
 import { NoteFinder } from "@/components/note-finder";
@@ -21,8 +22,10 @@ import {
   ASSET_LIMIT_BYTES,
   createNote,
   deleteFolder,
+  deleteImage,
   deleteNote,
   fetchFiles,
+  fetchImages,
   fetchNote,
   fetchPage,
   fetchTerminals,
@@ -30,7 +33,7 @@ import {
   restoreEntry,
   type SearchHit,
   saveNote,
-  uploadBook,
+  uploadAsset,
 } from "@/lib/api";
 import { visible } from "@/lib/archive";
 import { clipPage } from "@/lib/clip";
@@ -52,6 +55,7 @@ import {
   nextPane,
   openBookBeside,
   openExamInFocused,
+  openImageInFocused,
   openInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -115,6 +119,11 @@ interface HomeSearch {
 
 function Home() {
   const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
+  // Beside the notes rather than inside them: an image is a row of the tree and
+  // a path an `![](` completes to, and nothing else in the app reads it. The
+  // event stream refetches it on a `listing`, which is the event a change to
+  // anything that is not a note fires.
+  const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });
   /**
    * Whether the archive is in what the four lookups answer with.
    *
@@ -397,6 +406,18 @@ function Home() {
       // and because `fetchFiles` carries no `AbortSignal` the server walks the
       // whole vault forty-one times regardless. Off, the first walk answers all
       // of them, which is what the backend's own debounce is for.
+
+      // A `listing` is the backend saying something that is not a note changed,
+      // which is the only thing that can change the images: one pasted here or
+      // dropped in over a terminal, a folder moved, a book uploaded. Keyed on
+      // the kind rather than invalidated beside the listing below, so a vault
+      // somebody is writing notes in does not walk itself twice per save for an
+      // answer that cannot have changed. Above the early return because it is
+      // not that return's business, though a `listing` never reaches it.
+      if (event.change === "listing") {
+        queryClient.invalidateQueries({ queryKey: ["images"] }, { cancelRefetch: false });
+      }
+
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
@@ -517,6 +538,24 @@ function Home() {
       if (!(await saveFirst())) return;
 
       setLayout((previous) => openInFocused(previous, path, line));
+      setFocusSignal((previous) => previous + 1);
+    },
+    [saveFirst],
+  );
+
+  /**
+   * Show an image in the focused pane, from a row of the tree.
+   *
+   * `openInPane`'s shape, save the line: the note in the pane is saved before
+   * it goes, because an image is not a note and this is still the pane that
+   * note was in, and the focus is raised so the keys follow the picture rather
+   * than staying on the tree row that named it.
+   */
+  const openImageInPane = useCallback(
+    async (path: string) => {
+      if (!(await saveFirst())) return;
+
+      setLayout((previous) => openImageInFocused(previous, path));
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst],
@@ -674,6 +713,35 @@ function Home() {
       );
     },
     [pane.path, saveFirst, discarded, refuse],
+  );
+
+  /**
+   * Move one image into the trash, and take it off the screen.
+   *
+   * The note's discard read for an image, minus the save: an image holds no text
+   * anybody is typing, so there is nothing to write first. Every pane showing it
+   * is emptied, the way `discarded` empties the panes holding a deleted note, and
+   * for the same reason: what is on screen would otherwise be a picture the vault
+   * no longer has.
+   *
+   * The notes referencing it are left alone, which is what the endpoint says too.
+   * They draw a picture that will not load until `<leader>du` puts it back.
+   */
+  const discardImage = useCallback(
+    async (path: string) => {
+      await deleteImage(path).then(
+        () => {
+          setLayout((previous) =>
+            mapPanes(previous, (shown) => (shown.image === path ? { id: shown.id } : shown)),
+          );
+          void queryClient.invalidateQueries({ queryKey: ["images"] });
+        },
+        // The vault has moved past the row: the image went between the listing
+        // and the key. The tree redraws off the next event.
+        () => refuse(),
+      );
+    },
+    [queryClient, refuse],
   );
 
   /**
@@ -877,7 +945,7 @@ function Home() {
       }
 
       try {
-        await uploadBook(filed.book, file);
+        await uploadAsset(filed.book, file);
       } catch (error: unknown) {
         // A typed `unknown` and not an untyped catch. A `fetch` rejects with
         // no response at all on a dropped connection or a suspended tab, and
@@ -982,7 +1050,8 @@ function Home() {
           pane.term !== undefined ||
           pane.todos === true ||
           pane.book !== undefined ||
-          pane.exam !== undefined
+          pane.exam !== undefined ||
+          pane.image !== undefined
         ) {
           moveTo(clearFocused);
           return;
@@ -1026,6 +1095,7 @@ function Home() {
       // drops what was cached of it.
       deleteNote: (startPath) => void discardNote(startPath),
       deleteFolder: (startPath) => void discardFolder(startPath),
+      deleteImage: (startPath) => void discardImage(startPath),
       restoreDeleted: () => void restoreDeleted(),
       // Saved first for the reason a note's rename is: the note in the focused
       // pane may be one of the notes this moves, and text still waiting would
@@ -1165,12 +1235,14 @@ function Home() {
       openPeriodic,
       discardNote,
       discardFolder,
+      discardImage,
       restoreDeleted,
       pane.path,
       pane.term,
       pane.todos,
       pane.book,
       pane.exam,
+      pane.image,
       data,
       queryClient,
     ],
@@ -1219,8 +1291,12 @@ function Home() {
           // what resolves a `[[wikilink]]`, so the editors below still get
           // `data` whole and `gf` into the archive works with this off.
           paths={visible(data ?? [], archive)}
-          openPath={pane.path}
+          // The same archive filter the notes answer to. An image in the
+          // archive is archived like everything else under that folder.
+          images={visible(images ?? [], archive)}
+          openPath={pane.path ?? pane.image}
           onOpenFile={(path) => void openInPane(path)}
+          onOpenImage={(path) => void openImageInPane(path)}
           open={treeOpen}
           onOpenChange={setTreeOpen}
           commands={commands}
@@ -1256,6 +1332,9 @@ function Home() {
                 // narrowing a property inside the two callbacks below and the
                 // bookmark's note has to be a path rather than a maybe.
                 const book = shown.book;
+                // Bound out of the pane for the reason `book` is: TypeScript
+                // stops narrowing a property inside the callback below.
+                const image = shown.image;
                 return shown.todos === true ? (
                   <TodoPane
                     commands={commands}
@@ -1298,6 +1377,16 @@ function Home() {
                     onMoved={(cfi) => moved(book, cfi)}
                     onLeaving={() => flush(book)}
                   />
+                ) : image !== undefined ? (
+                  <ImagePane
+                    path={image}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
+                    // Bound here rather than passed back up by the pane, the way
+                    // the reader's own callbacks are bound: the pane holds no
+                    // path of its own.
+                    onDelete={() => void discardImage(image)}
+                  />
                 ) : shown.term !== undefined ? (
                   <TerminalPane
                     session={shown.term}
@@ -1330,6 +1419,7 @@ function Home() {
                     commands={commands}
                     preview={preview}
                     paths={data}
+                    images={images}
                     startLine={shown.line}
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}
@@ -1350,6 +1440,7 @@ function Home() {
                     onSave={save}
                     onFollow={follow}
                     onCycleTodo={logCycledTodo}
+                    onNotice={setNotice}
                   />
                 );
               }}

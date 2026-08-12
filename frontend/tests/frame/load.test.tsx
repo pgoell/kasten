@@ -57,6 +57,7 @@ const INERT: TreeCommands = {
   deleteNote: () => {},
   restoreDeleted: () => {},
   deleteFolder: () => {},
+  deleteImage: () => {},
   findNote: vi.fn(),
   searchNotes: vi.fn(),
   findTodos: vi.fn(),
@@ -138,6 +139,7 @@ describe(`opening the app over ${NOTES} notes`, () => {
             <FileExplorer
               paths={paths}
               onOpenFile={() => {}}
+              onOpenImage={() => {}}
               open={true}
               onOpenChange={() => {}}
               commands={INERT}

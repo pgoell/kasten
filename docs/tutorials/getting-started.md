@@ -233,7 +233,8 @@ Two folders cannot be merged into one. Every note can be searched by what is
 written in it, with `<leader>fg`, and `[[wikilinks]]` are followed with `gf` or
 Enter, read both ways with `<leader>gb` and `<leader>go`, and carried along when
 the note or the folder they name is renamed.
-Tables and images keep their syntax on screen, because live preview does not
+An image pasted from the clipboard goes into the vault and is drawn where you
+pasted it. Tables keep their syntax on screen, because live preview does not
 render them yet.
 
 ## Next

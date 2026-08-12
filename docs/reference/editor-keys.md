@@ -27,6 +27,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cb` | Add an epub to the inbox, with a note beside it |
 | `<leader>cf` | Open the new note prompt |
+| `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
 | `<leader>cm` | Import markdown files from your disk into the inbox |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
@@ -851,6 +852,60 @@ and a done date written by hand is one
 `🆔` has a key of its own, `<leader>i`. And a `⛔` names another todo's id,
 which the line being typed cannot see.
 
+## Images
+
+An image is a plain markdown image, `![alt](path)`, and the path is
+vault-relative. The editor draws the picture where the text sits, never wider
+than the column, and `i` on that line hands the `![alt](path)` back the way it
+does for every other mark. An address pointing anywhere but the vault is left as
+text: the page's own policy allows images from this origin alone, so drawing one
+would draw a broken picture where the source at least says what was meant.
+
+| Key | Does |
+| --- | --- |
+| Ctrl+v | Put the clipboard's image in the vault and write the reference to it |
+| `<leader>ci` | Toggle the link at the cursor into an image, and back |
+
+Pasting is the way in. A screenshot on the clipboard is uploaded to
+`99 Misc/02 Assets/01 Images/`, named for today and eight random hex digits, and
+`![](that path)` lands where the cursor is when the upload finishes. Nothing
+asks first and nothing else changes. A paste carrying text is left to the
+editor's own paste, which is every paste but this one.
+
+The name is not yours to choose because the clipboard has none to give: every
+image ever copied arrives called `image.png`, and the vault overwrites nothing.
+Rename it in a terminal pane afterwards if the name matters, and fix the
+reference while you are there.
+
+A refused upload writes nothing into the note and puts the reason in the status
+bar. The vault refuses a path that is taken, a body over 100MiB, and bytes that
+disagree with the suffix they arrived under, all three on the rules
+[POST /api/assets/{path}](/reference/http-api.md#post-apiassetspath) sets out.
+An `image/svg+xml` on the clipboard is refused too: an SVG is markup a browser
+runs, and the vault takes `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`.
+
+`<leader>ci` is the other half. On a link it writes the `!` that makes an image
+of it, on an image it takes the same character away, and on neither it writes
+`![]()` and opens the list of images to fill it with. Pressed twice it leaves
+the note as it found it.
+
+Typing a path inside `![](` offers every image in the vault, the way `[[` offers
+every note. The rows are filenames and what goes in is the whole path, so a
+folder of screenshots reads as the names you can tell apart while the note holds
+something the backend answers to. Spaces are written `%20`, which is what makes
+`99 Misc/...` a destination markdown reads to the end of.
+
+The listing behind that list, and behind the tree's own image rows, follows the
+vault: a change to anything that is not a note is the one event that can move it,
+and it is read again when that arrives. So an image dropped in over a terminal
+pane turns up in the tree and in the list without a reload, and a note being
+written costs nothing, notes firing a different event.
+
+Images are not ignored by jj the way books are: they are part of what a note
+says, and a screenshot is a tenth the size of a book. A snapshot sweeps in any
+untracked file under a megabyte, so an image over that stays out of the history
+until something tracks it by hand.
+
 ## The link panels
 
 `<leader>gb` shows what links to the open note. `<leader>go` shows what it links
@@ -975,16 +1030,40 @@ a tree that has hidden it.
 | --- | --- |
 | `j` / `k` | Move the cursor down or up |
 | `h` | Collapse the folder, or go to its parent |
-| `l` | Expand the folder, or open the note |
-| Enter | Open the note under the cursor |
+| `l` | Expand the folder, or open the note or image |
+| Enter | Open the note or image under the cursor |
 | `gg` / `G` | Go to the first or last row |
 | `c` | New note in the folder the cursor is in |
 | `f` | Open the note finder |
 | `s` | Open search over note content |
 | `r` | Rename the note or folder under the cursor |
-| `d` | Delete the note or folder under the cursor |
+| `d` | Delete the note, image or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
+
+The tree draws the vault's images beside its notes, muted, keeping the suffix a
+note's row drops: the vault holds one kind of note and five kinds of image. They
+are the only rows here that are not notes, and nothing else in the app treats
+them as notes, the finder, search and every `[[link]]` reading the note listing
+alone. Enter or a click shows one in the focused pane, over whatever was there,
+and `<leader>q` hands the pane back to an editor. A folder holding nothing but
+images is a folder in the tree all the same, which is how you reach the ones
+pasting has filed.
+
+The pane is an image and the path above it, and nothing else: no zoom, no next
+image, and nothing to type into. What it is for is looking at a picture the
+vault holds without first writing a note that points at it. `d` there deletes
+the image in front of you, the same key the tree spends on a row, and the pane
+empties.
+
+An image goes into the trash the way a note does, and `<leader>du` puts the last
+one back, so the two keys are one gesture and its undo. Nothing asks first, for
+the reason nothing asks about a note: what a mistyped key costs is a keypress.
+The notes pointing at a deleted image are left alone and draw a picture that
+will not load, which is what a `[[link]]` to a deleted note does too. A book has no
+delete in the app: it travels with the note beside it, and which of the pair a
+delete should take is a decision nobody has made, so `.epub` goes out through a
+terminal pane.
 
 Opening a note takes the focus with it, from here and from everywhere else that
 opens one: Enter in the tree, a click on a row, the finder, search, a `[[link]]`

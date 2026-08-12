@@ -11,8 +11,14 @@ import { useAutosave } from "@/lib/use-autosave";
 // so stubbing the global afterwards would never be seen. Standing in for the
 // module is also the right level: what this component owns is the query and
 // the remount, not the HTTP.
-const { fetchNote, saveNote } = vi.hoisted(() => ({ fetchNote: vi.fn(), saveNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote, saveNote }));
+const { fetchNote, saveNote, fetchImages } = vi.hoisted(() => ({
+  fetchNote: vi.fn(),
+  saveNote: vi.fn(),
+  // The component asks for these beside the note, for the completion inside a
+  // `![](`. An empty list is the whole of what these tests need it to answer.
+  fetchImages: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/lib/api", () => ({ fetchNote, saveNote, fetchImages }));
 
 // Render counters for the two components below. `spy: true` keeps the real
 // implementation and only records the calls, so counting costs the tree
