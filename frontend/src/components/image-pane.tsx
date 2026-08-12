@@ -8,6 +8,14 @@ interface ImagePaneProps {
   commands: EditorCommands;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
+  /**
+   * Move this image into the trash, which empties the pane.
+   *
+   * A callback and not a member of `commands`: every leader command takes
+   * nothing, and the image this deletes is the one the pane is holding. The
+   * tree's own `d` reaches the same delete through `TreeCommands`.
+   */
+  onDelete: () => void;
 }
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
@@ -24,7 +32,7 @@ const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
  * and every key that moves between panes work on this the moment the layout
  * carries an `image`.
  */
-export function ImagePane({ path, commands, focusSignal }: ImagePaneProps) {
+export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePaneProps) {
   const panel = useRef<HTMLElement>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
@@ -47,8 +55,9 @@ export function ImagePane({ path, commands, focusSignal }: ImagePaneProps) {
   }, [focusSignal]);
 
   // The leader block the exam pane, the todo pane and the file tree each carry
-  // their own copy of. Nothing else is bound here: there is nothing in an image
-  // to move around, so `q` is spelled `<leader>q` like every other pane's close.
+  // their own copy of. `d` is the one bare key, said the way the tree says it,
+  // and nothing else is bound: there is nothing in an image to move around, so
+  // `q` is spelled `<leader>q` like every other pane's close.
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
@@ -70,6 +79,15 @@ export function ImagePane({ path, commands, focusSignal }: ImagePaneProps) {
 
     if (key === " ") {
       setPending(key);
+      event.preventDefault();
+      return;
+    }
+
+    // The tree's own delete key, on the image in front of you. Nothing asks
+    // first, for the reason nothing asks in the tree: the picture waits in the
+    // trash and `<leader>du` puts it back, so a mistyped key costs a keypress.
+    if (key === "d") {
+      onDelete();
       event.preventDefault();
     }
   }

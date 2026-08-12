@@ -6,9 +6,12 @@ const SHOT = "99 Misc/02 Assets/01 Images/2026-08-12-abcdef01.png";
 
 function open(path = SHOT) {
   const commands = stubCommands();
-  const { container } = render(<ImagePane path={path} commands={commands} focusSignal={1} />);
+  const onDelete = vi.fn();
+  const { container } = render(
+    <ImagePane path={path} commands={commands} focusSignal={1} onDelete={onDelete} />,
+  );
   const pane = container.querySelector("[data-image-pane]") as HTMLElement;
-  return { commands, pane };
+  return { commands, onDelete, pane };
 }
 
 describe("the image pane", () => {
@@ -44,6 +47,26 @@ describe("the image pane", () => {
     fireEvent.keyDown(pane, { key: "q" });
 
     expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves the image into the trash on d, the way the tree does", () => {
+    const { onDelete, pane } = open();
+
+    fireEvent.keyDown(pane, { key: "d" });
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves d to the leader when a sequence is open", () => {
+    // `<leader>df` deletes the note in the focused pane, and this pane holds no
+    // note: what matters is that the sequence swallows the `d` rather than the
+    // bare key taking it.
+    const { onDelete, pane } = open();
+
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "d" });
+
+    expect(onDelete).not.toHaveBeenCalled();
   });
 
   it("reaches a two-letter leader sequence, waiting for the second key", () => {

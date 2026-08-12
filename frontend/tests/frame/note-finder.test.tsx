@@ -26,7 +26,13 @@ import { syntheticVault } from "../../bench/fixtures";
 // inside the timed window would be measuring the network. It never fires during
 // a run, the delay outlasting the gap between keystrokes, but a stub is what
 // makes that a fact rather than a hope.
-vi.mock("@/lib/api", () => ({ fetchNote: () => Promise.resolve("") }));
+vi.mock("@/lib/api", () => ({
+  fetchNote: () => Promise.resolve(""),
+  // Named because the module is replaced whole: the editor behind the preview
+  // imports these, and a factory short of a name breaks the import itself.
+  fetchImages: () => Promise.resolve([]),
+  uploadAsset: () => Promise.resolve(),
+}));
 
 // Six times the 6.7ms synchronous median `mise run fe:frame` measures on this
 // machine, three runs reading 7.1, 6.7 and 5.7ms. Six is two factors: three

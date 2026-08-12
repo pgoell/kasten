@@ -79,9 +79,12 @@ four-byte check on the front of the file is there so a PDF renamed `.epub` is
 caught while somebody is still looking at the screen, not because a book that
 skipped it would be dangerous.
 
-**An upload cannot be undone from the app.** There is no delete endpoint, and
-jj holds no copy of a book to go back to, so a file put at a sidecar path stays
-there until somebody removes it from a terminal. That is why the upload refuses
+**An upload cannot be undone from the app.** `DELETE /api/assets/{path}` refuses
+a `.epub`, and jj holds no copy of a book to go back to, so a file put at a
+sidecar path stays there until somebody removes it from a terminal. The refusal
+is not squeamishness: a book travels with the note beside it, and which of the
+pair a delete should take is a decision nobody has made. An image, which belongs
+to no note, goes into the trash on a keypress. That is why the upload refuses
 a path already holding a book rather than replacing it: an overwrite would be
 gone for good. The refusal is the filesystem's, not a check racing the
 transfer. The bytes land in a hidden temp file beside the target and are hard

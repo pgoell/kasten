@@ -29,6 +29,7 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onRenameFolder?: (startPath: string) => void;
   onDeleteNote?: (startPath?: string) => void;
   onDeleteFolder?: (startPath: string) => void;
+  onDeleteImage?: (startPath: string) => void;
   onFindNote?: () => void;
   onSearchNotes?: () => void;
 };
@@ -40,6 +41,7 @@ function Harness({
   onRenameFolder,
   onDeleteNote,
   onDeleteFolder,
+  onDeleteImage,
   onFindNote,
   onSearchNotes,
   ...props
@@ -69,6 +71,7 @@ function Harness({
         renameFolder: onRenameFolder ?? (() => {}),
         deleteNote: onDeleteNote ?? (() => {}),
         deleteFolder: onDeleteFolder ?? (() => {}),
+        deleteImage: onDeleteImage ?? (() => {}),
         restoreDeleted: () => {},
         findNote: onFindNote ?? (() => {}),
         searchNotes: onSearchNotes ?? (() => {}),
@@ -812,6 +815,23 @@ describe("images in the tree", () => {
 
     expect(onOpenImage).toHaveBeenCalledWith(IMAGES[0]);
     expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it("deletes an image rather than trying to delete it as a note, on d", () => {
+    const onDeleteImage = vi.fn();
+    const onDeleteNote = vi.fn();
+    renderTree({ images: IMAGES, onDeleteImage, onDeleteNote });
+
+    press("G");
+    press("g");
+    press("g");
+    press("j");
+    press("j");
+    press("j");
+    press("d");
+
+    expect(onDeleteImage).toHaveBeenCalledWith(IMAGES[0]);
+    expect(onDeleteNote).not.toHaveBeenCalled();
   });
 
   it("marks the image the focused pane is showing as the current row", () => {

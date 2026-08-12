@@ -269,7 +269,29 @@ export interface paths {
          *     `openapi-typescript` turns that into a body for a response that has none.
          */
         post: operations["write_asset_api_assets__path__post"];
-        delete?: never;
+        /**
+         * Delete Asset
+         * @description Take one image out of the vault, and hold it in the trash.
+         *
+         *     The note delete's route read for an image, down to the entry it answers
+         *     with: `move_to_trash` moves whatever path it is handed, and the trash names
+         *     an entry after where it came from, so an image sits in there beside the notes
+         *     and `PATCH /api/trash/{entry}` puts it back with no rule of its own. That is
+         *     what makes a mistyped key cost a keypress rather than a picture in a vault
+         *     with no other delete.
+         *
+         *     Images alone, though `resolve_asset` answers for books too. A book travels
+         *     with the note beside it, and which of the pair a delete should take is a
+         *     decision nothing here has made; the file tree, which is what this route
+         *     serves, lists images and no books. So a `.epub` is a 404 like any other path
+         *     this does not serve.
+         *
+         *     The notes pointing at the image are left alone, for the reason the note
+         *     delete leaves `[[link]]`s alone: rewriting them to say the picture is gone
+         *     would be the one edit a restore could not take back. The editor draws a
+         *     reference to a file that is not there as a picture that will not load.
+         */
+        delete: operations["delete_asset_api_assets__path__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -862,6 +884,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_asset_api_assets__path__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashEntry"];
+                };
             };
             /** @description Validation Error */
             422: {

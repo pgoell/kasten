@@ -1037,7 +1037,7 @@ a tree that has hidden it.
 | `f` | Open the note finder |
 | `s` | Open search over note content |
 | `r` | Rename the note or folder under the cursor |
-| `d` | Delete the note or folder under the cursor |
+| `d` | Delete the note, image or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 
@@ -1052,7 +1052,18 @@ pasting has filed.
 
 The pane is an image and the path above it, and nothing else: no zoom, no next
 image, and nothing to type into. What it is for is looking at a picture the
-vault holds without first writing a note that points at it.
+vault holds without first writing a note that points at it. `d` there deletes
+the image in front of you, the same key the tree spends on a row, and the pane
+empties.
+
+An image goes into the trash the way a note does, and `<leader>du` puts the last
+one back, so the two keys are one gesture and its undo. Nothing asks first, for
+the reason nothing asks about a note: what a mistyped key costs is a keypress.
+The notes pointing at a deleted image are left alone and draw a picture that
+will not load, which is what a `[[link]]` to a deleted note does too. A book has no
+delete in the app: it travels with the note beside it, and which of the pair a
+delete should take is a decision nobody has made, so `.epub` goes out through a
+terminal pane.
 
 Opening a note takes the focus with it, from here and from everywhere else that
 opens one: Enter in the tree, a click on a row, the finder, search, a `[[link]]`

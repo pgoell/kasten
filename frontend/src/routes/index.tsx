@@ -22,6 +22,7 @@ import {
   ASSET_LIMIT_BYTES,
   createNote,
   deleteFolder,
+  deleteImage,
   deleteNote,
   fetchFiles,
   fetchImages,
@@ -715,6 +716,35 @@ function Home() {
   );
 
   /**
+   * Move one image into the trash, and take it off the screen.
+   *
+   * The note's discard read for an image, minus the save: an image holds no text
+   * anybody is typing, so there is nothing to write first. Every pane showing it
+   * is emptied, the way `discarded` empties the panes holding a deleted note, and
+   * for the same reason: what is on screen would otherwise be a picture the vault
+   * no longer has.
+   *
+   * The notes referencing it are left alone, which is what the endpoint says too.
+   * They draw a picture that will not load until `<leader>du` puts it back.
+   */
+  const discardImage = useCallback(
+    async (path: string) => {
+      await deleteImage(path).then(
+        () => {
+          setLayout((previous) =>
+            mapPanes(previous, (shown) => (shown.image === path ? { id: shown.id } : shown)),
+          );
+          void queryClient.invalidateQueries({ queryKey: ["images"] });
+        },
+        // The vault has moved past the row: the image went between the listing
+        // and the key. The tree redraws off the next event.
+        () => refuse(),
+      );
+    },
+    [queryClient, refuse],
+  );
+
+  /**
    * The same for a folder, which goes in one piece and comes back in one.
    *
    * Saved first for the reason a folder's rename is: the note in the focused
@@ -1065,6 +1095,7 @@ function Home() {
       // drops what was cached of it.
       deleteNote: (startPath) => void discardNote(startPath),
       deleteFolder: (startPath) => void discardFolder(startPath),
+      deleteImage: (startPath) => void discardImage(startPath),
       restoreDeleted: () => void restoreDeleted(),
       // Saved first for the reason a note's rename is: the note in the focused
       // pane may be one of the notes this moves, and text still waiting would
@@ -1204,6 +1235,7 @@ function Home() {
       openPeriodic,
       discardNote,
       discardFolder,
+      discardImage,
       restoreDeleted,
       pane.path,
       pane.term,
@@ -1300,6 +1332,9 @@ function Home() {
                 // narrowing a property inside the two callbacks below and the
                 // bookmark's note has to be a path rather than a maybe.
                 const book = shown.book;
+                // Bound out of the pane for the reason `book` is: TypeScript
+                // stops narrowing a property inside the callback below.
+                const image = shown.image;
                 return shown.todos === true ? (
                   <TodoPane
                     commands={commands}
@@ -1342,11 +1377,15 @@ function Home() {
                     onMoved={(cfi) => moved(book, cfi)}
                     onLeaving={() => flush(book)}
                   />
-                ) : shown.image !== undefined ? (
+                ) : image !== undefined ? (
                   <ImagePane
-                    path={shown.image}
+                    path={image}
                     commands={commands}
                     focusSignal={focused ? focusSignal : 0}
+                    // Bound here rather than passed back up by the pane, the way
+                    // the reader's own callbacks are bound: the pane holds no
+                    // path of its own.
+                    onDelete={() => void discardImage(image)}
                   />
                 ) : shown.term !== undefined ? (
                   <TerminalPane

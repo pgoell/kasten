@@ -48,6 +48,7 @@ const {
   fetchBook,
   uploadAsset,
   fetchImages,
+  deleteImage,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -72,6 +73,7 @@ const {
   // Every note the editor opens asks for these, for the completion inside a
   // `![](`. Nothing here is about images, so an empty list is the whole answer.
   fetchImages: vi.fn().mockResolvedValue([]),
+  deleteImage: vi.fn(),
 }));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
@@ -89,6 +91,7 @@ vi.mock("@/lib/api", () => ({
   fetchBook,
   uploadAsset,
   fetchImages,
+  deleteImage,
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.
@@ -1815,6 +1818,7 @@ describe("looking at an image", () => {
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
     fetchImages.mockResolvedValue([SHOT]);
+    deleteImage.mockResolvedValue({ entry: `${SHOT}@20260812T180000Z`, path: SHOT, deleted: "" });
   });
 
   afterEach(() => {
@@ -1858,6 +1862,26 @@ describe("looking at an image", () => {
     expect(app.imagePane()).toBeNull();
     // Emptied rather than removed: the pane is still there, holding an editor.
     expect(app.text()).toBe("");
+  });
+
+  it("takes the image out of the vault on d in the tree, and off the screen", async () => {
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    // Walked to with the keys rather than clicked: a click opens a row without
+    // moving the tree's own cursor, and `d` acts on the cursor.
+    fireEvent.keyDown(app.tree(), { key: "j" });
+    fireEvent.keyDown(app.tree(), { key: "Enter" });
+    await settle();
+
+    fireEvent.keyDown(app.tree(), { key: "d" });
+    fetchImages.mockResolvedValue([]);
+    await settle();
+
+    expect(deleteImage).toHaveBeenCalledWith(SHOT);
+    // Emptied rather than left showing a picture the vault no longer has.
+    expect(app.imagePane()).toBeNull();
+    expect(app.tree().textContent).not.toContain("shot.png");
   });
 
   it("refetches the listing when the vault says a file that is not a note changed", async () => {

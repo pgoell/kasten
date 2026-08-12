@@ -109,6 +109,15 @@ export interface TreeCommands extends EditorCommands {
   renameFolder(startPath: string): void;
   /** Move a folder into the trash, and every note under it with it. */
   deleteFolder(startPath: string): void;
+  /**
+   * Move an image into the trash.
+   *
+   * Out here with the two above rather than in `EditorCommands`, and for the
+   * same reason: a leader sequence names a command taking nothing, and the row
+   * the tree's cursor is on is the only thing that can name an image. The image
+   * pane deletes the one it is showing through a callback of its own.
+   */
+  deleteImage(startPath: string): void;
 }
 
 /**

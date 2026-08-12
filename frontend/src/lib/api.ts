@@ -232,6 +232,24 @@ export async function deleteNote(path: string): Promise<TrashEntry> {
   return data;
 }
 
+/**
+ * The same for one image, which goes into the trash the way a note does.
+ *
+ * Images alone: the route refuses a book, a book travelling with the note beside
+ * it and this deciding nothing about the pair.
+ */
+export async function deleteImage(path: string): Promise<TrashEntry> {
+  const { data, response } = await client.DELETE("/api/assets/{path}", {
+    params: { path: { path } },
+  });
+
+  if (!data) {
+    throw new Error(`DELETE /api/assets/${path} failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /** The same for one folder, and every note under it, which go as one entry. */
 export async function deleteFolder(path: string): Promise<TrashEntry> {
   const { data, response } = await client.DELETE("/api/folders/{path}", {

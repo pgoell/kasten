@@ -32,6 +32,7 @@ from kasten_backend.trash import (
 )
 from kasten_backend.vault import (
     ASSET_MAGIC,
+    ASSET_SUFFIX,
     create_note,
     list_images,
     list_markdown_files,
@@ -597,6 +598,39 @@ async def write_asset(
         temporary.unlink(missing_ok=True)
 
     return Response(status_code=201)
+
+
+@app.delete("/api/assets/{path:path}")
+async def delete_asset(
+    path: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> TrashEntry:
+    """Take one image out of the vault, and hold it in the trash.
+
+    The note delete's route read for an image, down to the entry it answers
+    with: `move_to_trash` moves whatever path it is handed, and the trash names
+    an entry after where it came from, so an image sits in there beside the notes
+    and `PATCH /api/trash/{entry}` puts it back with no rule of its own. That is
+    what makes a mistyped key cost a keypress rather than a picture in a vault
+    with no other delete.
+
+    Images alone, though `resolve_asset` answers for books too. A book travels
+    with the note beside it, and which of the pair a delete should take is a
+    decision nothing here has made; the file tree, which is what this route
+    serves, lists images and no books. So a `.epub` is a 404 like any other path
+    this does not serve.
+
+    The notes pointing at the image are left alone, for the reason the note
+    delete leaves `[[link]]`s alone: rewriting them to say the picture is gone
+    would be the one edit a restore could not take back. The editor draws a
+    reference to a file that is not there as a picture that will not load.
+    """
+    asset = resolve_asset(settings.vault_path, path)
+    if asset is None or asset.suffix == ASSET_SUFFIX:
+        raise HTTPException(status_code=404, detail="No such image")
+
+    relative = relative_path(settings.vault_path, asset)
+
+    return TrashEntry.of(await move_to_trash(settings.vault_path, asset, relative))
 
 
 @app.get("/api/files/{path:path}")

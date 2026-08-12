@@ -340,8 +340,9 @@ made in the client and not rules of this endpoint.
 | `409` | `Something is already there` |
 | `413` | `That book is too big` |
 
-There is no overwrite and no delete. A path already holding a file is a `409`,
-and what is on disk is untouched; the way to replace it is the shell pane.
+There is no overwrite. A path already holding a file is a `409`, and what is on
+disk is untouched; the way to replace it is the shell pane, or for an image the
+delete below and a second upload.
 That refusal is decided by the filesystem rather than by a check in front of
 the transfer: the bytes land in a hidden temp file beside the target and are
 hard linked into place, so a path is taken by whichever request gets the link,
@@ -375,6 +376,40 @@ this would be empty, and [Books in the vault](/explanation/books-in-the-vault.md
 covers why. Images are not ignored: they are part of what a note says, and the
 next save's snapshot sweeps in any untracked file under a megabyte, which most
 screenshots are.
+
+## DELETE /api/assets/{path}
+
+Takes one image out of the vault and holds it in the trash, answering with the
+entry it became.
+
+```json
+{
+  "entry": "99 Misc/02 Assets/01 Images/2026-08-12-a1b2c3d4.png@2026-08-12T16-18-41.995729",
+  "path": "99 Misc/02 Assets/01 Images/2026-08-12-a1b2c3d4.png",
+  "deleted": "2026-08-12T16:18:41.995729Z"
+}
+```
+
+The note delete's route read for an image, down to the entry: the trash names an
+entry after where it came from, so an image sits in there beside the notes, and
+[the restore](#patch-apitrashentry) puts it back with no rule of its own. The
+folder the image emptied goes with it, the way a note's delete takes the one it
+emptied.
+
+Images alone. A `.epub` is a `404` like any other path this does not serve: a
+book travels with the note beside it, and which of the pair a delete should take
+is a decision nothing here has made. The file tree, which is what this route
+serves, lists images and no books.
+
+| Status | Means |
+| --- | --- |
+| `200` | The image is in the trash, and the body says where it came from |
+| `404` | No image at that path, a `.epub`, a `.md` and a directory included |
+
+The notes referencing the image are left alone, for the reason a delete leaves
+`[[link]]`s alone: rewriting them to say the picture is gone would be the one
+edit a restore could not take back. The editor draws a reference to a file that
+is not there as a picture that will not load.
 
 ## GET /api/files/{path}
 

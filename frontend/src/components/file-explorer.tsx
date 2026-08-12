@@ -522,8 +522,9 @@ export function FileExplorer({
     if (!node) return;
 
     deleting.current = true;
-    if (node.kind === "file") commands.deleteNote(node.path);
-    else commands.deleteFolder(node.path);
+    if (node.kind !== "file") commands.deleteFolder(node.path);
+    else if (node.image === true) commands.deleteImage(node.path);
+    else commands.deleteNote(node.path);
   }
 
   /**
