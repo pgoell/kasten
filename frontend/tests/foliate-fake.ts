@@ -85,8 +85,16 @@ export class FakeView extends HTMLElement {
    * field cannot tell a second `init` from a first.
    */
   inits: object[] = [];
-  /** Where the view says it is, which stays null while nothing has loaded. */
-  lastLocation: { cfi: string } | null = null;
+  /**
+   * Where the view says it is, which stays null while nothing has loaded.
+   *
+   * `tocItem` is the entry the reader is inside, and nothing here writes it:
+   * the real one comes out of `TOCProgress.getProgress` over the very objects
+   * `book.toc` holds, so a case that wants one assigns it itself.
+   */
+  lastLocation: { cfi: string; tocItem?: TocItem } | null = null;
+  /** Every href `goTo` was asked for, in order. */
+  gone: string[] = [];
   renderer: FakeRenderer;
   /** Every `getCFI` call, so a test can see what the pane asked about. */
   asked: { index: number; range: Range | null }[] = [];
@@ -136,6 +144,10 @@ export class FakeView extends HTMLElement {
     if (!FakeView.navigatesNowhere) this.lastLocation = { cfi: "epubcfi(/6/2)" };
     if (FakeView.initWith) await FakeView.initWith();
     this.started = true;
+  }
+
+  async goTo(target: string): Promise<void> {
+    this.gone.push(target);
   }
 
   close(): void {

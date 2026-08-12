@@ -29,8 +29,15 @@ interface FoliateView extends HTMLElement {
   renderer?: EventTarget & { setStyles?: (css: string) => void };
   /** Assigned by `open` after it awaits `makeBook`, so absent while one opens. */
   book?: { toc?: TocItem[] | null };
-  /** Where the view says it is. Filled by every relocate, nulled by `close`. */
-  lastLocation?: object | null;
+  /** Take the reader to an href out of the book's own contents. */
+  goTo(target: string): Promise<unknown>;
+  /**
+   * Where the view says it is. Filled by every relocate, nulled by `close`.
+   *
+   * `tocItem` is the entry the reader is inside, which is the very object
+   * `book.toc` holds rather than a copy of it.
+   */
+  lastLocation?: { tocItem?: TocItem } | null;
   /** The cfi for a place the renderer reported. A null range answers the section's own. */
   getCFI(index: number, range: Range | null): string;
 }
@@ -178,7 +185,13 @@ export function BookPane({
       // still loading as a book with no contents.
       if (book === undefined) return;
       contentsOpen.current = true;
-      setContents({ rows: tocRows(book.toc), start: 0 });
+      const rows = tocRows(book.toc);
+      // foliate's own id, stamped on the toc items by `assignIDs` and handed
+      // back on `lastLocation.tocItem`, so this is one number against another
+      // rather than kasten matching labels. No match answers -1, which the
+      // contents clamp to the first row.
+      const current = viewRef.current?.lastLocation?.tocItem?.id;
+      setContents({ rows, start: rows.findIndex((row) => row.id === current) });
     } else return;
 
     event.preventDefault();
@@ -199,6 +212,15 @@ export function BookPane({
     contentsOpen.current = false;
     setContents(null);
     wrapper.current?.focus();
+  }
+
+  /** Take the book to the chapter Enter or a click landed on. */
+  function goToChapter(href: string) {
+    // Neither awaited nor caught: `goTo` resolves the href itself and swallows
+    // its own failures into `console.error` (`view.js:460-470`), so a bad href
+    // is a no-op and there is nothing here to handle.
+    void viewRef.current?.goTo(href);
+    closeContents();
   }
 
   // On the wrapper as well as on every section, and in an effect of its own so
@@ -416,7 +438,7 @@ export function BookPane({
         <BookContents
           rows={contents.rows}
           start={contents.start}
-          onGo={closeContents}
+          onGo={goToChapter}
           onClose={closeContents}
         />
       )}

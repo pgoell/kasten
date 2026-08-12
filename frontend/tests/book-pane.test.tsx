@@ -479,6 +479,33 @@ describe("the keys inside a book", () => {
     expect(FakeView.made).toHaveLength(1);
   });
 
+  it("goes to the chapter Enter landed on", async () => {
+    FakeView.toc = CHAPTERS;
+    await opened();
+
+    press(lastView().section, "t");
+    const dialog = screen.getByRole("dialog");
+    press(dialog, "j");
+    press(dialog, "Enter");
+
+    expect(lastView().gone).toEqual(["ch2.xhtml"]);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("opens the contents on the chapter you are in", async () => {
+    const chapters = [...CHAPTERS, { id: 2, label: "Three", href: "ch3.xhtml" }];
+    FakeView.toc = chapters;
+    await opened();
+    // The identity story 2 rests on: `lastLocation.tocItem` is one of the very
+    // objects `book.toc` holds, and the `id` on it is foliate's own, stamped by
+    // `assignIDs` over that same array.
+    lastView().lastLocation = { cfi: CFI, tocItem: chapters[2] };
+
+    press(lastView().section, "t");
+
+    expect(screen.getByRole("option", { selected: true })).toHaveTextContent("Three");
+  });
+
   it("answers none of its own keys while the contents are open", async () => {
     // The overlay renders inside the wrapper, whose listener is a native one,
     // while React delegates every event from the root container above it. A key

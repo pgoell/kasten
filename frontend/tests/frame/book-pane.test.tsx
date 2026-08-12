@@ -269,5 +269,15 @@ describe("the reader over a real book", () => {
     await vi.waitFor(() => expect(container.querySelector("[role='dialog']")).not.toBeNull(), {
       timeout: 10_000,
     });
+
+    await userEvent.keyboard("j");
+    await userEvent.keyboard("{Enter}");
+
+    // The chapter and not a second `load`, which any reload satisfies. The wait
+    // is not optional either: `onGo` does not await `goTo`, and foliate's own
+    // `goTo` awaits the renderer, so an assertion in the same tick still sees
+    // chapter one.
+    await vi.waitFor(() => expect(sections.at(-1)?.title).toBe("Two"), { timeout: 10_000 });
+    expect(container.querySelector("[role='dialog']")).toBeNull();
   }, 30_000);
 });
