@@ -264,13 +264,34 @@ describe("the reader over a real book", () => {
     const pane = container.querySelector("[data-book-pane]") as Element;
 
     await clickInside(pane, sections[0] as Document, "p");
+    // Let the click settle before pressing anything. foliate watches the book's
+    // own `selectionchange` on a 700ms debounce and turns a page when a
+    // selection has run past the visible range (`paginator.js:585-595`), and a
+    // page turn locks the paginator for the 100ms after it
+    // (`paginator.js:1060-1070`). `goTo` is silently dropped while that lock
+    // holds (`paginator.js:1022-1023`), which is a jump lost with nothing
+    // logged anywhere.
+    await new Promise((settle) => setTimeout(settle, 900));
     await userEvent.keyboard("t");
 
-    await vi.waitFor(() => expect(container.querySelector("[role='dialog']")).not.toBeNull(), {
-      timeout: 10_000,
-    });
+    const dialog = await vi.waitFor(
+      () => {
+        const found = container.querySelector("[role='dialog']");
+        expect(found).not.toBeNull();
+        return found as Element;
+      },
+      { timeout: 10_000 },
+    );
+    // The dialog takes the focus in a mount effect, and that is what pulls the
+    // cursor out of the book's iframe. A `j` pressed before it has landed goes
+    // back into the chapter and the highlight never moves.
+    await vi.waitFor(() => expect(document.activeElement).toBe(dialog), { timeout: 10_000 });
 
     await userEvent.keyboard("j");
+    await vi.waitFor(
+      () => expect(dialog.querySelector("[aria-selected='true']")?.textContent).toBe("Two"),
+      { timeout: 10_000 },
+    );
     await userEvent.keyboard("{Enter}");
 
     // The chapter and not a second `load`, which any reload satisfies. The wait
