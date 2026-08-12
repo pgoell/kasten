@@ -11,6 +11,8 @@
  * document this hands out.
  */
 
+import type { TocItem } from "@/components/book-contents";
+
 interface Deferred {
   promise: Promise<void>;
   resolve: () => void;
@@ -56,8 +58,19 @@ export class FakeView extends HTMLElement {
    * loads two equal ones here.
    */
   static cfis: string[] = [];
+  /**
+   * The contents the next view's book carries, which a test writes whole.
+   *
+   * The ids are the test's own. Real ones come from `assignIDs` inside
+   * `TOCProgress.init` (`progress.js:2-10`, `view.js:245-247`), which only the
+   * real `View.open` runs, so a fake stamping them here would be inventing
+   * foliate's bookkeeping rather than standing in for it.
+   */
+  static toc: TocItem[] | null | undefined = undefined;
 
   opened: File | null = null;
+  /** What `open` builds. Absent until it has, the way the real view's is. */
+  book: { toc: TocItem[] | null | undefined } | undefined = undefined;
   started = false;
   /** How many times `close` was called, which the teardown cases count. */
   closes = 0;
@@ -105,6 +118,11 @@ export class FakeView extends HTMLElement {
   async open(file: File): Promise<void> {
     this.opened = file;
     if (FakeView.openWith) await FakeView.openWith();
+    // After the await, the way `View.open` assigns `this.book` only once
+    // `makeBook` has resolved (`view.js:233-237`). That window is as long as
+    // unzipping a 30MB epub takes, and it is a window a test has to be able to
+    // press a key in.
+    this.book = { toc: FakeView.toc };
   }
 
   async init(options: object): Promise<void> {
@@ -156,6 +174,7 @@ export function resetFoliateFake(): void {
   FakeView.withStyles = true;
   FakeView.navigatesNowhere = false;
   FakeView.cfis = [];
+  FakeView.toc = undefined;
 }
 
 /** The view the pane built, which is the last one made. */

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
 import { fetchBook, fetchNote } from "@/lib/api";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { readField } from "@/lib/note-frontmatter";
@@ -26,6 +27,8 @@ interface FoliateView extends HTMLElement {
   prev(): void;
   /** Built by `open`, and a fixed-layout book's renderer has no `setStyles`. */
   renderer?: EventTarget & { setStyles?: (css: string) => void };
+  /** Assigned by `open` after it awaits `makeBook`, so absent while one opens. */
+  book?: { toc?: TocItem[] | null };
   /** Where the view says it is. Filled by every relocate, nulled by `close`. */
   lastLocation?: object | null;
   /** The cfi for a place the renderer reported. A null range answers the section's own. */
@@ -106,6 +109,13 @@ export function BookPane({
   const viewRef = useRef<FoliateView | null>(null);
   /** Whether foliate could not read what the vault handed it. */
   const [broken, setBroken] = useState(false);
+  /** The book's chapters over the page, or null while the reader has the keys. */
+  const [contents, setContents] = useState<{ rows: TocRow[]; start: number } | null>(null);
+  // The same thing as a ref, because `onKeyDown` cannot read the state. The
+  // effect that builds the view lists the handler in its dependencies, so a
+  // handler with a new identity on every `t` would tear the book down and open
+  // it again, losing the page.
+  const contentsOpen = useRef(false);
 
   // Read through refs, the way `terminal-pane.tsx` reads the same prop. The
   // view is built in one effect keyed on the bytes, and naming these in its
@@ -131,6 +141,12 @@ export function BookPane({
    * into a page turn.
    */
   const onKeyDown = useCallback((event: KeyboardEvent) => {
+    // The contents render inside the wrapper, whose listener is a native one,
+    // while React delegates every event from the root container above it. So a
+    // key pressed in the contents reaches this handler first, and without this
+    // `q` in there closes the reader and `l` turns a page behind the panel.
+    if (contentsOpen.current) return;
+
     const chord =
       event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
       event.shiftKey === TERMINAL_CHORD.shiftKey &&
@@ -154,13 +170,36 @@ export function BookPane({
     if (event.key === "l") viewRef.current?.next();
     else if (event.key === "h") viewRef.current?.prev();
     else if (event.key === "q") commandsRef.current.closeNote();
-    else return;
+    else if (event.key === "t") {
+      const book = viewRef.current?.book;
+      // On the book and not on its toc. The view is in the ref from the moment
+      // the element is built, which is a long way before `open` has unzipped a
+      // 30MB epub, and an empty list drawn in that window would report a book
+      // still loading as a book with no contents.
+      if (book === undefined) return;
+      contentsOpen.current = true;
+      setContents({ rows: tocRows(book.toc), start: 0 });
+    } else return;
 
     event.preventDefault();
   }, []);
 
   /** That a click or a Tab landed in the book, which no ancestor is told. */
   const report = useCallback(() => onFocusRef.current(), []);
+
+  /**
+   * Put the contents away, and the cursor back on the pane.
+   *
+   * The wrapper and not whatever held the focus before: both of foliate's
+   * shadow roots are closed, so that was the `<foliate-view>` host, and
+   * focusing it puts the cursor on the element rather than back inside the
+   * chapter. The wrapper answers every key the section document does.
+   */
+  function closeContents() {
+    contentsOpen.current = false;
+    setContents(null);
+    wrapper.current?.focus();
+  }
 
   // On the wrapper as well as on every section, and in an effect of its own so
   // it survives a book that never opened: the error panel answers `q` too.
@@ -373,6 +412,14 @@ export function BookPane({
     // tab order, the way `todo-pane.tsx` takes it.
     <div ref={wrapper} data-book-pane tabIndex={-1} className="relative h-full w-full outline-none">
       <div ref={host} className="h-full w-full" />
+      {contents && (
+        <BookContents
+          rows={contents.rows}
+          start={contents.start}
+          onGo={closeContents}
+          onClose={closeContents}
+        />
+      )}
       {failed && (
         <div
           role="alert"

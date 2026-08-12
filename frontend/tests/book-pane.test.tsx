@@ -24,6 +24,19 @@ const BACKGROUND = "#282c34";
 /** A place in a book, as the note's block holds it. */
 const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
 
+/**
+ * A two entry contents, carrying the ids foliate stamps on the real thing.
+ *
+ * Written here rather than left off: `assignIDs` runs inside `TOCProgress.init`
+ * (`progress.js:2-10`), which only the real `View.open` calls, and a toc with no
+ * ids leaves every row and the current item at undefined, which matches the
+ * first row whatever the book is showing.
+ */
+const CHAPTERS = [
+  { id: 0, label: "One", href: "ch1.xhtml" },
+  { id: 1, label: "Two", href: "ch2.xhtml" },
+];
+
 /** The literature note, with `reading:` set or with nothing in the block. */
 function noteWith(cfi?: string): string {
   return [
@@ -81,6 +94,11 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
 /** The panel the pane draws instead of a book, or null while it is reading one. */
 function panel(): HTMLElement | null {
   return screen.queryByRole("alert");
+}
+
+/** What the contents are showing, and nothing at all while they are shut. */
+function rows(): (string | null)[] {
+  return screen.queryAllByRole("option").map((row) => row.textContent);
 }
 
 describe("BookPane", () => {
@@ -350,7 +368,11 @@ describe("the keys inside a book", () => {
   }
 
   function press(target: Document | Element, key: string, held: KeyboardEventInit = {}) {
-    target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...held }));
+    // Inside `act`, because `t` sets state on the pane and React flushes no
+    // update made from a native listener outside one.
+    act(() => {
+      target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...held }));
+    });
   }
 
   it("turns the page forward on l", async () => {
@@ -416,6 +438,97 @@ describe("the keys inside a book", () => {
     lastView().section.dispatchEvent(new Event("pointerdown", { bubbles: true }));
 
     expect(pane.onFocus).toHaveBeenCalled();
+  });
+
+  it("opens the contents on t, pressed inside the book", async () => {
+    FakeView.toc = CHAPTERS;
+    await opened();
+
+    press(lastView().section, "t");
+
+    expect(rows()).toEqual(["One", "Two"]);
+  });
+
+  it("opens them on a t pressed on the pane itself", async () => {
+    FakeView.toc = CHAPTERS;
+    const book = await opened();
+
+    press(book.wrapper() as Element, "t");
+
+    expect(rows()).toEqual(["One", "Two"]);
+  });
+
+  it("closes them on Escape, with the pane still answering its keys", async () => {
+    FakeView.toc = CHAPTERS;
+    const book = await opened();
+
+    press(lastView().section, "t");
+    press(screen.getByRole("dialog"), "Escape");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // Nowhere else to give the focus back to: both of foliate's shadow roots
+    // are closed, so what held it before `t` was the `<foliate-view>` host.
+    expect(document.activeElement).toBe(book.wrapper());
+    // The only automated catch for an `onClose` that forgets to put the guard
+    // ref back, which leaves the reader deaf to every key for good.
+    press(book.wrapper() as Element, "l");
+    expect(lastView().nexts).toBe(1);
+    // The dependency trap: `onKeyDown` is in the view effect's dependencies, so
+    // a handler closing over the contents state tears the book down and opens
+    // it again on every `t`, losing the page.
+    expect(FakeView.made).toHaveLength(1);
+  });
+
+  it("answers none of its own keys while the contents are open", async () => {
+    // The overlay renders inside the wrapper, whose listener is a native one,
+    // while React delegates every event from the root container above it. A key
+    // pressed in the overlay reaches the pane's handler first, so without the
+    // guard `q` inside the contents closes the reader and `l` turns a page
+    // behind the panel.
+    FakeView.toc = CHAPTERS;
+    const book = await opened();
+
+    press(lastView().section, "t");
+    const dialog = screen.getByRole("dialog");
+    press(dialog, "l");
+    press(dialog, "h");
+    press(dialog, "q");
+
+    expect(lastView().nexts).toBe(0);
+    expect(lastView().prevs).toBe(0);
+    expect(book.commands.closeNote).not.toHaveBeenCalled();
+  });
+
+  it("says nothing at all about a book that is still opening", async () => {
+    // `viewRef` holds the view from the moment the pane builds the element, and
+    // `View.open` assigns `this.book` only after awaiting `makeBook`. A `t` in
+    // that window must do nothing rather than report an empty contents over a
+    // 30MB epub that is merely still unzipping.
+    const open = deferred();
+    FakeView.openWith = () => open.promise;
+    FakeView.toc = CHAPTERS;
+    const book = draw();
+    await waitFor(() => expect(FakeView.made).toHaveLength(1));
+
+    press(book.wrapper() as Element, "t");
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await act(async () => {
+      open.resolve();
+      await open.promise;
+    });
+    press(book.wrapper() as Element, "t");
+
+    expect(rows()).toEqual(["One", "Two"]);
+  });
+
+  it("says so for a book whose publisher wrote no contents", async () => {
+    await opened();
+
+    press(lastView().section, "t");
+
+    expect(rows()).toEqual([]);
+    expect(screen.getByRole("status")).toHaveTextContent("this book has no contents");
   });
 
   it("reports a tab into one of the book's links the same way", async () => {
