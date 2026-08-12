@@ -46,7 +46,8 @@ const {
   fetchTerminals,
   fetchTodos,
   fetchBook,
-  uploadBook,
+  uploadAsset,
+  fetchImages,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -67,7 +68,10 @@ const {
   // A reader mounted by these tests reads this off the factory. Left out, it
   // is undefined, the query throws and every case sees the error panel.
   fetchBook: vi.fn().mockResolvedValue(new Blob(["a book"])),
-  uploadBook: vi.fn().mockResolvedValue(undefined),
+  uploadAsset: vi.fn().mockResolvedValue(undefined),
+  // Every note the editor opens asks for these, for the completion inside a
+  // `![](`. Nothing here is about images, so an empty list is the whole answer.
+  fetchImages: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
@@ -83,7 +87,8 @@ vi.mock("@/lib/api", () => ({
   fetchTerminals,
   fetchTodos,
   fetchBook,
-  uploadBook,
+  uploadAsset,
+  fetchImages,
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.
@@ -1597,7 +1602,7 @@ describe("putting a book in the vault", () => {
     fetchBook.mockResolvedValue(new Blob(["a book"]));
     // Re-armed with the rest: `resetAllMocks` takes the answer off them, and a
     // call that hands back undefined instead of a promise throws on `await`.
-    uploadBook.mockResolvedValue(undefined);
+    uploadAsset.mockResolvedValue(undefined);
     createNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     resetFoliateFake();
   });
@@ -1660,7 +1665,7 @@ describe("putting a book in the vault", () => {
     await settle();
 
     // Not `index.epub`. The book is not named after whatever note was open.
-    expect(uploadBook).toHaveBeenCalledWith(BOOK, file);
+    expect(uploadAsset).toHaveBeenCalledWith(BOOK, file);
     expect(createNote).toHaveBeenCalledWith(NOTE, "# Talk Like TED\n");
   });
 
@@ -1693,7 +1698,7 @@ describe("putting a book in the vault", () => {
     // The book goes up first, so a refusal leaves no orphan note behind.
     const app = await renderApp();
     await settle();
-    uploadBook.mockRejectedValue(new Error("A book is already there"));
+    uploadAsset.mockRejectedValue(new Error("A book is already there"));
 
     pick(app, "Talk Like TED.epub");
     await settle();
@@ -1707,7 +1712,7 @@ describe("putting a book in the vault", () => {
     // is no status to name.
     const app = await renderApp();
     await settle();
-    uploadBook.mockRejectedValue("no response");
+    uploadAsset.mockRejectedValue("no response");
 
     pick(app, "Talk Like TED.epub");
     await settle();
@@ -1722,7 +1727,7 @@ describe("putting a book in the vault", () => {
     pick(app, "///.epub");
     await settle();
 
-    expect(uploadBook).not.toHaveBeenCalled();
+    expect(uploadAsset).not.toHaveBeenCalled();
     expect(app.notice()).toBe("The vault will not take that name");
   });
 
@@ -1733,7 +1738,7 @@ describe("putting a book in the vault", () => {
     pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES + 1);
     await settle();
 
-    expect(uploadBook).not.toHaveBeenCalled();
+    expect(uploadAsset).not.toHaveBeenCalled();
     expect(app.notice()).toBe("That book is too big");
   });
 
@@ -1747,7 +1752,7 @@ describe("putting a book in the vault", () => {
     const file = pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES);
     await settle();
 
-    expect(uploadBook).toHaveBeenCalledWith(BOOK, file);
+    expect(uploadAsset).toHaveBeenCalledWith(BOOK, file);
   });
 
   it("tells a reader already open on that path about the book that arrived", async () => {
@@ -1779,7 +1784,7 @@ describe("putting a book in the vault", () => {
     // old sentence, because you asked for a fresh go at it.
     const app = await renderApp();
     await settle();
-    uploadBook.mockRejectedValue(new Error("A book is already there"));
+    uploadAsset.mockRejectedValue(new Error("A book is already there"));
     pick(app, "Talk Like TED.epub");
     await settle();
     expect(app.notice()).toBe("A book is already there");

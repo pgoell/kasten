@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ASSET_LIMIT_BYTES, fetchBook, uploadBook } from "@/lib/api";
+import { ASSET_LIMIT_BYTES, fetchBook, uploadAsset } from "@/lib/api";
 
 const MAIN = readFileSync(
   path.join(import.meta.dirname, "../../backend/src/kasten_backend/main.py"),
@@ -43,7 +43,7 @@ describe("fetchBook", () => {
   });
 });
 
-describe("uploadBook", () => {
+describe("uploadAsset", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -53,7 +53,7 @@ describe("uploadBook", () => {
     const fetching = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetching);
 
-    await uploadBook("books/DDIA.epub", file);
+    await uploadAsset("books/DDIA.epub", file);
 
     // The same `Blob` and not a `FormData` around it: one file and no fields,
     // so nothing has to parse a boundary at either end.
@@ -74,7 +74,7 @@ describe("uploadBook", () => {
       }),
     );
 
-    await expect(uploadBook("books/DDIA.epub", new Blob(["a"]))).rejects.toThrow(
+    await expect(uploadAsset("books/DDIA.epub", new Blob(["a"]))).rejects.toThrow(
       "A book is already there",
     );
   });
@@ -91,7 +91,7 @@ describe("uploadBook", () => {
       }),
     );
 
-    await expect(uploadBook("books/DDIA.epub", new Blob(["a"]))).rejects.toThrow(
+    await expect(uploadAsset("books/DDIA.epub", new Blob(["a"]))).rejects.toThrow(
       "POST /api/assets/books/DDIA.epub failed with 413",
     );
     // An oversize body never reaches kasten in production: Cloudflare refuses

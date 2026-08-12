@@ -133,12 +133,16 @@ so dropping the highlight would freeze the counting.
 
 ## What it does not render
 
-Tables and images keep their syntax. Both need widget decorations, which means
-DOM this code owns and rebuilds as you type, and images would additionally need
-an endpoint that serves files out of the vault. Neither exists yet. Wikilinks
-are not rendered either, because the app does not have them at all; see
-[The vault and the derived index](vault-and-derived-index.md) for what does and
-does not live in the database.
+Tables keep their syntax. A table needs a widget decoration, which means DOM
+this code owns and rebuilds as you type, and a table you cannot type into is
+worse than the pipes.
+
+An image is drawn, and it is the one widget here that loads something. That is
+what it cost to render: [GET /api/assets/{path}](/reference/http-api.md) already
+served books, so a picture only needed a suffix added to it, and the widget asks
+for the line to be measured again when the bytes land, the height of an image
+being unknown until then. A path pointing anywhere but the vault stays as its
+source, the page's own policy allowing images from this origin alone.
 
 A fenced code block is the exception among the three, because it needs none of
 that. Every line of it takes a line decoration, which paints the block's

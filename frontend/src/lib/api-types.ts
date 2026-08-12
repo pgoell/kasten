@@ -46,6 +46,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Vault Images
+         * @description List every image in the vault as a relative POSIX path, sorted.
+         *
+         *     Its own listing rather than rows in `/api/files`, which the tree, the finder,
+         *     the search and the link rewrite all read: an image is not a note and has no
+         *     business in any of those. The editor reads this one to complete a `![](`.
+         */
+        get: operations["list_vault_images_api_images_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/terminals": {
         parameters: {
             query?: never;
@@ -219,24 +243,25 @@ export interface paths {
         };
         /**
          * Read Asset
-         * @description Read one book out of the vault.
+         * @description Read one book or image out of the vault.
          *
          *     The only endpoint that answers with bytes rather than with a note. It
-         *     resolves a path, checks a suffix and streams a file; it never opens the
-         *     archive, so nothing here knows what an epub is beyond its name.
+         *     resolves a path, checks a suffix and streams a file; it never opens what it
+         *     sends, so nothing here knows what an epub or a png is beyond its name.
          *
          *     No `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and
-         *     starlette reads it off the path. `Range` comes free with `FileResponse` and
-         *     nothing uses it, the client asking for the whole file once.
+         *     `image/png` for `.png`, and starlette reads it off the path. `Range` comes
+         *     free with `FileResponse` and nothing uses it, the client asking for the whole
+         *     file once.
          *
-         *     The `POST` below is the other half. Between them a book gets into the vault
-         *     and back out of it without a terminal.
+         *     The `POST` below is the other half. Between them a book or an image gets into
+         *     the vault and back out of it without a terminal.
          */
         get: operations["read_asset_api_assets__path__get"];
         put?: never;
         /**
          * Write Asset
-         * @description Put one book into the vault, and never over one already there.
+         * @description Put one book or image into the vault, and never over one already there.
          *
          *     Both decorator arguments earn their place. Without `status_code` the runtime
          *     answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
@@ -355,6 +380,10 @@ export interface paths {
          *     Both the URL and the query key change on a move, and seeding the new one
          *     from here is what stops a note edited outside kasten arriving stale on the
          *     other side.
+         *
+         *     The book beside the note travels with it, or the pair stops being a pair.
+         *     The answer says nothing about that, because there is nothing a client does
+         *     differently: it swaps the suffix for itself, the way it always has.
          */
         patch: operations["move_file_api_files__path__patch"];
         trace?: never;
@@ -614,6 +643,26 @@ export interface operations {
         };
     };
     list_files_api_files_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    list_vault_images_api_images_get: {
         parameters: {
             query?: never;
             header?: never;

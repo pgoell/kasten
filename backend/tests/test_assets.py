@@ -135,7 +135,7 @@ async def test_refuses_a_target_that_is_taken(client: AsyncClient, vault: Path) 
     response = await client.post("/api/assets/books/DDIA.epub", content=body)
 
     assert response.status_code == 409
-    assert response.json()["detail"] == "A book is already there"
+    assert response.json()["detail"] == "Something is already there"
     assert (vault / "books" / "DDIA.epub").read_bytes() == BOOK
     assert pulled == [0]
 
@@ -162,7 +162,7 @@ async def test_refuses_bytes_that_are_not_a_zip(client: AsyncClient, vault: Path
     response = await client.post("/api/assets/books/DDIA.epub", content=b"%PDF-1.4 hello")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "That file is not an epub"
+    assert response.json()["detail"] == "That file is not what its name says"
     assert not (vault / "books" / "DDIA.epub").exists()
     assert list((vault / "books").iterdir()) == []
 
@@ -307,7 +307,7 @@ async def test_refuses_a_target_that_appears_while_the_body_streams(vault: Path)
     )
 
     assert sent[0]["status"] == 409
-    assert json.loads(sent[1]["body"])["detail"] == "A book is already there"
+    assert json.loads(sent[1]["body"])["detail"] == "Something is already there"
     assert (vault / "books" / "DDIA.epub").read_bytes() == other
     assert list((vault / "books").iterdir()) == [vault / "books" / "DDIA.epub"]
 
@@ -351,3 +351,62 @@ async def test_the_next_upload_succeeds_after_a_refusal(
 
     assert again.status_code == 201
     assert (await client.get("/api/assets/books/DDIA.epub")).content == BOOK
+
+
+PNG = b"\x89PNG\r\n\x1a\x0a not really an image"
+"""The eight bytes a png starts with, which is the longest magic in the table."""
+
+
+async def test_an_image_lands_and_reads_back(client: AsyncClient, vault: Path) -> None:
+    response = await client.post("/api/assets/99 Misc/shot.png", content=PNG)
+
+    assert response.status_code == 201
+
+    read = await client.get("/api/assets/99 Misc/shot.png")
+
+    assert read.status_code == 200
+    assert read.content == PNG
+    assert read.headers["content-type"] == "image/png"
+
+
+async def test_refuses_an_image_whose_bytes_are_a_book(client: AsyncClient, vault: Path) -> None:
+    # The magic is picked by the suffix, so a name and a body that disagree are
+    # refused whichever way round they disagree.
+    response = await client.post("/api/assets/shot.png", content=BOOK)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "That file is not what its name says"
+    assert not (vault / "shot.png").exists()
+
+
+async def test_refuses_a_suffix_the_table_does_not_hold(client: AsyncClient, vault: Path) -> None:
+    # An svg is markup a browser runs, and the table is what keeps it out.
+    response = await client.post("/api/assets/shot.svg", content=b"<svg/>")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "The vault will not take that path"
+    assert not (vault / "shot.svg").exists()
+
+
+async def test_takes_a_jpeg_whose_magic_is_shorter_than_the_head(
+    client: AsyncClient, vault: Path
+) -> None:
+    # Three bytes against a head of eight, so this is what says the comparison
+    # is a prefix rather than the whole of what was read.
+    response = await client.post("/api/assets/shot.jpg", content=b"\xff\xd8\xff and the rest")
+
+    assert response.status_code == 201
+
+
+async def test_lists_the_images_in_the_vault(client: AsyncClient, vault: Path) -> None:
+    (vault / "99 Misc").mkdir()
+    (vault / "99 Misc" / "shot.png").write_bytes(PNG)
+    (vault / "note.md").write_text("# note")
+    (vault / "DDIA.epub").write_bytes(BOOK)
+
+    response = await client.get("/api/images")
+
+    # The note and the book both sit out: the listing is what a `![](` completes
+    # against, and neither is an image.
+    assert response.status_code == 200
+    assert response.json() == ["99 Misc/shot.png"]

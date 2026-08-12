@@ -20,6 +20,33 @@ Spelled out rather than passed in. kasten reads one format, and nothing here
 promises anything about mobi or cbz.
 """
 
+ASSET_MAGIC = {
+    ASSET_SUFFIX: b"PK\x03\x04",
+    ".png": b"\x89PNG\r\n\x1a\n",
+    ".jpg": b"\xff\xd8\xff",
+    ".jpeg": b"\xff\xd8\xff",
+    ".gif": b"GIF8",
+    ".webp": b"RIFF",
+}
+"""What the vault takes beside its notes, and the bytes each one starts with.
+
+The keys are the whole rule about which paths `resolve_asset_path` answers to,
+so a new format is one row here. The values belong to the upload, which refuses
+a body disagreeing with the name it arrived under: a usability check and never a
+security one, for the reason `write_asset` spells out.
+
+`.webp` is the loose one of the six. Its four bytes are a RIFF container's,
+shared with wav and avi, and the tag that separates them sits at byte eight.
+One prefix per suffix is worth more than that exactness on a check nothing
+downstream relies on.
+
+Lowercase, the way `SUFFIX` is: a file called `PHOTO.PNG` is not one the vault
+serves, and the same is already true of a note called `NOTES.MD`.
+"""
+
+IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - {ASSET_SUFFIX}))
+"""The suffixes `list_images` walks for, which is every asset but the book."""
+
 _NAME_LIMIT_BYTES = 255
 """The longest one path segment may be, in UTF-8 bytes.
 
@@ -29,7 +56,22 @@ write raise rather than answer.
 
 
 def list_markdown_files(root: Path) -> list[str]:
-    """Return every markdown file under `root`, as sorted relative POSIX paths.
+    """Return every markdown file under `root`, as sorted relative POSIX paths."""
+    return _list_files(root, (SUFFIX,))
+
+
+def list_images(root: Path) -> list[str]:
+    """Return every image under `root`, as sorted relative POSIX paths.
+
+    What the editor completes a `![](` against. The same walk the notes come
+    back from rather than a listing of the one folder a paste writes into, so an
+    image dropped in over the terminal completes too.
+    """
+    return _list_files(root, IMAGE_SUFFIXES)
+
+
+def _list_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
+    """Return every file under `root` whose name ends in one of `suffixes`.
 
     Hidden files and directories are skipped, which keeps `.git` and editor
     dotfiles out of the tree. A hidden directory is skipped without being walked
@@ -64,7 +106,7 @@ def list_markdown_files(root: Path) -> list[str]:
                 # the other side. `rglob` declined one for the same reason.
                 if entry.is_dir(follow_symlinks=False):
                     walk(entry.path, f"{prefix}{entry.name}/")
-                elif entry.name.endswith(SUFFIX):
+                elif entry.name.endswith(suffixes):
                     found.append(f"{prefix}{entry.name}")
 
     walk(str(root), "")
@@ -145,20 +187,20 @@ def resolve_path(root: Path, relative: str) -> Path | None:
 
 
 def resolve_asset_path(root: Path, relative: str) -> Path | None:
-    """Return the real path of a legal book location under `root`, or None.
+    """Return the real path of a legal asset location under `root`, or None.
 
-    What `resolve_path` is to a note, read for a book. The suffix is the one
-    rule that differs, and it is the one rule out here.
+    What `resolve_path` is to a note, read for a book or an image. The suffix is
+    the one rule that differs, and it is the one rule out here.
     """
     path = _resolve_inside(root, relative)
-    if path is None or path.suffix != ASSET_SUFFIX:
+    if path is None or path.suffix not in ASSET_MAGIC:
         return None
 
     return path
 
 
 def resolve_asset(root: Path, relative: str) -> Path | None:
-    """Return the real path of one book under `root`, or None when there is none.
+    """Return the real path of one asset under `root`, or None when there is none.
 
     The `is_file` is what makes the 404 real. Starlette's `FileResponse` stats
     the path inside `__call__` and raises for one that is absent and again for

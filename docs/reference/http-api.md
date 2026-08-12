@@ -45,6 +45,24 @@ The walk costs 15.9ms at 10,000 notes in 842 folders. See [the load
 side](/reference/ranking-performance.md) for what that used to be and what a
 cold open spends the rest of its time on.
 
+## GET /api/images
+
+Lists every image in the vault as a relative POSIX path, sorted.
+
+```json
+["99 Misc/02 Assets/01 Images/2026-08-12-a1b2c3d4.png"]
+```
+
+The same walk `/api/files` makes, filtered on the image suffixes instead of
+`.md`: `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, lowercase. Hidden files and
+directories are skipped the same way, and a vault that does not exist reads as
+an empty one.
+
+Its own listing rather than rows in `/api/files`, which the tree, the finder,
+search and the link rewrite all read: an image is not a note and has no business
+in any of those. The editor reads this one to complete the path inside a `![](`,
+which is the only thing in the app that asks.
+
 ## GET /api/terminals
 
 Names every herdr session a terminal pane could attach to, sorted. Takes
@@ -273,71 +291,90 @@ gives the Caddy fix.
 
 ## GET /api/assets/{path}
 
-Reads one book out of the vault and answers with the bytes. `path` is a
-vault-relative POSIX path ending in `.epub`, and a slash inside it may be sent
-raw or percent-encoded.
+Reads one book or image out of the vault and answers with the bytes. `path` is a
+vault-relative POSIX path ending in one of six suffixes, and a slash inside it
+may be sent raw or percent-encoded.
 
-The reply is the file, with `content-type: application/epub+zip` off the
-suffix. Nothing here opens the archive: this resolves a path, checks the
-suffix and streams a file, so a `.epub` holding anything at all is served
-unchanged and the reader in the browser is what decides whether it is a book.
-`Range` comes free with the file response and nothing uses it, the client
-asking for the whole file once.
+| Suffix | Answered with |
+| --- | --- |
+| `.epub` | `application/epub+zip` |
+| `.png` | `image/png` |
+| `.jpg`, `.jpeg` | `image/jpeg` |
+| `.gif` | `image/gif` |
+| `.webp` | `image/webp` |
 
-Anything that is not a readable `.epub` file inside the vault is a `404`, on
-the same rules the note read follows: a path that climbs out with `..` or an
-absolute one, a symlink pointing outside, a hidden segment, a `.md` path, a
-directory whose name ends in `.epub`, and a file that is not there.
+The reply is the file, and the content type comes off the suffix. Nothing here
+opens what it sends: this resolves a path, checks the suffix and streams a file,
+so a `.epub` holding anything at all is served unchanged and the reader in the
+browser is what decides whether it is a book. `Range` comes free with the file
+response and nothing uses it, the client asking for the whole file once.
+
+Anything that is not a readable file of one of those suffixes inside the vault
+is a `404`, on the same rules the note read follows: a path that climbs out with
+`..` or an absolute one, a symlink pointing outside, a hidden segment, a `.md`
+path, a directory whose name ends in `.epub`, and a file that is not there. A
+suffix the table does not hold is a `404` too, `.svg` among them: an SVG is
+markup a browser runs, and the way to keep one out of a page is to keep it out
+of the vault.
 
 ## POST /api/assets/{path}
 
-Puts one book into the vault at `path`, and never over one already there.
-`path` follows the same rules the read above follows.
+Puts one book or image into the vault at `path`, and never over one already
+there. `path` follows the same rules the read above follows, the six suffixes
+included.
 
 The body is the file itself, raw. Not multipart: one file and no fields, so
 nothing has to parse a boundary at either end. No response body comes back,
 only the status, because the client already knows the path it sent to.
 
-The endpoint takes any legal `.epub` path and decides nothing about where a
-book belongs. `<leader>cb` sends `00 Inbox/02 Books/<the file's own name>.epub`
-and writes the note beside it afterwards, which is a choice made in the client
-and not a rule of this endpoint.
+The endpoint takes any legal path and decides nothing about where a book or an
+image belongs. `<leader>cb` sends `00 Inbox/02 Books/<the file's own name>.epub`
+and writes the note beside it afterwards; a pasted image goes to
+`99 Misc/02 Assets/01 Images/<today>-<eight hex digits>.png`. Both are choices
+made in the client and not rules of this endpoint.
 
 | Status | Means |
 | --- | --- |
-| `201` | The book is at that path |
-| `400` | `The vault will not take that path`, or `That file is not an epub` |
-| `409` | `A book is already there` |
+| `201` | The file is at that path |
+| `400` | `The vault will not take that path`, or `That file is not what its name says` |
+| `409` | `Something is already there` |
 | `413` | `That book is too big` |
 
-There is no overwrite and no delete. A path already holding a book is a `409`,
-and the book on disk is untouched; the way to replace one is the shell pane.
+There is no overwrite and no delete. A path already holding a file is a `409`,
+and what is on disk is untouched; the way to replace it is the shell pane.
 That refusal is decided by the filesystem rather than by a check in front of
 the transfer: the bytes land in a hidden temp file beside the target and are
 hard linked into place, so a path is taken by whichever request gets the link,
 not by whichever asked first.
 
-The cap is 100MiB, counted off the bytes as they arrive rather than read off
-`content-length`. In production Cloudflare sits in front of everything with a
-body limit of its own near that number, so a real oversize upload is usually
-refused by Cloudflare's own page before kasten sees it. The `413` is a backstop
-for dev, for the LAN and for a client that did not check its file first.
+The cap is 100MiB for either kind, counted off the bytes as they arrive rather
+than read off `content-length`. One cap because the cap is about what a request
+may cost and not about what a format usually weighs. In production Cloudflare
+sits in front of everything with a body limit of its own near that number, so a
+real oversize upload is usually refused by Cloudflare's own page before kasten
+sees it. The `413` is a backstop for dev, for the LAN and for a client that did
+not check its file first.
 
-The first four bytes must be `PK\x03\x04`, which is what a zip starts with and
-so what an epub starts with. **This is a usability check and not a security
-one.** The shell pane drops a file straight into the vault without coming near
-this endpoint, so nothing downstream can rely on it having run. It earns its
-place because there is no delete: a PDF renamed `.epub` and sent by mistake
-would squat on the sidecar path until you open a terminal.
+The bytes must start the way the suffix says they will: `PK\x03\x04` for a
+`.epub`, which is what a zip starts with, and the matching magic for each of the
+five image formats. `.webp` is checked on its `RIFF` alone, four bytes it shares
+with wav and avi, one prefix per suffix being worth more here than the
+exactness. **This is a usability check and not a security one.** The shell pane
+drops a file straight into the vault without coming near this endpoint, so
+nothing downstream can rely on it having run. It earns its place because there
+is no delete: a PDF renamed `.epub` and sent by mistake would squat on the
+sidecar path until you open a terminal.
 
-Every refusal leaves the sidecar path as it found it. Where the path was free
-it stays free, with no temp beside it, and the next upload to it succeeds. That
-holds for a client that hangs up mid-body too. Where the path was taken, the
-book already there is untouched.
+Every refusal leaves the path as it found it. Where the path was free it stays
+free, with no temp beside it, and the next upload to it succeeds. That holds for
+a client that hangs up mid-body too. Where the path was taken, what was already
+there is untouched.
 
 Nothing here writes history. Books are ignored by jj, so a change bracketing
 this would be empty, and [Books in the vault](/explanation/books-in-the-vault.md)
-covers why.
+covers why. Images are not ignored: they are part of what a note says, and the
+next save's snapshot sweeps in any untracked file under a megabyte, which most
+screenshots are.
 
 ## GET /api/files/{path}
 

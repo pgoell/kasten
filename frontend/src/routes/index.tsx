@@ -30,7 +30,7 @@ import {
   restoreEntry,
   type SearchHit,
   saveNote,
-  uploadBook,
+  uploadAsset,
 } from "@/lib/api";
 import { visible } from "@/lib/archive";
 import { clipPage } from "@/lib/clip";
@@ -877,7 +877,7 @@ function Home() {
       }
 
       try {
-        await uploadBook(filed.book, file);
+        await uploadAsset(filed.book, file);
       } catch (error: unknown) {
         // A typed `unknown` and not an untyped catch. A `fetch` rejects with
         // no response at all on a dropped connection or a suspended tab, and
@@ -1350,6 +1350,7 @@ function Home() {
                     onSave={save}
                     onFollow={follow}
                     onCycleTodo={logCycledTodo}
+                    onNotice={setNotice}
                   />
                 );
               }}

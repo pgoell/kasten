@@ -1,7 +1,14 @@
 import { acceptCompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { Annotation, Compartment, EditorState, Facet, Transaction } from "@codemirror/state";
+import {
+  Annotation,
+  Compartment,
+  EditorState,
+  type Extension,
+  Facet,
+  Transaction,
+} from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
@@ -9,6 +16,7 @@ import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 import { backticks } from "@/lib/backticks";
 import { editorCommands } from "@/lib/editor-commands";
+import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -176,6 +184,17 @@ const preview = new Compartment();
 const vault = new Compartment();
 
 /**
+ * The two listings the vault carries, in the shape the compartment holds them.
+ *
+ * One compartment for both, and therefore one place that spells this out. Either
+ * absent is not an empty vault: it is a view that was told nothing, which offers
+ * nothing and calls no link dead.
+ */
+function listings(paths: string[] | undefined, images: string[] | undefined): Extension[] {
+  return [...(paths ? [vaultPaths.of(paths)] : []), ...(images ? [imagePaths.of(images)] : [])];
+}
+
+/**
  * Marks the transaction that puts the vault's own text in.
  *
  * The listener below reports every other change, and reporting this one would
@@ -293,6 +312,15 @@ interface EditorProps {
    */
   paths?: string[];
   /**
+   * Every image in the vault, for completing the path in an open `![](`.
+   *
+   * Absent offers nothing, the way an absent `paths` does. Its own list because
+   * an image is not a note: it is never linked to with `[[`, and a note that
+   * does not exist yet is an invitation where an image that does not exist yet
+   * is a mistake.
+   */
+  images?: string[];
+  /**
    * Line to open on, counting from one. Absent starts at the top.
    *
    * Not folded into `initialDoc`'s read-once rule: a second search hit can
@@ -344,6 +372,13 @@ interface EditorProps {
   onCycleTodo?: CycleHandler;
   /** The note this holds, which tells today's own note from every other. */
   path?: string;
+  /**
+   * Called with a sentence for the reader when a pasted image is refused.
+   *
+   * The one thing the editor does that the vault can refuse with no key having
+   * been pressed, and the paste is silent without it.
+   */
+  onNotice?: (message: string) => void;
 }
 
 /**
@@ -359,6 +394,7 @@ export function Editor({
   commands,
   preview: rendered = true,
   paths,
+  images,
   startLine,
   focusSignal,
   focused = true,
@@ -369,6 +405,7 @@ export function Editor({
   onFollow,
   onCycleTodo,
   path,
+  onNotice,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -378,11 +415,13 @@ export function Editor({
   const initialDocRef = useRef(initialDoc);
   const renderedRef = useRef(rendered);
   const pathsRef = useRef(paths);
+  const imagesRef = useRef(images);
   const commandsRef = useRef(commands);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const onFollowRef = useRef(onFollow);
   const onCycleTodoRef = useRef(onCycleTodo);
+  const onNoticeRef = useRef(onNotice);
   const allowReloadRef = useRef(allowReload);
   const onReloadRef = useRef(onReload);
 
@@ -392,9 +431,10 @@ export function Editor({
     onSaveRef.current = onSave;
     onFollowRef.current = onFollow;
     onCycleTodoRef.current = onCycleTodo;
+    onNoticeRef.current = onNotice;
     allowReloadRef.current = allowReload;
     onReloadRef.current = onReload;
-  }, [commands, onChange, onSave, onFollow, onCycleTodo, allowReload, onReload]);
+  }, [commands, onChange, onSave, onFollow, onCycleTodo, onNotice, allowReload, onReload]);
 
   useEffect(() => {
     const parent = host.current;
@@ -495,8 +535,15 @@ export function Editor({
           noteLanguage(),
           markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
           markdownLanguage.data.of({ autocomplete: todoCompletions }),
+          markdownLanguage.data.of({ autocomplete: imageCompletions }),
+          // The clipboard's image goes into the vault and the note gets the
+          // path. Ahead of nothing in particular: CodeMirror's own paste is a
+          // handler on the same event and runs when this one declines, which is
+          // every paste that carries text.
+          imagePaste(),
+          noticeHandler.of((message) => onNoticeRef.current?.(message)),
           followOnClick,
-          vault.of(pathsRef.current ? vaultPaths.of(pathsRef.current) : []),
+          vault.of(listings(pathsRef.current, imagesRef.current)),
           preview.of(renderedRef.current ? livePreview() : []),
           oneDark,
           EditorView.lineWrapping,
@@ -596,12 +643,13 @@ export function Editor({
   }, [rendered]);
 
   // A note written elsewhere is a link in this note that has just come to life,
-  // so the listing goes in whenever the route hands over a new one.
+  // so the listing goes in whenever the route hands over a new one. The images
+  // ride along in the same compartment: both are the vault saying what it holds.
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: vault.reconfigure(paths ? vaultPaths.of(paths) : []),
+      effects: vault.reconfigure(listings(paths, images)),
     });
-  }, [paths]);
+  }, [paths, images]);
 
   return <div ref={host} className="h-full overflow-auto" />;
 }

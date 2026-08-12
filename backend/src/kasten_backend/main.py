@@ -31,7 +31,9 @@ from kasten_backend.trash import (
     restore,
 )
 from kasten_backend.vault import (
+    ASSET_MAGIC,
     create_note,
+    list_images,
     list_markdown_files,
     move_asset_beside,
     prune_empty_folders,
@@ -109,24 +111,25 @@ a fact: the bytes are counted as they arrive.
 """
 
 ASSET_LIMIT_BYTES = 100 * 1024 * 1024
-"""The most of one book this will take before giving up.
+"""The most of one book or image this will take before giving up.
 
-Twenty times a fat epub, so it is not a number anybody meets by reading. It is
-counted off the bytes as they arrive rather than read off `content-length`, for
-the reason `PAGE_LIMIT_BYTES` is: a header is a claim. `api.ts` holds the
-client's copy, which is checked before a byte is sent and must never exceed
-this one.
+One cap for both, because the cap is about what a request may cost and not about
+what a format usually weighs. Twenty times a fat epub, so it is not a number
+anybody meets by reading. It is counted off the bytes as they arrive rather than
+read off `content-length`, for the reason `PAGE_LIMIT_BYTES` is: a header is a
+claim. `api.ts` holds the client's copy, which is checked before a byte is sent
+and must never exceed this one.
 
 Cloudflare sits in front of production with a body limit of its own near this
 number, so a real oversize upload is usually refused before it arrives. This is
 the backstop for dev, for the LAN and for a client that did not check.
 """
 
-ZIP_MAGIC = b"PK\x03\x04"
-"""The four bytes every epub starts with, an epub being a zip.
+HEAD_BYTES = max(len(magic) for magic in ASSET_MAGIC.values())
+"""How much of an upload the suffix check needs, which is the longest magic.
 
-Named rather than inlined for the reason `PAGE_FAILED` is named: the literal in
-a comparison says nothing about what is being compared.
+Derived rather than typed, so a format whose magic is longer than every one
+before it widens this by arriving in the table.
 """
 
 PAGE_FAILED = 400
@@ -266,6 +269,17 @@ async def list_files(settings: Annotated[Settings, Depends(get_settings)]) -> li
     The client folds these into a folder tree; the server stays flat.
     """
     return list_markdown_files(settings.vault_path)
+
+
+@app.get("/api/images")
+async def list_vault_images(settings: Annotated[Settings, Depends(get_settings)]) -> list[str]:
+    """List every image in the vault as a relative POSIX path, sorted.
+
+    Its own listing rather than rows in `/api/files`, which the tree, the finder,
+    the search and the link rewrite all read: an image is not a note and has no
+    business in any of those. The editor reads this one to complete a `![](`.
+    """
+    return list_images(settings.vault_path)
 
 
 @app.get("/api/terminals")
@@ -468,22 +482,23 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
 async def read_asset(
     path: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> FileResponse:
-    """Read one book out of the vault.
+    """Read one book or image out of the vault.
 
     The only endpoint that answers with bytes rather than with a note. It
-    resolves a path, checks a suffix and streams a file; it never opens the
-    archive, so nothing here knows what an epub is beyond its name.
+    resolves a path, checks a suffix and streams a file; it never opens what it
+    sends, so nothing here knows what an epub or a png is beyond its name.
 
     No `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and
-    starlette reads it off the path. `Range` comes free with `FileResponse` and
-    nothing uses it, the client asking for the whole file once.
+    `image/png` for `.png`, and starlette reads it off the path. `Range` comes
+    free with `FileResponse` and nothing uses it, the client asking for the whole
+    file once.
 
-    The `POST` below is the other half. Between them a book gets into the vault
-    and back out of it without a terminal.
+    The `POST` below is the other half. Between them a book or an image gets into
+    the vault and back out of it without a terminal.
     """
     asset = resolve_asset(settings.vault_path, path)
     if asset is None:
-        raise HTTPException(status_code=404, detail="No such book")
+        raise HTTPException(status_code=404, detail="No such file")
 
     return FileResponse(asset)
 
@@ -492,7 +507,7 @@ async def read_asset(
 async def write_asset(
     path: str, request: Request, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Response:
-    """Put one book into the vault, and never over one already there.
+    """Put one book or image into the vault, and never over one already there.
 
     Both decorator arguments earn their place. Without `status_code` the runtime
     answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
@@ -507,7 +522,7 @@ async def write_asset(
     # below is what actually refuses an overwrite. Deleting this would cost the
     # early answer, and trusting it would cost the promise.
     if asset.exists():
-        raise HTTPException(status_code=409, detail="A book is already there")
+        raise HTTPException(status_code=409, detail="Something is already there")
 
     # The way `create_note` makes them, and for the reason its docstring gives:
     # a note's folder can vanish between picking the file and sending it, and
@@ -537,8 +552,8 @@ async def write_asset(
                     # than landing on the disk first.
                     if size > ASSET_LIMIT_BYTES:
                         raise HTTPException(status_code=413, detail="That book is too big")
-                    if len(head) < len(ZIP_MAGIC):
-                        head = (head + chunk)[: len(ZIP_MAGIC)]
+                    if len(head) < HEAD_BYTES:
+                        head = (head + chunk)[:HEAD_BYTES]
                     output.write(chunk)
             except ClientDisconnect:
                 # This answer reaches nothing: uvicorn's `send` returns at its
@@ -557,9 +572,11 @@ async def write_asset(
         # Compared after the stream rather than the moment the fourth byte
         # arrives. Refusing early would save something real, a 90MB PDF renamed
         # `.epub` streaming whole before the 400, and the flat check wins
-        # anyway because one user moves seconds of data.
-        if head != ZIP_MAGIC:
-            raise HTTPException(status_code=400, detail="That file is not an epub")
+        # anyway because one user moves seconds of data. The suffix is what
+        # picks the bytes: `resolve_asset_path` above answers for the names in
+        # `ASSET_MAGIC` and no others, so the lookup cannot miss.
+        if not head.startswith(ASSET_MAGIC[asset.suffix]):
+            raise HTTPException(status_code=400, detail="That file is not what its name says")
 
         # A link and not an `os.replace`, though `write_note` replaces twenty
         # lines away. Replace overwrites, and no delete and no history means an
@@ -572,7 +589,7 @@ async def write_asset(
             # Around the link alone, so it cannot swallow the temp's own
             # `open("xb")` colliding, which means something else entirely and
             # should stay a 500.
-            raise HTTPException(status_code=409, detail="A book is already there") from taken
+            raise HTTPException(status_code=409, detail="Something is already there") from taken
     finally:
         # Every path out, the successful one included: after the link the temp
         # is a second name for a file the target now also names, so unlinking

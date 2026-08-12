@@ -47,6 +47,29 @@
         }
       }
     },
+    "/api/images": {
+      "get": {
+        "summary": "List Vault Images",
+        "description": "List every image in the vault as a relative POSIX path, sorted.\n\nIts own listing rather than rows in `/api/files`, which the tree, the finder,\nthe search and the link rewrite all read: an image is not a note and has no\nbusiness in any of those. The editor reads this one to complete a `![](`.",
+        "operationId": "list_vault_images_api_images_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Vault Images Api Images Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/terminals": {
       "get": {
         "summary": "List Terminals",
@@ -229,7 +252,7 @@
     "/api/assets/{path}": {
       "get": {
         "summary": "Read Asset",
-        "description": "Read one book out of the vault.\n\nThe only endpoint that answers with bytes rather than with a note. It\nresolves a path, checks a suffix and streams a file; it never opens the\narchive, so nothing here knows what an epub is beyond its name.\n\nNo `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and\nstarlette reads it off the path. `Range` comes free with `FileResponse` and\nnothing uses it, the client asking for the whole file once.\n\nThe `POST` below is the other half. Between them a book gets into the vault\nand back out of it without a terminal.",
+        "description": "Read one book or image out of the vault.\n\nThe only endpoint that answers with bytes rather than with a note. It\nresolves a path, checks a suffix and streams a file; it never opens what it\nsends, so nothing here knows what an epub or a png is beyond its name.\n\nNo `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and\n`image/png` for `.png`, and starlette reads it off the path. `Range` comes\nfree with `FileResponse` and nothing uses it, the client asking for the whole\nfile once.\n\nThe `POST` below is the other half. Between them a book or an image gets into\nthe vault and back out of it without a terminal.",
         "operationId": "read_asset_api_assets__path__get",
         "parameters": [
           {
@@ -260,7 +283,7 @@
       },
       "post": {
         "summary": "Write Asset",
-        "description": "Put one book into the vault, and never over one already there.\n\nBoth decorator arguments earn their place. Without `status_code` the runtime\nanswers 201 while OpenAPI documents a 200; without `response_class` FastAPI\ndocuments the 201 as JSON carrying an empty schema, and\n`openapi-typescript` turns that into a body for a response that has none.",
+        "description": "Put one book or image into the vault, and never over one already there.\n\nBoth decorator arguments earn their place. Without `status_code` the runtime\nanswers 201 while OpenAPI documents a 200; without `response_class` FastAPI\ndocuments the 201 as JSON carrying an empty schema, and\n`openapi-typescript` turns that into a body for a response that has none.",
         "operationId": "write_asset_api_assets__path__post",
         "parameters": [
           {
@@ -434,7 +457,7 @@
       },
       "patch": {
         "summary": "Move File",
-        "description": "Give one note a new path, moving it between folders as well as renaming it.\n\n`PATCH` rather than a `/rename` route because the path is the note's\nidentity: `POST` starts a note, `PUT` replaces its text, and this changes\nwhere it lives. A verb in the URL would be the same thing spelled as a\nremote procedure call.\n\nA missing source is a 404, matching the read and the write, so a note you\ncannot open stays a note you cannot move. The target names its refusal the\nway a create does, a 400 for a path the vault will not have and a 409 for\none already taken, because the user is about to retype it and has to know\nwhich it was.\n\nThe text comes back read off disk rather than carried over from the client.\nBoth the URL and the query key change on a move, and seeding the new one\nfrom here is what stops a note edited outside kasten arriving stale on the\nother side.",
+        "description": "Give one note a new path, moving it between folders as well as renaming it.\n\n`PATCH` rather than a `/rename` route because the path is the note's\nidentity: `POST` starts a note, `PUT` replaces its text, and this changes\nwhere it lives. A verb in the URL would be the same thing spelled as a\nremote procedure call.\n\nA missing source is a 404, matching the read and the write, so a note you\ncannot open stays a note you cannot move. The target names its refusal the\nway a create does, a 400 for a path the vault will not have and a 409 for\none already taken, because the user is about to retype it and has to know\nwhich it was.\n\nThe text comes back read off disk rather than carried over from the client.\nBoth the URL and the query key change on a move, and seeding the new one\nfrom here is what stops a note edited outside kasten arriving stale on the\nother side.\n\nThe book beside the note travels with it, or the pair stops being a pair.\nThe answer says nothing about that, because there is nothing a client does\ndifferently: it swaps the suffix for itself, the way it always has.",
         "operationId": "move_file_api_files__path__patch",
         "parameters": [
           {

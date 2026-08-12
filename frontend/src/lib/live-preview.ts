@@ -4,6 +4,7 @@ import { EditorSelection, EditorState, type RangeSet, StateField } from "@codemi
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/clock";
+import { imageSource } from "@/lib/image";
 import { parseTodo } from "@/lib/todo";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
@@ -94,6 +95,41 @@ class Progress extends WidgetType {
 }
 
 /**
+ * The picture an `![](path)` names, drawn in place of the text naming it.
+ *
+ * The one widget here that loads something. A picture arrives with no size and
+ * gets one when its bytes land, by which time CodeMirror has measured the line
+ * as the height of an empty element, so the load asks for that measurement
+ * again. Without it the note below the image sits under it until something else
+ * moves the cursor.
+ */
+class Picture extends WidgetType {
+  private readonly source: string;
+  private readonly alt: string;
+
+  constructor(source: string, alt: string) {
+    super();
+    this.source = source;
+    this.alt = alt;
+  }
+
+  override eq(other: Picture): boolean {
+    return other.source === this.source && other.alt === this.alt;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const image = document.createElement("img");
+    image.className = "cm-image";
+    image.src = this.source;
+    // The alt text the note wrote, which is empty for most images and is the
+    // right value for one that carries no meaning of its own.
+    image.alt = this.alt;
+    image.addEventListener("load", () => view.requestMeasure());
+    return image;
+  }
+}
+
+/**
  * What the editor is showing, and which parts of the document it is not.
  *
  * The two travel together because the selection filter has to know where the
@@ -152,7 +188,19 @@ function build(state: EditorState): Live {
       const isBullet = node.name === "ListMark" && node.node.parent?.parent?.name === "BulletList";
       const isFence = node.name === "FencedCode";
       const isRule = node.name === "HorizontalRule";
-      if (!heading && !inline && !isLink && !isQuote && !isBullet && !isFence && !isRule) return;
+      const isImage = node.name === "Image";
+      if (
+        !heading &&
+        !inline &&
+        !isLink &&
+        !isQuote &&
+        !isBullet &&
+        !isFence &&
+        !isRule &&
+        !isImage
+      ) {
+        return;
+      }
 
       // Every line of the block, so the run reads as one surface with the code
       // in a monospaced face. Nothing is hidden: the language and the backticks
@@ -241,6 +289,35 @@ function build(state: EditorState): Live {
         // item go too, their job now done by the padding above. On a todo the
         // box goes with them, the symbol standing in for the whole of it.
         hideLeader(line.from, todo === null ? node.to : node.to + BOX_WIDTH, line);
+        return;
+      }
+
+      // Drawn rather than hidden, which is what makes this the one construct
+      // whose rendering is not the source with its marks taken off. The whole
+      // of `![alt](path)` goes and the picture stands where it stood, so the
+      // range has to be hidden as well as replaced: the cursor cannot rest
+      // inside a widget, and `x` on the first character of one would delete a
+      // bracket nobody can see.
+      //
+      // A path outside the vault renders as its source instead. `img-src`
+      // allows this origin alone, so a remote address would draw a broken
+      // picture where the text at least says what was meant.
+      if (isImage) {
+        const url = node.node.getChild("URL");
+        const source = url === null ? null : imageSource(state.doc.sliceString(url.from, url.to));
+        if (source === null || revealed) return;
+
+        const marks: { from: number; to: number }[] = [];
+        for (let child = node.node.firstChild; child; child = child.nextSibling) {
+          if (child.name === "LinkMark") marks.push({ from: child.from, to: child.to });
+        }
+        const [open, close] = marks;
+        const alt = open && close ? state.doc.sliceString(open.to, close.from) : "";
+
+        decorations.push(
+          Decoration.replace({ widget: new Picture(source, alt) }).range(node.from, node.to),
+        );
+        hidden.push(HIDDEN.range(node.from, node.to));
         return;
       }
 

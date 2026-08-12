@@ -7,6 +7,7 @@ import {
   type MarkSpec,
   STRIKE,
 } from "@/lib/format-commands";
+import { toggleImageAtCursor } from "@/lib/image";
 import { cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
 
 /**
@@ -264,6 +265,12 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
   // `i` is free after the leader, and cannot collide with vim's own `i`, which
   // needs no leader in front of it.
   { key: "i", label: "Stamp an id on this todo", run: stampIdAtCursor },
+  // The `c` group's shape, `ci` for create image, though the key toggles rather
+  // than only creates: pressed on a link it makes an image of it, pressed on an
+  // image it hands the link back, and pressed on neither it writes the brackets
+  // and opens the list of images to fill them with. It sits here rather than in
+  // `LEADER` because all three of those are writes to the buffer.
+  { key: "ci", label: "Toggle an image at the cursor", run: toggleImageAtCursor },
   // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
   // binding spell a tick, and bare `x` in normal mode is vim's own cut.
   { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },

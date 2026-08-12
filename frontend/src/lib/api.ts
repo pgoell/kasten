@@ -274,6 +274,17 @@ export async function restoreEntry(entry: string): Promise<string> {
   return data.path;
 }
 
+/** Vault-relative paths of every image, sorted by the backend. */
+export async function fetchImages(): Promise<string[]> {
+  const { data, response } = await client.GET("/api/images");
+
+  if (!data) {
+    throw new Error(`GET /api/images failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /**
  * Read one book out of the vault, whole.
  *
@@ -310,13 +321,17 @@ export async function fetchBook(path: string): Promise<Blob> {
 export const ASSET_LIMIT_BYTES = 100 * 1024 * 1024;
 
 /**
- * Put one book at `path`, which is the book's path and not the note's.
+ * Put one book or image at `path`, which is the file's path and not the note's.
  *
  * Plain `fetch` for the reason `fetchBook` uses one, and the raw file as the
  * body rather than a multipart part: one file and no fields, so nothing has to
  * parse a boundary at either end.
+ *
+ * One function for both, the endpoint being one endpoint: what the vault will
+ * take is a table of suffixes on the backend, and a second copy of it here
+ * would be a second place to edit when a format arrives.
  */
-export async function uploadBook(path: string, file: Blob): Promise<void> {
+export async function uploadAsset(path: string, file: Blob): Promise<void> {
   const response = await fetch(`/api/assets/${encodeURIComponent(path)}`, {
     method: "POST",
     body: file,

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { memo } from "react";
 import { Editor } from "@/components/editor";
-import { fetchNote } from "@/lib/api";
+import { fetchImages, fetchNote } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import type { TodoCycle } from "@/lib/todo-commands";
 
@@ -33,6 +33,8 @@ interface NoteEditorProps {
    * the component that knows which note the key was typed into.
    */
   onCycleTodo?: (path: string, cycle: TodoCycle) => void;
+  /** Called with a sentence for the reader when a pasted image is refused. */
+  onNotice?: (message: string) => void;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-muted";
@@ -61,6 +63,7 @@ export const NoteEditor = memo(function NoteEditor({
   onSave,
   onFollow,
   onCycleTodo,
+  onNotice,
   allowReload,
   onReload,
 }: NoteEditorProps) {
@@ -68,6 +71,17 @@ export const NoteEditor = memo(function NoteEditor({
     queryKey: ["note", path],
     queryFn: () => fetchNote(path),
   });
+  // Read here rather than threaded down from the route, which has no use for it:
+  // the completion inside a `![](` is the only thing in the app that reads this
+  // listing. Every open note asks for the same key, so react-query answers the
+  // second pane out of the cache and fetches once.
+  //
+  // ponytail: refreshed when the query goes stale rather than on the vault's own
+  // event, so an image dropped in over the terminal is completable a moment
+  // later rather than at once. Invalidating on every `listing` event would walk
+  // the vault twice for every note anybody writes. The upgrade, if it ever
+  // matters, is an event that says the listing that changed.
+  const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });
 
   if (isPending) return <p className={MESSAGE}>Opening {path}</p>;
   // Only while there is nothing to show. Every write to the vault reads this
@@ -90,6 +104,7 @@ export const NoteEditor = memo(function NoteEditor({
       commands={commands}
       preview={preview}
       paths={paths}
+      images={images}
       startLine={startLine}
       focusSignal={focusSignal}
       focused={focused}
@@ -99,6 +114,7 @@ export const NoteEditor = memo(function NoteEditor({
       onSave={onSave}
       onFollow={onFollow}
       onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
+      onNotice={onNotice}
       path={path}
     />
   );
