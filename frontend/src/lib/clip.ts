@@ -20,33 +20,14 @@
 // load, and this repo does not take those. Split the route if the first paint
 // starts to hurt.
 import Defuddle from "defuddle/full";
+import { safeName } from "@/lib/note-path";
 
 /** Where a clipping lands. The one folder in the vault for things not yet filed. */
 const INBOX = "00 Inbox";
 
-/**
- * What a note's name may not carry.
- *
- * The first eight are the characters a path or a filesystem refuses, `/`
- * above all: a title holding one would file the note in a folder nobody asked
- * for. The last four are legal in a filename and illegal inside a `[[link]]`,
- * so a note carrying one could not be linked to by name.
- */
-const ILLEGAL = /[/\\:*?"<>|#^[\]]/g;
-
-/** The longest a clipped name gets. Headlines run long; a filename should not. */
-const NAME_LIMIT = 80;
-
 /** What the note is called, off the page's title, with the site as the fallback. */
 function noteName(title: string, url: string): string {
-  const name = title
-    .replace(ILLEGAL, " ")
-    .replace(/\s+/g, " ")
-    .slice(0, NAME_LIMIT)
-    // Trailing dots and spaces after the leading ones, because the cut above
-    // can leave either, and a leading dot is a name the vault will not take.
-    .replace(/^[.\s]+/, "")
-    .replace(/[.\s]+$/, "");
+  const name = safeName(title);
 
   return name === "" ? new URL(url).hostname : name;
 }

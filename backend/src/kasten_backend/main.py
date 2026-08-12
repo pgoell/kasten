@@ -1,6 +1,8 @@
 """FastAPI application entrypoint."""
 
 import asyncio
+import os
+import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
 from importlib.metadata import version
@@ -8,9 +10,10 @@ from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from starlette.requests import ClientDisconnect
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
@@ -30,12 +33,14 @@ from kasten_backend.trash import (
 from kasten_backend.vault import (
     create_note,
     list_markdown_files,
+    move_asset_beside,
     prune_empty_folders,
     read_note,
     relative_path,
     rename_folder,
     rename_note,
     resolve_asset,
+    resolve_asset_path,
     resolve_folder,
     resolve_folder_path,
     resolve_note,
@@ -101,6 +106,27 @@ An article is a few hundred kilobytes and this is twenty times that, so the
 number is not a limit anybody meets by reading. It is there because the other
 end of this request is a stranger, and `content-length` is a claim rather than
 a fact: the bytes are counted as they arrive.
+"""
+
+ASSET_LIMIT_BYTES = 100 * 1024 * 1024
+"""The most of one book this will take before giving up.
+
+Twenty times a fat epub, so it is not a number anybody meets by reading. It is
+counted off the bytes as they arrive rather than read off `content-length`, for
+the reason `PAGE_LIMIT_BYTES` is: a header is a claim. `api.ts` holds the
+client's copy, which is checked before a byte is sent and must never exceed
+this one.
+
+Cloudflare sits in front of production with a body limit of its own near this
+number, so a real oversize upload is usually refused before it arrives. This is
+the backstop for dev, for the LAN and for a client that did not check.
+"""
+
+ZIP_MAGIC = b"PK\x03\x04"
+"""The four bytes every epub starts with, an epub being a zip.
+
+Named rather than inlined for the reason `PAGE_FAILED` is named: the literal in
+a comparison says nothing about what is being compared.
 """
 
 PAGE_FAILED = 400
@@ -452,14 +478,108 @@ async def read_asset(
     starlette reads it off the path. `Range` comes free with `FileResponse` and
     nothing uses it, the client asking for the whole file once.
 
-    Deliberately unpaired. Getting a book into the vault is the shell pane's job
-    for now.
+    The `POST` below is the other half. Between them a book gets into the vault
+    and back out of it without a terminal.
     """
     asset = resolve_asset(settings.vault_path, path)
     if asset is None:
         raise HTTPException(status_code=404, detail="No such book")
 
     return FileResponse(asset)
+
+
+@app.post("/api/assets/{path:path}", status_code=201, response_class=Response)
+async def write_asset(
+    path: str, request: Request, settings: Annotated[Settings, Depends(get_settings)]
+) -> Response:
+    """Put one book into the vault, and never over one already there.
+
+    Both decorator arguments earn their place. Without `status_code` the runtime
+    answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
+    documents the 201 as JSON carrying an empty schema, and
+    `openapi-typescript` turns that into a body for a response that has none.
+    """
+    asset = resolve_asset_path(settings.vault_path, path)
+    if asset is None:
+        raise HTTPException(status_code=400, detail="The vault will not take that path")
+    # A courtesy in front of the guarantee, not the guarantee itself. It is
+    # here so you learn the path is taken before you send 30MB; the `os.link`
+    # below is what actually refuses an overwrite. Deleting this would cost the
+    # early answer, and trusting it would cost the promise.
+    if asset.exists():
+        raise HTTPException(status_code=409, detail="A book is already there")
+
+    # The way `create_note` makes them, and for the reason its docstring gives:
+    # a note's folder can vanish between picking the file and sending it, and
+    # opening a file under a missing parent raises rather than answers.
+    asset.parent.mkdir(parents=True, exist_ok=True)
+
+    # Eight random hex characters rather than a fixed name. Two uploads aimed
+    # at one path would otherwise interleave their bytes into one temp, and the
+    # winner's cleanup would unlink the name the loser is still writing behind.
+    # Opened `"xb"` rather than through `tempfile.mkstemp`: mkstemp creates the
+    # file 0600 and the hard link below publishes that mode, so every book
+    # would land readable by its owner alone in a vault whose whole point is
+    # being readable without kasten. Hidden and `.tmp`, so the listing, the
+    # watcher and jj all skip whatever a crash leaves behind.
+    temporary = asset.with_name(f".{asset.name}.{secrets.token_hex(4)}.tmp")
+    # Opened above the `try`, so the `finally` can only ever unlink a file this
+    # request made.
+    output = temporary.open("xb")
+    try:
+        with output:
+            size = 0
+            head = b""
+            try:
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    # Before the write, so an over-cap body is refused rather
+                    # than landing on the disk first.
+                    if size > ASSET_LIMIT_BYTES:
+                        raise HTTPException(status_code=413, detail="That book is too big")
+                    if len(head) < len(ZIP_MAGIC):
+                        head = (head + chunk)[: len(ZIP_MAGIC)]
+                    output.write(chunk)
+            except ClientDisconnect:
+                # This answer reaches nothing: uvicorn's `send` returns at its
+                # disconnected guard before it writes bytes and before it
+                # writes the access log line. The catch is here for the other
+                # path, a propagated `ClientDisconnect` reaching `run_asgi` and
+                # printing a traceback, and a person closing a tab is not an
+                # exception. The `finally` below still takes the temp away.
+                return Response(status_code=499)
+
+        # A usability check and never a security one. The shell pane drops a
+        # file straight into the vault without coming near this endpoint, so
+        # nothing downstream can rely on this having run. It earns its place
+        # because there is no delete: a PDF or a half-copied file sent by
+        # mistake would squat on the sidecar path until you open a terminal.
+        # Compared after the stream rather than the moment the fourth byte
+        # arrives. Refusing early would save something real, a 90MB PDF renamed
+        # `.epub` streaming whole before the 400, and the flat check wins
+        # anyway because one user moves seconds of data.
+        if head != ZIP_MAGIC:
+            raise HTTPException(status_code=400, detail="That file is not an epub")
+
+        # A link and not an `os.replace`, though `write_note` replaces twenty
+        # lines away. Replace overwrites, and no delete and no history means an
+        # overwritten book is gone for good. A link creates the target or
+        # raises, and the filesystem decides which, so no window exists in
+        # which two requests both believe the path is free.
+        try:
+            os.link(temporary, asset)
+        except FileExistsError as taken:
+            # Around the link alone, so it cannot swallow the temp's own
+            # `open("xb")` colliding, which means something else entirely and
+            # should stay a 500.
+            raise HTTPException(status_code=409, detail="A book is already there") from taken
+    finally:
+        # Every path out, the successful one included: after the link the temp
+        # is a second name for a file the target now also names, so unlinking
+        # it leaves the book whole.
+        temporary.unlink(missing_ok=True)
+
+    return Response(status_code=201)
 
 
 @app.get("/api/files/{path:path}")
@@ -581,6 +701,10 @@ async def move_file(
     Both the URL and the query key change on a move, and seeding the new one
     from here is what stops a note edited outside kasten arriving stale on the
     other side.
+
+    The book beside the note travels with it, or the pair stops being a pair.
+    The answer says nothing about that, because there is nothing a client does
+    differently: it swaps the suffix for itself, the way it always has.
     """
     note = resolve_note(settings.vault_path, path)
     if note is None:
@@ -601,6 +725,9 @@ async def move_file(
     # edit that happened to follow it.
     await relink_note_move(settings.vault_path, relative_path(settings.vault_path, note), relative)
     rename_note(note, target)
+    # After the note and before the prune, so a folder the pair has both left
+    # is one the prune can take.
+    move_asset_beside(note, target)
     prune_empty_folders(settings.vault_path, note.parent)
     await snapshot(settings.vault_path)
 

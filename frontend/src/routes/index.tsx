@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookPane } from "@/components/book-pane";
 import { ClipPrompt } from "@/components/clip-prompt";
 import { Editor } from "@/components/editor";
@@ -18,6 +18,7 @@ import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
 import {
+  ASSET_LIMIT_BYTES,
   createNote,
   deleteFolder,
   deleteNote,
@@ -29,12 +30,14 @@ import {
   restoreEntry,
   type SearchHit,
   saveNote,
+  uploadBook,
 } from "@/lib/api";
 import { visible } from "@/lib/archive";
 import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { setField } from "@/lib/note-frontmatter";
+import { bookNote } from "@/lib/note-path";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -198,6 +201,13 @@ function Home() {
   // twice is two refusals and both have to read as one. How long the flash
   // lasts is the bar's own business.
   const [refused, setRefused] = useState(0);
+  // One sentence about an upload that failed, drawn at the foot of the window.
+  // Cleared on the next press of the key rather than on a timer: a timer is a
+  // third clearing mechanism nobody asked for, and one sentence in a corner is
+  // information rather than litter.
+  const [notice, setNotice] = useState<string>();
+  // The browser's own file picker, which is a hidden input and a click on it.
+  const picker = useRef<HTMLInputElement>(null);
 
   /**
    * Hand the keys back to the pane a prompt was opened over.
@@ -807,6 +817,66 @@ function Home() {
     [todosWritten],
   );
 
+  /**
+   * Put the file the picker just handed back into the vault, with its note.
+   *
+   * The book keeps its own name and lands in the inbox, rather than taking the
+   * name of whatever note was in the pane: that threw the title away and
+   * pinned the book to a note about something else. The note beside it is
+   * what makes it readable at all, the pair being a convention rather than a
+   * record, and opening it is the only thing on screen that says the upload
+   * worked.
+   *
+   * The book goes up before the note is made, so a refusal leaves no orphan
+   * note behind.
+   */
+  const chooseBook = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file === undefined) return;
+
+      const filed = bookNote(file.name);
+      if (filed === null) {
+        setNotice("The vault will not take that name");
+        return;
+      }
+
+      // Checked here rather than left to the backend. Sending 400MB through
+      // the proxy to be told no is rude to the connection, and in production
+      // Cloudflare refuses an oversize body before kasten sees it, with a page
+      // of its own: the backend's 413 is a backstop and this is the message.
+      if (file.size > ASSET_LIMIT_BYTES) {
+        setNotice("That book is too big");
+        return;
+      }
+
+      try {
+        await uploadBook(filed.book, file);
+      } catch (error: unknown) {
+        // A typed `unknown` and not an untyped catch. A `fetch` rejects with
+        // no response at all on a dropped connection or a suspended tab, and
+        // there is no status to name, so the last arm is a sentence.
+        setNotice(error instanceof Error ? error.message : "The upload failed");
+        return;
+      }
+
+      // The `listing` event the upload fires invalidates `["files"]` alone, so
+      // a reader already sitting on "no sidecar" would never notice this one.
+      void queryClient.invalidateQueries({ queryKey: ["book", filed.book] });
+
+      const made = (data ?? []).includes(filed.note)
+        ? null
+        : await createNote(filed.note, `# ${filed.name}\n`);
+      if (made !== null) {
+        queryClient.setQueryData(["note", made.path], made.content);
+        void queryClient.invalidateQueries({ queryKey: ["files"] });
+      }
+
+      await openInPane(made?.path ?? filed.note);
+    },
+    [data, queryClient, openInPane],
+  );
+
   const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
@@ -935,6 +1005,23 @@ function Home() {
         if (pane.path === undefined) return;
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
+      },
+      // Needs no note in the pane: the book keeps its own name and brings its
+      // own note, so there is nothing here to be beside.
+      uploadBook: () => {
+        const input = picker.current;
+        if (input === null) return;
+
+        setNotice(undefined);
+        // Blanked before the click. An input keeps the file you last chose and
+        // choosing the same one again may fire no `change` at all, which is
+        // the retry after a failed upload silently doing nothing.
+        input.value = "";
+        // Synchronously, with nothing awaited in front of it. A file picker
+        // needs transient user activation and an `await` gives the browser a
+        // turn in which it expires. jsdom models none of that, so an `await`
+        // here passes every test in this repo and opens nothing on the box.
+        input.click();
       },
       // Saved first the way `openTodos` is, and for the same reason: this
       // replaces the focused pane, so text still waiting would be written to a
@@ -1175,6 +1262,7 @@ function Home() {
         reason={reason}
         flash={refused}
         archive={archive}
+        notice={notice}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {clipPrompt && (
@@ -1240,15 +1328,19 @@ function Home() {
                   // holding something the move did not touch.
                   mapPanes(previous, (shown) => {
                     const next = noteAfterPrompt(mode, startPath, path, shown.path);
-                    // A reader follows a folder and never a rename. A rename
-                    // moves the note and leaves the epub where it was, so
-                    // rewriting `book` here would aim the reader at a file that
-                    // is not the book it is reading. Undefined keeps the old
-                    // value, which is what a move that touched nothing answers.
-                    const book =
-                      (mode === "folder"
-                        ? noteAfterPrompt(mode, startPath, path, shown.book)
-                        : undefined) ?? shown.book;
+                    // A reader follows both now. A folder move carries
+                    // everything under it, and a note's move carries the book
+                    // beside it, so a reader left on the old note would be
+                    // holding a pair that has been broken. `pane.book` is the
+                    // note's path rather than the epub's, the pane swapping
+                    // the suffix itself, which is why this is the same
+                    // question `next` asks one line up.
+                    //
+                    // The vault leaves the book behind in one case, a target
+                    // whose own sidecar path is taken, and the reader then
+                    // draws "No book at ..." over a book still at the old
+                    // path. Not worth a field on the answer to tell apart.
+                    const book = noteAfterPrompt(mode, startPath, path, shown.book) ?? shown.book;
                     const moved = next === undefined ? shown : { ...shown, path: next };
                     return book === shown.book ? moved : { ...moved, book };
                   }),
@@ -1303,6 +1395,18 @@ function Home() {
           }}
         />
       )}
+      {/* Last in the markup and always mounted, so `<leader>cb` has something
+          to click and no open prompt has this in front of its own input.
+          `accept` filters the picker's default view and stops nothing, the
+          user being free to switch it to all files, which is why the backend
+          looks at the bytes. */}
+      <input
+        ref={picker}
+        type="file"
+        accept=".epub,application/epub+zip"
+        className="hidden"
+        onChange={chooseBook}
+      />
     </main>
   );
 }

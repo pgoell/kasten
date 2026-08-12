@@ -25,6 +25,7 @@ move-right, because the leader is registered in normal mode only.
 | Key | Does |
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
+| `<leader>cb` | Add an epub to the inbox, with a note beside it |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
@@ -309,6 +310,20 @@ with the suffix swapped, so `20 Literature/DDIA.md` is read beside
 
 A note with no book beside it draws a panel naming the path it wanted, rather
 than an empty reader. So does a book the reader cannot open.
+
+`<leader>cb` is how a book gets into the vault without a terminal. It opens the
+browser's file picker, and the file you choose lands in `00 Inbox/02 Books/`
+under its own name, with a note of the same name beside it. That note opens in
+the focused pane, which is the only thing on screen saying the upload worked.
+`<leader>gr` then reads it.
+
+The key needs no note open and never renames the file after one: the book
+brings its own note, and the pair is yours to move somewhere permanent once you
+know where it belongs. A folder move carries both halves at once.
+
+A refusal, a book of that name already there above all, puts one sentence at
+the foot of the window, and the next press of the key clears it. There is no
+way back out from the app: nothing here deletes a book.
 
 Opening a book again puts you back on the page you stopped at. The place is one
 line in the note's own block, `reading:`, written a minute after the last page

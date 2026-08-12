@@ -107,4 +107,21 @@ describe("the clock in the bar", () => {
 
     expect(screen.getByText("CW 32")).toBeInTheDocument();
   });
+
+  it("puts one sentence about a failure in the bar, with no note open", () => {
+    render(<StatusBar notice="A book is already there" />);
+
+    expect(screen.getByText("A book is already there")).toBeInTheDocument();
+  });
+
+  it("draws the notice before the archive tag", () => {
+    render(<StatusBar notice="A book is already there" archive />);
+
+    const notice = screen.getByText("A book is already there");
+    // The order and not the Tailwind class: a class assertion is a change
+    // detector, and the colour is a design choice rather than behaviour.
+    expect(notice.compareDocumentPosition(screen.getByTestId("archive-shown"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
 });

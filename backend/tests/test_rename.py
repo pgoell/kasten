@@ -169,3 +169,49 @@ async def test_refuses_a_target_under_a_note(client: AsyncClient, vault: Path) -
 
     assert response.status_code == 400
     assert (vault / "index.md").read_text() == "# index"
+
+
+BOOK = b"PK\x03\x04 not really a book"
+
+
+async def test_carries_the_book_beside_the_note(client: AsyncClient, vault: Path) -> None:
+    (vault / "inbox").mkdir()
+    (vault / "inbox" / "borges.md").write_text("# borges")
+    (vault / "inbox" / "borges.epub").write_bytes(BOOK)
+
+    response = await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert response.status_code == 200
+    assert (vault / "reading" / "borges.epub").read_bytes() == BOOK
+    assert not (vault / "inbox" / "borges.epub").exists()
+
+
+async def test_leaves_the_book_where_it_is_when_the_target_has_one(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The move goes through and the pair stops being a pair, rather than the
+    # note becoming one you cannot move at all. Overwriting is the one thing
+    # nothing here does to a book.
+    (vault / "inbox").mkdir()
+    (vault / "reading").mkdir()
+    (vault / "inbox" / "borges.md").write_text("# borges")
+    (vault / "inbox" / "borges.epub").write_bytes(BOOK)
+    (vault / "reading" / "borges.epub").write_bytes(b"PK\x03\x04 another book")
+
+    response = await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert response.status_code == 200
+    assert (vault / "reading" / "borges.md").read_text() == "# borges"
+    assert (vault / "reading" / "borges.epub").read_bytes() == b"PK\x03\x04 another book"
+    assert (vault / "inbox" / "borges.epub").read_bytes() == BOOK
+
+
+async def test_moves_a_note_that_has_no_book(client: AsyncClient, vault: Path) -> None:
+    # A guard: most notes have none, and the move must not go looking for one.
+    (vault / "inbox").mkdir()
+    (vault / "inbox" / "borges.md").write_text("# borges")
+
+    response = await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert response.status_code == 200
+    assert not (vault / "reading" / "borges.epub").exists()

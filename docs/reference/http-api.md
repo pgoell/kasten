@@ -289,9 +289,55 @@ the same rules the note read follows: a path that climbs out with `..` or an
 absolute one, a symlink pointing outside, a hidden segment, a `.md` path, a
 directory whose name ends in `.epub`, and a file that is not there.
 
-There is no `POST`. A book gets into the vault from the shell pane or from
-outside the app, and [Books in the vault](/explanation/books-in-the-vault.md)
-covers why nothing in the vault records where one lives.
+## POST /api/assets/{path}
+
+Puts one book into the vault at `path`, and never over one already there.
+`path` follows the same rules the read above follows.
+
+The body is the file itself, raw. Not multipart: one file and no fields, so
+nothing has to parse a boundary at either end. No response body comes back,
+only the status, because the client already knows the path it sent to.
+
+The endpoint takes any legal `.epub` path and decides nothing about where a
+book belongs. `<leader>cb` sends `00 Inbox/02 Books/<the file's own name>.epub`
+and writes the note beside it afterwards, which is a choice made in the client
+and not a rule of this endpoint.
+
+| Status | Means |
+| --- | --- |
+| `201` | The book is at that path |
+| `400` | `The vault will not take that path`, or `That file is not an epub` |
+| `409` | `A book is already there` |
+| `413` | `That book is too big` |
+
+There is no overwrite and no delete. A path already holding a book is a `409`,
+and the book on disk is untouched; the way to replace one is the shell pane.
+That refusal is decided by the filesystem rather than by a check in front of
+the transfer: the bytes land in a hidden temp file beside the target and are
+hard linked into place, so a path is taken by whichever request gets the link,
+not by whichever asked first.
+
+The cap is 100MiB, counted off the bytes as they arrive rather than read off
+`content-length`. In production Cloudflare sits in front of everything with a
+body limit of its own near that number, so a real oversize upload is usually
+refused by Cloudflare's own page before kasten sees it. The `413` is a backstop
+for dev, for the LAN and for a client that did not check its file first.
+
+The first four bytes must be `PK\x03\x04`, which is what a zip starts with and
+so what an epub starts with. **This is a usability check and not a security
+one.** The shell pane drops a file straight into the vault without coming near
+this endpoint, so nothing downstream can rely on it having run. It earns its
+place because there is no delete: a PDF renamed `.epub` and sent by mistake
+would squat on the sidecar path until you open a terminal.
+
+Every refusal leaves the sidecar path as it found it. Where the path was free
+it stays free, with no temp beside it, and the next upload to it succeeds. That
+holds for a client that hangs up mid-body too. Where the path was taken, the
+book already there is untouched.
+
+Nothing here writes history. Books are ignored by jj, so a change bracketing
+this would be empty, and [Books in the vault](/explanation/books-in-the-vault.md)
+covers why.
 
 ## GET /api/files/{path}
 
@@ -455,6 +501,13 @@ The reply is the note at its new path, in the shape `GET` returns.
 ```json
 { "path": "reading/2026/borges.md", "content": "# Borges\n" }
 ```
+
+The book beside the note goes with it, `20 Literature/DDIA.epub` following
+`20 Literature/DDIA.md`, because the pair is a convention rather than a record
+and a note that moved alone would stop having a book. It stays where it is when
+the new path already has a book of its own: the note still moves, and nothing
+here overwrites a book. The reply says nothing either way, a client swapping
+the suffix for itself.
 
 One route, not two: renaming a note and moving it between folders are the same
 thing, a change to the path. `PATCH` rather than `/rename` because the path is

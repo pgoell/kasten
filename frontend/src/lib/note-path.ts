@@ -13,6 +13,74 @@ export type NotePathVerdict =
 
 const SUFFIX = ".md";
 
+const BOOK_SUFFIX = ".epub";
+
+/** Where an uploaded book and its note land, until you file them somewhere. */
+const BOOK_INBOX = "00 Inbox/02 Books";
+
+/**
+ * What a note's name may not carry.
+ *
+ * The first eight are the characters a path or a filesystem refuses, `/` above
+ * all: a name holding one would file the note in a folder nobody asked for.
+ * The last four are legal in a filename and illegal inside a `[[link]]`, so a
+ * note carrying one could not be linked to by name.
+ */
+const ILLEGAL = /[/\\:*?"<>|#^[\]]/g;
+
+/** The longest a name taken from somewhere else gets. */
+const NAME_LIMIT = 80;
+
+/**
+ * One name from outside the vault, cut down to something the vault will take.
+ *
+ * A page's headline and a book file's name both arrive from somewhere that has
+ * never heard of this vault's rules, and both answer to the same ones. Answers
+ * empty where nothing legal is left, which the callers read as "no name".
+ */
+export function safeName(raw: string): string {
+  return (
+    raw
+      .replace(ILLEGAL, " ")
+      .replace(/\s+/g, " ")
+      .slice(0, NAME_LIMIT)
+      // Trailing dots and spaces after the leading ones, because the cut above
+      // can leave either, and a leading dot is a name the vault will not take.
+      .replace(/^[.\s]+/, "")
+      .replace(/[.\s]+$/, "")
+  );
+}
+
+/** A book and the note beside it, as an upload files them. */
+export interface BookNote {
+  /** What both files are called, without either suffix. */
+  name: string;
+  book: string;
+  note: string;
+}
+
+/**
+ * Where the file you just picked belongs, and what its note is called.
+ *
+ * The book keeps its own name. It used to take the name of whatever note was
+ * in the pane, which threw the title away and pinned the book to a note that
+ * was about something else. Nothing has to be open for this now.
+ *
+ * The pair lands in the inbox rather than at its final home, for the reason a
+ * clipping does: filing is a decision, and a folder move carries both halves
+ * of the pair at once.
+ */
+export function bookNote(fileName: string): BookNote | null {
+  const name = safeName(fileName.replace(/\.epub$/i, ""));
+  if (name === "") return null;
+
+  return {
+    name,
+    book: `${BOOK_INBOX}/${name}${BOOK_SUFFIX}`,
+    note: `${BOOK_INBOX}/${name}${SUFFIX}`,
+  };
+}
+
 /** The note's name, which is what every link to it carries. */
 export function noteName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");

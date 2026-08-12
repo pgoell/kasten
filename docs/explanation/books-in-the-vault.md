@@ -30,11 +30,19 @@ such problem, because it is not a fact anybody wrote down: swap the suffix and
 ask the vault. Two files with the same stem in the same folder are a pair for
 as long as they sit there, and they stop being one the moment they do not.
 
-It costs one thing, and the reader says so out loud rather than hiding it. A
-rename of the note alone leaves the epub behind, and the reader then draws
-`No book at 20 Literature/DDIA.epub` instead of reading on as though nothing
-had happened. Moving the folder carries both, which is what a folder move is
-for.
+So the vault is what keeps the pair together, and both of its move operations
+do. A folder move renames the directory, which carries everything inside it.
+A note's move carries the book beside it, one rename after the other, so
+filing `00 Inbox/02 Books/DDIA.md` away under `20 Literature/` takes the epub
+with it and the reader follows.
+
+There is one case where the book stays put: the note's new home already has a
+book of that name. The note moves anyway and the pair is broken, which the
+reader says out loud, drawing `No book at 20 Literature/DDIA.epub` rather than
+reading on as though nothing had happened. The alternative was refusing the
+whole move, which leaves you with a note you cannot move at all, and
+overwriting is the one thing nothing here does to a book: there is no delete
+and no history to get one back from.
 
 ## Why the tree, the finder and search never mention it
 
@@ -46,6 +54,42 @@ key, and no other part of the app knows it is there.
 
 So the vault reads as a directory of notes, which is what it is. The books sit
 beside them the way a scanned receipt sits in a folder of letters.
+
+## The two doors a book comes in by
+
+`<leader>cb` picks a file, puts it in `00 Inbox/02 Books/` under its own name,
+writes the note of the same name beside it and opens that note. That is the
+door the app owns, and it is the one that works from the keyboard with no
+terminal open.
+
+The first cut of that key did something else: it uploaded to the sidecar path
+of whatever note was in the focused pane, so the book took that note's name.
+Picking `Talk Like TED.epub` while reading a note about something else filed a
+book under the wrong title, beside a note that had nothing to do with it, in an
+app with no delete. The name a file arrives with is the only name anybody has
+for it, and an upload has no business spending it. So the book keeps its name
+and brings its own note, and filing the pair is a separate decision you make
+later, by moving a folder.
+
+The other door is the shell pane, or anything else with the vault mounted: `cp`
+a file into place and the reader finds it, because the pair is a convention
+rather than a record. The endpoint behind `<leader>cb` is not a gate in front
+of the vault, and nothing downstream may assume a book came through it. Its
+four-byte check on the front of the file is there so a PDF renamed `.epub` is
+caught while somebody is still looking at the screen, not because a book that
+skipped it would be dangerous.
+
+**An upload cannot be undone from the app.** There is no delete endpoint, and
+jj holds no copy of a book to go back to, so a file put at a sidecar path stays
+there until somebody removes it from a terminal. That is why the upload refuses
+a path already holding a book rather than replacing it: an overwrite would be
+gone for good. The refusal is the filesystem's, not a check racing the
+transfer. The bytes land in a hidden temp file beside the target and are hard
+linked into place, and the link either creates the path or fails.
+
+The same asymmetry runs through the rest of this page. The app reads a book,
+writes one, and does nothing else to it. Moving, renaming and deleting are the
+shell's, which is where the vault is a directory rather than a notebook.
 
 ## Why jj never takes a copy
 
