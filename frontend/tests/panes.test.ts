@@ -10,6 +10,7 @@ import {
   mapPanes,
   nextPane,
   openBookBeside,
+  openImageInFocused,
   openInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -319,6 +320,27 @@ describe("the todo list in a pane", () => {
     const layout = clearFocused(openTodosInFocused(emptyLayout()));
 
     expect(focusedPane(layout).todos).toBeUndefined();
+    expect(tabPanes(layout)).toHaveLength(1);
+  });
+});
+
+describe("an image in a pane", () => {
+  it("takes the note out of the pane it replaces, keeping its id", () => {
+    const before = emptyLayout("a.md", 12);
+    const layout = openImageInFocused(before, "99 Misc/shot.png");
+
+    expect(focusedPane(layout).image).toBe("99 Misc/shot.png");
+    expect(focusedPane(layout).path).toBeUndefined();
+    expect(focusedPane(layout).line).toBeUndefined();
+    expect(focusedPane(layout).id).toBe(focusedPane(before).id);
+  });
+
+  it("is taken out of the pane by a clear, leaving the pane on screen", () => {
+    // What `<leader>q` reaches, the way it reaches the todo list above: a window
+    // holding one image has to have a way back to an editor.
+    const layout = clearFocused(openImageInFocused(emptyLayout(), "99 Misc/shot.png"));
+
+    expect(focusedPane(layout).image).toBeUndefined();
     expect(tabPanes(layout)).toHaveLength(1);
   });
 });

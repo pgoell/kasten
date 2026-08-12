@@ -895,9 +895,11 @@ folder of screenshots reads as the names you can tell apart while the note holds
 something the backend answers to. Spaces are written `%20`, which is what makes
 `99 Misc/...` a destination markdown reads to the end of.
 
-The listing behind that list is read when a note opens rather than on every
-write to the vault, so an image dropped in over a terminal pane is on offer a
-moment later rather than at once.
+The listing behind that list, and behind the tree's own image rows, follows the
+vault: a change to anything that is not a note is the one event that can move it,
+and it is read again when that arrives. So an image dropped in over a terminal
+pane turns up in the tree and in the list without a reload, and a note being
+written costs nothing, notes firing a different event.
 
 Images are not ignored by jj the way books are: they are part of what a note
 says, and a screenshot is a tenth the size of a book. A snapshot sweeps in any
@@ -1028,8 +1030,8 @@ a tree that has hidden it.
 | --- | --- |
 | `j` / `k` | Move the cursor down or up |
 | `h` | Collapse the folder, or go to its parent |
-| `l` | Expand the folder, or open the note |
-| Enter | Open the note under the cursor |
+| `l` | Expand the folder, or open the note or image |
+| Enter | Open the note or image under the cursor |
 | `gg` / `G` | Go to the first or last row |
 | `c` | New note in the folder the cursor is in |
 | `f` | Open the note finder |
@@ -1038,6 +1040,19 @@ a tree that has hidden it.
 | `d` | Delete the note or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
+
+The tree draws the vault's images beside its notes, muted, keeping the suffix a
+note's row drops: the vault holds one kind of note and five kinds of image. They
+are the only rows here that are not notes, and nothing else in the app treats
+them as notes, the finder, search and every `[[link]]` reading the note listing
+alone. Enter or a click shows one in the focused pane, over whatever was there,
+and `<leader>q` hands the pane back to an editor. A folder holding nothing but
+images is a folder in the tree all the same, which is how you reach the ones
+pasting has filed.
+
+The pane is an image and the path above it, and nothing else: no zoom, no next
+image, and nothing to type into. What it is for is looking at a picture the
+vault holds without first writing a note that points at it.
 
 Opening a note takes the focus with it, from here and from everywhere else that
 opens one: Enter in the tree, a click on a row, the finder, search, a `[[link]]`

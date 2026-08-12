@@ -4,9 +4,20 @@ import { LEADER, type TreeCommands } from "@/lib/key-bindings";
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
   paths: string[];
-  /** Vault-relative path of the open note, absent while none is open. */
+  /**
+   * Vault-relative paths of every image, as served by `GET /api/images`.
+   *
+   * Their own prop rather than rows in `paths`, which is what the finder, the
+   * search and every wikilink resolve against: the tree is the one place an
+   * image belongs beside a note, because it is the one place that shows the
+   * vault as it sits on disk.
+   */
+  images?: string[];
+  /** Vault-relative path of the note or image open in the focused pane. */
   openPath?: string;
   onOpenFile: (path: string) => void;
+  /** Called with the image a row names, which the route shows in the pane. */
+  onOpenImage: (path: string) => void;
   /** Whether the panel is unfolded. Held by the route, because `<leader>b`
    * reaches it from inside the editor. */
   open: boolean;
@@ -30,6 +41,14 @@ interface FileNode {
   /** Display name: the file name without its `.md` suffix. */
   name: string;
   path: string;
+  /**
+   * Set on a row that is an image rather than a note.
+   *
+   * A flag and not a third `kind`, so a folder's contents still sort as one
+   * alphabetical list: images and notes sit side by side the way `ls` shows
+   * them, rather than in two groups nobody arranged.
+   */
+  image?: boolean;
 }
 
 type TreeNode = FolderNode | FileNode;
@@ -40,13 +59,16 @@ type TreeNode = FolderNode | FileNode;
  * The backend deliberately serves a flat, sorted list and never models
  * folders, so the nesting is reconstructed here.
  */
-export function buildTree(paths: string[]): TreeNode[] {
+export function buildTree(paths: string[], images: string[] = []): TreeNode[] {
   const root: TreeNode[] = [];
 
-  for (const path of paths) {
+  // Two loops over one function rather than one loop over both lists, which
+  // would have to ask which list each path came from: at 10,000 notes that
+  // question is a scan of the images per note, and this is none.
+  function add(path: string, isImage: boolean): void {
     const parts = path.split("/");
     const fileName = parts.pop();
-    if (!fileName) continue;
+    if (!fileName) return;
 
     let level = root;
     let prefix = "";
@@ -66,8 +88,18 @@ export function buildTree(paths: string[]): TreeNode[] {
       level = folder.children;
     }
 
-    level.push({ kind: "file", name: fileName.replace(/\.md$/, ""), path });
+    // An image keeps its suffix and a note loses its `.md`: the vault holds one
+    // kind of note and five kinds of image, so the suffix is news on one row and
+    // noise on the other.
+    level.push(
+      isImage
+        ? { kind: "file", name: fileName, path, image: true }
+        : { kind: "file", name: fileName.replace(/\.md$/, ""), path },
+    );
   }
+
+  for (const path of paths) add(path, false);
+  for (const path of images) add(path, true);
 
   return sortTree(root);
 }
@@ -193,6 +225,7 @@ interface NodeListProps {
   cursorKey: string;
   onToggleFolder: (path: string) => void;
   onOpenFile: (path: string) => void;
+  onOpenImage: (path: string) => void;
 }
 
 function NodeList({
@@ -203,6 +236,7 @@ function NodeList({
   cursorKey,
   onToggleFolder,
   onOpenFile,
+  onOpenImage,
 }: NodeListProps) {
   return (
     <ul>
@@ -221,12 +255,17 @@ function NodeList({
                 type="button"
                 data-row={key}
                 tabIndex={tabIndex}
-                onClick={() => onOpenFile(node.path)}
+                onClick={() => (node.image === true ? onOpenImage : onOpenFile)(node.path)}
                 aria-current={current ? "page" : undefined}
                 style={indent(depth)}
                 title={node.path}
+                // An image is muted against the notes, the way a wikilink to a
+                // note nobody has written is: what the tree is for is the notes,
+                // and this row is the vault admitting it holds something else.
                 className={`${ROW} cursor-pointer ${
-                  current ? "bg-one-hover text-one-accent" : "text-one-fg hover:bg-one-hover"
+                  current
+                    ? "bg-one-hover text-one-accent"
+                    : `${node.image === true ? "text-one-muted" : "text-one-fg"} hover:bg-one-hover`
                 } ${tabIndex === 0 ? CURSOR : ""}`}
               >
                 {/* Holds the chevron's column so note names line up with folder names. */}
@@ -264,6 +303,7 @@ function NodeList({
                 cursorKey={cursorKey}
                 onToggleFolder={onToggleFolder}
                 onOpenFile={onOpenFile}
+                onOpenImage={onOpenImage}
               />
             )}
           </li>
@@ -350,8 +390,10 @@ function PanelIcon() {
  */
 export function FileExplorer({
   paths,
+  images,
   openPath,
   onOpenFile,
+  onOpenImage,
   open,
   onOpenChange,
   commands,
@@ -379,7 +421,7 @@ export function FileExplorer({
   /** Whether the panel is waiting for a row of its own to go, so it can take
    * the focus back off the body when it does. */
   const deleting = useRef(false);
-  const tree = useMemo(() => buildTree(paths), [paths]);
+  const tree = useMemo(() => buildTree(paths, images), [paths, images]);
   const rows = useMemo(() => flattenRows(tree, expanded), [tree, expanded]);
   // Collapsing a folder can strand the cursor past the end of the list.
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
@@ -575,7 +617,10 @@ export function FileExplorer({
       case "Enter":
         if (folder && !unfolded) toggleFolder(folder.path);
         else if (folder) setActive(Math.min(cursor + 1, rows.length - 1));
-        else if (row) onOpenFile(row.node.path);
+        else if (row) {
+          const file = row.node.kind === "file" ? row.node : null;
+          if (file) (file.image === true ? onOpenImage : onOpenFile)(file.path);
+        }
         break;
       default:
         return;
@@ -647,6 +692,7 @@ export function FileExplorer({
             cursorKey={cursorKey}
             onToggleFolder={toggleFolder}
             onOpenFile={onOpenFile}
+            onOpenImage={onOpenImage}
           />
         )}
       </nav>

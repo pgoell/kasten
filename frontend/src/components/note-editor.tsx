@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { memo } from "react";
 import { Editor } from "@/components/editor";
-import { fetchImages, fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
 import type { TodoCycle } from "@/lib/todo-commands";
 
@@ -12,6 +12,8 @@ interface NoteEditorProps {
   preview: boolean;
   /** Every note in the vault, which the editor completes and resolves against. */
   paths?: string[];
+  /** Every image in the vault, which the editor completes a `![](` against. */
+  images?: string[];
   /** Line to open on, which a search hit names and nothing else does. */
   startLine?: number;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
@@ -56,6 +58,7 @@ export const NoteEditor = memo(function NoteEditor({
   commands,
   preview,
   paths,
+  images,
   startLine,
   focusSignal,
   focused,
@@ -71,17 +74,6 @@ export const NoteEditor = memo(function NoteEditor({
     queryKey: ["note", path],
     queryFn: () => fetchNote(path),
   });
-  // Read here rather than threaded down from the route, which has no use for it:
-  // the completion inside a `![](` is the only thing in the app that reads this
-  // listing. Every open note asks for the same key, so react-query answers the
-  // second pane out of the cache and fetches once.
-  //
-  // ponytail: refreshed when the query goes stale rather than on the vault's own
-  // event, so an image dropped in over the terminal is completable a moment
-  // later rather than at once. Invalidating on every `listing` event would walk
-  // the vault twice for every note anybody writes. The upgrade, if it ever
-  // matters, is an event that says the listing that changed.
-  const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });
 
   if (isPending) return <p className={MESSAGE}>Opening {path}</p>;
   // Only while there is nothing to show. Every write to the vault reads this

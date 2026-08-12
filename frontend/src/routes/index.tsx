@@ -6,6 +6,7 @@ import { ClipPrompt } from "@/components/clip-prompt";
 import { Editor } from "@/components/editor";
 import { ExamPane } from "@/components/exam-pane";
 import { FileExplorer } from "@/components/file-explorer";
+import { ImagePane } from "@/components/image-pane";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
 import { NoteFinder } from "@/components/note-finder";
@@ -23,6 +24,7 @@ import {
   deleteFolder,
   deleteNote,
   fetchFiles,
+  fetchImages,
   fetchNote,
   fetchPage,
   fetchTerminals,
@@ -52,6 +54,7 @@ import {
   nextPane,
   openBookBeside,
   openExamInFocused,
+  openImageInFocused,
   openInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -115,6 +118,11 @@ interface HomeSearch {
 
 function Home() {
   const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
+  // Beside the notes rather than inside them: an image is a row of the tree and
+  // a path an `![](` completes to, and nothing else in the app reads it. The
+  // event stream refetches it on a `listing`, which is the event a change to
+  // anything that is not a note fires.
+  const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });
   /**
    * Whether the archive is in what the four lookups answer with.
    *
@@ -397,6 +405,18 @@ function Home() {
       // and because `fetchFiles` carries no `AbortSignal` the server walks the
       // whole vault forty-one times regardless. Off, the first walk answers all
       // of them, which is what the backend's own debounce is for.
+
+      // A `listing` is the backend saying something that is not a note changed,
+      // which is the only thing that can change the images: one pasted here or
+      // dropped in over a terminal, a folder moved, a book uploaded. Keyed on
+      // the kind rather than invalidated beside the listing below, so a vault
+      // somebody is writing notes in does not walk itself twice per save for an
+      // answer that cannot have changed. Above the early return because it is
+      // not that return's business, though a `listing` never reaches it.
+      if (event.change === "listing") {
+        queryClient.invalidateQueries({ queryKey: ["images"] }, { cancelRefetch: false });
+      }
+
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
@@ -517,6 +537,24 @@ function Home() {
       if (!(await saveFirst())) return;
 
       setLayout((previous) => openInFocused(previous, path, line));
+      setFocusSignal((previous) => previous + 1);
+    },
+    [saveFirst],
+  );
+
+  /**
+   * Show an image in the focused pane, from a row of the tree.
+   *
+   * `openInPane`'s shape, save the line: the note in the pane is saved before
+   * it goes, because an image is not a note and this is still the pane that
+   * note was in, and the focus is raised so the keys follow the picture rather
+   * than staying on the tree row that named it.
+   */
+  const openImageInPane = useCallback(
+    async (path: string) => {
+      if (!(await saveFirst())) return;
+
+      setLayout((previous) => openImageInFocused(previous, path));
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst],
@@ -982,7 +1020,8 @@ function Home() {
           pane.term !== undefined ||
           pane.todos === true ||
           pane.book !== undefined ||
-          pane.exam !== undefined
+          pane.exam !== undefined ||
+          pane.image !== undefined
         ) {
           moveTo(clearFocused);
           return;
@@ -1171,6 +1210,7 @@ function Home() {
       pane.todos,
       pane.book,
       pane.exam,
+      pane.image,
       data,
       queryClient,
     ],
@@ -1219,8 +1259,12 @@ function Home() {
           // what resolves a `[[wikilink]]`, so the editors below still get
           // `data` whole and `gf` into the archive works with this off.
           paths={visible(data ?? [], archive)}
-          openPath={pane.path}
+          // The same archive filter the notes answer to. An image in the
+          // archive is archived like everything else under that folder.
+          images={visible(images ?? [], archive)}
+          openPath={pane.path ?? pane.image}
           onOpenFile={(path) => void openInPane(path)}
+          onOpenImage={(path) => void openImageInPane(path)}
           open={treeOpen}
           onOpenChange={setTreeOpen}
           commands={commands}
@@ -1298,6 +1342,12 @@ function Home() {
                     onMoved={(cfi) => moved(book, cfi)}
                     onLeaving={() => flush(book)}
                   />
+                ) : shown.image !== undefined ? (
+                  <ImagePane
+                    path={shown.image}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
+                  />
                 ) : shown.term !== undefined ? (
                   <TerminalPane
                     session={shown.term}
@@ -1330,6 +1380,7 @@ function Home() {
                     commands={commands}
                     preview={preview}
                     paths={data}
+                    images={images}
                     startLine={shown.line}
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}

@@ -214,6 +214,8 @@ async function renderApp() {
       (container.querySelectorAll<HTMLElement>(".cm-content")[index] as HTMLElement).focus(),
     /** The todo pane, while a pane is holding one. */
     todoPane: () => container.querySelector("[aria-label='Todos']"),
+    /** The image pane, while a pane is holding one. */
+    imagePane: () => container.querySelector("[data-image-pane]"),
     /** The reader, while a pane is holding one. */
     reader: () => container.querySelector("foliate-view"),
     /** The panel a reader draws instead of a book. */
@@ -312,6 +314,9 @@ describe("the route", () => {
     // empty list.
     fetchTodos.mockResolvedValue([]);
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    // Reset with the rest, for the reason `fetchTodos` is: a query function
+    // answering undefined is an error rather than an empty list.
+    fetchImages.mockResolvedValue([]);
     resetFoliateFake();
   });
 
@@ -1600,6 +1605,7 @@ describe("putting a book in the vault", () => {
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
     fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchImages.mockResolvedValue([]);
     // Re-armed with the rest: `resetAllMocks` takes the answer off them, and a
     // call that hands back undefined instead of a promise throws on `await`.
     uploadAsset.mockResolvedValue(undefined);
@@ -1793,5 +1799,77 @@ describe("putting a book in the vault", () => {
     await settle();
 
     expect(app.notice()).toBeNull();
+  });
+});
+
+describe("looking at an image", () => {
+  const SHOT = "99 Misc/shot.png";
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([SHOT]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  it("shows the image in the pane the note was in", async () => {
+    const app = await renderApp();
+    // Settled first: the listing arrives after the first render, and the row is
+    // not in the tree until it does. The folder is drawn from the image's own
+    // path, no note living in `99 Misc`.
+    await settle();
+    app.expand("99 Misc");
+
+    app.click(SHOT);
+    await settle();
+
+    expect(app.imagePane()).not.toBeNull();
+    expect(app.imagePane()?.querySelector("img")?.getAttribute("src")).toBe(
+      `/api/assets/${encodeURI(SHOT)}`,
+    );
+  });
+
+  it("hands the pane back to an editor on the leader then q", async () => {
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    app.click(SHOT);
+    await settle();
+
+    // Pressed into the pane itself, the image pane holding the focus and there
+    // being no `.cm-content` on screen to press into.
+    const pane = app.imagePane() as HTMLElement;
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "q" });
+    await settle();
+
+    expect(app.imagePane()).toBeNull();
+    // Emptied rather than removed: the pane is still there, holding an editor.
+    expect(app.text()).toBe("");
+  });
+
+  it("refetches the listing when the vault says a file that is not a note changed", async () => {
+    const app = await renderApp();
+    await settle();
+    fetchImages.mockResolvedValue([SHOT, "99 Misc/another.png"]);
+
+    // What an image pasted anywhere, or dropped in over a terminal, arrives as.
+    stream().send({ path: "", change: "listing", digest: null });
+    await settle();
+
+    app.expand("99 Misc");
+    expect(app.tree().textContent).toContain("another.png");
   });
 });

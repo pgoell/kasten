@@ -138,6 +138,7 @@ describe(`opening the app over ${NOTES} notes`, () => {
             <FileExplorer
               paths={paths}
               onOpenFile={() => {}}
+              onOpenImage={() => {}}
               open={true}
               onOpenChange={() => {}}
               commands={INERT}
