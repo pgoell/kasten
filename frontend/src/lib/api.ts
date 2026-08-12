@@ -297,3 +297,40 @@ export async function fetchBook(path: string): Promise<Blob> {
 
   return response.blob();
 }
+
+/**
+ * The most this will send, checked before a byte goes out.
+ *
+ * The other copy is `ASSET_LIMIT_BYTES` in
+ * `backend/src/kasten_backend/main.py`, and the direction is what matters:
+ * this one must never exceed that one, because a client that lets through what
+ * the server refuses turns a readable 413 into a network error. `api.test.ts`
+ * reads the backend's copy off disk and holds the two together.
+ */
+export const ASSET_LIMIT_BYTES = 100 * 1024 * 1024;
+
+/**
+ * Put one book at `path`, which is the book's path and not the note's.
+ *
+ * Plain `fetch` for the reason `fetchBook` uses one, and the raw file as the
+ * body rather than a multipart part: one file and no fields, so nothing has to
+ * parse a boundary at either end.
+ */
+export async function uploadBook(path: string, file: Blob): Promise<void> {
+  const response = await fetch(`/api/assets/${encodeURIComponent(path)}`, {
+    method: "POST",
+    body: file,
+  });
+
+  if (!response.ok) {
+    // The content type asked rather than the parse wrapped in a `try`: this is
+    // the one call whose refusal can come from something other than kasten.
+    // Cloudflare sits in front of production with a body limit of its own and
+    // answers an oversize upload with an HTML page, which `.json()` throws on.
+    const detail =
+      response.headers.get("content-type")?.includes("json") === true
+        ? reason(await response.json())
+        : null;
+    throw new Error(detail ?? `POST /api/assets/${path} failed with ${response.status}`);
+  }
+}
