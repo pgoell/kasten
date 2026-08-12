@@ -96,6 +96,11 @@ function panel(): HTMLElement | null {
   return screen.queryByRole("alert");
 }
 
+/** What the line at the bottom of the pane says, which is nothing until it knows. */
+function progress(): string {
+  return document.querySelector("[data-book-pane] footer")?.textContent ?? "";
+}
+
 /** What the contents are showing, and nothing at all while they are shut. */
 function rows(): (string | null)[] {
   return screen.queryAllByRole("option").map((row) => row.textContent);
@@ -588,9 +593,17 @@ describe("where the reader got to", () => {
     return pane;
   }
 
-  /** What foliate's paginator emits when the page moves. */
-  function relocate(detail: { reason?: string; index?: number; range?: Range | null } = {}) {
-    act(() => lastView().emitRelocate(detail));
+  /**
+   * What foliate's paginator emits when the page moves.
+   *
+   * `whole` is the fraction the view works out over the whole book and writes
+   * to `lastLocation`, which is not the one the event carries.
+   */
+  function relocate(
+    detail: { reason?: string; index?: number; range?: Range | null; fraction?: number } = {},
+    whole?: number,
+  ) {
+    act(() => lastView().emitRelocate(detail, whole));
   }
 
   it("reports every move but the one that opened the book", async () => {
@@ -681,6 +694,64 @@ describe("where the reader got to", () => {
     relocate({ reason: "snap" });
 
     expect(pane.onMoved).toHaveBeenCalledTimes(1);
+  });
+
+  it("says how far through the whole book the page is", async () => {
+    // The number the footer wants is the one the view worked out over every
+    // section, not the `fraction` on the event, which is how far through the
+    // chapter you are. This is the case that fails if the pane reads the event.
+    await reading();
+
+    relocate({ reason: "page", fraction: 0.2 }, 0.42);
+
+    expect(progress()).toBe("42%");
+  });
+
+  it("follows the page rather than reading the fraction once", async () => {
+    await reading();
+
+    relocate({ reason: "page" }, 0.42);
+    relocate({ reason: "page" }, 0.6);
+
+    expect(progress()).toBe("60%");
+  });
+
+  it("says nothing at all where the fraction is not a number", async () => {
+    // A book whose sections all measure zero divides zero by zero
+    // (`progress.js:60,83`), and one foliate built no `#sectionProgress` for
+    // carries no fraction at all (`view.js:240-242`). Neither is a percentage.
+    await reading();
+
+    relocate({ reason: "page" }, 0.42);
+    // Asserted on the way, or the two below pass over a footer that never drew
+    // a percentage at all.
+    expect(progress()).toBe("42%");
+
+    relocate({ reason: "page" }, Number.NaN);
+    expect(progress()).toBe("");
+
+    relocate({ reason: "page" }, 0.42);
+    relocate({ reason: "page" });
+    expect(progress()).toBe("");
+  });
+
+  it("moves the percentage for a re-render that is not a page turn", async () => {
+    // The two early returns keep a re-render from writing a bookmark. Neither
+    // is a reason to leave the footer saying where the page used to be.
+    const pane = await reading();
+
+    relocate({ reason: "anchor" }, 0.42);
+
+    expect(progress()).toBe("42%");
+    expect(pane.onMoved).not.toHaveBeenCalled();
+  });
+
+  it("says nothing about a book that has not reported a page yet", async () => {
+    // Passes before the behaviour exists, so it guards against a later
+    // regression rather than being a red step.
+    await reading();
+
+    expect(progress()).toBe("");
   });
 
   it("hears nothing once the pane has gone", async () => {

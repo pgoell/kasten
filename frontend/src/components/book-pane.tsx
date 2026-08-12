@@ -5,6 +5,7 @@ import { fetchBook, fetchNote } from "@/lib/api";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { readField } from "@/lib/note-frontmatter";
 import { bookPath } from "@/lib/note-path";
+import { STATUS } from "@/lib/overlay-styles";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
 // `document.createElement("foliate-view")` makes an unknown element, `open` is
@@ -35,9 +36,10 @@ interface FoliateView extends HTMLElement {
    * Where the view says it is. Filled by every relocate, nulled by `close`.
    *
    * `tocItem` is the entry the reader is inside, which is the very object
-   * `book.toc` holds rather than a copy of it.
+   * `book.toc` holds rather than a copy of it. `fraction` is how far through
+   * the whole book the page is, which the renderer's own event does not carry.
    */
-  lastLocation?: { tocItem?: TocItem } | null;
+  lastLocation?: { tocItem?: TocItem; fraction?: number } | null;
   /** The cfi for a place the renderer reported. A null range answers the section's own. */
   getCFI(index: number, range: Range | null): string;
 }
@@ -116,6 +118,8 @@ export function BookPane({
   const viewRef = useRef<FoliateView | null>(null);
   /** Whether foliate could not read what the vault handed it. */
   const [broken, setBroken] = useState(false);
+  /** How far through the book the page is, or null while there is no honest number. */
+  const [progress, setProgress] = useState<number | null>(null);
   /** The book's chapters over the page, or null while the reader has the keys. */
   const [contents, setContents] = useState<{ rows: TocRow[]; start: number } | null>(null);
   // The same thing as a ref, because `onKeyDown` cannot read the state. The
@@ -280,6 +284,18 @@ export function BookPane({
       const { reason, index, range } = (
         event as CustomEvent<{ reason?: string; index: number; range: Range | null }>
       ).detail;
+      // Read off the view rather than off the event, and set before the two
+      // returns below. The event's own `fraction` is how far through the
+      // section the page is; the whole-book number is worked out one layer up
+      // (`view.js:329-337`, `progress.js:74-98`), by a listener the view
+      // registered before it opened the book and which therefore runs first.
+      // The returns exist to keep a re-render from writing a bookmark, and
+      // neither is a reason to leave the footer where the page used to be.
+      const fraction = view.lastLocation?.fraction;
+      // The `typeof` is not decoration: `Number.isFinite` takes `unknown` and
+      // narrows nothing, so the multiply below would not compile without it.
+      setProgress(typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null);
+
       // `anchor` is a re-render at the place you were already at, which is what
       // a resize of the pane produces, and `selection` is the page moving to
       // show what you selected. Neither is somewhere you turned to. Everything
@@ -432,8 +448,20 @@ export function BookPane({
   return (
     // `tabIndex={-1}` so the wrapper can hold the cursor without joining the
     // tab order, the way `todo-pane.tsx` takes it.
-    <div ref={wrapper} data-book-pane tabIndex={-1} className="relative h-full w-full outline-none">
-      <div ref={host} className="h-full w-full" />
+    <div
+      ref={wrapper}
+      data-book-pane
+      tabIndex={-1}
+      className="relative flex h-full w-full flex-col outline-none"
+    >
+      {/* `min-h-0` so the host takes the room the footer leaves rather than the
+          room its own content wants: a paginator columnises to the box it is
+          in, and a flex child that will not shrink draws its page off the
+          bottom of the pane. */}
+      <div ref={host} className="min-h-0 w-full flex-1" />
+      <footer className={STATUS}>
+        {progress === null ? "" : `${Math.round(progress * 100)}%`}
+      </footer>
       {contents && (
         <BookContents
           rows={contents.rows}

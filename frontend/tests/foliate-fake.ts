@@ -92,7 +92,7 @@ export class FakeView extends HTMLElement {
    * the real one comes out of `TOCProgress.getProgress` over the very objects
    * `book.toc` holds, so a case that wants one assigns it itself.
    */
-  lastLocation: { cfi: string; tocItem?: TocItem } | null = null;
+  lastLocation: { cfi: string; tocItem?: TocItem; fraction?: number } | null = null;
   /** Every href `goTo` was asked for, in order. */
   gone: string[] = [];
   renderer: FakeRenderer;
@@ -116,8 +116,24 @@ export class FakeView extends HTMLElement {
     return FakeView.cfis[this.asked.length - 1] ?? `cfi-${index}-${this.asked.length}`;
   }
 
-  /** What the renderer emits when the page moves, carrying why it moved. */
-  emitRelocate(detail: { reason?: string; index?: number; range?: Range | null } = {}): void {
+  /**
+   * What the renderer emits when the page moves, carrying why it moved.
+   *
+   * `whole` is what lands on `lastLocation.fraction`, and it is an argument of
+   * its own rather than a copy of `detail.fraction`. The two are different
+   * numbers: the renderer emits the fraction within the section
+   * (`paginator.js:960`) and the view converts it to whole-book progress before
+   * re-emitting (`view.js:329-337`, `progress.js:74-98`). A fake that copied
+   * one into the other could not tell an implementation reading the wrong one
+   * from an implementation reading the right one.
+   */
+  emitRelocate(
+    detail: { reason?: string; index?: number; range?: Range | null; fraction?: number } = {},
+    whole?: number,
+  ): void {
+    // Written before the dispatch, the way `View.#onRelocate` assigns
+    // `lastLocation` and only then re-emits (`view.js:334,337`).
+    this.lastLocation = { cfi: "epubcfi(/6/2)", ...this.lastLocation, fraction: whole };
     this.renderer.dispatchEvent(
       new CustomEvent("relocate", { detail: { index: 0, range: null, ...detail } }),
     );
