@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
 import { fetchBook, fetchNote } from "@/lib/api";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { readField } from "@/lib/note-frontmatter";
 import { bookPath } from "@/lib/note-path";
+import { STATUS } from "@/lib/overlay-styles";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
 // `document.createElement("foliate-view")` makes an unknown element, `open` is
@@ -26,8 +28,18 @@ interface FoliateView extends HTMLElement {
   prev(): void;
   /** Built by `open`, and a fixed-layout book's renderer has no `setStyles`. */
   renderer?: EventTarget & { setStyles?: (css: string) => void };
-  /** Where the view says it is. Filled by every relocate, nulled by `close`. */
-  lastLocation?: object | null;
+  /** Assigned by `open` after it awaits `makeBook`, so absent while one opens. */
+  book?: { toc?: TocItem[] | null };
+  /** Take the reader to an href out of the book's own contents. */
+  goTo(target: string): Promise<unknown>;
+  /**
+   * Where the view says it is. Filled by every relocate, nulled by `close`.
+   *
+   * `tocItem` is the entry the reader is inside, which is the very object
+   * `book.toc` holds rather than a copy of it. `fraction` is how far through
+   * the whole book the page is, which the renderer's own event does not carry.
+   */
+  lastLocation?: { tocItem?: TocItem; fraction?: number } | null;
   /** The cfi for a place the renderer reported. A null range answers the section's own. */
   getCFI(index: number, range: Range | null): string;
 }
@@ -106,6 +118,15 @@ export function BookPane({
   const viewRef = useRef<FoliateView | null>(null);
   /** Whether foliate could not read what the vault handed it. */
   const [broken, setBroken] = useState(false);
+  /** How far through the book the page is, or null while there is no honest number. */
+  const [progress, setProgress] = useState<number | null>(null);
+  /** The book's chapters over the page, or null while the reader has the keys. */
+  const [contents, setContents] = useState<{ rows: TocRow[]; start: number } | null>(null);
+  // The same thing as a ref, because `onKeyDown` cannot read the state. The
+  // effect that builds the view lists the handler in its dependencies, so a
+  // handler with a new identity on every `t` would tear the book down and open
+  // it again, losing the page.
+  const contentsOpen = useRef(false);
 
   // Read through refs, the way `terminal-pane.tsx` reads the same prop. The
   // view is built in one effect keyed on the bytes, and naming these in its
@@ -131,6 +152,12 @@ export function BookPane({
    * into a page turn.
    */
   const onKeyDown = useCallback((event: KeyboardEvent) => {
+    // The contents render inside the wrapper, whose listener is a native one,
+    // while React delegates every event from the root container above it. So a
+    // key pressed in the contents reaches this handler first, and without this
+    // `q` in there closes the reader and `l` turns a page behind the panel.
+    if (contentsOpen.current) return;
+
     const chord =
       event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
       event.shiftKey === TERMINAL_CHORD.shiftKey &&
@@ -154,13 +181,51 @@ export function BookPane({
     if (event.key === "l") viewRef.current?.next();
     else if (event.key === "h") viewRef.current?.prev();
     else if (event.key === "q") commandsRef.current.closeNote();
-    else return;
+    else if (event.key === "t") {
+      const book = viewRef.current?.book;
+      // On the book and not on its toc. The view is in the ref from the moment
+      // the element is built, which is a long way before `open` has unzipped a
+      // 30MB epub, and an empty list drawn in that window would report a book
+      // still loading as a book with no contents.
+      if (book === undefined) return;
+      contentsOpen.current = true;
+      const rows = tocRows(book.toc);
+      // foliate's own id, stamped on the toc items by `assignIDs` and handed
+      // back on `lastLocation.tocItem`, so this is one number against another
+      // rather than kasten matching labels. No match answers -1, which the
+      // contents clamp to the first row.
+      const current = viewRef.current?.lastLocation?.tocItem?.id;
+      setContents({ rows, start: rows.findIndex((row) => row.id === current) });
+    } else return;
 
     event.preventDefault();
   }, []);
 
   /** That a click or a Tab landed in the book, which no ancestor is told. */
   const report = useCallback(() => onFocusRef.current(), []);
+
+  /**
+   * Put the contents away, and the cursor back on the pane.
+   *
+   * The wrapper and not whatever held the focus before: both of foliate's
+   * shadow roots are closed, so that was the `<foliate-view>` host, and
+   * focusing it puts the cursor on the element rather than back inside the
+   * chapter. The wrapper answers every key the section document does.
+   */
+  function closeContents() {
+    contentsOpen.current = false;
+    setContents(null);
+    wrapper.current?.focus();
+  }
+
+  /** Take the book to the chapter Enter or a click landed on. */
+  function goToChapter(href: string) {
+    // Neither awaited nor caught: `goTo` resolves the href itself and swallows
+    // its own failures into `console.error` (`view.js:460-470`), so a bad href
+    // is a no-op and there is nothing here to handle.
+    void viewRef.current?.goTo(href);
+    closeContents();
+  }
 
   // On the wrapper as well as on every section, and in an effect of its own so
   // it survives a book that never opened: the error panel answers `q` too.
@@ -219,6 +284,18 @@ export function BookPane({
       const { reason, index, range } = (
         event as CustomEvent<{ reason?: string; index: number; range: Range | null }>
       ).detail;
+      // Read off the view rather than off the event, and set before the two
+      // returns below. The event's own `fraction` is how far through the
+      // section the page is; the whole-book number is worked out one layer up
+      // (`view.js:329-337`, `progress.js:74-98`), by a listener the view
+      // registered before it opened the book and which therefore runs first.
+      // The returns exist to keep a re-render from writing a bookmark, and
+      // neither is a reason to leave the footer where the page used to be.
+      const fraction = view.lastLocation?.fraction;
+      // The `typeof` is not decoration: `Number.isFinite` takes `unknown` and
+      // narrows nothing, so the multiply below would not compile without it.
+      setProgress(typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null);
+
       // `anchor` is a re-render at the place you were already at, which is what
       // a resize of the pane produces, and `selection` is the page moving to
       // show what you selected. Neither is somewhere you turned to. Everything
@@ -371,8 +448,28 @@ export function BookPane({
   return (
     // `tabIndex={-1}` so the wrapper can hold the cursor without joining the
     // tab order, the way `todo-pane.tsx` takes it.
-    <div ref={wrapper} data-book-pane tabIndex={-1} className="relative h-full w-full outline-none">
-      <div ref={host} className="h-full w-full" />
+    <div
+      ref={wrapper}
+      data-book-pane
+      tabIndex={-1}
+      className="relative flex h-full w-full flex-col outline-none"
+    >
+      {/* `min-h-0` so the host takes the room the footer leaves rather than the
+          room its own content wants: a paginator columnises to the box it is
+          in, and a flex child that will not shrink draws its page off the
+          bottom of the pane. */}
+      <div ref={host} className="min-h-0 w-full flex-1" />
+      <footer className={STATUS}>
+        {progress === null ? "" : `${Math.round(progress * 100)}%`}
+      </footer>
+      {contents && (
+        <BookContents
+          rows={contents.rows}
+          start={contents.start}
+          onGo={goToChapter}
+          onClose={closeContents}
+        />
+      )}
       {failed && (
         <div
           role="alert"

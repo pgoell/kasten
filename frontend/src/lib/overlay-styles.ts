@@ -1,18 +1,23 @@
 /**
- * The look the three overlays share, in one table.
+ * The look a panel over the app wears, in one table.
  *
- * The note prompt, the note finder and the note search are the same object
- * seen three ways: a box over the editor, a labelled input at the top, a list
- * under it, and a line at the bottom saying what the list is not saying. They
- * have to read as one thing, and they drifted once already, search growing
- * wider than the finder when its rows gained a path and a line number.
+ * It started with three: the note prompt, the note finder and the note search
+ * are the same object seen three ways, a box over the editor, a labelled input
+ * at the top, a list under it, and a line at the bottom saying what the list is
+ * not saying. They have to read as one thing, and they drifted once already,
+ * search growing wider than the finder when its rows gained a path and a line
+ * number. Since then the exam pane, the todo pane, the key help and the book's
+ * contents have all borrowed part of it, some of them for a footer or a list
+ * that is over nothing at all.
  *
- * Classes rather than a component. What the three do not share is the wiring:
- * each has its own ids, refs, key handling and aria plumbing, and a component
- * taking all of that as props would be longer than the markup it replaced.
+ * So take what fits and leave the rest, rather than reading the whole table as
+ * one look. Classes and not a component: what the readers do not share is the
+ * wiring, each having its own ids, refs, key handling and aria plumbing, and a
+ * component taking all of that as props would be longer than the markup it
+ * replaced.
  */
 
-/** The dark sheet over the editor, which every overlay is centred on. */
+/** The dark sheet over the whole window, for a panel that belongs over all of it. */
 export const BACKDROP =
   "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none";
 

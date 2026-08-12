@@ -11,6 +11,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
+// Three chapters and a nav holding three entries, the third nested under the
+// second, for the cases that walk a real list of chapters.
+import contentsUrl from "../fixtures/contents.epub?url";
+// Two chapters, no nav document and no ncx, so `book.toc` is undefined: this is
+// the fixture for a book whose publisher wrote no contents. Nothing else records
+// that, an epub being a binary nobody unzips twice.
 import plainUrl from "../fixtures/plain.epub?url";
 import { stubCommands } from "../stub-commands";
 // The app's own stylesheet, because the pane is sized by Tailwind's `h-full`
@@ -128,10 +134,11 @@ let mounted: { root: Root; container: HTMLElement } | null = null;
  * Mount the reader over the fixture, beside a note the caller writes.
  *
  * `note` is the literature note's whole text, which is where `reading:` lives
- * and so where the restore cases put the cfi they are about.
+ * and so where the restore cases put the cfi they are about. `book` is the
+ * fixture to read, which is `plain.epub` for every case that wants no contents.
  */
-async function drawBook(note = "") {
-  fetchBook.mockResolvedValue(await (await fetch(plainUrl)).blob());
+async function drawBook(note = "", book = plainUrl) {
+  fetchBook.mockResolvedValue(await (await fetch(book)).blob());
   fetchNote.mockResolvedValue(note);
   const commands = stubCommands();
   const onFocus = vi.fn();
@@ -244,5 +251,54 @@ describe("the reader over a real book", () => {
 
     await userEvent.keyboard("{Control>}{Shift>}L{/Shift}{/Control}");
     await vi.waitFor(() => expect(commands.paneRight).toHaveBeenCalled(), { timeout: 10_000 });
+  }, 30_000);
+
+  it("opens the contents on t, from inside the iframe", async () => {
+    // The only case that makes the claim the contents rest on. The jsdom cases
+    // dispatch a key on a detached document, which shows the handler landed on
+    // whatever document the `load` event carried and nothing about focus, an
+    // iframe or where a real key press goes.
+    const { container } = await drawBook("", contentsUrl);
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    await vi.waitFor(() => expect(located.length).toBeGreaterThan(0), { timeout: 10_000 });
+    const pane = container.querySelector("[data-book-pane]") as Element;
+
+    await clickInside(pane, sections[0] as Document, "p");
+    // Let the click settle before pressing anything. foliate watches the book's
+    // own `selectionchange` on a 700ms debounce and turns a page when a
+    // selection has run past the visible range (`paginator.js:585-595`), and a
+    // page turn locks the paginator for the 100ms after it
+    // (`paginator.js:1060-1070`). `goTo` is silently dropped while that lock
+    // holds (`paginator.js:1022-1023`), which is a jump lost with nothing
+    // logged anywhere.
+    await new Promise((settle) => setTimeout(settle, 900));
+    await userEvent.keyboard("t");
+
+    const dialog = await vi.waitFor(
+      () => {
+        const found = container.querySelector("[role='dialog']");
+        expect(found).not.toBeNull();
+        return found as Element;
+      },
+      { timeout: 10_000 },
+    );
+    // The dialog takes the focus in a mount effect, and that is what pulls the
+    // cursor out of the book's iframe. A `j` pressed before it has landed goes
+    // back into the chapter and the highlight never moves.
+    await vi.waitFor(() => expect(document.activeElement).toBe(dialog), { timeout: 10_000 });
+
+    await userEvent.keyboard("j");
+    await vi.waitFor(
+      () => expect(dialog.querySelector("[aria-selected='true']")?.textContent).toBe("Two"),
+      { timeout: 10_000 },
+    );
+    await userEvent.keyboard("{Enter}");
+
+    // The chapter and not a second `load`, which any reload satisfies. The wait
+    // is not optional either: `onGo` does not await `goTo`, and foliate's own
+    // `goTo` awaits the renderer, so an assertion in the same tick still sees
+    // chapter one.
+    await vi.waitFor(() => expect(sections.at(-1)?.title).toBe("Two"), { timeout: 10_000 });
+    expect(container.querySelector("[role='dialog']")).toBeNull();
   }, 30_000);
 });
