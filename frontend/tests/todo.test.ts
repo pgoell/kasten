@@ -232,4 +232,8 @@ describe("newId", () => {
   it("is kt- and six hex characters", () => {
     expect(newId()).toMatch(/^kt-[0-9a-f]{6}$/);
   });
+
+  it("takes the prefix it is given", () => {
+    expect(newId("hl-")).toMatch(/^hl-[0-9a-f]{6}$/);
+  });
 });

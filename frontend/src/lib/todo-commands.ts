@@ -1,16 +1,10 @@
 import { ChangeSet, Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
+import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
 import { cycleLine, formatTodo, newId, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
-import {
-  appendUnderEdit,
-  closedAmong,
-  cycleLines,
-  doneLine,
-  doneLineEdits,
-  type Edit,
-} from "@/lib/todo-write";
+import { closedAmong, cycleLines, doneLine, doneLineEdits } from "@/lib/todo-write";
 
 /** Where the box ends on a line that has one, which is where the words start. */
 const BOX = /^[ \t]*- \[.\] /;

@@ -291,8 +291,14 @@ export function setStateOn(line: string, state: TodoState, today: string, id: st
   });
 }
 
-/** `kt-` and six hex characters. From the platform, because an id goes to disk. */
-export function newId(): string {
+/**
+ * `prefix` and six hex characters. From the platform, because an id goes to disk.
+ *
+ * The default is the todo's own, which is every caller but the highlight's:
+ * one source of randomness in the app beats a second copy of three lines of
+ * `crypto.getRandomValues` in whichever module mints the next kind of id.
+ */
+export function newId(prefix = "kt-"): string {
   const bytes = crypto.getRandomValues(new Uint8Array(3));
-  return `kt-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  return `${prefix}${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }

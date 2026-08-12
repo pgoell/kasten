@@ -343,11 +343,12 @@ the leader would cost you the space bar for nothing.
 | `h` | Turn back a page |
 | `l` | Turn forward a page |
 | `t` | Open the contents |
+| `y` | Take the selected passage into the note |
 | `q` | Take the book out of the pane |
 | `Ctrl+Shift+H` `J` `K` `L` `O` | Walk the panes, as in a terminal |
 | `Ctrl+Shift+Q` | Take the book out of the pane |
 
-The four bare keys answer an unmodified press only, so `Ctrl+H` is left to the
+The five bare keys answer an unmodified press only, so `Ctrl+H` is left to the
 browser's history window. The chords are the terminal's own, read from
 `TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts`, so
 retuning one retunes both panes.
@@ -366,6 +367,22 @@ chapter one is `k` held down rather than a hunt. The list is the publisher's
 own, so a nested chapter is drawn indented, and a part heading the book gave no
 link to is a row Enter does nothing on. A book whose publisher wrote no contents
 says so instead of drawing an empty box.
+
+Selecting a passage draws a button over it, and clicking that button and
+pressing `y` are the same thing: the passage lands under `## Highlights` in the
+note beside the book, as a blockquote, a blank line, then the chapter it was
+selected in and an anchor. The selection is the whole of what a highlight is
+found by later, so there is nothing else in the note to keep in step and
+deleting a highlight is deleting the lines.
+[Highlight format](highlight-format.md) states the block, and PR 6 is written
+against that page. A fixed-layout book gets neither the button nor the key: a
+spread shows two pages at once and the reader would take the passage from the
+wrong one.
+
+The write goes out whether or not the note is the pane you are typing in. It is
+a press, so you asked for it, and a buffer with unsaved text in it says
+`Changed on disk` and settles with `:w` or `:e!`, which is what ticking a todo
+in the pane already does.
 
 The line at the bottom of the pane says how far through the whole book you are,
 to the nearest percent. It counts every chapter rather than the one you are in,

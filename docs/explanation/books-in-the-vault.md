@@ -166,6 +166,35 @@ takes it out. The cache is moved to the note the vault answered with, so a clean
 editor holds the bookmark within a render; a buffer with unsaved text in it is
 the case that cannot be reached, and the next page turn writes the line again.
 
+## Why a quote is the anchor
+
+A passage you take out of the book lands in the note as the words themselves,
+and the words are the whole record of where it came from. There is no epubcfi
+beside them, no prefix and suffix, and no hash of the file.
+[Highlight format](/reference/highlight-format.md) states the block.
+
+The obvious design stores a cfi and looks the passage up by it, and it fails the
+same way a stored book path fails: it is a fact somebody wrote down, and nothing
+keeps it true. A cfi is a path through one file's markup, so it says nothing you
+can read, `rg` cannot find it, and a hand edit to the note breaks it silently.
+Replace the epub with another edition and every cfi in the vault points into a
+file that is not there any more.
+
+A quote has none of that. It survives you editing the note by hand, because
+editing it is editing the thing itself. A person reads it. `rg` finds it. It
+still means something in a note somebody opens in another editor ten years from
+now with no reader at all.
+
+The cost is real and it is accepted: the same sentence twice in a book resolves
+to the first one. That is the price of a record made of words, and the fix
+everybody reaches for, a second selector beside the quote, buys back a case
+nobody has hit while giving up everything above.
+
+The `reading:` line in the frontmatter is a cfi, and that is not a contradiction.
+It is kasten's own bookmark rather than a citation: one line per note, written by
+the client, read by the client, and worth nothing to anybody reading the note.
+Losing it costs a page. Losing a passage costs the passage.
+
 ## What the reader does to the URL
 
 `?note=` names the note in the **focused** pane, and opening a book leaves the

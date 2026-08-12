@@ -1,9 +1,17 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
+import type { TocItem } from "@/components/book-contents";
 import { BookPane } from "@/components/book-pane";
 import { bookPath } from "@/lib/note-path";
-import { deferred, defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
+import {
+  deferred,
+  defineFoliateFake,
+  FakeView,
+  lastView,
+  resetFoliateFake,
+  selectIn,
+} from "./foliate-fake";
 import { stubCommands } from "./stub-commands";
 
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
@@ -55,6 +63,7 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
   const onFocus = vi.fn();
   const onMoved = vi.fn();
   const onLeaving = vi.fn();
+  const onTake = vi.fn();
   const client = new QueryClient({
     // Never stale, so nothing refetches behind a test that already has its blob.
     defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
@@ -73,6 +82,7 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
         onFocus={onFocus}
         onMoved={onMoved}
         onLeaving={onLeaving}
+        onTake={onTake}
       />
     </QueryClientProvider>
   );
@@ -84,6 +94,7 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob } = {}) {
     onFocus,
     onMoved,
     onLeaving,
+    onTake,
     /** Hand the pane another focus signal, the way the route does. */
     signal: (focusSignal: number) => view.rerender(tree(focusSignal)),
     /** The pane's own wrapper, which is what a signal puts the cursor on. */
@@ -104,6 +115,17 @@ function progress(): string {
 /** What the contents are showing, and nothing at all while they are shut. */
 function rows(): (string | null)[] {
   return screen.queryAllByRole("option").map((row) => row.textContent);
+}
+
+/** Select `text` in a section document, inside `act` because the pane renders. */
+function selects(text: string, doc: Document = lastView().section) {
+  act(() => selectIn(doc, text));
+}
+
+/** Let go of what was selected, which a click in the book does. */
+function selectsNothing(doc: Document = lastView().section) {
+  doc.getSelection = () => null;
+  act(() => doc.dispatchEvent(new Event("selectionchange")));
 }
 
 describe("BookPane", () => {
@@ -519,16 +541,20 @@ describe("the keys inside a book", () => {
     // behind the panel.
     FakeView.toc = CHAPTERS;
     const book = await opened();
+    // Selected first, or `y` would do nothing here whatever the guard says.
+    selects("A sentence worth keeping.");
 
     press(lastView().section, "t");
     const dialog = screen.getByRole("dialog");
     press(dialog, "l");
     press(dialog, "h");
     press(dialog, "q");
+    press(dialog, "y");
 
     expect(lastView().nexts).toBe(0);
     expect(lastView().prevs).toBe(0);
     expect(book.commands.closeNote).not.toHaveBeenCalled();
+    expect(book.onTake).not.toHaveBeenCalled();
   });
 
   it("says nothing at all about a book that is still opening", async () => {
@@ -571,6 +597,223 @@ describe("the keys inside a book", () => {
     lastView().section.dispatchEvent(new Event("focusin", { bubbles: true }));
 
     expect(pane.onFocus).toHaveBeenCalled();
+  });
+});
+
+describe("taking a passage into the note", () => {
+  beforeEach(() => {
+    resetFoliateFake();
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchNote.mockResolvedValue("");
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.resetAllMocks();
+  });
+
+  /** Draw a book and report its first section document, the way foliate does. */
+  async function opened(props: Parameters<typeof draw>[0] = {}) {
+    const pane = draw(props);
+    await waitFor(() => expect(lastView().started).toBe(true));
+    act(() => lastView().emitLoad());
+    return pane;
+  }
+
+  function press(target: Document | Element, key: string) {
+    act(() => {
+      target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    });
+  }
+
+  /** Where the view says it is, which is where the chapter is read from. */
+  function at(tocItem?: TocItem, section = { current: 0, total: 2 }) {
+    lastView().lastLocation = { cfi: CFI, tocItem, section };
+  }
+
+  it("takes what is selected on y, with the chapter it was selected in", async () => {
+    // No render between the selection and the press, which is the half that
+    // fails against a pane holding the selection in state: `onKeyDown` is
+    // built once with no dependencies, so a `y` branch closing over that state
+    // reads the mount value, which is nothing, for good. The case below
+    // catches the other half.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+
+    selects("Systems that tolerate faults are called fault-tolerant.");
+    press(lastView().section, "y");
+
+    expect(pane.onTake).toHaveBeenCalledTimes(1);
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "Systems that tolerate faults are called fault-tolerant.",
+      chapter: "One",
+    });
+  });
+
+  it("keeps the chapter the selection was made in when the page turns inside the file", async () => {
+    // One spine file often holds several toc entries, and paging inside one
+    // loads nothing (`paginator.js:1004`), so `lastLocation.tocItem` moves
+    // under a selection that is still perfectly alive. Reading the chapter at
+    // the press pairs the words with a chapter they did not come from.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+    selects("A sentence from the first chapter.");
+
+    at(CHAPTERS[1]);
+    press(lastView().section, "y");
+
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "A sentence from the first chapter.",
+      chapter: "One",
+    });
+  });
+
+  it("keeps it when the drag itself crosses into the next chapter", async () => {
+    // The other half: a drag fires a `selectionchange` per move, so a pane
+    // that recaptured on every one would name the chapter the drag ended in.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+    selects("A sentence from the first");
+
+    at(CHAPTERS[1]);
+    selects("A sentence from the first chapter, and one from the second.");
+    press(lastView().section, "y");
+
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "A sentence from the first chapter, and one from the second.",
+      chapter: "One",
+    });
+  });
+
+  it("takes nothing on y with nothing selected", async () => {
+    const pane = await opened();
+
+    press(lastView().section, "y");
+
+    expect(pane.onTake).not.toHaveBeenCalled();
+  });
+
+  it("takes nothing once the selection has been let go of", async () => {
+    const pane = await opened();
+    at(CHAPTERS[0]);
+
+    selects("A sentence worth keeping.");
+    selectsNothing();
+    press(lastView().section, "y");
+
+    expect(pane.onTake).not.toHaveBeenCalled();
+  });
+
+  it("counts the section for a book whose publisher wrote no contents", async () => {
+    // `current` is 3 and not the fake's own default of zero, which answers
+    // `Section 1` and so cannot tell a pane that counts from a pane that hard
+    // codes the floor.
+    const pane = await opened();
+    at(undefined, { current: 3, total: 9 });
+
+    selects("A sentence worth keeping.");
+    press(lastView().section, "y");
+
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "A sentence worth keeping.",
+      chapter: "Section 4",
+    });
+  });
+
+  it("says the first section where the view has not said where it is", async () => {
+    // Only the fake can arrange this: real foliate fills `section` on every
+    // relocate an epub can make.
+    const pane = await opened();
+    lastView().lastLocation = null;
+
+    selects("A sentence worth keeping.");
+    press(lastView().section, "y");
+
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "A sentence worth keeping.",
+      chapter: "Section 1",
+    });
+  });
+
+  it("counts the section for a label holding one non-breaking space", async () => {
+    // foliate's own normaliser strips ASCII whitespace alone
+    // (`epub.js:64-67`), so that label arrives truthy and would leave the
+    // chapter line a bare caret.
+    const pane = await opened();
+    at({ id: 0, label: " ", href: "ch1.xhtml" }, { current: 0, total: 2 });
+
+    selects("A sentence worth keeping.");
+    press(lastView().section, "y");
+
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "A sentence worth keeping.",
+      chapter: "Section 1",
+    });
+  });
+
+  it("reports no selection of whitespace alone", async () => {
+    const pane = await opened();
+    at(CHAPTERS[0]);
+
+    selects(" \n ");
+    press(lastView().section, "y");
+
+    expect(pane.onTake).not.toHaveBeenCalled();
+  });
+
+  it("reports nothing at all in a fixed-layout book", async () => {
+    // A spread shows two documents, the location names one side and carries no
+    // range, and both frames are scaled, so each of the three would write a
+    // wrong highlight rather than none.
+    const pane = await opened();
+    lastView().isFixedLayout = true;
+    at(CHAPTERS[0]);
+
+    selects("A sentence worth keeping.");
+    press(lastView().section, "y");
+
+    expect(pane.onTake).not.toHaveBeenCalled();
+  });
+
+  it("draws no button where the iframe cannot be reached", async () => {
+    // Which is every case in this file: the fake's section document comes from
+    // `createHTMLDocument` and has no `defaultView`, so there is no frame to
+    // map through. It keeps this file honest about the half of the feature it
+    // cannot test, and it fails against a `place` that assumes a frame.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+
+    selects("A sentence worth keeping.");
+
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+  });
+
+  it("builds no second view when the selection changes", async () => {
+    // The other half, and the case above does not catch it: naming the
+    // selection in the view effect's dependencies tears the book down and
+    // opens it again on every drag, losing the page.
+    await opened();
+    at(CHAPTERS[0]);
+
+    selects("A sentence");
+    selects("A sentence worth keeping.");
+
+    expect(FakeView.made).toHaveLength(1);
+    expect(lastView().closes).toBe(0);
+  });
+
+  it("drops the selection when another chapter's document loads", async () => {
+    // Crossing a section takes the old document off the page
+    // (`paginator.js:666-676`), so the range points at nothing on screen.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+    selects("A sentence from the chapter you left.");
+
+    const second = document.implementation.createHTMLDocument("second");
+    act(() => lastView().emitLoad(second));
+    press(second, "y");
+
+    expect(pane.onTake).not.toHaveBeenCalled();
   });
 });
 

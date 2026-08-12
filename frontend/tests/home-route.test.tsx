@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { ASSET_LIMIT_BYTES } from "@/lib/api";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
-import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
+import { defineFoliateFake, FakeView, lastView, resetFoliateFake, selectIn } from "./foliate-fake";
 
 defineFoliateFake();
 
@@ -1148,31 +1148,39 @@ describe("a reader when the vault moves under it", () => {
     expect(fetchBook).not.toHaveBeenCalledWith("elsewhere/note.epub");
   });
 
+  /** What the pane reports, and what the note ends up carrying. */
+  const PLACE = "epubcfi(/6/4!/4/4/1:0)";
+
+  /** How long the bookmark waits for quiet. */
+  const WAIT = 60_000;
+
+  /**
+   * A page turn, as the renderer reports one.
+   *
+   * Two are needed before anything is reported, the first being the
+   * navigation `init` performs, and the two must carry two positions or the
+   * pane's own dedupe swallows the second.
+   */
+  function turn() {
+    act(() => lastView().emitRelocate({ reason: "page" }));
+  }
+
+  /** Turn the page twice, which is one reported move. */
+  function turnedTo(cfi: string) {
+    FakeView.cfis = ["the page it opened on", cfi];
+    turn();
+    turn();
+  }
+
+  /** Let the whole bookmark wait pass, and whatever it started settle. */
+  async function waited() {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(WAIT);
+    });
+    await settle();
+  }
+
   describe("keeping your place", () => {
-    /** What the pane reports, and what the note ends up carrying. */
-    const PLACE = "epubcfi(/6/4!/4/4/1:0)";
-
-    /** How long the bookmark waits for quiet. */
-    const WAIT = 60_000;
-
-    /**
-     * A page turn, as the renderer reports one.
-     *
-     * Two are needed before anything is reported, the first being the
-     * navigation `init` performs, and the two must carry two positions or the
-     * pane's own dedupe swallows the second.
-     */
-    function turn() {
-      act(() => lastView().emitRelocate({ reason: "page" }));
-    }
-
-    /** Turn the page twice, which is one reported move. */
-    function turnedTo(cfi: string) {
-      FakeView.cfis = ["the page it opened on", cfi];
-      turn();
-      turn();
-    }
-
     // Unmounted here rather than by the hook outside, so the flush the reader's
     // own teardown runs is finished with before the mocks are reset. A write
     // left in the air lands inside the next test carrying this one's position.
@@ -1180,14 +1188,6 @@ describe("a reader when the vault moves under it", () => {
       cleanup();
       await settle();
     });
-
-    /** Let the whole wait pass, and whatever it started settle. */
-    async function waited() {
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(WAIT);
-      });
-      await settle();
-    }
 
     it("writes where the reader got to once the reading stops", async () => {
       await reading();
@@ -1376,6 +1376,114 @@ describe("a reader when the vault moves under it", () => {
       await settle();
 
       expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`reading: ${PLACE}`));
+    });
+  });
+
+  describe("taking a passage into the note", () => {
+    /** What the reader selected, which the note ends up quoting. */
+    const PASSAGE = "Systems that tolerate faults are called fault-tolerant.";
+
+    // The reader's teardown flushes, the way the bookmark's own block does it.
+    afterEach(async () => {
+      cleanup();
+      await settle();
+    });
+
+    /** Select a passage in the book and press `y`, the way a reader does. */
+    async function takes(text = PASSAGE) {
+      // The seam every key and selection reaches the pane through: an event
+      // does not cross a document boundary.
+      act(() => lastView().emitLoad());
+      act(() => selectIn(lastView().section, text));
+      act(() =>
+        lastView().section.dispatchEvent(new KeyboardEvent("keydown", { key: "y", bubbles: true })),
+      );
+      await settle();
+    }
+
+    it("writes the passage into the note beside the book", async () => {
+      const app = await reading();
+      fetchNote.mockClear();
+
+      await takes();
+
+      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`> ${PASSAGE}`));
+      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining("## Highlights"));
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringMatching(/Section 1 \^hl-[0-9a-f]{6}/),
+      );
+      // The invalidation, read as the reload it causes: what comes back is
+      // read again, so a clean editor picks the highlight up and a dirty one
+      // raises the conflict it should.
+      expect(fetchNote).toHaveBeenCalledWith(LIT);
+      expect(app.notice()).toBeNull();
+    });
+
+    it("writes it while the note is the focused pane's and dirty", async () => {
+      // The case that fails if somebody copies the bookmark's focus guard onto
+      // this write. A highlight is a press: you asked for it, so the conflict
+      // it may cause is information rather than rudeness.
+      const app = await reading();
+      app.leader("o");
+      await settle();
+      app.press("x");
+      await settle();
+      expect(app.status()).toBe("Unsaved changes");
+
+      await takes();
+
+      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`> ${PASSAGE}`));
+    });
+
+    it("writes nothing into a note that has left the listing", async () => {
+      const app = await reading();
+      fetchFiles.mockResolvedValue(["index.md"]);
+      act(() => stream().send({ path: LIT, change: "removed", digest: null }));
+      await settle();
+      fetchNote.mockClear();
+
+      await takes();
+
+      expect(fetchNote).not.toHaveBeenCalled();
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("That note has left the vault");
+    });
+
+    it("says so in the bar when the vault refuses the write", async () => {
+      const app = await reading();
+      saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
+
+      await takes();
+
+      expect(app.notice()).toBe("The highlight was not written");
+    });
+
+    it("keeps a bookmark write from overtaking a highlight write", async () => {
+      // Both writers read the whole note and write the whole of it back, so
+      // interleaved they lose one of the two. Nothing on screen says the gate
+      // worked, which is why this case is the only thing that can fail.
+      const app = await reading();
+      turnedTo(PLACE);
+      await settle();
+
+      let answer: (() => void) | undefined;
+      fetchNote.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            answer = () => resolve("# DDIA");
+          }),
+      );
+      await takes();
+      expect(fetchNote).toHaveBeenCalledWith(LIT);
+      fetchNote.mockClear();
+
+      await waited();
+
+      expect(fetchNote).not.toHaveBeenCalled();
+      answer?.();
+      await settle();
+      expect(app.notice()).toBeNull();
     });
   });
 
