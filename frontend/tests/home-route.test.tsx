@@ -225,6 +225,14 @@ async function renderApp() {
     notice: () => container.querySelector("[data-testid='notice']")?.textContent ?? null,
     /** The hidden file input `<leader>cb` opens, always mounted. */
     picker: () => container.querySelector("input[type='file']") as HTMLInputElement,
+    /** The other one, which `<leader>cm` opens. It is the one taking several. */
+    notePicker: () => container.querySelector("input[type='file'][multiple]") as HTMLInputElement,
+    /** Choose markdown in it, the way a reader picks one file or a folder full. */
+    chooseNotes: (files: File[]) => {
+      const input = container.querySelector("input[type='file'][multiple]") as HTMLInputElement;
+      Object.defineProperty(input, "files", { value: files, configurable: true });
+      fireEvent.change(input);
+    },
     /** The prompt's input, while one is open. */
     prompt: () => container.querySelector("input") as HTMLInputElement,
     /** Type a path into the open prompt and take it. */
@@ -1412,6 +1420,164 @@ describe("a reader when the vault moves under it", () => {
 
       expect(document.querySelector("[data-testid='archive-shown']")).not.toBeNull();
     });
+  });
+});
+
+describe("importing markdown and taking it out again", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    createNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    // jsdom implements neither, an object URL having no meaning without a
+    // network stack behind it, so the download names them itself.
+    URL.createObjectURL = vi.fn(() => BLOB_URL);
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  const BLOB_URL = "blob:the-note";
+
+  /** Every anchor the download clicked, caught before jsdom tries to follow one. */
+  function clicks(): HTMLAnchorElement[] {
+    const caught: HTMLAnchorElement[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      caught.push(this);
+    });
+    return caught;
+  }
+
+  it("blanks the markdown picker and then opens it", async () => {
+    const app = await renderApp();
+    await settle();
+    // The same order the book's picker is opened in, and for the same reason:
+    // an input keeps the last file chosen, and picking it again may fire no
+    // `change` at all, which is a second attempt doing nothing.
+    const order: string[] = [];
+    Object.defineProperty(app.notePicker(), "value", { set: () => order.push("blank") });
+    vi.spyOn(app.notePicker(), "click").mockImplementation(() => {
+      order.push("click");
+    });
+
+    app.leader("c", "m");
+
+    expect(order).toEqual(["blank", "click"]);
+  });
+
+  it("keeps each file's own name and puts them all in the inbox", async () => {
+    const app = await renderApp();
+    await settle();
+
+    app.chooseNotes([
+      new File(["what Borges said"], "Borges.md"),
+      new File(["and what he wrote"], "Ficciones.md"),
+    ]);
+    await settle();
+
+    expect(createNote).toHaveBeenCalledWith("00 Inbox/Borges.md", "what Borges said");
+    expect(createNote).toHaveBeenCalledWith("00 Inbox/Ficciones.md", "and what he wrote");
+  });
+
+  it("opens the first of them, which is the only sign the import worked", async () => {
+    const app = await renderApp();
+    await settle();
+
+    app.chooseNotes([new File(["what Borges said"], "Borges.md")]);
+    await settle();
+
+    expect(app.text()).toContain("what Borges said");
+  });
+
+  it("carries on past a file the vault refused, and says one went", async () => {
+    // The case the whole loop exists for. A batch that stopped on the first
+    // collision would leave the reader picking the rest of the folder by hand.
+    createNote.mockImplementation(async (path: string, content: string) => {
+      if (path === "00 Inbox/Borges.md") throw new Error("A note is already there");
+      return { path, content };
+    });
+    const app = await renderApp();
+    await settle();
+
+    app.chooseNotes([
+      new File(["what Borges said"], "Borges.md"),
+      new File(["and what he wrote"], "Ficciones.md"),
+    ]);
+    await settle();
+
+    expect(createNote).toHaveBeenCalledWith("00 Inbox/Ficciones.md", "and what he wrote");
+    expect(app.notice()).toBe("A note is already there");
+    // The one that landed, not the one that was picked first.
+    expect(app.text()).toContain("and what he wrote");
+  });
+
+  it("hands the open note to the browser as a file under its own name", async () => {
+    const caught = clicks();
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader("w");
+    await settle();
+
+    expect(caught[0]?.download).toBe("index.md");
+    expect(caught[0]?.href).toBe(BLOB_URL);
+  });
+
+  it("downloads the text as the buffer holds it, not as the vault last read it", async () => {
+    // The save the key runs first. Without it the file carries the note from
+    // before the last keystroke, which is the one thing a download must not do.
+    clicks();
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    // `x` deletes the character under the cursor, which opens at the top.
+    app.press("x");
+    await settle();
+
+    app.leader("w");
+    await settle();
+
+    const blob = vi.mocked(URL.createObjectURL).mock.calls[0]?.[0] as Blob;
+    expect(await blob.text()).toBe("he index note");
+  });
+
+  it("gives the object URL back rather than holding the note until the tab closes", async () => {
+    clicks();
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader("w");
+    await settle();
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(BLOB_URL);
+  });
+
+  it("does nothing at all with no note in the focused pane", async () => {
+    const caught = clicks();
+    const app = await renderApp();
+    await settle();
+
+    app.leader("w");
+    await settle();
+
+    expect(caught).toEqual([]);
   });
 });
 

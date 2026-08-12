@@ -3,6 +3,7 @@ import {
   bookPath,
   describeFolderPath,
   describeNotePath,
+  importedNote,
   safeName,
 } from "@/lib/note-path";
 
@@ -287,6 +288,33 @@ describe("safeName", () => {
 
   it("answers empty for a name with nothing left in it", () => {
     expect(safeName("///")).toBe("");
+  });
+});
+
+describe("importedNote", () => {
+  it("puts the file in the inbox under its own name", () => {
+    expect(importedNote("Borges.md")).toBe("00 Inbox/Borges.md");
+  });
+
+  it("reads the suffix whatever its case, the picker filtering nothing", () => {
+    expect(importedNote("Borges.MD")).toBe("00 Inbox/Borges.md");
+  });
+
+  it("takes the suffix off before the name is cut, not after", () => {
+    // Otherwise the last three characters of a long name are spent on `.md`
+    // and the note lands with half a word for a title.
+    expect(importedNote(`${"a".repeat(80)}.md`)).toBe(`00 Inbox/${"a".repeat(80)}.md`);
+  });
+
+  it("flattens a name a folder full of notes brought with it", () => {
+    // A picker hands back the file's own name and never a path, so this is the
+    // name a reader typed a slash into. It files nothing in a folder nobody
+    // asked for.
+    expect(importedNote("projects/kasten.md")).toBe("00 Inbox/projects kasten.md");
+  });
+
+  it("answers null for a file whose name leaves nothing behind", () => {
+    expect(importedNote("///.md")).toBeNull();
   });
 });
 

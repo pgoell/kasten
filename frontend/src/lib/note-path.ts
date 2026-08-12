@@ -15,8 +15,11 @@ const SUFFIX = ".md";
 
 const BOOK_SUFFIX = ".epub";
 
+/** The one folder in the vault for things not yet filed. */
+const INBOX = "00 Inbox";
+
 /** Where an uploaded book and its note land, until you file them somewhere. */
-const BOOK_INBOX = "00 Inbox/02 Books";
+const BOOK_INBOX = `${INBOX}/02 Books`;
 
 /**
  * What a note's name may not carry.
@@ -79,6 +82,24 @@ export function bookNote(fileName: string): BookNote | null {
     book: `${BOOK_INBOX}/${name}${BOOK_SUFFIX}`,
     note: `${BOOK_INBOX}/${name}${SUFFIX}`,
   };
+}
+
+/**
+ * Where a markdown file picked off disk lands, and null where none will do.
+ *
+ * The file keeps its own name, the way a book does, and lands in the inbox for
+ * the reason a book and a clipping do: filing is a decision, and it is not this
+ * key's. The suffix comes off before the name is cleaned so `.md` is not what
+ * the cut at 80 spends its last characters on, and goes back on afterwards.
+ *
+ * Nothing here looks at what is in the file. Frontmatter another notebook wrote
+ * comes through untouched, the backend's `stamp` adding an `id`, a `created`
+ * and a `modified` around whatever fields are already in the block.
+ */
+export function importedNote(fileName: string): string | null {
+  const name = safeName(fileName.replace(/\.md$/i, ""));
+
+  return name === "" ? null : `${INBOX}/${name}${SUFFIX}`;
 }
 
 /** The note's name, which is what every link to it carries. */

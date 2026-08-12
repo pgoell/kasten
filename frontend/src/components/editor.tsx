@@ -461,6 +461,8 @@ export function Editor({
             openYearly: () => commandsRef.current?.openYearly(),
             openBook: () => commandsRef.current?.openBook(),
             uploadBook: () => commandsRef.current?.uploadBook(),
+            importNotes: () => commandsRef.current?.importNotes(),
+            exportNote: () => commandsRef.current?.exportNote(),
             openExam: () => commandsRef.current?.openExam(),
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),

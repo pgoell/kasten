@@ -65,6 +65,10 @@ export interface EditorCommands {
   openBook(): void;
   /** Pick an epub, put it in the inbox with a note, and open the note. */
   uploadBook(): void;
+  /** Pick markdown files off disk, put them in the inbox, and open the first. */
+  importNotes(): void;
+  /** Hand the focused pane's note to the browser as a file to keep. */
+  exportNote(): void;
   /** Sit the focused pane's note as a practice exam, in that pane. */
   openExam(): void;
   /** Show or hide the archive in the tree, the finder, search and the todos. */
@@ -138,6 +142,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // the group and `f` for the thing. Both the editor and the tree resolve a
   // sequence, so nothing else has to be single-key from here on.
   { key: "cf", label: "Create a note", command: "createNote" },
+  // Another of the `c` group. `m` for markdown, the thing being taken in, the
+  // way `cw` below takes the web and `cb` above takes a book. A create like
+  // the rest of them: what it leaves behind is a note.
+  { key: "cm", label: "Import markdown files into the inbox", command: "importNotes" },
   // `s` for shell. The third member of the `c` group: `cf` is spent on a note
   // and `ct` on a tab, so the terminal takes the first letter of what it is.
   { key: "cs", label: "Open a terminal", command: "openTerminal" },
@@ -221,6 +229,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // `l` are the directions vim already reads as left and right.
   { key: "th", label: "Go to the previous tab", command: "prevTab" },
   { key: "tl", label: "Go to the next tab", command: "nextTab" },
+  // `w` for vim's own `:w`, which is the key for writing what you are looking
+  // at out to a file. Not in the `c` group with the three imports: this one
+  // creates nothing in the vault, it hands a copy to the browser and leaves.
+  { key: "w", label: "Download this note as a file", command: "exportNote" },
   // tmux's own split keys, kept because they are the two this app is imitating
   // and because the shape of each character says which way the pane divides.
   // Both are shifted, which is no obstacle: vim names a key by
