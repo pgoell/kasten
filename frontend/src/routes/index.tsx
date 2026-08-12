@@ -1328,15 +1328,19 @@ function Home() {
                   // holding something the move did not touch.
                   mapPanes(previous, (shown) => {
                     const next = noteAfterPrompt(mode, startPath, path, shown.path);
-                    // A reader follows a folder and never a rename. A rename
-                    // moves the note and leaves the epub where it was, so
-                    // rewriting `book` here would aim the reader at a file that
-                    // is not the book it is reading. Undefined keeps the old
-                    // value, which is what a move that touched nothing answers.
-                    const book =
-                      (mode === "folder"
-                        ? noteAfterPrompt(mode, startPath, path, shown.book)
-                        : undefined) ?? shown.book;
+                    // A reader follows both now. A folder move carries
+                    // everything under it, and a note's move carries the book
+                    // beside it, so a reader left on the old note would be
+                    // holding a pair that has been broken. `pane.book` is the
+                    // note's path rather than the epub's, the pane swapping
+                    // the suffix itself, which is why this is the same
+                    // question `next` asks one line up.
+                    //
+                    // The vault leaves the book behind in one case, a target
+                    // whose own sidecar path is taken, and the reader then
+                    // draws "No book at ..." over a book still at the old
+                    // path. Not worth a field on the answer to tell apart.
+                    const book = noteAfterPrompt(mode, startPath, path, shown.book) ?? shown.book;
                     const moved = next === undefined ? shown : { ...shown, path: next };
                     return book === shown.book ? moved : { ...moved, book };
                   }),

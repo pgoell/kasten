@@ -502,6 +502,13 @@ The reply is the note at its new path, in the shape `GET` returns.
 { "path": "reading/2026/borges.md", "content": "# Borges\n" }
 ```
 
+The book beside the note goes with it, `20 Literature/DDIA.epub` following
+`20 Literature/DDIA.md`, because the pair is a convention rather than a record
+and a note that moved alone would stop having a book. It stays where it is when
+the new path already has a book of its own: the note still moves, and nothing
+here overwrites a book. The reply says nothing either way, a client swapping
+the suffix for itself.
+
 One route, not two: renaming a note and moving it between folders are the same
 thing, a change to the path. `PATCH` rather than `/rename` because the path is
 the note's identity, so `POST` starts a note, `PUT` replaces its text, and this

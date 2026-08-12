@@ -267,6 +267,24 @@ def rename_note(source: Path, target: Path) -> None:
     source.rename(target)
 
 
+def move_asset_beside(source: Path, target: Path) -> None:
+    """Carry the book beside a note to wherever the note just went.
+
+    The pair is a convention rather than a record, so a note that moves without
+    its book stops having one and the reader draws "No book at ...". Nothing
+    stores the pairing to keep in step; this is what keeps it true.
+
+    A target that already has a book of its own is left alone and the book
+    stays where it was. Refusing the whole move instead would leave a note you
+    cannot move at all, and overwriting is the one thing nothing here does to a
+    book: there is no delete and no history to get one back from.
+    """
+    book = source.with_suffix(ASSET_SUFFIX)
+    landing = target.with_suffix(ASSET_SUFFIX)
+    if book.is_file() and not landing.exists():
+        book.rename(landing)
+
+
 def rename_folder(source: Path, target: Path) -> None:
     """Move a folder `resolve_folder` returned to a path `resolve_folder_path` returned.
 

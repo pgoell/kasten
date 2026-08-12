@@ -1085,10 +1085,12 @@ describe("a reader when the vault moves under it", () => {
     expect(fetchBook).toHaveBeenCalledTimes(1);
   });
 
-  it("says its note is gone when the note alone is renamed", async () => {
-    // A rename moves the note and leaves the epub where it was, so rewriting
-    // `book` here would aim the reader at a file that is not the book it holds.
+  it("follows the note when the note alone is renamed", async () => {
+    // The book travels with its note now, the vault carrying the sidecar with
+    // the `.md`, so a reader that stayed on the old path would be reading a
+    // file that is no longer there.
     const app = await reading();
+    expect(fetchBook).toHaveBeenCalledWith("20 Literature/DDIA.epub");
     // Back to the note's own pane: a rename acts on the focused pane's note.
     app.leader("o");
     await settle();
@@ -1100,9 +1102,31 @@ describe("a reader when the vault moves under it", () => {
     app.fill("20 Literature/Designing.md");
     await settle();
 
-    expect(fetchBook).toHaveBeenCalledTimes(1);
-    expect(app.alert()).not.toBeNull();
+    expect(fetchBook).toHaveBeenCalledWith("20 Literature/Designing.epub");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(app.reader()).not.toBeNull();
+    expect(app.alert()).toBeNull();
   });
+
+  it("leaves a reader on another note alone when a note is renamed", async () => {
+    // The pairing is by path, so only the reader holding the renamed note's
+    // own book follows. Without the check every reader in the window would.
+    fetchFiles.mockResolvedValue([LIT, "elsewhere/note.md", "index.md"]);
+    const app = await reading();
+    app.leader("o");
+    await settle();
+    renameNote.mockResolvedValue({ path: "20 Literature/Designing.md", content: "# DDIA" });
+
+    app.leader("r", "f");
+    await settle();
+    app.fill("20 Literature/Designing.md");
+    await settle();
+
+    expect(fetchBook).not.toHaveBeenCalledWith("elsewhere/note.epub");
+  });
+
   describe("keeping your place", () => {
     /** What the pane reports, and what the note ends up carrying. */
     const PLACE = "epubcfi(/6/4!/4/4/1:0)";

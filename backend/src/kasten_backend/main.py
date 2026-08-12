@@ -33,6 +33,7 @@ from kasten_backend.trash import (
 from kasten_backend.vault import (
     create_note,
     list_markdown_files,
+    move_asset_beside,
     prune_empty_folders,
     read_note,
     relative_path,
@@ -700,6 +701,10 @@ async def move_file(
     Both the URL and the query key change on a move, and seeding the new one
     from here is what stops a note edited outside kasten arriving stale on the
     other side.
+
+    The book beside the note travels with it, or the pair stops being a pair.
+    The answer says nothing about that, because there is nothing a client does
+    differently: it swaps the suffix for itself, the way it always has.
     """
     note = resolve_note(settings.vault_path, path)
     if note is None:
@@ -720,6 +725,9 @@ async def move_file(
     # edit that happened to follow it.
     await relink_note_move(settings.vault_path, relative_path(settings.vault_path, note), relative)
     rename_note(note, target)
+    # After the note and before the prune, so a folder the pair has both left
+    # is one the prune can take.
+    move_asset_beside(note, target)
     prune_empty_folders(settings.vault_path, note.parent)
     await snapshot(settings.vault_path)
 

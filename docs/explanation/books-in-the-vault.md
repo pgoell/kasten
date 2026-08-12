@@ -30,11 +30,19 @@ such problem, because it is not a fact anybody wrote down: swap the suffix and
 ask the vault. Two files with the same stem in the same folder are a pair for
 as long as they sit there, and they stop being one the moment they do not.
 
-It costs one thing, and the reader says so out loud rather than hiding it. A
-rename of the note alone leaves the epub behind, and the reader then draws
-`No book at 20 Literature/DDIA.epub` instead of reading on as though nothing
-had happened. Moving the folder carries both, which is what a folder move is
-for.
+So the vault is what keeps the pair together, and both of its move operations
+do. A folder move renames the directory, which carries everything inside it.
+A note's move carries the book beside it, one rename after the other, so
+filing `00 Inbox/02 Books/DDIA.md` away under `20 Literature/` takes the epub
+with it and the reader follows.
+
+There is one case where the book stays put: the note's new home already has a
+book of that name. The note moves anyway and the pair is broken, which the
+reader says out loud, drawing `No book at 20 Literature/DDIA.epub` rather than
+reading on as though nothing had happened. The alternative was refusing the
+whole move, which leaves you with a note you cannot move at all, and
+overwriting is the one thing nothing here does to a book: there is no delete
+and no history to get one back from.
 
 ## Why the tree, the finder and search never mention it
 
