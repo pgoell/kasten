@@ -8,3 +8,9 @@ import "@testing-library/jest-dom/vitest";
 Range.prototype.getClientRects = () =>
   Object.assign([] as DOMRect[], { item: () => null }) as unknown as DOMRectList;
 Range.prototype.getBoundingClientRect = () => new DOMRect();
+
+// Nothing to scroll for the same reason, so jsdom implements the method not at
+// all and a component that keeps its cursor on screen throws before it can be
+// asserted on. Here rather than a `?.()` at the call site, which would swallow
+// the day a real browser stops having it too.
+Element.prototype.scrollIntoView = () => {};
