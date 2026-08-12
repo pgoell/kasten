@@ -1,12 +1,14 @@
-from typing import TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any
+
+import pytest
 
 from kasten_backend import main
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable, MutableMapping
     from pathlib import Path
 
-    import pytest
     from httpx import AsyncClient
 
 BOOK = b"PK\x03\x04 not really a book"
@@ -212,3 +214,140 @@ async def test_lands_a_roundabout_path_where_the_vault_says(
     assert response.status_code == 201
     assert (vault / "DDIA.epub").read_bytes() == BOOK
     assert not (vault / "books" / "DDIA.epub").exists()
+
+
+async def post_scripted(path: str, messages: list[dict | Callable[[], None]]) -> list[dict]:
+    """Drive the app over ASGI, running a callable in the list rather than sending it.
+
+    Two cases need this and httpx can drive neither: its `ASGITransport` returns
+    `http.disconnect` only once the body is exhausted and the response is done,
+    and it offers no seam between two chunks. A callable in `messages` is that
+    seam. Calling `app` directly still honours `app.dependency_overrides`, so
+    the `vault` fixture carries over unchanged.
+    """
+    target = f"/api/assets/{path}"
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.1"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": target,
+        "raw_path": target.encode(),
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"host", b"test")],
+        "client": ("127.0.0.1", 1234),
+        "server": ("test", 80),
+    }
+    pending = list(messages)
+    sent: list[dict] = []
+
+    async def receive() -> dict:
+        while pending:
+            message = pending.pop(0)
+            if not isinstance(message, dict):
+                message()
+                continue
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: MutableMapping[str, Any]) -> None:
+        sent.append(dict(message))
+
+    await main.app(scope, receive, send)
+    return sent
+
+
+async def test_leaves_nothing_behind_when_the_client_goes_away(
+    client: AsyncClient, vault: Path
+) -> None:
+    half = len(BOOK) // 2
+
+    sent = await post_scripted(
+        "books/DDIA.epub",
+        [
+            {"type": "http.request", "body": BOOK[:half], "more_body": True},
+            {"type": "http.disconnect"},
+        ],
+    )
+
+    assert sent[0]["type"] == "http.response.start"
+    assert sent[0]["status"] == 499
+    assert not (vault / "books" / "DDIA.epub").exists()
+    assert list((vault / "books").iterdir()) == []
+
+    # User story 6, and the assertion the whole reservation argument rests on:
+    # the path is free again and the next upload takes it.
+    again = await client.post("/api/assets/books/DDIA.epub", content=BOOK)
+
+    assert again.status_code == 201
+    assert (await client.get("/api/assets/books/DDIA.epub")).content == BOOK
+
+
+async def test_refuses_a_target_that_appears_while_the_body_streams(vault: Path) -> None:
+    # The scripted seam, and the only test that reaches the `os.link`: the
+    # `exists()` courtesy short-circuits every other path to it. The two chunks
+    # are `BOOK` cut in half rather than invented, because the four-byte check
+    # runs first and a body that does not start `PK\x03\x04` answers 400
+    # without ever reaching the link.
+    half = len(BOOK) // 2
+    other = b"PK\x03\x04 the other writer's book"
+
+    def another_writer_lands_one() -> None:
+        (vault / "books" / "DDIA.epub").write_bytes(other)
+
+    sent = await post_scripted(
+        "books/DDIA.epub",
+        [
+            {"type": "http.request", "body": BOOK[:half], "more_body": True},
+            another_writer_lands_one,
+            {"type": "http.request", "body": BOOK[half:], "more_body": False},
+        ],
+    )
+
+    assert sent[0]["status"] == 409
+    assert json.loads(sent[1]["body"])["detail"] == "A book is already there"
+    assert (vault / "books" / "DDIA.epub").read_bytes() == other
+    assert list((vault / "books").iterdir()) == [vault / "books" / "DDIA.epub"]
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        (b"%PDF-1.4 hello", None, 400),
+        (b"", None, 400),
+        (BOOK, 4, 413),
+    ],
+    ids=["not a zip", "empty", "over the cap"],
+)
+async def test_the_next_upload_succeeds_after_a_refusal(
+    client: AsyncClient,
+    vault: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    refusal: tuple[bytes, int | None, int],
+) -> None:
+    # A guard over behaviour the `finally` already gives, and the most
+    # important one here: it is why the reservation design was dropped. The
+    # disconnect cannot join this parameterize, httpx returning
+    # `http.disconnect` only once the body is exhausted, so
+    # `test_leaves_nothing_behind_when_the_client_goes_away` asserts the same
+    # four things for it. The taken-path 409 and the two bad-path 400s are
+    # deliberately absent: a taken path stays taken and an illegal path stays
+    # illegal, so a retry to either cannot succeed.
+    body, cap, status = refusal
+    before = main.ASSET_LIMIT_BYTES
+    if cap is not None:
+        monkeypatch.setattr(main, "ASSET_LIMIT_BYTES", cap)
+
+    refused = await client.post("/api/assets/books/DDIA.epub", content=body)
+
+    assert refused.status_code == status
+    assert not (vault / "books" / "DDIA.epub").exists()
+    assert list((vault / "books").iterdir()) == []
+
+    monkeypatch.setattr(main, "ASSET_LIMIT_BYTES", before)
+    again = await client.post("/api/assets/books/DDIA.epub", content=BOOK)
+
+    assert again.status_code == 201
+    assert (await client.get("/api/assets/books/DDIA.epub")).content == BOOK

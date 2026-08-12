@@ -13,6 +13,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from starlette.requests import ClientDisconnect
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
@@ -528,15 +529,24 @@ async def write_asset(
         with output:
             size = 0
             head = b""
-            async for chunk in request.stream():
-                size += len(chunk)
-                # Before the write, so an over-cap body is refused rather than
-                # landing on the disk first.
-                if size > ASSET_LIMIT_BYTES:
-                    raise HTTPException(status_code=413, detail="That book is too big")
-                if len(head) < len(ZIP_MAGIC):
-                    head = (head + chunk)[: len(ZIP_MAGIC)]
-                output.write(chunk)
+            try:
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    # Before the write, so an over-cap body is refused rather
+                    # than landing on the disk first.
+                    if size > ASSET_LIMIT_BYTES:
+                        raise HTTPException(status_code=413, detail="That book is too big")
+                    if len(head) < len(ZIP_MAGIC):
+                        head = (head + chunk)[: len(ZIP_MAGIC)]
+                    output.write(chunk)
+            except ClientDisconnect:
+                # This answer reaches nothing: uvicorn's `send` returns at its
+                # disconnected guard before it writes bytes and before it
+                # writes the access log line. The catch is here for the other
+                # path, a propagated `ClientDisconnect` reaching `run_asgi` and
+                # printing a traceback, and a person closing a tab is not an
+                # exception. The `finally` below still takes the temp away.
+                return Response(status_code=499)
 
         # A usability check and never a security one. The shell pane drops a
         # file straight into the vault without coming near this endpoint, so
@@ -555,7 +565,13 @@ async def write_asset(
         # overwritten book is gone for good. A link creates the target or
         # raises, and the filesystem decides which, so no window exists in
         # which two requests both believe the path is free.
-        os.link(temporary, asset)
+        try:
+            os.link(temporary, asset)
+        except FileExistsError as taken:
+            # Around the link alone, so it cannot swallow the temp's own
+            # `open("xb")` colliding, which means something else entirely and
+            # should stay a 500.
+            raise HTTPException(status_code=409, detail="A book is already there") from taken
     finally:
         # Every path out, the successful one included: after the link the temp
         # is a second name for a file the target now also names, so unlinking
