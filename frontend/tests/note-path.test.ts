@@ -1,4 +1,10 @@
-import { bookPath, describeFolderPath, describeNotePath } from "@/lib/note-path";
+import {
+  bookNote,
+  bookPath,
+  describeFolderPath,
+  describeNotePath,
+  safeName,
+} from "@/lib/note-path";
 
 const PATHS = ["daily/2026-08-05.md", "index.md", "projects/kasten/api-design.md"];
 
@@ -259,5 +265,51 @@ describe("bookPath", () => {
 
   it("leaves a dot in a folder name alone", () => {
     expect(bookPath("a.b/c.md")).toBe("a.b/c.epub");
+  });
+});
+
+describe("safeName", () => {
+  it("keeps a name the vault will take", () => {
+    expect(safeName("Talk Like TED")).toBe("Talk Like TED");
+  });
+
+  it("takes out what a path or a wikilink refuses", () => {
+    expect(safeName("Talk Like TED: 9 Secrets [2nd]")).toBe("Talk Like TED 9 Secrets 2nd");
+  });
+
+  it("takes off leading and trailing dots, which the vault refuses", () => {
+    expect(safeName("...hidden.")).toBe("hidden");
+  });
+
+  it("cuts a name that runs long", () => {
+    expect(safeName("a".repeat(200))).toHaveLength(80);
+  });
+
+  it("answers empty for a name with nothing left in it", () => {
+    expect(safeName("///")).toBe("");
+  });
+});
+
+describe("bookNote", () => {
+  it("puts the pair in the inbox under the file's own name", () => {
+    expect(bookNote("Talk Like TED.epub")).toEqual({
+      name: "Talk Like TED",
+      book: "00 Inbox/02 Books/Talk Like TED.epub",
+      note: "00 Inbox/02 Books/Talk Like TED.md",
+    });
+  });
+
+  it("reads the suffix whatever its case, the picker filtering nothing", () => {
+    expect(bookNote("DDIA.EPUB")?.name).toBe("DDIA");
+  });
+
+  it("keeps a name a file kept dots in", () => {
+    expect(bookNote("vol.2 of 3.epub")?.name).toBe("vol.2 of 3");
+  });
+
+  it("answers null for a file whose name leaves nothing behind", () => {
+    // A path the vault would refuse is not one to guess a name for. The bar
+    // says so instead.
+    expect(bookNote("///.epub")).toBeNull();
   });
 });

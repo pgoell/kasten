@@ -49,9 +49,19 @@ beside them the way a scanned receipt sits in a folder of letters.
 
 ## The two doors a book comes in by
 
-`<leader>cb` picks a file and puts it at the sidecar path of the note in the
-focused pane. That is the door the app owns, and it is the one that works from
-the keyboard with no terminal open.
+`<leader>cb` picks a file, puts it in `00 Inbox/02 Books/` under its own name,
+writes the note of the same name beside it and opens that note. That is the
+door the app owns, and it is the one that works from the keyboard with no
+terminal open.
+
+The first cut of that key did something else: it uploaded to the sidecar path
+of whatever note was in the focused pane, so the book took that note's name.
+Picking `Talk Like TED.epub` while reading a note about something else filed a
+book under the wrong title, beside a note that had nothing to do with it, in an
+app with no delete. The name a file arrives with is the only name anybody has
+for it, and an upload has no business spending it. So the book keeps its name
+and brings its own note, and filing the pair is a separate decision you make
+later, by moving a folder.
 
 The other door is the shell pane, or anything else with the vault mounted: `cp`
 a file into place and the reader finds it, because the pair is a convention

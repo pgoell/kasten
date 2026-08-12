@@ -1391,7 +1391,10 @@ describe("a reader when the vault moves under it", () => {
   });
 });
 
-describe("putting a book beside a note", () => {
+describe("putting a book in the vault", () => {
+  const BOOK = "00 Inbox/02 Books/Talk Like TED.epub";
+  const NOTE = "00 Inbox/02 Books/Talk Like TED.md";
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal("EventSource", FakeEventSource);
@@ -1402,9 +1405,10 @@ describe("putting a book beside a note", () => {
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
     fetchBook.mockResolvedValue(new Blob(["a book"]));
-    // Re-armed with the rest: `resetAllMocks` takes the answer off it, and a
-    // call that hands back undefined instead of a promise throws on `.then`.
+    // Re-armed with the rest: `resetAllMocks` takes the answer off them, and a
+    // call that hands back undefined instead of a promise throws on `await`.
     uploadBook.mockResolvedValue(undefined);
+    createNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     resetFoliateFake();
   });
 
@@ -1415,18 +1419,24 @@ describe("putting a book beside a note", () => {
     vi.resetAllMocks();
   });
 
+  /** The picker, with a file chosen in it. */
+  function pick(app: Awaited<ReturnType<typeof renderApp>>, name: string, size?: number) {
+    const file = new File(["a book"], name);
+    if (size !== undefined) Object.defineProperty(file, "size", { value: size });
+    app.leader("c", "b");
+    app.choose(file);
+    return file;
+  }
+
   it("blanks the picker and then opens it", async () => {
     const app = await renderApp();
-    await settle();
-    app.click("index.md");
     await settle();
     const picker = app.picker();
     // The order, recorded through a setter spy. Asserting the value is empty
     // afterwards would pass with the blanking deleted, a file input starting
     // empty, and seeding a non-empty one is refused by the DOM. Blanking
     // matters because an input keeps the last file chosen and picking the same
-    // one again may fire no `change` at all, which is the retry in user story
-    // 5 doing nothing.
+    // one again may fire no `change` at all, which is a retry doing nothing.
     const order: string[] = [];
     Object.defineProperty(picker, "value", { set: () => order.push("blank") });
     vi.spyOn(picker, "click").mockImplementation(() => {
@@ -1438,57 +1448,99 @@ describe("putting a book beside a note", () => {
     expect(order).toEqual(["blank", "click"]);
   });
 
-  it("does nothing at all with no note in the focused pane", async () => {
-    // A guard, not a red step: the early return already does the work. It sits
-    // after the implement because before it there is no input to spy on. All
-    // three assertions, because "nothing threw" is not the promise.
+  it("opens the picker with no note in the focused pane", async () => {
+    // The book brings its own note, so there is nothing here to be beside.
+    // This is the case the first cut of the key refused outright.
     const app = await renderApp();
     await settle();
     const click = vi.spyOn(app.picker(), "click");
 
     app.leader("c", "b");
-    await settle();
 
-    expect(click).not.toHaveBeenCalled();
-    expect(uploadBook).not.toHaveBeenCalled();
-    expect(app.notice()).toBeNull();
+    expect(click).toHaveBeenCalledTimes(1);
   });
 
-  it("puts the chosen file at the sidecar path, and tells the reader", async () => {
+  it("keeps the file's own name and puts the pair in the inbox", async () => {
     const app = await renderApp();
     await settle();
     app.click("index.md");
     await settle();
-    app.leader("g", "r");
-    await settle();
-    // The reader opens beside the note and takes the focus with it, so the
-    // focus goes back to the note before the key that needs one is pressed.
-    app.focusPane(0);
-    await settle();
-    expect(fetchBook).toHaveBeenCalledTimes(1);
-    const file = new File(["a book"], "DDIA.epub");
 
-    app.leader("c", "b");
-    app.choose(file);
+    const file = pick(app, "Talk Like TED.epub");
     await settle();
 
-    expect(uploadBook).toHaveBeenCalledWith("index.epub", file);
-    // The `listing` event the write fires invalidates `["files"]` alone, so
-    // without the invalidation a reader sitting on "no sidecar" would never
-    // notice the book that just arrived.
-    expect(fetchBook).toHaveBeenCalledTimes(2);
+    // Not `index.epub`. The book is not named after whatever note was open.
+    expect(uploadBook).toHaveBeenCalledWith(BOOK, file);
+    expect(createNote).toHaveBeenCalledWith(NOTE, "# Talk Like TED\n");
+  });
+
+  it("opens the note it made, which is the only sign the upload worked", async () => {
+    const app = await renderApp();
+    await settle();
+
+    pick(app, "Talk Like TED.epub");
+    await settle();
+
+    // The heading as the editor draws it: live preview renders the markdown.
+    expect(app.text()).toContain("Talk Like TED");
+  });
+
+  it("leaves a note that is already there alone", async () => {
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), NOTE]);
+    VAULT[NOTE] = "notes I already took";
+    const app = await renderApp();
+    await settle();
+
+    pick(app, "Talk Like TED.epub");
+    await settle();
+
+    expect(createNote).not.toHaveBeenCalled();
+    expect(app.text()).toContain("notes I already took");
+    delete VAULT[NOTE];
+  });
+
+  it("makes no note when the upload was refused", async () => {
+    // The book goes up first, so a refusal leaves no orphan note behind.
+    const app = await renderApp();
+    await settle();
+    uploadBook.mockRejectedValue(new Error("A book is already there"));
+
+    pick(app, "Talk Like TED.epub");
+    await settle();
+
+    expect(createNote).not.toHaveBeenCalled();
+    expect(app.notice()).toBe("A book is already there");
+  });
+
+  it("says something when the failure carries no sentence at all", async () => {
+    // A `fetch` rejects on a dropped connection or a suspended tab, and there
+    // is no status to name.
+    const app = await renderApp();
+    await settle();
+    uploadBook.mockRejectedValue("no response");
+
+    pick(app, "Talk Like TED.epub");
+    await settle();
+
+    expect(app.notice()).toBe("The upload failed");
+  });
+
+  it("refuses a file whose name leaves nothing the vault would take", async () => {
+    const app = await renderApp();
+    await settle();
+
+    pick(app, "///.epub");
+    await settle();
+
+    expect(uploadBook).not.toHaveBeenCalled();
+    expect(app.notice()).toBe("The vault will not take that name");
   });
 
   it("refuses a book over the cap without sending a byte", async () => {
     const app = await renderApp();
     await settle();
-    app.click("index.md");
-    await settle();
-    const file = new File(["a book"], "DDIA.epub");
-    Object.defineProperty(file, "size", { value: ASSET_LIMIT_BYTES + 1 });
 
-    app.leader("c", "b");
-    app.choose(file);
+    pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES + 1);
     await settle();
 
     expect(uploadBook).not.toHaveBeenCalled();
@@ -1501,46 +1553,33 @@ describe("putting a book beside a note", () => {
     // about production, where Cloudflare answers first.
     const app = await renderApp();
     await settle();
-    app.click("index.md");
-    await settle();
-    const file = new File(["a book"], "DDIA.epub");
-    Object.defineProperty(file, "size", { value: ASSET_LIMIT_BYTES });
 
-    app.leader("c", "b");
-    app.choose(file);
+    const file = pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES);
     await settle();
 
-    expect(uploadBook).toHaveBeenCalledWith("index.epub", file);
+    expect(uploadBook).toHaveBeenCalledWith(BOOK, file);
   });
 
-  it("puts the vault's own sentence in the bar when the upload fails", async () => {
+  it("tells a reader already open on that path about the book that arrived", async () => {
     const app = await renderApp();
     await settle();
-    app.click("index.md");
+    pick(app, "Talk Like TED.epub");
     await settle();
-    uploadBook.mockRejectedValue(new Error("A book is already there"));
-
-    app.leader("c", "b");
-    app.choose(new File(["a book"], "DDIA.epub"));
+    app.leader("g", "r");
     await settle();
-
-    expect(app.notice()).toBe("A book is already there");
-  });
-
-  it("says something when the failure carries no sentence at all", async () => {
-    // A `fetch` rejects on a dropped connection or a suspended tab, and there
-    // is no status to name.
-    const app = await renderApp();
+    // The reader opens beside the note and takes the focus with it, so the
+    // focus goes back to the note before the key that needs one is pressed.
+    app.focusPane(0);
     await settle();
-    app.click("index.md");
-    await settle();
-    uploadBook.mockRejectedValue("no response");
+    expect(fetchBook).toHaveBeenCalledTimes(1);
 
-    app.leader("c", "b");
-    app.choose(new File(["a book"], "DDIA.epub"));
+    pick(app, "Talk Like TED.epub");
     await settle();
 
-    expect(app.notice()).toBe("The upload failed");
+    // The `listing` event the write fires invalidates `["files"]` alone, so
+    // without the invalidation a reader sitting on "no sidecar" would never
+    // notice the book that just arrived.
+    expect(fetchBook).toHaveBeenCalledTimes(2);
   });
 
   it("clears the bar on the next press, picker cancelled or not", async () => {
@@ -1550,11 +1589,8 @@ describe("putting a book beside a note", () => {
     // old sentence, because you asked for a fresh go at it.
     const app = await renderApp();
     await settle();
-    app.click("index.md");
-    await settle();
     uploadBook.mockRejectedValue(new Error("A book is already there"));
-    app.leader("c", "b");
-    app.choose(new File(["a book"], "DDIA.epub"));
+    pick(app, "Talk Like TED.epub");
     await settle();
     expect(app.notice()).toBe("A book is already there");
 

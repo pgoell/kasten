@@ -37,7 +37,7 @@ import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { setField } from "@/lib/note-frontmatter";
-import { bookPath } from "@/lib/note-path";
+import { bookNote } from "@/lib/note-path";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -818,16 +818,28 @@ function Home() {
   );
 
   /**
-   * Put the file the picker just handed back beside the focused pane's note.
+   * Put the file the picker just handed back into the vault, with its note.
    *
-   * The upload's own failures are the only ones with nowhere else to go: there
-   * is no ring to hang them off and the book pane need not even be open, so
-   * they land in the status bar as one sentence.
+   * The book keeps its own name and lands in the inbox, rather than taking the
+   * name of whatever note was in the pane: that threw the title away and
+   * pinned the book to a note about something else. The note beside it is
+   * what makes it readable at all, the pair being a convention rather than a
+   * record, and opening it is the only thing on screen that says the upload
+   * worked.
+   *
+   * The book goes up before the note is made, so a refusal leaves no orphan
+   * note behind.
    */
   const chooseBook = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
+    async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      if (file === undefined || pane.path === undefined) return;
+      if (file === undefined) return;
+
+      const filed = bookNote(file.name);
+      if (filed === null) {
+        setNotice("The vault will not take that name");
+        return;
+      }
 
       // Checked here rather than left to the backend. Sending 400MB through
       // the proxy to be told no is rude to the connection, and in production
@@ -838,21 +850,31 @@ function Home() {
         return;
       }
 
-      const book = bookPath(pane.path);
-      uploadBook(book, file).then(
-        () => {
-          // The `listing` event this write fires invalidates `["files"]`
-          // alone, so a reader sitting on "no sidecar" would never notice the
-          // book that just arrived.
-          void queryClient.invalidateQueries({ queryKey: ["book", book] });
-        },
+      try {
+        await uploadBook(filed.book, file);
+      } catch (error: unknown) {
         // A typed `unknown` and not an untyped catch. A `fetch` rejects with
         // no response at all on a dropped connection or a suspended tab, and
         // there is no status to name, so the last arm is a sentence.
-        (error: unknown) => setNotice(error instanceof Error ? error.message : "The upload failed"),
-      );
+        setNotice(error instanceof Error ? error.message : "The upload failed");
+        return;
+      }
+
+      // The `listing` event the upload fires invalidates `["files"]` alone, so
+      // a reader already sitting on "no sidecar" would never notice this one.
+      void queryClient.invalidateQueries({ queryKey: ["book", filed.book] });
+
+      const made = (data ?? []).includes(filed.note)
+        ? null
+        : await createNote(filed.note, `# ${filed.name}\n`);
+      if (made !== null) {
+        queryClient.setQueryData(["note", made.path], made.content);
+        void queryClient.invalidateQueries({ queryKey: ["files"] });
+      }
+
+      await openInPane(made?.path ?? filed.note);
     },
-    [pane.path, queryClient],
+    [data, queryClient, openInPane],
   );
 
   const commands = useMemo<TreeCommands>(
@@ -984,12 +1006,9 @@ function Home() {
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
       },
-      // The early return comes first, the way `openBook`'s does, so a press in
-      // a pane holding no note changes nothing at all, bar and picker alike.
-      // No `saveFirst`: this writes a file beside the note and never touches
-      // the note itself.
+      // Needs no note in the pane: the book keeps its own name and brings its
+      // own note, so there is nothing here to be beside.
       uploadBook: () => {
-        if (pane.path === undefined) return;
         const input = picker.current;
         if (input === null) return;
 

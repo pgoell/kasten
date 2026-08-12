@@ -63,7 +63,7 @@ export interface EditorCommands {
   openYearly(): void;
   /** Read the focused pane's note's book in a pane beside it. */
   openBook(): void;
-  /** Pick a file and put it beside the focused pane's note, as its book. */
+  /** Pick an epub, put it in the inbox with a note, and open the note. */
   uploadBook(): void;
   /** Sit the focused pane's note as a practice exam, in that pane. */
   openExam(): void;
@@ -131,9 +131,9 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "a", label: "Show the archive in searches", command: "toggleArchive" },
   { key: "b", label: "Toggle the file tree", command: "toggleTree" },
   // The first of the `c` group, and a create like the rest: what it leaves
-  // behind is a file in the vault. `b` for the book, beside `gr` which reads
-  // one.
-  { key: "cb", label: "Put a book beside this note", command: "uploadBook" },
+  // behind is a book in the vault and the note that reads it. `b` for the
+  // book, beside `gr` which reads one.
+  { key: "cb", label: "Add a book to the inbox", command: "uploadBook" },
   // Two letters, the way Obsidian and every vim config spell a create: `c` for
   // the group and `f` for the thing. Both the editor and the tree resolve a
   // sequence, so nothing else has to be single-key from here on.

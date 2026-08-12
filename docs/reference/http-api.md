@@ -298,6 +298,11 @@ The body is the file itself, raw. Not multipart: one file and no fields, so
 nothing has to parse a boundary at either end. No response body comes back,
 only the status, because the client already knows the path it sent to.
 
+The endpoint takes any legal `.epub` path and decides nothing about where a
+book belongs. `<leader>cb` sends `00 Inbox/02 Books/<the file's own name>.epub`
+and writes the note beside it afterwards, which is a choice made in the client
+and not a rule of this endpoint.
+
 | Status | Means |
 | --- | --- |
 | `201` | The book is at that path |
