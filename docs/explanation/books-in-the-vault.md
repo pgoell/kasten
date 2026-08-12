@@ -47,6 +47,32 @@ key, and no other part of the app knows it is there.
 So the vault reads as a directory of notes, which is what it is. The books sit
 beside them the way a scanned receipt sits in a folder of letters.
 
+## The two doors a book comes in by
+
+`<leader>cb` picks a file and puts it at the sidecar path of the note in the
+focused pane. That is the door the app owns, and it is the one that works from
+the keyboard with no terminal open.
+
+The other door is the shell pane, or anything else with the vault mounted: `cp`
+a file into place and the reader finds it, because the pair is a convention
+rather than a record. The endpoint behind `<leader>cb` is not a gate in front
+of the vault, and nothing downstream may assume a book came through it. Its
+four-byte check on the front of the file is there so a PDF renamed `.epub` is
+caught while somebody is still looking at the screen, not because a book that
+skipped it would be dangerous.
+
+**An upload cannot be undone from the app.** There is no delete endpoint, and
+jj holds no copy of a book to go back to, so a file put at a sidecar path stays
+there until somebody removes it from a terminal. That is why the upload refuses
+a path already holding a book rather than replacing it: an overwrite would be
+gone for good. The refusal is the filesystem's, not a check racing the
+transfer. The bytes land in a hidden temp file beside the target and are hard
+linked into place, and the link either creates the path or fails.
+
+The same asymmetry runs through the rest of this page. The app reads a book,
+writes one, and does nothing else to it. Moving, renaming and deleting are the
+shell's, which is where the vault is a directory rather than a notebook.
+
 ## Why jj never takes a copy
 
 jj tracks any untracked file under a megabyte, and every note save runs a

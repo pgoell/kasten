@@ -25,6 +25,7 @@ move-right, because the leader is registered in normal mode only.
 | Key | Does |
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
+| `<leader>cb` | Pick a file and put it beside this note, as its book |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
@@ -309,6 +310,13 @@ with the suffix swapped, so `20 Literature/DDIA.md` is read beside
 
 A note with no book beside it draws a panel naming the path it wanted, rather
 than an empty reader. So does a book the reader cannot open.
+
+`<leader>cb` is how one gets there without a terminal. It opens the browser's
+file picker and puts the file you choose at that same sidecar path, so the note
+in the focused pane is the note the book lands beside. It does nothing in a
+pane holding no note. A refusal, a path already holding a book above all, puts
+one sentence at the foot of the window, and the next press of the key clears
+it. There is no way back out from the app: nothing here deletes a book.
 
 Opening a book again puts you back on the page you stopped at. The place is one
 line in the note's own block, `reading:`, written a minute after the last page
