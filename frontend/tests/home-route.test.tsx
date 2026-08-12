@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { ASSET_LIMIT_BYTES } from "@/lib/api";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
 import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
@@ -45,6 +46,7 @@ const {
   fetchTerminals,
   fetchTodos,
   fetchBook,
+  uploadBook,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -65,6 +67,7 @@ const {
   // A reader mounted by these tests reads this off the factory. Left out, it
   // is undefined, the query throws and every case sees the error panel.
   fetchBook: vi.fn().mockResolvedValue(new Blob(["a book"])),
+  uploadBook: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
@@ -80,6 +83,11 @@ vi.mock("@/lib/api", () => ({
   fetchTerminals,
   fetchTodos,
   fetchBook,
+  uploadBook,
+  // Left off the factory this constant arrives in the route as undefined,
+  // `file.size > undefined` is false for every file, and the size check never
+  // fires while its boundary guard passes vacuously over the break.
+  ASSET_LIMIT_BYTES: 100 * 1024 * 1024,
 }));
 
 // The route imports `BookPane`, which imports foliate for its side effect. With
@@ -207,6 +215,16 @@ async function renderApp() {
     alert: () => container.querySelector("[role='alert']"),
     /** The tree's own panel, which is where its bare keys are pressed. */
     tree: () => container.querySelector("[aria-label='Vault']") as HTMLElement,
+    /** Choose a file in the picker, which is what `userEvent.upload` does. */
+    choose: (file: File) => {
+      const input = container.querySelector("input[type='file']") as HTMLInputElement;
+      Object.defineProperty(input, "files", { value: [file], configurable: true });
+      fireEvent.change(input);
+    },
+    /** The sentence the bar is holding about a failure, or none. */
+    notice: () => container.querySelector("[data-testid='notice']")?.textContent ?? null,
+    /** The hidden file input `<leader>cb` opens, always mounted. */
+    picker: () => container.querySelector("input[type='file']") as HTMLInputElement,
     /** The prompt's input, while one is open. */
     prompt: () => container.querySelector("input") as HTMLInputElement,
     /** Type a path into the open prompt and take it. */
@@ -1370,5 +1388,179 @@ describe("a reader when the vault moves under it", () => {
 
       expect(document.querySelector("[data-testid='archive-shown']")).not.toBeNull();
     });
+  });
+});
+
+describe("putting a book beside a note", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    // Re-armed with the rest: `resetAllMocks` takes the answer off it, and a
+    // call that hands back undefined instead of a promise throws on `.then`.
+    uploadBook.mockResolvedValue(undefined);
+    resetFoliateFake();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  it("blanks the picker and then opens it", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    const picker = app.picker();
+    // The order, recorded through a setter spy. Asserting the value is empty
+    // afterwards would pass with the blanking deleted, a file input starting
+    // empty, and seeding a non-empty one is refused by the DOM. Blanking
+    // matters because an input keeps the last file chosen and picking the same
+    // one again may fire no `change` at all, which is the retry in user story
+    // 5 doing nothing.
+    const order: string[] = [];
+    Object.defineProperty(picker, "value", { set: () => order.push("blank") });
+    vi.spyOn(picker, "click").mockImplementation(() => {
+      order.push("click");
+    });
+
+    app.leader("c", "b");
+
+    expect(order).toEqual(["blank", "click"]);
+  });
+
+  it("does nothing at all with no note in the focused pane", async () => {
+    // A guard, not a red step: the early return already does the work. It sits
+    // after the implement because before it there is no input to spy on. All
+    // three assertions, because "nothing threw" is not the promise.
+    const app = await renderApp();
+    await settle();
+    const click = vi.spyOn(app.picker(), "click");
+
+    app.leader("c", "b");
+    await settle();
+
+    expect(click).not.toHaveBeenCalled();
+    expect(uploadBook).not.toHaveBeenCalled();
+    expect(app.notice()).toBeNull();
+  });
+
+  it("puts the chosen file at the sidecar path, and tells the reader", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("g", "r");
+    await settle();
+    // The reader opens beside the note and takes the focus with it, so the
+    // focus goes back to the note before the key that needs one is pressed.
+    app.focusPane(0);
+    await settle();
+    expect(fetchBook).toHaveBeenCalledTimes(1);
+    const file = new File(["a book"], "DDIA.epub");
+
+    app.leader("c", "b");
+    app.choose(file);
+    await settle();
+
+    expect(uploadBook).toHaveBeenCalledWith("index.epub", file);
+    // The `listing` event the write fires invalidates `["files"]` alone, so
+    // without the invalidation a reader sitting on "no sidecar" would never
+    // notice the book that just arrived.
+    expect(fetchBook).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a book over the cap without sending a byte", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    const file = new File(["a book"], "DDIA.epub");
+    Object.defineProperty(file, "size", { value: ASSET_LIMIT_BYTES + 1 });
+
+    app.leader("c", "b");
+    app.choose(file);
+    await settle();
+
+    expect(uploadBook).not.toHaveBeenCalled();
+    expect(app.notice()).toBe("That book is too big");
+  });
+
+  it("sends a book exactly at the cap", async () => {
+    // A guard, not a red step: the check is strictly greater, so the boundary
+    // passes either way. It pins the client's own boundary and says nothing
+    // about production, where Cloudflare answers first.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    const file = new File(["a book"], "DDIA.epub");
+    Object.defineProperty(file, "size", { value: ASSET_LIMIT_BYTES });
+
+    app.leader("c", "b");
+    app.choose(file);
+    await settle();
+
+    expect(uploadBook).toHaveBeenCalledWith("index.epub", file);
+  });
+
+  it("puts the vault's own sentence in the bar when the upload fails", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    uploadBook.mockRejectedValue(new Error("A book is already there"));
+
+    app.leader("c", "b");
+    app.choose(new File(["a book"], "DDIA.epub"));
+    await settle();
+
+    expect(app.notice()).toBe("A book is already there");
+  });
+
+  it("says something when the failure carries no sentence at all", async () => {
+    // A `fetch` rejects on a dropped connection or a suspended tab, and there
+    // is no status to name.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    uploadBook.mockRejectedValue("no response");
+
+    app.leader("c", "b");
+    app.choose(new File(["a book"], "DDIA.epub"));
+    await settle();
+
+    expect(app.notice()).toBe("The upload failed");
+  });
+
+  it("clears the bar on the next press, picker cancelled or not", async () => {
+    // A guard: the command already clears it. It earns its place anyway,
+    // without it `setNotice(undefined)` can be deleted with every other test
+    // still green. Pressing the key and then cancelling the picker wipes the
+    // old sentence, because you asked for a fresh go at it.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    uploadBook.mockRejectedValue(new Error("A book is already there"));
+    app.leader("c", "b");
+    app.choose(new File(["a book"], "DDIA.epub"));
+    await settle();
+    expect(app.notice()).toBe("A book is already there");
+
+    app.leader("c", "b");
+    await settle();
+
+    expect(app.notice()).toBeNull();
   });
 });

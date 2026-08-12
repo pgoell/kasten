@@ -139,6 +139,15 @@ interface StatusBarProps {
    * has always kept empty for the save ring's sake.
    */
   archive?: boolean;
+  /**
+   * One sentence about something that just failed, or nothing to say.
+   *
+   * Not `reason`, which belongs to the save: that one is tied to `status` and
+   * is carried only in the save element's `title`. This is for a failure with
+   * no ring to hang off, an upload above all, and the left column is where it
+   * fits because the footer is mounted whatever the focused pane holds.
+   */
+  notice?: string;
 }
 
 /**
@@ -147,7 +156,7 @@ interface StatusBarProps {
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({ status, reason, flash, archive }: StatusBarProps) {
+export function StatusBar({ status, reason, flash, archive, notice }: StatusBarProps) {
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
   // holding no note, would play it again with nothing refused. `animationend`
@@ -167,7 +176,12 @@ export function StatusBar({ status, reason, flash, archive }: StatusBarProps) {
     // not take, so the reading sits on the middle of the window and does not
     // shift sideways when the save ring appears beside it.
     <footer className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center bg-one-panel px-3">
-      <div>
+      <div className="flex items-center gap-2">
+        {notice !== undefined && (
+          <span data-testid="notice" className="text-[11px] text-one-warn">
+            {notice}
+          </span>
+        )}
         {archive === true && (
           <span data-testid="archive-shown" className="text-[11px] text-one-muted">
             archive

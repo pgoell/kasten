@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookPane } from "@/components/book-pane";
 import { ClipPrompt } from "@/components/clip-prompt";
 import { Editor } from "@/components/editor";
@@ -18,6 +18,7 @@ import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
 import {
+  ASSET_LIMIT_BYTES,
   createNote,
   deleteFolder,
   deleteNote,
@@ -29,12 +30,14 @@ import {
   restoreEntry,
   type SearchHit,
   saveNote,
+  uploadBook,
 } from "@/lib/api";
 import { visible } from "@/lib/archive";
 import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { setField } from "@/lib/note-frontmatter";
+import { bookPath } from "@/lib/note-path";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -198,6 +201,13 @@ function Home() {
   // twice is two refusals and both have to read as one. How long the flash
   // lasts is the bar's own business.
   const [refused, setRefused] = useState(0);
+  // One sentence about an upload that failed, drawn at the foot of the window.
+  // Cleared on the next press of the key rather than on a timer: a timer is a
+  // third clearing mechanism nobody asked for, and one sentence in a corner is
+  // information rather than litter.
+  const [notice, setNotice] = useState<string>();
+  // The browser's own file picker, which is a hidden input and a click on it.
+  const picker = useRef<HTMLInputElement>(null);
 
   /**
    * Hand the keys back to the pane a prompt was opened over.
@@ -807,6 +817,44 @@ function Home() {
     [todosWritten],
   );
 
+  /**
+   * Put the file the picker just handed back beside the focused pane's note.
+   *
+   * The upload's own failures are the only ones with nowhere else to go: there
+   * is no ring to hang them off and the book pane need not even be open, so
+   * they land in the status bar as one sentence.
+   */
+  const chooseBook = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file === undefined || pane.path === undefined) return;
+
+      // Checked here rather than left to the backend. Sending 400MB through
+      // the proxy to be told no is rude to the connection, and in production
+      // Cloudflare refuses an oversize body before kasten sees it, with a page
+      // of its own: the backend's 413 is a backstop and this is the message.
+      if (file.size > ASSET_LIMIT_BYTES) {
+        setNotice("That book is too big");
+        return;
+      }
+
+      const book = bookPath(pane.path);
+      uploadBook(book, file).then(
+        () => {
+          // The `listing` event this write fires invalidates `["files"]`
+          // alone, so a reader sitting on "no sidecar" would never notice the
+          // book that just arrived.
+          void queryClient.invalidateQueries({ queryKey: ["book", book] });
+        },
+        // A typed `unknown` and not an untyped catch. A `fetch` rejects with
+        // no response at all on a dropped connection or a suspended tab, and
+        // there is no status to name, so the last arm is a sentence.
+        (error: unknown) => setNotice(error instanceof Error ? error.message : "The upload failed"),
+      );
+    },
+    [pane.path, queryClient],
+  );
+
   const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
@@ -935,6 +983,26 @@ function Home() {
         if (pane.path === undefined) return;
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
+      },
+      // The early return comes first, the way `openBook`'s does, so a press in
+      // a pane holding no note changes nothing at all, bar and picker alike.
+      // No `saveFirst`: this writes a file beside the note and never touches
+      // the note itself.
+      uploadBook: () => {
+        if (pane.path === undefined) return;
+        const input = picker.current;
+        if (input === null) return;
+
+        setNotice(undefined);
+        // Blanked before the click. An input keeps the file you last chose and
+        // choosing the same one again may fire no `change` at all, which is
+        // the retry after a failed upload silently doing nothing.
+        input.value = "";
+        // Synchronously, with nothing awaited in front of it. A file picker
+        // needs transient user activation and an `await` gives the browser a
+        // turn in which it expires. jsdom models none of that, so an `await`
+        // here passes every test in this repo and opens nothing on the box.
+        input.click();
       },
       // Saved first the way `openTodos` is, and for the same reason: this
       // replaces the focused pane, so text still waiting would be written to a
@@ -1175,6 +1243,7 @@ function Home() {
         reason={reason}
         flash={refused}
         archive={archive}
+        notice={notice}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {clipPrompt && (
@@ -1303,6 +1372,18 @@ function Home() {
           }}
         />
       )}
+      {/* Last in the markup and always mounted, so `<leader>cb` has something
+          to click and no open prompt has this in front of its own input.
+          `accept` filters the picker's default view and stops nothing, the
+          user being free to switch it to all files, which is why the backend
+          looks at the bytes. */}
+      <input
+        ref={picker}
+        type="file"
+        accept=".epub,application/epub+zip"
+        className="hidden"
+        onChange={chooseBook}
+      />
     </main>
   );
 }

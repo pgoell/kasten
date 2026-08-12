@@ -31,6 +31,7 @@ function stubCommands() {
     openQuarterly: vi.fn(),
     openYearly: vi.fn(),
     openBook: vi.fn(),
+    uploadBook: vi.fn(),
     openExam: vi.fn(),
     focusTree: vi.fn(),
     createTab: vi.fn(),
@@ -105,6 +106,17 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "r" });
 
     expect(commands.openBook).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the upload command on space then c then b", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "c" });
+    fireEvent.keyDown(editor, { key: "b" });
+
+    expect(commands.uploadBook).toHaveBeenCalledTimes(1);
   });
 
   it("runs the help command on space then question mark", () => {
