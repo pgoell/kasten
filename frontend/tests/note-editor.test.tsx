@@ -78,6 +78,8 @@ function OpenNote({ path }: { path: string }) {
       openYearly: vi.fn(),
       openBook: vi.fn(),
       uploadBook: vi.fn(),
+      importNotes: vi.fn(),
+      exportNote: vi.fn(),
       openExam: vi.fn(),
       focusTree: () => {},
       createTab: () => {},

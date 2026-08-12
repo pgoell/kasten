@@ -65,7 +65,7 @@ const TAB_DIGITS = "tab digits";
 const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
   { title: "Panes", keys: ["%", '"', "h", "j", "k", "l", "o", "q"] },
   { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
-  { title: "Notes", keys: ["cf", "rf", "df", "du", "cw"] },
+  { title: "Notes", keys: ["cf", "rf", "df", "du", "cw", "cm", "w"] },
   { title: "Find", keys: ["ff", "fg", "ft"] },
   { title: "Go to", keys: ["gd", "gw", "gm", "gq", "gy", "gb", "go", "gr", "ge", "gt"] },
   { title: "Todos", keys: ["x", "i", "so", "sp", "sx", "sb", "sr"] },

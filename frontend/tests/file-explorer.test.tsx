@@ -82,6 +82,8 @@ function Harness({
         openYearly: () => {},
         openBook: () => {},
         uploadBook: () => {},
+        importNotes: () => {},
+        exportNote: () => {},
         openExam: () => {},
         createTab: () => {},
         openTerminal: () => {},

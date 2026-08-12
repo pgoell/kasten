@@ -37,7 +37,7 @@ import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { setField } from "@/lib/note-frontmatter";
-import { bookNote } from "@/lib/note-path";
+import { bookNote, importedNote, noteName } from "@/lib/note-path";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -78,6 +78,28 @@ import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
+
+/**
+ * Hand one note to the browser as a file, under the name the vault gave it.
+ *
+ * An object URL and a click on an anchor nothing renders, which is what a
+ * download is when there is no address to link to: the bytes are here already
+ * and no request goes out for them. The name is the note's own, folders and
+ * all taken off, because a download names a file and not a path.
+ *
+ * Revoked in the same turn as the click. The browser has read the URL by the
+ * time `click` returns, and a URL left alive holds the note's whole text in
+ * memory until the tab closes.
+ */
+function download(path: string, text: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `${noteName(path)}.md`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 interface HomeSearch {
   /** Vault-relative path of the note in the focused pane, absent while it holds none. */
@@ -208,6 +230,10 @@ function Home() {
   const [notice, setNotice] = useState<string>();
   // The browser's own file picker, which is a hidden input and a click on it.
   const picker = useRef<HTMLInputElement>(null);
+  // A second one for markdown. Two inputs rather than one taking both suffixes,
+  // because `accept` is what the picker opens on and a single list would show
+  // the reader every epub in the folder they came to find a note in.
+  const notePicker = useRef<HTMLInputElement>(null);
 
   /**
    * Hand the keys back to the pane a prompt was opened over.
@@ -877,6 +903,58 @@ function Home() {
     [data, queryClient, openInPane],
   );
 
+  /**
+   * Put every markdown file the picker handed back into the inbox.
+   *
+   * One file at a time, each create awaited before the next goes out, rather
+   * than a batch of them in flight together: every create takes its own jj
+   * change, and several racing the repo would leave changes naming notes they
+   * did not write.
+   *
+   * Nothing is overwritten. A name the inbox already holds comes back as a
+   * refusal from the create, which stops that one file and none of the others.
+   * An import that quietly replaced a note would be the only command in this
+   * app that loses text, and the file is still on disk to be renamed and
+   * picked again.
+   *
+   * The first file that lands opens in the focused pane, which is the only
+   * thing on screen that says the import worked. What the rest of them are
+   * called is the tree's to show.
+   */
+  const chooseNotes = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      let first: string | undefined;
+      let refused: string | undefined;
+
+      for (const file of [...(event.target.files ?? [])]) {
+        const path = importedNote(file.name);
+        if (path === null) {
+          refused ??= "The vault will not take that name";
+          continue;
+        }
+
+        try {
+          const made = await createNote(path, await file.text());
+          queryClient.setQueryData(["note", made.path], made.content);
+          first ??= made.path;
+        } catch (error: unknown) {
+          // A typed `unknown` for the reason the book's upload takes one: a
+          // `fetch` that never reached the backend rejects with no status to
+          // name. The first refusal is the sentence the bar carries, and the
+          // rest of the batch still goes in behind it.
+          refused ??= error instanceof Error ? error.message : "The import failed";
+        }
+      }
+
+      if (refused !== undefined) setNotice(refused);
+      if (first === undefined) return;
+
+      void queryClient.invalidateQueries({ queryKey: ["files"] });
+      await openInPane(first);
+    },
+    [queryClient, openInPane],
+  );
+
   const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
@@ -1022,6 +1100,28 @@ function Home() {
         // turn in which it expires. jsdom models none of that, so an `await`
         // here passes every test in this repo and opens nothing on the box.
         input.click();
+      },
+      // The same picker, one input over, and the same reason for needing no
+      // note in the pane: the files bring their own names.
+      importNotes: () => {
+        const input = notePicker.current;
+        if (input === null) return;
+
+        setNotice(undefined);
+        input.value = "";
+        input.click();
+      },
+      // Saved first the way `showLinksOut` is, and it reads the text back out
+      // of the same cache: a file holding the note as it stood before the last
+      // keystroke says something the note does not. A write that was refused
+      // still downloads, on the older text, because the copy in hand is worth
+      // more than the one that was not taken.
+      exportNote: async () => {
+        if (pane.path === undefined) return;
+        const note = pane.path;
+
+        await saveFirst();
+        download(note, queryClient.getQueryData<string>(["note", note]) ?? "");
       },
       // Saved first the way `openTodos` is, and for the same reason: this
       // replaces the focused pane, so text still waiting would be written to a
@@ -1406,6 +1506,15 @@ function Home() {
         accept=".epub,application/epub+zip"
         className="hidden"
         onChange={chooseBook}
+      />
+      {/* The same again for `<leader>cm`, which takes any number of them. */}
+      <input
+        ref={notePicker}
+        type="file"
+        accept=".md,text/markdown"
+        multiple
+        className="hidden"
+        onChange={chooseNotes}
       />
     </main>
   );

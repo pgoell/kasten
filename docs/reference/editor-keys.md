@@ -27,6 +27,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cb` | Add an epub to the inbox, with a note beside it |
 | `<leader>cf` | Open the new note prompt |
+| `<leader>cm` | Import markdown files from your disk into the inbox |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 | `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
 | `<leader>ct` | Start a tab, on one empty pane |
@@ -63,6 +64,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>sr` | Set this todo to rejected |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
+| `<leader>w` | Download the open note as a file |
 | `<leader>x` | Cycle the todo on this line |
 | `<leader>=` | Tidy the markdown in this note |
 | `<leader>%` | Split the pane left and right |
@@ -410,6 +412,38 @@ what the vault is for, so it is never overwritten.
 A page that could not be read leaves the prompt open with the reason in it and
 the address still in the input, which is where half of these are fixed: a
 mistyped path, or a page that wants a login.
+
+## Importing markdown, and taking a note out
+
+`<leader>cm` puts markdown files from your disk into the vault. It opens the
+browser's file picker on `.md`; choose one file or a folder full, and each one
+lands in `00 Inbox` under its own name, with the first of them open in the
+focused pane.
+
+They go in one at a time, each write finished before the next begins, because
+every note made this way takes a change of its own in the vault's history.
+
+Nothing is overwritten. A name the inbox already holds bounces that one file
+and lets the rest through, with the reason at the foot of the window: the file
+is still on your disk, to rename and pick again. Frontmatter another notebook
+wrote comes through untouched, and `id`, `created` and `modified` are added
+around whatever fields the block already carries.
+
+A name is cleaned the way a clipped page's is, the characters a path or a
+`[[link]]` cannot hold taken out and the name cut at 80. A file whose name
+leaves nothing behind is refused rather than guessed at, and so a slash in one
+files nothing in a folder nobody asked for.
+
+`<leader>w` is the way back out. It hands the note in the focused pane to the
+browser as a file under its own name, so `20 Literature/DDIA.md` arrives in
+your downloads as `DDIA.md`. Text still waiting is written to the vault first,
+so the file holds the note as you last typed it rather than as the vault last
+read it. `w` is vim's own key for writing what you are looking at out to a
+file.
+
+One note at a time is all it takes. The vault is a folder of markdown files,
+so the way to carry the whole thing off is to copy the folder: the terminal has
+it mounted, and the jj repo beside the notes holds its history.
 
 ## Todos
 
