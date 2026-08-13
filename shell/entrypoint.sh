@@ -20,4 +20,14 @@ if [ ! -f "${config}" ]; then
     cp /etc/herdr/config.toml.default "${config}"
 fi
 
+# zsh runs its new-user wizard when the home holds no startup file at all,
+# which over a browser terminal looks like a shell that will not take a
+# command. Seeding one also gives you a place in the volume for your own
+# aliases; the shared ones are in /etc/zsh/zshrc.kasten, which the image owns
+# and a rebuild replaces.
+zshrc="${HOME}/.zshrc"
+if [ ! -f "${zshrc}" ]; then
+    echo '# Yours. The shared setup is /etc/zsh/zshrc.kasten, read before this.' > "${zshrc}"
+fi
+
 exec "$@"

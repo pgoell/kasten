@@ -51,31 +51,54 @@ RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/rg.tar.gz -C /usr/local/bin --strip-components=1 \
        ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl/rg
 
+# starship draws the prompt, the same one the host's bash has. The tarball
+# holds a single binary at its root. The checksum is the `.sha256` published
+# beside the asset, not one taken by hand.
+FROM debian:bookworm-slim AS starship
+ARG STARSHIP_VERSION=1.26.0
+ARG STARSHIP_SHA256=b7c232b0e8249d8e55a40beb79c5c43a7d370f3f9408bd215deb0170daeaadf3
+ADD https://github.com/starship/starship/releases/download/v${STARSHIP_VERSION}/starship-x86_64-unknown-linux-musl.tar.gz /tmp/starship.tar.gz
+RUN echo "${STARSHIP_SHA256}  /tmp/starship.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/starship.tar.gz -C /usr/local/bin starship
+
 FROM node:24-bookworm-slim AS runtime
 
 # curl and jq are for the backend: an agent in here completes a todo through
 # `PUT /api/files`, which the vault's own `99 Misc/01 Config/01 Agents` note
 # tells it to do, and node's `fetch` is a poor way to spell that in a shell.
+#
+# zsh is the shell this container hands you, with Debian's two completion
+# plugins beside it. They are packaged, so nothing here is cloned at build.
 RUN apt-get update \
     && apt-get install --no-install-recommends -y git ca-certificates less curl jq \
+       zsh zsh-autosuggestions zsh-syntax-highlighting \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ttyd /usr/local/bin/ttyd /usr/local/bin/ttyd
 COPY --from=herdr /usr/local/bin/herdr /usr/local/bin/herdr
 COPY --from=jj /usr/local/bin/jj /usr/local/bin/jj
 COPY --from=rg /usr/local/bin/rg /usr/local/bin/rg
-
-# Exact versions, not a range: an image rebuilt in six months should be the
-# image that was tested.
-RUN npm install -g @anthropic-ai/claude-code@2.1.224 @openai/codex@0.147.0
+COPY --from=starship /usr/local/bin/starship /usr/local/bin/starship
 
 # uid 1000 so the vault bind mount is writable without root owning the notes,
 # matching the backend container and the host user. The node image already
 # holds that uid, so the user is renamed rather than added: a second passwd
 # entry on the same uid would leave `whoami` and `$HOME` answering for whichever
 # one comes first in the file.
-RUN usermod --login kasten --home /home/kasten --move-home node \
+RUN usermod --login kasten --home /home/kasten --move-home --shell /usr/bin/zsh node \
     && groupmod --new-name kasten node
+
+# Exact versions, not a range: an image rebuilt in six months should be the
+# image that was tested. The prefix is /opt/npm rather than npm's own
+# /usr/local, so the tree can belong to the user the shell runs as, which is
+# what `claude update` needs to write; under /usr/local it would have to hand
+# that user ttyd and herdr as well. An update lands in the container's
+# writable layer and so does not survive being recreated: the pin here is the
+# floor a deploy returns to, and bumping it is how a version sticks.
+ENV NPM_CONFIG_PREFIX=/opt/npm
+ENV PATH=/opt/npm/bin:$PATH
+RUN npm install -g @anthropic-ai/claude-code@2.1.231 @openai/codex@0.147.0 \
+    && chown -R kasten:kasten /opt/npm
 
 # The default config, not the live one. herdr rewrites its config whenever a
 # setting is changed in its UI, so the file it reads has to be writable and has
@@ -86,9 +109,18 @@ RUN usermod --login kasten --home /home/kasten --move-home node \
 COPY shell/herdr.toml /etc/herdr/config.toml.default
 COPY shell/entrypoint.sh /usr/local/bin/kasten-shell-entrypoint
 
+# Appended, not copied over /etc/zsh/zshrc. Debian's file binds Home, End,
+# Delete and the arrow keys from terminfo, and replacing it would leave a
+# browser terminal where those keys print escape sequences.
+COPY shell/zshrc /etc/zsh/zshrc.kasten
+RUN echo '. /etc/zsh/zshrc.kasten' >> /etc/zsh/zshrc
+
 USER kasten
 WORKDIR /vault
 ENV TERM=xterm-256color
+# herdr spawns $SHELL. The passwd entry above says zsh too, for anything that
+# reads that instead.
+ENV SHELL=/usr/bin/zsh
 
 ENTRYPOINT ["/usr/local/bin/kasten-shell-entrypoint"]
 

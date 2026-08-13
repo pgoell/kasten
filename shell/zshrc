@@ -1,0 +1,41 @@
+# kasten shell: the interactive zsh, sourced at the end of /etc/zsh/zshrc.
+#
+# System-wide rather than ~/.zshrc on purpose. The home directory is a named
+# volume that docker seeds once, so a dotfile shipped in the image would reach
+# a fresh volume and never an existing one, the way shell/herdr.toml would.
+# This file lives in the image, so it is whatever the last build said. Your own
+# aliases go in ~/.zshrc, which the entrypoint seeds and zsh reads after this.
+#
+# Debian's own /etc/zsh/zshrc runs first and binds Home, End, Delete and the
+# arrows from terminfo, which a browser terminal needs. It is left alone; the
+# Dockerfile appends a source line pointing here rather than replacing it.
+
+# In the home volume, so what you typed outlives the container.
+HISTFILE=$HOME/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt share_history hist_ignore_all_dups hist_ignore_space hist_reduce_blanks
+
+setopt autocd interactive_comments
+
+# Debian's zshrc calls compinit only on Ubuntu, so it is on us.
+autoload -Uz compinit && compinit
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+
+alias ls='ls --color=auto'
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+alias grep='grep --color=auto'
+alias ..='cd ..'
+alias ...='cd ../..'
+
+# The same one the host's bash carries.
+alias claude-d='claude --dangerously-skip-permissions'
+
+source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+# Last, because it wraps every widget bound before it.
+source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+eval "$(starship init zsh)"
