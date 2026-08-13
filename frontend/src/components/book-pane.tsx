@@ -423,8 +423,6 @@ export function BookPane({
     const overlayer = shown?.overlayer;
     if (shown === undefined || overlayer === undefined) return;
 
-    // Read the way `pageStyles` reads the palette, so the book, the app and the
-    // highlight stay one set of colours in `app.css`.
     // Removing an id from an overlay that never held it does nothing
     // (`overlayer.js:26`), so a fresh section needs no bookkeeping beyond this.
     for (const id of drawn.current) overlayer.remove(id);
