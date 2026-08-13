@@ -50,8 +50,13 @@ interface FoliateView extends HTMLElement {
     setStyles?: (css: string) => void;
     getContents?: () => { index: number; doc: Document; overlayer?: FoliateOverlayer }[];
   };
-  /** Assigned by `open` after it awaits `makeBook`, so absent while one opens. */
-  book?: { toc?: TocItem[] | null };
+  /**
+   * Assigned by `open` after it awaits `makeBook`, so absent while one opens.
+   *
+   * A section foliate cannot open carries no `createDocument`, which foliate's
+   * own book walk skips rather than throwing over (`view.js:533`).
+   */
+  book?: { toc?: TocItem[] | null; sections?: { createDocument?: () => Promise<Document> }[] };
   /**
    * Set by `open` from the book's own `rendition:layout` (`view.js:254`).
    *
@@ -154,6 +159,15 @@ interface BookPaneProps {
   onLeaving: () => void;
   /** A passage the reader took, by the button or by `y`. */
   onTake: (passage: Passage) => void;
+  /**
+   * A passage `gf` asked for. A new object on every press, and cleared once taken.
+   *
+   * A prop rather than an imperative handle: the route owns what is open and
+   * the pane owns the book, which is the division PR 2 set and PR 5 kept.
+   */
+  seek?: { quote: string[] };
+  /** A sentence for the bar, when a passage the reader asked for is not in the book. */
+  onNotice: (message: string) => void;
 }
 
 /**
@@ -191,6 +205,8 @@ export function BookPane({
   onMoved,
   onLeaving,
   onTake,
+  seek,
+  onNotice,
 }: BookPaneProps) {
   const wrapper = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -233,12 +249,14 @@ export function BookPane({
   const onMovedRef = useRef(onMoved);
   const onLeavingRef = useRef(onLeaving);
   const onTakeRef = useRef(onTake);
+  const onNoticeRef = useRef(onNotice);
   useEffect(() => {
     commandsRef.current = commands;
     onFocusRef.current = onFocus;
     onMovedRef.current = onMoved;
     onLeavingRef.current = onLeaving;
     onTakeRef.current = onTake;
+    onNoticeRef.current = onNotice;
   });
 
   /**
@@ -383,6 +401,16 @@ export function BookPane({
   const blocksRef = useRef(blocks);
   /** The ids the last pass drew, so the next one can take them off first. */
   const drawn = useRef<string[]>([]);
+  /** The passage being walked for, which a later press overwrites. */
+  const wanted = useRef<string[] | null>(null);
+  /**
+   * Whether the book has been navigated, which `view.book` does not say.
+   *
+   * `open()` assigns the book before it navigates anywhere
+   * (`view.js:233-237`), so a seek testing that would jump and then have
+   * `init` land the bookmark on top of the passage.
+   */
+  const ready = useRef(false);
 
   /**
    * Draw `blocks` on the section on screen, in one walk of its document.
@@ -428,6 +456,50 @@ export function BookPane({
     blocksRef.current = blocks;
     redraw(blocks);
   }, [blocks, redraw]);
+
+  /**
+   * Take the reader to the first section holding `quote`.
+   *
+   * Measured on a real book: 76ms to walk all 26 sections and find nothing,
+   * 66ms to a hit two thirds of the way in. No progress, no spinner, nothing to
+   * cancel. Nothing catches either: `goTo` swallows its own failures, which the
+   * contents overlay already relies on.
+   */
+  const goToQuote = useCallback(async (quote: string[]) => {
+    const view = viewRef.current;
+    wanted.current = quote;
+    // A seek arriving before the book is ready, which is every `gf` that opens
+    // the reader, waits here. `draw()` reads this ref once its own `init` work
+    // has landed and calls again, so the passage overrides where the bookmark
+    // put you, which is what was asked for.
+    if (view === null || !ready.current) return;
+
+    for (const [index, section] of (view.book?.sections ?? []).entries()) {
+      if (section.createDocument === undefined) continue;
+      const doc = await section.createDocument();
+      // A newer press has taken the walk over, or the pane went away while the
+      // document was being built. What this does not buy is an order on two
+      // `goTo` calls already in flight, which the spec names and refuses.
+      if (viewRef.current !== view || wanted.current !== quote) return;
+      const [range] = findQuotes(doc, [quote]);
+      if (range) {
+        wanted.current = null;
+        void view.goTo(view.getCFI(index, range));
+        return;
+      }
+    }
+
+    // Cleared on a hit and on a miss both, so nothing stays armed for a later
+    // rebuild of the view to pick up.
+    wanted.current = null;
+    // A press gets an answer, which is where this and the draw pass differ: a
+    // quote nobody asked about is skipped in silence.
+    onNoticeRef.current("That passage is not in the book");
+  }, []);
+
+  useEffect(() => {
+    if (seek) void goToQuote(seek.quote);
+  }, [seek, goToQuote]);
 
   useEffect(() => {
     const element = host.current;
@@ -686,7 +758,16 @@ export function BookPane({
         // (`paginator.js:272-280, 409, 673`), which is why the catch above and
         // not this line is what answers the throw.
         if (!view.lastLocation) await view.init({});
-        if (cancelled) view.close();
+        if (cancelled) {
+          view.close();
+          return;
+        }
+        // Last, and after the `cancelled` check: the bookmark has landed by
+        // now, so a passage parked while the book was opening goes on top of
+        // it rather than under it.
+        ready.current = true;
+        const parked = wanted.current;
+        if (parked !== null) void goToQuote(parked);
       } catch (error_) {
         // Every way a book fails to open arrives as an error: a `NotFoundError`
         // from foliate, a throw from the zip reader for a file that is not an
@@ -710,12 +791,15 @@ export function BookPane({
         doc.removeEventListener("selectionchange", onSelectionChange);
       }
       viewRef.current = null;
+      // The next view opens a book of its own, so a passage the last one was
+      // ready for is not a passage this one is.
+      ready.current = false;
       view.close();
       view.remove();
     };
-    // `redraw` is a `useCallback` with no dependencies, so its identity is fixed
-    // and naming it here rebuilds nothing.
-  }, [blob, note, onKeyDown, redraw, report]);
+    // `redraw` and `goToQuote` are `useCallback`s with no dependencies, so their
+    // identities are fixed and naming them here rebuilds nothing.
+  }, [blob, goToQuote, note, onKeyDown, redraw, report]);
 
   // Mount included, the way the editor and the terminal read the same prop: a
   // freshly split pane is created focused and its first render is the only

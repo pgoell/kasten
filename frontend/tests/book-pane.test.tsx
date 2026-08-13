@@ -12,6 +12,7 @@ import {
   FakeView,
   lastView,
   resetFoliateFake,
+  sectionsOf,
   selectIn,
 } from "./foliate-fake";
 import { stubCommands } from "./stub-commands";
@@ -84,6 +85,7 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob; held?: stri
   const onMoved = vi.fn();
   const onLeaving = vi.fn();
   const onTake = vi.fn();
+  const onNotice = vi.fn();
   const client = new QueryClient({
     // Never stale, so nothing refetches behind a test that already has its blob.
     defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
@@ -96,22 +98,27 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob; held?: stri
   // drawing cases emit an overlay by hand and the note has to be in before
   // they do.
   if (props.held !== undefined) client.setQueryData(["note", props.note ?? NOTE], props.held);
-  const tree = (focusSignal: number) => (
-    <QueryClientProvider client={client}>
-      <BookPane
-        note={props.note ?? NOTE}
-        paths={props.paths}
-        commands={commands}
-        focusSignal={focusSignal}
-        onFocus={onFocus}
-        onMoved={onMoved}
-        onLeaving={onLeaving}
-        onTake={onTake}
-      />
-    </QueryClientProvider>
-  );
+  const tree = (focusSignal: number, seek?: { quote: string[] }) => {
+    const pane = (
+      <QueryClientProvider client={client}>
+        <BookPane
+          note={props.note ?? NOTE}
+          paths={props.paths}
+          commands={commands}
+          focusSignal={focusSignal}
+          seek={seek}
+          onFocus={onFocus}
+          onMoved={onMoved}
+          onLeaving={onLeaving}
+          onTake={onTake}
+          onNotice={onNotice}
+        />
+      </QueryClientProvider>
+    );
+    return props.seed ? <StrictMode>{pane}</StrictMode> : pane;
+  };
 
-  const view = render(props.seed ? <StrictMode>{tree(0)}</StrictMode> : tree(0));
+  const view = render(tree(0));
   return {
     ...view,
     /** The cache the pane reads its note out of, so a case can change the note. */
@@ -121,8 +128,13 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob; held?: stri
     onMoved,
     onLeaving,
     onTake,
+    onNotice,
     /** Hand the pane another focus signal, the way the route does. */
     signal: (focusSignal: number) => view.rerender(tree(focusSignal)),
+    /** Hand the pane a passage, the way the route does after `gf`. A new object every press. */
+    send: (quote: string[]) => view.rerender(tree(0, { quote })),
+    /** Hand it the very same seek object again, which is what StrictMode does. */
+    hold: (seek: { quote: string[] }) => view.rerender(tree(0, seek)),
     /** The pane's own wrapper, which is what a signal puts the cursor on. */
     wrapper: () => view.container.querySelector("[data-book-pane]"),
   };
@@ -1153,6 +1165,131 @@ describe("drawing the note's highlights", () => {
     act(() => lastView().emitRelocate({ reason: "page" }, 0.42));
 
     expect(overlay().added).toEqual(IDS);
+  });
+
+  it("walks the book to the section holding the passage it is handed", async () => {
+    // The spine in the order the pane walks it: one foliate cannot open, two
+    // holding other words, and the one holding the quote.
+    FakeView.sections = sectionsOf(null, [OTHER], [OTHER], [PASSAGE]);
+    const pane = await reading([]);
+
+    act(() => pane.send([PASSAGE]));
+
+    await waitFor(() => expect(lastView().gone).toHaveLength(1));
+    expect(lastView().asked.at(-1)?.index).toBe(3);
+  });
+
+  it("waits for the book to be ready before it walks", async () => {
+    // `view.book` is not readiness: `open()` sets it before it has navigated
+    // anywhere (`view.js:233-237`), so a seek testing it would walk, jump, and
+    // then have the bookmark land on top of the passage.
+    //
+    // The assertion is on the walk not having started rather than on the order
+    // of two `goTo` calls: the fake's `init` records its options and navigates
+    // nowhere, so there is no bookmark call to come second.
+    FakeView.sections = sectionsOf([PASSAGE]);
+    const held = deferred();
+    FakeView.initWith = () => held.promise;
+    const pane = draw({ held: "" });
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+
+    act(() => pane.send([PASSAGE]));
+    await Promise.resolve();
+    expect(lastView().gone).toEqual([]);
+
+    await act(async () => {
+      held.resolve();
+    });
+
+    await waitFor(() => expect(lastView().gone).toHaveLength(1));
+  });
+
+  it("lets the later of two presses win the walk", async () => {
+    // The first section's document is held open, the second press arrives, and
+    // then the first is let go. What this does not buy is an order on two
+    // `goTo` calls already in flight, which the spec names and refuses.
+    const held = deferred();
+    const sections = sectionsOf([OTHER], [PASSAGE]);
+    sections[0] = {
+      createDocument: async () => {
+        await held.promise;
+        return documentOf(OTHER);
+      },
+    };
+    FakeView.sections = sections;
+    const pane = await reading([]);
+
+    act(() => pane.send([OTHER]));
+    act(() => pane.send([PASSAGE]));
+    await act(async () => {
+      held.resolve();
+    });
+
+    await waitFor(() => expect(lastView().gone).toHaveLength(1));
+    expect(lastView().asked.at(-1)?.index).toBe(1);
+  });
+
+  it("navigates nothing for a pane unmounted mid-walk", async () => {
+    const held = deferred();
+    FakeView.sections = [
+      {
+        createDocument: async () => {
+          await held.promise;
+          return documentOf(PASSAGE);
+        },
+      },
+    ];
+    const pane = await reading([]);
+    const view = lastView();
+
+    act(() => pane.send([PASSAGE]));
+    pane.unmount();
+    await act(async () => {
+      held.resolve();
+    });
+
+    expect(view.gone).toEqual([]);
+  });
+
+  it("says one sentence when no section holds the passage", async () => {
+    // pin: a press gets an answer, which is the rule PR 4 and PR 5 follow.
+    FakeView.sections = sectionsOf([OTHER], [OTHER]);
+    const pane = await reading([]);
+
+    act(() => pane.send([PASSAGE]));
+
+    await waitFor(() =>
+      expect(pane.onNotice).toHaveBeenCalledWith("That passage is not in the book"),
+    );
+    expect(pane.onNotice).toHaveBeenCalledTimes(1);
+    expect(lastView().gone).toEqual([]);
+  });
+
+  it("builds no second view for a passage it is handed", async () => {
+    // pin: the case that fails when the seek reaches the view effect's
+    // dependencies and tears the book down on every press.
+    FakeView.sections = sectionsOf([PASSAGE]);
+    const pane = await reading([]);
+
+    act(() => pane.send([PASSAGE]));
+    await waitFor(() => expect(lastView().gone).toHaveLength(1));
+
+    expect(FakeView.made).toHaveLength(1);
+    expect(lastView().closes).toBe(0);
+  });
+
+  it("walks once for the same seek object handed over twice", async () => {
+    // pin: what StrictMode does in development. The effect's own dependency
+    // list answers it and no ref is kept for it.
+    FakeView.sections = sectionsOf([PASSAGE]);
+    const pane = await reading([]);
+    const seek = { quote: [PASSAGE] };
+
+    act(() => pane.hold(seek));
+    await waitFor(() => expect(lastView().gone).toHaveLength(1));
+    act(() => pane.hold(seek));
+
+    expect(lastView().gone).toHaveLength(1);
   });
 
   it("builds no second view when the note changes", async () => {

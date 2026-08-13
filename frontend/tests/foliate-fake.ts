@@ -80,6 +80,23 @@ export function documentOf(...paragraphs: string[]): Document {
   return doc;
 }
 
+/** One section of the book's spine, as the pane walks it looking for a passage. */
+export interface FakeSection {
+  createDocument?: () => Promise<Document>;
+}
+
+/**
+ * The book's spine, one entry per section.
+ *
+ * A `null` entry stands for a section foliate cannot open: it carries no
+ * `createDocument`, and foliate's own book walk skips those (`view.js:533`).
+ */
+export function sectionsOf(...sections: (string[] | null)[]): FakeSection[] {
+  return sections.map((paragraphs) =>
+    paragraphs === null ? {} : { createDocument: () => Promise.resolve(documentOf(...paragraphs)) },
+  );
+}
+
 export class FakeView extends HTMLElement {
   /** Every view built since the last reset, so a test can count the live ones. */
   static made: FakeView[] = [];
@@ -115,10 +132,12 @@ export class FakeView extends HTMLElement {
    * foliate's bookkeeping rather than standing in for it.
    */
   static toc: TocItem[] | null | undefined = undefined;
+  /** The spine the next view's book carries, which a case hands in whole. */
+  static sections: FakeSection[] = [];
 
   opened: File | null = null;
   /** What `open` builds. Absent until it has, the way the real view's is. */
-  book: { toc: TocItem[] | null | undefined } | undefined = undefined;
+  book: { toc: TocItem[] | null | undefined; sections: FakeSection[] } | undefined = undefined;
   started = false;
   /** How many times `close` was called, which the teardown cases count. */
   closes = 0;
@@ -229,7 +248,7 @@ export class FakeView extends HTMLElement {
     // `makeBook` has resolved (`view.js:233-237`). That window is as long as
     // unzipping a 30MB epub takes, and it is a window a test has to be able to
     // press a key in.
-    this.book = { toc: FakeView.toc };
+    this.book = { toc: FakeView.toc, sections: FakeView.sections };
   }
 
   async init(options: object): Promise<void> {
@@ -324,6 +343,7 @@ export function resetFoliateFake(): void {
   FakeView.navigatesNowhere = false;
   FakeView.cfis = [];
   FakeView.toc = undefined;
+  FakeView.sections = [];
 }
 
 /** The view the pane built, which is the last one made. */

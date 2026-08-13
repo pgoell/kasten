@@ -1440,6 +1440,7 @@ function Home() {
                     onMoved={(cfi) => moved(book, cfi)}
                     onLeaving={() => flush(book)}
                     onTake={(passage) => void takeHighlight(book, passage)}
+                    onNotice={setNotice}
                   />
                 ) : image !== undefined ? (
                   <ImagePane

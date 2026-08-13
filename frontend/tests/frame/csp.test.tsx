@@ -137,6 +137,7 @@ describe("a script inside a real book", () => {
           onMoved={() => {}}
           onLeaving={() => {}}
           onTake={() => {}}
+          onNotice={() => {}}
         />
       </QueryClientProvider>,
     );
