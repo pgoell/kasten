@@ -160,6 +160,15 @@ function build(state: EditorState): Live {
   const hidden: Range<Decoration>[] = [];
   /** Every todo line, gathered as the bullets go by, for the counts below. */
   const placed: Placed[] = [];
+  /**
+   * How far the table being walked reaches, or -1 outside one.
+   *
+   * A cell's marks stay on the screen, because a table's columns are lined up
+   * by counting characters and hiding two of them shortens the cell by two.
+   * The walk is depth-first and in document order, so one number is enough:
+   * everything inside the table is entered before anything after it.
+   */
+  let tableEnd = -1;
 
   const hide = (from: number, to: number) => {
     const range = HIDDEN.range(from, to);
@@ -189,6 +198,7 @@ function build(state: EditorState): Live {
       const isFence = node.name === "FencedCode";
       const isRule = node.name === "HorizontalRule";
       const isImage = node.name === "Image";
+      const isTable = node.name === "Table";
       if (
         !heading &&
         !inline &&
@@ -197,7 +207,8 @@ function build(state: EditorState): Live {
         !isBullet &&
         !isFence &&
         !isRule &&
-        !isImage
+        !isImage &&
+        !isTable
       ) {
         return;
       }
@@ -217,8 +228,25 @@ function build(state: EditorState): Live {
         return;
       }
 
+      // Every line of it, so the columns `table.ts` lines up are set in a face
+      // that keeps them lined up. The walk goes on into the cells and colours
+      // them, but `tableEnd` stops it hiding anything there. The head row is
+      // the only one the source does not mark, so the weight is the one thing
+      // here the text does not already say.
+      if (isTable) {
+        tableEnd = node.to;
+        const first = state.doc.lineAt(node.from).number;
+        const last = state.doc.lineAt(node.to).number;
+        for (let number = first; number <= last; number++) {
+          const at = state.doc.line(number).from;
+          const edge = number === first ? " cm-table-head" : "";
+          decorations.push(Decoration.line({ class: `cm-table${edge}` }).range(at));
+        }
+        return;
+      }
+
       const line = state.doc.lineAt(node.from);
-      const revealed = isLineRevealed(state, line);
+      const revealed = isLineRevealed(state, line) || node.from < tableEnd;
 
       // The line is drawn, so the dashes asking for it go. Like the bullet and
       // unlike the blockquote's bar, the drawing stands in for characters, so

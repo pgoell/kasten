@@ -751,8 +751,9 @@ history window.
 
 `<leader>=` is the other formatting key, and it takes the whole note rather than
 one word. It cuts the trailing whitespace off every line, collapses a run of
-blank lines to one, puts a blank line in front of a heading that has none, and
-writes a `*` or `+` bullet as a `-`. It steps over two things untouched: the
+blank lines to one, puts a blank line in front of a heading that has none,
+writes a `*` or `+` bullet as a `-`, and lines up the columns of every table,
+which [Tables](#tables) covers. It steps over two things untouched: the
 frontmatter, which is YAML and not markdown, and anything between code fences,
 which holds whatever it holds. Nothing else in the note moves, there is no
 rewrapping and no renumbering, and the cursor stays where it was. `=` is vim's
@@ -763,6 +764,50 @@ quarter's note.
 `frontend/src/lib/markdown-highlight.ts` adds it to the parser. A delimiter
 opens only when a non-space follows it and closes only when a non-space
 precedes it, which keeps `a == b` out of it.
+
+## Tables
+
+| Key | Does |
+| --- | --- |
+| Tab | Go to the next cell, and line the table up on the way |
+| Shift+Tab | Go to the cell before |
+| `<leader>=` | Line up every table in the note |
+
+A table is written the way GFM writes one, a row of cells between pipes with a
+row of dashes under the head. This is one after `<leader>=`, which is what the
+key does to whatever shape you typed:
+
+| Language   |   Runs on    |             Notes |
+| :--------- | :----------: | ----------------: |
+| Python     | the backend  |     typed with ty |
+| TypeScript | the frontend | vim in the editor |
+
+Lining it up pads every cell to the widest one in its column and squares the
+dashes off to match, so the source reads as the table it is. A column is at
+least three characters wide, that being the narrowest legal row of dashes. The
+dashes also say which side of its column the text sits on, `:---` left, `---:`
+right and `:---:` centred, and the padding obeys them.
+
+Nothing is thrown away. A row carrying more cells than the dashes do grows the
+table a column rather than losing what it says, and the walls a row left off its
+two ends are written in. A `\|` inside a cell is a pipe and not a wall, and
+stays one.
+
+Tab walks the cells left to right and down the rows, stepping over the row of
+dashes, which is nobody's cell. Shift+Tab walks back the same way. Tab in the
+last cell of the last row writes an empty row and lands in it, which is how a
+table grows a line. Shift+Tab in the very first cell does nothing here and
+lifts the line out the way it does everywhere else, and so does either key
+outside a table. Each press lines the table up first, so a cell you have just
+typed into is squared before you leave it. A table already square is a move and
+not an edit: no undo step and nothing written to disk.
+
+A table is set in the monospaced face, because columns lined up by counting
+characters only stay lined up where every character is one width. It is the one
+block besides a fenced one that keeps all of its marks on screen: a cell holding
+`**bold**` or a `[[link]]` shows the marks, coloured, rather than hiding them,
+since hiding two characters would shorten the cell by two and pull the column
+out of true.
 
 ## Wikilinks
 
@@ -1050,6 +1095,8 @@ takes that away, which is what `<leader>e` is for.
 
 The unit is two spaces. Neither key is a list key: they indent a plain line the
 same way, and an ordered list the same way as a bulleted one.
+
+In a table both keys mean something else, which [Tables](#tables) covers.
 
 ## The file tree
 
