@@ -245,3 +245,25 @@ export function writeSchedule(text: string, card: Card, next: Schedule): string 
 
   return lines.join("\n");
 }
+
+/**
+ * Whether what was typed counts as the card's answer.
+ *
+ * Forgiving on everything that is not the answer: case, the space around and
+ * inside it, and a full stop the card's author typed and you did not. Not
+ * forgiving on a word, because a card whose answer is nearly right is a card
+ * you are about to rate yourself, and this only says which way to lean.
+ *
+ * ponytail: no edit distance. A typo you can see is a typo you can rate `hard`,
+ * and a threshold that called `Store` close enough to `Storage` would be worse
+ * than the strict answer, not better.
+ */
+export function sameAnswer(typed: string, back: string): boolean {
+  const plain = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[.!?]+$/, "");
+  return plain(typed) !== "" && plain(typed) === plain(back);
+}

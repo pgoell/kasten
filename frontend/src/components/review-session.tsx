@@ -3,7 +3,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchNote, saveNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import type { Deck } from "@/lib/review";
-import { type Card, nextSchedule, parseCards, type Rating, writeSchedule } from "@/lib/srs";
+import {
+  type Card,
+  nextSchedule,
+  parseCards,
+  type Rating,
+  sameAnswer,
+  writeSchedule,
+} from "@/lib/srs";
+
+/**
+ * Where the typing toggle is kept, which is the browser and not the vault.
+ *
+ * It is a preference about how you like to be asked, not a fact about the
+ * notes, so it has no business in a file. The archive toggle makes the opposite
+ * call and is deliberately not persisted at all; the difference is that
+ * forgetting the archive is safe and forgetting this one is a small annoyance
+ * on every card.
+ */
+const TYPING_KEY = "kasten.review.typing";
 
 /** The four ratings, in the order they are drawn and keyed. */
 const RATINGS: { rating: Rating; label: string }[] = [
@@ -55,6 +73,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   const [text, setText] = useState<string | null>(null);
   const [queue, setQueue] = useState<number[]>([]);
   const [shown, setShown] = useState(false);
+  const [typing, setTyping] = useState(() => localStorage.getItem(TYPING_KEY) === "on");
+  /** What was typed for the card showing, kept so the verdict can quote it back. */
+  const [typed, setTyped] = useState("");
   const [done, setDone] = useState(0);
   const [failed, setFailed] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -97,6 +118,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       const next = writeSchedule(text, held, nextSchedule(held.held, rating, today));
       setText(next);
       setShown(false);
+      setTyped("");
       setDone((count) => count + 1);
       // `again` sends the card to the back rather than out of the queue, which
       // is the one place the session disagrees with the schedule it just wrote:
@@ -123,6 +145,13 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     setShown(true);
   }, []);
 
+  const toggleTyping = useCallback(() => {
+    setTyping((on) => {
+      localStorage.setItem(TYPING_KEY, on ? "off" : "on");
+      return !on;
+    });
+  }, []);
+
   useEffect(() => {
     onControls?.(card === undefined ? null : { reveal, rate });
     return () => onControls?.(null);
@@ -142,6 +171,16 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         <span className="text-[11px] text-one-muted uppercase tracking-wider">
           {queue.length} left
         </span>
+        <button
+          type="button"
+          onClick={toggleTyping}
+          aria-pressed={typing}
+          className={`min-h-11 px-2 text-[11px] uppercase tracking-wider ${
+            typing ? "text-one-accent" : "text-one-muted"
+          }`}
+        >
+          Type
+        </button>
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px]">
@@ -157,6 +196,17 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         {card !== undefined && (
           <div data-testid="review-card">
             <p className="whitespace-pre-wrap">{card.front}</p>
+            {shown && typing && (
+              <p data-testid="review-verdict" className="mt-6 text-[13px] text-one-muted">
+                {sameAnswer(typed, card.back) ? (
+                  "Matched"
+                ) : (
+                  <>
+                    You typed <span className="text-one-fg">{typed || "nothing"}</span>
+                  </>
+                )}
+              </p>
+            )}
             {shown && (
               <p
                 data-testid="review-back"
@@ -191,6 +241,31 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
                 </button>
               ))}
             </div>
+          ) : typing ? (
+            <form
+              data-testid="review-typed"
+              onSubmit={(event) => {
+                event.preventDefault();
+                reveal();
+              }}
+              className="flex gap-2"
+            >
+              <input
+                // Off, both of them: an answer is a term of art as often as it
+                // is a sentence, and a phone that capitalises and corrects it
+                // marks you wrong for something you did not type.
+                autoCapitalize="off"
+                autoCorrect="off"
+                aria-label="your answer"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[15px] text-one-fg outline-none focus:border-one-accent"
+              />
+              {/* Submitting the form is what the phone keyboard's Go key does. */}
+              <button type="submit" className={BUTTON}>
+                Check
+              </button>
+            </form>
           ) : (
             <button type="button" onClick={reveal} className={`${BUTTON} w-full`}>
               Show answer

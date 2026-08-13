@@ -1,4 +1,11 @@
-import { type Card, nextSchedule, parseCards, readSchedule, writeSchedule } from "@/lib/srs";
+import {
+  type Card,
+  nextSchedule,
+  parseCards,
+  readSchedule,
+  sameAnswer,
+  writeSchedule,
+} from "@/lib/srs";
 
 /** The one card the text holds. A test naming a card and getting none is the failure. */
 function only(text: string, at = 0): Card {
@@ -188,5 +195,18 @@ describe("writeSchedule", () => {
       if (at === card.from) continue;
       expect(written[at]).toBe(line);
     }
+  });
+});
+
+describe("sameAnswer", () => {
+  it("forgives space, case and a trailing stop", () => {
+    expect(sameAnswer("  simple storage service ", "Simple Storage Service")).toBe(true);
+    expect(sameAnswer("Simple  Storage\tService", "Simple Storage Service")).toBe(true);
+    expect(sameAnswer("Simple Storage Service", "Simple Storage Service.")).toBe(true);
+  });
+
+  it("does not forgive a different word", () => {
+    expect(sameAnswer("Simple Store Service", "Simple Storage Service")).toBe(false);
+    expect(sameAnswer("", "Simple Storage Service")).toBe(false);
   });
 });
