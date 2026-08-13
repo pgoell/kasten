@@ -239,6 +239,8 @@ function Home() {
   // third clearing mechanism nobody asked for, and one sentence in a corner is
   // information rather than litter.
   const [notice, setNotice] = useState<string>();
+  /** The passage `gf` asked for, and which reader is to take it. */
+  const [seek, setSeek] = useState<{ note: string; quote: string[] }>();
   // The browser's own file picker, which is a hidden input and a click on it.
   const picker = useRef<HTMLInputElement>(null);
   // A second one for markdown. Two inputs rather than one taking both suffixes,
@@ -284,16 +286,21 @@ function Home() {
    *
    * `closeNote` reaches this after a save, by which point there is no conflict
    * left to catch it.
+   *
+   * It answers whether it moved. Sixteen callers ignore that, and `openPassage`
+   * is the one that cannot: a passage armed for a key that was refused would
+   * jump a reader that is already open.
    */
   const moveTo = useCallback(
     (update: (previous: Layout) => Layout) => {
       if (isConflicted()) {
         refuse();
-        return;
+        return false;
       }
 
       setLayout(update);
       setFocusSignal((previous) => previous + 1);
+      return true;
     },
     [isConflicted, refuse],
   );
@@ -668,6 +675,32 @@ function Home() {
     },
     [data, queryClient, openInPane],
   );
+
+  /**
+   * Open the book a highlight came from, at the passage it quotes.
+   *
+   * The order matters: `moveTo` refuses while the focused pane stands
+   * conflicted, and a seek set before it would arm a jump in a reader that is
+   * already open for a key that was refused. Either both happen or neither
+   * does.
+   */
+  const openPassage = useCallback(
+    (note: string, quote: string[]) => {
+      // The press clears it, which is the rule PR 4 settled and PR 5 followed.
+      setNotice(undefined);
+      if (moveTo((previous) => openBookBeside(previous, note))) setSeek({ note, quote });
+    },
+    [moveTo],
+  );
+
+  // One render after it is set, which is all the handover needs: React runs a
+  // child's effects before its parent's, so the pane has taken the quote into a
+  // ref of its own by the time this clears it. Without it the state stands
+  // armed for the life of the tab, and a reader opened an hour later replays a
+  // passage nobody asked for over PR 2's bookmark.
+  useEffect(() => {
+    if (seek) setSeek(undefined);
+  }, [seek]);
 
   /**
    * Open the note covering today at one grain, making it if the vault has none.
@@ -1441,6 +1474,8 @@ function Home() {
                     onLeaving={() => flush(book)}
                     onTake={(passage) => void takeHighlight(book, passage)}
                     onNotice={setNotice}
+                    // One pane, the one reading the note the press came from.
+                    seek={seek?.note === book ? seek : undefined}
                   />
                 ) : image !== undefined ? (
                   <ImagePane
@@ -1505,6 +1540,7 @@ function Home() {
                     onSave={save}
                     onFollow={follow}
                     onCycleTodo={logCycledTodo}
+                    onOpenHighlight={openPassage}
                     onNotice={setNotice}
                   />
                 );
