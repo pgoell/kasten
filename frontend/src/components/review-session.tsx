@@ -2,13 +2,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchNote, saveNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { noteBody } from "@/lib/note-frontmatter";
 import type { Deck } from "@/lib/review";
 import {
   type Card,
   nextSchedule,
   parseCards,
   type Rating,
+  readNoteSchedule,
   sameAnswer,
+  writeNoteSchedule,
   writeSchedule,
 } from "@/lib/srs";
 
@@ -72,7 +75,7 @@ interface ReviewSessionProps {
 export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps) {
   const [text, setText] = useState<string | null>(null);
   const [queue, setQueue] = useState<number[]>([]);
-  const [shown, setShown] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [typing, setTyping] = useState(() => localStorage.getItem(TYPING_KEY) === "on");
   /** What was typed for the card showing, kept so the verdict can quote it back. */
   const [typed, setTyped] = useState("");
@@ -88,7 +91,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       (note) => {
         if (!live) return;
         setText(note);
-        const cards = parseCards(note);
+        const cards = cardsOf(deck, note);
         // Due first, then the ones nobody has answered, each in the note's
         // order. Nothing is shuffled: a deck written in an order was written in
         // that order on purpose, and an import arrives in the order Anki held.
@@ -103,11 +106,14 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     return () => {
       live = false;
     };
-  }, [deck.note, today]);
+  }, [deck, today]);
 
-  const cards = useMemo(() => (text === null ? [] : parseCards(text)), [text]);
+  const cards = useMemo(() => (text === null ? [] : cardsOf(deck, text)), [deck, text]);
   const at = queue[0];
   const card = at === undefined ? undefined : cards[at];
+  // A whole note has nothing hidden to show, so it is shown from the start and
+  // the four ratings are the only thing its footer ever draws.
+  const shown = revealed || card?.back === "";
 
   const rate = useCallback(
     (rating: Rating) => {
@@ -115,9 +121,10 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       const held = cards[at];
       if (held === undefined) return;
 
-      const next = writeSchedule(text, held, nextSchedule(held.held, rating, today));
+      const moved = nextSchedule(held.held, rating, today);
+      const next = deck.whole ? writeNoteSchedule(text, moved) : writeSchedule(text, held, moved);
       setText(next);
-      setShown(false);
+      setRevealed(false);
       setTyped("");
       setDone((count) => count + 1);
       // `again` sends the card to the back rather than out of the queue, which
@@ -138,11 +145,11 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         },
       );
     },
-    [at, cards, deck.note, queryClient, text, today],
+    [at, cards, deck, queryClient, text, today],
   );
 
   const reveal = useCallback(() => {
-    setShown(true);
+    setRevealed(true);
   }, []);
 
   const toggleTyping = useCallback(() => {
@@ -280,4 +287,18 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 /** Whether the card is one today's sitting should ask. */
 function isDue(card: Card, today: string): boolean {
   return card.held !== null && card.held.due <= today;
+}
+
+/**
+ * What this deck asks, which is either the note's cards or the note itself.
+ *
+ * The one place the two kinds part company. A `#review` note becomes a single
+ * card whose front is the note and whose back is nothing, so the queue, the
+ * rating and the writing downstream are the same code for both, and only the
+ * two lines here know there was ever a difference.
+ */
+function cardsOf(deck: Deck, text: string): Card[] {
+  if (!deck.whole) return parseCards(text);
+  const held = readNoteSchedule(text);
+  return [{ from: 0, to: 0, front: noteBody(text).trim(), back: "", inline: false, held }];
 }

@@ -84,3 +84,9 @@ export function setField(text: string, name: string, value: string): string {
 
   return [FENCE, ...block, FENCE, ...parts.body].join("\n");
 }
+
+/** The note without its block, which is what a reader of the note should see. */
+export function noteBody(text: string): string {
+  const parts = split(text);
+  return parts === null ? text : parts.body.join("\n");
+}

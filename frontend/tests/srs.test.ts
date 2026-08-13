@@ -2,8 +2,10 @@ import {
   type Card,
   nextSchedule,
   parseCards,
+  readNoteSchedule,
   readSchedule,
   sameAnswer,
+  writeNoteSchedule,
   writeSchedule,
 } from "@/lib/srs";
 
@@ -208,5 +210,48 @@ describe("sameAnswer", () => {
   it("does not forgive a different word", () => {
     expect(sameAnswer("Simple Store Service", "Simple Storage Service")).toBe(false);
     expect(sameAnswer("", "Simple Storage Service")).toBe(false);
+  });
+});
+
+describe("readNoteSchedule", () => {
+  it("reads the three fields off the frontmatter", () => {
+    const note = "---\nid: 1\nsr-due: 2026-08-20\nsr-interval: 4\nsr-ease: 270\n---\n# TLS\n";
+    expect(readNoteSchedule(note)).toEqual({ due: "2026-08-20", interval: 4, ease: 270 });
+  });
+
+  it("answers nothing where the note carries none of them", () => {
+    expect(readNoteSchedule("---\nid: 1\n---\n# TLS\n")).toBeNull();
+  });
+
+  it("takes a due date written by hand as a card nothing has answered", () => {
+    expect(readNoteSchedule("---\nsr-due: 2026-08-20\n---\n")).toEqual({
+      due: "2026-08-20",
+      interval: 1,
+      ease: 250,
+    });
+  });
+});
+
+describe("writeNoteSchedule", () => {
+  const next = { due: "2026-09-01", interval: 7, ease: 265 };
+
+  it("sets the three fields, keeping the ones already there", () => {
+    const note = "---\nid: 1\n---\n# TLS\n\nbody\n";
+    expect(writeNoteSchedule(note, next)).toBe(
+      "---\nid: 1\nsr-due: 2026-09-01\nsr-interval: 7\nsr-ease: 265\n---\n# TLS\n\nbody\n",
+    );
+  });
+
+  it("mints a block for a note that has none, keeping the body whole", () => {
+    expect(writeNoteSchedule("# TLS\n\nbody\n", next)).toBe(
+      "---\nsr-due: 2026-09-01\nsr-interval: 7\nsr-ease: 265\n---\n# TLS\n\nbody\n",
+    );
+  });
+
+  it("moves a schedule the note already carried rather than adding a second", () => {
+    const note = "---\nsr-due: 2026-01-01\nsr-interval: 1\nsr-ease: 250\n---\n# TLS\n";
+    const written = writeNoteSchedule(note, next);
+    expect(written.match(/sr-due:/g)).toHaveLength(1);
+    expect(written).toContain("sr-due: 2026-09-01");
   });
 });

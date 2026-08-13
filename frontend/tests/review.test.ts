@@ -70,3 +70,25 @@ describe("decksFrom", () => {
     expect(decks.map((deck) => deck.name)).toEqual(["alpha", "zeta"]);
   });
 });
+
+describe("decksFrom on a note marked for review", () => {
+  it("makes the note a deck of its own", () => {
+    const [deck] = decksFrom(hits("notes/tls.md", ["#review"]), TODAY);
+    expect(deck).toMatchObject({ name: "tls", note: "notes/tls.md", due: 0, fresh: 1 });
+  });
+
+  it("counts it due when its date is today or past", () => {
+    const [deck] = decksFrom(hits("notes/tls.md", ["sr-due: 2026-08-01", "#review"]), TODAY);
+    expect(deck).toMatchObject({ due: 1, fresh: 0 });
+  });
+
+  it("counts it neither due nor new when its date is ahead", () => {
+    const [deck] = decksFrom(hits("notes/tls.md", ["sr-due: 2026-09-01", "#review"]), TODAY);
+    expect(deck).toMatchObject({ due: 0, fresh: 0 });
+  });
+
+  it("keeps a note holding cards as a deck of cards", () => {
+    const [deck] = decksFrom(hits("d.md", ["#flashcards/aws", "a::b"]), TODAY);
+    expect(deck).toMatchObject({ name: "aws", fresh: 1 });
+  });
+});

@@ -27,7 +27,23 @@ export interface Deck {
   due: number;
   /** Cards nothing has answered yet. */
   fresh: number;
+  /**
+   * Whether the note is itself the card, rather than a note holding cards.
+   *
+   * `#review` on a note says "ask me this note again in a while", which is the
+   * same schedule over a different thing: no front, no back, and the three
+   * numbers in the frontmatter instead of in a comment. One flag rather than a
+   * second Deck type, because everything the overview does with a deck is the
+   * same either way and only the session reads this.
+   */
+  whole: boolean;
 }
+
+/** The tag marking a whole note as the thing to be reviewed. */
+const REVIEW_TAG = /#review(?![\w/-])/;
+
+/** The note's own due date, off the frontmatter field. */
+const NOTE_DUE = /^sr-due:\s*(\d{4}-\d{2}-\d{2})/;
 
 /** `#flashcards`, and the deck name where the tag carries one. */
 const DECK_TAG = /#flashcards(?:\/([^\s#]+))?/;
@@ -52,7 +68,22 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
   const decks: Deck[] = [];
   for (const [note, lines] of byNote) {
     const tag = lines.map((line) => DECK_TAG.exec(line.text)).find((found) => found !== null);
-    if (tag === undefined || tag === null) continue;
+
+    // A note carrying both tags is read as a deck of cards. The cards are the
+    // more specific claim: `#review` says ask me this note, and a note that
+    // says which parts of itself to ask has already answered that.
+    if (tag === undefined || tag === null) {
+      if (!lines.some((line) => REVIEW_TAG.test(line.text))) continue;
+      const due = lines.map((line) => NOTE_DUE.exec(line.text)?.[1]).find((at) => at !== undefined);
+      decks.push({
+        name: noteName(note),
+        note,
+        due: due !== undefined && due <= today ? 1 : 0,
+        fresh: due === undefined ? 1 : 0,
+        whole: true,
+      });
+      continue;
+    }
 
     const scheduled = lines
       .map((line) => SCHEDULED.exec(line.text)?.[1])
@@ -66,6 +97,7 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
       // different lines for a card written over several, so this is a
       // subtraction rather than a second filter.
       fresh: lines.filter((line) => isCard(line.text)).length - scheduled.length,
+      whole: false,
     });
   }
 

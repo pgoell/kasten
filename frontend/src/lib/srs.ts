@@ -29,6 +29,7 @@
  */
 
 import { shiftDay } from "@/lib/clock";
+import { readField, setField } from "@/lib/note-frontmatter";
 
 /** How well a card went, in the four steps Anki asks for. */
 export type Rating = "again" | "hard" | "good" | "easy";
@@ -266,4 +267,33 @@ export function sameAnswer(typed: string, back: string): boolean {
       .trim()
       .replace(/[.!?]+$/, "");
   return plain(typed) !== "" && plain(typed) === plain(back);
+}
+
+/**
+ * The schedule of a note that is itself the card, off its frontmatter.
+ *
+ * A whole note marked `#review` has no `::` to hang a comment on, so its three
+ * numbers go in the block at the top, under the names
+ * obsidian-spaced-repetition gives them. That is the only difference between a
+ * note and a card here; everything downstream of this treats the two the same.
+ *
+ * A note carrying `sr-due` and nothing else reads as a card scheduled by hand,
+ * which is a real thing to type into a note and worth taking at its word rather
+ * than ignoring for want of two fields nobody would write out.
+ */
+export function readNoteSchedule(text: string): Schedule | null {
+  const due = readField(text, "sr-due");
+  if (due === undefined) return null;
+  return {
+    due,
+    interval: Number(readField(text, "sr-interval") ?? 1),
+    ease: Number(readField(text, "sr-ease") ?? NEW_EASE),
+  };
+}
+
+/** `text` with the note's own schedule set, minting the block where it has none. */
+export function writeNoteSchedule(text: string, next: Schedule): string {
+  let written = setField(text, "sr-due", next.due);
+  written = setField(written, "sr-interval", String(next.interval));
+  return setField(written, "sr-ease", String(next.ease));
 }
