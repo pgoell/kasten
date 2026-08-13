@@ -103,7 +103,9 @@ function fences(lines: string[]): boolean[] {
 export function readSchedule(text: string): Schedule | null {
   const found = SR.exec(text);
   if (found === null) return null;
-  return { due: found[1], interval: Number(found[2]), ease: Number(found[3]) };
+  // The defaults are unreachable: a match means all three groups are there.
+  const [, due = "", interval = "1", ease = "250"] = found;
+  return { due, interval: Number(interval), ease: Number(ease) };
 }
 
 /**
@@ -150,8 +152,10 @@ export function parseCards(text: string): Card[] {
 
   for (const [at, line] of lines.entries()) {
     if (fenced[at] || taken[at] || !line.includes("::")) continue;
-    const [front, ...rest] = line.split("::");
-    const back = rest.join("::").replace(SR, "");
+    // The first `::` divides the card, so a back holding one of its own keeps it.
+    const divide = line.indexOf("::");
+    const front = line.slice(0, divide);
+    const back = line.slice(divide + 2).replace(SR, "");
     if (front.trim() === "" || back.trim() === "") continue;
     cards.push({
       from: at,

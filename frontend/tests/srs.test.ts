@@ -1,4 +1,11 @@
-import { nextSchedule, parseCards, readSchedule, writeSchedule } from "@/lib/srs";
+import { type Card, nextSchedule, parseCards, readSchedule, writeSchedule } from "@/lib/srs";
+
+/** The one card the text holds. A test naming a card and getting none is the failure. */
+function only(text: string, at = 0): Card {
+  const card = parseCards(text)[at];
+  if (card === undefined) throw new Error(`no card ${at} in ${JSON.stringify(text)}`);
+  return card;
+}
 
 const NOTE = `---
 id: 019fd770-e40a-72e7-9abc-2cc62eeaeb19
@@ -16,7 +23,7 @@ Standard, Infrequent Access, Glacier
 
 describe("parseCards", () => {
   it("reads a card written on one line", () => {
-    const [card] = parseCards(NOTE);
+    const card = only(NOTE);
     expect(card.front).toBe("What does S3 stand for?");
     expect(card.back).toBe("Simple Storage Service");
     expect(card.inline).toBe(true);
@@ -24,7 +31,7 @@ describe("parseCards", () => {
   });
 
   it("reads a card written over three lines", () => {
-    const card = parseCards(NOTE)[1];
+    const card = only(NOTE, 1);
     expect(card.front).toBe("The three storage classes worth knowing");
     expect(card.back).toBe("Standard, Infrequent Access, Glacier");
     expect(card.inline).toBe(false);
@@ -32,7 +39,8 @@ describe("parseCards", () => {
 
   it("spans the lines the card is written on", () => {
     const lines = NOTE.split("\n");
-    const [one, two] = parseCards(NOTE);
+    const one = only(NOTE);
+    const two = only(NOTE, 1);
     expect(lines[one.from]).toContain("S3");
     expect(one.from).toBe(one.to);
     expect(lines[two.from]).toBe("The three storage classes worth knowing");
@@ -40,13 +48,15 @@ describe("parseCards", () => {
   });
 
   it("keeps the schedule off the back of the card", () => {
-    const [inline, multi] = parseCards(`a::b <!--SR:!2026-08-20,4,270-->
+    const text = `a::b <!--SR:!2026-08-20,4,270-->
 
 q
 ?
 r
 <!--SR:!2026-08-14,1,230-->
-`);
+`;
+    const inline = only(text);
+    const multi = only(text, 1);
     expect(inline.back).toBe("b");
     expect(inline.held).toEqual({ due: "2026-08-20", interval: 4, ease: 270 });
     expect(multi.back).toBe("r");
@@ -55,24 +65,22 @@ r
 
   it("takes the schedule line into the card's span", () => {
     const text = "q\n?\nr\n<!--SR:!2026-08-14,1,230-->\n";
-    const [card] = parseCards(text);
+    const card = only(text);
     expect(text.split("\n")[card.to]).toContain("SR:");
   });
 
   it("does not read a fenced code block", () => {
     const cards = parseCards("```cpp\nstd::vector<int> v;\n```\n\nreal::card\n");
     expect(cards).toHaveLength(1);
-    expect(cards[0].front).toBe("real");
+    expect(cards[0]?.front).toBe("real");
   });
 
   it("reads a back running over several lines", () => {
-    const [card] = parseCards("q\n?\nfirst\nsecond\n\nafter\n");
-    expect(card.back).toBe("first\nsecond");
+    expect(only("q\n?\nfirst\nsecond\n\nafter\n").back).toBe("first\nsecond");
   });
 
   it("stops a back at the next heading", () => {
-    const [card] = parseCards("q\n?\nanswer\n## Next\n");
-    expect(card.back).toBe("answer");
+    expect(only("q\n?\nanswer\n## Next\n").back).toBe("answer");
   });
 
   it("finds nothing in a note holding no card", () => {
@@ -155,29 +163,25 @@ describe("writeSchedule", () => {
 
   it("puts a comment on the end of a card written on one line", () => {
     const text = "# Deck\n\na::b\n";
-    const [card] = parseCards(text);
-    expect(writeSchedule(text, card, next)).toBe("# Deck\n\na::b <!--SR:!2026-09-01,7,250-->\n");
+    expect(writeSchedule(text, only(text), next)).toBe(
+      "# Deck\n\na::b <!--SR:!2026-09-01,7,250-->\n",
+    );
   });
 
   it("puts a comment under a card written over several lines", () => {
     const text = "q\n?\nr\n";
-    const [card] = parseCards(text);
-    expect(writeSchedule(text, card, next)).toBe("q\n?\nr\n<!--SR:!2026-09-01,7,250-->\n");
+    expect(writeSchedule(text, only(text), next)).toBe("q\n?\nr\n<!--SR:!2026-09-01,7,250-->\n");
   });
 
   it("replaces the comment a card already carries rather than adding a second", () => {
     const inline = "a::b <!--SR:!2026-08-01,2,240-->\n";
-    expect(writeSchedule(inline, parseCards(inline)[0], next)).toBe(
-      "a::b <!--SR:!2026-09-01,7,250-->\n",
-    );
+    expect(writeSchedule(inline, only(inline), next)).toBe("a::b <!--SR:!2026-09-01,7,250-->\n");
     const multi = "q\n?\nr\n<!--SR:!2026-08-01,2,240-->\n";
-    expect(writeSchedule(multi, parseCards(multi)[0], next)).toBe(
-      "q\n?\nr\n<!--SR:!2026-09-01,7,250-->\n",
-    );
+    expect(writeSchedule(multi, only(multi), next)).toBe("q\n?\nr\n<!--SR:!2026-09-01,7,250-->\n");
   });
 
   it("leaves every other line of the note exactly as it was", () => {
-    const [card] = parseCards(NOTE);
+    const card = only(NOTE);
     const written = writeSchedule(NOTE, card, next).split("\n");
     const before = NOTE.split("\n");
     for (const [at, line] of before.entries()) {

@@ -83,6 +83,25 @@ export async function fetchTodos(archive = false): Promise<SearchHit[]> {
 }
 
 /**
+ * Every line in the vault that could be part of a flashcard.
+ *
+ * Candidate lines, in search's shape. `review.ts` groups them into decks and
+ * `srs.ts` parses the ones a session actually asks, so nothing about the format
+ * is known on this side of the wire.
+ */
+export async function fetchCards(archive = false): Promise<SearchHit[]> {
+  const { data, response } = await client.GET("/api/cards", {
+    params: { query: { archive } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/cards failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
  * Every line in the vault holding `query`, as the backend found them.
  *
  * A literal match and nothing more. Ranking these is the caller's job, which
