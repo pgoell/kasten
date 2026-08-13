@@ -2,6 +2,7 @@ import { syntaxTree } from "@codemirror/language";
 import type { ChangeSpec, EditorState, SelectionRange } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
+import { alignTable, tableAt } from "@/lib/table";
 
 export interface MarkSpec {
   open: string;
@@ -80,8 +81,9 @@ const BULLET = /^(\s*)[*+](\s)/;
  *
  * Line by line rather than through the syntax tree, because every rule here is
  * about a line's own shape and the tree would only make the same reading
- * longer. The frontmatter is YAML and a fence holds whatever it holds, so both
- * are stepped over untouched.
+ * longer. A table is the one block that is not about a line's own shape, and
+ * `table.ts` reads it whole. The frontmatter is YAML and a fence holds whatever
+ * it holds, so both are stepped over untouched.
  *
  * It writes a change per line rather than replacing the document, which is what
  * keeps the cursor where it was: CodeMirror maps it through the changes.
@@ -109,6 +111,23 @@ export function formatDocument(view: EditorView): boolean {
       continue;
     }
     if (inFence) {
+      blanks = 0;
+      continue;
+    }
+
+    // Before the line rules, and taking the whole block rather than one line:
+    // a column is as wide as the widest cell in it, which no single line knows.
+    // `first === n` because the loop jumps to `last`, so it only ever meets a
+    // table at its top. Saying so keeps a change from overlapping one already
+    // pushed, which CodeMirror throws on.
+    const table = tableAt(doc, n);
+    if (table?.first === n) {
+      const to = doc.line(table.last).to;
+      const drawn = alignTable(doc, table);
+      if (drawn !== doc.sliceString(line.from, to)) {
+        changes.push({ from: line.from, to, insert: drawn });
+      }
+      n = table.last;
       blanks = 0;
       continue;
     }

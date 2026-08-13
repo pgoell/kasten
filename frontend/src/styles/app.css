@@ -287,6 +287,20 @@ body {
   color: var(--color-one-muted);
 }
 
+/* A table's columns are lined up by spaces in the source, and spaces only line
+   up in a face where every character is one width. So the block wears the
+   monospaced one, knocked back the same way the code rules above are. There is
+   no widget drawing a table here: this is the source, made to read as one. */
+.cm-line.cm-table {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* The head row is the only one the pipes do not already tell apart. */
+.cm-line.cm-table-head {
+  font-weight: 700;
+}
+
 /* The line a search hit sits on, in the finder's preview pane. Painted rather
    than outlined, so it reads as the same highlight the list row carries. */
 .cm-searchHit {

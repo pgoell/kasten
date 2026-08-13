@@ -131,11 +131,11 @@ it redraws only when something else tells the gutter to. That something is
 line, which is exactly when these numbers change. Both come from `basicSetup`,
 so dropping the highlight would freeze the counting.
 
-## What it does not render
+## The three blocks
 
-Tables keep their syntax. A table needs a widget decoration, which means DOM
-this code owns and rebuilds as you type, and a table you cannot type into is
-worse than the pipes.
+Everything above is one rule read three ways: find the mark, hide it, style
+what it wrapped. Three blocks answer to something else, and each for its own
+reason.
 
 An image is drawn, and it is the one widget here that loads something. That is
 what it cost to render: [GET /api/assets/{path}](/reference/http-api.md) already
@@ -144,9 +144,25 @@ for the line to be measured again when the bytes land, the height of an image
 being unknown until then. A path pointing anywhere but the vault stays as its
 source, the page's own policy allowing images from this origin alone.
 
-A fenced code block is the exception among the three, because it needs none of
-that. Every line of it takes a line decoration, which paints the block's
-surface and sets it in the monospaced face, and the highlighting inside comes
-from whichever parser the language named. Nothing in a fence is hidden: the
-backticks and the language are part of what the block says, and the code inside
-is not prose that marks would clutter.
+A fenced code block needs none of that. Every line of it takes a line
+decoration, which paints the block's surface and sets it in the monospaced
+face, and the highlighting inside comes from whichever parser the language
+named. Nothing in a fence is hidden: the backticks and the language are part of
+what the block says, and the code inside is not prose that marks would clutter.
+
+A table is the fence's argument taken one step further. It gets the same
+treatment, a line decoration per line and the monospaced face, because its
+columns are lined up by counting characters and only a face of one width keeps
+them lined up. But a table's cells hold prose, and prose holds marks, so the
+walk goes on into them and colours what it finds while hiding none of it: a
+`[[link]]` in a cell whose brackets came off the screen would be four
+characters narrower than the column it was padded to, and every wall to its
+right would step left. So a cell shows `**bold**` and `[[link]]`, in the bold
+and the link colour, and the columns hold. The padding itself is not live
+preview's: `<leader>=` and the tab keys write it into the note, which
+[Tables](/reference/editor-keys.md#tables) covers.
+
+There is still no widget drawing a real table, and that is the trade this makes.
+A widget means DOM this code owns and rebuilds as you type, and a table you
+cannot type into is worse than the pipes. What is here instead is the pipes,
+made to read as a table.

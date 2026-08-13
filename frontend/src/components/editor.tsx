@@ -21,6 +21,7 @@ import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/i
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
+import { moveCell } from "@/lib/table";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
 import { todoCompletions } from "@/lib/todo-suggest";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
@@ -507,7 +508,15 @@ export function Editor({
           // is tab's own job in every editor that offers one. Enter takes a
           // completion too, `basicSetup` binding it, but a list that tab cannot
           // take is a list nobody's fingers reach for.
-          keymap.of([{ key: "Tab", run: acceptCompletion }, indentWithTab]),
+          //
+          // The table walk sits between them: in a table tab means the next
+          // cell, and everywhere else it still means indent.
+          keymap.of([
+            { key: "Tab", run: acceptCompletion },
+            { key: "Tab", run: (view) => moveCell(view, 1) },
+            { key: "Shift-Tab", run: (view) => moveCell(view, -1) },
+            indentWithTab,
+          ]),
           // Ahead of basicSetup, whose closeBrackets would otherwise answer the
           // third backtick with a pair before the fence handler sees it.
           backticks(),

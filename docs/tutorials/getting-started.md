@@ -234,8 +234,8 @@ written in it, with `<leader>fg`, and `[[wikilinks]]` are followed with `gf` or
 Enter, read both ways with `<leader>gb` and `<leader>go`, and carried along when
 the note or the folder they name is renamed.
 An image pasted from the clipboard goes into the vault and is drawn where you
-pasted it. Tables keep their syntax on screen, because live preview does not
-render them yet.
+pasted it. Tables keep their pipes on screen, set in the monospaced face, and
+Tab walks their cells while `<leader>=` lines their columns up.
 
 ## Next
 
