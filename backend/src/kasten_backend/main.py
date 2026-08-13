@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
+from kasten_backend.cards import find_cards
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.frontmatter import stamp
@@ -405,6 +406,28 @@ async def list_todos(
     false of the week.
     """
     hits = await find_todos(settings.vault_path, None if archive else settings.archive_path)
+    return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.get("/api/cards")
+async def list_cards(
+    settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
+) -> list[SearchHit]:
+    """Find every line in the vault that could be part of a flashcard.
+
+    Candidate lines, not cards. Which of them is a question, which note is a
+    deck and which card is due are all read on the client, off the same parser
+    the review pane draws a card with, so the vault has one reader of the format
+    rather than two in two languages.
+
+    Answers in search's shape, so the client can open the note a card is in on
+    the line it sits on.
+
+    `archive` walks the archive folder too, and is off for the reason it is off
+    on a search: moving a deck into the archive is how you stop being asked
+    about it, and nothing else about the note changes.
+    """
+    hits = await find_cards(settings.vault_path, None if archive else settings.archive_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
 
 
