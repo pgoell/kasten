@@ -82,6 +82,31 @@ export async function fetchTodos(archive = false): Promise<SearchHit[]> {
   return data;
 }
 
+/** What one imported `.apkg` turned into. */
+export type AnkiImport = components["schemas"]["AnkiImport"];
+
+/**
+ * Turn an Anki export into notes in the vault.
+ *
+ * The file's own bytes as the body, not a form: the request carries one file
+ * and nothing beside it, the way an asset upload does.
+ */
+export async function importAnki(file: Blob): Promise<AnkiImport> {
+  // Plain `fetch` for the reason `uploadAsset` uses one: the endpoint takes raw
+  // bytes, so the generated client documents a body it will not let us send.
+  const response = await fetch("/api/anki", { method: "POST", body: file });
+
+  if (!response.ok) {
+    const detail =
+      response.headers.get("content-type")?.includes("json") === true
+        ? reason(await response.json())
+        : null;
+    throw new Error(detail ?? `POST /api/anki failed with ${response.status}`);
+  }
+
+  return (await response.json()) as AnkiImport;
+}
+
 /**
  * Every line in the vault that could be part of a flashcard.
  *

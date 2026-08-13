@@ -277,6 +277,25 @@
         }
       }
     },
+    "/api/anki": {
+      "post": {
+        "summary": "Import Anki",
+        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is refused rather than merged or overwritten. The\nnote it would land on is a note you may have answered fifty cards in, and\nits schedules are in it; a second import is a thing to do into a fresh name.",
+        "operationId": "import_anki_api_anki_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnkiImport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events": {
       "get": {
         "summary": "Stream Events",
@@ -779,6 +798,33 @@
   },
   "components": {
     "schemas": {
+      "AnkiImport": {
+        "properties": {
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "cards": {
+            "type": "integer",
+            "title": "Cards"
+          },
+          "dropped_media": {
+            "type": "integer",
+            "title": "Dropped Media"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notes",
+          "cards",
+          "dropped_media"
+        ],
+        "title": "AnkiImport",
+        "description": "What one `.apkg` turned into."
+      },
       "Folder": {
         "properties": {
           "path": {

@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
+from kasten_backend.anki import as_note, read_apkg
 from kasten_backend.cards import find_cards
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
@@ -55,6 +56,7 @@ from kasten_backend.vcs import begin_change, snapshot, write_ignores
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from pathlib import Path
 
     from kasten_backend.events import VaultEvent
 
@@ -214,6 +216,26 @@ class Page(BaseModel):
 
     html: str
     """The page's markup, untouched."""
+
+
+class AnkiImport(BaseModel):
+    """What one `.apkg` turned into."""
+
+    notes: list[str]
+    """Every note written, in the order the decks were named."""
+
+    cards: int
+    """How many cards arrived, counting every deck."""
+
+    dropped_media: int
+    """How many cards referenced an image or a sound that did not come with them.
+
+    Said out loud rather than swallowed. The media map in a current export is
+    zstd-compressed protobuf, which the standard library cannot read without the
+    schema, so a card that was a picture arrives as its caption and nothing else.
+    A number on screen is what tells you the deck needs its pictures putting back
+    by hand rather than leaving you to find the gap one card at a time.
+    """
 
 
 class SearchHit(BaseModel):
@@ -429,6 +451,54 @@ async def list_cards(
     """
     hits = await find_cards(settings.vault_path, None if archive else settings.archive_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.post("/api/anki", status_code=201)
+async def import_anki(
+    request: Request, settings: Annotated[Settings, Depends(get_settings)]
+) -> AnkiImport:
+    """Turn an Anki export into one markdown note per deck.
+
+    The bytes come as the raw body rather than as a multipart form, the way
+    `POST /api/assets/{path}` takes a book: one file, no fields beside it, and
+    no dependency on a form parser for a request that carries nothing to parse.
+
+    A deck already imported is refused rather than merged or overwritten. The
+    note it would land on is a note you may have answered fifty cards in, and
+    its schedules are in it; a second import is a thing to do into a fresh name.
+    """
+    body = await request.body()
+    if len(body) > ASSET_LIMIT_BYTES:
+        raise HTTPException(status_code=413, detail="That export is too large")
+
+    try:
+        decks = read_apkg(body)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    # Every path resolved and every collision found before anything is written,
+    # so an export whose fourth deck is already there leaves the first three
+    # unwritten rather than half-importing and reporting a failure.
+    targets: list[tuple[Path, str]] = []
+    for deck in decks:
+        note = resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md")
+        if note is None:
+            raise HTTPException(status_code=400, detail=f"The vault will not take {deck.name}")
+        if note.exists():
+            raise HTTPException(status_code=409, detail=f"{deck.name} is already in the vault")
+        targets.append((note, as_note(deck)))
+
+    written: list[str] = []
+    for note, text in targets:
+        note.parent.mkdir(parents=True, exist_ok=True)
+        create_note(note, stamp(text))
+        written.append(relative_path(settings.vault_path, note))
+
+    return AnkiImport(
+        notes=written,
+        cards=sum(len(deck.cards) for deck in decks),
+        dropped_media=sum(deck.dropped_media for deck in decks),
+    )
 
 
 @app.get("/api/events")

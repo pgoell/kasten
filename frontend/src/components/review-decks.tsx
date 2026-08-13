@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchCards } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { fetchCards, importAnki } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { type Deck, decksFrom } from "@/lib/review";
 
@@ -19,6 +20,9 @@ interface ReviewDecksProps {
  * only then.
  */
 export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
+  const [imported, setImported] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
   const { data: hits, isPending } = useQuery({
     queryKey: ["cards", archive],
     queryFn: () => fetchCards(archive),
@@ -37,6 +41,43 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
         </span>
         <span className="text-[11px] text-one-muted uppercase tracking-wider">{waiting} to go</span>
       </header>
+
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 border-one-line border-b px-3 text-[13px] text-one-muted hover:text-one-accent">
+        {/* A plain file input rather than a prompt of our own: the browser
+            already has a file picker, and this one has to work on a phone. */}
+        <input
+          type="file"
+          accept=".apkg"
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            // The value is cleared so picking the same file twice fires twice,
+            // which is what a failed import wants to let you retry.
+            event.target.value = "";
+            if (file === undefined) return;
+            setImported("Importing…");
+            void importAnki(file).then(
+              (done) => {
+                setImported(
+                  `${done.notes.length} deck${done.notes.length === 1 ? "" : "s"}, ${done.cards} cards` +
+                    (done.dropped_media > 0
+                      ? `, ${done.dropped_media} lost an image or a sound`
+                      : ""),
+                );
+                void queryClient.invalidateQueries({ queryKey: ["cards"] });
+                void queryClient.invalidateQueries({ queryKey: ["files"] });
+              },
+              (error: unknown) => {
+                setImported(error instanceof Error ? error.message : "the import failed");
+              },
+            );
+          }}
+        />
+        <span>Import an Anki deck</span>
+        {imported !== null && (
+          <span className="min-w-0 flex-1 truncate text-one-fg">{imported}</span>
+        )}
+      </label>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {isPending && <p className="text-one-muted text-[13px]">Reading the vault…</p>}
