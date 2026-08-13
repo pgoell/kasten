@@ -222,10 +222,12 @@ press over ssh. That config is baked into the image and read through
 container's home volume, which is what makes a session survive a restart.
 
 The shell runs in its own container with the vault mounted at `/vault`, beside
-jj, rg, git, Claude Code and codex. The two agents are fresh installs and sign
-themselves in inside the container, so the first one you start asks you to log
-in; nothing of your own home directory is in there, and the vault is the only
-thing the container shares with the machine. The session outlives the pane, the tab and
+jj, rg, git, Claude Code, codex and `dsh`, DeepSeek's harness. The three agents
+are fresh installs: Claude Code and codex sign themselves in inside the
+container, so the first one you start asks you to log in, and `dsh` reads a
+DeepSeek API key from the environment or `~/.dsh/.env` instead. Nothing of your
+own home directory is in there, and the vault is the only thing the container
+shares with the machine. The session outlives the pane, the tab and
 the browser, so closing the tab and coming back to the same name finds the same
 shell with its scrollback and whatever was still running in it. Closing the pane
 detaches a client; it does not kill the session.
