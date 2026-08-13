@@ -5,7 +5,7 @@
  * is the format PR 6 reads back, so the exactness is the point of the file.
  */
 
-import { addHighlight } from "@/lib/highlight";
+import { addHighlight, highlightAt, highlightBlocks } from "@/lib/highlight";
 
 /** A literature note before anything was taken out of the book. */
 const NOTE = "---\nid: one\n---\n# Designing Data-Intensive Applications\n";
@@ -14,6 +14,11 @@ const QUOTE = "Systems that tolerate faults are called fault-tolerant.";
 const SECOND = "A system that is reliable does what the user expects.";
 const CHAPTER = "Storage and Retrieval";
 const ID = "hl-a3f9c1";
+
+/** The one-based line holding `text`, which is how a case names a cursor. */
+function lineOf(note: string, text: string): number {
+  return note.split("\n").findIndex((line) => line.includes(text)) + 1;
+}
 
 /** The whole of `NOTE` with one highlight in it, whose quote is `lines`. */
 function quoted(...lines: string[]): string {
@@ -165,18 +170,231 @@ describe("addHighlight", () => {
 
 describe("reading a highlight back", () => {
   it("recovers the paragraphs character for character", () => {
-    // PR 6's half of the round trip, written as an assertion about the text
-    // rather than as a function: strip a leading `>` and one space after it
-    // from each quoted line, and a line left empty is the break between two
-    // paragraphs. Nothing in this pull request calls it.
     const note = addHighlight(NOTE, { text: `${QUOTE}\n\n${SECOND}`, chapter: CHAPTER }, ID);
-    const quote = note.split("\n").filter((line) => line.startsWith(">"));
 
-    const paragraphs = quote
-      .map((line) => line.replace(/^>( |$)/, ""))
-      .join("\n")
-      .split("\n\n");
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE, SECOND]);
+  });
+});
 
-    expect(paragraphs).toEqual([QUOTE, SECOND]);
+describe("highlightBlocks", () => {
+  // Every round trip below starts from paragraphs already in the shape the
+  // writer leaves them, single spaces and no ends, so `addHighlight`'s own
+  // normalising is the identity on them and no case carries a second copy of
+  // the writer's rule.
+  it("reads back the one paragraph the writer wrote", () => {
+    const text = "One paragraph, already collapsed.";
+    const blocks = highlightBlocks(addHighlight("", { text, chapter: CHAPTER }, ID));
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.quote).toEqual([text]);
+    expect(blocks[0]?.id).toBe(ID);
+  });
+
+  it("reads back the three paragraphs the writer wrote", () => {
+    const three = [QUOTE, SECOND, "Reliability means continuing to work correctly."];
+    const note = addHighlight(NOTE, { text: three.join("\n\n"), chapter: CHAPTER }, ID);
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual(three);
+  });
+
+  // The six the writer collapses on the way in, so these are not round trips:
+  // each names the paragraphs it expects. The first three guard the two sides
+  // agreeing on `\s`; the last three are the paragraph break.
+  it("reads a run of spaces back as one space", () => {
+    const note = addHighlight(
+      NOTE,
+      { text: "Systems that   tolerate faults.", chapter: CHAPTER },
+      ID,
+    );
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual(["Systems that tolerate faults."]);
+  });
+
+  it("reads a tab back as one space", () => {
+    const note = addHighlight(
+      NOTE,
+      { text: "Systems that\ttolerate faults.", chapter: CHAPTER },
+      ID,
+    );
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual(["Systems that tolerate faults."]);
+  });
+
+  it("reads a non-breaking space back as one space", () => {
+    const note = addHighlight(
+      NOTE,
+      { text: "Systems that tolerate faults.", chapter: CHAPTER },
+      ID,
+    );
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual(["Systems that tolerate faults."]);
+  });
+
+  it("reads a carriage return and a line feed as two paragraphs", () => {
+    const note = addHighlight(NOTE, { text: `${QUOTE}\r\n\r\n${SECOND}`, chapter: CHAPTER }, ID);
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE, SECOND]);
+  });
+
+  it("reads three newlines as two paragraphs", () => {
+    const note = addHighlight(NOTE, { text: `${QUOTE}\n\n\n${SECOND}`, chapter: CHAPTER }, ID);
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE, SECOND]);
+  });
+
+  it("reads one newline as two paragraphs", () => {
+    const note = addHighlight(NOTE, { text: `${QUOTE}\n${SECOND}`, chapter: CHAPTER }, ID);
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE, SECOND]);
+  });
+});
+
+describe("a block a hand has been over", () => {
+  // All pins against the rule above, each named with what it guards. The
+  // format promises a hand edit survives, so each of these is a note somebody
+  // typed in rather than a note the writer left.
+  const WRITTEN = addHighlight(NOTE, { text: QUOTE, chapter: CHAPTER }, ID);
+
+  it("still parses with the blank line left as a line of spaces", () => {
+    const note = WRITTEN.replace(`${QUOTE}\n\n`, `${QUOTE}\n   \n`);
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE]);
+  });
+
+  it("still parses with the anchor line left trailing spaces", () => {
+    expect(highlightBlocks(WRITTEN.replace(`^${ID}`, `^${ID}  `))[0]?.quote).toEqual([QUOTE]);
+  });
+
+  it("joins a hand wrapped quote line back into one paragraph", () => {
+    const note = WRITTEN.replace(
+      `> ${QUOTE}`,
+      "> Systems that tolerate faults\n> are called fault-tolerant.",
+    );
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE]);
+  });
+
+  it("collapses a hand doubled space inside a line", () => {
+    const note = WRITTEN.replace("tolerate faults", "tolerate  faults");
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE]);
+  });
+
+  it("gives back the caret a paragraph of the book's own carried", () => {
+    const note = addHighlight(NOTE, { text: "> a quotation in the book", chapter: CHAPTER }, ID);
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual(["> a quotation in the book"]);
+  });
+
+  it("gives back a paragraph that was nothing but a caret", () => {
+    const note = addHighlight(NOTE, { text: ">", chapter: CHAPTER }, ID);
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([">"]);
+  });
+
+  it("names the first and last line of the block", () => {
+    expect(highlightBlocks(WRITTEN)[0]).toMatchObject({
+      from: lineOf(WRITTEN, QUOTE),
+      to: lineOf(WRITTEN, ID),
+    });
+  });
+
+  it("is still a block away from the Highlights heading", () => {
+    // The anchor is the whole test, so a block moved elsewhere in the note
+    // still works and nothing looks for the heading.
+    const note = `${NOTE}\n## Notes\n\n> ${QUOTE}\n\n${CHAPTER} ^${ID}\n`;
+
+    expect(highlightBlocks(note)[0]?.quote).toEqual([QUOTE]);
+  });
+
+  it("reads two highlights back in the order the note holds them", () => {
+    const note = addHighlight(WRITTEN, { text: SECOND, chapter: "Replication" }, "hl-b2c4d6");
+
+    expect(highlightBlocks(note).map((block) => block.quote)).toEqual([[QUOTE], [SECOND]]);
+  });
+});
+
+describe("a block edited past recognition", () => {
+  /** One highlight as the writer left it, for a hand edit to take a part off. */
+  const WRITTEN = addHighlight(NOTE, { text: QUOTE, chapter: CHAPTER }, ID);
+
+  it("is not a block with the anchor line deleted", () => {
+    expect(highlightBlocks(WRITTEN.replace(`${CHAPTER} ^${ID}\n`, ""))).toEqual([]);
+  });
+
+  it("is not a block with the blank line deleted", () => {
+    expect(highlightBlocks(WRITTEN.replace(`${QUOTE}\n\n`, `${QUOTE}\n`))).toEqual([]);
+  });
+
+  it("is not a block with the quoted run deleted", () => {
+    expect(highlightBlocks(WRITTEN.replace(`> ${QUOTE}\n`, ""))).toEqual([]);
+  });
+
+  it("is not a block with five hex characters in the id", () => {
+    expect(highlightBlocks(WRITTEN.replace(ID, "hl-a3f9c"))).toEqual([]);
+  });
+
+  it("is not a block with the id retyped in capitals", () => {
+    expect(highlightBlocks(WRITTEN.replace(ID, "hl-A3F9C1"))).toEqual([]);
+  });
+
+  it("is not a block with the run edited down to a lone caret", () => {
+    // An empty quote is a question the finder should never be asked.
+    expect(highlightBlocks(WRITTEN.replace(`> ${QUOTE}`, ">"))).toEqual([]);
+  });
+
+  it("answers null for a cursor inside a run edited down to a lone caret", () => {
+    const note = WRITTEN.replace(`> ${QUOTE}`, ">");
+
+    expect(highlightAt(note, lineOf(note, ">"))).toBeNull();
+  });
+
+  it("reads a plain blockquote with no anchor under it as no block", () => {
+    // The case that keeps `<CR>` moving down: Enter reaches the same reader
+    // `gf` does, so a rule firing on any blockquote would turn Enter on every
+    // quoted paragraph in the vault into "open a book".
+    const note = `${NOTE}\n> a quotation somebody wrote down\n\nAnd a plain line under it\n`;
+
+    expect(highlightBlocks(note)).toEqual([]);
+  });
+});
+
+describe("highlightAt", () => {
+  const WRITTEN = addHighlight(NOTE, { text: QUOTE, chapter: CHAPTER }, ID);
+
+  // The four places a cursor can sit in a block, of which a one paragraph
+  // block has three lines: the chapter words and the anchor share the last.
+  it("answers the quote for a cursor on the quote line", () => {
+    expect(highlightAt(WRITTEN, lineOf(WRITTEN, QUOTE))).toEqual([QUOTE]);
+  });
+
+  it("answers the quote for a cursor on the blank line", () => {
+    expect(highlightAt(WRITTEN, lineOf(WRITTEN, QUOTE) + 1)).toEqual([QUOTE]);
+  });
+
+  it("answers the quote for a cursor on the chapter and anchor line", () => {
+    expect(highlightAt(WRITTEN, lineOf(WRITTEN, ID))).toEqual([QUOTE]);
+  });
+
+  it("answers the quote for a cursor on the second line of a two paragraph run", () => {
+    const note = addHighlight(NOTE, { text: `${QUOTE}\n\n${SECOND}`, chapter: CHAPTER }, ID);
+
+    expect(highlightAt(note, lineOf(note, SECOND))).toEqual([QUOTE, SECOND]);
+  });
+
+  it("answers null above the first block", () => {
+    expect(highlightAt(WRITTEN, lineOf(WRITTEN, "## Highlights"))).toBeNull();
+  });
+
+  it("answers null below the last block", () => {
+    expect(highlightAt(WRITTEN, WRITTEN.split("\n").length)).toBeNull();
+  });
+
+  it("answers null on the blank line between two blocks", () => {
+    // pin: a rule that treated any blank line as some block's own would take
+    // the gap between two highlights for part of the second.
+    const note = addHighlight(WRITTEN, { text: SECOND, chapter: "Replication" }, "hl-b2c4d6");
+
+    expect(highlightAt(note, lineOf(note, SECOND) - 1)).toBeNull();
   });
 });
