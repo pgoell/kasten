@@ -89,6 +89,7 @@ function Harness({
         importNotes: () => {},
         exportNote: () => {},
         openExam: () => {},
+        openReview: () => {},
         createTab: () => {},
         openTerminal: () => {},
         importPage: () => {},

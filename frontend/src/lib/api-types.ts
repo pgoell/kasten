@@ -198,6 +198,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cards
+         * @description Find every line in the vault that could be part of a flashcard.
+         *
+         *     Candidate lines, not cards. Which of them is a question, which note is a
+         *     deck and which card is due are all read on the client, off the same parser
+         *     the review pane draws a card with, so the vault has one reader of the format
+         *     rather than two in two languages.
+         *
+         *     Answers in search's shape, so the client can open the note a card is in on
+         *     the line it sits on.
+         *
+         *     `archive` walks the archive folder too, and is off for the reason it is off
+         *     on a search: moving a deck into the archive is how you stop being asked
+         *     about it, and nothing else about the note changes.
+         */
+        get: operations["list_cards_api_cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/anki": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Anki
+         * @description Turn an Anki export into one markdown note per deck.
+         *
+         *     The bytes come as the raw body rather than as a multipart form, the way
+         *     `POST /api/assets/{path}` takes a book: one file, no fields beside it, and
+         *     no dependency on a form parser for a request that carries nothing to parse.
+         *
+         *     A deck already imported is refused rather than merged or overwritten. The
+         *     note it would land on is a note you may have answered fifty cards in, and
+         *     its schedules are in it; a second import is a thing to do into a fresh name.
+         */
+        post: operations["import_anki_api_anki_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -517,6 +577,18 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AnkiImport
+         * @description What one `.apkg` turned into.
+         */
+        AnkiImport: {
+            /** Notes */
+            notes: string[];
+            /** Cards */
+            cards: number;
+            /** Dropped Media */
+            dropped_media: number;
+        };
+        /**
          * Folder
          * @description One folder, as the vault spells it.
          *
@@ -814,6 +886,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cards_api_cards_get: {
+        parameters: {
+            query?: {
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_anki_api_anki_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnkiImport"];
                 };
             };
         };

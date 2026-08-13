@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     nothing is left out of anything.
     """
 
+    flashcards_path: str = "03 Flashcards"
+    """The folder an imported Anki deck is written into.
+
+    A setting rather than a constant for the reason `archive_path` is one: the
+    number in front is one vault's filing convention and not kasten's. Nothing
+    else in kasten knows this folder exists. A deck written by hand lives
+    wherever you put it, and only the import has to be told where to start.
+    """
+
     trash_days: int = 30
     """How long a deleted note waits in `.trash` before it is dropped for good.
 

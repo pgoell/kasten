@@ -67,7 +67,7 @@ const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
   { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
   { title: "Notes", keys: ["cf", "rf", "df", "du", "cw", "cm", "w"] },
   { title: "Find", keys: ["ff", "fg", "ft"] },
-  { title: "Go to", keys: ["gd", "gw", "gm", "gq", "gy", "gb", "go", "gr", "ge", "gt"] },
+  { title: "Go to", keys: ["gd", "gw", "gm", "gq", "gy", "gb", "go", "gr", "ge", "gs", "gt"] },
   { title: "Todos", keys: ["x", "i", "so", "sp", "sx", "sb", "sr"] },
 ];
 

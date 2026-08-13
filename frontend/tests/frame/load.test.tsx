@@ -74,6 +74,7 @@ const INERT: TreeCommands = {
   importNotes: vi.fn(),
   exportNote: vi.fn(),
   openExam: vi.fn(),
+  openReview: vi.fn(),
   renameFolder: () => {},
   createTab: () => {},
   openTerminal: () => {},

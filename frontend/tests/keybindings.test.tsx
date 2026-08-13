@@ -34,6 +34,7 @@ function stubCommands() {
     uploadBook: vi.fn(),
     importNotes: vi.fn(),
     exportNote: vi.fn(),
+    openReview: vi.fn(),
     openExam: vi.fn(),
     focusTree: vi.fn(),
     createTab: vi.fn(),
@@ -97,6 +98,20 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "q" });
 
     expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the review command on space then g then s", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "g" });
+    fireEvent.keyDown(editor, { key: "s" });
+
+    expect(commands.openReview).toHaveBeenCalledTimes(1);
+    // `gr` is the book's and stays the book's. The two are one keystroke apart
+    // and this is the assertion that keeps them that way.
+    expect(commands.openBook).not.toHaveBeenCalled();
   });
 
   it("runs the book command on space then g then r", () => {

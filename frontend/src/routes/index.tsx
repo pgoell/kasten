@@ -13,6 +13,7 @@ import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
+import { ReviewPane } from "@/components/review-pane";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
@@ -58,6 +59,7 @@ import {
   openExamInFocused,
   openImageInFocused,
   openInFocused,
+  openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
   removeFocused,
@@ -1168,6 +1170,7 @@ function Home() {
           pane.todos === true ||
           pane.book !== undefined ||
           pane.exam !== undefined ||
+          pane.review === true ||
           pane.image !== undefined
         ) {
           moveTo(clearFocused);
@@ -1336,6 +1339,13 @@ function Home() {
         const note = pane.path;
         if (await saveFirst()) moveTo((previous) => openExamInFocused(previous, note));
       },
+      // Saved first for the reason `openExam` is: this replaces the focused
+      // pane, so text still waiting would be written to a pane the autosave no
+      // longer follows. No note is named, unlike the exam: the pane opens on
+      // the list of decks and picks its own.
+      openReview: async () => {
+        if (await saveFirst()) moveTo(openReviewInFocused);
+      },
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -1377,6 +1387,7 @@ function Home() {
       pane.todos,
       pane.book,
       pane.exam,
+      pane.review,
       pane.image,
       data,
       queryClient,
@@ -1487,6 +1498,12 @@ function Home() {
                     // something makes it render, which is what the event stream
                     // does the moment anything is written.
                     today={readClock(new Date()).date}
+                  />
+                ) : shown.review === true ? (
+                  <ReviewPane
+                    commands={commands}
+                    onClose={() => void commands.closeNote()}
+                    focusSignal={focused ? focusSignal : 0}
                   />
                 ) : shown.exam !== undefined ? (
                   <ExamPane

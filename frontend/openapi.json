@@ -232,6 +232,70 @@
         }
       }
     },
+    "/api/cards": {
+      "get": {
+        "summary": "List Cards",
+        "description": "Find every line in the vault that could be part of a flashcard.\n\nCandidate lines, not cards. Which of them is a question, which note is a\ndeck and which card is due are all read on the client, off the same parser\nthe review pane draws a card with, so the vault has one reader of the format\nrather than two in two languages.\n\nAnswers in search's shape, so the client can open the note a card is in on\nthe line it sits on.\n\n`archive` walks the archive folder too, and is off for the reason it is off\non a search: moving a deck into the archive is how you stop being asked\nabout it, and nothing else about the note changes.",
+        "operationId": "list_cards_api_cards_get",
+        "parameters": [
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "title": "Response List Cards Api Cards Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/anki": {
+      "post": {
+        "summary": "Import Anki",
+        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is refused rather than merged or overwritten. The\nnote it would land on is a note you may have answered fifty cards in, and\nits schedules are in it; a second import is a thing to do into a fresh name.",
+        "operationId": "import_anki_api_anki_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnkiImport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events": {
       "get": {
         "summary": "Stream Events",
@@ -734,6 +798,33 @@
   },
   "components": {
     "schemas": {
+      "AnkiImport": {
+        "properties": {
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "cards": {
+            "type": "integer",
+            "title": "Cards"
+          },
+          "dropped_media": {
+            "type": "integer",
+            "title": "Dropped Media"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notes",
+          "cards",
+          "dropped_media"
+        ],
+        "title": "AnkiImport",
+        "description": "What one `.apkg` turned into."
+      },
       "Folder": {
         "properties": {
           "path": {

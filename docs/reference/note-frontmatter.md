@@ -45,7 +45,7 @@ Anything else in the block is copied through a save unread, in the order it was
 written, nested lists and mappings included. kasten neither adds nor removes it.
 Deleting one of your own fields is an edit like any other and it stays deleted.
 
-Two things kasten writes land in this half of the block.
+Three things kasten writes land in this half of the block.
 [An imported web page](/reference/editor-keys.md#importing-a-web-page) arrives
 carrying `source`, and `author` and `published` where the page named them. They
 are written once, by the client, in the text it hands to `POST`, and they are
@@ -60,6 +60,13 @@ The client writes this one too, into the text it hands to `PUT`, so the same
 rule holds: deleting the line loses a bookmark and nothing else, and
 [Books in the vault](/explanation/books-in-the-vault.md#how-it-keeps-your-place)
 says what that costs.
+
+The third is `sr-due`, `sr-interval` and `sr-ease`, which
+[a note marked for review](/reference/flashcard-format.md#a-whole-note-for-review)
+carries. They hold when the note comes back, the days between this reading and
+that, and how fast the gap grows. The client writes these too, and the same rule
+holds: `sr-due` typed by hand is enough to schedule a note, and deleting all
+three takes the note out of the review and nothing else.
 
 The block is not parsed as YAML. Three keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from

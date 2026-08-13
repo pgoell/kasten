@@ -12,6 +12,7 @@ import {
   openBookBeside,
   openImageInFocused,
   openInFocused,
+  openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
   panesOf,
@@ -375,5 +376,24 @@ describe("a book in a pane beside its note", () => {
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(reader);
+  });
+});
+
+describe("openReviewInFocused", () => {
+  it("puts the review in the focused pane and clears what it held", () => {
+    const layout = openReviewInFocused(openInFocused(emptyLayout("a"), "notes/borges.md"));
+
+    const pane = focusedPane(layout);
+    expect(pane?.review).toBe(true);
+    expect(pane?.path).toBeUndefined();
+  });
+
+  it("leaves every other pane alone", () => {
+    const split = splitFocused(emptyLayout("a"), "row");
+
+    const layout = openReviewInFocused(split);
+
+    expect(tabPanes(layout).filter((pane) => pane.review === true)).toHaveLength(1);
+    expect(tabPanes(layout)).toHaveLength(2);
   });
 });
