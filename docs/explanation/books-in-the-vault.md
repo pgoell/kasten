@@ -195,6 +195,46 @@ It is kasten's own bookmark rather than a citation: one line per note, written b
 the client, read by the client, and worth nothing to anybody reading the note.
 Losing it costs a page. Losing a passage costs the passage.
 
+## How a highlight is drawn again
+
+Open a book and the passages you took are drawn on the page, in the app's
+accent colour. Nothing was stored to make that work: the pane reads the note's
+blocks, searches the chapter on screen for each quote's words, and draws what
+it finds. The words are the anchor here as everywhere else, so a highlight you
+edited by hand is still found and a highlight you deleted stops being drawn the
+moment the note is saved.
+
+Only the chapter on screen is drawn on, which is not a choice anybody made:
+foliate hands out one section at a time and there is nothing else to draw on.
+The pass runs when a section arrives and when the note changes, and neither
+covers the other.
+
+Searching sounds expensive and is not, because the pass builds one collapsed
+string per chapter and calls `indexOf` for every quote against it. Measured in
+Chromium against a real 26 section book, with two hundred highlights all
+planted in its biggest chapter: 3.0ms to find all two hundred in one walk, and
+7.8ms to draw them, so a page turn into the worst chapter anybody has costs
+about 11ms. The library's own search does the same job by sliding a grapheme
+window and asking a collator at every position, which costs 15.9 seconds for
+the same two hundred quotes over the same chapter. That is the measurement that
+removes the last argument for storing a cfi.
+
+Two costs come with a record made of words, and both are accepted rather than
+fixed. The same sentence twice in a chapter resolves to the first one. A phrase
+the book repeats in another chapter is drawn there too, as a highlight you
+never took. The fix for either is a second selector beside the quote, which is
+the thing this design refuses, so they are written down here instead.
+
+If drawing ever does get slow the answer is to draw less of the book. It
+already draws one section, so that means fewer quotes rather than fewer pages.
+
+`gf` on a highlight block goes the other way: it walks the book's sections in
+order, builds each one's document, and takes the reader to the first section
+holding the quote. Measured on the same book, 76ms to walk all 26 sections and
+find nothing. A cfi is built there too, from the range the walk just found, and
+thrown away with the jump: it is how foliate is told where to go, not something
+the note keeps.
+
 ## What the reader does to the URL
 
 `?note=` names the note in the **focused** pane, and opening a book leaves the

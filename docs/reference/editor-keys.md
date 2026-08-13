@@ -374,10 +374,17 @@ note beside the book, as a blockquote, a blank line, then the chapter it was
 selected in and an anchor. The selection is the whole of what a highlight is
 found by later, so there is nothing else in the note to keep in step and
 deleting a highlight is deleting the lines.
-[Highlight format](highlight-format.md) states the block, and PR 6 is written
-against that page. A fixed-layout book gets neither the button nor the key: a
-spread shows two pages at once and the reader would take the passage from the
-wrong one.
+[Highlight format](highlight-format.md) states the block. A fixed-layout book
+gets neither the button nor the key: a spread shows two pages at once and the
+reader would take the passage from the wrong one.
+
+Opening a book draws the note's highlights on the page, in the app's accent
+colour, for every passage the chapter on screen holds. Paging into another
+chapter draws its own as it arrives. Delete a highlight in the editor and save,
+and it stops being drawn without you touching the reader; edit a quote's
+wording so the book no longer holds it, and nothing is drawn for it and nothing
+complains. A fixed-layout book is drawn on not at all, foliate offering nothing
+to draw on there.
 
 The write goes out whether or not the note is the pane you are typing in. It is
 a press, so you asked for it, and a buffer with unsaved text in it says
@@ -765,7 +772,7 @@ other mark is hidden, and `i` on that line hands them back.
 
 | Key | Does | Mode |
 | --- | --- | --- |
-| `gf` | Open the note the wikilink names | normal |
+| `gf` | Open the note the wikilink names, or the book a highlight came from | normal |
 | Enter | The same, one key | normal |
 | Ctrl+click | The same, with the mouse | any |
 
@@ -773,6 +780,19 @@ other mark is hidden, and `i` on that line hands them back.
 in the name will do, the last letter included: the closing `]]` is hidden, so
 the cursor cannot rest between the name and what follows it, and both edges
 count as on the link.
+
+On a highlight block it opens the book instead, at the passage the block
+quotes. Four places in a block answer: the quote line, the blank line under it,
+the chapter words and the anchor, the last two sharing a line. The book opens
+in a pane beside the note when nothing has it open, and where a pane is already
+reading it the cursor moves there rather than a second reader opening. Where
+the book no longer holds the quote's words, which is what editing a quote by
+hand does, one sentence goes to the foot of the window and the reader stays
+where it was. Enter does the same thing `gf` does, here as on a link.
+
+A plain blockquote is not a highlight and neither key opens anything on one:
+the anchor line is what tells the two apart.
+[Highlight format](highlight-format.md) states the rule.
 
 Enter does the same on one key. Off a link it does what vim does with a bare
 `<CR>`, which is move to the first word of the next line, so nothing is lost on
