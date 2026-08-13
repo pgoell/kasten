@@ -30,6 +30,71 @@ export function deferred(): Deferred {
 /** What `open` builds, and what the pane hangs its `relocate` listener on. */
 interface FakeRenderer extends EventTarget {
   setStyles?: (css: string) => void;
+  getContents?: () => { index: number; doc: Document; overlayer?: FakeOverlayer }[];
+}
+
+/** foliate's overlay, as far as the pane is concerned: two calls and a record of them. */
+export interface FakeOverlayer {
+  /** Every key added, in order, which is what the drawing cases assert on. */
+  added: string[];
+  /** Every key removed, including the ones an overlay never held. */
+  removed: string[];
+  /** What the overlay is holding now, the way the real one's map holds it. */
+  keys: string[];
+  add(key: string, range: Range, draw: unknown, options: object): void;
+  remove(key: string): void;
+}
+
+function fakeOverlayer(): FakeOverlayer {
+  return {
+    added: [],
+    removed: [],
+    keys: [],
+    add(key) {
+      this.added.push(key);
+      // Replacing what it held under that key, which is what the real
+      // `Overlayer.add` does (`overlayer.js:18`).
+      if (!this.keys.includes(key)) this.keys.push(key);
+    },
+    remove(key) {
+      this.removed.push(key);
+      this.keys = this.keys.filter((held) => held !== key);
+    },
+  };
+}
+
+/**
+ * A section document holding one paragraph element per string.
+ *
+ * With a newline and an indent between the elements, the way a real chapter
+ * file is written, so a quote spanning two paragraphs has whitespace to
+ * collapse.
+ */
+export function documentOf(...paragraphs: string[]): Document {
+  const doc = document.implementation.createHTMLDocument("section");
+  for (const text of paragraphs) {
+    const element = doc.createElement("p");
+    element.textContent = text;
+    doc.body.append(doc.createTextNode("\n  "), element);
+  }
+  return doc;
+}
+
+/** One section of the book's spine, as the pane walks it looking for a passage. */
+export interface FakeSection {
+  createDocument?: () => Promise<Document>;
+}
+
+/**
+ * The book's spine, one entry per section.
+ *
+ * A `null` entry stands for a section foliate cannot open: it carries no
+ * `createDocument`, and foliate's own book walk skips those (`view.js:533`).
+ */
+export function sectionsOf(...sections: (string[] | null)[]): FakeSection[] {
+  return sections.map((paragraphs) =>
+    paragraphs === null ? {} : { createDocument: () => Promise.resolve(documentOf(...paragraphs)) },
+  );
 }
 
 export class FakeView extends HTMLElement {
@@ -67,10 +132,12 @@ export class FakeView extends HTMLElement {
    * foliate's bookkeeping rather than standing in for it.
    */
   static toc: TocItem[] | null | undefined = undefined;
+  /** The spine the next view's book carries, which a case hands in whole. */
+  static sections: FakeSection[] = [];
 
   opened: File | null = null;
   /** What `open` builds. Absent until it has, the way the real view's is. */
-  book: { toc: TocItem[] | null | undefined } | undefined = undefined;
+  book: { toc: TocItem[] | null | undefined; sections: FakeSection[] } | undefined = undefined;
   started = false;
   /** How many times `close` was called, which the teardown cases count. */
   closes = 0;
@@ -110,15 +177,39 @@ export class FakeView extends HTMLElement {
   asked: { index: number; range: Range | null }[] = [];
   /** The document foliate would hand out per section. Tests fire their events on it. */
   section: Document = document.implementation.createHTMLDocument("section");
+  /** The overlay hung on the section on screen, absent until `attach` has run. */
+  overlayer: FakeOverlayer | undefined = undefined;
+  /** Which section the renderer says it is showing, which `emitCreateOverlay` sets. */
+  index = 0;
 
   constructor() {
     super();
     FakeView.made.push(this);
     this.renderer = new EventTarget();
+    this.renderer.getContents = () => [
+      { index: this.index, doc: this.section, overlayer: this.overlayer },
+    ];
     if (FakeView.withStyles)
       this.renderer.setStyles = (css: string) => {
         this.styles = css;
       };
+  }
+
+  /**
+   * A section arriving with an overlay about to be hung on it.
+   *
+   * **The event goes out before the overlay is attached**, which is the real
+   * view's own order: `#createOverlayer` builds the overlay, emits
+   * `create-overlay` (`view.js:418`) and returns, and only then does the
+   * handler at `view.js:264-265` hand it to `attach`. A fake that attached
+   * first would pass a synchronous draw pass that cannot work in a browser.
+   */
+  emitCreateOverlay(index = 0): void {
+    const overlayer = fakeOverlayer();
+    this.index = index;
+    this.overlayer = undefined;
+    this.dispatchEvent(new CustomEvent("create-overlay", { detail: { index } }));
+    this.overlayer = overlayer;
   }
 
   getCFI(index: number, range: Range | null): string {
@@ -157,7 +248,7 @@ export class FakeView extends HTMLElement {
     // `makeBook` has resolved (`view.js:233-237`). That window is as long as
     // unzipping a 30MB epub takes, and it is a window a test has to be able to
     // press a key in.
-    this.book = { toc: FakeView.toc };
+    this.book = { toc: FakeView.toc, sections: FakeView.sections };
   }
 
   async init(options: object): Promise<void> {
@@ -252,6 +343,7 @@ export function resetFoliateFake(): void {
   FakeView.navigatesNowhere = false;
   FakeView.cfis = [];
   FakeView.toc = undefined;
+  FakeView.sections = [];
 }
 
 /** The view the pane built, which is the last one made. */

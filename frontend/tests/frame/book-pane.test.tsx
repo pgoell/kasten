@@ -226,6 +226,7 @@ async function drawBook(note = "", book = plainUrl) {
         onMoved={() => {}}
         onLeaving={() => {}}
         onTake={onTake}
+        onNotice={() => {}}
       />
     </QueryClientProvider>,
   );

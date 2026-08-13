@@ -4,7 +4,14 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { ASSET_LIMIT_BYTES } from "@/lib/api";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
-import { defineFoliateFake, FakeView, lastView, resetFoliateFake, selectIn } from "./foliate-fake";
+import {
+  defineFoliateFake,
+  FakeView,
+  lastView,
+  resetFoliateFake,
+  sectionsOf,
+  selectIn,
+} from "./foliate-fake";
 
 defineFoliateFake();
 
@@ -2003,5 +2010,144 @@ describe("looking at an image", () => {
 
     app.expand("99 Misc");
     expect(app.tree().textContent).toContain("another.png");
+  });
+});
+
+describe("opening a highlight's book with gf", () => {
+  const LIT = "20 Literature/DDIA.md";
+  const PASSAGE = "Systems that tolerate faults are called fault-tolerant.";
+  /** A note beginning with a highlight block, so the cursor opens on the quote line. */
+  const HELD = `> ${PASSAGE}\n\nSection 1 ^hl-a3f9c1\n`;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue([LIT, "index.md"]);
+    fetchNote.mockResolvedValue(HELD);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    resetFoliateFake();
+    // Without a section holding the words the walk finds nothing and calls
+    // `onNotice` instead of navigating, which every case below would pass over.
+    FakeView.sections = sectionsOf([PASSAGE]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  /** Open the literature note, with the cursor on its first line. */
+  async function opened() {
+    const app = await renderApp();
+    await settle();
+    // The tree opens folded, so the note's row is not drawn until its folder is.
+    app.expand("20 Literature");
+    await settle();
+    app.click(LIT);
+    await settle();
+    return app;
+  }
+
+  /**
+   * Press `gf` where the cursor opens, which is the block's quote line.
+   *
+   * No motion first. That the other three places in a block answer the same is
+   * pinned in `editor.test.tsx`, where the same editor runs on a real clock:
+   * `j` under this file's fake timers leaves the view taking no further keys.
+   */
+  async function follows(app: Awaited<ReturnType<typeof opened>>) {
+    app.press("g");
+    app.press("f");
+    await settle();
+  }
+
+  /** The vault reports a write nobody in this tab made, which is the conflict. */
+  function somebodyElseWrote() {
+    act(() => stream().send({ path: LIT, change: "written", digest: "a".repeat(64) }));
+  }
+
+  it("splits a reader beside the note and takes it to the passage", async () => {
+    const app = await opened();
+
+    await follows(app);
+    expect(app.panes()).toBe(2);
+    expect(app.reader()).not.toBeNull();
+    expect(lastView().gone).toHaveLength(1);
+  });
+
+  it("writes no seek while the note stands conflicted", async () => {
+    // `moveTo` refuses the key, and a seek set anyway would arm a jump in the
+    // reader that is already open for a press that was refused.
+    const app = await opened();
+    app.leader("g", "r");
+    await settle();
+    app.leader("o");
+    await settle();
+    // Typed and undone, so the buffer is one the autosave is holding text for
+    // while the block is exactly as the writer left it. That waiting text is
+    // what makes the vault's write a conflict.
+    app.press("x");
+    app.press("u");
+    somebodyElseWrote();
+    await settle();
+
+    await follows(app);
+
+    expect(lastView().gone).toEqual([]);
+  });
+
+  it("hands the passage over once, and arms nothing for the next reader", async () => {
+    // Without the clearing, a reader opened an hour later mounts holding a seek
+    // nobody pressed a key for, over the bookmark PR 2 exists to keep.
+    const app = await opened();
+    await follows(app);
+    expect(lastView().gone).toHaveLength(1);
+
+    // Close the reader and open the book again the way `<leader>gr` does. The
+    // focus is left on the emptied pane, which holds no note, so it goes back
+    // to the note's pane first.
+    app.leader("q");
+    await settle();
+    app.leader("o");
+    await settle();
+    app.leader("g", "r");
+    await settle();
+    expect(FakeView.made).toHaveLength(2);
+    expect(lastView().gone).toEqual([]);
+  });
+
+  it("moves to the reader already open rather than making a second", async () => {
+    // pin: `openBookBeside` focuses the pane already reading that note.
+    const app = await opened();
+    app.leader("g", "r");
+    await settle();
+    app.leader("o");
+    await settle();
+
+    await follows(app);
+
+    expect(app.panes()).toBe(2);
+    expect(FakeView.made).toHaveLength(1);
+  });
+
+  it("clears the notice the way every other key does", async () => {
+    // pin: the press clears it, which is the rule PR 4 settled.
+    const app = await opened();
+    uploadAsset.mockRejectedValue(new Error("A book is already there"));
+    app.leader("c", "b");
+    app.choose(new File(["a book"], "Talk Like TED.epub"));
+    await settle();
+    expect(app.notice()).toBe("A book is already there");
+
+    await follows(app);
+
+    expect(app.notice()).toBeNull();
   });
 });

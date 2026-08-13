@@ -28,6 +28,10 @@ function deleteCurrentLine(container: HTMLElement) {
   return content.textContent;
 }
 
+/** A passage a note took out of a book, and the block that carries it. */
+const PASSAGE = "Systems that tolerate faults are called fault-tolerant.";
+const HIGHLIGHT = `> ${PASSAGE}\n\nStorage and Retrieval ^hl-a3f9c1`;
+
 describe("Editor", () => {
   it("starts in vim normal mode, so keys act as commands", () => {
     const { container } = render(<Editor initialDoc={"line one\nline two"} />);
@@ -199,6 +203,122 @@ describe("Editor", () => {
     fireEvent.keyDown(content, { key: "f" });
 
     expect(onFollow).not.toHaveBeenCalled();
+  });
+
+  it("opens the highlight block under the cursor on gf", () => {
+    const onOpenHighlight = vi.fn();
+    const { container } = render(
+      <Editor initialDoc={HIGHLIGHT} onOpenHighlight={onOpenHighlight} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onOpenHighlight).toHaveBeenCalledWith([PASSAGE]);
+  });
+
+  it.each([
+    ["the blank line", ["j"]],
+    ["the chapter words", ["j", "j"]],
+    ["the anchor", ["j", "j", "$"]],
+  ])("opens the block from a cursor on %s", (_place, keys) => {
+    // pin: all four places answer the same, because the rule reads the block's
+    // own range rather than the line it was handed. A one paragraph block has
+    // three lines, the chapter words and the anchor sharing the last.
+    const onOpenHighlight = vi.fn();
+    const { container } = render(
+      <Editor initialDoc={HIGHLIGHT} onOpenHighlight={onOpenHighlight} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    for (const key of keys) fireEvent.keyDown(content, { key });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onOpenHighlight).toHaveBeenCalledWith([PASSAGE]);
+  });
+
+  it("opens nothing on gf in a block whose anchor is gone", () => {
+    // pin: the anchor line is what tells a highlight from a quotation.
+    const onOpenHighlight = vi.fn();
+    const { container } = render(
+      <Editor
+        initialDoc={`> ${PASSAGE}\n\nStorage and Retrieval`}
+        onOpenHighlight={onOpenHighlight}
+      />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onOpenHighlight).not.toHaveBeenCalled();
+  });
+
+  it("follows a wikilink written into a quote line rather than the block", () => {
+    // pin: the readers are tried in this order, and a link under the cursor is
+    // a link even inside a quote.
+    const onFollow = vi.fn();
+    const onOpenHighlight = vi.fn();
+    const { container } = render(
+      <Editor
+        initialDoc={"> see [[borges]] now\n\nStorage and Retrieval ^hl-a3f9c1"}
+        onFollow={onFollow}
+        onOpenHighlight={onOpenHighlight}
+      />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "w" });
+    fireEvent.keyDown(content, { key: "w" });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).toHaveBeenCalledWith("borges");
+    expect(onOpenHighlight).not.toHaveBeenCalled();
+  });
+
+  it("stays put on gf over a block in an editor handed no callback", () => {
+    // pin: `follow` answers true either way, which swallows the key rather
+    // than throwing. The only editor with no callback is the empty pane.
+    const { container } = render(<Editor initialDoc={HIGHLIGHT} />);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(deleteCurrentLine(container)).toBe("Storage and Retrieval ^hl-a3f9c1");
+  });
+
+  it("opens the block on Enter, the way it opens a link", () => {
+    const onOpenHighlight = vi.fn();
+    const { container } = render(
+      <Editor initialDoc={HIGHLIGHT} onOpenHighlight={onOpenHighlight} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "Enter", keyCode: 13 });
+
+    expect(onOpenHighlight).toHaveBeenCalledWith([PASSAGE]);
+  });
+
+  it("moves the way vim moves on Enter in a plain blockquote", () => {
+    // pin: the case the anchor line exists for. Enter reaches the same reader
+    // `gf` does, so a rule firing on any blockquote would turn Enter on every
+    // quoted paragraph in the vault into "open a book".
+    const onOpenHighlight = vi.fn();
+    const { container } = render(
+      <Editor initialDoc={"> a quotation\n  second line"} onOpenHighlight={onOpenHighlight} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "Enter", keyCode: 13 });
+
+    expect(onOpenHighlight).not.toHaveBeenCalled();
+    // The `>` is decorated away by the live preview, so what is left on screen
+    // is the quotation's own words.
+    expect(deleteCurrentLine(container)).toBe("a quotation");
   });
 
   it("tears the view down on unmount", () => {

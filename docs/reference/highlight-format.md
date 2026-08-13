@@ -104,15 +104,35 @@ says why a quote is the anchor.
 
 ## Reading a highlight back
 
-One block is a run of lines opening with `>`, then a blank line, then a line
-ending in the anchor.
+One block is three parts, in order: a run of one or more lines each opening
+with `>`, then one line that is blank, then one line ending in `^hl-` and six
+lowercase hexadecimal characters. Trailing whitespace on the anchor line is
+ignored, and a line of spaces counts as blank.
+
+**The anchor line is the whole test.** The `## Highlights` heading is never
+looked for, so a block moved elsewhere in the note is still a highlight, and a
+plain blockquote with no anchor under it is not one. That is what keeps Enter
+on a quoted paragraph doing what vim does with a bare `<CR>` rather than
+opening a book. An id retyped in capitals or a character short does not parse,
+which is the same answer as a block edited past recognition: it stops being a
+highlight and nothing pretends otherwise.
 
 Strip a leading `>`, and one space after it where there is one, from each line
-of the run. A line left empty is the break between two paragraphs. Because the
-quote rule left every paragraph on one line with single spaces in it, the
-strings this recovers are the strings that were written, character for
-character. There is no case to guess at: a paragraph holds no newline, so no
-quoted line begins with `>` by accident, and no paragraph is empty.
+of the run, and trim what is left. A line left empty is the break between two
+paragraphs. Because the quote rule left every paragraph on one line with single
+spaces in it, the strings this recovers are the strings that were written,
+character for character. There is no case to guess at: a paragraph holds no
+newline, so no quoted line begins with `>` by accident, and no paragraph is
+empty.
+
+Two of the reader's steps are more than that inverse, and both exist because
+the format promises a hand edit survives. A quote somebody wrapped onto two
+lines joins back into one paragraph, the way markdown reads two lines as one.
+A space somebody doubled inside a line collapses, through the same rule the
+quote was written with. Both are the identity on anything the writer wrote.
+
+A run edited down to a lone `>` leaves no paragraph at all, and that is not a
+highlight either: an empty quote is a question the book should never be asked.
 
 ## What the round trip does not recover
 
