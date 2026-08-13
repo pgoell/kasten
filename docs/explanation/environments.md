@@ -156,6 +156,18 @@ in, once, and the volume keeps it across rebuilds and releases. That is the
 point: an agent in this container is its own install with its own settings, and
 the vault is the only thing it shares with you.
 
+The shell it hands you is zsh with starship drawing the prompt, and the aliases
+are the host's. That setup is in the image, at `/etc/zsh/zshrc.kasten`, rather
+than in a dotfile, because the home is a named volume docker seeds once: a
+`~/.zshrc` shipped in an image would reach a fresh volume and never an existing
+one. `~/.zshrc` is seeded empty for your own aliases and is read after the
+shared file. Both agents are installed under `/opt/npm` rather than npm's
+`/usr/local`, and that tree belongs to the user the shell runs as, which is
+what `claude update` needs to write; putting it under `/usr/local` would hand
+that user ttyd and herdr as well. An update lands in the container's writable
+layer, so recreating the container returns to the version `shell/Dockerfile`
+pins, and bumping the pin is how a version sticks.
+
 ## The runbook
 
 The step-by-step for both environments, including DNS, Caddy and the
