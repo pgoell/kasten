@@ -560,6 +560,7 @@ export function Editor({
             importNotes: () => commandsRef.current?.importNotes(),
             exportNote: () => commandsRef.current?.exportNote(),
             openExam: () => commandsRef.current?.openExam(),
+            openReview: () => commandsRef.current?.openReview(),
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),
             importPage: () => commandsRef.current?.importPage(),

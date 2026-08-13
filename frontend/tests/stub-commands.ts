@@ -34,6 +34,7 @@ export function stubCommands() {
     importNotes: vi.fn(),
     exportNote: vi.fn(),
     openExam: vi.fn(),
+    openReview: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),
     importPage: vi.fn(),

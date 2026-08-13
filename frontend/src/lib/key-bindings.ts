@@ -72,6 +72,8 @@ export interface EditorCommands {
   exportNote(): void;
   /** Sit the focused pane's note as a practice exam, in that pane. */
   openExam(): void;
+  /** Open the review in the focused pane, on its list of decks. */
+  openReview(): void;
   /** Show or hide the archive in the tree, the finder, search and the todos. */
   toggleArchive(): void;
   /** Start a tab holding one empty pane, and go to it. */
@@ -207,6 +209,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // `g` for go and `r` for read. The book is the note's path with the suffix
   // swapped, so the key needs nothing but a note in the focused pane.
   { key: "gr", label: "Read this note's book beside it", command: "openBook" },
+  // `g` for go and `s` for study. `gr` is spent on the book, which is why the
+  // review does not get the letter its own name starts with.
+  { key: "gs", label: "Open the review pane", command: "openReview" },
   // `g` for go, and the pane it goes to holds the todos. `ct` is spent on a
   // tab, which is why this is not under `c`.
   { key: "gt", label: "Open the todo pane", command: "openTodos" },

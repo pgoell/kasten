@@ -55,6 +55,15 @@ export interface Pane {
    */
   exam?: string;
   /**
+   * Set on a pane holding the review, absent on every other.
+   *
+   * A seventh optional field for the reason `todos` is the second, written out
+   * above. A boolean and not a deck, because the pane opens on the deck list
+   * and picks its own deck from there, the way the todo pane opens on the whole
+   * list rather than on a note.
+   */
+  review?: boolean;
+  /**
    * The image this pane is showing, absent otherwise.
    *
    * The image's own path and not a note's, which is where this parts company
@@ -216,6 +225,20 @@ export function openTodosInFocused(layout: Layout): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, todos: true }),
+  });
+}
+
+/**
+ * Put the review in the focused pane, replacing whatever was there.
+ *
+ * Over the pane rather than beside it, following `openTodosInFocused`: this is
+ * a list of everything waiting, not a thing to read alongside a note.
+ */
+export function openReviewInFocused(layout: Layout): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, review: true }),
   });
 }
 
