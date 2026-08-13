@@ -29,6 +29,13 @@ interface NoteEditorProps {
   /** Called with the note a `[[link]]` names, which only the route can resolve. */
   onFollow: (target: string) => void;
   /**
+   * Called with a highlight block's paragraphs and the note holding them.
+   *
+   * The path comes from here for the reason `onCycleTodo`'s does: the note is
+   * what says which book the passage is in.
+   */
+  onOpenHighlight?: (note: string, quote: string[]) => void;
+  /**
    * Called with the line `<leader>x` cycled, which the done log follows.
    *
    * The path comes from here rather than from the route's closure, this being
@@ -65,6 +72,7 @@ export const NoteEditor = memo(function NoteEditor({
   onChange,
   onSave,
   onFollow,
+  onOpenHighlight,
   onCycleTodo,
   onNotice,
   allowReload,
@@ -105,6 +113,7 @@ export const NoteEditor = memo(function NoteEditor({
       onChange={onChange}
       onSave={onSave}
       onFollow={onFollow}
+      onOpenHighlight={(quote) => onOpenHighlight?.(path, quote)}
       onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
       onNotice={onNotice}
       path={path}

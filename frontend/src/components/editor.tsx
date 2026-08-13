@@ -16,6 +16,7 @@ import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 import { backticks } from "@/lib/backticks";
 import { editorCommands } from "@/lib/editor-commands";
+import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
@@ -26,6 +27,7 @@ import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
 type FollowHandler = (target: string) => void;
+type HighlightHandler = (quote: string[]) => void;
 /** Answers with the vault's text, or with null when the reload was refused. */
 type ReloadHandler = (force: boolean) => Promise<string | null>;
 
@@ -58,11 +60,40 @@ const followHandler = Facet.define<FollowHandler, FollowHandler | undefined>({
   combine: (handlers) => handlers[0],
 });
 
-/** Open the note the cursor's `[[link]]` names, vim's own go-to-file. */
+/**
+ * Carries the highlight callback, for the reason `saveHandler` carries the other.
+ *
+ * A second facet rather than a second meaning on the first: what a highlight
+ * names is a passage in a book and not a note's path, so the two callbacks
+ * carry different things.
+ */
+const highlightHandler = Facet.define<HighlightHandler, HighlightHandler | undefined>({
+  combine: (handlers) => handlers[0],
+});
+
+/**
+ * Open what the cursor's line names, vim's own go-to-file.
+ *
+ * Two readers, in this order. A `[[link]]` under the cursor is a link even
+ * inside a quote line, and a highlight block is the second meaning `gf` gains:
+ * the block names a passage in a book, and the cursor may sit on any of its
+ * lines. Neither, and this answers false the way it always did, which is what
+ * keeps `<CR>` moving down.
+ */
 function follow(view: EditorView): boolean {
   const target = wikiLinkAt(view.state, view.state.selection.main.head);
-  if (target === null) return false;
-  view.state.facet(followHandler)?.(target);
+  if (target !== null) {
+    view.state.facet(followHandler)?.(target);
+    return true;
+  }
+
+  const { doc } = view.state;
+  const quote = highlightAt(doc.toString(), doc.lineAt(view.state.selection.main.head).number);
+  if (quote === null) return false;
+  // True whether or not a handler is installed, which is what the wikilink
+  // branch above does: the only editor with no callback is the empty pane, and
+  // that holds no note.
+  view.state.facet(highlightHandler)?.(quote);
   return true;
 }
 
@@ -368,6 +399,8 @@ interface EditorProps {
   onSave?: (doc: string) => void;
   /** Called with the note a `[[link]]` names when `gf` follows it. */
   onFollow?: (target: string) => void;
+  /** Called with a highlight block's paragraphs when `gf` lands on one. */
+  onOpenHighlight?: (quote: string[]) => void;
   /** Called with the line `<leader>x` cycled, which the done log follows. */
   onCycleTodo?: CycleHandler;
   /** The note this holds, which tells today's own note from every other. */
@@ -403,6 +436,7 @@ export function Editor({
   onChange,
   onSave,
   onFollow,
+  onOpenHighlight,
   onCycleTodo,
   path,
   onNotice,
@@ -420,6 +454,7 @@ export function Editor({
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const onFollowRef = useRef(onFollow);
+  const onOpenHighlightRef = useRef(onOpenHighlight);
   const onCycleTodoRef = useRef(onCycleTodo);
   const onNoticeRef = useRef(onNotice);
   const allowReloadRef = useRef(allowReload);
@@ -430,11 +465,22 @@ export function Editor({
     onChangeRef.current = onChange;
     onSaveRef.current = onSave;
     onFollowRef.current = onFollow;
+    onOpenHighlightRef.current = onOpenHighlight;
     onCycleTodoRef.current = onCycleTodo;
     onNoticeRef.current = onNotice;
     allowReloadRef.current = allowReload;
     onReloadRef.current = onReload;
-  }, [commands, onChange, onSave, onFollow, onCycleTodo, onNotice, allowReload, onReload]);
+  }, [
+    commands,
+    onChange,
+    onSave,
+    onFollow,
+    onOpenHighlight,
+    onCycleTodo,
+    onNotice,
+    allowReload,
+    onReload,
+  ]);
 
   useEffect(() => {
     const parent = host.current;
@@ -467,6 +513,7 @@ export function Editor({
           backticks(),
           saveHandler.of((doc) => onSaveRef.current?.(doc)),
           followHandler.of((target) => onFollowRef.current?.(target)),
+          highlightHandler.of((quote) => onOpenHighlightRef.current?.(quote)),
           todoCycled.of((cycle) => onCycleTodoRef.current?.(cycle)),
           ...(path === undefined ? [] : [notePath.of(path)]),
           // A pane with nothing to reload answers the way a refusal does, so
