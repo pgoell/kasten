@@ -296,6 +296,17 @@ async function settle() {
   }
 }
 
+/** Every anchor a download clicked, caught before jsdom tries to follow one. */
+function clicked(): HTMLAnchorElement[] {
+  const caught: HTMLAnchorElement[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    caught.push(this);
+  });
+  return caught;
+}
+
 // crypto finishes a digest off the event loop, which no fake timer reaches, so
 // the real timer is kept from before the fakes go in.
 const realTimeout = globalThis.setTimeout;
@@ -958,6 +969,26 @@ describe("the route", () => {
     expect(app.reader()).toBeNull();
   });
 
+  it("hands the book in the focused pane to the browser under its own name", async () => {
+    const caught = clicked();
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("g", "r");
+    await settle();
+
+    // The reader's own bare key, this pane having no leader. Dispatched on the
+    // view so it bubbles to the wrapper's native listener.
+    fireEvent.keyDown(app.reader() as Element, { key: "w" });
+    await settle();
+
+    expect(caught[0]?.download).toBe("index.epub");
+    // The address that already serves the book, and no blob: the bytes are on
+    // disk, not in the page.
+    expect(caught[0]?.getAttribute("href")).toBe("/api/assets/index.epub");
+  });
+
   it("takes the reader out of its pane and leaves the note pane alone", async () => {
     const app = await renderApp();
     await settle();
@@ -1577,17 +1608,6 @@ describe("importing markdown and taking it out again", () => {
 
   const BLOB_URL = "blob:the-note";
 
-  /** Every anchor the download clicked, caught before jsdom tries to follow one. */
-  function clicks(): HTMLAnchorElement[] {
-    const caught: HTMLAnchorElement[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
-      this: HTMLAnchorElement,
-    ) {
-      caught.push(this);
-    });
-    return caught;
-  }
-
   it("blanks the markdown picker and then opens it", async () => {
     const app = await renderApp();
     await settle();
@@ -1652,7 +1672,7 @@ describe("importing markdown and taking it out again", () => {
   });
 
   it("hands the open note to the browser as a file under its own name", async () => {
-    const caught = clicks();
+    const caught = clicked();
     const app = await renderApp();
     await settle();
     app.click("index.md");
@@ -1668,7 +1688,7 @@ describe("importing markdown and taking it out again", () => {
   it("downloads the text as the buffer holds it, not as the vault last read it", async () => {
     // The save the key runs first. Without it the file carries the note from
     // before the last keystroke, which is the one thing a download must not do.
-    clicks();
+    clicked();
     const app = await renderApp();
     await settle();
     app.click("index.md");
@@ -1685,7 +1705,7 @@ describe("importing markdown and taking it out again", () => {
   });
 
   it("gives the object URL back rather than holding the note until the tab closes", async () => {
-    clicks();
+    clicked();
     const app = await renderApp();
     await settle();
     app.click("index.md");
@@ -1698,7 +1718,7 @@ describe("importing markdown and taking it out again", () => {
   });
 
   it("does nothing at all with no note in the focused pane", async () => {
-    const caught = clicks();
+    const caught = clicked();
     const app = await renderApp();
     await settle();
 
@@ -1958,6 +1978,24 @@ describe("looking at an image", () => {
     expect(app.imagePane()?.querySelector("img")?.getAttribute("src")).toBe(
       `/api/assets/${encodeURI(SHOT)}`,
     );
+  });
+
+  it("hands the picture to the browser under its own name", async () => {
+    const caught = clicked();
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    app.click(SHOT);
+    await settle();
+
+    // Into the pane itself, an image pane holding no editor to press into.
+    const pane = app.imagePane() as HTMLElement;
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "w" });
+    await settle();
+
+    expect(caught[0]?.download).toBe("shot.png");
+    expect(caught[0]?.getAttribute("href")).toBe(`/api/assets/${encodeURI(SHOT)}`);
   });
 
   it("hands the pane back to an editor on the leader then q", async () => {

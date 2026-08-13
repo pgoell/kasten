@@ -464,6 +464,14 @@ describe("the keys inside a book", () => {
     expect(pane.commands.closeNote).toHaveBeenCalledTimes(1);
   });
 
+  it("hands the book out on w", async () => {
+    const pane = await opened();
+
+    press(lastView().section, "w");
+
+    expect(pane.commands.exportNote).toHaveBeenCalledTimes(1);
+  });
+
   it("walks the panes on the terminal chord", async () => {
     // Tested here as well as in Chromium because this is the project that runs
     // on every push.

@@ -65,7 +65,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>sr` | Set this todo to rejected |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
-| `<leader>w` | Download the open note as a file |
+| `<leader>w` | Download what this pane holds as a file |
 | `<leader>x` | Cycle the todo on this line |
 | `<leader>=` | Tidy the markdown in this note |
 | `<leader>%` | Split the pane left and right |
@@ -344,11 +344,17 @@ the leader would cost you the space bar for nothing.
 | `l` | Turn forward a page |
 | `t` | Open the contents |
 | `y` | Take the selected passage into the note |
+| `w` | Download the book as a file |
 | `q` | Take the book out of the pane |
 | `Ctrl+Shift+H` `J` `K` `L` `O` | Walk the panes, as in a terminal |
 | `Ctrl+Shift+Q` | Take the book out of the pane |
 
-The five bare keys answer an unmodified press only, so `Ctrl+H` is left to the
+`w` hands the epub to the browser under its own name, so
+`20 Literature/DDIA.epub` arrives in your downloads as `DDIA.epub`. It is vim's
+own key for writing what you are looking at out to a file, said bare here for
+the reason `q` is.
+
+The six bare keys answer an unmodified press only, so `Ctrl+H` is left to the
 browser's history window. The chords are the terminal's own, read from
 `TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts`, so
 retuning one retunes both panes.
@@ -459,16 +465,21 @@ A name is cleaned the way a clipped page's is, the characters a path or a
 leaves nothing behind is refused rather than guessed at, and so a slash in one
 files nothing in a folder nobody asked for.
 
-`<leader>w` is the way back out. It hands the note in the focused pane to the
-browser as a file under its own name, so `20 Literature/DDIA.md` arrives in
-your downloads as `DDIA.md`. Text still waiting is written to the vault first,
-so the file holds the note as you last typed it rather than as the vault last
-read it. `w` is vim's own key for writing what you are looking at out to a
-file.
+`<leader>w` is the way back out. It hands whatever the focused pane holds to
+the browser as a file under its own name, so `20 Literature/DDIA.md` arrives in
+your downloads as `DDIA.md`. In an image pane it is the picture, `shot.png`,
+and an exam counts as its note. A reader says it `w` on its own, that pane
+having no leader, and hands over the book, `DDIA.epub`. A terminal and the todo
+list are not files, so nothing goes out from either.
 
-One note at a time is all it takes. The vault is a folder of markdown files,
-so the way to carry the whole thing off is to copy the folder: the terminal has
-it mounted, and the jj repo beside the notes holds its history.
+For a note, text still waiting is written to the vault first, so the file holds
+the note as you last typed it rather than as the vault last read it. A book and
+a picture go out as the vault has them, nothing having edited either. `w` is
+vim's own key for writing what you are looking at out to a file.
+
+One file at a time is all it takes. The vault is a folder on disk, so the way
+to carry the whole thing off is to copy the folder: the terminal has it
+mounted, and the jj repo beside the notes holds its history.
 
 ## Todos
 
@@ -947,6 +958,7 @@ would draw a broken picture where the source at least says what was meant.
 | --- | --- |
 | Ctrl+v | Put the clipboard's image in the vault and write the reference to it |
 | `<leader>ci` | Toggle the link at the cursor into an image, and back |
+| `<leader>w` | Download the picture in the pane, in an image pane |
 
 Pasting is the way in. A screenshot on the clipboard is uploaded to
 `99 Misc/02 Assets/01 Images/`, named for today and eight random hex digits, and
@@ -1138,7 +1150,8 @@ The pane is an image and the path above it, and nothing else: no zoom, no next
 image, and nothing to type into. What it is for is looking at a picture the
 vault holds without first writing a note that points at it. `d` there deletes
 the image in front of you, the same key the tree spends on a row, and the pane
-empties.
+empties. `<leader>w` downloads the picture under its own name, so
+`99 Misc/shot.png` arrives in your downloads as `shot.png`.
 
 An image goes into the trash the way a note does, and `<leader>du` puts the last
 one back, so the two keys are one gesture and its undo. Nothing asks first, for

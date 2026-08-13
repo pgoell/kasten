@@ -41,7 +41,7 @@ import { readClock } from "@/lib/clock";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { setField } from "@/lib/note-frontmatter";
-import { bookNote, importedNote, noteName } from "@/lib/note-path";
+import { bookNote, bookPath, importedNote, noteName } from "@/lib/note-path";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -86,25 +86,46 @@ import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
 const IGNORE = () => {};
 
 /**
- * Hand one note to the browser as a file, under the name the vault gave it.
+ * Hand the browser a file, under a name of our choosing.
  *
- * An object URL and a click on an anchor nothing renders, which is what a
- * download is when there is no address to link to: the bytes are here already
- * and no request goes out for them. The name is the note's own, folders and
- * all taken off, because a download names a file and not a path.
+ * A click on an anchor nothing renders, which is what a download is when the
+ * reader asked for one rather than followed a link. The name carries no
+ * folders, because a download names a file and not a path.
+ */
+function download(name: string, href: string): void {
+  const link = document.createElement("a");
+
+  link.href = href;
+  link.download = name;
+  link.click();
+}
+
+/**
+ * The open note as a file, under the name the vault gave it.
  *
+ * An object URL: the bytes are here already and no request goes out for them.
  * Revoked in the same turn as the click. The browser has read the URL by the
  * time `click` returns, and a URL left alive holds the note's whole text in
  * memory until the tab closes.
  */
-function download(path: string, text: string): void {
+function downloadNote(path: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
-  const link = document.createElement("a");
 
-  link.href = url;
-  link.download = `${noteName(path)}.md`;
-  link.click();
+  download(`${noteName(path)}.md`, url);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * A book or a picture, fetched from the address that already serves it.
+ *
+ * No blob, unlike the note above: these bytes are on disk and not in the page,
+ * and asking for them only to wrap them in an object URL would hold a whole
+ * epub in memory to save a request the browser is about to make anyway.
+ * `encodeURI` and not `encodeURIComponent`, the way the image pane spells its
+ * `src`: the paths carry spaces and the slashes are real slashes.
+ */
+function downloadAsset(path: string): void {
+  download(path.slice(path.lastIndexOf("/") + 1), `/api/assets/${encodeURI(path)}`);
 }
 
 interface HomeSearch {
@@ -1277,17 +1298,35 @@ function Home() {
         input.value = "";
         input.click();
       },
-      // Saved first the way `showLinksOut` is, and it reads the text back out
-      // of the same cache: a file holding the note as it stood before the last
-      // keystroke says something the note does not. A write that was refused
-      // still downloads, on the older text, because the copy in hand is worth
-      // more than the one that was not taken.
+      // Whatever the pane is holding, not the note alone: a picture and a book
+      // are files the vault has and the reader is looking at, and a key called
+      // "download this" that answers only in one pane out of four is a key the
+      // reader has to remember the shape of.
+      //
+      // The two assets go out untouched and unsaved, nothing here having edited
+      // them. The note is saved first the way `showLinksOut` is, and it reads
+      // the text back out of the same cache: a file holding the note as it
+      // stood before the last keystroke says something the note does not. A
+      // write that was refused still downloads, on the older text, because the
+      // copy in hand is worth more than the one that was not taken.
       exportNote: async () => {
-        if (pane.path === undefined) return;
-        const note = pane.path;
+        if (pane.image !== undefined) {
+          downloadAsset(pane.image);
+          return;
+        }
+        if (pane.book !== undefined) {
+          downloadAsset(bookPath(pane.book));
+          return;
+        }
+
+        // The exam beside the note: the pane holds the note's path and the
+        // cache holds its text under the same key, an exam being a way of
+        // reading a note rather than a file of its own.
+        const note = pane.path ?? pane.exam;
+        if (note === undefined) return;
 
         await saveFirst();
-        download(note, queryClient.getQueryData<string>(["note", note]) ?? "");
+        downloadNote(note, queryClient.getQueryData<string>(["note", note]) ?? "");
       },
       // Saved first the way `openTodos` is, and for the same reason: this
       // replaces the focused pane, so text still waiting would be written to a
