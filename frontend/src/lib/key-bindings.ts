@@ -242,7 +242,7 @@ export const LEADER: readonly LeaderBinding[] = [
   // `w` for vim's own `:w`, which is the key for writing what you are looking
   // at out to a file. Not in the `c` group with the three imports: this one
   // creates nothing in the vault, it hands a copy to the browser and leaves.
-  { key: "w", label: "Download this note as a file", command: "exportNote" },
+  { key: "w", label: "Download what this pane holds as a file", command: "exportNote" },
   // tmux's own split keys, kept because they are the two this app is imitating
   // and because the shape of each character says which way the pane divides.
   // Both are shifted, which is no obstacle: vim names a key by

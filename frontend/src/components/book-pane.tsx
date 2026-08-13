@@ -316,6 +316,9 @@ export function BookPane({
       if (event.key === "l") viewRef.current?.next();
       else if (event.key === "h") viewRef.current?.prev();
       else if (event.key === "q") commandsRef.current.closeNote();
+      // vim's own key for writing what you are looking at out to a file, said
+      // bare for the reason `q` is: this pane has no leader.
+      else if (event.key === "w") commandsRef.current.exportNote();
       // Nothing selected is nothing to take, the way `t` on a book still opening
       // is nothing to draw.
       else if (event.key === "y") take();
