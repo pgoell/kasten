@@ -19,8 +19,12 @@ const HIGHLIGHTS = "## Highlights";
  * book with before matching (`search.js:81`), non-breaking space included in
  * both. PR 6 finds a highlight by searching the book for its words, so the two
  * sides have to agree on the character class.
+ *
+ * Exported for the finder, which collapses a quote with it before searching the
+ * book: one function is what makes the two sides provably the same rule rather
+ * than two rules that happen to agree.
  */
-function collapse(text: string): string {
+export function collapse(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
