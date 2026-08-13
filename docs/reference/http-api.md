@@ -174,6 +174,84 @@ client ranks everything it is handed and cuts afterwards, the rows on screen
 are the best of the match set rather than the head of it, and 2,000 is the
 whole match set for anything but the most common word in a vault.
 
+## GET /api/cards
+
+Finds every line in the vault that could be part of a flashcard. Takes an
+optional `archive` and answers with at most 100,000 matches, in the shape
+`GET /api/search` returns.
+
+```json
+[{ "path": "03 Flashcards/aws.md", "line": 5, "text": "What does S3 stand for?::Simple Storage Service" }]
+```
+
+One `rg` pass, carrying the same flags search carries. Nothing is indexed and
+Postgres is not consulted, for the reason search does not consult it.
+
+It matches four shapes:
+
+* a line holding `::`, or a line that is exactly `?`, which are
+  [the two ways a card is written](/reference/flashcard-format.md#the-two-ways-to-write-a-card)
+* a line holding `<!--SR:!`, which is a card's schedule
+* a line holding `#flashcards` or `#review`, which is what makes a note a deck
+* a line opening `sr-due:`, which is the due date of a note that is itself the card
+
+Nothing here parses a card. The endpoint hands the lines over whole, because the
+browser has to parse the format anyway to draw one and two parsers in two
+languages drift. Which note is a deck, which line is a question and which card
+is due are all read on the client.
+
+The `::` branch is deliberately loose and matches `std::vector` too. That costs
+a line in this answer and never a card on screen: the deck tag decides which
+notes are asked at all, so a note nobody tagged contributes nothing however many
+colons are in it. Tightening the pattern here would mean reading every note that
+matched.
+
+The cap is 100,000 rather than search's 2,000, for the reason `GET /api/todos`
+carries that number: a backstop against one generated file, not a limit on how
+many cards a person can own. An imported Anki deck is a real four-figure case.
+
+`archive` walks the archive folder too, and is off by default. That is the whole
+of [filing a deck away](/reference/flashcard-format.md#filing-one-away): moving
+the note into the archive takes it out of the review and changes nothing else.
+
+A vault directory that does not exist reads as an empty one.
+
+## POST /api/anki
+
+Turns an Anki export into one markdown note per deck. Takes the `.apkg` bytes as
+the raw request body, the way `POST /api/assets/{path}` takes a book, and
+answers 201 with what was written.
+
+```json
+{ "notes": ["03 Flashcards/AWS.md"], "cards": 412, "dropped_media": 17 }
+```
+
+The export is read with `zipfile`, `sqlite3` and `compression.zstd`, all of them
+in the standard library on Python 3.14, so importing a deck adds no dependency.
+Both the current collection format and the older one are read.
+
+Field 0 of each note is the question and field 1 the answer. A note with fewer
+than two fields is skipped, HTML in a field is flattened to one line, and a
+nested deck becomes a nested folder under
+[KASTEN_FLASHCARDS_PATH](/reference/configuration.md#kasten_flashcards_path).
+
+`dropped_media` counts the cards that referred to an image or a sound. The media
+map in a current export is zstd-compressed protobuf, which the standard library
+cannot read without the schema, so those references are stripped and the number
+is reported rather than the loss being silent.
+
+### What an import refuses
+
+* A body that is not a zip, or a zip holding no collection, answers 400.
+* A deck name that would climb out of the flashcards folder answers 400.
+* A deck whose note already exists answers 409, and **nothing is written at
+  all**, not even the decks in the same export that would have been fine. Every
+  path is resolved and every collision found before the first write, because the
+  note it would land on may hold schedules you spent a month building.
+* A body over 100MB answers 413.
+
+[Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
+
 ## GET /api/todos
 
 Finds every line in the vault that could be a todo. Takes an optional

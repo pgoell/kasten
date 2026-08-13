@@ -46,6 +46,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>go` | Show what the open note links to |
 | `<leader>gq` | Open this quarter's note |
 | `<leader>gr` | Read this note's book in a pane beside it |
+| `<leader>gs` | Put the review in the focused pane |
 | `<leader>gt` | Put the todo list in the focused pane |
 | `<leader>gw` | Open this week's note |
 | `<leader>gy` | Open this year's note |
@@ -537,6 +538,27 @@ neither stands in for a character.
 
 Today's date is read when the editor builds its rendering, so a tab left open
 across midnight keeps yesterday's idea of overdue until it reloads.
+
+## The review pane
+
+`<leader>gs` fills the focused pane with every deck the vault holds and how much
+of each is waiting. Picking one starts a sitting, one card at a time.
+
+| Key | What it does |
+| --- | --- |
+| `Space`, `Enter` | Show the answer |
+| `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
+| `q` | Close the pane |
+
+Everything the keys reach is also a button, because the same two components draw
+`/review`, which is [the phone's way in](/reference/flashcard-format.md#sitting-one)
+and has no keyboard to bind. `Escape` is deliberately not bound here for the same
+reason: a phone has no escape key, so nothing this feature does may need one.
+
+The leader still works inside the pane, so `<leader>o` and the rest reach the
+other panes mid-sitting.
+
+[Flashcard format](/reference/flashcard-format.md) is what a card is written in.
 
 ## The todo pane
 

@@ -9,3 +9,4 @@ keyboard; they answer "why" rather than "how".
 * [Live preview and the vim mode](live-preview.md) - why the editor renders markdown in normal mode and shows you the source in insert mode
 * [The archive](the-archive.md) - why finished work goes in a folder rather than a field, and why one key rather than a filter on every list
 * [Books in the vault](books-in-the-vault.md) - why a book is its note's path with the suffix swapped, the two doors one comes in by, why a highlight is found again by searching the page for its words, and why the vault's history never takes a copy of one
+* [Spaced repetition](spaced-repetition.md) - why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag, and why the review has two front ends

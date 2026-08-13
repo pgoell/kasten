@@ -48,6 +48,21 @@ would make a second note in the inbox out of a note the vault already holds.
 
 Set it to a name no folder has and nothing is left out of anything.
 
+## KASTEN_FLASHCARDS_PATH
+
+Where [an imported Anki deck](/how-to/import-an-anki-deck.md) is written.
+
+| | |
+| --- | --- |
+| Default | `03 Flashcards` |
+| Read by | `POST /api/anki` |
+
+A setting rather than a constant for the reason `KASTEN_ARCHIVE_PATH` is one:
+the number in front is one vault's filing convention and not kasten's.
+
+Only the import knows this folder exists. A deck written by hand lives wherever
+you put it and is found by its tag, so nothing else in kasten reads this.
+
 ## KASTEN_TRASH_DAYS
 
 ```
