@@ -71,6 +71,7 @@ const INERT: TreeCommands = {
   openYearly: vi.fn(),
   openBook: vi.fn(),
   openVideo: vi.fn(),
+  toggleVideo: vi.fn(),
   uploadBook: vi.fn(),
   importNotes: vi.fn(),
   exportNote: vi.fn(),

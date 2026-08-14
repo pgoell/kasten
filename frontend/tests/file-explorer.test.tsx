@@ -86,6 +86,7 @@ function Harness({
         openYearly: () => {},
         openBook: () => {},
         openVideo: () => {},
+        toggleVideo: () => {},
         uploadBook: () => {},
         importNotes: () => {},
         exportNote: () => {},

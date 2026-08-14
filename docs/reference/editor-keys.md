@@ -67,6 +67,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>sr` | Set this todo to rejected |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
+| `<leader>v` | Play or pause this note's video |
 | `<leader>w` | Download what this pane holds as a file |
 | `<leader>x` | Cycle the todo on this line |
 | `<leader>=` | Tidy the markdown in this note |
@@ -421,10 +422,15 @@ says its note is gone.
 
 ## The video pane
 
-`<leader>gv` opens the video the note links and puts it in a new pane to the
-right, with the note still on screen. That arrangement is the point of it: the
+`<leader>gv` opens the video the note links and puts it in a new pane under the
+note, with the note still on screen. That arrangement is the point of it: the
 player keeps its place while the note scrolls under your typing, which a video
 drawn into the note itself could not do.
+
+Under and not beside, which is where this parts company with the reader. A book
+is a column of text and reads next to a column of notes; a player is a 16:9 box,
+and the width it wants is the width the note wants too, so the two share the
+height instead.
 
 The link is read out of the note, and the first YouTube address in it is the one
 that plays. Every shape the share button writes is understood, `youtu.be/ID`,
@@ -442,11 +448,30 @@ and the moment is yours to scrub back to.
 
 Pressing the key again goes to the pane already playing rather than opening a
 second one, so it is its own way back. `<leader>q` closes the player, and
-`<leader>h` returns to the note.
+`<leader>k` returns to the note.
 
-A click into the player hands the keys to YouTube until you click back into the
-note, and the blue border stays on the note while it does. A cross-origin frame
-tells the page around it nothing, so kasten does not hear the click. Reaching
+### Playing it without leaving the note
+
+`<leader>v` starts and stops the video from wherever you are typing. That is the
+rhythm the pane exists for: a sentence goes by, you stop it, you write it down,
+you start it again, and the cursor never leaves the note.
+
+The key works because the player is asked rather than clicked. The frame carries
+`enablejsapi=1`, which is what makes it answer a `postMessage`, and the pane
+sends it `playVideo` or `pauseVideo` across the origin. Nothing about that moves
+the focus.
+
+Which of the two it sends is read off the player rather than counted here. The
+pane subscribes once the frame is up and YouTube streams its state back, so a
+video you paused with a click is still known to be paused, and the next
+`<leader>v` starts it rather than stopping it twice.
+
+Pressed with no player open, the key does nothing at all.
+
+A click into the player still hands the keys to YouTube until you click back
+into the note, and the blue border stays on the note while it does. A
+cross-origin frame tells the page around it nothing, so kasten does not hear the
+click. With `<leader>v` there is much less reason to click at all, and reaching
 the pane by key rather than by click puts the cursor on the pane itself, which
 is why `<leader>q` works there.
 

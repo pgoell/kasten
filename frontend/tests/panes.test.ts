@@ -1,4 +1,5 @@
 import {
+  activeTab,
   addTab,
   clearFocused,
   emptyLayout,
@@ -381,6 +382,15 @@ describe("a book in a pane beside its note", () => {
 });
 
 describe("a video in a pane beside its note", () => {
+  it("stacks the player under the note rather than beside it", () => {
+    const layout = openVideoBeside(emptyLayout("lit/talk.md"), "lit/talk.md");
+    const root = activeTab(layout).root;
+
+    // A 16:9 player wants the width the note also wants, so the two share the
+    // height instead. The reader parts company here and takes a `row`.
+    expect(isSplit(root) && root.dir).toBe("col");
+  });
+
   it("splits the focused pane and puts the player in the new one", () => {
     const layout = openVideoBeside(emptyLayout("lit/talk.md"), "lit/talk.md");
 

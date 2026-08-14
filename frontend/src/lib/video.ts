@@ -20,6 +20,9 @@
  * which is what the share button writes out of a playlist. The closing paren is
  * excluded because the address usually arrives inside a `[](...)`.
  */
+/** The origin the frame is served from, which is also the only one it is spoken to on. */
+export const PLAYER = "https://www.youtube.com";
+
 const YOUTUBE =
   /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^\s)]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/;
 
@@ -35,11 +38,15 @@ const YOUTUBE =
  * extensions worth having in the player, the blocker and the sponsor skipper,
  * are the ones whose match lists name the ordinary host first.
  *
+ * `enablejsapi=1` is what lets the note drive the player. Without it the frame
+ * answers no `postMessage` at all, and pausing would mean clicking into it and
+ * losing the cursor, which is the one thing this pane exists to avoid.
+ *
  * ponytail: the timestamp in `?t=90` is dropped, so a link to a moment opens at
  * the start. Carry it into the embed's own `start=` if that starts costing you
  * the scroll.
  */
 export function noteVideo(text: string): string | null {
   const id = text.match(YOUTUBE)?.[1];
-  return id === undefined ? null : `https://www.youtube.com/embed/${id}`;
+  return id === undefined ? null : `${PLAYER}/embed/${id}?enablejsapi=1`;
 }
