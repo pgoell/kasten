@@ -277,6 +277,18 @@ body {
   border-radius: 3px;
 }
 
+/* The player a `![](youtube link)` is drawn as. 16:9 because that is the shape
+   the player wants, and the note's column is the width, so the frame is as wide
+   as the text it sits in rather than as wide as the window. `block` and not the
+   picture's `inline-block`: a video is never half a sentence. */
+.cm-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 3px;
+}
+
 /* A link to a note nobody has written yet. Muted and dotted rather than
    crossed out or coloured like a warning: it is an invitation, not a mistake,
    and following it is what writes the note. */

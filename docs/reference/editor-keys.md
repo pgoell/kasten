@@ -423,9 +423,11 @@ says its note is gone.
 ## The video pane
 
 `<leader>gv` opens the video the note links and puts it in a new pane under the
-note, with the note still on screen. That arrangement is the point of it: the
-player keeps its place while the note scrolls under your typing, which a video
-drawn into the note itself could not do.
+note, with the note still on screen. That arrangement is what the pane is for:
+the player keeps its place while the note scrolls under your typing, which a
+video drawn into the note itself cannot do. For a clip you want where it is
+quoted rather than beside the note, see
+[In the note itself](#in-the-note-itself) below.
 
 Under and not beside, which is where this parts company with the reader. A book
 is a column of text and reads next to a column of notes; a player is a 16:9 box,
@@ -445,6 +447,24 @@ one video, so stepping cannot land on the same player twice.
 
 A timestamp in the link is dropped. `?t=90` is one more video to open at the
 start, because the position the note remembers is where you actually got to.
+
+### In the note itself
+
+`![](https://youtu.be/iDulhoQ2pro)` draws the player where it sits, the way the
+same brackets around a vault path draw a picture. Every address shape the pane
+reads is read here too, and anything else in the brackets is a picture or the
+source it was written as.
+
+It opens at the position the note remembers, so a clip you got halfway through
+in the pane picks up where it stopped. It writes none back: `watching:` moves
+for the pane's player alone, and an embed you watched to the end still says
+where the pane left it.
+
+The line hands its source back when the cursor reaches it, which is the rule
+every rendered construct here follows. On this one it costs more than brackets:
+the frame goes with the text, so clicking into that line stops the video. The
+pane is the answer to that, and `<leader>v` is what stops and starts it without
+the cursor going anywhere near.
 
 ### Where you got to
 
