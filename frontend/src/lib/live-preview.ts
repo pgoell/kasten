@@ -5,7 +5,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/clock";
 import { imageSource } from "@/lib/image";
-import { type Align, alignsOf } from "@/lib/table";
+import { type Align, alignsOf, isRow } from "@/lib/table";
 import { parseTodo } from "@/lib/todo";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
@@ -274,12 +274,28 @@ function rowSpans(state: EditorState, row: SyntaxNode): Span[][] {
   return cells;
 }
 
-/** A `Table` node read into the shape the widget draws. */
-function tableGrid(state: EditorState, table: SyntaxNode): TableGrid {
+/**
+ * Where the table stops, which is not always where the parser says it does.
+ *
+ * GFM ends a table at a blank line, so a paragraph written straight under one
+ * is parsed as a row of a single cell. A row is a line carrying a `|`, the same
+ * reading `tableAt` walks a table by, and the first line without one ends it.
+ */
+function tableEndsAt(state: EditorState, table: SyntaxNode): number {
+  const first = state.doc.lineAt(table.from).number;
+  const last = state.doc.lineAt(table.to).number;
+  let number = first;
+  while (number < last && isRow(state.doc.line(number + 1).text)) number++;
+  return state.doc.line(number).to;
+}
+
+/** A `Table` node read into the shape the widget draws, up to where it ends. */
+function tableGrid(state: EditorState, table: SyntaxNode, end: number): TableGrid {
   const rows: Span[][][] = [];
   let aligns: Align[] = [];
 
   for (let child = table.firstChild; child; child = child.nextSibling) {
+    if (child.from >= end) break;
     // The one delimiter that is a child of the table rather than of a row is
     // the line of dashes, and nothing else says where a column's text sits.
     if (child.name === "TableDelimiter") {
@@ -344,6 +360,8 @@ function build(state: EditorState): Live {
    * everything inside the table is entered before anything after it.
    */
   let tableEnd = -1;
+  /** How far a table widget already reaches, the walk going on past it. */
+  let drawn = -1;
 
   const hide = (from: number, to: number) => {
     const range = HIDDEN.range(from, to);
@@ -365,6 +383,10 @@ function build(state: EditorState): Live {
 
   syntaxTree(state).iterate({
     enter(node) {
+      // Inside a table the widget has already drawn: nothing there is on the
+      // screen to decorate.
+      if (node.to <= drawn) return false;
+
       const heading = HEADING.exec(node.name);
       const inline = INLINE[node.name];
       const isLink = node.name === "Link";
@@ -452,8 +474,9 @@ function build(state: EditorState): Live {
       // The only construct here that flips a whole block at once: one widget
       // stands in for every line of it, so there is no half of a table to show.
       if (isTable) {
+        const end = tableEndsAt(state, node.node);
         const first = state.doc.lineAt(node.from);
-        const last = state.doc.lineAt(node.to);
+        const last = state.doc.lineAt(end);
         // The cursor in it is what shows the source, in any mode, and not the
         // mode alone the way every other construct here works. `j` and `k` step
         // over the whole widget, CodeMirror moving by what is on the screen, so
@@ -465,19 +488,23 @@ function build(state: EditorState): Live {
         // offset zero, so a note that opens with a table would show its pipes.
         const inside =
           !state.readOnly &&
-          state.selection.ranges.some((range) => range.from <= node.to && range.to >= node.from);
+          state.selection.ranges.some((range) => range.from <= end && range.to >= node.from);
         // A block widget has to cover whole lines. A table nested in a list is
         // indented past the start of its first one, and shows its source.
-        const whole = node.from === first.from && node.to === last.to;
+        const whole = node.from === first.from;
 
         if (!inside && whole) {
           decorations.push(
-            Decoration.replace({ widget: tableGrid(state, node.node), block: true }).range(
+            Decoration.replace({ widget: tableGrid(state, node.node, end), block: true }).range(
               node.from,
-              node.to,
+              end,
             ),
           );
-          return false;
+          // Not `false`, which would skip the prose the parser swallowed along
+          // with the table. The walk goes on into it and `drawn` keeps it out
+          // of the rows the widget already stands for.
+          drawn = end;
+          return;
         }
 
         // The source, in a face where every character is one width, because the
@@ -485,7 +512,7 @@ function build(state: EditorState): Live {
         // cells and colours them, but `tableEnd` stops it hiding anything
         // there: hiding two marks shortens a cell by two. The head row is the
         // only one the source does not mark.
-        tableEnd = node.to;
+        tableEnd = end;
         for (let number = first.number; number <= last.number; number++) {
           const at = state.doc.line(number).from;
           const edge = number === first.number ? " cm-table-head" : "";

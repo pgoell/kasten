@@ -98,6 +98,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Air between the lines somebody typed, and only those. CodeMirror gives each
+   line of the document one element, so padding under it separates two presses
+   of Enter and costs a wrapped line nothing. Code and a table's source are set
+   as blocks rather than as lines, and leading inside either would pull the
+   surface apart. */
+.cm-line:not(.cm-code-block, .cm-table) {
+  padding-bottom: 0.4em;
+}
+
 /* Live preview. The syntax marks are hidden in normal mode, so these styles are
    the only thing left carrying the structure of the note. */
 .cm-heading-1,

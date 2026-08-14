@@ -376,6 +376,23 @@ describe("live preview", () => {
     expect(content(container)).not.toContain("|");
   });
 
+  it("leaves the prose under a table out of it", () => {
+    // GFM ends a table at a blank line, so a paragraph written straight under
+    // one parses as rows of a single cell. The cursor starts on line one, so
+    // the table is drawn only when the prose is not part of it.
+    const lines = ["| a | b |", "| - | - |", "| 1 | 2 |", "after the table `code`"];
+    const { container } = render(<NotePreview text={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    expect(table).not.toBeNull();
+    expect(table.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(table.textContent).not.toContain("after the table");
+    expect(content(container)).toContain("after the table");
+    // The prose is still prose, marks hidden and inline code drawn.
+    expect(content(container)).not.toContain("`");
+    expect(container.querySelector(".cm-inline-code")?.textContent).toBe("code");
+  });
+
   it("shows a table's source when the cursor is in it, whatever the mode", async () => {
     // The cursor starts at offset zero, which is inside a note that is nothing
     // but a table, so this one is revealed from the first render and in normal

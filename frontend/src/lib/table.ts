@@ -38,7 +38,8 @@ function cellsOf(text: string): string[] {
   return inner.split(WALLS).map((cell) => cell.trim());
 }
 
-function isRow(text: string): boolean {
+/** Whether a line is a row of a table: a line carrying a cell wall. */
+export function isRow(text: string): boolean {
   return WALL.test(text);
 }
 
