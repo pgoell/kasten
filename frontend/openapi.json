@@ -24,6 +24,25 @@
         }
       }
     },
+    "/api/version": {
+      "get": {
+        "summary": "Read Build",
+        "description": "Name the code that is answering: the release, or the commit in development.\n\nIts own route rather than a field on `/api/health`, which the deploy polls\nand which is documented as saying nothing but whether the process is up.",
+        "operationId": "read_build_api_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Build"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/files": {
       "get": {
         "summary": "List Files",
@@ -824,6 +843,20 @@
         ],
         "title": "AnkiImport",
         "description": "What one `.apkg` turned into."
+      },
+      "Build": {
+        "properties": {
+          "backend": {
+            "type": "string",
+            "title": "Backend"
+          }
+        },
+        "type": "object",
+        "required": [
+          "backend"
+        ],
+        "title": "Build",
+        "description": "What the backend is running, for the reading in the status bar."
       },
       "Folder": {
         "properties": {

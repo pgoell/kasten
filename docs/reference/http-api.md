@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves seventeen endpoints. Nine read, seven write, and one streams.
-The interactive schema is at `/docs` while the backend runs, and the
+The backend serves twenty-three endpoints. Twelve read, ten write, and one
+streams. The interactive schema is at `/docs` while the backend runs, and the
 machine-readable one at `/openapi.json`.
 
 ## GET /api/health
@@ -21,6 +21,23 @@ it stays a liveness check and does not become a readiness check by accident.
 ```json
 { "status": "ok" }
 ```
+
+## GET /api/version
+
+Names the code that is answering. In production that is the release, read off
+the installed package; in development it is the seven-character commit the
+working tree is on, read out of `.git/HEAD` beside the source. A route of its
+own rather than a field on `/api/health`, which the deploy polls and which says
+nothing but whether the process is up.
+
+```json
+{ "backend": "0.8.0" }
+```
+
+The frontend's own half of that reading is not here and cannot be: a bundle in
+a browser has no repo to ask, so `vite.config.ts` stamps it in at build time.
+[Two environments](/explanation/environments.md#which-one-you-are-looking-at-and-what-it-is-running)
+says what the status bar does with the pair.
 
 ## GET /api/files
 

@@ -24,6 +24,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Build
+         * @description Name the code that is answering: the release, or the commit in development.
+         *
+         *     Its own route rather than a field on `/api/health`, which the deploy polls
+         *     and which is documented as saying nothing but whether the process is up.
+         */
+        get: operations["read_build_api_version_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/files": {
         parameters: {
             query?: never;
@@ -589,6 +612,14 @@ export interface components {
             dropped_media: number;
         };
         /**
+         * Build
+         * @description What the backend is running, for the reading in the status bar.
+         */
+        Build: {
+            /** Backend */
+            backend: string;
+        };
+        /**
          * Folder
          * @description One folder, as the vault spells it.
          *
@@ -732,6 +763,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    read_build_api_version_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Build"];
                 };
             };
         };

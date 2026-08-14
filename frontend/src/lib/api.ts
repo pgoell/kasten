@@ -34,6 +34,22 @@ function reason(error: { detail?: unknown } | undefined): string | null {
   return typeof error?.detail === "string" ? error.detail : null;
 }
 
+/**
+ * What the backend is running: the release, or its commit in development.
+ *
+ * The frontend's own half of the reading is a build-time constant in
+ * `build.ts`, so this is the one call the status bar needs.
+ */
+export async function fetchVersion(): Promise<string> {
+  const { data, response } = await client.GET("/api/version");
+
+  if (!data) {
+    throw new Error(`GET /api/version failed with ${response.status}`);
+  }
+
+  return data.backend;
+}
+
 /** Vault-relative paths of every note, sorted by the backend. */
 export async function fetchFiles(): Promise<string[]> {
   const { data, response } = await client.GET("/api/files");

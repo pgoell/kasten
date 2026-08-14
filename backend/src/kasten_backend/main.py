@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
 from kasten_backend.anki import as_note, read_apkg
+from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
@@ -162,6 +163,12 @@ class Health(BaseModel):
     status: str
 
 
+class Build(BaseModel):
+    """What the backend is running, for the reading in the status bar."""
+
+    backend: str
+
+
 class Note(BaseModel):
     """One note, as it sits on disk."""
 
@@ -284,6 +291,16 @@ class Restored(BaseModel):
 async def health() -> Health:
     """Report that the process is up. Deliberately does not touch the database."""
     return Health(status="ok")
+
+
+@app.get("/api/version")
+async def read_build() -> Build:
+    """Name the code that is answering: the release, or the commit in development.
+
+    Its own route rather than a field on `/api/health`, which the deploy polls
+    and which is documented as saying nothing but whether the process is up.
+    """
+    return Build(backend=build_id())
 
 
 @app.get("/api/files")
