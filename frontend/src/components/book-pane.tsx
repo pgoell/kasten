@@ -99,6 +99,26 @@ function isError(thrown: unknown): boolean {
 }
 
 /**
+ * Close a view, unless closing it would throw.
+ *
+ * `close` reaches `Paginator.destroy`, which dereferences the inner view the
+ * paginator only builds when a section loads (`paginator.js:667-676,
+ * 1121-1124`). So a book that opened and has not rendered a page yet, which is
+ * every book for as long as the first `goTo` takes, throws on close. Out of the
+ * effect's cleanup that throw lands in React's commit and takes the whole app
+ * down: the pane the reader switched away from unmounts, and the page is gone
+ * until it is reloaded.
+ *
+ * `getContents` is empty exactly when that field is unset
+ * (`paginator.js:1092-1099`), and there is nothing to free in that case anyway:
+ * no iframe was ever built, and the element the cleanup removes takes the rest
+ * with it.
+ */
+function closeView(view: FoliateView): void {
+  if (view.renderer?.getContents?.().length) view.close();
+}
+
+/**
  * Whether the selection runs backwards, which says which end the hand is at.
  *
  * The way foliate reads it (`selectionIsBackward`, `paginator.js:153-158`): a
@@ -703,7 +723,7 @@ export function BookPane({
         // flight, and there was no renderer to close then. This is the close
         // that actually frees one.
         if (cancelled) {
-          view.close();
+          closeView(view);
           return;
         }
         // Where the reader stopped, which is one line of the note's own block.
@@ -747,7 +767,7 @@ export function BookPane({
         // The pane went away while that was in flight. Checked here as well as
         // after `open`, or the fallback below builds a view over a closed one.
         if (cancelled) {
-          view.close();
+          closeView(view);
           return;
         }
         // Nothing rendered at all, so nothing loaded. That is the other stale
@@ -760,7 +780,7 @@ export function BookPane({
         // not this line is what answers the throw.
         if (!view.lastLocation) await view.init({});
         if (cancelled) {
-          view.close();
+          closeView(view);
           return;
         }
         // Last, and after the `cancelled` check: the bookmark has landed by
@@ -795,7 +815,7 @@ export function BookPane({
       // The next view opens a book of its own, so a passage the last one was
       // ready for is not a passage this one is.
       ready.current = false;
-      view.close();
+      closeView(view);
       view.remove();
     };
     // `redraw` and `goToQuote` are `useCallback`s with no dependencies, so their
