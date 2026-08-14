@@ -90,9 +90,12 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
           </p>
         )}
 
+        {/* A whole note is keyed by its path and a deck of cards by its name,
+            which is what each of the two is unique by: one tag is one deck
+            however many notes carry it. */}
         <ul className="space-y-2">
           {decks.map((deck) => (
-            <li key={deck.note}>
+            <li key={deck.whole ? deck.notes[0] : deck.name}>
               <button
                 type="button"
                 onClick={() => onPick(deck)}

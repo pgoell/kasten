@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Spaced repetition
-description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag, and why the review has two front ends.
+description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, and why the review has two front ends.
 resource: frontend/src/lib/srs.ts
 tags: [design, vault, review, flashcards]
 status: stable
@@ -70,8 +70,29 @@ A tag is already in the vault, already means "this note is one of those", and
 already nests: `#flashcards/aws` names a deck in one token. It also solves a
 problem the parser could not solve alone. `::` is a common thing to type, so
 reading every `::` in the vault as a card would fill the queue with C++ and
-YAML. The scan is deliberately loose and the tag is what makes it safe: a note
-nobody tagged holds no cards, whatever is written in it.
+YAML. The scan is deliberately loose and the tag is what makes it safe: a card
+in no deck at all is no card, whatever is written in it.
+
+## A deck is not a note
+
+A tag names a deck and any number of notes may carry it, so `#flashcards/aws` in
+three notes is one deck of everything the three of them hold. The alternative,
+one note one deck, would have made the name a lie: two notes tagged `aws` drew
+two rows called `aws`, and which of them a card was in was a fact about filing
+again.
+
+That is also what makes a card's own tag worth having. A note about stored
+procedures holds one card about dbt, and
+[a tag at the head of that card's line](/reference/flashcard-format.md#a-card-in-a-second-deck)
+puts that card in the `dbt` deck without moving it, copying it or dragging the
+other eight cards along with it.
+
+The tag adds a deck rather than replacing the note's, which is where kasten
+parts from obsidian-spaced-repetition. There a card's own tags are the whole of
+its filing. Adding is the reading that answers what the tag is written for: the
+card is about stored procedures and about dbt, and saying the second should not
+cost you the first. The plugin still reads the vault and still asks that card;
+it files it under `dbt` alone.
 
 ## Archiving is the archive
 

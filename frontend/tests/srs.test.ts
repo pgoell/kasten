@@ -97,6 +97,46 @@ r
   });
 });
 
+describe("parseCards on the decks a card is in", () => {
+  it("puts every card of a tagged note in the note's deck", () => {
+    expect(only(NOTE).decks).toEqual(["aws"]);
+  });
+
+  it("names a bare tag's deck after the note", () => {
+    expect(parseCards("#flashcards\n\na::b\n", "Terraform drills")[0]?.decks).toEqual([
+      "Terraform drills",
+    ]);
+  });
+
+  it("adds a card's own deck to the note's rather than replacing it", () => {
+    const cards = parseCards("#flashcards/db\n\na::b\n\n#flashcards/dbt c::d\n");
+
+    expect(cards.map((card) => card.decks)).toEqual([["db"], ["db", "dbt"]]);
+  });
+
+  it("takes the card's own tags off the question", () => {
+    const cards = parseCards("#flashcards/db\n\n#flashcards/dbt How does it relate?::so\n");
+
+    expect(cards[0]?.front).toBe("How does it relate?");
+    expect(cards[0]?.back).toBe("so");
+  });
+
+  it("takes them off the front of a card written over several lines", () => {
+    const card = only("#flashcards/dbt How does it relate?\n?\nso\n");
+
+    expect(card.front).toBe("How does it relate?");
+    expect(card.decks).toEqual(["dbt"]);
+  });
+
+  it("leaves a card in a note nobody tagged in no deck at all", () => {
+    expect(only("a::b\n").decks).toEqual([]);
+  });
+
+  it("reads no deck out of a fenced tag", () => {
+    expect(only("```\n#flashcards/db\n```\n\na::b\n").decks).toEqual([]);
+  });
+});
+
 describe("readSchedule", () => {
   it("reads the three numbers the comment holds", () => {
     expect(readSchedule("a::b <!--SR:!2026-08-20,4,270-->")).toEqual({
@@ -253,5 +293,35 @@ describe("writeNoteSchedule", () => {
     const written = writeNoteSchedule(note, next);
     expect(written.match(/sr-due:/g)).toHaveLength(1);
     expect(written).toContain("sr-due: 2026-09-01");
+  });
+});
+
+describe("parseCards on a tag that opens no card", () => {
+  // The two readers of this format have to agree, and this is the line where
+  // they could most easily part: `review.ts` sees the matched lines alone.
+  it("reads a tag heading prose as the note's, not a card's", () => {
+    const cards = parseCards("#flashcards/db is the deck here.\n\na::b\n\nc::d\n");
+
+    expect(cards.map((card) => card.decks)).toEqual([["db"], ["db"]]);
+  });
+
+  it("keeps a card's own tags off its neighbours", () => {
+    const cards = parseCards("#flashcards/db\n\n#flashcards/dbt a::b\nc::d\n");
+
+    expect(cards.map((card) => card.decks)).toEqual([["db", "dbt"], ["db"]]);
+  });
+});
+
+describe("parseCards on a front running over two lines", () => {
+  // The one case where the tags cannot be a card's own: `review.ts` sees the
+  // matched lines alone and cannot tell this front from a line of prose, so
+  // both readers hand the tags to the note.
+  it("reads them as the note's, and asks the card without them", () => {
+    const cards = parseCards(
+      "#flashcards/db What is it,\nthe long way round\n?\nlike this\n\na::b\n",
+    );
+
+    expect(cards[0]?.front).toBe("What is it,\nthe long way round");
+    expect(cards.map((card) => card.decks)).toEqual([["db"], ["db"]]);
   });
 });

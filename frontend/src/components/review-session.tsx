@@ -4,6 +4,7 @@ import { NotePreview } from "@/components/note-preview";
 import { fetchNote, saveNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { noteBody } from "@/lib/note-frontmatter";
+import { noteName } from "@/lib/note-path";
 import type { Deck } from "@/lib/review";
 import {
   type Card,
@@ -60,22 +61,30 @@ interface ReviewSessionProps {
   onControls?: (controls: { reveal: () => void; rate: (rating: Rating) => void } | null) => void;
 }
 
+/** One card in the sitting: which note holds it, and which of that note's cards. */
+interface Seat {
+  note: string;
+  /** Its ordinal among the cards of that note, counting the ones other decks ask. */
+  at: number;
+}
+
 /**
  * One deck, one card at a time.
  *
- * The note is read once, at the start, and every rating is written straight
- * back to it. That is a `PUT` per answer, which is what the todo pane already
- * does per press, and it means a session interrupted halfway keeps the answers
- * it got rather than losing them the way a sitting of an exam does.
+ * Every note the deck draws from is read once, at the start, and every rating
+ * is written straight back to the note the card is in. That is a `PUT` per
+ * answer, which is what the todo pane already does per press, and it means a
+ * session interrupted halfway keeps the answers it got rather than losing them
+ * the way a sitting of an exam does.
  *
- * The queue holds ordinals into the note's cards rather than the cards
+ * The queue holds a note and an ordinal into its cards rather than the cards
  * themselves. Writing a schedule can insert a line, which moves every card
  * under it, but it can never add or remove a card, so card three stays card
  * three and the ordinals survive a rewrite that the line numbers do not.
  */
 export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps) {
-  const [text, setText] = useState<string | null>(null);
-  const [queue, setQueue] = useState<number[]>([]);
+  const [texts, setTexts] = useState<Map<string, string> | null>(null);
+  const [queue, setQueue] = useState<Seat[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [typing, setTyping] = useState(() => localStorage.getItem(TYPING_KEY) === "on");
   /** What was typed for the card showing, kept so the verdict can quote it back. */
@@ -88,17 +97,28 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
   useEffect(() => {
     let live = true;
-    void fetchNote(deck.note).then(
-      (note) => {
+    // All of them before any of them is asked. A deck spanning three notes is
+    // three reads at the start rather than one on the card that first needs it,
+    // so the queue is the whole sitting from the first question and the count
+    // in the header does not climb as you go.
+    void Promise.all(deck.notes.map(async (note) => [note, await fetchNote(note)] as const)).then(
+      (read) => {
         if (!live) return;
-        setText(note);
-        const cards = cardsOf(deck, note);
-        // Due first, then the ones nobody has answered, each in the note's
-        // order. Nothing is shuffled: a deck written in an order was written in
-        // that order on purpose, and an import arrives in the order Anki held.
-        const due = cards.flatMap((card, at) => (isDue(card, today) ? [at] : []));
-        const fresh = cards.flatMap((card, at) => (card.held === null ? [at] : []));
-        setQueue([...due, ...fresh]);
+        const texts = new Map(read);
+        setTexts(texts);
+        // Due first, then the ones nobody has answered, each in its note's
+        // order and the notes in the order the deck names them. Nothing is
+        // shuffled: a deck written in an order was written in that order on
+        // purpose, and an import arrives in the order Anki held.
+        const seats = [...cardsOf(deck, texts)].flatMap(([note, cards]) =>
+          cards.map((card, at) => ({ note, at, card })),
+        );
+        setQueue(
+          [
+            ...seats.filter(({ card }) => isDue(card, today)),
+            ...seats.filter(({ card }) => card.held === null),
+          ].map(({ note, at }) => ({ note, at })),
+        );
       },
       (error: unknown) => {
         if (live) setFailed(error instanceof Error ? error.message : "could not read the note");
@@ -109,31 +129,32 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     };
   }, [deck, today]);
 
-  const cards = useMemo(() => (text === null ? [] : cardsOf(deck, text)), [deck, text]);
-  const at = queue[0];
-  const card = at === undefined ? undefined : cards[at];
+  const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
+  const seat = queue[0];
+  const card = seat === undefined ? undefined : cards.get(seat.note)?.[seat.at];
   // A whole note has nothing hidden to show, so it is shown from the start and
   // the four ratings are the only thing its footer ever draws.
   const shown = revealed || card?.back === "";
 
   const rate = useCallback(
     (rating: Rating) => {
-      if (text === null || at === undefined) return;
-      const held = cards[at];
-      if (held === undefined) return;
+      if (texts === null || seat === undefined) return;
+      const text = texts.get(seat.note);
+      const held = cards.get(seat.note)?.[seat.at];
+      if (text === undefined || held === undefined) return;
 
       const moved = nextSchedule(held.held, rating, today);
       const next = deck.whole ? writeNoteSchedule(text, moved) : writeSchedule(text, held, moved);
-      setText(next);
+      setTexts((was) => new Map(was).set(seat.note, next));
       setRevealed(false);
       setTyped("");
       setDone((count) => count + 1);
       // `again` sends the card to the back rather than out of the queue, which
       // is the one place the session disagrees with the schedule it just wrote:
       // the note says tomorrow, and today's sitting asks once more.
-      setQueue((held_) => (rating === "again" ? [...held_.slice(1), at] : held_.slice(1)));
+      setQueue((held_) => (rating === "again" ? [...held_.slice(1), seat] : held_.slice(1)));
 
-      void saveNote(deck.note, next).then(
+      void saveNote(seat.note, next).then(
         () => {
           void queryClient.invalidateQueries({ queryKey: ["cards"] });
         },
@@ -146,7 +167,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         },
       );
     },
-    [at, cards, deck, queryClient, text, today],
+    [cards, deck, queryClient, seat, texts, today],
   );
 
   const reveal = useCallback(() => {
@@ -192,9 +213,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px]">
-        {text === null && failed === null && <p className="text-one-muted">Reading the deck…</p>}
+        {texts === null && failed === null && <p className="text-one-muted">Reading the deck…</p>}
 
-        {card === undefined && text !== null && (
+        {card === undefined && texts !== null && (
           <div data-testid="review-done">
             <p>Nothing left in {deck.name}.</p>
             <p className="mt-2 text-one-muted">{done} answered.</p>
@@ -294,15 +315,30 @@ function isDue(card: Card, today: string): boolean {
 }
 
 /**
- * What this deck asks, which is either the note's cards or the note itself.
+ * What this deck asks out of each note, which is either its cards or itself.
  *
  * The one place the two kinds part company. A `#review` note becomes a single
  * card whose front is the note and whose back is nothing, so the queue, the
  * rating and the writing downstream are the same code for both, and only the
- * two lines here know there was ever a difference.
+ * lines here know there was ever a difference.
+ *
+ * A note's cards are filtered to this deck's, because a note holding two decks
+ * is the whole point of a card carrying a tag of its own: sitting `dbt` asks
+ * the one card in the stored procedures note that says it is about dbt, and
+ * none of the others.
  */
-function cardsOf(deck: Deck, text: string): Card[] {
-  if (!deck.whole) return parseCards(text);
-  const held = readNoteSchedule(text);
-  return [{ from: 0, to: 0, front: noteBody(text).trim(), back: "", inline: false, held }];
+function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
+  return new Map(
+    [...texts].map(([note, text]) => {
+      if (deck.whole) {
+        const held = readNoteSchedule(text);
+        const whole = { from: 0, to: 0, front: noteBody(text).trim(), back: "", inline: false };
+        return [note, [{ ...whole, decks: [deck.name], held }]];
+      }
+      const cards = parseCards(text, noteName(note)).filter((card) =>
+        card.decks.includes(deck.name),
+      );
+      return [note, cards];
+    }),
+  );
 }

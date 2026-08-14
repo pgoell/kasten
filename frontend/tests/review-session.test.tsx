@@ -4,13 +4,13 @@ import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import type { Deck } from "@/lib/review";
 
-const DECK: Deck = { name: "aws", note: "decks/aws.md", due: 0, fresh: 1, whole: false };
+const DECK: Deck = { name: "aws", notes: ["decks/aws.md"], due: 0, fresh: 1, whole: false };
 
 const NOTE = "#flashcards/aws\n\nWhat does S3 stand for?::Simple Storage Service\n";
 
 function renderSession() {
   vi.spyOn(api, "fetchNote").mockResolvedValue(NOTE);
-  vi.spyOn(api, "saveNote").mockResolvedValue({ path: DECK.note, content: NOTE });
+  vi.spyOn(api, "saveNote").mockResolvedValue({ path: "decks/aws.md", content: NOTE });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   render(
@@ -97,14 +97,14 @@ describe("ReviewSession typing", () => {
 });
 
 describe("ReviewSession on a whole note", () => {
-  const NOTE_DECK: Deck = { name: "tls", note: "notes/tls.md", due: 1, fresh: 0, whole: true };
+  const NOTE_DECK: Deck = { name: "tls", notes: ["notes/tls.md"], due: 1, fresh: 0, whole: true };
   const MARKED =
     "---\nsr-due: 2026-01-01\nsr-interval: 4\nsr-ease: 250\n---\n# TLS\n\nthe handshake\n";
 
   function renderNote() {
     vi.spyOn(api, "fetchNote").mockResolvedValue(MARKED);
     const saved = vi.spyOn(api, "saveNote").mockResolvedValue({
-      path: NOTE_DECK.note,
+      path: "notes/tls.md",
       content: MARKED,
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -141,5 +141,65 @@ describe("ReviewSession on a whole note", () => {
     const written = saved.mock.calls[0]?.[1] ?? "";
     expect(written).toContain("sr-interval: 10");
     expect(written).toContain("the handshake");
+  });
+});
+
+describe("ReviewSession on a deck spanning two notes", () => {
+  const SPREAD: Deck = {
+    name: "dbt",
+    notes: ["db/procs.md", "db/dbt.md"],
+    due: 0,
+    fresh: 2,
+    whole: false,
+  };
+  const PROCS =
+    "#flashcards/db\n\nWhat is a proc?::a block\n\n#flashcards/dbt What is a macro?::jinja\n";
+  const DBT = "#flashcards/dbt\n\nWhat does dbt render?::sql\n";
+
+  function renderSpread() {
+    vi.spyOn(api, "fetchNote").mockImplementation((path: string) =>
+      Promise.resolve(path === "db/procs.md" ? PROCS : DBT),
+    );
+    const saved = vi.spyOn(api, "saveNote").mockResolvedValue({ path: "db/procs.md", content: "" });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={SPREAD} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    return saved;
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("asks only the cards of this deck, out of every note holding one", async () => {
+    renderSpread();
+
+    // The tagged card of the procs note, and not the untagged one beside it.
+    expect(await screen.findByTestId("review-card")).toHaveTextContent("What is a macro?");
+    expect(screen.getByTestId("review-card")).not.toHaveTextContent("What is a proc?");
+  });
+
+  it("writes each rating back into the note that card is in", async () => {
+    const saved = renderSpread();
+    await screen.findByTestId("review-card");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
+    expect(saved.mock.calls[0]?.[0]).toBe("db/procs.md");
+    // The tag stays on the line: a rating writes the comment and nothing else.
+    expect(saved.mock.calls[0]?.[1]).toContain("#flashcards/dbt What is a macro?::jinja <!--SR:!");
+    expect(saved.mock.calls[0]?.[1]).toContain("What is a proc?::a block\n");
+
+    expect(await screen.findByTestId("review-card")).toHaveTextContent("What does dbt render?");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
+    expect(saved.mock.calls[1]?.[0]).toBe("db/dbt.md");
   });
 });
