@@ -29,6 +29,11 @@ jobs:
         component: [backend, frontend, shell]
     steps:
       - uses: actions/checkout@v6
+        with:
+          # The whole history and every tag, which the decision below needs: it
+          # diffs this release against the one before it, and neither the tag
+          # list nor the range exists in a shallow clone.
+          fetch-depth: 0
       # The backend reports this number at `/docs` and on every schema it
       # serves, so a tag that disagrees with it ships a build lying about which
       # release it is. Cheaper to stop here than to find out from the API later.
@@ -47,7 +52,54 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # `shell/` had not changed in three releases and was rebuilt for each of
+      # them, at four minutes a time on the critical path. An image whose
+      # sources are untouched is the image already in the registry, so this
+      # decides which of the two steps below runs.
+      - name: Decide whether this image has to be built
+        id: decide
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+
+          # What goes into each image, as the Dockerfiles copy it. The backend
+          # takes the root lockfile and project file too, which is also what
+          # makes every release rebuild it: the version bump lands there.
+          case "$COMPONENT" in
+            backend) sources="backend pyproject.toml uv.lock" ;;
+            frontend) sources="frontend" ;;
+            shell) sources="shell" ;;
+            *) echo "::error::No sources listed for $COMPONENT"; exit 1 ;;
+          esac
+
+          # The release before this one, which is what the tag's parent is
+          # described by. Empty on the first release ever, and then everything
+          # is built because there is nothing to compare against.
+          previous=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+
+          if [ -z "$previous" ]; then
+            reason="no earlier release to compare against"
+          elif ! git diff --quiet "$previous" "$TAG" -- $sources; then
+            reason="$sources changed since $previous"
+          elif ! docker buildx imagetools inspect "$IMAGE:$previous" >/dev/null 2>&1; then
+            # The retag has nothing to copy. Building is slower and always
+            # right, and a deploy pulling a tag that was never pushed is the
+            # failure this guard exists to prevent.
+            reason="no $IMAGE:$previous in the registry to copy"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "previous=$previous" >> "$GITHUB_OUTPUT"
+            echo "Unchanged since $previous. Copying that image rather than building."
+            exit 0
+          fi
+
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "Building: $reason."
       - id: meta
+        if: steps.decide.outputs.build == 'true'
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
@@ -55,6 +107,7 @@ jobs:
             type=raw,value=${{ github.event.release.tag_name }}
             type=raw,value=latest
       - uses: docker/build-push-action@v7
+        if: steps.decide.outputs.build == 'true'
         with:
           context: .
           file: ${{ matrix.component }}/Dockerfile
@@ -63,6 +116,24 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.component }}
           cache-to: type=gha,scope=${{ matrix.component }},mode=max
+
+      # A manifest copy inside the registry: no pull, no build, no cache
+      # export, and the digest the deploy gets is the one that was tested under
+      # the earlier tag rather than a fresh build of the same sources. `latest`
+      # moves too, because the build path above tags both and the deploy has no
+      # way to tell which path produced the image it pulls.
+      - name: Copy the unchanged image to this release's tag
+        if: steps.decide.outputs.build == 'false'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          PREVIOUS: ${{ steps.decide.outputs.previous }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            --tag "$IMAGE:$TAG" \
+            --tag "$IMAGE:latest" \
+            "$IMAGE:$PREVIOUS"
 
   deploy:
     name: Deploy to VPS

@@ -79,11 +79,30 @@ release that lies about which version it is. Then it builds the three images on
 the self-hosted runner pulls, migrates, restarts and waits for the backend
 healthcheck.
 
-Confirm what is actually serving:
+An image whose sources have not changed since the last release is not rebuilt.
+The workflow diffs this tag against the one before it, and where nothing that
+goes into an image has moved, it copies the earlier image to this release's tag
+inside the registry instead. The shell image is the one this usually catches:
+it is the slowest of the three and it changes least, and copying it takes
+seconds where building it takes four minutes.
+
+Two things follow. The version bump lands in `backend/pyproject.toml`,
+`uv.lock` and `frontend/openapi.json`, so the backend and the frontend are
+rebuilt on every release by construction. And the digest a copied image carries
+is the one that was already running under the earlier tag, rather than a fresh
+build of the same sources, so a release that changes nothing about a component
+deploys the exact bytes that were serving before it.
+
+Confirm what is actually serving, on the box:
 
 ```sh
-curl -s https://kasten.pascalkraus.com/openapi.json | jq -r .info.version
+docker exec kasten-backend-prod \
+  python -c "import importlib.metadata as m; print(m.version('kasten-backend'))"
 ```
+
+Not `curl` against the public address. Everything there sits behind
+oauth2-proxy, so an unauthenticated request for `openapi.json` is answered with
+a 302 to the sign-in page and never with the version.
 
 ## When the tag and the version disagree
 
