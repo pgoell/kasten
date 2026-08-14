@@ -846,9 +846,9 @@ each column's text on the side its dashes ask for. The cursor in it is what
 shows the source, in any mode, and the whole block comes back at once, in the
 monospaced face, because columns lined up by counting characters only stay lined
 up where every character is one width. In that source a table keeps all of its
-marks, the way a fenced block does: a cell holding `**bold**` or a `[[link]]`
-shows them, coloured, since hiding two characters would shorten the cell by two
-and pull the column out of true.
+marks: a cell holding `**bold**` or a `[[link]]` shows them, coloured, since
+hiding two characters would shorten the cell by two and pull the column out of
+true.
 
 `j` and `k` step over a drawn table rather than into it, which is the quick way
 past a long one. To get in, use a key that moves by position rather than by what
@@ -1127,6 +1127,14 @@ leave four of them on the line: one pair from the first keystroke, the second
 stepping over it, and the third opening a pair of its own. It only fires when
 the line holds the pair and nothing else, so a backtick typed mid-sentence
 still just opens a pair.
+
+On screen a fenced block is a shaded surface in the monospaced face, with its
+backticks and its language off the screen. The cursor anywhere in the block
+hands them back, in insert or visual mode, and the whole block shows them at
+once rather than the cursor's line alone: a hidden fence line is a line the
+cursor cannot reach. A block with nothing between its fences keeps them, which
+is the block a third backtick writes, so the backticks are there while you type
+the first line into it.
 
 ## Indenting
 

@@ -194,8 +194,25 @@ source, the page's own policy allowing images from this origin alone.
 A fenced code block needs none of that. Every line of it takes a line
 decoration, which paints the block's surface and sets it in the monospaced
 face, and the highlighting inside comes from whichever parser the language
-named. Nothing in a fence is hidden: the backticks and the language are part of
-what the block says, and the code inside is not prose that marks would clutter.
+named. The backticks and the language go the way every other mark does, the
+surface saying where the block starts and ends better than they did, and the
+code between them is left alone: it is not prose that marks would clutter.
+
+The two fence lines are hidden whole, each with the line break that keeps it off
+the code, so the block ends on a line of code rather than on a blank row. That
+is the one place here where a hidden run crosses a line break, and CodeMirror
+draws the pair it joins as one line wearing the upper one's class, which is why
+the bottom of the surface hangs on the last line of code and, in a block of a
+single line, on the opening fence.
+
+The cursor anywhere in the block hands the fences back, and not the cursor's
+line the way the rest of the rendering works. A hidden fence line is a line the
+cursor cannot reach, so a rule waiting for it to arrive there would never fire.
+A block with no code between its fences keeps them for the same reason: hiding
+both would leave no line on the screen to put the cursor back on, and the two
+hidden runs would meet inside the one line break they share. That is the state a
+third backtick writes, so it is the state you are looking at while you type the
+first line of code into it.
 
 A table is drawn as a table. One widget stands in for every line of it, a real
 `<table>` with a head row, borders and each column's text on the side its dashes

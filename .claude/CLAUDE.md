@@ -67,7 +67,9 @@ fix the page in the same pull request.
 
 ## Development workflow
 
-Work happens on a branch and lands through a pull request. 
+One feature, one branch, one pull request. Never commit a feature to `main`:
+cut a branch from it, build the feature there, and open a pull request when it
+is done. The branch ends when the pull request lands.
 
 [Cut a release](../docs/how-to/cut-a-release.md).
 

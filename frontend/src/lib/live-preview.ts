@@ -386,16 +386,54 @@ function build(state: EditorState): Live {
       }
 
       // Every line of the block, so the run reads as one surface with the code
-      // in a monospaced face. Nothing is hidden: the language and the backticks
-      // are part of what the block says, and the code inside is already
-      // highlighted by whichever parser the language named.
+      // in a monospaced face. The backticks and the language go, the surface
+      // saying where the block starts and ends better than they did. The code
+      // itself is left alone, whichever parser the language named having
+      // already highlighted it.
       if (isFence) {
         const first = state.doc.lineAt(node.from).number;
         const last = state.doc.lineAt(node.to).number;
+        // The cursor anywhere in the block hands the fences back, rather than
+        // the cursor's line the way the rest of this walk works: a hidden fence
+        // line is a line the cursor cannot reach, so a rule waiting for it to
+        // arrive there would never fire.
+        const revealed =
+          revealsSource(state.field(vimModeField)) &&
+          state.selection.ranges.some((range) => range.from <= node.to && range.to >= node.from);
+        // A block with no code between its fences keeps them. Hiding both would
+        // leave no line on the screen to put the cursor back on, and the two
+        // hidden runs would meet inside the one line break they share.
+        const fenced = !revealed && last - first > 1;
+
+        const marks = new Set<number>();
+        for (let child = node.node.firstChild; child; child = child.nextSibling) {
+          if (child.name === "CodeMark") marks.add(state.doc.lineAt(child.from).number);
+        }
+
+        // Where the bottom of the surface hangs. A hidden fence falls into the
+        // line of code beside it and CodeMirror draws the pair as one line
+        // wearing the upper one's class, so a block of a single line carries
+        // both ends on its opening fence.
+        let closes = last;
+        if (fenced) closes = last - first === 2 ? first : last - 1;
+
         for (let number = first; number <= last; number++) {
-          const edge = number === first ? " cm-code-open" : number === last ? " cm-code-close" : "";
-          const at = state.doc.line(number).from;
-          decorations.push(Decoration.line({ class: `cm-code-block${edge}` }).range(at));
+          const line = state.doc.line(number);
+          const edge = `${number === first ? " cm-code-open" : ""}${number === closes ? " cm-code-close" : ""}`;
+          decorations.push(Decoration.line({ class: `cm-code-block${edge}` }).range(line.from));
+          // Hidden with the line break that keeps it off the code: the opening
+          // fence takes the one after it and the closing fence the one before,
+          // so neither leaves a blank row at the end of the block.
+          if (!marks.has(number)) continue;
+          // On the screen, so knocked back off the code: the backticks and the
+          // language say where the block starts, which is what the surface
+          // around them is already saying.
+          if (!fenced) {
+            decorations.push(Decoration.mark({ class: "cm-code-fence" }).range(line.from, line.to));
+            continue;
+          }
+          if (number === first) hide(line.from, line.to + 1);
+          else hide(line.from - 1, line.to);
         }
         return;
       }
