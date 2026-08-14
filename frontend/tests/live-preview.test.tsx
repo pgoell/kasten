@@ -50,7 +50,7 @@ describe("live preview", () => {
     expect(content(container)).toBe("a marked word");
   });
 
-  it("reveals inline marks on the cursor's line in insert mode", async () => {
+  it("reveals the inline marks of the construct the cursor is in", async () => {
     const { container } = render(<Editor initialDoc="**bold**" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
@@ -72,12 +72,24 @@ describe("live preview", () => {
     expect(content(container)).toBe("see the docs now");
   });
 
-  it("reveals the whole link on the cursor's line in insert mode", async () => {
+  it("reveals the whole link with the cursor in it in insert mode", async () => {
     const { container } = render(<Editor initialDoc="see [the docs](https://example.com) now" />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    // `w` off the first word lands on the link's `[`, which is hidden, so the
+    // cursor settles on the first character of its text.
+    fireEvent.keyDown(editor, { key: "w" });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toBe("see [the docs](https://example.com) now"));
+  });
+
+  it("leaves the constructs the cursor is not in rendered", async () => {
+    const { container } = render(<Editor initialDoc="**bold** and *italic*" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
-    await waitFor(() => expect(content(container)).toBe("see [the docs](https://example.com) now"));
+    await waitFor(() => expect(content(container)).toBe("**bold** and italic"));
   });
 
   it("renders a wikilink as the note it names", () => {
@@ -87,10 +99,12 @@ describe("live preview", () => {
     expect(container.querySelector(".cm-wikilink")?.textContent).toBe("reading/borges");
   });
 
-  it("reveals the brackets on the cursor's line in insert mode", async () => {
+  it("reveals the brackets with the cursor in the wikilink in insert mode", async () => {
     const { container } = render(<Editor initialDoc="see [[borges]] now" />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
 
-    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+    fireEvent.keyDown(editor, { key: "w" });
+    fireEvent.keyDown(editor, { key: "i" });
 
     await waitFor(() => expect(content(container)).toBe("see [[borges]] now"));
   });
@@ -231,6 +245,17 @@ describe("live preview", () => {
     // The symbol goes with it, or the line carries the drawing and its source.
     await waitFor(() => expect(content(container)).toContain("- [/] "));
     expect(container.querySelector("[class*='cm-todo']")).toBeNull();
+  });
+
+  it("leaves a todo's box to the bullet, link brackets and all", async () => {
+    // `- [/] task` parses `[/]` as a link. The box is the bullet's to draw, and
+    // a revealed line showed the box back without its brackets while the link
+    // rendering had them.
+    const { container } = render(<Editor initialDoc={"- [/] task"} />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toBe("- [/] task"));
   });
 
   it("keeps the cursor out of the box it hid", () => {
