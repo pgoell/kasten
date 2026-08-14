@@ -143,8 +143,13 @@ run = "bash scripts/apply-github-settings.sh --check"
 # ─── Lint & format ──────────────────────────────────────────────────────────
 
 [tasks.lint]
-description = "Run the fast linters (pre-commit gate)"
-depends = ["lint:py", "fe:lint"]
+description = "Run the fast linters and both type checkers (pre-commit gate)"
+# `fe:typecheck` is in here rather than left to CI because the two halves of the
+# repo have to be gated alike: `lint:py` type-checks the backend, and without
+# this the frontend was the half where a type error reached the branch. It
+# brings `fe:build` with it, which is what emits the gitignored route tree, and
+# the pair costs about two seconds.
+depends = ["lint:py", "fe:lint", "fe:typecheck"]
 
 [tasks."lint:py"]
 description = "Lint, format-check and type-check the backend"
