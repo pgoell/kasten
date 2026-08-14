@@ -139,6 +139,14 @@ export class FakeView extends HTMLElement {
   /** What `open` builds. Absent until it has, the way the real view's is. */
   book: { toc: TocItem[] | null | undefined; sections: FakeSection[] } | undefined = undefined;
   started = false;
+  /**
+   * Whether a section has ever loaded, which is what a renderer to close means.
+   *
+   * The real paginator builds its inner view on the first `goTo` and destroys
+   * that view on close, so before then there is no renderer to free and
+   * `getContents` says as much.
+   */
+  loaded = false;
   /** How many times `close` was called, which the teardown cases count. */
   closes = 0;
   nexts = 0;
@@ -186,9 +194,11 @@ export class FakeView extends HTMLElement {
     super();
     FakeView.made.push(this);
     this.renderer = new EventTarget();
-    this.renderer.getContents = () => [
-      { index: this.index, doc: this.section, overlayer: this.overlayer },
-    ];
+    // Empty until a section has loaded, the way the real one is: the paginator
+    // answers off a view it only builds on the first `goTo`
+    // (`paginator.js:667-676, 1092-1099`).
+    this.renderer.getContents = () =>
+      this.loaded ? [{ index: this.index, doc: this.section, overlayer: this.overlayer }] : [];
     if (FakeView.withStyles)
       this.renderer.setStyles = (css: string) => {
         this.styles = css;
@@ -259,7 +269,10 @@ export class FakeView extends HTMLElement {
     // throw. Filled after, a rejecting `init` would leave it falsy, the
     // fallback would fire, and the shape this fake exists to model could not
     // be arranged at all.
-    if (!FakeView.navigatesNowhere) this.lastLocation = { cfi: "epubcfi(/6/2)" };
+    if (!FakeView.navigatesNowhere) {
+      this.lastLocation = { cfi: "epubcfi(/6/2)" };
+      this.loaded = true;
+    }
     if (FakeView.initWith) await FakeView.initWith();
     this.started = true;
   }
@@ -269,6 +282,12 @@ export class FakeView extends HTMLElement {
   }
 
   close(): void {
+    // What the real one does with nothing loaded: `close` reaches
+    // `Paginator.destroy`, which dereferences a view the paginator has not
+    // built (`paginator.js:1121-1124`). Thrown here rather than counted,
+    // because out of an effect cleanup that throw takes the app down.
+    if (!this.loaded)
+      throw new TypeError('can\'t access property "destroy", this[#s] is undefined');
     this.closes += 1;
   }
 
@@ -288,6 +307,7 @@ export class FakeView extends HTMLElement {
    * page, and a range pointing into it must not be taken from.
    */
   emitLoad(doc: Document = this.section): void {
+    this.loaded = true;
     this.dispatchEvent(new CustomEvent("load", { detail: { doc, index: 0 } }));
   }
 }

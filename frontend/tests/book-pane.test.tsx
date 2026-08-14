@@ -384,11 +384,40 @@ describe("BookPane", () => {
     });
 
     const [first, second] = FakeView.made;
-    // Closed after `open` settled, not only in the cleanup: there was no
-    // renderer to close while it was still in flight.
-    expect(first?.closes).toBeGreaterThan(0);
+    // Neither is closed: the first mount's view is dropped before a section
+    // ever loaded, and closing one of those throws.
+    expect(first?.closes).toBe(0);
     expect(second?.closes).toBe(0);
     await waitFor(() => expect(second?.started).toBe(true));
+  });
+
+  it("leaves a book that never rendered a page alone on the way out", async () => {
+    // The tab switch that took the app down. `close` reaches
+    // `Paginator.destroy`, which dereferences the inner view the paginator only
+    // builds when a section loads, so a pane that goes away before the first
+    // page is drawn throws out of its own cleanup, and React unmounts
+    // everything from there up. The window is as long as that page takes.
+    FakeView.navigatesNowhere = true;
+    const start = deferred();
+    FakeView.initWith = () => start.promise;
+    const { unmount } = draw();
+
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+    const view = lastView();
+    unmount();
+
+    expect(view.closes).toBe(0);
+  });
+
+  it("closes the book it drew when the pane goes", async () => {
+    // The other half, and the one the guard above must not take with it: a
+    // section did load, so there is a live iframe to free.
+    const { unmount } = draw();
+    await waitFor(() => expect(lastView().started).toBe(true));
+
+    unmount();
+
+    expect(lastView().closes).toBe(1);
   });
 
   it("closes a view whose open was still in flight when the pane went", async () => {
@@ -403,10 +432,9 @@ describe("BookPane", () => {
       await open.promise;
     });
 
-    // Twice: once in the cleanup, and once after the await, which is the one
-    // that frees a renderer that did not exist yet the first time. A bare
-    // return there leaks a live foliate view per cancelled mount.
-    expect(lastView().closes).toBe(2);
+    // Nothing to free: `open` never finished, so no section loaded and the
+    // element the cleanup removed took the renderer with it.
+    expect(lastView().closes).toBe(0);
   });
 });
 
