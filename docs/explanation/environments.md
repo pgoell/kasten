@@ -148,11 +148,13 @@ todo through `PUT /api/files/{path}`, and that is where it sends it. Nothing is
 published to the host for it, and `curl` and `jq` are in the image for the same
 reason.
 
-It does not get your home directory either. Claude Code and codex are installed
-fresh in the image and sign themselves in inside the container, into the
-`kasten-shell-home` named volume; no `~/.claude`, `~/.claude.json` or `~/.codex`
-from the host is mounted. So the first agent you start in there asks you to log
-in, once, and the volume keeps it across rebuilds and releases. That is the
+It does not get your home directory either. Claude Code, codex and dsh are
+installed fresh in the image and keep what they are told inside the container,
+in the `kasten-shell-home` named volume; no `~/.claude`, `~/.claude.json`,
+`~/.codex` or `~/.dsh` from the host is mounted. So the first of the two that
+log in asks you to do it, once, dsh reads a DeepSeek API key from the
+environment or `~/.dsh/.env`, and the volume keeps both across rebuilds and
+releases. That is the
 point: an agent in this container is its own install with its own settings, and
 the vault is the only thing it shares with you.
 
@@ -161,7 +163,7 @@ are the host's. That setup is in the image, at `/etc/zsh/zshrc.kasten`, rather
 than in a dotfile, because the home is a named volume docker seeds once: a
 `~/.zshrc` shipped in an image would reach a fresh volume and never an existing
 one. `~/.zshrc` is seeded empty for your own aliases and is read after the
-shared file. Both agents are installed under `/opt/npm` rather than npm's
+shared file. All three are installed under `/opt/npm` rather than npm's
 `/usr/local`, and that tree belongs to the user the shell runs as, which is
 what `claude update` needs to write; putting it under `/usr/local` would hand
 that user ttyd and herdr as well. An update lands in the container's writable

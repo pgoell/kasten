@@ -13,7 +13,7 @@ oauth2-proxy.
   CodeMirror 6 with vim mode, xterm, bun. Every key is in
   [the editor keys](../docs/reference/editor-keys.md).
 - `shell/`: ttyd over herdr on a node base, with the vault mounted and jj, rg,
-  git, curl, jq, Claude Code and codex beside it. It publishes no port, the way
+  git, curl, jq, Claude Code, codex and dsh beside it. It publishes no port, the way
   in being a Caddy `handle /term/*` behind oauth2-proxy.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 - `compose.yaml` and `compose.dev.yml` at the root run dev. `deploy/` holds the

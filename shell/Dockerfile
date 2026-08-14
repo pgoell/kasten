@@ -61,6 +61,31 @@ ADD https://github.com/starship/starship/releases/download/v${STARSHIP_VERSION}/
 RUN echo "${STARSHIP_SHA256}  /tmp/starship.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/starship.tar.gz -C /usr/local/bin starship
 
+# The three agents come from npm, and one of them compiles: dsh depends on
+# node-pty, which publishes prebuilds for macOS and Windows only, so on
+# linux-x64 node-gyp builds it from source and wants python3 and a compiler.
+# The runtime has no use for either afterwards, so they are installed here and
+# only the finished tree is copied over. The same node base is not a nicety: a
+# compiled `pty.node` is built against one node ABI.
+#
+# Exact versions, not a range: an image rebuilt in six months should be the
+# image that was tested. An update lands in the container's writable layer and
+# so does not survive being recreated: the pin here is the floor a deploy
+# returns to, and bumping it is how a version sticks.
+#
+# dsh is DeepSeek's harness, and the third agent. It is a developer preview, so
+# the pin is an rc and moves often. It signs itself in unlike the other two: no
+# browser login, a DeepSeek API key read from the environment or `~/.dsh/.env`,
+# and `~/.dsh` sits in the home volume beside `~/.claude` and `~/.codex`, so a
+# key set once outlives a release.
+FROM node:24-bookworm-slim AS agents
+ENV NPM_CONFIG_PREFIX=/opt/npm
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @anthropic-ai/claude-code@2.1.231 @openai/codex@0.147.0 \
+       @deepseek-ai/dsh@0.1.0-rc.6
+
 FROM node:24-bookworm-slim AS runtime
 
 # curl and jq are for the backend: an agent in here completes a todo through
@@ -88,17 +113,14 @@ COPY --from=starship /usr/local/bin/starship /usr/local/bin/starship
 RUN usermod --login kasten --home /home/kasten --move-home --shell /usr/bin/zsh node \
     && groupmod --new-name kasten node
 
-# Exact versions, not a range: an image rebuilt in six months should be the
-# image that was tested. The prefix is /opt/npm rather than npm's own
-# /usr/local, so the tree can belong to the user the shell runs as, which is
-# what `claude update` needs to write; under /usr/local it would have to hand
-# that user ttyd and herdr as well. An update lands in the container's
-# writable layer and so does not survive being recreated: the pin here is the
-# floor a deploy returns to, and bumping it is how a version sticks.
+# The prefix is /opt/npm rather than npm's own /usr/local, so the tree can
+# belong to the user the shell runs as, which is what `claude update` needs to
+# write; under /usr/local it would have to hand that user ttyd and herdr as
+# well. The versions and the reason the install happens in its own stage are in
+# the `agents` stage above.
 ENV NPM_CONFIG_PREFIX=/opt/npm
 ENV PATH=/opt/npm/bin:$PATH
-RUN npm install -g @anthropic-ai/claude-code@2.1.231 @openai/codex@0.147.0 \
-    && chown -R kasten:kasten /opt/npm
+COPY --from=agents --chown=kasten:kasten /opt/npm /opt/npm
 
 # The default config, not the live one. herdr rewrites its config whenever a
 # setting is changed in its UI, so the file it reads has to be writable and has
