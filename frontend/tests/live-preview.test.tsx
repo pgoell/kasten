@@ -377,6 +377,39 @@ describe("live preview", () => {
     await waitFor(() => expect(content(container)).toContain("## One"));
     expect(content(container)).not.toContain("## Two");
   });
+  it("colours a tag and leaves its hash on screen", () => {
+    const { container } = render(<Editor initialDoc="read this #reading/borges today" />);
+
+    expect(container.querySelector(".cm-tag")?.textContent).toBe("#reading/borges");
+    expect(content(container)).toBe("read this #reading/borges today");
+  });
+
+  it("keeps the tag colour while the line shows its source", async () => {
+    const { container } = render(<Editor initialDoc="a #tag here" />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    await waitFor(() => expect(container.querySelector(".cm-tag")?.textContent).toBe("#tag"));
+  });
+
+  it("reads no tag out of a hash that is not one", () => {
+    // A heading's mark, a fragment inside a word, a shebang in a fenced block
+    // and a bare number: four hashes a looser pattern would have coloured.
+    const { container } = render(
+      <Editor initialDoc={"# Notes\n\nissue#12 and #1\n\n```sh\n#!/bin/sh\n```"} />,
+    );
+
+    expect(container.querySelector(".cm-tag")).toBeNull();
+  });
+
+  it("leaves the fragment of a URL alone", () => {
+    const { container } = render(
+      <Editor initialDoc="see https://example.com/#anchor and [docs](https://example.com/#top)" />,
+    );
+
+    expect(container.querySelector(".cm-tag")).toBeNull();
+  });
+
   it("leaves a note's frontmatter on screen instead of reading it as markdown", () => {
     // Without a parser for the block, the opening fence is a horizontal rule
     // and the closing one underlines the fields above it into a heading: every
