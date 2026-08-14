@@ -260,6 +260,14 @@ cell is no node at all, so `| a |  | c |` read by its cells is two columns and
 read by its walls is the three it says. A table indented into a list item is
 left as source, a block widget having to cover whole lines.
 
+Where the table stops is the rendering's reading and not the parser's. GFM ends
+a table at a blank line, so a paragraph written straight under one parses as
+rows of a single cell, and drawing what the parser handed back put two lines of
+prose in the first column. A row is a line carrying a `|`, which is the reading
+`tableAt` already walks a table by, and the first line without one ends it. The
+widget stands in for the rows alone; the walk goes on into the prose below them
+and renders it as prose.
+
 A pane with no cursor in it never shows the source. The finder, search and the
 review pane all mount this rendering read only, and their selection sits at
 offset zero because nothing has moved it, so a note or a flashcard that opens
