@@ -317,6 +317,19 @@ function isLineRevealed(state: EditorState, line: Line): boolean {
   return state.selection.ranges.some((range) => range.from <= line.to && range.to >= line.from);
 }
 
+/**
+ * Whether a construct the cursor is inside shows its source.
+ *
+ * What the inline constructs go by, rather than the line rule above. A line of
+ * prose can carry a dozen of them, and unmasking all twelve to edit one word
+ * puts asterisks and tildes across the line you are reading while you write it.
+ * The one the cursor is in is the one whose marks are worth seeing.
+ */
+function isNodeRevealed(state: EditorState, from: number, to: number): boolean {
+  if (!revealsSource(state.field(vimModeField))) return false;
+  return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+}
+
 function build(state: EditorState): Live {
   const decorations: Range<Decoration>[] = [];
   const hidden: Range<Decoration>[] = [];
@@ -393,13 +406,10 @@ function build(state: EditorState): Live {
       if (isFence) {
         const first = state.doc.lineAt(node.from).number;
         const last = state.doc.lineAt(node.to).number;
-        // The cursor anywhere in the block hands the fences back, rather than
-        // the cursor's line the way the rest of this walk works: a hidden fence
-        // line is a line the cursor cannot reach, so a rule waiting for it to
-        // arrive there would never fire.
-        const revealed =
-          revealsSource(state.field(vimModeField)) &&
-          state.selection.ranges.some((range) => range.from <= node.to && range.to >= node.from);
+        // The cursor anywhere in the block hands the fences back, and a fence
+        // line is one the cursor cannot reach, so the whole block is the node
+        // this asks about.
+        const revealed = isNodeRevealed(state, node.from, node.to);
         // A block with no code between its fences keeps them. Hiding both would
         // leave no line on the screen to put the cursor back on, and the two
         // hidden runs would meet inside the one line break they share.
@@ -588,7 +598,21 @@ function build(state: EditorState): Live {
         return;
       }
 
+      // A link and the inline constructs below it are read off the node: the
+      // cursor has to be in the one whose marks come back. Everything above is
+      // a line construct, whose mark sits at the head of the line and whose two
+      // rules therefore say the same thing.
+      const inlineRevealed = isNodeRevealed(state, node.from, node.to) || node.from < tableEnd;
+
       if (isLink) {
+        // `- [/] task` parses its box as a link, brackets and all. The bullet
+        // above hides that box and draws a symbol in its place, so a link
+        // rendering of the same three characters is only a way for the two to
+        // disagree: on a revealed line the box would come back without them.
+        // Two characters past the indent is the `- ` in front of every todo.
+        const todo = parseTodo(line.text);
+        if (todo !== null && node.from === line.from + todo.indent + 2) return;
+
         // A link carries four marks, `[`, `]`, `(` and `)`. The first two
         // bracket the text worth showing; everything from the second to the end
         // of the node is `](url)` and goes.
@@ -602,7 +626,7 @@ function build(state: EditorState): Live {
         if (open.to < close.from) {
           decorations.push(Decoration.mark({ class: "cm-link" }).range(open.to, close.from));
         }
-        if (revealed) return;
+        if (inlineRevealed) return;
         hide(open.from, open.to);
         hide(close.from, node.to);
         return;
@@ -630,7 +654,7 @@ function build(state: EditorState): Live {
         const className = dead ? `${inline.class} cm-wikilink-dead` : inline.class;
         decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
       }
-      if (revealed) return;
+      if (inlineRevealed) return;
       hide(open.from, open.to);
       hide(close.from, close.to);
     },

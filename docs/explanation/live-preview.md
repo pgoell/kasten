@@ -24,8 +24,17 @@ reveals on the vim mode instead:
 | --- | --- |
 | normal | rendered |
 | replace | rendered |
-| insert | the cursor's line as raw markdown |
-| visual | the cursor's line as raw markdown |
+| insert | the cursor's line, and the construct it is in, as raw markdown |
+| visual | the cursor's line, and the construct it is in, as raw markdown |
+
+The mode says whether anything reveals. What reveals then depends on the
+construct. A heading, a bullet, a todo's box and a blockquote's bar are the
+line: their mark sits at the head of it, so the line is the thing that comes
+back. The inline constructs, bold and italic and strikethrough and inline code
+and a highlight, a link and a wikilink, come back one at a time, and only the
+one the cursor is inside. A line of prose can carry a dozen of them, and
+unmasking all twelve to edit one word puts asterisks and tildes across the line
+you are reading while you write it.
 
 The reason is that the two modes already mean something, and it is the same
 something. Normal mode is for reading and moving around, insert mode is for
@@ -41,8 +50,13 @@ A mode the code does not recognise renders. If vim grows a submode nobody here
 thought about, it hides its marks rather than leaking them.
 
 A table is the exception to the whole of this section: it flips on the cursor
-being in it rather than on the mode, and it flips as a block rather than a line.
+being in it and on no mode at all, and it flips as a block rather than a line.
 [The three blocks](#the-three-blocks) says why it had to.
+
+One construct is a mark the rendering has to leave alone. `- [/] task` parses
+its box as a link, brackets and all, and the bullet already hides that box and
+draws a symbol in its place. Two renderings of the same three characters can
+only disagree, so the link rendering stands down where a todo's box begins.
 
 ## The cursor never rests on a character you cannot see
 
