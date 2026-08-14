@@ -574,6 +574,7 @@ export function Editor({
             openQuarterly: () => commandsRef.current?.openQuarterly(),
             openYearly: () => commandsRef.current?.openYearly(),
             openBook: () => commandsRef.current?.openBook(),
+            openVideo: () => commandsRef.current?.openVideo(),
             uploadBook: () => commandsRef.current?.uploadBook(),
             importNotes: () => commandsRef.current?.importNotes(),
             exportNote: () => commandsRef.current?.exportNote(),

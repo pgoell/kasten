@@ -31,9 +31,11 @@ const DIRECTIVES = [
   // The API, the event stream and the ttyd WebSocket are all same origin, and
   // CSP level 3 reads `'self'` as covering `ws:` and `wss:` on it.
   "connect-src 'self'",
-  // Without this the reader's iframe does not load at all. `default-src 'self'`
-  // does not cover a blob URL.
-  "frame-src blob:",
+  // Two frames, and neither is covered by `default-src 'self'`: the reader's
+  // blob URL, and the YouTube player a note's video is watched in. The one host
+  // is named rather than the whole of `https:`, so this is permission for the
+  // player and for nothing else that a note might come to link.
+  "frame-src blob: https://www.youtube.com",
   // Not the `'none'` hardening guides ask for: foliate rewrites every
   // `object[data]` in a section to a blob URL, so books really do use the
   // element, and `'none'` would blank part of a valid book in silence. An

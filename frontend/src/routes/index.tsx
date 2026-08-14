@@ -19,6 +19,7 @@ import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
+import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
   createNote,
@@ -64,6 +65,7 @@ import {
   openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
+  openVideoBeside,
   removeFocused,
   splitFocused,
   stepTab,
@@ -1192,7 +1194,8 @@ function Home() {
           pane.book !== undefined ||
           pane.exam !== undefined ||
           pane.review === true ||
-          pane.image !== undefined
+          pane.image !== undefined ||
+          pane.video !== undefined
         ) {
           moveTo(clearFocused);
           return;
@@ -1294,6 +1297,16 @@ function Home() {
         if (pane.path === undefined) return;
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
+      },
+      // Needs a note in the focused pane for the reason `openBook` does: the
+      // link is in that note, and the pane reads it out for itself. No
+      // `saveFirst` for the same reason either, this splitting rather than
+      // replacing. A link typed and not yet saved is not found until the
+      // autosave lands, which is the second the typing stops.
+      openVideo: () => {
+        if (pane.path === undefined) return;
+        const note = pane.path;
+        moveTo((previous) => openVideoBeside(previous, note));
       },
       // Needs no note in the pane: the book keeps its own name and brings its
       // own note, so there is nothing here to be beside.
@@ -1410,6 +1423,7 @@ function Home() {
       pane.exam,
       pane.review,
       pane.image,
+      pane.video,
       data,
       queryClient,
     ],
@@ -1563,6 +1577,12 @@ function Home() {
                     // the reader's own callbacks are bound: the pane holds no
                     // path of its own.
                     onDelete={() => void discardImage(image)}
+                  />
+                ) : shown.video !== undefined ? (
+                  <VideoPane
+                    note={shown.video}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
                   />
                 ) : shown.term !== undefined ? (
                   <TerminalPane

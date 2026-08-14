@@ -72,6 +72,16 @@ export interface Pane {
    * optional field for the reason `book` is the fourth, written out above.
    */
   image?: string;
+  /**
+   * The note whose video this pane is playing, absent otherwise.
+   *
+   * The note's path and not the address, which is where this follows `book` and
+   * `exam` rather than `image`: the link lives in the note, so the pane holds
+   * the handle and a folder move that rewrites `path` carries the player with
+   * it. An eighth optional field for the reason `book` is the fourth, written
+   * out above.
+   */
+  video?: string;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -293,6 +303,27 @@ export function openBookBeside(layout: Layout, note: string): Layout {
   return withTab(split, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, book: note }),
+  });
+}
+
+/**
+ * Play a note's video in a new pane beside it, or go to the one already playing it.
+ *
+ * Beside and not over, following `openBookBeside` down to the reuse: watching
+ * while writing is the whole point, and a key that ate the note would leave
+ * nothing to write in. A second press moves to the player rather than opening a
+ * second one, which is what makes the key its own way back.
+ */
+export function openVideoBeside(layout: Layout, note: string): Layout {
+  const playing = tabPanes(layout).find((pane) => pane.video === note);
+  if (playing) return focusPane(layout, playing.id);
+
+  const split = splitFocused(layout, "row");
+  const tab = activeTab(split);
+
+  return withTab(split, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, video: note }),
   });
 }
 
