@@ -205,6 +205,14 @@ for the line to be measured again when the bytes land, the height of an image
 being unknown until then. A path pointing anywhere but the vault stays as its
 source, the page's own policy allowing images from this origin alone.
 
+The same brackets around a YouTube address draw the player instead, `videoId`
+in `video.ts` reading the address the pane already reads. It is the second
+widget that loads something, and the only one that keeps running after it is
+drawn, which is why it is compared by video id rather than by its URL: the
+position a note remembers is written into the note while you watch, so a widget
+compared by the `start=` it was built with would be a new widget on every write
+and would remount the frame under a video that is playing.
+
 A fenced code block needs none of that. Every line of it takes a line
 decoration, which paints the block's surface and sets it in the monospaced
 face, and the highlighting inside comes from whichever parser the language

@@ -112,3 +112,14 @@ export function setWatched(text: string, id: string, seconds: number): string {
   const pairs = [...held].map(([video, second]) => `${video}: ${second}`);
   return setField(text, WATCHING, `{${pairs.join(", ")}}`);
 }
+
+/**
+ * The video one address names, or null for anything that is not a YouTube link.
+ *
+ * The same reading `noteVideos` does, asked of a single URL: `![](link)` is
+ * drawn as a player when the address in the brackets is one of the shapes the
+ * pane already knows, and as the source it is written as when it is not.
+ */
+export function videoId(url: string): string | null {
+  return noteVideos(url)[0] ?? null;
+}

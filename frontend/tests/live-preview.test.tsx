@@ -534,4 +534,32 @@ describe("live preview", () => {
 
     expect(content(container)).toBe("---id: 1---Notes");
   });
+  it("draws a note's youtube ![](link) as a player", () => {
+    const { container } = render(
+      <Editor initialDoc={"notes\n\n![](https://youtu.be/iDulhoQ2pro)\n"} />,
+    );
+
+    const frame = container.querySelector("iframe.cm-video");
+    expect(frame?.getAttribute("src")).toContain("/embed/iDulhoQ2pro");
+    // The brackets and the address stand in for the frame, so neither is left
+    // on the screen beside it.
+    expect(content(container)).not.toContain("youtu.be");
+  });
+
+  it("opens the player where the note says the video got to", () => {
+    const { container } = render(
+      <Editor
+        initialDoc={"---\nwatching: {iDulhoQ2pro: 312}\n---\n\n![](https://youtu.be/iDulhoQ2pro)\n"}
+      />,
+    );
+
+    expect(container.querySelector("iframe.cm-video")?.getAttribute("src")).toContain("start=312");
+  });
+
+  it("leaves a picture a picture", () => {
+    const { container } = render(<Editor initialDoc={"![shot](99 Misc/shot.png)\n"} />);
+
+    expect(container.querySelector("iframe.cm-video")).toBeNull();
+    expect(container.querySelector("img.cm-image")?.getAttribute("alt")).toBe("shot");
+  });
 });

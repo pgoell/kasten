@@ -8,6 +8,7 @@ import { imageSource } from "@/lib/image";
 import { type Align, alignsOf, isRow } from "@/lib/table";
 import { parseTodo } from "@/lib/todo";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
+import { playerUrl, videoId, watchedAt } from "@/lib/video";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
 import { vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
@@ -127,6 +128,61 @@ class Picture extends WidgetType {
     image.alt = this.alt;
     image.addEventListener("load", () => view.requestMeasure());
     return image;
+  }
+}
+
+/**
+ * The player an `![](youtube link)` is drawn as.
+ *
+ * The pane is still the way to watch something properly, `<leader>gv` keeping
+ * the player in place while the note scrolls under your typing and `<leader>v`
+ * starting and stopping it from the note. This is the other half: a clip
+ * quoted in the middle of a note reads as the clip rather than as an address,
+ * and it plays where it sits.
+ *
+ * Nothing is written back. The frame carries `enablejsapi=1` because
+ * `playerUrl` writes it for the pane, but no subscription is taken out here, so
+ * `watching:` moves only for the video the pane is playing.
+ *
+ * ponytail: the cursor on the line hands the source back, the way it does for
+ * a picture, so clicking into the line stops a video mid-play. The upgrade is
+ * to keep the widget and reveal the brackets around it, which is a second
+ * rendering of the construct rather than the one every other one here uses.
+ */
+class Player extends WidgetType {
+  private readonly id: string;
+  private readonly url: string;
+
+  constructor(id: string, start: number) {
+    super();
+    this.id = id;
+    this.url = playerUrl(id, start);
+  }
+
+  /**
+   * The id alone, and deliberately not the URL.
+   *
+   * The pane writes where you got to into the note, so the note changes while
+   * you watch and the `start=` this was built with changes with it. Comparing
+   * the URL would call that a different widget and remount the frame under a
+   * video that is playing. Where it opens is read once, and the player owns
+   * where it is after that.
+   */
+  override eq(other: Player): boolean {
+    return other.id === this.id;
+  }
+
+  toDOM(): HTMLElement {
+    const frame = document.createElement("iframe");
+    frame.className = "cm-video";
+    frame.src = this.url;
+    frame.title = "video";
+    // The same one thing the pane hands over, and for the same reason: a talk
+    // followed properly is watched full width. No camera, no clipboard, no
+    // autoplay it was not told to start.
+    frame.allow = "fullscreen; picture-in-picture";
+    frame.allowFullscreen = true;
+    return frame;
   }
 }
 
@@ -608,8 +664,13 @@ function build(state: EditorState): Live {
       // picture where the text at least says what was meant.
       if (isImage) {
         const url = node.node.getChild("URL");
-        const source = url === null ? null : imageSource(state.doc.sliceString(url.from, url.to));
-        if (source === null || revealed) return;
+        const address = url === null ? "" : state.doc.sliceString(url.from, url.to);
+        // The video first: an address is one or the other, and a YouTube link
+        // is not a path the vault holds, so `imageSource` would answer null for
+        // it anyway.
+        const video = videoId(address);
+        const source = imageSource(address);
+        if (revealed) return;
 
         const marks: { from: number; to: number }[] = [];
         for (let child = node.node.firstChild; child; child = child.nextSibling) {
@@ -618,9 +679,19 @@ function build(state: EditorState): Live {
         const [open, close] = marks;
         const alt = open && close ? state.doc.sliceString(open.to, close.from) : "";
 
-        decorations.push(
-          Decoration.replace({ widget: new Picture(source, alt) }).range(node.from, node.to),
-        );
+        // The position the note remembers, so a clip picked up again opens where
+        // the pane left it. Read here rather than held, the widget's `eq` being
+        // what stops a later position remounting the frame.
+        const widget: WidgetType | null =
+          video !== null
+            ? new Player(video, watchedAt(state.doc.toString(), video))
+            : source !== null
+              ? new Picture(source, alt)
+              : null;
+        // Neither a video nor a path the vault holds: a remote picture, drawn
+        // as its own source for the reason above.
+        if (widget === null) return;
+        decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
         hidden.push(HIDDEN.range(node.from, node.to));
         return;
       }
