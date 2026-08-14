@@ -788,6 +788,13 @@ afterwards, the way an operator does.
 Highlight sits on Ctrl+Shift+H rather than Ctrl+H, which Chrome spends on its
 history window.
 
+On screen the marks are hidden and the formatting is what you see. They come
+back one construct at a time, while the cursor is inside that construct and in
+insert or visual mode, so editing one word on a line leaves every other bold,
+italic, strikethrough, inline code, highlight, link and wikilink on it rendered.
+A heading, a bullet, a todo's box and a blockquote's bar reveal by the line
+instead, their mark sitting at the head of it.
+
 `<leader>=` is the other formatting key, and it takes the whole note rather than
 one word. It cuts the trailing whitespace off every line, collapses a run of
 blank lines to one, puts a blank line in front of a heading that has none,
