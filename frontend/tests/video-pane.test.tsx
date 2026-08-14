@@ -16,27 +16,34 @@ beforeEach(() => {
   fetchNote.mockResolvedValue(TEXT);
 });
 
-function open(commands = stubCommands()) {
+function open(commands = stubCommands(), onWatched = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = (playSignal: number) => (
     <QueryClientProvider client={client}>
-      <VideoPane note={NOTE} commands={commands} focusSignal={1} playSignal={playSignal} />
+      <VideoPane
+        note={NOTE}
+        commands={commands}
+        focusSignal={1}
+        playSignal={playSignal}
+        onWatched={onWatched}
+      />
     </QueryClientProvider>
   );
   const { container, rerender } = render(view(0));
   return {
     commands,
+    onWatched,
     pane: container.querySelector("[data-video-pane]") as HTMLElement,
     press: (count: number) => rerender(view(count)),
   };
 }
 
 /** What the player says when it starts and stops, which is the only way to know. */
-function reports(state: number) {
+function reports(state: number, currentTime = 0) {
   window.dispatchEvent(
     new MessageEvent("message", {
       origin: "https://www.youtube.com",
-      data: JSON.stringify({ event: "infoDelivery", info: { playerState: state } }),
+      data: JSON.stringify({ event: "infoDelivery", info: { playerState: state, currentTime } }),
     }),
   );
 }
@@ -105,6 +112,61 @@ describe("the video pane", () => {
     // Still stopped as far as this pane is concerned, so the key starts it.
     press(1);
     expect(lastCommand(sent)).toBe("playVideo");
+  });
+
+  it("reports where the player got to when it stops, and not while it runs", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    reports(1, 12);
+    reports(1, 30);
+    // Running the whole time, so nothing has been worth writing yet: a report
+    // per delivery would restart the wait forever and never write at all.
+    expect(onWatched).not.toHaveBeenCalled();
+
+    reports(2, 30);
+    expect(onWatched).toHaveBeenCalledWith("dQw4w9WgXcQ", 30);
+  });
+
+  it("opens at the second the note remembers", async () => {
+    fetchNote.mockResolvedValue(
+      `---\nwatching: {dQw4w9WgXcQ: 312}\n---\n\n[the talk](https://youtu.be/dQw4w9WgXcQ)\n`,
+    );
+    open();
+
+    expect(await screen.findByTitle("video")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&start=312",
+    );
+  });
+
+  it("steps through the note's videos and says which one is showing", async () => {
+    fetchNote.mockResolvedValue(
+      "[one](https://youtu.be/dQw4w9WgXcQ)\n[two](https://youtu.be/iDulhoQ2pro)\n",
+    );
+    const { pane } = open();
+
+    await screen.findByTitle("video");
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+
+    fireEvent.keyDown(pane, { key: "n" });
+
+    expect(await screen.findByTitle("video")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/iDulhoQ2pro?enablejsapi=1",
+    );
+    expect(screen.getByText("2/2")).toBeInTheDocument();
+
+    // Wrapping, so `n` is its own way back on a note holding two.
+    fireEvent.keyDown(pane, { key: "n" });
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+  });
+
+  it("says nothing about which video on a note holding one", async () => {
+    open();
+
+    await screen.findByTitle("video");
+    expect(screen.queryByText("1/1")).toBeNull();
   });
 
   it("takes the focus when the pane is moved to, so the keys land here", () => {

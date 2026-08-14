@@ -20,6 +20,8 @@ interface NoteEditorProps {
   startLine?: number;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
+  /** A video position for this note's frontmatter. See `Editor`. */
+  mark?: { id: string; seconds: number };
   /** Whether the pane this sits in is the focused one. See `Editor`. */
   focused?: boolean;
   onChange: (doc: string) => void;
@@ -71,6 +73,7 @@ export const NoteEditor = memo(function NoteEditor({
   tags,
   startLine,
   focusSignal,
+  mark,
   focused,
   onChange,
   onSave,
@@ -111,6 +114,7 @@ export const NoteEditor = memo(function NoteEditor({
       tags={tags}
       startLine={startLine}
       focusSignal={focusSignal}
+      mark={mark}
       focused={focused}
       allowReload={allowReload}
       onReload={onReload}
