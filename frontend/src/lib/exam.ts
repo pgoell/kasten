@@ -31,6 +31,12 @@
  * question number; a heading between questions groups the ones under it,
  * whether it calls itself a domain, a section, a topic or nothing at all.
  *
+ * The one other shape is scenario matching, a row of scenarios sharing one
+ * option set, which `ccar-p` writes five of. Each row is read as its own
+ * question over the shared options, so everything past this parser, the pane,
+ * the grading and the result note, works on the one kind of question it always
+ * did.
+ *
  * The vault's four Claude practice exams parse under these rules unchanged,
  * which is the point: the rules were read off them rather than imposed on them.
  */
@@ -65,10 +71,10 @@ export interface Question {
   /**
    * The letters the answer names, empty where the note never answers it.
    *
-   * Empty is not "no correct answer", it is "not scorable here". `ccar-p` has
-   * five scenario-matching questions whose answer is a sentence of arrows
-   * rather than a letter, and grading has to leave those out rather than mark
-   * every sitting wrong on them.
+   * Empty is not "no correct answer", it is "not scorable here". A key that
+   * never names the question, or that names an option the question does not
+   * carry, leaves this empty and grading leaves the question out rather than
+   * marking every sitting wrong on it.
    */
   correct: string[];
   /** What the note says under the answer, up to the next question or heading. */
@@ -83,11 +89,10 @@ export interface Exam {
   /**
    * How many question headings held nothing this could ask.
    *
-   * Not a rounding error to hide. `ccar-p` writes five scenario-matching
-   * questions whose answers are blanks to fill in rather than options to pick,
-   * and there is no way to ask one of those here. Dropping them is right; doing
-   * it silently would make a 58 question sitting look like the whole note. The
-   * pane says the number out loud so the note is still worth opening.
+   * Not a rounding error to hide: a question with neither lettered options nor
+   * a scenario matching block under it cannot be asked, and dropping it in
+   * silence would make a short sitting look like the whole note. The pane says
+   * the number out loud so the note is still worth opening.
    */
   skipped: number;
 }
@@ -135,6 +140,23 @@ const SECTION =
 // is not mistaken for the options.
 const OPTION = /^\s*[-*]\s+(?:\*\*([A-Za-z])[.)]?\*\*|([A-Za-z])[.)])\s+(.*)$/;
 
+// One row of a scenario matching question: the scenario, then an arrow at the
+// blank it is classified into. `->` as well as `→`, because a keyboard writes
+// the first and a note written in an editor arrives with it.
+const ROW = /^\s*[-*]\s+(.*?)\s*(?:→|->)\s*_*\s*$/;
+
+// The option set every row of a scenario matching question chooses from,
+// written on one line under them: `Options: MCP server · direct API call`.
+const CHOICES = /^\**\s*Options\s*[:=]\s*(.+?)\s*\**$/i;
+
+// A matching answer, which names each row by its position rather than by a
+// letter: `1 → MCP server; 2 → direct API call`.
+const PAIRS = /(\d+)\s*(?:→|->)\s*([^;\n]+)/g;
+
+// The same in a key at the back, where the question number opens the line. No
+// `Correct:` in it, which is why `KEYED` does not see it.
+const KEYED_MATCH = /^\**\s*([\d.]+)\s*[—–-]\s*(\d+\s*(?:→|->)\s*[^*\n]+?)\s*\**$/;
+
 // An answer in a key at the back, which names the question it belongs to. The
 // dash class is `—–-` because the vault writes an em-dash and a keyboard writes
 // a hyphen; the bold is optional for the reason the option's is.
@@ -151,6 +173,9 @@ const KEY_HEADING = /^#{1,6}\s+(?:Answer|Answers|Solutions?|Key|Rationales?)\b/i
 
 const TITLE = /^#\s+(.+)$/;
 
+/** The letters a question's options are picked with, in order. */
+export const LETTERS = "ABCDEFGHIJ";
+
 const COUNTS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 };
 
 /** How many letters a question wants, off `select TWO` in its heading. */
@@ -166,6 +191,27 @@ function lettersOf(answer: string): string[] {
     .split(/[^A-Za-z]+/)
     .filter((part) => part.length === 1)
     .map((part) => part.toUpperCase());
+}
+
+/** What a matching answer says, by the row number it says it of. */
+function pairsOf(answer: string): Map<number, string> {
+  const said = new Map<number, string>();
+  for (const [, at, text] of answer.matchAll(PAIRS)) {
+    said.set(Number.parseInt(at ?? "", 10), text ?? "");
+  }
+  return said;
+}
+
+/** An option's text as it compares: the spacing and the closing stop do not count. */
+function norm(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+}
+
+/** The letter of the option an answer names, or nothing where it names none. */
+function letterOf(answer: string | undefined, options: Option[]): string[] {
+  if (answer === undefined) return [];
+  const found = options.find((option) => norm(option.text) === norm(answer));
+  return found === undefined ? [] : [found.letter];
 }
 
 /** The lines of `text` with the leading `---` block taken off. */
@@ -185,19 +231,32 @@ function tidy(lines: string[]): string {
     .replace(/\s+$/, "");
 }
 
+/** What a key at the back says about one question, in either spelling. */
+interface Keyed {
+  /** The letters an ordinary answer names. */
+  correct: string[];
+  /** A matching answer as written, `1 → MCP server; 2 → …`. Empty where it is not one. */
+  match: string;
+  rationale: string;
+}
+
 /**
  * Everything a key at the back says, by the question number it names.
  *
  * Read in one pass over the key's lines: an answer line opens a rationale and
  * the next answer line or heading closes it.
  */
-function readKey(lines: string[]): Map<string, { correct: string[]; rationale: string }> {
-  const key = new Map<string, { correct: string[]; rationale: string }>();
-  let open: { id: string; correct: string[]; from: number } | null = null;
+function readKey(lines: string[]): Map<string, Keyed> {
+  const key = new Map<string, Keyed>();
+  let open: (Keyed & { id: string; from: number }) | null = null;
 
   const close = (until: number) => {
     if (open === null) return;
-    key.set(open.id, { correct: open.correct, rationale: tidy(lines.slice(open.from, until)) });
+    key.set(open.id, {
+      correct: open.correct,
+      match: open.match,
+      rationale: tidy(lines.slice(open.from, until)),
+    });
     open = null;
   };
 
@@ -205,7 +264,25 @@ function readKey(lines: string[]): Map<string, { correct: string[]; rationale: s
     const answer = KEYED.exec(line);
     if (answer !== null) {
       close(index);
-      open = { id: answer[1] ?? "", correct: lettersOf(answer[2] ?? ""), from: index + 1 };
+      open = {
+        id: answer[1] ?? "",
+        correct: lettersOf(answer[2] ?? ""),
+        match: "",
+        rationale: "",
+        from: index + 1,
+      };
+      return;
+    }
+    const matched = KEYED_MATCH.exec(line);
+    if (matched !== null) {
+      close(index);
+      open = {
+        id: matched[1] ?? "",
+        correct: [],
+        match: matched[2] ?? "",
+        rationale: "",
+        from: index + 1,
+      };
       return;
     }
     if (/^#{1,6}\s/.test(line)) close(index);
@@ -213,6 +290,61 @@ function readKey(lines: string[]): Map<string, { correct: string[]; rationale: s
   close(lines.length);
 
   return key;
+}
+
+/**
+ * The questions a scenario matching block holds, one for each of its rows.
+ *
+ * A row is its own question over the shared option set: one letter to pick and
+ * one line in the score. Splitting them here is what lets the pane, the grading
+ * and the result note go on knowing a single kind of question.
+ *
+ * Nothing where the block is not one, which is a question heading with neither
+ * rows nor an option set under it.
+ */
+function matching(block: string[], id: string, section: string, keyed?: Keyed): Question[] {
+  const rows: string[] = [];
+  let firstRow = block.length;
+  let choices = "";
+  let inlineAt = -1;
+
+  block.forEach((line, index) => {
+    const row = ROW.exec(line);
+    if (row !== null) {
+      if (rows.length === 0) firstRow = index;
+      rows.push((row[1] ?? "").trim());
+      return;
+    }
+    const found = CHOICES.exec(line);
+    if (found !== null) choices = found[1] ?? "";
+    // Only after the rows, for the reason the lettered path takes its answer
+    // only after the options: a scenario is free to contain the word "answer".
+    else if (inlineAt === -1 && rows.length > 0 && INLINE.test(line)) inlineAt = index;
+  });
+
+  if (rows.length === 0 || choices === "") return [];
+
+  const options = choices
+    .split(/\s*[·|;]\s*/)
+    .filter((text) => text !== "")
+    .slice(0, LETTERS.length)
+    .map((text, index) => ({ letter: LETTERS[index] ?? "", text }));
+
+  const inline = inlineAt === -1 ? null : INLINE.exec(block[inlineAt] ?? "");
+  const said = pairsOf(inline !== null ? (inline[1] ?? "") : (keyed?.match ?? ""));
+  const stem = tidy(block.slice(0, firstRow));
+
+  return rows.map((row, index) => ({
+    // Numbered under the question the note numbers, so a row keys apart from
+    // its neighbours and still says where it came from.
+    id: `${id}.${index + 1}`,
+    section,
+    stem: stem === "" ? row : `${stem}\n\n${row}`,
+    options,
+    pick: 1,
+    correct: letterOf(said.get(index + 1), options),
+    rationale: inline !== null ? tidy(block.slice(inlineAt + 1)) : (keyed?.rationale ?? ""),
+  }));
 }
 
 /**
@@ -258,8 +390,11 @@ export function parseExam(text: string): Exam | null {
       if (inlineAt === -1 && options.length > 0 && INLINE.test(line)) inlineAt = index;
     });
 
-    if (options.length === 0) skipped += 1;
-    else {
+    if (options.length === 0) {
+      const rows = matching(block, open.id, section, key.get(open.id));
+      if (rows.length === 0) skipped += 1;
+      else questions.push(...rows);
+    } else {
       const inline = inlineAt === -1 ? null : INLINE.exec(block[inlineAt] ?? "");
       const keyed = key.get(open.id);
       questions.push({

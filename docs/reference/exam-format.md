@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Exam format
-description: The note a practice exam is written in, every part it can carry, the two places an answer goes, what a sitting scores, and where the result note lands.
+description: The note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands.
 resource: frontend/src/lib/exam.ts
 tags: [vault, exams, format, frontend]
 status: stable
@@ -14,8 +14,8 @@ options and the answers all live in it, so a vault read by Obsidian, by another
 editor or by `cat` carries everything an exam has.
 
 Nothing marks a note as an exam. A note holding a question heading with lettered
-options under it is one, and a note holding neither is not, the same bargain a
-todo line makes. There is no frontmatter field to set and no folder an exam has
+options or a row of scenarios under it is one, and a note holding neither is
+not, the same bargain a todo line makes. There is no frontmatter field to set and no folder an exam has
 to live in.
 
 `<leader>ge` sits the note in the focused pane as an exam. A sitting writes one
@@ -133,12 +133,52 @@ A leading `Domain`, `Section`, `Topic`, `Part`, `Chapter`, `Module` or `Area`
 comes off, a leading number comes off, and a trailing `(14%)` or `(14.7%)` comes
 off. All three above are sections and nothing more.
 
+## Scenario matching
+
+A question with no lettered options, but a row of scenarios and one option set
+under them:
+
+```markdown
+### Question 1.11 · Scenario matching
+
+For each scenario, identify the most appropriate architectural pattern.
+
+- Summarising each inbound support email into a CRM note. → ______
+- A monthly compliance report generated through the same five steps every time. → ______
+- Investigating a production incident where the path depends on each log query. → ______
+
+Options: single augmented LLM call · fixed workflow · autonomous agent
+```
+
+A row is one line: a scenario, an arrow and a blank. The arrow may be `→` or
+`->` and the blank may be left off. The `Options:` line under the rows is what every row
+chooses from, separated by `·`, `|` or `;`, ten at most.
+
+Each row is asked as its own question over that set, lettered `A` to `J` in the
+order the line writes them and numbered under the question, `1.11.1` to `1.11.3`
+above. The instruction over the rows stays with each of them, so a row reads on
+its own in the pane and in a result note.
+
+The answer names each row by its position rather than by a letter:
+
+```markdown
+1.11 — 1 → single augmented LLM call; 2 → fixed workflow; 3 → autonomous agent
+```
+
+In a key at the back as above, or under the question as `Answer: 1 → …`, which
+wins the way any inline answer does. The text has to name one of the options;
+case, spacing and a closing full stop do not count. A row whose answer names no
+option is left unscored, the way any unanswered question is.
+
+The same option can answer more than one row, and a row is scored on its own, so
+a question of five scenarios is five of the questions a sitting counts rather
+than one.
+
 ## What is not read
 
-A question whose answer is not a letter. The vault's `ccar-p` exam writes five
-scenario-matching questions answered by a sentence of arrows, and there is no
-way to ask one of those here. They stay in the note, they are left out of the
-sitting, and the pane's footer says how many.
+A question heading with neither lettered options nor a row of scenarios under
+it. It stays in the note, it is left out of the sitting, and the pane's footer
+says how many.
 
 ## Sitting one
 
