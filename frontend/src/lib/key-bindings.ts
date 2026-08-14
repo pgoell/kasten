@@ -64,6 +64,8 @@ export interface EditorCommands {
   openYearly(): void;
   /** Read the focused pane's note's book in a pane beside it. */
   openBook(): void;
+  /** Play the video the focused pane's note links, in a pane beside it. */
+  openVideo(): void;
   /** Pick an epub, put it in the inbox with a note, and open the note. */
   uploadBook(): void;
   /** Pick markdown files off disk, put them in the inbox, and open the first. */
@@ -215,6 +217,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // `g` for go, and the pane it goes to holds the todos. `ct` is spent on a
   // tab, which is why this is not under `c`.
   { key: "gt", label: "Open the todo pane", command: "openTodos" },
+  // `g` for go and `v` for video. It sits with `gr` for the same reason: both
+  // put the thing the note is about in a pane beside the note about it.
+  { key: "gv", label: "Watch this note's video beside it", command: "openVideo" },
   { key: "gw", label: "Open this week's note", command: "openWeekly" },
   { key: "gy", label: "Open this year's note", command: "openYearly" },
   // The directions vim already reads, one press from the leader. Which pane is

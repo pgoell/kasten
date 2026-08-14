@@ -15,6 +15,7 @@ import {
   openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
+  openVideoBeside,
   panesOf,
   removeFocused,
   splitFocused,
@@ -376,6 +377,33 @@ describe("a book in a pane beside its note", () => {
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(reader);
+  });
+});
+
+describe("a video in a pane beside its note", () => {
+  it("splits the focused pane and puts the player in the new one", () => {
+    const layout = openVideoBeside(emptyLayout("lit/talk.md"), "lit/talk.md");
+
+    // The note stays where it was, which is the whole point: the pane is for
+    // watching while writing in the note the key was pressed in.
+    expect(tabPanes(layout).map((pane) => pane.path ?? null)).toEqual(["lit/talk.md", null]);
+    expect(tabPanes(layout).map((pane) => pane.video ?? null)).toEqual([null, "lit/talk.md"]);
+  });
+
+  it("leaves the focus on the player", () => {
+    const layout = openVideoBeside(emptyLayout("lit/talk.md"), "lit/talk.md");
+
+    expect(focusedPane(layout).video).toBe("lit/talk.md");
+  });
+
+  it("goes to the pane already playing that note rather than making a second", () => {
+    const once = openVideoBeside(emptyLayout("lit/talk.md"), "lit/talk.md");
+    const player = focusedPane(once).id;
+
+    const twice = openVideoBeside(nextPane(once), "lit/talk.md");
+
+    expect(tabPanes(twice)).toHaveLength(2);
+    expect(focusedPane(twice).id).toBe(player);
   });
 });
 

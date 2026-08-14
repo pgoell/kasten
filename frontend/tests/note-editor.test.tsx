@@ -83,6 +83,7 @@ function OpenNote({ path }: { path: string }) {
       openQuarterly: vi.fn(),
       openYearly: vi.fn(),
       openBook: vi.fn(),
+      openVideo: vi.fn(),
       uploadBook: vi.fn(),
       importNotes: vi.fn(),
       exportNote: vi.fn(),

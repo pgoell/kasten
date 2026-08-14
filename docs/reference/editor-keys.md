@@ -48,6 +48,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>gr` | Read this note's book in a pane beside it |
 | `<leader>gs` | Put the review in the focused pane |
 | `<leader>gt` | Put the todo list in the focused pane |
+| `<leader>gv` | Watch this note's video in a pane beside it |
 | `<leader>gw` | Open this week's note |
 | `<leader>gy` | Open this year's note |
 | `<leader>h` | Move to the pane on the left |
@@ -417,6 +418,46 @@ focus reaches it.
 Moving the folder that holds the pair carries the reader with it. Renaming the
 note alone does not, because the epub stays where it was, and the reader then
 says its note is gone.
+
+## The video pane
+
+`<leader>gv` opens the video the note links and puts it in a new pane to the
+right, with the note still on screen. That arrangement is the point of it: the
+player keeps its place while the note scrolls under your typing, which a video
+drawn into the note itself could not do.
+
+The link is read out of the note, and the first YouTube address in it is the one
+that plays. Every shape the share button writes is understood, `youtu.be/ID`,
+`watch?v=ID`, an embed, a short and a livestream, and the address can sit
+anywhere in the note: inside a `[](...)`, in the frontmatter, on a line of its
+own. A note linking no video draws one sentence saying so rather than an empty
+player.
+
+The first and not the one under the cursor. A note is about one video, and a
+rule reading the cursor would start the video over every time you moved a line.
+Two videos in one note means two notes, or the second link moved to the top.
+
+A timestamp is dropped. `?t=90` in the address opens the player at the start,
+and the moment is yours to scrub back to.
+
+Pressing the key again goes to the pane already playing rather than opening a
+second one, so it is its own way back. `<leader>q` closes the player, and
+`<leader>h` returns to the note.
+
+A click into the player hands the keys to YouTube until you click back into the
+note, and the blue border stays on the note while it does. A cross-origin frame
+tells the page around it nothing, so kasten does not hear the click. Reaching
+the pane by key rather than by click puts the cursor on the pane itself, which
+is why `<leader>q` works there.
+
+YouTube alone, and by name: the policy the app is served under frames the book
+reader's own document and this one host, so a note may link anything and only
+the player will play. Another host would be another line in that policy, which
+is a standing permission to frame you and is worth adding one at a time.
+
+A video pane is not in the URL, the way a book pane is not: `?note=` names the
+note in the focused pane, and a player holds none. Moving the note carries the
+player with it, the note being what the pane holds.
 
 ## Importing a web page
 
