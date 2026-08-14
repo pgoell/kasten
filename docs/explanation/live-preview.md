@@ -40,6 +40,10 @@ would copy asterisks that were never on the screen.
 A mode the code does not recognise renders. If vim grows a submode nobody here
 thought about, it hides its marks rather than leaking them.
 
+A table is the exception to the whole of this section: it flips on the cursor
+being in it rather than on the mode, and it flips as a block rather than a line.
+[The three blocks](#the-three-blocks) says why it had to.
+
 ## The cursor never rests on a character you cannot see
 
 Hiding text creates a problem that colouring it does not. The hashes in `## Notes`
@@ -101,10 +105,11 @@ fence and a URL are safe without a rule saying so, and the pattern itself only
 has to refuse a hash that follows a word character or is not followed by a
 letter.
 
-The tag is drawn as a pill, and it loses the pill inside a table. Padding widens
-the text by a few pixels, and a table's columns are lined up by counting
-characters, so a pill in one cell would push the wall to its right out of line
-with every wall above it. There the colour has to carry it alone.
+The tag is drawn as a pill, and it loses the pill in a table's source. Padding
+widens the text by a few pixels, and a table's columns are lined up there by
+counting characters, so a pill in one cell would push the wall to its right out
+of line with every wall above it. In the drawn table the pill is back, the grid
+lining the columns up rather than the spaces.
 
 ## Colour tells the inline constructs apart
 
@@ -192,19 +197,41 @@ face, and the highlighting inside comes from whichever parser the language
 named. Nothing in a fence is hidden: the backticks and the language are part of
 what the block says, and the code inside is not prose that marks would clutter.
 
-A table is the fence's argument taken one step further. It gets the same
-treatment, a line decoration per line and the monospaced face, because its
-columns are lined up by counting characters and only a face of one width keeps
-them lined up. But a table's cells hold prose, and prose holds marks, so the
-walk goes on into them and colours what it finds while hiding none of it: a
-`[[link]]` in a cell whose brackets came off the screen would be four
-characters narrower than the column it was padded to, and every wall to its
-right would step left. So a cell shows `**bold**` and `[[link]]`, in the bold
-and the link colour, and the columns hold. The padding itself is not live
-preview's: `<leader>=` and the tab keys write it into the note, which
-[Tables](/reference/editor-keys.md#tables) covers.
+A table is drawn as a table. One widget stands in for every line of it, a real
+`<table>` with a head row, borders and each column's text on the side its dashes
+ask for, and the pipes are off the screen entirely. Put the cursor in it and the
+whole block comes back as source, in the monospaced face, with every mark in the
+cells on screen.
 
-There is still no widget drawing a real table, and that is the trade this makes.
-A widget means DOM this code owns and rebuilds as you type, and a table you
-cannot type into is worse than the pipes. What is here instead is the pipes,
-made to read as a table.
+Two things there are the table's own rule and nothing else's. The block flips
+whole rather than a line at a time, because half a table drawn and half of it in
+pipes is neither. And the cursor decides rather than the mode, which is the
+opposite of everything above. `j` and `k` move by what is on the screen, and to
+CodeMirror a block widget is one thing rather than the five lines it stands for,
+so both keys step clean over a table and neither can put the cursor in one.
+Waiting for insert mode would leave a table nothing could open. What does reach
+in moves by document position: `w`, a search, a line jump, and a click on the
+table, which is why the widget takes mouse events rather than swallowing them.
+
+While it is showing its source nothing in a cell is hidden: a `[[link]]` whose
+brackets came off the screen would be four characters narrower than the column
+it was padded to, and every wall to its right would step left. So the source
+shows `**bold**` and `[[link]]`, in the bold and the link colour, and the
+columns hold. The padding itself is not live preview's: `<leader>=` and the tab
+keys write it into the note, which [Tables](/reference/editor-keys.md#tables)
+covers.
+
+The cells are cut for the widget out of the syntax tree rather than out of the
+text, so a cell wears the same colours a paragraph does and a tag in one gets
+its pill back, the alignment being the grid's job now rather than the character
+count's. The columns are counted off the walls and not off the cells: an empty
+cell is no node at all, so `| a |  | c |` read by its cells is two columns and
+read by its walls is the three it says. A table indented into a list item is
+left as source, a block widget having to cover whole lines.
+
+A pane with no cursor in it never shows the source. The finder, search and the
+review pane all mount this rendering read only, and their selection sits at
+offset zero because nothing has moved it, so a note or a flashcard that opens
+with a table would otherwise be a pane full of pipes. The read-only facet is
+what tells the two apart, `EditorView.editable` being a view-level thing this
+code cannot see.
