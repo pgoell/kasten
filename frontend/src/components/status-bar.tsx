@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BUILD } from "@/lib/build";
 import { type Clock as ClockReading, readClock } from "@/lib/clock";
 import type { SaveStatus } from "@/lib/use-autosave";
 
@@ -115,6 +116,26 @@ function Warning() {
   );
 }
 
+/**
+ * What is running, which is one reading in production and two in development.
+ *
+ * Production ships the three images under one release tag, so the backend's
+ * version is the whole answer and no bundle carries a commit. Development
+ * moves them separately: uvicorn reloads the tree under it, while the bundle in
+ * front of you was stamped when the dev server last started, so a tab left open
+ * across a rebase says so here rather than by behaving strangely.
+ *
+ * The shell is not in it. That container reports to nobody, and stamping it
+ * would be a route of its own for a service you look at rather than through.
+ */
+function Version({ backend }: { backend: string }) {
+  return (
+    <span data-testid="version" className="text-[11px] text-one-muted tabular-nums">
+      {BUILD === "" ? backend : `be ${backend} fe ${BUILD}`}
+    </span>
+  );
+}
+
 interface StatusBarProps {
   /** Absent while no note is open, when there is nothing to say about one. */
   status?: SaveStatus;
@@ -148,6 +169,14 @@ interface StatusBarProps {
    * fits because the footer is mounted whatever the focused pane holds.
    */
   notice?: string;
+  /**
+   * What the backend answered for itself, and nothing until it has.
+   *
+   * A prop rather than a lookup of its own: the bar is rendered bare in its
+   * tests and holds no query client, and the route already owns every other
+   * call the footer draws from.
+   */
+  version?: string;
 }
 
 /**
@@ -156,7 +185,7 @@ interface StatusBarProps {
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({ status, reason, flash, archive, notice }: StatusBarProps) {
+export function StatusBar({ status, reason, flash, archive, notice, version }: StatusBarProps) {
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
   // holding no note, would play it again with nothing refused. `animationend`
@@ -177,6 +206,7 @@ export function StatusBar({ status, reason, flash, archive, notice }: StatusBarP
     // shift sideways when the save ring appears beside it.
     <footer className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center bg-one-panel px-3">
       <div className="flex items-center gap-2">
+        {version !== undefined && <Version backend={version} />}
         {notice !== undefined && (
           <span data-testid="notice" className="text-[11px] text-one-warn">
             {notice}

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
@@ -9,6 +10,30 @@ import { defineConfig } from "vitest/config";
 import { devPolicy } from "./src/lib/csp.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
+
+/**
+ * The commit the tree is on, in seven characters, or nothing without one.
+ *
+ * Read here and stamped into the bundle, because the browser has no repo to
+ * ask. Read out of `.git` rather than run through `git`, which the build image
+ * has not got. Production copies only `frontend/` into that image, so there is
+ * nothing to read there and the status bar shows the backend's release alone.
+ */
+function buildId(): string {
+  const git = path.resolve(import.meta.dirname, "..", ".git");
+  const head = path.join(git, "HEAD");
+  if (!existsSync(head)) return "";
+
+  const named = readFileSync(head, "utf8").trim();
+  // A detached HEAD holds the commit itself, which is what a checkout of a tag
+  // leaves behind.
+  if (!named.startsWith("ref: ")) return named.slice(0, 7);
+
+  // A ref `git gc` has packed away has no loose file. Rare on a working tree,
+  // and saying nothing beats parsing `packed-refs` for it.
+  const loose = path.join(git, named.slice("ref: ".length));
+  return existsSync(loose) ? readFileSync(loose, "utf8").trim().slice(0, 7) : "";
+}
 
 // Set by compose.dev.yml when this dev server sits behind Caddy. Unset means
 // plain localhost work, so the default stays untouched.
@@ -56,6 +81,7 @@ function devCsp(): Plugin {
 }
 
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify(buildId()) },
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),

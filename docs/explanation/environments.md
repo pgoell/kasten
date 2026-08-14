@@ -51,6 +51,27 @@ They do not share a database and they do not share a vault. Dev writes
 shared container. The vaults are separate host directories, for the reason
 given below.
 
+## Which one you are looking at, and what it is running
+
+The bar at the foot of the window says. Prod reads `0.8.0`, the release the
+three images ship under, which the backend takes off its own installed package.
+Dev reads `be d99325a fe d99325a`, the commit each of those two services was
+started on.
+
+The two halves come from different places, because nothing else could answer
+for both. The backend reads `.git/HEAD` beside itself on every call, and a
+production image carries no `.git`, so the absence is what makes it name the
+release instead. The frontend cannot read a repo at all once it is in a
+browser, so `vite.config.ts` reads the same file when the dev server starts and
+stamps the answer into the bundle. That is the useful asymmetry: the backend
+says what is running now, the bundle says what the tab in front of you was
+built from, and a tab left open across a rebase shows the two apart rather
+than quietly disagreeing with the box.
+
+The shell is not in the reading. It reports to nobody, and giving it a route of
+its own would be plumbing for a container you look at rather than through.
+`docker ps` names the image tag it is on.
+
 ## The vault is the only irreplaceable thing here
 
 Postgres holds a derived index and can be rebuilt from the vault at any time,

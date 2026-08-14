@@ -56,6 +56,7 @@ const {
   uploadAsset,
   fetchImages,
   deleteImage,
+  fetchVersion,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -81,6 +82,9 @@ const {
   // `![](`. Nothing here is about images, so an empty list is the whole answer.
   fetchImages: vi.fn().mockResolvedValue([]),
   deleteImage: vi.fn(),
+  // The status bar asks for this on every mount. A release, because the bundle
+  // these run against carries no commit either.
+  fetchVersion: vi.fn().mockResolvedValue("0.8.0"),
 }));
 vi.mock("@/lib/api", () => ({
   fetchFiles,
@@ -99,6 +103,7 @@ vi.mock("@/lib/api", () => ({
   uploadAsset,
   fetchImages,
   deleteImage,
+  fetchVersion,
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.

@@ -31,6 +31,7 @@ import {
   fetchPage,
   fetchTerminals,
   fetchTrash,
+  fetchVersion,
   restoreEntry,
   type SearchHit,
   saveNote,
@@ -144,6 +145,14 @@ interface HomeSearch {
 
 function Home() {
   const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
+  // Asked once and never again: the bundle in front of you was stamped when
+  // this tab loaded it, so a backend that reloads under a newer commit would
+  // otherwise draw half a reading nothing on screen came from.
+  const { data: version } = useQuery({
+    queryKey: ["version"],
+    queryFn: fetchVersion,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
   // Beside the notes rather than inside them: an image is a row of the tree and
   // a path an `![](` completes to, and nothing else in the app reads it. The
   // event stream refetches it on a `listing`, which is the event a change to
@@ -1611,6 +1620,7 @@ function Home() {
         flash={refused}
         archive={archive}
         notice={notice}
+        version={version}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {clipPrompt && (
