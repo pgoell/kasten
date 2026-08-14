@@ -955,6 +955,34 @@ finder](#the-note-finder) does by hand and one this does not have to repeat.
 a note's name rather than prose, so nothing in it is parsed as markdown, and a
 link that runs past the end of its line is not a link.
 
+## Completing a tag
+
+Type `#` and the tags the vault already holds are offered, filtered as you go.
+It is the same list [the note finder](#the-note-finder) would find by searching
+for one, read off every note at once, so a tag is spelled the way you spelled it
+last time rather than three ways across three notes.
+
+| Key | Does |
+| --- | --- |
+| Down / Up | Move through the tags on offer |
+| Tab / Enter | Take the highlighted one |
+| Escape | Close the list and keep typing |
+
+A `#` at the start of a line waits for a letter. That is where a heading is
+opened, and `#` alone says nothing about which of the two you meant; `#f` says
+it, and Ctrl+Space asks for the list outright on a line that has neither.
+Everywhere else the list opens on the hash itself.
+
+The vocabulary comes from `GET /api/tags`, one `rg` pass over the vault, and it
+is read again whenever a note is written, so a tag invented an hour ago is on
+offer. The archive is in it: what is filed away is out of a search because it is
+not what you are looking for, and a tag is a word you are trying to spell the
+same way twice.
+
+What counts as a tag is the rule the editor draws one by, so `#!/bin/sh`,
+`#anchor` in a URL and `note#2` are offered by nothing and coloured as nothing.
+See [A tag has no mark to hide](/explanation/live-preview.md#a-tag-has-no-mark-to-hide).
+
 ## Completing a todo field
 
 Every field a todo carries is a glyph, and no glyph is on a keyboard. Type a

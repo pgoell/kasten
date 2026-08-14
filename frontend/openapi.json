@@ -296,6 +296,29 @@
         }
       }
     },
+    "/api/tags": {
+      "get": {
+        "summary": "List Tags",
+        "description": "Every tag written anywhere in the vault, once each, sorted.\n\nThe vocabulary and nothing else: which notes hold a tag is a search, and this\nis what the editor completes an open `#` from.",
+        "operationId": "list_tags_api_tags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Tags Api Tags Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
