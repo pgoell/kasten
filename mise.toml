@@ -173,7 +173,9 @@ run = "bun install --cwd frontend"
 [tasks."fe:build"]
 description = "Build the frontend for production"
 dir = "{{config_root}}/frontend"
-run = "bun run build"
+# `--logLevel warn` drops the per-chunk size table, which is 150 lines nobody
+# reads and which `lint` would print on every commit. The warnings survive.
+run = "bun run build --logLevel warn"
 
 [tasks."fe:lint"]
 description = "Lint the frontend (Biome)"
