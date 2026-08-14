@@ -25,6 +25,7 @@ import { moveCell } from "@/lib/table";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
 import { todoCompletions } from "@/lib/todo-suggest";
+import { setWatched } from "@/lib/video";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
@@ -387,6 +388,16 @@ interface EditorProps {
    */
   focusSignal?: number;
   /**
+   * A video position to put in this note's frontmatter, or absent for none.
+   *
+   * Into the buffer and not into the vault. The note this belongs to is almost
+   * always the pane you are typing in, and a write that read the vault's copy
+   * and saved it back would put your unsaved paragraph on the floor. An edit to
+   * the buffer is an edit like any other: the autosave carries it out the way
+   * it carries out a sentence you typed.
+   */
+  mark?: { id: string; seconds: number };
+  /**
    * Whether the pane this sits in is the focused one.
    *
    * Read only on the way back into the tab, below. Every pane mounts one of
@@ -448,6 +459,7 @@ export function Editor({
   tags,
   startLine,
   focusSignal,
+  mark,
   focused = true,
   allowReload,
   onReload,
@@ -695,6 +707,38 @@ export function Editor({
   useEffect(() => {
     if (focusSignal) viewRef.current?.focus();
   }, [focusSignal]);
+
+  // A position, written where the note keeps them. `mark` is a new object per
+  // report, so this fires once per stop rather than once per render.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (mark === undefined || view === null) return;
+
+    const held = view.state.doc.toString();
+    const wanted = setWatched(held, mark.id, mark.seconds);
+    if (wanted === held) return;
+
+    // The smallest change that gets there, rather than replacing the document.
+    // A whole-document replace maps the cursor to nowhere in particular and
+    // would move it out from under whoever is typing; this touches the
+    // frontmatter block alone, so a cursor below it does not move at all.
+    let from = 0;
+    while (held[from] === wanted[from]) from += 1;
+    let tail = 0;
+    while (
+      tail < Math.min(held.length, wanted.length) - from &&
+      held[held.length - 1 - tail] === wanted[wanted.length - 1 - tail]
+    ) {
+      tail += 1;
+    }
+
+    view.dispatch({
+      changes: { from, to: held.length - tail, insert: wanted.slice(from, wanted.length - tail) },
+      // Nobody typed this, so `u` must not undo it. An edit in the history
+      // would also put the position back the moment you undid a sentence.
+      annotations: Transaction.addToHistory.of(false),
+    });
+  }, [mark]);
 
   // Coming back to the tab lands on the body when the page had nothing focused
   // when you left it, and the cursor is dead again until you click.

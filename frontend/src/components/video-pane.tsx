@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchNote } from "@/lib/api";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
 import { LABEL } from "@/lib/overlay-styles";
-import { noteVideo, PLAYER } from "@/lib/video";
+import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
 
 interface VideoPaneProps {
   /** The note holding the link. The pane reads it and never writes to it. */
@@ -20,6 +20,14 @@ interface VideoPaneProps {
    * means is "again", and a boolean has nothing to say the second time.
    */
   playSignal?: number;
+  /**
+   * Called with where the player got to, whenever it stops.
+   *
+   * The pane cannot write it: the note is somebody's open buffer and this pane
+   * is not it. The route takes the number from here and puts it where a note
+   * that is open can take it without losing what you have typed.
+   */
+  onWatched: (id: string, seconds: number) => void;
 }
 
 /**
@@ -50,7 +58,7 @@ const RUNNING = new Set([1, 3]);
  * border is worth. `<leader>h` still works because the pane's own focus signal
  * puts the cursor on this element rather than in the frame.
  */
-export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPaneProps) {
+export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }: VideoPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   /**
@@ -62,6 +70,10 @@ export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPane
    * driven by a click instead, the report arriving either way.
    */
   const running = useRef(false);
+  /** Where the player last said it had got to, in seconds. */
+  const second = useRef(0);
+  /** Which of the note's videos is in the frame, by position in the note. */
+  const [at, setAt] = useState(0);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
 
@@ -70,10 +82,41 @@ export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPane
     queryFn: () => fetchNote(note),
   });
 
-  // The same URL across a re-render is the same `src`, so React keeps the frame
-  // and the video plays on. Only a note whose *first* link changes restarts it,
-  // which is the one case where the pane is genuinely showing something else.
-  const source = text === undefined ? null : noteVideo(text);
+  const videos = useMemo(() => (text === undefined ? [] : noteVideos(text)), [text]);
+  // Clamped rather than reset: a note edited while you watch can lose the link
+  // you are three videos past, and landing on the last one beats landing on
+  // nothing. `at` is only ever moved by `n` and `p`.
+  const id = videos[Math.min(at, videos.length - 1)];
+
+  /**
+   * The URL the frame was given, held rather than recomputed.
+   *
+   * It has to be held. The position is written back into the note, so the note
+   * changes while you watch, and a URL derived from the note on every render
+   * would carry a new `start=` each time and remount the frame under you. The
+   * position is a place to open at, read once, and the player owns where it is
+   * after that.
+   */
+  const opened = useRef<{ id: string; url: string }>(null);
+  if (id !== undefined && text !== undefined && opened.current?.id !== id) {
+    opened.current = { id, url: playerUrl(id, watchedAt(text, id)) };
+    // The new frame has played none of it yet, and reporting the old video's
+    // second against the new video's id is the one way this could write a
+    // position into the wrong entry.
+    second.current = 0;
+    running.current = false;
+  }
+  const source = id === undefined ? null : (opened.current?.url ?? null);
+
+  /** Say where the player got to, which is the note's to keep. */
+  const report = useCallback(() => {
+    if (id !== undefined && second.current > 0) onWatched(id, second.current);
+  }, [id, onWatched]);
+
+  // On the way out as well as on every stop: closing the pane is the other way
+  // a session ends, and the position would otherwise be the one from the last
+  // pause rather than where you actually left off.
+  useEffect(() => report, [report]);
 
   // A freshly focused pane is handed a raised signal and takes the cursor, the
   // way the image pane and the exam pane do. It has to: the pane holds no
@@ -105,13 +148,27 @@ export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPane
         return;
       }
 
-      const state = (message as { info?: { playerState?: unknown } }).info?.playerState;
-      if (typeof state === "number") running.current = RUNNING.has(state);
+      const info = (message as { info?: { playerState?: unknown; currentTime?: unknown } }).info;
+      // Every delivery carries the time and only some carry the state, so the
+      // two are read apart. The time is what a stop is reported with, so it has
+      // to be the one from before the stop rather than a zero the player sends
+      // on its way somewhere else.
+      if (typeof info?.currentTime === "number" && info.currentTime > 0) {
+        second.current = info.currentTime;
+      }
+      if (typeof info?.playerState !== "number") return;
+
+      const was = running.current;
+      running.current = RUNNING.has(info.playerState);
+      // The edge and not the state: a player streams its state while it plays,
+      // and reporting on each one would restart the wait forever and never
+      // write. Stopping is the moment worth writing, and it happens once.
+      if (was && !running.current) report();
     }
 
     window.addEventListener("message", heard);
     return () => window.removeEventListener("message", heard);
-  }, []);
+  }, [report]);
 
   // The key, sent as the command the player answers to. Nothing happens before
   // the frame is up, which is the render where `source` is still null.
@@ -152,6 +209,16 @@ export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPane
     if (key === " ") {
       setPending(key);
       event.preventDefault();
+      return;
+    }
+
+    // The note's other videos, a lecture at a time. Bare letters because there
+    // is nothing else in this pane to type, and the same pair the todo pane
+    // steps its list with.
+    if (key === "n" || key === "p") {
+      event.preventDefault();
+      report();
+      setAt((was) => (was + (key === "n" ? 1 : videos.length - 1)) % Math.max(videos.length, 1));
     }
   }
 
@@ -171,6 +238,13 @@ export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPane
         <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={note}>
           {noteName(note)}
         </span>
+        {videos.length > 1 && (
+          // Only once there is something to step through. A note with one video
+          // saying "1/1" is a number that answers a question nobody asked.
+          <span className={`shrink-0 ${LABEL}`}>
+            {Math.min(at, videos.length - 1) + 1}/{videos.length}
+          </span>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2">

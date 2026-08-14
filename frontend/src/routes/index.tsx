@@ -86,6 +86,7 @@ import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useNoteWrites } from "@/lib/use-note-writes";
 import { parseVaultEvent } from "@/lib/vault-events";
+import { setWatched } from "@/lib/video";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
@@ -199,6 +200,25 @@ function Home() {
    * it; see the render below.
    */
   const [playSignal, setPlaySignal] = useState(0);
+  /**
+   * The video position waiting to go into a note, and which note wants it.
+   *
+   * A new object per report, so the editor holding that note applies it once.
+   * The editor and not the vault: the note is almost always the pane you are
+   * typing in, and a write that read the vault's copy and saved it back would
+   * lose the paragraph you have not saved yet.
+   *
+   * No wait in front of it, which is where this parts company with the reader's
+   * bookmark. That one writes to the vault and needs a minute between writes;
+   * this one edits a buffer, and the autosave behind it is already the thing
+   * that decides how often the disk hears about it. A wait here would only add
+   * a window where closing the pane loses the position.
+   *
+   * ponytail: the position is dropped when no pane holds the note, the editor
+   * being what applies it. Route it through `writePosition` as well if closing
+   * the note and leaving the player running starts costing you a position.
+   */
+  const [mark, setMark] = useState<{ note: string; id: string; seconds: number }>();
   const pane = focusedPane(layout);
   const tab = activeTab(layout);
   // One autosave, following the focused pane, because the focused pane is the
@@ -497,7 +517,12 @@ function Home() {
   const write = useNoteWrites();
 
   /**
-   * Write one reading position into the note beside the book.
+   * Write one position into a note nobody is typing in.
+   *
+   * `apply` is what the field is: the reader sets `reading:` and the player
+   * sets one entry of `watching:`. The read happens in here rather than outside
+   * it, because everything below is about the note not moving under the write,
+   * and a caller holding text from before all of that would undo it.
    *
    * The route owns this rather than the pane, because only the route knows
    * which pane has the focus, and the whole point of the write is not landing
@@ -511,7 +536,7 @@ function Home() {
    * counts as in flight the whole time it waits here.
    */
   const writePosition = useCallback(
-    (note: string, cfi: string): Promise<boolean> =>
+    (note: string, apply: (text: string) => string): Promise<boolean> =>
       write(note, async () => {
         // Skip while somebody could be typing into it: the note is the focused
         // pane's, or a write of its own text is already on its way to the vault.
@@ -550,7 +575,7 @@ function Home() {
         const now = focusedNote.current;
         if (now.path === note || now.isWriting(note)) return false;
 
-        const written = await saveNote(note, setField(text, "reading", cfi)).then(
+        const written = await saveNote(note, apply(text)).then(
           (landed) => landed,
           () => null,
         );
@@ -575,7 +600,31 @@ function Home() {
     [queryClient, write],
   );
 
-  const { moved, flush, cancel } = useBookmark(writePosition);
+  const { moved, flush, cancel } = useBookmark((note, cfi) =>
+    writePosition(note, (text) => setField(text, "reading", cfi)),
+  );
+
+  /**
+   * Keep where a video got to, by whichever of the two routes is safe.
+   *
+   * The two are complementary and the focus is what tells them apart. A note in
+   * the focused pane is one somebody may be typing in, so the position goes
+   * into the buffer and the autosave carries it out with everything else; that
+   * is also the pane whose changes the route listens to. Any other note is one
+   * `writePosition` will take, its whole guard being that the note is not the
+   * focused pane's.
+   *
+   * Nothing is lost either way, and neither path can put a saved paragraph on
+   * the floor.
+   */
+  const keepPosition = useCallback(
+    (note: string, id: string, seconds: number) => {
+      if (note === "") return;
+      if (focusedNote.current.path === note) setMark({ note, id, seconds });
+      else void writePosition(note, (text) => setWatched(text, id, seconds));
+    },
+    [writePosition],
+  );
 
   /**
    * Write a passage the reader took into the note beside the book.
@@ -1603,6 +1652,11 @@ function Home() {
                     // pane holding no note and `shown.video` is always a path,
                     // so the two never meet by accident.
                     playSignal={shown.video === (pane.video ?? pane.path) ? playSignal : 0}
+                    // Bound here rather than passed back up by the pane, the
+                    // way the reader's callbacks are: the pane holds no path of
+                    // its own, so a folder move that rewrites `video` moves
+                    // this with it.
+                    onWatched={(id, seconds) => keepPosition(shown.video ?? "", id, seconds)}
                   />
                 ) : shown.term !== undefined ? (
                   <TerminalPane
@@ -1656,6 +1710,7 @@ function Home() {
                     // reported alone: the note this reads is the one the
                     // autosave follows, which is the note in that pane.
                     onReload={focused ? reload : undefined}
+                    mark={mark?.note === shown.path ? mark : undefined}
                     onSave={save}
                     onFollow={follow}
                     onCycleTodo={logCycledTodo}

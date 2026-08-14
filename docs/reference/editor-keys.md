@@ -432,19 +432,48 @@ is a column of text and reads next to a column of notes; a player is a 16:9 box,
 and the width it wants is the width the note wants too, so the two share the
 height instead.
 
-The link is read out of the note, and the first YouTube address in it is the one
-that plays. Every shape the share button writes is understood, `youtu.be/ID`,
+The links are read out of the note, and the first YouTube address in it is the
+one that plays. Every shape the share button writes is understood, `youtu.be/ID`,
 `watch?v=ID`, an embed, a short and a livestream, and the address can sit
 anywhere in the note: inside a `[](...)`, in the frontmatter, on a line of its
 own. A note linking no video draws one sentence saying so rather than an empty
 player.
 
-The first and not the one under the cursor. A note is about one video, and a
-rule reading the cursor would start the video over every time you moved a line.
-Two videos in one note means two notes, or the second link moved to the top.
+A note may link as many as you like. `n` and `p` in the player step through
+them in the note's order, and the header counts, `2/5`. A video linked twice is
+one video, so stepping cannot land on the same player twice.
 
-A timestamp is dropped. `?t=90` in the address opens the player at the start,
-and the moment is yours to scrub back to.
+A timestamp in the link is dropped. `?t=90` is one more video to open at the
+start, because the position the note remembers is where you actually got to.
+
+### Where you got to
+
+The note remembers it, one entry per video:
+
+```yaml
+watching: {iDulhoQ2pro: 77, TQQlZhbC5ps: 118}
+```
+
+Written whenever the player stops, and read when it opens, so `<leader>gv`
+tomorrow starts where you stopped today. Keyed by the video's own id and not by
+where the link sits, so reordering the note moves nothing and two lectures in
+one note cannot overwrite each other. A video wound back to the start drops out
+of the mapping rather than storing a zero.
+
+Flow style, on one line, because the client writes frontmatter a line at a time.
+It is ordinary YAML and the backend reads it as the same mapping.
+
+The position takes one of two routes into the note, and which one it takes turns
+on where the cursor is. A note in the focused pane is one you may be typing in,
+so the position is edited into the buffer and the autosave carries it out with
+everything else; it is not added to the undo history, so `u` never takes a
+bookmark back. Any other note is written to the vault directly, by the same
+guarded write the reader's `reading:` uses, whose whole rule is that it will not
+touch the focused pane's note. Neither route can put an unsaved paragraph on the
+floor.
+
+A note nobody has open anywhere takes neither. Close the note, leave the player
+running, and the position it reaches is lost.
 
 Pressing the key again goes to the pane already playing rather than opening a
 second one, so it is its own way back. `<leader>q` closes the player, and
