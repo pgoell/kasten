@@ -84,6 +84,48 @@ padding is computed from how many lists the item sits inside. An ordered list is
 left alone throughout: its number is content rather than decoration, and hiding
 `1.` would lose which item it was.
 
+## A tag has no mark to hide
+
+`#kasten` is the one construct here where the syntax is the content. Every other
+mark stands in front of something: the hashes of a heading, the asterisks around
+bold, the brackets of a link. A tag's hash is part of the word, so there is
+nothing to take off, and the tag reads the same in normal mode and in insert
+mode. It is coloured and left where it is, the way an overdue date is.
+
+Markdown has no tag, so the parser is given one, a small inline extension
+alongside the one that reads `==highlighted==`. A regex over the text would have
+been shorter and wrong: it would colour the `#` in `#!/bin/sh` inside a fenced
+block, in `https://example.com/#anchor`, and in `issue#12`. An inline parser is
+never asked about a range another parser has already taken, so a code span, a
+fence and a URL are safe without a rule saying so, and the pattern itself only
+has to refuse a hash that follows a word character or is not followed by a
+letter.
+
+The tag is drawn as a pill, and it loses the pill inside a table. Padding widens
+the text by a few pixels, and a table's columns are lined up by counting
+characters, so a pill in one cell would push the wall to its right out of line
+with every wall above it. There the colour has to carry it alone.
+
+## Colour tells the inline constructs apart
+
+Once the marks are hidden, the only thing left saying that a word is bold is
+that it is bold, and on a screen of prose weight and slope are easy to miss and
+easy to confuse with each other. So each inline construct takes a colour of the
+One Dark palette, and no two share one:
+
+| construct | how it reads |
+| --- | --- |
+| bold | heavier, and lifted off the body colour |
+| italic | slanted, in orange |
+| tag | purple, on a wash of itself |
+| link and wikilink | blue, underlined |
+| inline code | green, monospaced, on the panel colour |
+| highlight | a yellow wash under the body colour |
+| strikethrough | struck through, in the muted colour |
+
+Bold is the one that takes no hue. It is the same words said louder rather than
+a different kind of word, so it brightens instead.
+
 ## The mode arrives one microtask late
 
 Vim keeps its mode on `cm.state.vim.mode`, a mutable property hanging off the

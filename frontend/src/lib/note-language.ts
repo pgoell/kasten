@@ -3,6 +3,7 @@ import { yamlFrontmatter } from "@codemirror/lang-yaml";
 import type { LanguageSupport } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { Highlight } from "@/lib/markdown-highlight";
+import { Tag } from "@/lib/tag";
 import { WikiLink } from "@/lib/wikilink";
 
 /**
@@ -22,7 +23,7 @@ export function noteLanguage(): LanguageSupport {
     content: markdown({
       base: markdownLanguage,
       codeLanguages: languages,
-      extensions: [Highlight, WikiLink],
+      extensions: [Highlight, Tag, WikiLink],
     }),
   });
 }

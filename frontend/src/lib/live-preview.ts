@@ -199,6 +199,7 @@ function build(state: EditorState): Live {
       const isRule = node.name === "HorizontalRule";
       const isImage = node.name === "Image";
       const isTable = node.name === "Table";
+      const isTag = node.name === "Tag";
       if (
         !heading &&
         !inline &&
@@ -208,8 +209,17 @@ function build(state: EditorState): Live {
         !isFence &&
         !isRule &&
         !isImage &&
-        !isTable
+        !isTable &&
+        !isTag
       ) {
+        return;
+      }
+
+      // Coloured and left where it is, like the overdue red below: the hash is
+      // part of the tag rather than a mark standing in front of one, so there
+      // is nothing here for a revealed line to bring back.
+      if (isTag) {
+        decorations.push(Decoration.mark({ class: "cm-tag" }).range(node.from, node.to));
         return;
       }
 

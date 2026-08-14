@@ -16,6 +16,10 @@
   --color-one-green: #98c379;
   --color-one-warn: #e06c75;
   --color-one-yellow: #e5c07b;
+  /* The rest of the One Dark palette, unused by the chrome and used below to
+     tell one inline construct from another. */
+  --color-one-orange: #d19a66;
+  --color-one-purple: #c678dd;
   /* The red the vim block cursor is painted in, borrowed from
      @replit/codemirror-vim so the file tree's cursor reads as the same idea. */
   --color-one-cursor: #ff9696;
@@ -114,17 +118,53 @@ body {
 .cm-heading-5 { font-size: 1.05em; }
 .cm-heading-6 { font-size: 1em; }
 
-.cm-strong { font-weight: 700; }
-.cm-emphasis { font-style: italic; }
+/* The marks are hidden, so weight and slope alone carry bold and italic, and
+   on a screen of prose the two are easy to miss and easy to confuse with each
+   other. A colour each settles both. Bold lifts off the body colour rather
+   than taking a hue: it is the same words said louder, not a different kind of
+   word. Italic takes the orange, which is the palette's quietest colour that
+   is not already spoken for. */
+.cm-strong {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--color-one-fg) 45%, white);
+}
+
+.cm-emphasis {
+  font-style: italic;
+  color: var(--color-one-orange);
+}
+
+/* Struck out and stood down. The line is what says it is gone; the muted
+   colour is what stops it competing with the words that are not. */
 .cm-strikethrough {
   text-decoration: line-through;
+  text-decoration-thickness: 1px;
   color: var(--color-one-muted);
 }
+
 /* A wash rather than a block of colour: the text under it still has to read
    as body text on the dark background. */
 .cm-highlight {
   background: color-mix(in srgb, var(--color-one-yellow) 28%, transparent);
   border-radius: 2px;
+}
+
+/* A tag is drawn as the label it is: purple on a wash of itself, which is the
+   one construct here wearing a shape rather than a colour. The hash stays,
+   because it is what somebody typed rather than a mark standing in for
+   something. */
+.cm-tag {
+  color: var(--color-one-purple);
+  background: color-mix(in srgb, var(--color-one-purple) 15%, transparent);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+}
+
+/* Except in a table, where padding would push the wall to its right out of
+   line with every wall above it. There the colour alone has to do. */
+.cm-line.cm-table .cm-tag {
+  background: none;
+  padding: 0;
 }
 
 /* The marks are gone from the text, so the marker and the indent are drawn
