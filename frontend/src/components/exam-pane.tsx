@@ -2,7 +2,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createNote, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { type Answers, type Exam, gradeExam, parseExam, resultNote, resultPath } from "@/lib/exam";
+import {
+  type Answers,
+  type Exam,
+  gradeExam,
+  LETTERS,
+  parseExam,
+  resultNote,
+  resultPath,
+} from "@/lib/exam";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
 
@@ -16,9 +24,6 @@ interface ExamPaneProps {
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
 }
-
-/** The letters a question's options can be picked with, in order. */
-const LETTERS = "ABCDEFGHIJ";
 
 /**
  * Taking one of the vault's practice exams, one question at a time.

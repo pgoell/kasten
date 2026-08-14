@@ -92,6 +92,28 @@ Which TWO are valid for_each collections?
 Answer: B, C
 ```
 
+## Ask a row of scenarios against one option set
+
+Where the question is a set of cases to classify rather than one thing to
+answer, write the cases as rows and the option set once, under them:
+
+```markdown
+### Question 4 · Scenario matching
+
+For each scenario, identify the system issue present.
+
+- A bot cites a warranty clause that is in none of the documentation. → ______
+- An assistant told to "respond concisely" returns three paragraphs. → ______
+
+Options: prompt failure · hallucination · model mismatch
+
+Answer: 1 → hallucination; 2 → prompt failure
+```
+
+One row is one line. Each is asked on its own over the same lettered options, so
+the two above are two of the questions the sitting counts. The answer names a row by its
+position and an option by its text, and the same option may answer two rows.
+
 ## Have an agent write one
 
 The vault carries the format as a note, so an agent in a terminal pane or on

@@ -108,12 +108,44 @@ A leading `Domain`, `Section`, `Topic`, `Part`, `Chapter`, `Module` or `Area`
 comes off, a leading number comes off, and a trailing `(14%)` comes off, so
 those three all read as sections and nothing more.
 
+## Scenario matching
+
+A question with no lettered options, but a row of scenarios and one option set
+under them, is asked a row at a time:
+
+```markdown
+### Question 1.11 · Scenario matching
+
+For each scenario, identify the most appropriate architectural pattern.
+
+- Summarising each inbound support email into a CRM note. → ______
+- A monthly compliance report generated through the same five steps every time. → ______
+- Investigating a production incident where the path depends on each log query. → ______
+
+Options: single augmented LLM call · fixed workflow · autonomous agent
+```
+
+A row is one line. The arrow may be `→` or `->`, and the `Options:` line separates its options with
+`·`, `|` or `;`, ten at most. Each row becomes its own question over that set,
+lettered in the order the line writes them and numbered under the question,
+`1.11.1` to `1.11.3` above, carrying the instruction over the rows with it.
+
+The answer names each row by its position:
+
+```markdown
+1.11 — 1 → single augmented LLM call; 2 → fixed workflow; 3 → autonomous agent
+```
+
+Under the question as `Answer: 1 → …` or in the key at the back as above. The
+text has to name one of the options; case, spacing and a closing full stop do
+not count. Write one option as the answer to two rows where that is the truth,
+because every row is scored on its own.
+
 ## What is not read
 
-A question whose answer is not a letter. The vault's `ccar-p` exam has five
-scenario-matching questions answered by a sentence of arrows, and there is no
-way to ask one of those here. They stay in the note, they are left out of the
-sitting, and the pane says how many.
+A question heading with neither lettered options nor a row of scenarios under
+it. It stays in the note, it is left out of the sitting, and the pane says how
+many.
 
 ## Where a sitting goes
 

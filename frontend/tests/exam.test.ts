@@ -48,6 +48,28 @@ Why not the others: A adds pressure without information.
 One change at a time against a fixed input is what makes a result attributable.
 `;
 
+/** The shape `ccar-p` writes its five scenario matching questions in. */
+const MATCHING = `# Architect drills
+
+## Domain 1: Solution Design & Architecture (17%)
+
+### Question 1.11 · Scenario matching
+
+For each scenario, identify the most appropriate architectural pattern.
+
+- Summarising each inbound support email into a CRM note. → ______
+- A monthly compliance report generated through the same five steps every time. → ______
+- Investigating a production incident where the path depends on each log query. → ______
+
+Options: single augmented LLM call · fixed workflow · autonomous agent
+
+## Answer Key
+
+1.11 — 1 → single augmented LLM call; 2 → fixed workflow; 3 → autonomous agent
+
+A stable, repeating sequence is a workflow.
+`;
+
 describe("parseExam", () => {
   it("reads the title off the first heading", () => {
     expect(parseExam(NOTE)?.title).toBe("Claude Certified Associate – Foundations (CCAO-F)");
@@ -122,6 +144,78 @@ Match each scenario to a pattern.
 1.1 — 1 → single call; 2 → fixed workflow
 `;
     expect(parseExam(note)?.questions[0]?.correct).toEqual([]);
+  });
+
+  // Five of `ccar-p`'s questions are written this way and none of them was
+  // askable before: one instruction, a row of scenarios, and one option set
+  // they all choose from. A row is a question, so nothing downstream of the
+  // parser had to learn a second kind.
+  describe("a scenario matching question", () => {
+    it("asks each row on its own, numbered under the question", () => {
+      expect(parseExam(MATCHING)?.questions.map((q) => q.id)).toEqual([
+        "1.11.1",
+        "1.11.2",
+        "1.11.3",
+      ]);
+    });
+
+    it("letters the shared option set, and gives it to every row", () => {
+      const options = [
+        { letter: "A", text: "single augmented LLM call" },
+        { letter: "B", text: "fixed workflow" },
+        { letter: "C", text: "autonomous agent" },
+      ];
+      for (const question of parseExam(MATCHING)?.questions ?? []) {
+        expect(question.options).toEqual(options);
+      }
+    });
+
+    it("keeps the instruction above the scenario in the stem", () => {
+      expect(parseExam(MATCHING)?.questions[1]?.stem).toBe(
+        "For each scenario, identify the most appropriate architectural pattern.\n\nA monthly compliance report generated through the same five steps every time.",
+      );
+    });
+
+    it("reads the arrows in the key as the letter each row wants", () => {
+      expect(parseExam(MATCHING)?.questions.map((q) => q.correct)).toEqual([["A"], ["B"], ["C"]]);
+    });
+
+    it("asks one letter a row, and counts nothing skipped", () => {
+      const exam = parseExam(MATCHING);
+      expect(exam?.questions.map((q) => q.pick)).toEqual([1, 1, 1]);
+      expect(exam?.skipped).toBe(0);
+    });
+
+    it("puts the rows in the section the question sits under", () => {
+      expect(parseExam(MATCHING)?.questions[0]?.section).toBe("Solution Design & Architecture");
+    });
+
+    it("gives every row the rationale under the key line", () => {
+      expect(parseExam(MATCHING)?.questions[2]?.rationale).toBe(
+        "A stable, repeating sequence is a workflow.",
+      );
+    });
+
+    it("takes an answer written under the question over the key", () => {
+      const note = MATCHING.replace(
+        "Options: single augmented LLM call · fixed workflow · autonomous agent",
+        "Options: single augmented LLM call · fixed workflow · autonomous agent\n\nAnswer: 1 -> autonomous agent; 2 -> fixed workflow; 3 -> single augmented LLM call",
+      );
+      expect(parseExam(note)?.questions.map((q) => q.correct)).toEqual([["C"], ["B"], ["A"]]);
+    });
+
+    it("leaves a row unscored where the answer names no option", () => {
+      const note = MATCHING.replace("1 → single augmented LLM call;", "1 → a fourth thing;");
+      expect(parseExam(note)?.questions[0]?.correct).toEqual([]);
+    });
+
+    it("is not one without the option set, which leaves the rows unaskable", () => {
+      const note = MATCHING.replace(
+        "Options: single augmented LLM call · fixed workflow · autonomous agent\n",
+        "",
+      );
+      expect(parseExam(note)).toBeNull();
+    });
   });
 
   it("takes an answer key line that is not bold", () => {
