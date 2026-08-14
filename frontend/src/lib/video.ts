@@ -1,3 +1,5 @@
+import { readField, setField } from "@/lib/note-frontmatter";
+
 /**
  * The video a note is written about, found in the note.
  *
@@ -23,15 +25,19 @@
 /** The origin the frame is served from, which is also the only one it is spoken to on. */
 export const PLAYER = "https://www.youtube.com";
 
-const YOUTUBE =
-  /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^\s)]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/;
+const EVERY =
+  /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^\s)]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/g;
 
 /**
- * The player URL for the first YouTube link in a note, or null for a note with none.
+ * Every YouTube video a note links, in the order the note links them.
  *
- * The first and not the one under the cursor: a note is about one video, and a
- * rule that reads the cursor would start the video over every time the pane
- * re-rendered against a different line.
+ * A list and not the first alone: a note about a course carries a lecture per
+ * section, and each of them keeps a position of its own. The pane opens on the
+ * first and steps through the rest.
+ *
+ * Each video once. A talk linked at the top and again where it is discussed is
+ * one video, and two entries for it would step onto the same player twice and
+ * give it two positions to disagree about.
  *
  * `youtube.com` and not `youtube-nocookie.com`. The privacy the nocookie host
  * buys is already yours behind oauth2-proxy on your own machine, and the
@@ -42,11 +48,67 @@ const YOUTUBE =
  * answers no `postMessage` at all, and pausing would mean clicking into it and
  * losing the cursor, which is the one thing this pane exists to avoid.
  *
- * ponytail: the timestamp in `?t=90` is dropped, so a link to a moment opens at
- * the start. Carry it into the embed's own `start=` if that starts costing you
- * the scroll.
+ * ponytail: the timestamp in `?t=90` is dropped, so a link to a moment is one
+ * more video to start from the beginning. The position the note remembers is
+ * where you actually got to, which is the number worth having.
  */
-export function noteVideo(text: string): string | null {
-  const id = text.match(YOUTUBE)?.[1];
-  return id === undefined ? null : `${PLAYER}/embed/${id}?enablejsapi=1`;
+export function noteVideos(text: string): string[] {
+  return [...new Set([...text.matchAll(EVERY)].map((match) => match[1] ?? ""))];
+}
+
+/**
+ * The player URL for one video, opening at the second it names.
+ *
+ * `start` is whole seconds, which is all the parameter takes. A zero is left
+ * off rather than written, so a video nobody has watched carries no position.
+ */
+export function playerUrl(id: string, start = 0): string {
+  return `${PLAYER}/embed/${id}?enablejsapi=1${start > 0 ? `&start=${Math.floor(start)}` : ""}`;
+}
+
+/**
+ * The field a note keeps its positions in, one entry per video.
+ *
+ * A mapping and not a number, because a note may be about a course: `watching:
+ * {iDulhoQ2pro: 312}` is lecture one at five minutes and lecture two has an
+ * entry of its own beside it. Keyed by the video's own id rather than by where
+ * the link sits, so reordering the note moves nothing.
+ *
+ * Flow style, on one line, because `setField` is a line at a time: a block
+ * mapping would be indented lines under the key, which that function reads as
+ * belonging to the field above and carries through untouched. Flow is ordinary
+ * YAML and `frontmatter.py` reads it as the same mapping.
+ */
+const WATCHING = "watching";
+
+/** One `id: seconds` pair inside the flow mapping. */
+const PAIR = /([\w-]{11})\s*:\s*(\d+)/g;
+
+/** Every position a note holds, by video id. */
+function positions(text: string): Map<string, number> {
+  const held = readField(text, WATCHING) ?? "";
+  return new Map([...held.matchAll(PAIR)].map((pair) => [pair[1] ?? "", Number(pair[2])]));
+}
+
+/** How far into that video the note says you got, or zero for one it has never held. */
+export function watchedAt(text: string, id: string): number {
+  return positions(text).get(id) ?? 0;
+}
+
+/**
+ * The note with one video's position written into it.
+ *
+ * The other videos' positions are read back out and written again, which is
+ * what keeps two players in one note from overwriting each other. A position of
+ * zero is dropped rather than stored: it is what a video that has never been
+ * watched already means, and storing it would grow the line for nothing.
+ */
+export function setWatched(text: string, id: string, seconds: number): string {
+  const held = positions(text);
+  const at = Math.floor(seconds);
+  if (at > 0) held.set(id, at);
+  else held.delete(id);
+
+  const pairs = [...held].map(([video, second]) => `${video}: ${second}`);
+  return setField(text, WATCHING, `{${pairs.join(", ")}}`);
 }

@@ -4,7 +4,7 @@ import { fetchNote } from "@/lib/api";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
 import { LABEL } from "@/lib/overlay-styles";
-import { noteVideo, PLAYER } from "@/lib/video";
+import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
 
 interface VideoPaneProps {
   /** The note holding the link. The pane reads it and never writes to it. */
@@ -70,10 +70,22 @@ export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPane
     queryFn: () => fetchNote(note),
   });
 
-  // The same URL across a re-render is the same `src`, so React keeps the frame
-  // and the video plays on. Only a note whose *first* link changes restarts it,
-  // which is the one case where the pane is genuinely showing something else.
-  const source = text === undefined ? null : noteVideo(text);
+  const id = text === undefined ? undefined : noteVideos(text)[0];
+
+  /**
+   * The URL the frame was given, held rather than recomputed.
+   *
+   * It has to be held. The position is written back into the note, so the note
+   * changes while you watch, and a URL derived from the note on every render
+   * would carry a new `start=` each time and remount the frame under you. The
+   * position is a place to open at, read once, and the player owns where it is
+   * after that.
+   */
+  const opened = useRef<{ id: string; url: string }>(null);
+  if (id !== undefined && text !== undefined && opened.current?.id !== id) {
+    opened.current = { id, url: playerUrl(id, watchedAt(text, id)) };
+  }
+  const source = id === undefined ? null : (opened.current?.url ?? null);
 
   // A freshly focused pane is handed a raised signal and takes the cursor, the
   // way the image pane and the exam pane do. It has to: the pane holds no
