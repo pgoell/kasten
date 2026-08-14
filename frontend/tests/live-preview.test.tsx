@@ -293,13 +293,39 @@ describe("live preview", () => {
     expect(container.querySelectorAll(".cm-todo-overdue")).toHaveLength(1);
   });
 
-  it("leaves the text of a code fence untouched", () => {
-    // Nothing in a fence is hidden: the language and the backticks are part of
-    // what you came to read.
+  it("hides a fence's backticks and language, code and all", () => {
     const lines = ["```js", "const x = 1;", "```"];
     const { container } = render(<Editor initialDoc={lines.join("\n")} />);
 
-    expect(content(container)).toBe(lines.join(""));
+    expect(content(container)).toBe("const x = 1;");
+  });
+
+  it("hands the backticks back with the cursor in the block", async () => {
+    // The whole block rather than the cursor's line, which is how every other
+    // construct here works: a hidden fence line is a line the cursor cannot
+    // reach, so a rule waiting for it there would never fire.
+    const lines = ["```js", "const x = 1;", "```"];
+    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toBe(lines.join("")));
+  });
+
+  it("keeps the backticks of a fence with no code in it", () => {
+    // Hiding both would leave no line on the screen to put the cursor back on,
+    // and the block a third backtick writes starts out empty.
+    const { container } = render(<Editor initialDoc={"```\n```"} />);
+
+    expect(content(container)).toBe("``````");
+    // Knocked back off the code, the way a revealed fence is.
+    expect(container.querySelectorAll(".cm-code-fence")).toHaveLength(2);
+  });
+
+  it("keeps the backticks of an unclosed fence", () => {
+    const { container } = render(<Editor initialDoc={"```js\nconst x = 1;"} />);
+
+    expect(content(container)).toContain("```js");
   });
 
   it("draws a table as a table, alignment and cell marks included", () => {
@@ -353,8 +379,9 @@ describe("live preview", () => {
     const lines = ["before", "```js", "const x = 1;", "const y = 2;", "```", "after"];
     const { container } = render(<Editor initialDoc={lines.join("\n")} />);
 
-    // Every line of the fence, the two backtick lines included.
-    expect(container.querySelectorAll(".cm-code-block")).toHaveLength(4);
+    // Two rows on the screen, each backtick line having fallen into the line
+    // of code beside it.
+    expect(container.querySelectorAll(".cm-code-block")).toHaveLength(2);
     // The corners are rounded on the outside only, so the run reads as a box.
     expect(container.querySelectorAll(".cm-code-open")).toHaveLength(1);
     expect(container.querySelectorAll(".cm-code-close")).toHaveLength(1);

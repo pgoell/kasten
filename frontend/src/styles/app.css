@@ -321,9 +321,9 @@ body {
   padding-bottom: 0.35em;
 }
 
-/* The backticks and the language stay readable but stand back from the code. */
-.cm-code-open,
-.cm-code-close {
+/* A fence that is on the screen, which is one the cursor is in or one with no
+   code under it. Readable, and standing back from the code. */
+.cm-code-fence {
   color: var(--color-one-muted);
 }
 
