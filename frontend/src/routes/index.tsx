@@ -190,6 +190,15 @@ function Home() {
   // Raised by every key that moves the focus, so the editor in the pane arrived
   // at takes it. A click raises nothing, having already moved the focus itself.
   const [focusSignal, setFocusSignal] = useState(0);
+  /**
+   * Raised on every `<leader>v`, which is how the note drives the player.
+   *
+   * The route holds it rather than the pane because the key is pressed in the
+   * note and the frame is in another pane, and a counter is what carries "do it
+   * again" across the two. Only the pane playing this note's video is handed
+   * it; see the render below.
+   */
+  const [playSignal, setPlaySignal] = useState(0);
   const pane = focusedPane(layout);
   const tab = activeTab(layout);
   // One autosave, following the focused pane, because the focused pane is the
@@ -1308,6 +1317,11 @@ function Home() {
         const note = pane.path;
         moveTo((previous) => openVideoBeside(previous, note));
       },
+      // No guard and no `moveTo`: this opens nothing, moves nothing and writes
+      // nothing. A press with no player on screen raises a number that no pane
+      // is listening to, which is a key that does nothing rather than one that
+      // has to check first.
+      toggleVideo: () => setPlaySignal((count) => count + 1),
       // Needs no note in the pane: the book keeps its own name and brings its
       // own note, so there is nothing here to be beside.
       uploadBook: () => {
@@ -1583,6 +1597,12 @@ function Home() {
                     note={shown.video}
                     commands={commands}
                     focusSignal={focused ? focusSignal : 0}
+                    // The one player the key means: the one playing for the
+                    // note the press came from, or this pane itself when the
+                    // press came from inside it. `pane.path` is undefined in a
+                    // pane holding no note and `shown.video` is always a path,
+                    // so the two never meet by accident.
+                    playSignal={shown.video === (pane.video ?? pane.path) ? playSignal : 0}
                   />
                 ) : shown.term !== undefined ? (
                   <TerminalPane

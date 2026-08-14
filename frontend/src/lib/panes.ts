@@ -318,7 +318,10 @@ export function openVideoBeside(layout: Layout, note: string): Layout {
   const playing = tabPanes(layout).find((pane) => pane.video === note);
   if (playing) return focusPane(layout, playing.id);
 
-  const split = splitFocused(layout, "row");
+  // `col` where the reader takes `row`: a book is a column of text and reads
+  // beside one, a player is a 16:9 box and the note it belongs to is the thing
+  // that wants the width.
+  const split = splitFocused(layout, "col");
   const tab = activeTab(split);
 
   return withTab(split, {

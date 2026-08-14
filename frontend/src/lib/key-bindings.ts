@@ -66,6 +66,8 @@ export interface EditorCommands {
   openBook(): void;
   /** Play the video the focused pane's note links, in a pane beside it. */
   openVideo(): void;
+  /** Play or pause that video without leaving the note, or nothing if none is open. */
+  toggleVideo(): void;
   /** Pick an epub, put it in the inbox with a note, and open the note. */
   uploadBook(): void;
   /** Pick markdown files off disk, put them in the inbox, and open the first. */
@@ -252,6 +254,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // `w` for vim's own `:w`, which is the key for writing what you are looking
   // at out to a file. Not in the `c` group with the three imports: this one
   // creates nothing in the vault, it hands a copy to the browser and leaves.
+  // A bare letter, the way the operations you reach for every minute are bare:
+  // pausing to write a sentence down is the whole rhythm of taking notes on a
+  // talk. `gv` opens the player and this is the one key that then drives it.
+  { key: "v", label: "Play or pause this note's video", command: "toggleVideo" },
   { key: "w", label: "Download what this pane holds as a file", command: "exportNote" },
   // tmux's own split keys, kept because they are the two this app is imitating
   // and because the shape of each character says which way the pane divides.

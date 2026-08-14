@@ -4,7 +4,7 @@ import { fetchNote } from "@/lib/api";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
 import { LABEL } from "@/lib/overlay-styles";
-import { noteVideo } from "@/lib/video";
+import { noteVideo, PLAYER } from "@/lib/video";
 
 interface VideoPaneProps {
   /** The note holding the link. The pane reads it and never writes to it. */
@@ -13,7 +13,23 @@ interface VideoPaneProps {
   commands: EditorCommands;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
+  /**
+   * Raised when `<leader>v` was pressed in the note this plays for.
+   *
+   * A counter and not a boolean, the way `focusSignal` is one: what the key
+   * means is "again", and a boolean has nothing to say the second time.
+   */
+  playSignal?: number;
 }
+
+/**
+ * What the player reports while it is playing or about to be.
+ *
+ * YouTube's own numbering: 1 is playing and 3 is buffering, which is a video on
+ * its way to playing and has to read as playing or the next press starts it
+ * again instead of stopping it.
+ */
+const RUNNING = new Set([1, 3]);
 
 /**
  * The video a note is about, playing beside the note.
@@ -34,8 +50,18 @@ interface VideoPaneProps {
  * border is worth. `<leader>h` still works because the pane's own focus signal
  * puts the cursor on this element rather than in the frame.
  */
-export function VideoPane({ note, commands, focusSignal }: VideoPaneProps) {
+export function VideoPane({ note, commands, focusSignal, playSignal }: VideoPaneProps) {
   const panel = useRef<HTMLElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
+  /**
+   * Whether the player is running, as the player last reported it.
+   *
+   * A ref and not state: nothing on the screen shows it, and the only reader is
+   * the key, which wants the value at the moment it is pressed rather than a
+   * render behind. It is also what keeps the toggle honest when the player is
+   * driven by a click instead, the report arriving either way.
+   */
+  const running = useRef(false);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
 
@@ -56,6 +82,50 @@ export function VideoPane({ note, commands, focusSignal }: VideoPaneProps) {
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
+
+  /**
+   * Listen to the player, which is the only way to know what it is doing.
+   *
+   * A cross-origin frame answers no question asked of it directly, so the
+   * arrangement is the other way round: `postMessage` a subscription once the
+   * frame is up and it streams its state back. Without this the toggle would
+   * have to guess, and a video paused by a click would then need two presses.
+   */
+  useEffect(() => {
+    function heard(event: MessageEvent) {
+      if (event.origin !== PLAYER || typeof event.data !== "string") return;
+
+      let message: unknown;
+      try {
+        message = JSON.parse(event.data);
+      } catch (_malformed: unknown) {
+        // Named and typed rather than a bare `catch`, which this repo does not
+        // take: the error handled here is a string from the player's origin
+        // that is not JSON, and ignoring the message is the whole handling.
+        return;
+      }
+
+      const state = (message as { info?: { playerState?: unknown } }).info?.playerState;
+      if (typeof state === "number") running.current = RUNNING.has(state);
+    }
+
+    window.addEventListener("message", heard);
+    return () => window.removeEventListener("message", heard);
+  }, []);
+
+  // The key, sent as the command the player answers to. Nothing happens before
+  // the frame is up, which is the render where `source` is still null.
+  useEffect(() => {
+    if (!playSignal) return;
+    frame.current?.contentWindow?.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: running.current ? "pauseVideo" : "playVideo",
+        args: [],
+      }),
+      PLAYER,
+    );
+  }, [playSignal]);
 
   // The leader block the image pane, the exam pane and the todo pane each carry
   // their own copy of. Nothing else is bound: there is nothing here to operate,
@@ -110,11 +180,21 @@ export function VideoPane({ note, commands, focusSignal }: VideoPaneProps) {
           </p>
         ) : (
           <iframe
+            ref={frame}
             // Keyed on the URL so a note that changes which video it links gets
             // a new frame rather than a stale player told to load another one.
             key={source}
             src={source}
             title="video"
+            // The subscription the effect above listens for. It goes on load
+            // rather than on mount: a frame that has not finished loading has a
+            // `contentWindow` that drops what it is sent.
+            onLoad={() =>
+              frame.current?.contentWindow?.postMessage(
+                JSON.stringify({ event: "listening", channel: "widget" }),
+                PLAYER,
+              )
+            }
             // Fullscreen is the one thing worth handing over: a talk followed
             // properly is watched full width and paused back to the notes.
             // Nothing else is granted, so the frame gets no camera, no clipboard
