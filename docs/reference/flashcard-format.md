@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Flashcard format
-description: The two ways a card is written, the comment holding its schedule, the tag that makes a note a deck, the frontmatter a whole note under review carries, and the keys a sitting takes.
+description: The two ways a card is written, the comment holding its schedule, the tags that put a note and a single card in a deck, the frontmatter a whole note under review carries, and the keys a sitting takes.
 resource: frontend/src/lib/srs.ts
 tags: [vault, review, flashcards, format, frontend]
 status: stable
@@ -14,8 +14,10 @@ the answer and the date it comes back are all in the file, so a vault read by
 Obsidian, by another editor or by `cat` carries every card and every schedule.
 
 The format is [obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition)'s,
-borrowed whole for the reason [the todo line](todo-format.md) borrows
-obsidian-tasks. Nothing here is kasten's invention.
+borrowed for the reason [the todo line](todo-format.md) borrows obsidian-tasks.
+One rule is read differently and it is named where it comes up:
+[a card's own tag adds a deck](#a-card-in-a-second-deck) rather than replacing
+the note's. Everything else here is theirs.
 
 ## The smallest deck that works
 
@@ -31,16 +33,63 @@ Two rules: the note carries a `#flashcards` tag, and a card is a line holding
 ## What makes a note a deck
 
 The tag. `#flashcards` anywhere in the note makes every card in it a card, and
-`#flashcards/aws` puts them in a deck called `aws`. A note carrying neither
-holds no cards, whatever is written in it.
+`#flashcards/aws` puts them in a deck called `aws`. A card in no deck is no
+card, whatever is written in it.
 
 That rule is load-bearing rather than decorative. `::` is a common thing to
 type, in C++, in YAML and in prose, and reading every one of them as a question
 would fill the queue with code samples. The tag is what makes the loose match
-safe, which is why there is no way to write a card in an untagged note.
+safe, which is why there is no way to write a card nothing has tagged.
 
 A deck named by a bare `#flashcards` is called after its note, so
 `03 Flashcards/Terraform drills.md` is the deck `Terraform drills`.
+
+## A deck is not a note
+
+The same tag in two notes is one deck holding what both of them hold. A deck is
+the tag, so `#flashcards/aws` in three notes is one row in the overview and one
+sitting, and the sitting reads all three notes and writes each rating back into
+the note that card is in.
+
+## A card in a second deck
+
+Tags at the head of a card's own line are that card's, and they add a deck
+rather than replacing the note's.
+
+```markdown
+#flashcards/databases
+
+What is a stored procedure?::A named block of SQL run by name.
+
+#flashcards/dbt How does dbt relate to stored procedures?::The same pattern with Git and tests.
+```
+
+The first card is in `databases`. The second is in `databases` and in `dbt`,
+because a card about two things is asked under both, and one card wanting a
+second deck should not make you move it out of the note it belongs in.
+
+The tags go at the head, before the question, on the first line of the card.
+That is the only place they can sit without landing inside an answer, and on a
+card written over several lines it is the first line of the front:
+
+```markdown
+#flashcards/dbt What does dbt render?
+?
+Jinja templates into SQL text, which the adapter hands to the warehouse.
+```
+
+They are not part of the question. The card is asked without them.
+
+A card carrying tags of its own needs no tag on the note at all, which is how
+one question in a note that is not a deck becomes a card: tag that line and
+nothing else in the note is asked.
+
+This is the one place kasten reads the borrowed format differently.
+obsidian-spaced-repetition takes a card's own tags as the whole of its filing,
+so it files the card above under `dbt` alone, and it reads a tag on a line of
+its own as governing the cards under it until the next one, where here that tag
+is the whole note's. Both readings ask the same cards; they disagree only about
+which deck one of them lands in.
 
 ## The two ways to write a card
 
@@ -143,8 +192,9 @@ Two places, the same session in both:
 The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.
 
-Cards come due first and new second, each in the note's order. Nothing is
-shuffled: a deck written in an order was written in that order on purpose.
+Cards come due first and new second, each in its note's order and the notes in
+the order the deck found them. Nothing is shuffled: a deck written in an order
+was written in that order on purpose.
 
 ## Typing the answer
 
@@ -160,10 +210,12 @@ how you like to be asked, not a fact about the notes.
 
 ## Filing one away
 
-Move the note into `98 Archive`. The scan walks past that folder, so the deck
-leaves the overview and nothing else about the note changes. That is the whole
-of archiving here, and it is [the archive](/explanation/the-archive.md) doing
-the work rather than anything this format knows about.
+Move the note into `98 Archive`. The scan walks past that folder, so the cards
+in that note leave the overview and nothing else about the note changes. A deck
+another note still carries the tag of stays, holding what that other note holds.
+That is the whole of archiving here, and it is
+[the archive](/explanation/the-archive.md) doing the work rather than anything
+this format knows about.
 
 ## What is not read
 

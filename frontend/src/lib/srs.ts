@@ -22,13 +22,15 @@
  * nothing to adopt and buys a second reader of the vault. The `!` in the
  * comment is theirs too, and is kept even though nothing here varies on it.
  *
- * Which notes hold cards is not this module's question. A `::` is a common
- * enough thing to type that reading every one of them as a card would fill the
- * queue with C++ and YAML, so the deck tag decides which notes are asked at all
- * and `review.ts` is where that happens.
+ * Which decks a card is in is read here, off `deck-tag.ts`'s rule, because this
+ * is the reader that sees the note whole. A `::` is a common enough thing to
+ * type that reading every one of them as a card would fill the queue with C++
+ * and YAML, so a card in no deck at all is not a card, and the overview counts
+ * the same thing off the matched lines alone.
  */
 
 import { shiftDay } from "@/lib/clock";
+import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
 
 /** How well a card went, in the four steps Anki asks for. */
@@ -59,6 +61,14 @@ export interface Card {
   back: string;
   /** Whether it is written on one line with `::`, rather than over several with `?`. */
   inline: boolean;
+  /**
+   * The decks it is asked in: the note's, and any it names at its own head.
+   *
+   * Empty means the card is in no deck, which is a `::` in a note nobody tagged
+   * and therefore not a card at all. The session drops those the way the
+   * overview never counted them.
+   */
+  decks: string[];
   /** Null until the card has been answered once. */
   held: Schedule | null;
 }
@@ -82,9 +92,16 @@ const NEW_EASE = 250;
  */
 const LEAST_EASE = 130;
 
-/** A line that ends whatever card was being read: blank, or a new heading. */
+/** A heading, which is a hash and a space and not any hash at all. */
+const HEADING = /^#{1,6}[ \t]/;
+
+/** A line that ends whatever card was being read: blank, a heading, or tags. */
 function breaks(line: string | undefined): boolean {
-  return line === undefined || line.trim() === "" || line.trimStart().startsWith("#");
+  if (line === undefined || line.trim() === "") return true;
+  // A heading and not every hash. `#flashcards/dbt What is a macro?` opens a
+  // card, and reading its tag as a heading would leave that card no front to
+  // be asked by; a line of nothing but tags is the note's and breaks as before.
+  return HEADING.test(line.trimStart()) || onlyTags(line);
 }
 
 /** Which lines sit inside a fenced code block, so `std::vector` is not a card. */
@@ -116,11 +133,15 @@ export function readSchedule(text: string): Schedule | null {
  * marked taken, because a front reading `a::b` would otherwise be read a second
  * time as a card of its own and asked twice from the same block.
  */
-export function parseCards(text: string): Card[] {
+export function parseCards(text: string, note = ""): Card[] {
   const lines = text.split("\n");
   const fenced = fences(lines);
   const taken = lines.map(() => false);
   const cards: Card[] = [];
+  /** The decks each card names at its own head, in the order they are pushed. */
+  const owned: string[][] = [];
+  /** Lines whose tags a card took, which are therefore not the note's. */
+  const claimed = new Set<number>();
 
   for (const [at, line] of lines.entries()) {
     if (fenced[at] || line.trim() !== "?") continue;
@@ -137,17 +158,29 @@ export function parseCards(text: string): Card[] {
 
     const back = lines.slice(at + 1, to + 1);
     // The schedule sits on its own line under the back, where the plugin puts it.
-    const held = readSchedule(lines[to + 1] ?? "");
-    if (held !== null) to++;
+    const schedule = readSchedule(lines[to + 1] ?? "");
+    if (schedule !== null) to++;
+
+    // A card's own tags sit at the head of its first line, and that line is
+    // the one directly above the `?`. A front running over two lines is prose
+    // the tags at the top of it are no part of, and `review.ts`, reading the
+    // matched lines alone, cannot tell that case from any other line of prose,
+    // so both readers hand those to the note rather than disagreeing.
+    const own = (from === at - 1 ? cardTags(lines[from] ?? "") : null) ?? [];
+    if (own.length > 0) claimed.add(from);
+    owned.push(own);
 
     for (let mark = from; mark <= to; mark++) taken[mark] = true;
     cards.push({
       from,
       to,
-      front: lines.slice(from, at).join("\n").trim(),
+      // The card's own tags are part of the format and not part of the
+      // question, so they come off the front before it is ever asked.
+      front: withoutTags(lines.slice(from, at).join("\n")).trim(),
       back: back.join("\n").trim(),
       inline: false,
-      held,
+      decks: [],
+      held: schedule,
     });
   }
 
@@ -158,14 +191,32 @@ export function parseCards(text: string): Card[] {
     const front = line.slice(0, divide);
     const back = line.slice(divide + 2).replace(SR, "");
     if (front.trim() === "" || back.trim() === "") continue;
+
+    const own = cardTags(line) ?? [];
+    if (own.length > 0) claimed.add(at);
+    owned.push(own);
+
     cards.push({
       from: at,
       to: at,
-      front: front.trim(),
+      front: withoutTags(front).trim(),
       back: back.trim(),
       inline: true,
+      decks: [],
       held: readSchedule(line),
     });
+  }
+
+  // Last, and before the sort, `owned` running in the order the cards were
+  // pushed. Every tag no card claimed is the note's, and the two add rather
+  // than replace: a card about two things is asked in both decks.
+  const noteDecks = lines.flatMap((line, at) =>
+    fenced[at] || claimed.has(at) ? [] : deckTags(line),
+  );
+  for (const [at, card] of cards.entries()) {
+    card.decks = [
+      ...new Set([...noteDecks, ...(owned[at] ?? [])].map((tag) => deckName(tag, note))),
+    ];
   }
 
   return cards.sort((one, two) => one.from - two.from);
