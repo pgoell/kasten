@@ -16,7 +16,7 @@ import type { EditorView } from "@codemirror/view";
  */
 
 /** Which side of its column a cell's text sits on, read off the dashes. */
-type Align = "none" | "left" | "right" | "center";
+export type Align = "none" | "left" | "right" | "center";
 
 /** A `|` the writer meant as a cell wall rather than as a character. */
 const WALL = /(?<!\\)\|/;
@@ -65,6 +65,16 @@ function alignOf(cell: string): Align {
   if (left) return "left";
   if (right) return "right";
   return "none";
+}
+
+/**
+ * Where each column's text sits, read off a table's row of dashes.
+ *
+ * For the live preview, which draws the table rather than lining its source up
+ * and so needs the alignment on its own.
+ */
+export function alignsOf(divider: string): Align[] {
+  return cellsOf(divider).map(alignOf);
 }
 
 /** The note's own line numbers, first and last, both inside the table. */

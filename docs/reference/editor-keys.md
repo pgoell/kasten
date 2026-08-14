@@ -557,6 +557,10 @@ Everything the keys reach is also a button, because the same two components draw
 and has no keyboard to bind. `Escape` is deliberately not bound here for the same
 reason: a phone has no escape key, so nothing this feature does may need one.
 
+A card is rendered the way the editor renders a note, so a table on a card is
+asked as a table and a `[[link]]` reads as its name. The answer side is the one
+in the accent colour.
+
 The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.
 
@@ -837,12 +841,19 @@ outside a table. Each press lines the table up first, so a cell you have just
 typed into is squared before you leave it. A table already square is a move and
 not an edit: no undo step and nothing written to disk.
 
-A table is set in the monospaced face, because columns lined up by counting
-characters only stay lined up where every character is one width. It is the one
-block besides a fenced one that keeps all of its marks on screen: a cell holding
-`**bold**` or a `[[link]]` shows the marks, coloured, rather than hiding them,
-since hiding two characters would shorten the cell by two and pull the column
-out of true.
+On screen a table is drawn as a table, a real grid with a head row, borders and
+each column's text on the side its dashes ask for. The cursor in it is what
+shows the source, in any mode, and the whole block comes back at once, in the
+monospaced face, because columns lined up by counting characters only stay lined
+up where every character is one width. In that source a table keeps all of its
+marks, the way a fenced block does: a cell holding `**bold**` or a `[[link]]`
+shows them, coloured, since hiding two characters would shorten the cell by two
+and pull the column out of true.
+
+`j` and `k` step over a drawn table rather than into it, which is the quick way
+past a long one. To get in, use a key that moves by position rather than by what
+is on the screen, `w`, `/`, a line jump, or click the table. A table indented
+into a list item is drawn as source throughout.
 
 ## Wikilinks
 

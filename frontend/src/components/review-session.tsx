@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { NotePreview } from "@/components/note-preview";
 import { fetchNote, saveNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -202,7 +203,10 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
         {card !== undefined && (
           <div data-testid="review-card">
-            <p className="whitespace-pre-wrap">{card.front}</p>
+            {/* Rendered the way the editor renders it, so a card holding a
+                table is asked as a table and not as a row of pipes. Keyed on
+                the text because the preview reads it once, on mount. */}
+            <NotePreview key={`front:${card.front}`} text={card.front} />
             {shown && typing && (
               <p data-testid="review-verdict" className="mt-6 text-[13px] text-one-muted">
                 {sameAnswer(typed, card.back) ? (
@@ -215,12 +219,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
               </p>
             )}
             {shown && (
-              <p
+              <div
                 data-testid="review-back"
-                className="mt-6 whitespace-pre-wrap border-one-line border-t pt-6 text-one-accent"
+                className="review-back mt-6 border-one-line border-t pt-6"
               >
-                {card.back}
-              </p>
+                <NotePreview key={`back:${card.back}`} text={card.back} />
+              </div>
             )}
           </div>
         )}

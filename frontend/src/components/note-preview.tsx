@@ -60,6 +60,11 @@ export function NotePreview({ text, firstLine, markLine }: NotePreviewProps) {
         doc,
         extensions: [
           EditorView.editable.of(false),
+          // Read at state level, unlike `editable`, which is what lets the
+          // rendering tell a pane with no cursor from the editor: a table
+          // opens its source for a cursor inside it, and offset zero here is
+          // where the selection sits rather than where anybody put it.
+          EditorState.readOnly.of(true),
           // The editor's own parse, wikilinks and frontmatter included: the
           // pane shows the note as opening it will, and no vault listing
           // reaches here, so every link renders as one that lands.

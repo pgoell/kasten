@@ -327,10 +327,10 @@ body {
   color: var(--color-one-muted);
 }
 
-/* A table's columns are lined up by spaces in the source, and spaces only line
-   up in a face where every character is one width. So the block wears the
-   monospaced one, knocked back the same way the code rules above are. There is
-   no widget drawing a table here: this is the source, made to read as one. */
+/* The source of a table, which is what the cursor being inside one shows. Its
+   columns are lined up by spaces, and spaces only line up in a face where every
+   character is one width, so the block wears the monospaced one, knocked back
+   the same way the code rules above are. */
 .cm-line.cm-table {
   font-family: var(--font-mono);
   font-size: 0.9em;
@@ -341,8 +341,46 @@ body {
   font-weight: 700;
 }
 
+/* The table as a table, which is what stands where the source does not. Fixed
+   to the widest content rather than to the page: a two-column table of short
+   words has no business running the full width of the note. */
+.cm-table-block {
+  padding: 0.35em 0;
+}
+
+.cm-table-grid {
+  border-collapse: collapse;
+}
+
+.cm-table-grid th,
+.cm-table-grid td {
+  border: 1px solid var(--color-one-selection);
+  padding: 0.2em 0.6em;
+  text-align: left;
+  /* An empty cell has nothing to give it a height, and a row of them would
+     draw as a line. */
+  min-width: 1em;
+}
+
+.cm-table-grid th {
+  background: var(--color-one-panel);
+  font-weight: 700;
+}
+
+/* Every other body row, so the eye can follow one across a wide table. */
+.cm-table-grid tbody tr:nth-child(even) {
+  background: var(--color-one-hover);
+}
+
 /* The line a search hit sits on, in the finder's preview pane. Painted rather
    than outlined, so it reads as the same highlight the list row carries. */
 .cm-searchHit {
   background: var(--color-one-hover);
+}
+
+/* The answer side of a flashcard, which the accent colour is what tells apart
+   from the question above it. The rendering under it paints its own text, so
+   the colour has to reach past the wrapper to the lines themselves. */
+.review-back .cm-content {
+  color: var(--color-one-accent);
 }

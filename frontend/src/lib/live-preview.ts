@@ -5,6 +5,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/clock";
 import { imageSource } from "@/lib/image";
+import { type Align, alignsOf } from "@/lib/table";
 import { parseTodo } from "@/lib/todo";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
 import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
@@ -129,6 +130,167 @@ class Picture extends WidgetType {
   }
 }
 
+/** A run of a cell's text drawn as one element. */
+interface Span {
+  text: string;
+  /** The class the construct wears, or null for text that carries none. */
+  class: string | null;
+}
+
+/**
+ * A table, drawn as a table.
+ *
+ * The cells arrive cut into spans rather than as source, because cutting them
+ * is a reading of the syntax tree and a widget has only the DOM. The classes
+ * are the ones the inline walk hands out, so a bold cell and a bold word in a
+ * paragraph come out the same weight.
+ */
+class TableGrid extends WidgetType {
+  private readonly rows: Span[][][];
+  private readonly aligns: Align[];
+  /** What `eq` compares, the rows being a fresh array on every build. */
+  private readonly key: string;
+
+  constructor(rows: Span[][][], aligns: Align[]) {
+    super();
+    this.rows = rows;
+    this.aligns = aligns;
+    this.key = JSON.stringify([rows, aligns]);
+  }
+
+  override eq(other: TableGrid): boolean {
+    return other.key === this.key;
+  }
+
+  /**
+   * A click in the table puts the cursor in it, which is what shows the source.
+   *
+   * The default is to swallow the event, and swallowing it here would leave the
+   * mouse no way in. The keys have `w`, a search and a line jump, all of which
+   * move by document position; `j` and `k` move by what is on the screen and
+   * step over the whole block, which is the fast way past a long table.
+   */
+  override ignoreEvent(): boolean {
+    return false;
+  }
+
+  toDOM(): HTMLElement {
+    // A block widget is measured by the box it hands back, and a margin sits
+    // outside that box, so the space above and below the table is padding on a
+    // wrapper. A margin on the table would leave the gutter counting lines
+    // against a height that is short by it.
+    const block = document.createElement("div");
+    block.className = "cm-table-block";
+    const table = block.appendChild(document.createElement("table"));
+    table.className = "cm-table-grid";
+    const head = table.createTHead();
+    const body = table.createTBody();
+
+    this.rows.forEach((cells, index) => {
+      const row = (index === 0 ? head : body).insertRow();
+      cells.forEach((spans, column) => {
+        const cell = row.appendChild(document.createElement(index === 0 ? "th" : "td"));
+        const align = this.aligns[column] ?? "none";
+        if (align !== "none") cell.style.textAlign = align;
+        for (const span of spans) {
+          if (span.class === null) {
+            cell.append(span.text);
+            continue;
+          }
+          const marked = document.createElement("span");
+          marked.className = span.class;
+          marked.textContent = span.text;
+          cell.append(marked);
+        }
+      });
+    });
+    return block;
+  }
+}
+
+/** What a construct inside a cell shows and the class it wears, or null. */
+function markedText(state: EditorState, node: SyntaxNode): Span | null {
+  if (node.name === "Tag") {
+    return { text: state.doc.sliceString(node.from, node.to), class: "cm-tag" };
+  }
+  const inline = INLINE[node.name];
+  if (!inline && node.name !== "Link") return null;
+
+  // The first two marks, which is all an inline construct has and, on a link,
+  // the `[` and `]` around the text rather than the `(url)` that does not show.
+  const marks: SyntaxNode[] = [];
+  const name = inline ? inline.mark : "LinkMark";
+  for (let child = node.firstChild; child && marks.length < 2; child = child.nextSibling) {
+    if (child.name === name) marks.push(child);
+  }
+  const [open, close] = marks;
+  if (!open || !close || open.to >= close.from) return null;
+
+  const text = state.doc.sliceString(open.to, close.from);
+  const className = inline ? inline.class : "cm-link";
+  const paths = node.name === "WikiLink" ? state.facet(vaultPaths) : null;
+  const dead = paths !== null && !wikiLinkLands(text, paths);
+  return { text, class: dead ? `${className} cm-wikilink-dead` : className };
+}
+
+/** One cell's text, cut at the constructs inside it. */
+function cellSpans(state: EditorState, cell: SyntaxNode): Span[] {
+  const spans: Span[] = [];
+  let at = cell.from;
+  for (let child = cell.firstChild; child; child = child.nextSibling) {
+    const marked = markedText(state, child);
+    if (marked === null) continue;
+    if (child.from > at) spans.push({ text: state.doc.sliceString(at, child.from), class: null });
+    spans.push(marked);
+    at = child.to;
+  }
+  if (at < cell.to) spans.push({ text: state.doc.sliceString(at, cell.to), class: null });
+  return spans;
+}
+
+/**
+ * One row's columns, counted off its walls rather than off its cells.
+ *
+ * An empty cell has no node, so `| a |  | c |` carries two cells and three
+ * columns. The walls are what say which column a cell is in, and the last one
+ * closes a column only when the row ends with it.
+ */
+function rowSpans(state: EditorState, row: SyntaxNode): Span[][] {
+  const cells: Span[][] = [];
+  let open = false;
+  let current: Span[] | null = null;
+
+  for (let child = row.firstChild; child; child = child.nextSibling) {
+    if (child.name === "TableCell") {
+      current = cellSpans(state, child);
+      continue;
+    }
+    if (child.name !== "TableDelimiter") continue;
+    if (open || current !== null) cells.push(current ?? []);
+    open = true;
+    current = null;
+  }
+  if (current !== null) cells.push(current);
+  return cells;
+}
+
+/** A `Table` node read into the shape the widget draws. */
+function tableGrid(state: EditorState, table: SyntaxNode): TableGrid {
+  const rows: Span[][][] = [];
+  let aligns: Align[] = [];
+
+  for (let child = table.firstChild; child; child = child.nextSibling) {
+    // The one delimiter that is a child of the table rather than of a row is
+    // the line of dashes, and nothing else says where a column's text sits.
+    if (child.name === "TableDelimiter") {
+      aligns = alignsOf(state.doc.sliceString(child.from, child.to));
+      continue;
+    }
+    rows.push(rowSpans(state, child));
+  }
+  return new TableGrid(rows, aligns);
+}
+
 /**
  * What the editor is showing, and which parts of the document it is not.
  *
@@ -238,18 +400,47 @@ function build(state: EditorState): Live {
         return;
       }
 
-      // Every line of it, so the columns `table.ts` lines up are set in a face
-      // that keeps them lined up. The walk goes on into the cells and colours
-      // them, but `tableEnd` stops it hiding anything there. The head row is
-      // the only one the source does not mark, so the weight is the one thing
-      // here the text does not already say.
+      // Drawn as a table, and shown as its source while the cursor is in it.
+      // The only construct here that flips a whole block at once: one widget
+      // stands in for every line of it, so there is no half of a table to show.
       if (isTable) {
+        const first = state.doc.lineAt(node.from);
+        const last = state.doc.lineAt(node.to);
+        // The cursor in it is what shows the source, in any mode, and not the
+        // mode alone the way every other construct here works. `j` and `k` step
+        // over the whole widget, CodeMirror moving by what is on the screen, so
+        // a rule waiting for insert mode would leave the table nothing could
+        // open. What does reach in is `w`, a search, a line jump and a click,
+        // all of which move by document position.
+        //
+        // A read-only view has no cursor to go in and a selection sitting at
+        // offset zero, so a note that opens with a table would show its pipes.
+        const inside =
+          !state.readOnly &&
+          state.selection.ranges.some((range) => range.from <= node.to && range.to >= node.from);
+        // A block widget has to cover whole lines. A table nested in a list is
+        // indented past the start of its first one, and shows its source.
+        const whole = node.from === first.from && node.to === last.to;
+
+        if (!inside && whole) {
+          decorations.push(
+            Decoration.replace({ widget: tableGrid(state, node.node), block: true }).range(
+              node.from,
+              node.to,
+            ),
+          );
+          return false;
+        }
+
+        // The source, in a face where every character is one width, because the
+        // columns are lined up by counting spaces. The walk goes on into the
+        // cells and colours them, but `tableEnd` stops it hiding anything
+        // there: hiding two marks shortens a cell by two. The head row is the
+        // only one the source does not mark.
         tableEnd = node.to;
-        const first = state.doc.lineAt(node.from).number;
-        const last = state.doc.lineAt(node.to).number;
-        for (let number = first; number <= last; number++) {
+        for (let number = first.number; number <= last.number; number++) {
           const at = state.doc.line(number).from;
-          const edge = number === first ? " cm-table-head" : "";
+          const edge = number === first.number ? " cm-table-head" : "";
           decorations.push(Decoration.line({ class: `cm-table${edge}` }).range(at));
         }
         return;
