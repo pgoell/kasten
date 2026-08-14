@@ -28,3 +28,6 @@ vault/
 # Editors / OS
 .DS_Store
 .idea/
+
+# Router types the TanStack plugin regenerates on every dev run.
+.tanstack/

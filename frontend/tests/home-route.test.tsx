@@ -57,6 +57,7 @@ const {
   fetchImages,
   deleteImage,
   fetchVersion,
+  fetchTags,
 } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   fetchNote: vi.fn(),
@@ -81,6 +82,9 @@ const {
   // Every note the editor opens asks for these, for the completion inside a
   // `![](`. Nothing here is about images, so an empty list is the whole answer.
   fetchImages: vi.fn().mockResolvedValue([]),
+  // Asked once per mount, for the completion an open `#` offers. Nothing here
+  // is about tags, so an empty vocabulary is the whole answer.
+  fetchTags: vi.fn().mockResolvedValue([]),
   deleteImage: vi.fn(),
   // The status bar asks for this on every mount. A release, because the bundle
   // these run against carries no commit either.
@@ -104,6 +108,7 @@ vi.mock("@/lib/api", () => ({
   fetchImages,
   deleteImage,
   fetchVersion,
+  fetchTags,
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.

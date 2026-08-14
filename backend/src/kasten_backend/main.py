@@ -24,6 +24,7 @@ from kasten_backend.frontmatter import stamp
 from kasten_backend.guide import write_guide
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
+from kasten_backend.tags import find_tags
 from kasten_backend.todos import find_todos
 from kasten_backend.trash import (
     Entry,
@@ -468,6 +469,16 @@ async def list_cards(
     """
     hits = await find_cards(settings.vault_path, None if archive else settings.archive_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.get("/api/tags")
+async def list_tags(settings: Annotated[Settings, Depends(get_settings)]) -> list[str]:
+    """Every tag written anywhere in the vault, once each, sorted.
+
+    The vocabulary and nothing else: which notes hold a tag is a search, and this
+    is what the editor completes an open `#` from.
+    """
+    return await find_tags(settings.vault_path)
 
 
 @app.post("/api/anki", status_code=201)

@@ -29,6 +29,7 @@ import {
   fetchImages,
   fetchNote,
   fetchPage,
+  fetchTags,
   fetchTerminals,
   fetchTrash,
   fetchVersion,
@@ -158,6 +159,10 @@ function Home() {
   // event stream refetches it on a `listing`, which is the event a change to
   // anything that is not a note fires.
   const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });
+  // The vault's tag vocabulary, for the completion an open `#` offers. Not
+  // filtered by the archive toggle: a tag written in an archived note is
+  // still a tag, and spelling it the same way is the whole point.
+  const { data: tags } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
   /**
    * Whether the archive is in what the four lookups answer with.
    *
@@ -458,6 +463,13 @@ function Home() {
       if (event.change === "listing") {
         queryClient.invalidateQueries({ queryKey: ["images"] }, { cancelRefetch: false });
       }
+
+      // A tag is a word inside a note, so any write can change the vocabulary,
+      // including the writes the early return below walks past. It costs one rg
+      // pass over the matches, which is the shape of scan the review pane
+      // already runs per rating, and a completion that cannot offer the tag you
+      // invented an hour ago would not be worth having.
+      queryClient.invalidateQueries({ queryKey: ["tags"] }, { cancelRefetch: false });
 
       const paths = queryClient.getQueryData<string[]>(["files"]);
       if (event.change === "written" && paths?.includes(event.path)) return;
@@ -1574,6 +1586,7 @@ function Home() {
                     commands={commands}
                     preview={preview}
                     paths={data}
+                    tags={tags}
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}
                     onFollow={follow}
@@ -1585,6 +1598,7 @@ function Home() {
                     preview={preview}
                     paths={data}
                     images={images}
+                    tags={tags}
                     startLine={shown.line}
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}

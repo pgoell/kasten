@@ -352,6 +352,17 @@ export async function restoreEntry(entry: string): Promise<string> {
   return data.path;
 }
 
+/** Every tag written anywhere in the vault, once each, sorted by the backend. */
+export async function fetchTags(): Promise<string[]> {
+  const { data, response } = await client.GET("/api/tags");
+
+  if (!data) {
+    throw new Error(`GET /api/tags failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /** Vault-relative paths of every image, sorted by the backend. */
 export async function fetchImages(): Promise<string[]> {
   const { data, response } = await client.GET("/api/images");

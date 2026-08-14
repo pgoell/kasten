@@ -14,6 +14,8 @@ interface NoteEditorProps {
   paths?: string[];
   /** Every image in the vault, which the editor completes a `![](` against. */
   images?: string[];
+  /** Every tag in the vault, which the editor completes an open `#` against. */
+  tags?: string[];
   /** Line to open on, which a search hit names and nothing else does. */
   startLine?: number;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
@@ -66,6 +68,7 @@ export const NoteEditor = memo(function NoteEditor({
   preview,
   paths,
   images,
+  tags,
   startLine,
   focusSignal,
   focused,
@@ -105,6 +108,7 @@ export const NoteEditor = memo(function NoteEditor({
       preview={preview}
       paths={paths}
       images={images}
+      tags={tags}
       startLine={startLine}
       focusSignal={focusSignal}
       focused={focused}

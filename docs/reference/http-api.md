@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves twenty-three endpoints. Twelve read, ten write, and one
+The backend serves twenty-four endpoints. Thirteen read, ten write, and one
 streams. The interactive schema is at `/docs` while the backend runs, and the
 machine-readable one at `/openapi.json`.
 
@@ -190,6 +190,24 @@ The cap of 2,000 is about what crosses the wire, not what the machine can do:
 client ranks everything it is handed and cuts afterwards, the rows on screen
 are the best of the match set rather than the head of it, and 2,000 is the
 whole match set for anything but the most common word in a vault.
+
+## GET /api/tags
+
+Lists every tag written anywhere in the vault, once each, sorted.
+
+```json
+["#databases", "#dbt", "#flashcards/databases"]
+```
+
+One `rg` pass, carrying the same flags search carries, matching only the tags
+rather than the lines holding them: which note holds a tag is a search, and this
+answers what the editor completes an open `#` from. The pattern is the editor's
+own, so `#!/bin/sh`, `#anchor` and `note#2` are not tags here either.
+
+It takes no `archive`, unlike the scans below. What is filed away is out of a
+search because it is not what is being looked for; a tag is a word you are
+trying to spell the way you spelled it last time, and archiving the note that
+taught you the spelling does not unteach it.
 
 ## GET /api/cards
 

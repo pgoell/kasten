@@ -22,6 +22,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { moveCell } from "@/lib/table";
+import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
 import { todoCompletions } from "@/lib/todo-suggest";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
@@ -216,14 +217,22 @@ const preview = new Compartment();
 const vault = new Compartment();
 
 /**
- * The two listings the vault carries, in the shape the compartment holds them.
+ * The three listings the vault carries, in the shape the compartment holds them.
  *
- * One compartment for both, and therefore one place that spells this out. Either
- * absent is not an empty vault: it is a view that was told nothing, which offers
- * nothing and calls no link dead.
+ * One compartment for all of them, and therefore one place that spells this out.
+ * Any of them absent is not an empty vault: it is a view that was told nothing,
+ * which offers nothing and calls no link dead.
  */
-function listings(paths: string[] | undefined, images: string[] | undefined): Extension[] {
-  return [...(paths ? [vaultPaths.of(paths)] : []), ...(images ? [imagePaths.of(images)] : [])];
+function listings(
+  paths: string[] | undefined,
+  images: string[] | undefined,
+  tags: string[] | undefined,
+): Extension[] {
+  return [
+    ...(paths ? [vaultPaths.of(paths)] : []),
+    ...(images ? [imagePaths.of(images)] : []),
+    ...(tags ? [vaultTags.of(tags)] : []),
+  ];
 }
 
 /**
@@ -353,6 +362,13 @@ interface EditorProps {
    */
   images?: string[];
   /**
+   * Every tag the vault holds, for completing an open `#`.
+   *
+   * Its own list beside the other two, and absent offers nothing the way theirs
+   * does. A tag names no file, so nothing else in the editor reads this.
+   */
+  tags?: string[];
+  /**
    * Line to open on, counting from one. Absent starts at the top.
    *
    * Not folded into `initialDoc`'s read-once rule: a second search hit can
@@ -429,6 +445,7 @@ export function Editor({
   preview: rendered = true,
   paths,
   images,
+  tags,
   startLine,
   focusSignal,
   focused = true,
@@ -451,6 +468,7 @@ export function Editor({
   const renderedRef = useRef(rendered);
   const pathsRef = useRef(paths);
   const imagesRef = useRef(images);
+  const tagsRef = useRef(tags);
   const commandsRef = useRef(commands);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
@@ -593,6 +611,7 @@ export function Editor({
           markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
           markdownLanguage.data.of({ autocomplete: todoCompletions }),
           markdownLanguage.data.of({ autocomplete: imageCompletions }),
+          markdownLanguage.data.of({ autocomplete: tagCompletions }),
           // The clipboard's image goes into the vault and the note gets the
           // path. Ahead of nothing in particular: CodeMirror's own paste is a
           // handler on the same event and runs when this one declines, which is
@@ -600,7 +619,7 @@ export function Editor({
           imagePaste(),
           noticeHandler.of((message) => onNoticeRef.current?.(message)),
           followOnClick,
-          vault.of(listings(pathsRef.current, imagesRef.current)),
+          vault.of(listings(pathsRef.current, imagesRef.current, tagsRef.current)),
           preview.of(renderedRef.current ? livePreview() : []),
           oneDark,
           EditorView.lineWrapping,
@@ -701,12 +720,13 @@ export function Editor({
 
   // A note written elsewhere is a link in this note that has just come to life,
   // so the listing goes in whenever the route hands over a new one. The images
-  // ride along in the same compartment: both are the vault saying what it holds.
+  // and the tags ride along in the same compartment: all three are the vault
+  // saying what it holds.
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: vault.reconfigure(listings(paths, images)),
+      effects: vault.reconfigure(listings(paths, images, tags)),
     });
-  }, [paths, images]);
+  }, [paths, images, tags]);
 
   return <div ref={host} className="h-full overflow-auto" />;
 }
