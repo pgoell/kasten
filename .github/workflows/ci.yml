@@ -19,12 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-mise
-      - name: Ruff and Biome
+      # Runs ruff, Biome and both type checkers. A step of its own for `tsc`
+      # would never go red: this one fails first on the same check.
+      - name: Ruff, Biome and the type checkers
         run: mise run lint
       - name: Ty (with GitHub annotations)
         run: mise exec -- uv run ty check --output-format github --error-on-warning
-      - name: Frontend typecheck
-        run: mise run fe:typecheck
 
   test:
     name: Test

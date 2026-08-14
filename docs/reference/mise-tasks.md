@@ -78,7 +78,7 @@ The thresholds are assertions in the test files instead. See
 
 | Task | What it does |
 |---|---|
-| `lint` | ruff, ty and Biome. The pre-commit gate |
+| `lint` | ruff, ty, Biome and `tsc`. The pre-commit gate |
 | `lint:py` | Backend lint, format check and type check |
 | `fe:lint` | Biome on the frontend |
 | `fmt` | Format everything |
@@ -90,6 +90,11 @@ The thresholds are assertions in the test files instead. See
 `fe:typecheck` depends on `fe:build` because the TanStack Router plugin emits
 `routeTree.gen.ts` during the build, and that file is gitignored. Without it
 `tsc` cannot resolve the route graph.
+
+`lint` runs it, so a commit is type-checked on both sides of the repo. The
+build it drags in is what makes the gate two seconds rather than a third of
+one, which is the price of the frontend being gated the way the backend
+already was.
 
 ## Repo automation
 
