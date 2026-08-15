@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote, saveNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { inDeck } from "@/lib/deck-tag";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import type { Deck } from "@/lib/review";
@@ -335,8 +336,10 @@ function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
         const whole = { from: 0, to: 0, front: noteBody(text).trim(), back: "", inline: false };
         return [note, [{ ...whole, decks: [deck.name], held }]];
       }
+      // A deck below this one is part of it, so a sitting of `databases` asks
+      // the cards filed under `databases/postgres` as well.
       const cards = parseCards(text, noteName(note)).filter((card) =>
-        card.decks.includes(deck.name),
+        card.decks.some((filed) => inDeck(filed, deck.name)),
       );
       return [note, cards];
     }),

@@ -663,9 +663,18 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 
 | Key | What it does |
 | --- | --- |
+| `j`, `k` | Walk the decks on the overview |
+| `l` | Start the sitting on the deck under the cursor |
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `q` | Close the pane |
+
+`j` and `k` move the focus itself rather than a highlight of their own, so
+Enter on the deck they reach opens it the way the browser already opens a
+focused button, and `l` is the same press under the finger vim leaves it on. A
+deck with nothing waiting is skipped: its row is disabled and cannot be sat.
+A deck [under another](/reference/flashcard-format.md#a-deck-inside-a-deck) is
+one row like any other, so `j` walks parents and children alike.
 
 Everything the keys reach is also a button, because the same two components draw
 `/review`, which is [the phone's way in](/reference/flashcard-format.md#sitting-one)

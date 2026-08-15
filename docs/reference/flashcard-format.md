@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Flashcard format
-description: The two ways a card is written, the comment holding its schedule, the tags that put a note and a single card in a deck, the frontmatter a whole note under review carries, and the keys a sitting takes.
+description: The two ways a card is written, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, and the keys a sitting takes.
 resource: frontend/src/lib/srs.ts
 tags: [vault, review, flashcards, format, frontend]
 status: stable
@@ -90,6 +90,31 @@ so it files the card above under `dbt` alone, and it reads a tag on a line of
 its own as governing the cards under it until the next one, where here that tag
 is the whole note's. Both readings ask the same cards; they disagree only about
 which deck one of them lands in.
+
+## A deck inside a deck
+
+The slashes in the tag are a path. `#flashcards/databases/postgres` makes a deck
+called `postgres` under a deck called `databases`, and the overview draws both
+rows, the child indented under its parent and called by its last part.
+
+```markdown
+#flashcards/databases/postgres
+
+What is MVCC?::A row per version, so a reader never blocks a writer.
+```
+
+Every card counts twice over: once in the deck it names, and once in each deck
+above it. A sitting of `databases` asks everything under `databases`, a sitting
+of `databases/postgres` asks that deck alone, and a card tagged with both is
+still asked once.
+
+Nothing has to declare the parent. A deck exists because a card names it, so
+`databases` is a row the moment one card is filed under `databases/postgres`,
+and no note anywhere carries the bare `#flashcards/databases` tag.
+
+An [imported Anki deck](/how-to/import-an-anki-deck.md) nests for free: Anki
+spells its subdecks `Japanese::Kanji` and the import writes that as
+`#flashcards/Japanese/Kanji`.
 
 ## The two ways to write a card
 
@@ -185,6 +210,8 @@ Two places, the same session in both:
 
 | Key in the pane | What it does |
 | --- | --- |
+| `j`, `k` | Walk the decks on the overview |
+| `l` | Start the sitting on the deck under the cursor |
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Again, Hard, Good, Easy |
 | `q` | Close the pane |

@@ -76,3 +76,22 @@ export function onlyTags(text: string): boolean {
 export function deckName(tag: string, note: string): string {
   return tag === "" ? note : tag;
 }
+
+/**
+ * A deck and every deck above it, `databases/postgres` sitting in `databases`.
+ *
+ * The slashes in a tag are a path everywhere else in the vault, so they are one
+ * here too: naming a deck `databases/postgres` files its cards under
+ * `databases` as well, and the overview draws both rows. Anki spells its
+ * subdecks the same way once `anki.py` has read them, so an imported tree
+ * arrives nested rather than flat.
+ */
+export function deckPath(name: string): string[] {
+  const parts = name.split("/");
+  return parts.map((_, at) => parts.slice(0, at + 1).join("/"));
+}
+
+/** Whether a card filed under `filed` is asked in a sitting of `deck`. */
+export function inDeck(filed: string, deck: string): boolean {
+  return filed === deck || filed.startsWith(`${deck}/`);
+}

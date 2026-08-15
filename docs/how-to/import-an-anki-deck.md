@@ -48,6 +48,11 @@ Which region is cheapest?::us-east-1 usually
 The tag cannot hold a space, so a deck called `AWS Certification` is tagged
 `#flashcards/AWS-Certification`. The folder keeps the space.
 
+A subdeck stays a subdeck. `Trivia::Geography` is tagged
+`#flashcards/Trivia/Geography`, and the review draws it
+[under `Trivia`](/reference/flashcard-format.md#a-deck-inside-a-deck), which
+asks it along with everything else filed there.
+
 `03 Flashcards` is
 [KASTEN_FLASHCARDS_PATH](/reference/configuration.md#kasten_flashcards_path).
 

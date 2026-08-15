@@ -203,3 +203,31 @@ describe("ReviewSession on a deck spanning two notes", () => {
     expect(saved.mock.calls[1]?.[0]).toBe("db/dbt.md");
   });
 });
+
+describe("ReviewSession on a parent deck", () => {
+  const PARENT: Deck = {
+    name: "databases",
+    notes: ["db/postgres.md"],
+    due: 0,
+    fresh: 1,
+    whole: false,
+  };
+  const NESTED = "#flashcards/databases/postgres\n\nWhat is MVCC?::a row per version\n";
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("asks the cards of the decks under it", async () => {
+    vi.spyOn(api, "fetchNote").mockResolvedValue(NESTED);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={PARENT} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByTestId("review-card")).toHaveTextContent("What is MVCC?");
+  });
+});
