@@ -125,6 +125,14 @@ Read 99 Misc/01 Config/01 Agents/How-To-Exam.md, then turn my notes in
 02 Projects/Terraform/associate-drills.md.
 ```
 
+## Time the sitting
+
+`t` starts a two hour countdown, which is what the live Claude exams give you.
+Type the minutes first for another length, so `45t` sits the exam in 45 and
+`5t` drills five questions before a meeting. The clock sits in the header,
+pressing `t` again takes it away, and when it reaches zero the sitting is
+graded where it stands, the questions you never reached counted with the rest.
+
 ## Where the results go
 
 Sitting `02 Projects/Terraform/associate-drills.md` writes

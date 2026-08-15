@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ExamPane } from "@/components/exam-pane";
 import { stubCommands } from "./stub-commands";
 
@@ -38,6 +38,10 @@ Answer: B, C
 `;
 
 const NOTE = "drills/terraform.md";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   fetchNote.mockReset();
@@ -220,6 +224,49 @@ describe("ExamPane", () => {
     const score = await screen.findByTestId("exam-score");
     expect(score.textContent).toContain("1/2");
     expect((await screen.findByRole("alert")).textContent).toContain("409 taken");
+  });
+
+  it("sets a two hour timer on t, which is what the exams allow", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    press("t");
+    expect(screen.getByTestId("exam-timer").textContent).toBe("120:00");
+  });
+
+  it("takes the length from the digits typed before t", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    press("9");
+    press("0");
+    press("t");
+    expect(screen.getByTestId("exam-timer").textContent).toBe("90:00");
+  });
+
+  it("takes the timer away when t is pressed again", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    press("t");
+    press("t");
+    expect(screen.queryByTestId("exam-timer")).toBeNull();
+  });
+
+  it("grades the sitting where it stands when the timer runs out", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    press("b");
+
+    // The fake clock is started before the timer, so the interval the pane sets
+    // going is the fake one and the minute below actually passes for it.
+    vi.useFakeTimers();
+    press("1");
+    press("t");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(screen.getByTestId("exam-timer").textContent).toBe("0:00");
+    expect(screen.getByTestId("exam-score").textContent).toContain("1/2");
+    expect(createNote).toHaveBeenCalledTimes(1);
   });
 
   it("says so, rather than showing an empty exam, when the note holds none", async () => {
