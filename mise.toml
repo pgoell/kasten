@@ -130,6 +130,15 @@ run = "uv run pytest"
 description = "Run frontend tests"
 run = "bun run --cwd frontend test"
 
+# ─── Vault maintenance ──────────────────────────────────────────────────────
+
+[tasks."okf:backfill"]
+description = "Write `type` into every note in the vault that has none"
+# The vault is an argument rather than a setting, so the one CLI reaches any
+# vault. The default is written relative to `backend/` because `dir` sets it.
+dir = "{{config_root}}/backend"
+run = "uv run python -m kasten_backend.okf ../vault"
+
 # ─── GitHub repo config ─────────────────────────────────────────────────────
 
 [tasks."repo:apply-settings"]

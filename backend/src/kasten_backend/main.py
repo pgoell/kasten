@@ -23,6 +23,7 @@ from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vau
 from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.guide import write_guide
 from kasten_backend.links import relink_folder_move, relink_note_move
+from kasten_backend.okf import prepare
 from kasten_backend.search import search_vault
 from kasten_backend.tags import find_tags
 from kasten_backend.todos import find_todos
@@ -65,7 +66,7 @@ if TYPE_CHECKING:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Give the vault the agent guide, and empty what the trash has held too long.
+    """Give the vault its guides and its types, and empty what the trash has held too long.
 
     The settings are read rather than injected: there is no request to depend
     on, and the vault the process serves is the vault this writes into.
@@ -75,6 +76,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # in the vault would be swept into it.
     write_ignores(settings.vault_path)
     await write_guide(settings.vault_path)
+    # After the guides and before the purge: the backfill inside this reads the
+    # vault, and it should read one that is finished being written to.
+    await prepare(settings.vault_path)
     await purge_trash(settings.vault_path, settings.trash_days)
     yield
 

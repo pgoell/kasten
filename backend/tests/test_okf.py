@@ -8,7 +8,10 @@ and the bytes that arrive are the bytes on disk.
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, call
 
-from kasten_backend.okf import BACKFILL_LABEL, backfill
+from asgi_lifespan import LifespanManager
+
+from kasten_backend.main import app
+from kasten_backend.okf import BACKFILL_LABEL, READER_PATH, backfill
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -217,3 +220,35 @@ async def test_backfill_touches_jj_not_at_all_when_it_writes_nothing(
 
     assert await backfill(tmp_path) == []
     assert begin.await_count == 0
+
+
+async def test_startup_writes_the_reader_guide(startup_vault: Path) -> None:
+    async with LifespanManager(app):
+        pass
+
+    text = (startup_vault / READER_PATH).read_text(encoding="utf-8")
+
+    assert text.startswith("---\n")
+    assert "\ntype: Reference\n" in text
+
+
+async def test_startup_keeps_the_reader_guide_the_vault_already_has(startup_vault: Path) -> None:
+    # Typed text and not a bare `mine\n`: the backfill runs in this same
+    # lifespan, so a bare one would be typed and the test would be asserting
+    # that the pass it sits beside does not run.
+    kept = "---\ntype: Reference\n---\nmine\n"
+    note(startup_vault, READER_PATH, kept)
+
+    async with LifespanManager(app):
+        pass
+
+    assert (startup_vault / READER_PATH).read_text(encoding="utf-8") == kept
+
+
+async def test_startup_types_a_note_the_vault_already_held(startup_vault: Path) -> None:
+    untyped = note(startup_vault, "borges.md", "# borges\n")
+
+    async with LifespanManager(app):
+        pass
+
+    assert "\ntype: Note\n" in untyped.read_text(encoding="utf-8")
