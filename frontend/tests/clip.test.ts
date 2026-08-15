@@ -34,11 +34,16 @@ describe("clipPage", () => {
     expect(path).toBe("00 Inbox/example.com.md");
   });
 
-  it("writes the address it was read from into the frontmatter", () => {
+  it("writes the address it was read from, and says the note is a source", () => {
     const { body } = clipPage(page("<title>Worry</title>", PROSE), URL);
+    const lines = body.split("\n");
 
     expect(body.startsWith("---\n")).toBe(true);
-    expect(body).toContain(`source: "${URL}"`);
+    expect(lines).toContain(`resource: "${URL}"`);
+    expect(lines).toContain("type: Source");
+    // Whole lines, because `resource:` holds `source:` inside it and a
+    // substring check would pass over the field this replaces.
+    expect(lines.some((line) => line.startsWith("source:"))).toBe(false);
   });
 
   it("writes the author and the date the page names", () => {

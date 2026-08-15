@@ -75,10 +75,12 @@ Deleting one of your own fields is an edit like any other and it stays deleted.
 
 Three things kasten writes land in this half of the block.
 [An imported web page](/reference/editor-keys.md#importing-a-web-page) arrives
-carrying `source`, and `author` and `published` where the page named them. They
-are written once, by the client, in the text it hands to `POST`, and they are
-yours from that moment: a save copies them through and deleting one keeps it
-deleted.
+carrying `resource`, the address the page was read from, and `author` and
+`published` where the page named them. They are written once, by the client, in
+the text it hands to `POST`, and they are yours from that moment: a save copies
+them through and deleting one keeps it deleted. Pages clipped before this wrote
+the address as `source`. Nothing rewrites them, and nothing reads either field,
+so an old clipping keeps `source` until you change it by hand.
 
 The second is `reading:`, which
 [the book pane](/reference/editor-keys.md#the-book-pane) writes into a

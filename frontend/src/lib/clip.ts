@@ -50,9 +50,11 @@ export interface Clipping {
  *
  * `url` is where the page was finally read from, redirects followed, because
  * that is what its relative links are relative to. It is written into the
- * frontmatter as `source`, which is the one field of the three that is always
- * there: a clipping that cannot say where it came from is a quotation with no
- * citation.
+ * frontmatter as `resource`, which is the field Open Knowledge Format reads as
+ * a note's canonical address, and it is the one field of the three that is
+ * always there: a clipping that cannot say where it came from is a quotation
+ * with no citation. Clippings written before this carry `source` instead, and
+ * nothing rewrites them.
  *
  * The title is the note's name and its heading both. defuddle leaves it out of
  * the content it extracts, holding it as metadata instead, so a note without
@@ -65,10 +67,12 @@ export function clipPage(html: string, url: string): Clipping {
   }).parse();
 
   const name = noteName(parsed.title, url);
-  const front = `---\n${field("source", url)}${field("author", parsed.author)}${field(
-    "published",
-    parsed.published,
-  )}---\n`;
+  // `type` is written plainly rather than through `field`, every clipping being
+  // a source whatever the page turned out to hold.
+  const front = `---\ntype: Source\n${field("resource", url)}${field(
+    "author",
+    parsed.author,
+  )}${field("published", parsed.published)}---\n`;
 
   return {
     path: `${INBOX}/${name}.md`,
