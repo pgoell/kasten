@@ -25,8 +25,9 @@ const KEYED: Record<string, Rating> = { "1": "again", "2": "hard", "3": "good", 
  * whole of the pane: the phone route renders the same two components with no
  * keys at all, so a rule cannot be true at a desk and false on a phone.
  *
- * On the overview `j` and `k` walk the decks and `l` starts the sitting, which
- * is the one thing here the phone has no need of: a thumb taps the row.
+ * On the overview `j` and `k` walk the decks and `l` starts the sitting, and
+ * `h` in a sitting goes back to the list. None of the four is needed on the
+ * phone, where a thumb taps the row and the `← Decks` button.
  *
  * `q` closes and `Escape` is deliberately not bound, which is the one place
  * this diverges from the other panes. The keys here are an accelerator over
@@ -70,11 +71,10 @@ export function ReviewPane({ commands, onClose, focusSignal }: ReviewPaneProps) 
 
     if (event.ctrlKey || event.altKey || event.metaKey) return;
 
-    // The overview is showing: the session is what registers controls, and it
-    // has not. The browser moves the focus between buttons on Tab and nothing
-    // else, so `j` and `k` do it here, and `l` presses the one focused the way
-    // Enter on a focused button already does.
-    if (controls.current === null && (key === "j" || key === "k" || key === "l")) {
+    // The overview is showing. The browser moves the focus between buttons on
+    // Tab and nothing else, so `j` and `k` do it here, and `l` presses the one
+    // focused the way Enter on a focused button already does.
+    if (deck === null && (key === "j" || key === "k" || key === "l")) {
       const decks = [
         ...(panel.current?.querySelectorAll<HTMLButtonElement>(
           "button[data-deck]:not(:disabled)",
@@ -86,6 +86,15 @@ export function ReviewPane({ commands, onClose, focusSignal }: ReviewPaneProps) 
         const by = key === "j" ? 1 : -1;
         decks[at === -1 ? 0 : Math.min(Math.max(at + by, 0), decks.length - 1)]?.focus();
       }
+      event.preventDefault();
+      return;
+    }
+
+    // Back to the list, which is the `← Decks` button and the way out of one
+    // deck into another. `q` closes the pane from either screen, so leaving a
+    // sitting and leaving the review are two different keys.
+    if (deck !== null && key === "h") {
+      setDeck(null);
       event.preventDefault();
       return;
     }

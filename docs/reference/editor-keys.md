@@ -665,6 +665,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | --- | --- |
 | `j`, `k` | Walk the decks on the overview |
 | `l` | Start the sitting on the deck under the cursor |
+| `h` | Leave the sitting, back to the decks |
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `q` | Close the pane |
@@ -675,6 +676,11 @@ focused button, and `l` is the same press under the finger vim leaves it on. A
 deck with nothing waiting is skipped: its row is disabled and cannot be sat.
 A deck [under another](/reference/flashcard-format.md#a-deck-inside-a-deck) is
 one row like any other, so `j` walks parents and children alike.
+
+`h` is the way out of one deck into another: it ends the sitting and draws the
+decks again, where `q` closes the whole pane from either screen. A sitting left
+halfway keeps every rating it took, each one having been written to its note as
+it was given, so the deck you come back to is the deck you left.
 
 Everything the keys reach is also a button, because the same two components draw
 `/review`, which is [the phone's way in](/reference/flashcard-format.md#sitting-one)

@@ -212,6 +212,7 @@ Two places, the same session in both:
 | --- | --- |
 | `j`, `k` | Walk the decks on the overview |
 | `l` | Start the sitting on the deck under the cursor |
+| `h` | Leave the sitting, back to the decks |
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Again, Hard, Good, Easy |
 | `q` | Close the pane |

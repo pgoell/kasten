@@ -92,3 +92,24 @@ describe("ReviewPane on a nested deck", () => {
     expect(child.style.paddingLeft).toBe("1.5rem");
   });
 });
+
+describe("ReviewPane leaving a sitting", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("goes back to the decks on h, leaving the pane open", async () => {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue("#flashcards/beta\n\nc::d\n");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    await screen.findByTestId("review-card");
+
+    fireEvent.keyDown(pane, { key: "h" });
+
+    expect(screen.queryByTestId("review-card")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+  });
+});
