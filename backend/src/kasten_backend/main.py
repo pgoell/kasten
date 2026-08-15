@@ -20,7 +20,7 @@ from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
-from kasten_backend.frontmatter import stamp
+from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.guide import write_guide
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.search import search_vault
@@ -519,8 +519,9 @@ async def import_anki(
     written: list[str] = []
     for note, text in targets:
         note.parent.mkdir(parents=True, exist_ok=True)
-        create_note(note, stamp(text))
-        written.append(relative_path(settings.vault_path, note))
+        relative = relative_path(settings.vault_path, note)
+        create_note(note, text if reserved(relative) else stamp(text))
+        written.append(relative)
 
     return AnkiImport(
         notes=written,
@@ -809,7 +810,8 @@ async def create_file(
         raise HTTPException(status_code=409, detail="A note is already there")
 
     relative = relative_path(settings.vault_path, note)
-    content = stamp(edit.content if edit else "")
+    raw = edit.content if edit else ""
+    content = raw if reserved(relative) else stamp(raw)
 
     await begin_change(settings.vault_path, relative)
     create_note(note, content)
@@ -843,9 +845,14 @@ async def save_file(
     if note is None:
         raise HTTPException(status_code=404, detail="No such note")
 
-    content = stamp(edit.content, note.read_text(encoding="utf-8"))
+    relative = relative_path(settings.vault_path, note)
+    content = (
+        edit.content
+        if reserved(relative)
+        else stamp(edit.content, note.read_text(encoding="utf-8"))
+    )
 
-    await begin_change(settings.vault_path, relative_path(settings.vault_path, note))
+    await begin_change(settings.vault_path, relative)
     write_note(note, content)
     await snapshot(settings.vault_path)
 

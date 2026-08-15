@@ -27,12 +27,30 @@ honest answer for a note somebody typed into an empty buffer. A writer that
 knows better says so itself, and `stamp` never argues with a type already there.
 """
 
+RESERVED = frozenset({"index.md", "log.md"})
+"""The filenames Open Knowledge Format gives a shape of its own.
+
+One is a listing of the bundle and the other is its history, and neither is a
+concept document. Kasten writes no block into either, so the bytes that arrive
+are the bytes on disk, and a file named this way never gets an id.
+"""
+
 _KEY = re.compile(r"^([A-Za-z_][\w-]*)\s*:")
 """A field's name, at the top level of the block.
 
 Anchored, so an indented line is part of the field above it rather than a field.
 That is what carries a list or a nested mapping through untouched.
 """
+
+
+def reserved(path: str) -> bool:
+    """Whether OKF reserves this filename, so kasten writes no block into it.
+
+    The last component, not the whole path: `folder/index.md` is a listing of
+    that folder the way `index.md` is a listing of the vault, and asking whether
+    the whole path is in `RESERVED` would exempt only the root.
+    """
+    return path.rsplit("/", 1)[-1] in RESERVED
 
 
 def _key(line: str) -> str | None:

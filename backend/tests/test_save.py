@@ -150,13 +150,13 @@ async def test_dates_the_note_it_writes_and_keeps_what_the_block_had(
 ) -> None:
     # A save is what `modified` means. The id and the creation date are the
     # note's from the first write and no later one may touch them.
-    (vault / "index.md").write_text(
-        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\n---\n# index"
+    (vault / "borges.md").write_text(
+        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\n---\n# borges"
     )
 
-    await client.put("/api/files/index.md", json={"content": "# index\n\nEdited.\n"})
+    await client.put("/api/files/borges.md", json={"content": "# borges\n\nEdited.\n"})
 
-    written = (vault / "index.md").read_text()
+    written = (vault / "borges.md").read_text()
     assert "\nid: kept\n" in written
     assert "\ncreated: 2020-01-01T00:00:00+00:00\n" in written
     modified = next(line for line in written.split("\n") if line.startswith("modified: "))

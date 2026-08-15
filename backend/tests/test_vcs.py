@@ -199,13 +199,13 @@ async def test_records_the_created_note_before_the_request_returns(
     # The snapshot at the end of the create is what records the note. Drop it
     # and the note only sits on disk until some later jj command notices, which
     # folds whatever happened in between into the same snapshot.
-    await client.post("/api/files/index.md")
+    await client.post("/api/files/borges.md")
 
     # `root:` because a bare path is read relative to the working directory,
     # which is the repo root only by luck. A new note holds its frontmatter and
     # nothing else, so the read coming back closed is the assertion.
     assert jj(
-        versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@", "root:index.md"
+        versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@", "root:borges.md"
     ).endswith("---\n")
 
 
