@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, call
 from asgi_lifespan import LifespanManager
 
 from kasten_backend.main import app
-from kasten_backend.okf import BACKFILL_LABEL, READER_PATH, backfill
+from kasten_backend.okf import BACKFILL_LABEL, ONTOLOGY_PATH, READER_PATH, backfill
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -278,3 +278,24 @@ async def test_stamping_a_renamed_index_leaves_its_line_endings(
     written = (vault / "ideas.md").read_text(encoding="utf-8", newline="")
     assert "\ntype: Note\r\n" in written
     assert "\n" not in written.replace("\r\n", "")
+
+async def test_startup_writes_the_ontology_note(startup_vault: Path) -> None:
+    async with LifespanManager(app):
+        pass
+
+    text = (startup_vault / ONTOLOGY_PATH).read_text(encoding="utf-8")
+
+    assert "\ntype: Reference\n" in text
+    assert "## Relations" in text
+
+
+async def test_startup_keeps_the_ontology_note_the_vault_already_has(startup_vault: Path) -> None:
+    # Typed, for the reason the reader guide's kept-note case is: the backfill
+    # runs in this same lifespan and would type a bare `mine\n`.
+    kept = "---\ntype: Reference\n---\nmine\n"
+    note(startup_vault, ONTOLOGY_PATH, kept)
+
+    async with LifespanManager(app):
+        pass
+
+    assert (startup_vault / ONTOLOGY_PATH).read_text(encoding="utf-8") == kept
