@@ -1,5 +1,5 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote, fetchTodos, type SearchHit, searchNotes } from "@/lib/api";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
@@ -18,6 +18,7 @@ import {
   ROW,
   STATUS,
 } from "@/lib/overlay-styles";
+import { readRelation } from "@/lib/relation";
 import { isOpen, parseTodo, STATE_SYMBOL } from "@/lib/todo";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
@@ -93,6 +94,45 @@ function windowAround(text: string, line: number): { lines: string[]; from: numb
   const at = line - 1;
   const from = Math.max(0, at - CONTEXT_LINES);
   return { lines: all.slice(from, at + CONTEXT_LINES + 1), from };
+}
+
+/** The relation name to group a backlink hit under, or null for the untyped group. */
+function relationOf(text: string, viewing: string, paths: string[]): string | null {
+  const relation = readRelation(text);
+  // A line shows in the panel when any wikilink on it resolves here, so
+  // `depends-on:: [[A]] because [[B]]` is in B's panel too. Grouping that by
+  // the name alone would tell B it is a dependency when the line says A is.
+  if (relation === null || wikiLinkPath(relation.target, paths) !== viewing) return null;
+  return relation.name;
+}
+
+/** One heading and the ranked rows under it. A null name is the untyped group. */
+interface Group {
+  name: string | null;
+  rows: number[];
+}
+
+/** The ranked rows in the order they are drawn: each name once, untyped last. */
+function groupHits(rows: number[], found: SearchHit[], viewing: string, paths: string[]): Group[] {
+  const named = new Map<string, number[]>();
+  const untyped: number[] = [];
+
+  for (const row of rows) {
+    const hit = found[row];
+    const name = hit === undefined ? null : relationOf(hit.text, viewing, paths);
+    if (name === null) {
+      untyped.push(row);
+      continue;
+    }
+    const under = named.get(name);
+    if (under === undefined) named.set(name, [row]);
+    else under.push(row);
+  }
+
+  // A map keeps insertion order, which here is first appearance in the ranking,
+  // and the rows inside each name keep the rank order they arrived in.
+  const groups = [...named].map(([name, under]) => ({ name, rows: under }));
+  return untyped.length === 0 ? groups : [...groups, { name: null, rows: untyped }];
 }
 
 /**
@@ -221,10 +261,24 @@ export function NoteSearch({
     () => rankIndexes(candidates, typed).slice(0, VISIBLE_HITS),
     [candidates, typed],
   );
+  // Backlinks gather under the relation name pointing here; the other two lists
+  // are one group with no name, so their rows come out in the order they were
+  // ranked in and nothing on screen moves.
+  const groups = useMemo(
+    () =>
+      mode === "backlinks" && backlinksOf !== undefined
+        ? groupHits(hits, found, backlinksOf, paths ?? [])
+        : [{ name: null, rows: hits }],
+    [mode, backlinksOf, hits, found, paths],
+  );
+  // The order the rows are drawn in, which is the order everything downstream
+  // counts in. The highlight, the preview and Enter all index this one array,
+  // so grouping at render alone would point all three at another line.
+  const ordered = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
   // Typing puts the highlight back on the first row, and a narrowing list can
   // leave it past the end.
-  const cursor = Math.min(active, Math.max(hits.length - 1, 0));
-  const highlighted = hits[cursor];
+  const cursor = Math.min(active, Math.max(ordered.length - 1, 0));
+  const highlighted = ordered[cursor];
   const highlightedHit = highlighted === undefined ? undefined : found[highlighted];
 
   // The hit the pane is reading for, which trails the highlight rather than
@@ -298,8 +352,8 @@ export function NoteSearch({
       // the focus out of the panel. Prevented before the empty list is checked,
       // because an empty list is where Tab would leave and not come back.
       event.preventDefault();
-      if (hits.length === 0) return;
-      setActive(down ? Math.min(cursor + 1, hits.length - 1) : Math.max(cursor - 1, 0));
+      if (ordered.length === 0) return;
+      setActive(down ? Math.min(cursor + 1, ordered.length - 1) : Math.max(cursor - 1, 0));
       return;
     }
 
@@ -316,6 +370,44 @@ export function NoteSearch({
         // Everything else is typing, and belongs to the input.
         return;
     }
+  }
+
+  /** One row of the list, numbered by where it sits in `ordered`. */
+  function drawRow(index: number, row: number) {
+    const hit = found[index];
+    if (hit === undefined) return null;
+    // Null on every mode but todos, and on a todo line the filter above cannot
+    // hand back, which is why the row still draws the line it was given rather
+    // than nothing at all.
+    const todo = mode === "todos" ? parseTodo(hit.text) : null;
+    return (
+      <button
+        key={`${hit.path}:${hit.line}`}
+        id={`${listId}-${row}`}
+        type="button"
+        role="option"
+        aria-selected={row === cursor}
+        // Out of the tab order: the focus stays in the input, and the highlight
+        // is how the list says what Enter would open.
+        tabIndex={-1}
+        onClick={() => accept(index)}
+        className={`${ROW} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
+      >
+        <span
+          className={`shrink-0 truncate ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
+        >
+          {hit.path}:{hit.line}
+        </span>
+        {/* The line itself never wraps: one row per hit is what makes the list
+            countable at a glance. */}
+        <span className="min-w-0 flex-1 truncate text-one-fg">
+          {todo === null ? hit.text : `${STATE_SYMBOL[todo.state]} ${todo.text}`}
+        </span>
+        {/* Out of the truncation, so a long todo loses its words rather than
+            the date they are due on. */}
+        {todo?.due !== undefined && <span className="shrink-0 text-one-muted">📅 {todo.due}</span>}
+      </button>
+    );
   }
 
   return (
@@ -345,9 +437,9 @@ export function NoteSearch({
               setActive(0);
             }}
             role="combobox"
-            aria-expanded={hits.length > 0}
+            aria-expanded={ordered.length > 0}
             aria-controls={listId}
-            aria-activedescendant={hits.length > 0 ? `${listId}-${cursor}` : undefined}
+            aria-activedescendant={ordered.length > 0 ? `${listId}-${cursor}` : undefined}
             autoComplete="off"
             spellCheck={false}
             className={INPUT}
@@ -357,46 +449,31 @@ export function NoteSearch({
         {/* A fixed height rather than one the content sets, so the panel does
             not jump about as the list narrows under it. */}
         <div className={BODY}>
-          {hits.length > 0 && (
+          {ordered.length > 0 && (
             // A div rather than a list, because a listbox is not a list of
             // items to a screen reader and marking it as both says it twice.
             <div id={listId} role="listbox" aria-label="Matching lines" className={LIST}>
-              {hits.map((index, row) => {
-                const hit = found[index];
-                if (hit === undefined) return null;
-                // Null on every mode but todos, and on a todo line the filter
-                // above cannot hand back, which is why the row still draws the
-                // line it was given rather than nothing at all.
-                const todo = mode === "todos" ? parseTodo(hit.text) : null;
+              {groups.map((group, at) => {
+                // Where this group opens in `ordered`, because a row's number
+                // is its place in the whole list and not in its group. A click
+                // on the wrong number selects another line.
+                const opens = groups
+                  .slice(0, at)
+                  .reduce((count, before) => count + before.rows.length, 0);
+                const drawn = group.rows.map((index, within) => drawRow(index, opens + within));
+                // The untyped links go under no heading, which is what says
+                // they say nothing, and it leaves search and todos drawing the
+                // list they drew before.
+                if (group.name === null) return <Fragment key="untyped">{drawn}</Fragment>;
                 return (
-                  <button
-                    key={`${hit.path}:${hit.line}`}
-                    id={`${listId}-${row}`}
-                    type="button"
-                    role="option"
-                    aria-selected={row === cursor}
-                    // Out of the tab order: the focus stays in the input, and
-                    // the highlight is how the list says what Enter would open.
-                    tabIndex={-1}
-                    onClick={() => accept(index)}
-                    className={`${ROW} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
-                  >
-                    <span
-                      className={`shrink-0 truncate ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
-                    >
-                      {hit.path}:{hit.line}
-                    </span>
-                    {/* The line itself never wraps: one row per hit is what
-                        makes the list countable at a glance. */}
-                    <span className="min-w-0 flex-1 truncate text-one-fg">
-                      {todo === null ? hit.text : `${STATE_SYMBOL[todo.state]} ${todo.text}`}
-                    </span>
-                    {/* Out of the truncation, so a long todo loses its words
-                        rather than the date they are due on. */}
-                    {todo?.due !== undefined && (
-                      <span className="shrink-0 text-one-muted">📅 {todo.due}</span>
-                    )}
-                  </button>
+                  // A group rather than a bare heading between the options: a
+                  // listbox names a section this way, and text dropped between
+                  // two options is read as neither.
+                  // biome-ignore lint/a11y/useSemanticElements: a <fieldset> groups form controls, and these are the options of a listbox.
+                  <div key={group.name} role="group" aria-label={group.name}>
+                    <div className={`${LABEL} px-3 pt-2`}>{group.name}</div>
+                    {drawn}
+                  </div>
                 );
               })}
             </div>
@@ -430,7 +507,7 @@ export function NoteSearch({
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className={STATUS}>{hint(typed, search.isFetching, hits.length, mode)}</output>
+        <output className={STATUS}>{hint(typed, search.isFetching, ordered.length, mode)}</output>
       </div>
     </div>
   );

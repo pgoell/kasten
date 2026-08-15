@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NoteSearch } from "@/components/note-search";
 
 // Standing in for the module rather than for `fetch`, the way the finder's
@@ -214,20 +214,15 @@ describe("the preview pane", () => {
 });
 
 describe("backlinks", () => {
-  const PATHS = ["archive/notes.md", "index.md", "reading/borges.md"];
+  const PATHS = ["archive/notes.md", "index.md", "kafka.md", "reading/borges.md"];
 
-  function renderBacklinks(paths: string[] = PATHS) {
+  function renderBacklinks(paths: string[] = PATHS, of = "reading/borges.md") {
     const onOpen = vi.fn();
     const onClose = vi.fn();
 
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <NoteSearch
-          backlinksOf="reading/borges.md"
-          paths={paths}
-          onOpen={onOpen}
-          onClose={onClose}
-        />
+        <NoteSearch backlinksOf={of} paths={paths} onOpen={onOpen} onClose={onClose} />
       </QueryClientProvider>,
     );
 
@@ -240,6 +235,15 @@ describe("backlinks", () => {
       press: (key: string, init?: KeyboardEventInit) => fireEvent.keyDown(input, { key, ...init }),
       rows: () => screen.queryAllByRole("option").map((row) => row.textContent),
       hint: () => screen.getByRole("status").textContent,
+      /** The named groups in the order they are drawn, with the rows under each. */
+      groups: () =>
+        screen.queryAllByRole("group").map((group) => ({
+          name: group.getAttribute("aria-label"),
+          rows: [...group.querySelectorAll('[role="option"]')].map((row) => row.textContent),
+        })),
+      /** Which drawn row carries the highlight. */
+      selected: () =>
+        screen.queryAllByRole("option").findIndex((row) => row.ariaSelected === "true"),
     };
   }
 
@@ -332,6 +336,82 @@ describe("backlinks", () => {
     const panel = renderBacklinks();
 
     await waitFor(() => expect(panel.hint()).toBe("nothing links here"));
+  });
+
+  describe("grouped by the name in front", () => {
+    it("draws a heading per relation name and leaves the untyped links last", async () => {
+      searchNotes.mockResolvedValue([
+        { path: "index.md", line: 3, text: "depends-on:: [[borges]]" },
+        { path: "index.md", line: 4, text: "see [[borges]]" },
+        { path: "archive/notes.md", line: 7, text: "depends-on:: [[borges]]" },
+      ]);
+      const panel = renderBacklinks();
+
+      await waitFor(() => expect(panel.rows()).toHaveLength(3));
+      expect(panel.groups()).toHaveLength(1);
+      expect(panel.groups()[0]?.name).toBe("depends-on");
+      expect(panel.groups()[0]?.rows).toHaveLength(2);
+      // Under no heading of its own, and after the two that have one.
+      expect(panel.rows()[2]).toContain("see [[borges]]");
+    });
+
+    it("types a line by the target that resolves here, not by the name alone", async () => {
+      // The panel keeps this line in both notes' backlinks, and only one end of
+      // it is a dependency. Reading the name without the target would tell
+      // kafka it is one.
+      const line = { path: "index.md", line: 3, text: "depends-on:: [[borges]] because [[kafka]]" };
+      searchNotes.mockResolvedValue([line]);
+      const borges = renderBacklinks();
+
+      await waitFor(() => expect(borges.rows()).toHaveLength(1));
+      expect(borges.groups()[0]?.name).toBe("depends-on");
+
+      cleanup();
+      const kafka = renderBacklinks(PATHS, "kafka.md");
+
+      await waitFor(() => expect(kafka.rows()).toHaveLength(1));
+      expect(kafka.groups()).toHaveLength(0);
+    });
+
+    it("groups a name nothing has defined under its own spelling", async () => {
+      searchNotes.mockResolvedValue([
+        { path: "index.md", line: 3, text: "invented-thing:: [[borges]]" },
+      ]);
+      const panel = renderBacklinks();
+
+      await waitFor(() => expect(panel.rows()).toHaveLength(1));
+      expect(panel.groups()[0]?.name).toBe("invented-thing");
+    });
+
+    // The two below are the ones grouping at render alone would ship broken:
+    // the highlight, the preview and Enter all read one array, and moving a row
+    // on screen without moving it there points them at another line.
+    const MOVED = [
+      { path: "index.md", line: 4, text: "see [[borges]]" },
+      { path: "archive/notes.md", line: 7, text: "depends-on:: [[borges]]" },
+    ];
+
+    it("opens the row drawn first, not the row ranked first", async () => {
+      searchNotes.mockResolvedValue(MOVED);
+      const panel = renderBacklinks();
+      await waitFor(() => expect(panel.rows()).toHaveLength(2));
+
+      panel.press("Enter");
+
+      expect(panel.onOpen).toHaveBeenCalledWith("archive/notes.md", 7);
+    });
+
+    it("walks to the row drawn second", async () => {
+      searchNotes.mockResolvedValue(MOVED);
+      const panel = renderBacklinks();
+      await waitFor(() => expect(panel.rows()).toHaveLength(2));
+
+      panel.press("ArrowDown");
+
+      expect(panel.selected()).toBe(1);
+      panel.press("Enter");
+      expect(panel.onOpen).toHaveBeenCalledWith("index.md", 4);
+    });
   });
 });
 
