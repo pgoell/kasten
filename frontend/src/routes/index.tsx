@@ -838,9 +838,9 @@ function Home() {
    * Read a web page and put it in the inbox, then open the note it became.
    *
    * Not through `follow`, which is the other place a note is made and opened
-   * together: that one writes the body under the block the backend stamps, and
-   * a clipping brings a block of its own that has to be the first line for the
-   * backend to read the fields in it.
+   * together: that one is about a link with nothing behind it and puts the
+   * cursor where you would start typing, while this one has the whole note in
+   * hand already and nothing to type.
    *
    * A page clipped twice is one note. Opening what is already there beats both
    * a second copy under a name with a number after it and a refusal over a note

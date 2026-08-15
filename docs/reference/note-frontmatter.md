@@ -104,9 +104,10 @@ reordering keys, requoting strings or dropping comments.
 
 ## What a note says it is
 
-`type` says what kind of thing a note is. Every note kasten writes for you
-carries it in the block it arrives with, and nothing rewrites the field
-afterwards.
+`type` says what kind of thing a note is. Every writer below says what it makes,
+and nothing rewrites the field afterwards. All but one of them put it in the
+block the note arrives with; the book note is the exception, and the paragraph
+under the table says why.
 
 | What wrote the note | `type` |
 | --- | --- |
@@ -122,13 +123,17 @@ same fact written twice. The block is the first thing in the template, ahead of
 the heading, because a block that does not open the file is prose and the note
 would carry no type at all.
 
-The book note is the one nothing writes at the moment the note is made. An
-upload goes to the sidecar path of the note you are already in, and a book
-dropped into the vault from a terminal pane passes through no upload, so
-`type: Book` rides the write that keeps your place instead. It lands on the
-first page you turn to rather than on the upload: a book you open and never page
-through leaves its note untyped until you do, and a write refused because you
-are typing in that note comes round again on the next page.
+The book note is the one written after the fact. An upload does make the note
+when the vault holds none, but that is not the only door a book comes in by: one
+dropped into the vault from a terminal pane passes through no upload at all, and
+it still gets opened. So `type: Book` rides the write that keeps your place, and
+that write is the one door every book goes through.
+
+It lands on the first page you turn to rather than on the open, because the
+first reported move is the restore rather than a page you chose. A book you open
+and never page through therefore leaves its note untyped until you do. And a
+write skipped because you are typing in that note comes round again on the next
+page, where a one-shot write at upload would have been dropped for good.
 
 It goes in over `Note` or over nothing, and over nothing else. A note you typed
 `Source` or `Concept` into keeps what you typed, through every page turn after.
