@@ -26,8 +26,16 @@ Outside `01 Agents/`, because this one is for whoever opens the bundle, and an
 OKF consumer that has never heard of kasten is the reader it is written for.
 """
 
+ONTOLOGY_PATH = "99 Misc/01 Config/01 Agents/Ontology.md"
+"""Where the vault's own vocabulary lives, beside the guides an agent reads.
+
+A note rather than a config file, so nothing validates a relation and an unknown
+name works. The editor's completion reads this, and so does anyone with `cat`.
+"""
+
 STARTUP_NOTES = {
     READER_PATH: (Path(__file__).parent / "reading-this-vault.md").read_text(encoding="utf-8"),
+    ONTOLOGY_PATH: (Path(__file__).parent / "ontology.md").read_text(encoding="utf-8"),
 }
 """The notes the bundle cannot be read without, and the text each one arrives as.
 
