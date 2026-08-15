@@ -1,9 +1,10 @@
 """The YAML block a note carries at the top.
 
-Three fields are kasten's: `id`, which names the note when its path cannot,
-`created` and `modified`. Everything else in the block belongs to whoever wrote
-it and comes through a save unread, because the vault is the source of truth and
-this is the one place the server writes words the user did not type.
+Four fields are kasten's: `id`, which names the note when its path cannot,
+`created`, `modified`, and `type`, which says what kind of thing the note is.
+Everything else in the block belongs to whoever wrote it and comes through a
+save unread, because the vault is the source of truth and this is the one place
+the server writes words the user did not type.
 
 Read and written as lines rather than parsed as YAML. A parser would have to
 give the block back as text afterwards, and a round trip through one reorders
@@ -18,12 +19,38 @@ from uuid import uuid7
 FENCE = "---"
 """What opens and closes the block, on a line of its own."""
 
+DEFAULT_TYPE = "Note"
+"""What a note is when no writer has said otherwise.
+
+Open Knowledge Format wants a `type` on every concept document, and this is the
+honest answer for a note somebody typed into an empty buffer. A writer that
+knows better says so itself, and `stamp` never argues with a type already there.
+"""
+
+RESERVED = frozenset({"index.md", "log.md"})
+"""The filenames Open Knowledge Format gives a shape of its own.
+
+One is a listing of the bundle and the other is its history, and neither is a
+concept document. Kasten writes no block into either, so the bytes that arrive
+are the bytes on disk, and a file named this way never gets an id.
+"""
+
 _KEY = re.compile(r"^([A-Za-z_][\w-]*)\s*:")
 """A field's name, at the top level of the block.
 
 Anchored, so an indented line is part of the field above it rather than a field.
 That is what carries a list or a nested mapping through untouched.
 """
+
+
+def reserved(path: str) -> bool:
+    """Whether OKF reserves this filename, so kasten writes no block into it.
+
+    The last component, not the whole path: `folder/index.md` is a listing of
+    that folder the way `index.md` is a listing of the vault, and asking whether
+    the whole path is in `RESERVED` would exempt only the root.
+    """
+    return path.rsplit("/", 1)[-1] in RESERVED
 
 
 def _key(line: str) -> str | None:
@@ -55,15 +82,31 @@ def _split(content: str) -> tuple[list[str], list[str]]:
     return lines[1:end], lines[end + 1 :]
 
 
-def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> str:
-    """`content` with its block written: an id, a creation date and this moment.
+def with_type(content: str) -> str:
+    """`content` with `type: Note` written where its block has none, and nothing else changed.
 
-    `previous` is the note as it stands on disk, and it is where the id and the
-    creation date come from when the text being written carries neither. An id
-    is what an ontology will hang off, so it has to survive a client that does
-    not know the block is there and a user who deletes it: both send the note
-    back without one, and minting a second id would leave the note nameable two
-    ways. Every other field is the user's, and one they dropped stays dropped.
+    Not `stamp`, and the difference is the point: `stamp` rewrites `modified`,
+    which over a whole vault would date every note today. It mints no id and no
+    creation date either, because a note written before kasten has a real
+    creation date and this is not it. Both arrive on the note's next save.
+    """
+    block, body = _split(content)
+    if _line("type", block) is not None:
+        return content
+
+    return "\n".join([FENCE, f"type: {DEFAULT_TYPE}", *block, FENCE, *body])
+
+
+def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> str:
+    """`content` with its block written: an id, a creation date, a type and this moment.
+
+    `previous` is the note as it stands on disk, and it is where the id, the
+    creation date and the type come from when the text being written carries
+    none of them. An id is what an ontology will hang off, so it has to survive
+    a client that does not know the block is there and a user who deletes it:
+    both send the note back without one, and minting a second id would leave the
+    note nameable two ways. Every other field is the user's, and one they
+    dropped stays dropped.
 
     `modified` is rewritten where it stands, which leaves the fields around it
     in the order they were written in.
@@ -81,6 +124,8 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
         opening.append(_line("id", held) or f"id: {uuid7()}")
     if _line("created", block) is None:
         opening.append(_line("created", held) or f"created: {when}")
+    if _line("type", block) is None:
+        opening.append(_line("type", held) or f"type: {DEFAULT_TYPE}")
 
     dated = [f"modified: {when}" if _key(line) == "modified" else line for line in block]
     if _line("modified", block) is None:

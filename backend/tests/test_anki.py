@@ -216,3 +216,15 @@ async def test_import_refuses_something_that_is_not_an_export(client: AsyncClien
     response = await client.post("/api/anki", content=b"not a zip at all")
 
     assert response.status_code == 400
+
+
+async def test_import_writes_no_block_into_a_reserved_name(
+    client: AsyncClient, vault: Path
+) -> None:
+    # A deck named `index` lands on a filename OKF reserves, and kasten writes
+    # no block into one of those whichever route the text arrived by.
+    export = apkg(notes=((1, "a\x1fb"),), cards=((1, 1, 10),), decks=((10, "index"),))
+
+    await client.post("/api/anki", content=export)
+
+    assert "---" not in (vault / "03 Flashcards" / "index.md").read_text(encoding="utf-8")

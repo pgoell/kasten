@@ -36,14 +36,23 @@ GUIDES = {
 
 
 async def write_guide(root: Path) -> None:
-    """Write the guides into `root`, skipping each one the vault already holds.
+    """Write the guides into `root`, skipping each one the vault already holds."""
+    await write_missing(root, GUIDES)
+
+
+async def write_missing(root: Path, notes: dict[str, str]) -> None:
+    """Write each of `notes` the vault does not hold, one jj change each.
 
     Each is bracketed by a jj change the way every other write is, so the note
     arrives in the history rather than as a surprise in somebody's next diff.
-    One at a time rather than one change for both, so a vault that has kept one
-    and deleted the other gets a change naming what actually came back.
+    One at a time rather than one change for all, so a vault that has kept one
+    and deleted another gets a change naming what actually came back.
+
+    The text goes through `stamp`, which fills in what the block is missing and
+    leaves what it carries alone, so a startup note that opens with its own
+    `type` keeps it rather than being called a `Note`.
     """
-    for path, text in GUIDES.items():
+    for path, text in notes.items():
         note = resolve_path(root, path)
         if note is None or note.exists():
             continue

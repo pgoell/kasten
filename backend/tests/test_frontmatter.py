@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from kasten_backend.frontmatter import stamp
+from kasten_backend.frontmatter import stamp, with_type
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
 LATER = datetime(2026, 8, 6, 13, 30, tzinfo=UTC)
@@ -24,7 +24,7 @@ def test_writes_a_block_over_a_note_that_has_none() -> None:
     stamped = stamp("# index\n\nText.\n", now=NOW)
 
     assert body(stamped) == "# index\n\nText.\n"
-    assert fields(stamped).keys() == {"id", "created", "modified"}
+    assert fields(stamped).keys() == {"id", "created", "type", "modified"}
 
 
 def test_names_the_note_with_a_uuid7() -> None:
@@ -53,14 +53,15 @@ def test_keeps_the_id_and_the_creation_date_a_note_already_has() -> None:
 
 
 def test_keeps_every_other_field_where_it_was() -> None:
-    # What the block is for: the three fields here are managed, and anything
-    # else in it is the user's and comes through a save unread.
+    # What the block is for: the fields kasten manages are managed, and anything
+    # else in it is the user's and comes through a save unread. The type is the
+    # one the note had none of, so it opens the block the way a missing id would.
     note = "---\nid: kept\ncreated: then\ntags:\n  - reading\n  - 2026\nmodified: old\n---\n# index"
 
     stamped = stamp(note, now=NOW)
 
     assert stamped == (
-        "---\nid: kept\ncreated: then\ntags:\n  - reading\n  - 2026\n"
+        "---\ntype: Note\nid: kept\ncreated: then\ntags:\n  - reading\n  - 2026\n"
         f"modified: {NOW.isoformat()}\n---\n# index"
     )
 
@@ -93,7 +94,7 @@ def test_takes_the_id_and_the_creation_date_from_the_note_on_disk() -> None:
 
 
 def test_lets_a_dropped_field_stay_dropped() -> None:
-    # Only the two kasten manages come back. The rest of the block is the
+    # Only the ones kasten manages come back. The rest of the block is the
     # user's, and deleting a line there is an edit like any other.
     held = "---\nid: kept\ncreated: then\ntags:\n  - reading\n---\n# index"
 
@@ -102,5 +103,51 @@ def test_lets_a_dropped_field_stay_dropped() -> None:
     assert fields(stamped) == {
         "id": "kept",
         "created": "then",
+        "type": "Note",
         "modified": NOW.isoformat(),
     }
+
+
+def test_types_a_new_note_a_note() -> None:
+    # OKF asks every concept document what kind of thing it is, and the honest
+    # answer for a note nobody has said anything else about is `Note`.
+    assert fields(stamp("", now=NOW))["type"] == "Note"
+
+
+def test_keeps_the_type_the_incoming_block_carries() -> None:
+    stamped = stamp("---\ntype: Source\n---\n", now=NOW)
+
+    assert fields(stamped)["type"] == "Source"
+    assert "type: Note" not in stamped
+
+
+def test_takes_the_type_from_the_note_on_disk() -> None:
+    # Same rescue the id gets, and for the same reason: a client that does not
+    # know the block is there sends the note back without one.
+    held = "---\ntype: Source\n---\n"
+
+    stamped = stamp("---\nauthor: x\n---\n", held, now=NOW)
+
+    assert fields(stamped)["type"] == "Source"
+    assert "type: Note" not in stamped
+
+
+def test_types_a_note_that_has_no_block_at_all() -> None:
+    typed = with_type("# borges\n")
+
+    assert typed == "---\ntype: Note\n---\n# borges\n"
+
+
+def test_types_a_note_without_disturbing_the_block_it_has() -> None:
+    typed = with_type("---\nid: x\n---\n# borges\n")
+
+    assert typed == "---\ntype: Note\nid: x\n---\n# borges\n"
+    assert typed.count("id: x") == 1
+
+
+def test_leaves_a_typed_note_byte_for_byte_alone() -> None:
+    # Not `stamp`, and this is the difference: `stamp` rewrites `modified`,
+    # which over a whole vault would date every note today.
+    content = "---\ntype: Source\n---\n"
+
+    assert with_type(content) == content

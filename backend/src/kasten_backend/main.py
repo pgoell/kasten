@@ -20,9 +20,10 @@ from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
-from kasten_backend.frontmatter import stamp
+from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.guide import write_guide
 from kasten_backend.links import relink_folder_move, relink_note_move
+from kasten_backend.okf import prepare
 from kasten_backend.search import search_vault
 from kasten_backend.tags import find_tags
 from kasten_backend.todos import find_todos
@@ -65,7 +66,7 @@ if TYPE_CHECKING:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Give the vault the agent guide, and empty what the trash has held too long.
+    """Give the vault its guides and its types, and empty what the trash has held too long.
 
     The settings are read rather than injected: there is no request to depend
     on, and the vault the process serves is the vault this writes into.
@@ -75,6 +76,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # in the vault would be swept into it.
     write_ignores(settings.vault_path)
     await write_guide(settings.vault_path)
+    # After the guides and before the purge: the backfill inside this reads the
+    # vault, and it should read one that is finished being written to.
+    await prepare(settings.vault_path)
     await purge_trash(settings.vault_path, settings.trash_days)
     yield
 
@@ -519,8 +523,9 @@ async def import_anki(
     written: list[str] = []
     for note, text in targets:
         note.parent.mkdir(parents=True, exist_ok=True)
-        create_note(note, stamp(text))
-        written.append(relative_path(settings.vault_path, note))
+        relative = relative_path(settings.vault_path, note)
+        create_note(note, text if reserved(relative) else stamp(text))
+        written.append(relative)
 
     return AnkiImport(
         notes=written,
@@ -809,7 +814,8 @@ async def create_file(
         raise HTTPException(status_code=409, detail="A note is already there")
 
     relative = relative_path(settings.vault_path, note)
-    content = stamp(edit.content if edit else "")
+    raw = edit.content if edit else ""
+    content = raw if reserved(relative) else stamp(raw)
 
     await begin_change(settings.vault_path, relative)
     create_note(note, content)
@@ -843,9 +849,14 @@ async def save_file(
     if note is None:
         raise HTTPException(status_code=404, detail="No such note")
 
-    content = stamp(edit.content, note.read_text(encoding="utf-8"))
+    relative = relative_path(settings.vault_path, note)
+    content = (
+        edit.content
+        if reserved(relative)
+        else stamp(edit.content, note.read_text(encoding="utf-8"))
+    )
 
-    await begin_change(settings.vault_path, relative_path(settings.vault_path, note))
+    await begin_change(settings.vault_path, relative)
     write_note(note, content)
     await snapshot(settings.vault_path)
 
@@ -888,6 +899,7 @@ async def move_file(
     if target.exists():
         raise HTTPException(status_code=409, detail="A note is already there")
 
+    source = relative_path(settings.vault_path, note)
     relative = relative_path(settings.vault_path, target)
 
     await begin_change(settings.vault_path, relative)
@@ -895,8 +907,21 @@ async def move_file(
     # the note is still where the links were written to find it. Inside the jj
     # bracket, because the rewritten links are part of the move rather than an
     # edit that happened to follow it.
-    await relink_note_move(settings.vault_path, relative_path(settings.vault_path, note), relative)
+    await relink_note_move(settings.vault_path, source, relative)
     rename_note(note, target)
+    # A file exempt from the block because of what it was called is a note again
+    # under any other name, so it is stamped where it lands. Inside the bracket,
+    # so the rewrite is part of the move. The other direction is not handled and
+    # must not be: a note renamed onto a reserved name keeps the block it had,
+    # because deleting it would delete an id and a creation date the note owns,
+    # and converting the body is a job for a person.
+    if reserved(source) and not reserved(relative):
+        # Read without translating the line endings and put back the ones the
+        # file had, for the reason the backfill does it: a note is rewritten
+        # here, and only its block was asked for.
+        raw = target.read_text(encoding="utf-8", newline="")
+        stamped = stamp(raw.replace("\r\n", "\n"))
+        write_note(target, stamped.replace("\n", "\r\n") if "\r\n" in raw else stamped)
     # After the note and before the prune, so a folder the pair has both left
     # is one the prune can take.
     move_asset_beside(note, target)

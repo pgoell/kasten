@@ -7,10 +7,12 @@ if TYPE_CHECKING:
 
 
 async def test_creates_a_note_at_the_vault_root(client: AsyncClient, vault: Path) -> None:
-    response = await client.post("/api/files/index.md")
+    # Not `index.md`, here or in any test below that reads the block: OKF
+    # reserves that name and kasten writes no block into one.
+    response = await client.post("/api/files/borges.md")
 
     assert response.status_code == 201
-    assert response.json() == {"path": "index.md", "content": (vault / "index.md").read_text()}
+    assert response.json() == {"path": "borges.md", "content": (vault / "borges.md").read_text()}
     assert response.json()["content"].endswith("---\n")
 
 
@@ -67,10 +69,10 @@ async def test_creates_the_vault_directory_when_it_is_missing(
 ) -> None:
     # A note names its folders into being, and the vault root is the outermost
     # of them. The listing already reads a missing vault as an empty one.
-    response = await client.post("/api/files/index.md")
+    response = await client.post("/api/files/borges.md")
 
     assert response.status_code == 201
-    assert (missing_vault / "index.md").read_text().endswith("---\n")
+    assert (missing_vault / "borges.md").read_text().endswith("---\n")
 
 
 async def test_answers_with_the_canonical_path_not_the_url_spelling(
@@ -208,20 +210,20 @@ async def test_refuses_a_null_byte_rather_than_raising(client: AsyncClient, vaul
 async def test_gives_the_new_note_its_frontmatter(client: AsyncClient, vault: Path) -> None:
     # The note is named by its id from the moment it exists, not from its first
     # save. What the block holds is `test_frontmatter.py`'s business.
-    response = await client.post("/api/files/index.md")
+    response = await client.post("/api/files/borges.md")
 
-    written = (vault / "index.md").read_text()
+    written = (vault / "borges.md").read_text()
     assert written.startswith("---\nid: ")
     assert response.json()["content"] == written
 
 
 async def test_starts_the_note_with_the_body_it_was_given(client: AsyncClient, vault: Path) -> None:
-    response = await client.post("/api/files/index.md", json={"content": "\n# index\n"})
+    response = await client.post("/api/files/borges.md", json={"content": "\n# borges\n"})
 
     assert response.status_code == 201
-    written = (vault / "index.md").read_text()
+    written = (vault / "borges.md").read_text()
     assert written.startswith("---\nid: ")
-    assert written.endswith("---\n\n# index\n")
+    assert written.endswith("---\n\n# borges\n")
     assert response.json()["content"] == written
 
 
@@ -229,11 +231,11 @@ async def test_stamps_a_body_that_carries_its_own_block(client: AsyncClient, vau
     # A body arrives the way a save's text does, so the block in it is filled in
     # rather than written over, and a note made from one keeps its own fields.
     response = await client.post(
-        "/api/files/index.md", json={"content": "---\ntags: [a]\n---\n# index\n"}
+        "/api/files/borges.md", json={"content": "---\ntags: [a]\n---\n# borges\n"}
     )
 
     assert response.status_code == 201
-    written = (vault / "index.md").read_text()
+    written = (vault / "borges.md").read_text()
     assert "tags: [a]" in written
     assert written.startswith("---\nid: ")
-    assert written.endswith("---\n# index\n")
+    assert written.endswith("---\n# borges\n")

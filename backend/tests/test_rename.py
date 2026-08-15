@@ -9,14 +9,16 @@ if TYPE_CHECKING:
 
 
 async def test_renames_a_note_at_the_vault_root(client: AsyncClient, vault: Path) -> None:
-    (vault / "index.md").write_text("# index")
+    # Not `index.md`: renaming a note off a reserved name stamps it at the new
+    # path, which `test_okf.py` is about and this test is not.
+    (vault / "borges.md").write_text("# borges")
 
-    response = await client.patch("/api/files/index.md", json={"path": "home.md"})
+    response = await client.patch("/api/files/borges.md", json={"path": "home.md"})
 
     assert response.status_code == 200
-    assert response.json() == {"path": "home.md", "content": "# index"}
-    assert (vault / "home.md").read_text() == "# index"
-    assert not (vault / "index.md").exists()
+    assert response.json() == {"path": "home.md", "content": "# borges"}
+    assert (vault / "home.md").read_text() == "# borges"
+    assert not (vault / "borges.md").exists()
 
 
 async def test_moves_a_note_into_another_folder(client: AsyncClient, vault: Path) -> None:
@@ -53,11 +55,11 @@ async def test_lists_the_new_path_and_not_the_old(client: AsyncClient, vault: Pa
 async def test_answers_with_the_canonical_spelling(client: AsyncClient, vault: Path) -> None:
     # The client navigates to what comes back, so `ideas/./kasten.md` must not
     # reach `?note=`.
-    (vault / "index.md").write_text("# index")
+    (vault / "borges.md").write_text("# borges")
 
-    response = await client.patch("/api/files/index.md", json={"path": "ideas/./kasten.md"})
+    response = await client.patch("/api/files/borges.md", json={"path": "ideas/./kasten.md"})
 
-    assert response.json() == {"path": "ideas/kasten.md", "content": "# index"}
+    assert response.json() == {"path": "ideas/kasten.md", "content": "# borges"}
 
 
 async def test_refuses_a_source_that_is_not_there(client: AsyncClient, vault: Path) -> None:
