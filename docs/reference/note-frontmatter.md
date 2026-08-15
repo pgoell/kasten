@@ -41,7 +41,8 @@ changes every time a note is renamed or moved, and an id does not.
 `type` is the one field Open Knowledge Format asks for, and
 [OKF in the vault](/explanation/okf-in-the-vault.md) says what that buys.
 `Note` is the honest answer for a note typed into an empty buffer, and a writer
-that knows better says so itself in the text it hands over. Nothing ever
+that knows better says so itself in the text it hands over.
+[What a note says it is](#what-a-note-says-it-is) lists them. Nothing ever
 overwrites a type already there, whoever wrote it, so one you typed by hand
 outlives every save after it.
 
