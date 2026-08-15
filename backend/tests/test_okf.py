@@ -279,6 +279,7 @@ async def test_stamping_a_renamed_index_leaves_its_line_endings(
     assert "\ntype: Note\r\n" in written
     assert "\n" not in written.replace("\r\n", "")
 
+
 async def test_startup_writes_the_ontology_note(startup_vault: Path) -> None:
     async with LifespanManager(app):
         pass

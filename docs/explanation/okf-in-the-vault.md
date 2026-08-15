@@ -91,6 +91,38 @@ two are nameable one way. That is correct rather than unfortunate: a listing is
 about where things are, so a name that survives a move would be naming the wrong
 thing.
 
+## Why the vocabulary is a note
+
+The types a note may carry, and the relation names a note writes between notes,
+are listed in `99 Misc/01 Config/01 Agents/Ontology.md`. That is a note in the
+vault, not a config file and not a schema, and the difference is the whole
+design.
+
+Nothing validates a relation. An unknown name works: it is a relation, it draws
+as a label, and it groups in the backlinks panel under its own spelling. Writing
+`invented-yesterday:: [[Embeddings]]` is legal the moment you type it, and adding
+it to the vocabulary is one line in a note rather than a release.
+
+That also means the ontology inspector already exists. It is that note, open in
+a pane, edited with the keys you edit every other note with.
+
+The editor's completion reads the note, and the two alternatives are both worse:
+
+* **A hardcoded table** would drift from the note. Somebody adds a relation to
+  the note, the completion goes on offering the old six, and now there are two
+  answers to what the vault's vocabulary is.
+* **The names already written in the vault** would spread a typo instead of
+  catching it. Write `dpeends-on` once and it is on the list forever, offered
+  beside the right one, and the second typo is a completion away.
+
+Reading a note nobody validates is the honest version: the list is what somebody
+decided it should be, rather than what has happened to be typed.
+
+The note is written into a vault that does not hold one, at startup, the way the
+format guides are. The readers are not all inside the app, so a key press could
+not be what writes it. Delete it and it comes back on the next boot, which is
+the bargain the guides and the saved views note already make.
+
 ## What conforms and what does not
 
 Conforming, today:
