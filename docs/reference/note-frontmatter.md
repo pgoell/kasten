@@ -41,7 +41,8 @@ changes every time a note is renamed or moved, and an id does not.
 `type` is the one field Open Knowledge Format asks for, and
 [OKF in the vault](/explanation/okf-in-the-vault.md) says what that buys.
 `Note` is the honest answer for a note typed into an empty buffer, and a writer
-that knows better says so itself in the text it hands over. Nothing ever
+that knows better says so itself in the text it hands over.
+[What a note says it is](#what-a-note-says-it-is) lists them. Nothing ever
 overwrites a type already there, whoever wrote it, so one you typed by hand
 outlives every save after it.
 
@@ -75,10 +76,12 @@ Deleting one of your own fields is an edit like any other and it stays deleted.
 
 Three things kasten writes land in this half of the block.
 [An imported web page](/reference/editor-keys.md#importing-a-web-page) arrives
-carrying `source`, and `author` and `published` where the page named them. They
-are written once, by the client, in the text it hands to `POST`, and they are
-yours from that moment: a save copies them through and deleting one keeps it
-deleted.
+carrying `resource`, the address the page was read from, and `author` and
+`published` where the page named them. They are written once, by the client, in
+the text it hands to `POST`, and they are yours from that moment: a save copies
+them through and deleting one keeps it deleted. Pages clipped before this wrote
+the address as `source`. Nothing rewrites them, and nothing reads either field,
+so an old clipping keeps `source` until you change it by hand.
 
 The second is `reading:`, which
 [the book pane](/reference/editor-keys.md#the-book-pane) writes into a
@@ -99,6 +102,42 @@ three takes the note out of the review and nothing else.
 The block is not parsed as YAML. Four keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from
 reordering keys, requoting strings or dropping comments.
+
+## What a note says it is
+
+`type` says what kind of thing a note is. Every writer below says what it makes,
+and nothing rewrites the field afterwards. All but one of them put it in the
+block the note arrives with; the book note is the exception, and the paragraph
+under the table says why.
+
+| What wrote the note | `type` |
+| --- | --- |
+| A periodic note, at any of the five grains | `Periodic Note` |
+| [A clipped web page](/reference/editor-keys.md#importing-a-web-page) | `Source` |
+| The saved todo views note | `Reference` |
+| `How-To-TODO.md` and `How-To-Exam.md`, the two format guides | `Reference` |
+| A note with a book beside it | `Book` |
+
+One type for all five periodic notes rather than five. `01 Periodic/00 Daily/`
+already says which grain the note is, and `Daily Note` beside that folder is the
+same fact written twice. The block is the first thing in the template, ahead of
+the heading, because a block that does not open the file is prose and the note
+would carry no type at all.
+
+The book note is the one written after the fact. An upload does make the note
+when the vault holds none, but that is not the only door a book comes in by: one
+dropped into the vault from a terminal pane passes through no upload at all, and
+it still gets opened. So `type: Book` rides the write that keeps your place, and
+that write is the one door every book goes through.
+
+It lands on the first page you turn to rather than on the open, because the
+first reported move is the restore rather than a page you chose. A book you open
+and never page through therefore leaves its note untyped until you do. And a
+write skipped because you are typing in that note comes round again on the next
+page, where a one-shot write at upload would have been dropped for good.
+
+It goes in over `Note` or over nothing, and over nothing else. A note you typed
+`Source` or `Concept` into keeps what you typed, through every page turn after.
 
 ## When the block is written
 

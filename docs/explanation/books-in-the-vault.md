@@ -141,7 +141,7 @@ reading: epubcfi(/6/14!/4/2/2/1:0)
 
 That field is the whole of it. Delete the line and you lose a bookmark, which is
 what a bookmark is worth; nothing on disk or in Postgres knows where you were.
-The client writes it, the way it writes `source` on a clipped page, and it is
+The client writes it, the way it writes `resource` on a clipped page, and it is
 yours from that moment.
 
 The write waits a minute after the last page turn, and it is skipped while the

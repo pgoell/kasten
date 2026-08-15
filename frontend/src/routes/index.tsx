@@ -44,7 +44,7 @@ import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
-import { setField } from "@/lib/note-frontmatter";
+import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookPath, importedNote, noteName } from "@/lib/note-path";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -601,7 +601,20 @@ function Home() {
   );
 
   const { moved, flush, cancel } = useBookmark((note, cfi) =>
-    writePosition(note, (text) => setField(text, "reading", cfi)),
+    writePosition(note, (text) => {
+      // The one writer of `type: Book`, and it rides the position write rather
+      // than the upload for two reasons. A refused write comes round again on
+      // the next page you turn, where a one-shot write at upload is dropped for
+      // good; and a book dropped into the vault from the shell pane passes
+      // through no upload at all while it does get read.
+      //
+      // Over `Note` or over nothing, and over nothing else: a type the reader
+      // put there by hand is theirs, and turning a page is not an argument
+      // with it.
+      const held = readField(text, "type");
+      const typed = held === undefined || held === "Note" ? setField(text, "type", "Book") : text;
+      return setField(typed, "reading", cfi);
+    }),
   );
 
   /**
@@ -757,11 +770,10 @@ function Home() {
         return;
       }
 
-      // One write. The blank line is the create's rather than the body's: the
-      // text lands under a frontmatter block and wants a line between, and the
-      // body is written without one so that a reader of `periodic.ts` sees the
-      // heading first.
-      void createNote(path, body === "" ? "" : `\n${body}`).then(
+      // One write, and the body goes over as it stands. `periodic.ts` owns the
+      // block and the blank line after it, because the fence has to be the
+      // file's first line for the backend to read it as frontmatter at all.
+      void createNote(path, body).then(
         (made) => {
           // The vault's spelling and the vault's text, the way the prompt
           // seeds them, so the editor opens what was written rather than
@@ -826,9 +838,9 @@ function Home() {
    * Read a web page and put it in the inbox, then open the note it became.
    *
    * Not through `follow`, which is the other place a note is made and opened
-   * together: that one writes the body under the block the backend stamps, and
-   * a clipping brings a block of its own that has to be the first line for the
-   * backend to read the fields in it.
+   * together: that one is about a link with nothing behind it and puts the
+   * cursor where you would start typing, while this one has the whole note in
+   * hand already and nothing to type.
    *
    * A page clipped twice is one note. Opening what is already there beats both
    * a second copy under a name with a number after it and a refusal over a note

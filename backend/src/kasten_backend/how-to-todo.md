@@ -1,3 +1,7 @@
+---
+type: Reference
+---
+
 # How to work with todos
 
 For agents working in this vault, whether you run in kasten's own terminal pane

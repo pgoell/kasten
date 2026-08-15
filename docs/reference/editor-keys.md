@@ -550,9 +550,11 @@ The note is named after the page's title, with the characters a path or a
 `[[link]]` cannot hold taken out and the name cut at 80. A page with no title
 at all is named after the site it came from.
 
-Its frontmatter carries `source`, and `author` and `published` where the page
-names them, beside the `id`, `created` and `modified` every note gets. The
-title is the note's first heading as well as its name.
+Its frontmatter carries `type: Source` and `resource`, the page's address, and
+`author` and `published` where the page names them, beside the `id`, `created`
+and `modified` every note gets. The title is the note's first heading as well as
+its name. Clippings written before this carry `source` in place of `resource`,
+and nothing rewrites one.
 
 Clipping a page twice makes one note: the second press opens the note that is
 already there rather than writing a copy beside it. Editing what you clipped is

@@ -26,6 +26,7 @@ async def test_startup_writes_the_guide(startup_vault: Path) -> None:
 
     assert text.startswith("---\n")
     assert "id: " in text
+    assert "type: Reference" in text
     assert "# How to work with todos" in text
 
 
@@ -49,6 +50,7 @@ async def test_startup_writes_the_exam_guide(startup_vault: Path) -> None:
 
     assert text.startswith("---\n")
     assert "id: " in text
+    assert "type: Reference" in text
     assert "# How to write a practice exam" in text
 
 
