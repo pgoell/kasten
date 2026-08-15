@@ -176,6 +176,15 @@ body {
   padding: 0;
 }
 
+/* The name in front of a relation, drawn as the label it is. Muted rather than
+   coloured: the link beside it is what the eye is looking for, and the name is
+   what says why it is there. It stays on the screen for the reason the hash
+   does, being what somebody typed. */
+.cm-relation {
+  color: var(--color-one-muted);
+  letter-spacing: 0.02em;
+}
+
 /* The marks are gone from the text, so the marker and the indent are drawn
    rather than typed. The blockquote names .cm-line as well, because CodeMirror
    injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade

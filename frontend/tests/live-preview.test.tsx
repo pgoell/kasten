@@ -158,6 +158,25 @@ describe("live preview", () => {
     expect(container.querySelector(".cm-wikilink")).toBeNull();
   });
 
+  it("labels the name in front of a relation", () => {
+    const { container } = render(<Editor initialDoc="depends-on:: [[borges]]" />);
+
+    expect(container.querySelector(".cm-relation")?.textContent).toBe("depends-on::");
+  });
+
+  it("draws the relation's target as it draws any other wikilink", () => {
+    const { container } = render(<Editor initialDoc="depends-on:: [[borges]]" />);
+
+    expect(container.querySelector(".cm-wikilink")?.textContent).toBe("borges");
+    expect(content(container)).toBe("depends-on:: borges");
+  });
+
+  it("labels nothing on a line that is not a relation", () => {
+    const { container } = render(<Editor initialDoc="see [[borges]] and [[ficciones]]" />);
+
+    expect(container.querySelector(".cm-relation")).toBeNull();
+  });
+
   it("returns to normal mode when escape leaves visual mode", async () => {
     // vim signals this mode change from inside its own dispatch, so answering
     // it synchronously re-enters the update, CodeMirror kills the plugin that
