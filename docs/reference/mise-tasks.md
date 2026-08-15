@@ -74,6 +74,19 @@ whatever the number, because `vitest bench` has no threshold to fail against.
 The thresholds are assertions in the test files instead. See
 [Ranking performance](/reference/ranking-performance.md).
 
+## Vault maintenance
+
+| Task | What it does |
+|---|---|
+| `okf:backfill` | Write `type` into every note in the vault that has none |
+
+`okf:backfill` runs the same pass the backend runs at startup, from a terminal.
+It takes the vault as a path so the one command reaches any vault, `../vault` by
+default because the task sets its own directory to `backend/`. It writes the one
+field and nothing else, prints a line per note it changed, and changes nothing on
+a second run. See
+[OKF in the vault](/explanation/okf-in-the-vault.md#the-pass-over-the-notes-already-there).
+
 ## Lint, format and types
 
 | Task | What it does |

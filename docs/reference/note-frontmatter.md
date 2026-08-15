@@ -15,6 +15,7 @@ Every note kasten writes opens with a YAML block between two `---` fences:
 ---
 id: 019fd761-2599-71ba-b6d0-7b0d8e0a7367
 created: 2026-08-06T14:01:35+00:00
+type: Note
 modified: 2026-08-06T14:01:35+00:00
 ---
 # borges
@@ -22,7 +23,7 @@ modified: 2026-08-06T14:01:35+00:00
 
 The block is part of the file, like the rest of the note. It is not held
 anywhere else, so a vault read by Obsidian, by an editor or by `cat` carries the
-same three fields.
+same four fields.
 
 ## The fields kasten manages
 
@@ -30,14 +31,41 @@ same three fields.
 | --- | --- | --- |
 | `id` | A UUID version 7 | Never. Given once, at the note's first write |
 | `created` | When the note was first written, ISO 8601 in UTC | Never |
+| `type` | The kind of thing the note is, `Note` unless a writer said otherwise | Written once, on the note's first write, and never overwritten |
 | `modified` | When the note was last written, ISO 8601 in UTC | Every `PUT`, to the second |
 
 Version 7 because it sorts by the moment it was made, so a list of ids reads in
 the order the notes arrived. It is what a future ontology hangs off: a path
 changes every time a note is renamed or moved, and an id does not.
 
+`type` is the one field Open Knowledge Format asks for, and
+[OKF in the vault](/explanation/okf-in-the-vault.md) says what that buys.
+`Note` is the honest answer for a note typed into an empty buffer, and a writer
+that knows better says so itself in the text it hands over. Nothing ever
+overwrites a type already there, whoever wrote it, so one you typed by hand
+outlives every save after it.
+
 UTC, because the vault outlives the timezone of the machine that wrote it. To
 the second, because a note saved twice a second apart is one note.
+
+## The two reserved filenames
+
+`index.md` and `log.md` get no block at all. OKF gives both a shape of its own,
+one being a listing of the bundle and the other its history, and neither is a
+concept document. Kasten writes nothing into either, at any level of the vault,
+so `folder/index.md` is exempt the way the root's is. What that means in
+practice:
+
+* A file named that way never gets an `id`. It is named by its path and by
+  nothing else, and there is no field in it to lose.
+* Text written to one comes back byte for byte. The one field a reserved file
+  may carry is `okf_version`, and a save leaves it exactly where it was.
+* A note renamed off one of those names is stamped at its new path, block and
+  all, because it is a note again under any other name.
+* A note renamed *onto* one keeps the block it had. The bundle stops conforming
+  until the file is converted by hand, body and all, and it has to be a person:
+  deleting the block would delete an id and a creation date the note owns, and
+  the body has to become a listing or a log either way.
 
 ## Every other field is yours
 
@@ -68,7 +96,7 @@ that, and how fast the gap grows. The client writes these too, and the same rule
 holds: `sr-due` typed by hand is enough to schedule a note, and deleting all
 three takes the note out of the review and nothing else.
 
-The block is not parsed as YAML. Three keys are found by reading lines, and
+The block is not parsed as YAML. Four keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from
 reordering keys, requoting strings or dropping comments.
 
@@ -80,13 +108,15 @@ reordering keys, requoting strings or dropping comments.
 * [`PUT /api/files/{path}`](/reference/http-api.md#put-apifilespath) stamps the
   text on the way through. A note written before kasten, or by hand, gains a
   block on its first save.
-* A move writes no block. `PATCH` changes where a note lives, not what is in it,
-  so `modified` is the date of the last edit rather than of the last rename.
+* A move writes no block, with one exception. `PATCH` changes where a note
+  lives, not what is in it, so `modified` is the date of the last edit rather
+  than of the last rename. The exception is a note renamed off a reserved name,
+  which is stamped where it lands.
 
-`id` and `created` are read back off the note on disk when the text being
-written carries neither. A client that does not know the block is there, and a
-user who deletes it in the editor, both send the note back without one, and
-minting a second id would leave the note nameable two ways.
+`id`, `created` and `type` are read back off the note on disk when the text
+being written carries none of them. A client that does not know the block is
+there, and a user who deletes it in the editor, both send the note back without
+one, and minting a second id would leave the note nameable two ways.
 
 ## What it costs
 
