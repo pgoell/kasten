@@ -1,3 +1,7 @@
+---
+type: Reference
+---
+
 # How to write a practice exam
 
 For agents writing a practice exam into this vault, whether you run in kasten's

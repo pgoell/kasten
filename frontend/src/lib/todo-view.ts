@@ -154,7 +154,11 @@ export const VIEWS_NOTE = "99 Misc/01 Config/todo-views.md";
  * One view per family of term, so the note a reader opens to change teaches the
  * syntax they are about to write.
  */
-export const DEFAULT_VIEWS = `# Todo views
+export const DEFAULT_VIEWS = `---
+type: Reference
+---
+
+# Todo views
 
 - today: due:today
 - doing: /doing
