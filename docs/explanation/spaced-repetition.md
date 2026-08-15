@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Spaced repetition
-description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, and why the review has two front ends.
+description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, and why the review has two front ends.
 resource: frontend/src/lib/srs.ts
 tags: [design, vault, review, flashcards]
 status: stable
@@ -72,6 +72,14 @@ problem the parser could not solve alone. `::` is a common thing to type, so
 reading every `::` in the vault as a card would fill the queue with C++ and
 YAML. The scan is deliberately loose and the tag is what makes it safe: a card
 in no deck at all is no card, whatever is written in it.
+
+The nesting is read rather than decorative. `#flashcards/databases/postgres` is
+one deck under another, and a card in the child counts in the parent too, so
+`databases` asks everything below it and `databases/postgres` asks the narrow
+thing. A tag is a path everywhere else in the vault and taking it as a flat
+string here would have been the one place it was not, which is the mistake the
+overview made while it drew `databases/postgres` as a row of its own beside no
+parent at all.
 
 ## A deck is not a note
 

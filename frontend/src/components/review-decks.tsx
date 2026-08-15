@@ -4,6 +4,16 @@ import { fetchCards, importAnki } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { type Deck, decksFrom } from "@/lib/review";
 
+/** How far under another deck this one sits, `databases/postgres` being one. */
+function depthOf(name: string): number {
+  return name.split("/").length - 1;
+}
+
+/** What the row calls it: the last part of the path, the rest being the rows above. */
+function leafOf(name: string): string {
+  return name.slice(name.lastIndexOf("/") + 1);
+}
+
 interface ReviewDecksProps {
   /** Start a sitting on this deck. */
   onPick: (deck: Deck) => void;
@@ -101,9 +111,14 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
                 onClick={() => onPick(deck)}
                 disabled={deck.due + deck.fresh === 0}
                 data-deck={deck.name}
+                // A deck under another is drawn indented and by its last part,
+                // the way the contents of a book are: `decksFrom` names every
+                // deck above one it finds, so the row it belongs under is
+                // always there and the full path would only repeat it.
+                style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
                 className="flex min-h-11 w-full items-center gap-3 rounded border border-one-line px-3 py-2 text-left hover:border-one-accent disabled:opacity-50"
               >
-                <span className="min-w-0 flex-1 truncate text-[13px]">{deck.name}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px]">{leafOf(deck.name)}</span>
                 <span className="text-[12px] text-one-accent">{deck.due} due</span>
                 <span className="text-[12px] text-one-muted">{deck.fresh} new</span>
               </button>

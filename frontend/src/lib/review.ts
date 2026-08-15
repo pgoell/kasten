@@ -19,7 +19,7 @@
  */
 
 import type { SearchHit } from "@/lib/api";
-import { cardTags, deckName, deckTags } from "@/lib/deck-tag";
+import { cardTags, deckName, deckPath, deckTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 
 /** One deck as the overview draws it. */
@@ -180,7 +180,10 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
     }
 
     for (const card of asked) {
-      for (const deck of card.decks) {
+      // Every deck above the one named counts the card too, and the Set is what
+      // keeps a card tagged `databases` and `databases/postgres` counted once
+      // in the parent rather than twice.
+      for (const deck of new Set(card.decks.flatMap(deckPath))) {
         bump(deck, {
           name: deck,
           notes: [note],
