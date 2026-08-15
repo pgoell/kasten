@@ -13,7 +13,7 @@ import { Facet } from "@codemirror/state";
 export const ONTOLOGY_NOTE = "99 Misc/01 Config/01 Agents/Ontology.md";
 
 /** A section of the note. Only `Relations` is read; the types are offered nowhere. */
-const SECTION = /^## +(.+?) *$/;
+const SECTION = /^## +(.+?)[ \t\r]*$/;
 
 /** One entry: a list item at the left margin, the name, then a colon and the gloss. */
 const ENTRY = /^- ([^:]+):/;
@@ -28,6 +28,10 @@ const ENTRY = /^- ([^:]+):/;
  * The heading is tracked, or the six type names would be offered as relations.
  * A second `## ` heading of any name ends the section, which is what stops the
  * types being read when they are written under the relations rather than over.
+ *
+ * A trailing `\r` is allowed on the heading. The backfill keeps the line endings
+ * it finds, so a note edited on Windows stays that way, and the section would
+ * otherwise end before it began.
  */
 export function relationNames(text: string): string[] {
   const names: string[] = [];
@@ -77,7 +81,11 @@ const TYPED = /^ {0,3}(?:- )?([a-z-]*)$/;
  */
 export function relationCompletions(context: CompletionContext): CompletionResult | null {
   const relations = context.state.facet(vaultRelations);
-  if (relations === null) return null;
+  // An empty vocabulary answers nothing rather than an empty result. CodeMirror
+  // promotes any result it is handed to an active one and reuses it while
+  // `validFor` holds, so a source that answered while the note was still in
+  // flight would go on offering nothing for the rest of the word.
+  if (relations === null || relations.length === 0) return null;
 
   const line = context.state.doc.lineAt(context.pos);
   const typed = TYPED.exec(line.text.slice(0, context.pos - line.from));

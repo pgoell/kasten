@@ -180,7 +180,12 @@ function Home() {
     enabled: data?.includes(ONTOLOGY_NOTE) === true,
     retry: false,
   });
-  const relations = useMemo(() => relationNames(ontology ?? ""), [ontology]);
+  // Undefined until the note is in hand, so a view that has not been told
+  // anything is told nothing rather than told the vault names no relations.
+  const relations = useMemo(
+    () => (ontology === undefined ? undefined : relationNames(ontology)),
+    [ontology],
+  );
   /**
    * Whether the archive is in what the four lookups answer with.
    *

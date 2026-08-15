@@ -52,6 +52,15 @@ describe("relationNames", () => {
     expect(relationNames(half)).toEqual(["cites"]);
   });
 
+  it("reads a note written with windows line endings", () => {
+    // The backfill keeps the endings it finds, so a note edited on Windows
+    // stays that way, and a heading with a `\r` on it would end the section
+    // before it started.
+    const windows = "## Relations\r\n\r\n- cites: quoted\r\n";
+
+    expect(relationNames(windows)).toEqual(["cites"]);
+  });
+
   it("stops at the next section", () => {
     const after = "## Relations\n\n- cites: quoted\n\n## Types\n\n- Note: a note\n";
 
@@ -111,5 +120,12 @@ describe("relationCompletions", () => {
 
   it("offers nothing to a view that was told no vocabulary", () => {
     expect(complete("dep")).toBeNull();
+  });
+
+  it("offers nothing when the vocabulary is empty", () => {
+    // Null rather than a result holding no options. CodeMirror caches an empty
+    // result and reuses it while `validFor` holds, so a source that answered
+    // before the note arrived would stay silent for the rest of the word.
+    expect(complete("dep", [])).toBeNull();
   });
 });

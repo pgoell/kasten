@@ -98,10 +98,11 @@ are listed in `99 Misc/01 Config/01 Agents/Ontology.md`. That is a note in the
 vault, not a config file and not a schema, and the difference is the whole
 design.
 
-Nothing validates a relation. An unknown name works: it is a relation, it draws
-as a label, and it groups in the backlinks panel under its own spelling. Writing
-`invented-yesterday:: [[Embeddings]]` is legal the moment you type it, and adding
-it to the vocabulary is one line in a note rather than a release.
+Nothing validates a relation. An unknown name works: nothing rejects it and
+nothing warns about it, so `invented-yesterday:: [[Embeddings]]` is as legal as
+any name on the list the moment you type it. What the list is for is the
+completion and the agent reading the vault, and adding to it is one line in a
+note rather than a release.
 
 That also means the ontology inspector already exists. It is that note, open in
 a pane, edited with the keys you edit every other note with.
