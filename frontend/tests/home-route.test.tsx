@@ -757,7 +757,7 @@ describe("the route", () => {
     vi.setSystemTime(new Date(2026, 7, 6, 9, 30));
     const path = "01 Periodic/00 Daily/2026-08-06.md";
     const body =
-      "\n# 2026-08-06 Thursday\n\n" +
+      "---\ntype: Periodic Note\n---\n\n# 2026-08-06 Thursday\n\n" +
       "[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] |" +
       " [[01 Periodic/00 Daily/2026-08-07]]\n" +
       // The one section a fresh note is made with. The add prompt writes here,
@@ -778,6 +778,34 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
     expect(app.text()).toContain("2026-08-06 Thursday");
   });
+
+  // Through the key rather than over `periodicNote`, because the fence has to
+  // be the file's first line: the backend reads a block only where the fence
+  // opens the text, so a caller prepending a newline would leave `type` sitting
+  // in the body as prose with the template's own test still green.
+  it.each([
+    ["daily", ["g", "d"], "01 Periodic/00 Daily/2026-08-06.md"],
+    ["weekly", ["g", "w"], "01 Periodic/01 Weekly/2026-W32.md"],
+    ["monthly", ["g", "m"], "01 Periodic/02 Monthly/2026-08.md"],
+    ["quarterly", ["g", "q"], "01 Periodic/03 Quarterly/2026-Q3.md"],
+    ["yearly", ["g", "y"], "01 Periodic/04 Yearly/2026.md"],
+  ] as [string, string[], string][])(
+    "opens the %s note with a block saying it is periodic",
+    async (_period, keys, path) => {
+      vi.setSystemTime(new Date(2026, 7, 6, 9, 30));
+      createNote.mockResolvedValue({ path, content: "" });
+
+      const app = await renderApp();
+      await settle();
+
+      app.leader(...keys);
+      await settle();
+
+      const [written, body] = createNote.mock.calls[0] as [string, string];
+      expect(written).toBe(path);
+      expect(body.split("\n").slice(0, 3)).toEqual(["---", "type: Periodic Note", "---"]);
+    },
+  );
 
   it("moves the open note into the trash and empties the pane", async () => {
     deleteNote.mockResolvedValue({

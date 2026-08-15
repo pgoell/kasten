@@ -130,8 +130,12 @@ export function periodicNote(period: Period, now: Date): { path: string; body: s
   // use it. `## Done` and `## Time` are made by the writes that fill them.
   const todos = period === "daily" ? "\n## TODOs\n" : "";
 
+  // The block and the blank line after it belong to the template rather than to
+  // the caller. The backend reads a block only where the fence is the first
+  // line, so a caller putting anything in front leaves `type` in the body as
+  // prose and the note with no type at all.
   return {
     path: `${FOLDER[period]}/${name(period, now)}.md`,
-    body: `# ${heading}\n\n${nav.join(" | ")}\n${todos}`,
+    body: `---\ntype: Periodic Note\n---\n\n# ${heading}\n\n${nav.join(" | ")}\n${todos}`,
   };
 }

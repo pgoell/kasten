@@ -1,11 +1,17 @@
-import { addSubtaskInVault, editTodoInVault } from "@/lib/todo-api";
+import { addSubtaskInVault, addTodoInVault, editTodoInVault } from "@/lib/todo-api";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
 // do: what this half owns is which notes it reads and what it sends back.
-const { fetchNote, saveNote } = vi.hoisted(() => ({ fetchNote: vi.fn(), saveNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote, saveNote }));
+const { createNote, fetchNote, saveNote } = vi.hoisted(() => ({
+  createNote: vi.fn(),
+  fetchNote: vi.fn(),
+  saveNote: vi.fn(),
+}));
+vi.mock("@/lib/api", () => ({ createNote, fetchNote, saveNote }));
 
 beforeEach(() => {
+  createNote.mockReset();
+  createNote.mockResolvedValue(undefined);
   fetchNote.mockReset();
   saveNote.mockReset();
   saveNote.mockResolvedValue(undefined);
@@ -68,5 +74,17 @@ describe("addSubtaskInVault", () => {
     await addSubtaskInVault(HIT, "ring the practice", "2026-08-10");
 
     expect(saveNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("addTodoInVault", () => {
+  it("makes today's note with a block saying it is periodic", async () => {
+    // The first todo of a day is the other way a daily note is made, and it
+    // has to write the same first line the leader key writes: a fence anywhere
+    // but the top is prose, and the note would carry no type at all.
+    await addTodoInVault("call the dentist", "2026-08-06", []);
+
+    const [, text] = createNote.mock.calls[0] as [string, string];
+    expect(text.split("\n").slice(0, 3)).toEqual(["---", "type: Periodic Note", "---"]);
   });
 });

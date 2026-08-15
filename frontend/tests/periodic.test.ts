@@ -14,9 +14,9 @@ function nav(body: string): string {
   return body.split("\n").find((line) => line.startsWith("[[")) ?? "";
 }
 
-/** The heading, which is the first. */
+/** The heading, which is the first line under the frontmatter block. */
 function heading(body: string): string {
-  return body.split("\n")[0] ?? "";
+  return body.split("\n").find((line) => line.startsWith("# ")) ?? "";
 }
 
 describe("the daily note", () => {
@@ -25,6 +25,10 @@ describe("the daily note", () => {
 
   it("is named for the day", () => {
     expect(made.path).toBe(`${DAILY}/2026-08-06.md`);
+  });
+
+  it("opens with the block that says what it is", () => {
+    expect(made.body.startsWith("---\ntype: Periodic Note\n---\n\n")).toBe(true);
   });
 
   it("heads the note with the date and the weekday", () => {

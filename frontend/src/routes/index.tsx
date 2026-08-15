@@ -757,11 +757,10 @@ function Home() {
         return;
       }
 
-      // One write. The blank line is the create's rather than the body's: the
-      // text lands under a frontmatter block and wants a line between, and the
-      // body is written without one so that a reader of `periodic.ts` sees the
-      // heading first.
-      void createNote(path, body === "" ? "" : `\n${body}`).then(
+      // One write, and the body goes over as it stands. `periodic.ts` owns the
+      // block and the blank line after it, because the fence has to be the
+      // file's first line for the backend to read it as frontmatter at all.
+      void createNote(path, body).then(
         (made) => {
           // The vault's spelling and the vault's text, the way the prompt
           // seeds them, so the editor opens what was written rather than

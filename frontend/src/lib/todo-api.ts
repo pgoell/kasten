@@ -46,9 +46,10 @@ async function dailyNote(
   const daily = periodicNote("daily", new Date());
   const text =
     known[daily.path] ??
-    // The leading newline is the create's, the way `follow` writes one: the
-    // body lands under a frontmatter block and wants a line between.
-    (paths.includes(daily.path) ? await fetchNote(daily.path) : `\n${daily.body}`);
+    // The body goes over as it stands, the way `follow` sends one: `periodic.ts`
+    // opens it with the frontmatter block, and a line in front of that fence
+    // would leave the note untyped.
+    (paths.includes(daily.path) ? await fetchNote(daily.path) : daily.body);
   return { path: daily.path, text };
 }
 
