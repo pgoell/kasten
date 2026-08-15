@@ -106,6 +106,9 @@ function relationOf(text: string, viewing: string, paths: string[]): string | nu
   return relation.name;
 }
 
+/** React key for the untyped group. A relation name is `[a-z][a-z-]*`, so this is not one. */
+const UNTYPED_KEY = "\u0000";
+
 /** One heading and the ranked rows under it. A null name is the untyped group. */
 interface Group {
   name: string | null;
@@ -464,7 +467,12 @@ export function NoteSearch({
                 // The untyped links go under no heading, which is what says
                 // they say nothing, and it leaves search and todos drawing the
                 // list they drew before.
-                if (group.name === null) return <Fragment key="untyped">{drawn}</Fragment>;
+                // A name is unique among the groups, so it is the key. The
+                // untyped group takes one no name can spell: `untyped` is a legal
+                // relation name by rule 9, and a plain word here would collide
+                // with the group beside it, leaving React to remount one of the
+                // two instead of updating it.
+                if (group.name === null) return <Fragment key={UNTYPED_KEY}>{drawn}</Fragment>;
                 return (
                   // A group rather than a bare heading between the options: a
                   // listbox names a section this way, and text dropped between

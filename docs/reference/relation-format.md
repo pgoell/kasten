@@ -89,8 +89,10 @@ A name nothing has defined is a relation, and it groups under its own spelling.
 ## What the editor draws
 
 The `name::` in front is drawn as a label and the wikilink beside it is drawn
-the way a wikilink is drawn anywhere else. Nothing is hidden, so the line reads
-the same in normal mode and in insert mode, the way a tag does.
+the way a wikilink is drawn anywhere else. The label hides nothing, so the
+prefix reads the same in normal mode and in insert mode, the way a tag does.
+The wikilink keeps its own rule: the brackets are hidden until the cursor is
+inside them, exactly as on a line that is not a relation.
 
 ## How the backlinks panel groups
 

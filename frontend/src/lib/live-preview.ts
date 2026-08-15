@@ -741,7 +741,6 @@ function build(state: EditorState): Live {
       // Nothing is hidden and nothing stands in for the prefix, so the class
       // goes on the cursor's line too, the way `cm-tag` does.
       if (node.name === "WikiLink") {
-        const line = state.doc.lineAt(node.from);
         const relation = readRelation(line.text);
         if (relation !== null && line.from + line.text.indexOf("[[") === node.from) {
           // The pattern anchors the name near the head of the line, so the
