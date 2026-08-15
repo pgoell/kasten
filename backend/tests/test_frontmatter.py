@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from kasten_backend.frontmatter import stamp
+from kasten_backend.frontmatter import stamp, with_type
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
 LATER = datetime(2026, 8, 6, 13, 30, tzinfo=UTC)
@@ -130,3 +130,24 @@ def test_takes_the_type_from_the_note_on_disk() -> None:
 
     assert fields(stamped)["type"] == "Source"
     assert "type: Note" not in stamped
+
+
+def test_types_a_note_that_has_no_block_at_all() -> None:
+    typed = with_type("# borges\n")
+
+    assert typed == "---\ntype: Note\n---\n# borges\n"
+
+
+def test_types_a_note_without_disturbing_the_block_it_has() -> None:
+    typed = with_type("---\nid: x\n---\n# borges\n")
+
+    assert typed == "---\ntype: Note\nid: x\n---\n# borges\n"
+    assert typed.count("id: x") == 1
+
+
+def test_leaves_a_typed_note_byte_for_byte_alone() -> None:
+    # Not `stamp`, and this is the difference: `stamp` rewrites `modified`,
+    # which over a whole vault would date every note today.
+    content = "---\ntype: Source\n---\n"
+
+    assert with_type(content) == content

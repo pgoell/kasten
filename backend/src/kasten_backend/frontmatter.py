@@ -82,6 +82,21 @@ def _split(content: str) -> tuple[list[str], list[str]]:
     return lines[1:end], lines[end + 1 :]
 
 
+def with_type(content: str) -> str:
+    """`content` with `type: Note` written where its block has none, and nothing else changed.
+
+    Not `stamp`, and the difference is the point: `stamp` rewrites `modified`,
+    which over a whole vault would date every note today. It mints no id and no
+    creation date either, because a note written before kasten has a real
+    creation date and this is not it. Both arrive on the note's next save.
+    """
+    block, body = _split(content)
+    if _line("type", block) is not None:
+        return content
+
+    return "\n".join([FENCE, f"type: {DEFAULT_TYPE}", *block, FENCE, *body])
+
+
 def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> str:
     """`content` with its block written: an id, a creation date, a type and this moment.
 

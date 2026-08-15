@@ -6,10 +6,14 @@ and the bytes that arrive are the bytes on disk.
 """
 
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, call
+
+from kasten_backend.okf import BACKFILL_LABEL, backfill
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import pytest
     from httpx import AsyncClient
 
 
@@ -109,3 +113,107 @@ async def test_leaves_the_block_alone_on_a_rename_onto_a_reserved_name(
     await client.patch("/api/files/ideas.md", json={"path": "index.md"})
 
     assert (vault / "index.md").read_text(encoding="utf-8") == created
+
+
+def note(root: Path, relative: str, text: str) -> Path:
+    """Put `text` at `relative` under `root`, making the folders on the way."""
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+async def test_backfill_types_a_note_that_has_no_block(tmp_path: Path) -> None:
+    written = note(tmp_path, "borges.md", "# borges\n")
+
+    await backfill(tmp_path)
+
+    assert written.read_text(encoding="utf-8") == "---\ntype: Note\n---\n# borges\n"
+
+
+async def test_backfill_writes_the_type_and_nothing_else(tmp_path: Path) -> None:
+    # Never `modified`, which is why this cannot go through `PUT`: a pass over
+    # the vault through the save path would date every note today.
+    held = "---\nid: kept\nmodified: 2020-01-01T00:00:00+00:00\n---\n# borges\n"
+    written = note(tmp_path, "borges.md", held)
+
+    await backfill(tmp_path)
+
+    after = written.read_text(encoding="utf-8")
+    assert "\nmodified: 2020-01-01T00:00:00+00:00\n" in after
+    assert "\ntype: Note\n" in after
+    assert "\nid: kept\n" in after
+
+
+async def test_backfill_leaves_the_reserved_names_alone(tmp_path: Path) -> None:
+    root = note(tmp_path, "index.md", "# The vault\n")
+    log = note(tmp_path, "log.md", "# Log\n")
+    nested = note(tmp_path, "folder/index.md", "# Folder\n")
+
+    changed = await backfill(tmp_path)
+
+    assert changed == []
+    assert root.read_text(encoding="utf-8") == "# The vault\n"
+    assert log.read_text(encoding="utf-8") == "# Log\n"
+    assert nested.read_text(encoding="utf-8") == "# Folder\n"
+
+
+async def test_backfill_does_not_walk_into_a_dot_directory(tmp_path: Path) -> None:
+    # `.trash` and the jj repo beside the notes are both hidden, and the walk
+    # this reads the vault with skips a hidden directory without entering it.
+    binned = note(tmp_path, ".trash/borges.md", "# borges\n")
+
+    await backfill(tmp_path)
+
+    assert binned.read_text(encoding="utf-8") == "# borges\n"
+
+
+async def test_backfill_changes_nothing_the_second_time(tmp_path: Path) -> None:
+    written = note(tmp_path, "borges.md", "# borges\n")
+    await backfill(tmp_path)
+    once = written.read_text(encoding="utf-8")
+
+    changed = await backfill(tmp_path)
+
+    assert changed == []
+    assert written.read_text(encoding="utf-8") == once
+
+
+async def test_backfill_returns_what_it_changed_in_sorted_order(tmp_path: Path) -> None:
+    note(tmp_path, "reading/borges.md", "# borges\n")
+    note(tmp_path, "aleph.md", "# aleph\n")
+    note(tmp_path, "00 Inbox/zahir.md", "# zahir\n")
+    note(tmp_path, "typed.md", "---\ntype: Source\n---\n")
+
+    assert await backfill(tmp_path) == ["00 Inbox/zahir.md", "aleph.md", "reading/borges.md"]
+
+
+async def test_backfill_records_one_change_for_the_whole_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # One change for the pass rather than one per note. A vault of a thousand
+    # untyped notes is one line in `jj log`, not a thousand.
+    begin = AsyncMock()
+    end = AsyncMock()
+    monkeypatch.setattr("kasten_backend.okf.begin_change", begin)
+    monkeypatch.setattr("kasten_backend.okf.snapshot", end)
+    for name in ("a.md", "b.md", "c.md"):
+        note(tmp_path, name, "# note\n")
+
+    await backfill(tmp_path)
+
+    assert begin.await_args_list == [call(tmp_path, BACKFILL_LABEL)]
+    assert end.await_count == 1
+
+
+async def test_backfill_touches_jj_not_at_all_when_it_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A boot on an unchanged vault leaves no empty change behind, which is why
+    # every rewrite is worked out before anything is written.
+    begin = AsyncMock()
+    monkeypatch.setattr("kasten_backend.okf.begin_change", begin)
+    note(tmp_path, "typed.md", "---\ntype: Source\n---\n")
+
+    assert await backfill(tmp_path) == []
+    assert begin.await_count == 0
