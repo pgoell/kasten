@@ -11,7 +11,13 @@ from unittest.mock import AsyncMock, call
 from asgi_lifespan import LifespanManager
 
 from kasten_backend.main import app
-from kasten_backend.okf import BACKFILL_LABEL, ONTOLOGY_PATH, READER_PATH, backfill
+from kasten_backend.okf import (
+    BACKFILL_LABEL,
+    INDEX_GUIDE_PATH,
+    ONTOLOGY_PATH,
+    READER_PATH,
+    backfill,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -300,3 +306,36 @@ async def test_startup_keeps_the_ontology_note_the_vault_already_has(startup_vau
         pass
 
     assert (startup_vault / ONTOLOGY_PATH).read_text(encoding="utf-8") == kept
+
+
+async def test_startup_writes_the_index_guide(startup_vault: Path) -> None:
+    async with LifespanManager(app):
+        pass
+
+    text = (startup_vault / INDEX_GUIDE_PATH).read_text(encoding="utf-8")
+
+    assert "\ntype: Reference\n" in text
+    # Both reserved names, because an agent that knows one needs the other.
+    assert "index.md" in text
+    assert "log.md" in text
+    # The listing shape itself, which is the whole reason the note exists.
+    assert "](" in text
+
+
+async def test_startup_keeps_the_index_guide_the_vault_already_has(startup_vault: Path) -> None:
+    kept = "---\ntype: Reference\n---\nmine\n"
+    note(startup_vault, INDEX_GUIDE_PATH, kept)
+
+    async with LifespanManager(app):
+        pass
+
+    assert (startup_vault / INDEX_GUIDE_PATH).read_text(encoding="utf-8") == kept
+
+
+async def test_the_index_guide_is_not_stamped_into_a_reserved_name(startup_vault: Path) -> None:
+    # It is a note about the reserved files, not one of them, so it carries the
+    # block every other note carries.
+    async with LifespanManager(app):
+        pass
+
+    assert "\nid: " in (startup_vault / INDEX_GUIDE_PATH).read_text(encoding="utf-8")
