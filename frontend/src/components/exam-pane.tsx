@@ -14,6 +14,19 @@ import {
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
 
+/**
+ * How long a timer runs when no number was typed before `t`.
+ *
+ * 120 minutes, which is what all four of the vault's Claude practice exams
+ * tell you to give yourself, and what the live exams allow.
+ */
+const DEFAULT_MINUTES = 120;
+
+/** Seconds as `m:ss`. Minutes past 59 stay minutes, so two hours reads 120:00. */
+function countdown(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 interface ExamPaneProps {
   /** The note holding the exam. The pane reads it and never writes to it. */
   note: string;
@@ -51,6 +64,12 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
   const [failed, setFailed] = useState<string | null>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
+  /** When the timer runs out, as a clock reading, or null while none is set. */
+  const [deadline, setDeadline] = useState<number | null>(null);
+  /** How long the timer has left, in seconds. It stops where the sitting stops. */
+  const [left, setLeft] = useState(0);
+  /** The digits typed before `t`, the way vim counts a motion. */
+  const [count, setCount] = useState("");
   const panel = useRef<HTMLElement>(null);
   /** Set as the result note goes out, so a second `g` does not write a second one. */
   const writing = useRef(false);
@@ -155,6 +174,17 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       return;
     }
 
+    // A count for `t`, the way vim counts a motion: `90t` is a 90 minute timer.
+    // The letters a question is answered with stop at J, so a digit is free.
+    if (key >= "0" && key <= "9") {
+      setCount((previous) => previous + key);
+      event.preventDefault();
+      return;
+    }
+    // Any other key ends the count, so a number typed and then abandoned does
+    // not set the length of a timer started ten questions later.
+    setCount("");
+
     // Once the sitting is graded the only questions left are where to go, so
     // the answering keys are out of the way and Enter opens what was written.
     if (graded !== null) {
@@ -196,6 +226,13 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       case "r":
         setShown((previous) => !previous);
         break;
+      // `t` for timer. Pressed while one runs it takes it away, which is the
+      // way out of a length typed wrong.
+      case "t":
+        setDeadline((previous) =>
+          previous === null ? Date.now() + (Number(count) || DEFAULT_MINUTES) * 60_000 : null,
+        );
+        break;
       case "g":
         void finish(exam);
         break;
@@ -207,6 +244,29 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     }
     event.preventDefault();
   }
+
+  // The countdown, which runs only while a timer is set and the sitting is
+  // open. Counted off an absolute deadline rather than by subtracting a second
+  // per tick, so a tab the browser throttled in the background comes back with
+  // the right time left rather than with the seconds it was denied.
+  //
+  // `finish` changes with every answer, so this resubscribes often. Harmless:
+  // the deadline is the state, the interval is only what reads it.
+  useEffect(() => {
+    if (deadline === null || exam === null || graded !== null) return;
+
+    const tick = () => {
+      const seconds = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setLeft(seconds);
+      // Time is up, so the sitting is graded where it stands, which is what a
+      // real exam does with the questions you never reached.
+      if (seconds === 0) void finish(exam);
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [deadline, exam, graded, finish]);
 
   // A freshly split pane is created focused and its first render is the only
   // chance it gets to say so. An unfocused pane is handed 0 and stays put.
@@ -234,6 +294,14 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
         <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg">
           {exam?.title ?? note}
         </span>
+        {deadline !== null && (
+          <span
+            data-testid="exam-timer"
+            className={`text-[13px] tabular-nums ${left === 0 ? "text-one-accent" : "text-one-muted"}`}
+          >
+            {countdown(left)}
+          </span>
+        )}
         {exam !== null && graded === null && (
           <span className={LABEL}>
             {at + 1}/{exam.questions.length}
@@ -324,9 +392,9 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
           ? "Enter open the result · q close"
           : exam === null
             ? "q close"
-            : `${done} answered · ${LETTERS.slice(0, question?.options.length ?? 4)} pick · h l move · r reveal · g finish · q close${
-                exam.skipped > 0 ? ` · ${exam.skipped} not askable` : ""
-              }`}
+            : `${done} answered · ${LETTERS.slice(0, question?.options.length ?? 4)} pick · h l move · r reveal · ${
+                count === "" ? "t timer" : `${count}m timer on t`
+              } · g finish · q close${exam.skipped > 0 ? ` · ${exam.skipped} not askable` : ""}`}
       </footer>
     </section>
   );
