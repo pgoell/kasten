@@ -5,6 +5,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/clock";
 import { imageSource } from "@/lib/image";
+import { readRelation } from "@/lib/relation";
 import { type Align, alignsOf, isRow } from "@/lib/table";
 import { parseTodo } from "@/lib/todo";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
@@ -728,6 +729,28 @@ function build(state: EditorState): Live {
         hide(open.from, open.to);
         hide(close.from, node.to);
         return;
+      }
+
+      // The name in front of a relation, hung off the wikilink rather than a
+      // second pass over the document: every relation has one by its own
+      // grammar, the walk already enters it, and no line is read twice. The
+      // `indexOf` is what makes this the relation's own target rather than a
+      // second wikilink further along the line, and it is sound because a line
+      // carrying a `[[` before the separator is not a relation at all.
+      //
+      // Nothing is hidden and nothing stands in for the prefix, so the class
+      // goes on the cursor's line too, the way `cm-tag` does.
+      if (node.name === "WikiLink") {
+        const line = state.doc.lineAt(node.from);
+        const relation = readRelation(line.text);
+        if (relation !== null && line.from + line.text.indexOf("[[") === node.from) {
+          // The pattern anchors the name near the head of the line, so the
+          // first spelling of it is the one in front. Two for the `::`.
+          const at = line.from + line.text.indexOf(relation.name);
+          decorations.push(
+            Decoration.mark({ class: "cm-relation" }).range(at, at + relation.name.length + 2),
+          );
+        }
       }
 
       if (!inline) return;
