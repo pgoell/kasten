@@ -44,7 +44,7 @@ import { clipPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
-import { setField } from "@/lib/note-frontmatter";
+import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookPath, importedNote, noteName } from "@/lib/note-path";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -601,7 +601,20 @@ function Home() {
   );
 
   const { moved, flush, cancel } = useBookmark((note, cfi) =>
-    writePosition(note, (text) => setField(text, "reading", cfi)),
+    writePosition(note, (text) => {
+      // The one writer of `type: Book`, and it rides the position write rather
+      // than the upload for two reasons. A refused write comes round again on
+      // the next page you turn, where a one-shot write at upload is dropped for
+      // good; and a book dropped into the vault from the shell pane passes
+      // through no upload at all while it does get read.
+      //
+      // Over `Note` or over nothing, and over nothing else: a type the reader
+      // put there by hand is theirs, and turning a page is not an argument
+      // with it.
+      const held = readField(text, "type");
+      const typed = held === undefined || held === "Note" ? setField(text, "type", "Book") : text;
+      return setField(typed, "reading", cfi);
+    }),
   );
 
   /**

@@ -1227,6 +1227,9 @@ describe("a reader when the vault moves under it", () => {
   /** What the pane reports, and what the note ends up carrying. */
   const PLACE = "epubcfi(/6/4!/4/4/1:0)";
 
+  /** A second place, for the cases needing two accepted moves in one reading. */
+  const ELSEWHERE = "epubcfi(/6/8!/4/2/1:0)";
+
   /** How long the bookmark waits for quiet. */
   const WAIT = 60_000;
 
@@ -1452,6 +1455,104 @@ describe("a reader when the vault moves under it", () => {
       await settle();
 
       expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`reading: ${PLACE}`));
+    });
+
+    /** The note as the vault holds it, with the block the case is about. */
+    function held(...block: string[]): string {
+      return [...(block.length === 0 ? [] : ["---", ...block, "---"]), "# DDIA"].join("\n");
+    }
+
+    /** The text of the first write, or nothing where nothing was written. */
+    function written(): string {
+      return (saveNote.mock.calls[0]?.[1] as string | undefined) ?? "";
+    }
+
+    /** Every `type` line the write carried, which is how a second one is caught. */
+    function types(): string[] {
+      return written()
+        .split("\n")
+        .filter((line) => line.startsWith("type:"));
+    }
+
+    it("types a note Book on the first page you turn to", async () => {
+      fetchNote.mockResolvedValue(held("id: one", "type: Note"));
+      await reading();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(types()).toEqual(["type: Book"]);
+      expect(written()).toContain(`reading: ${PLACE}`);
+    });
+
+    it("types a note that carries no block at all", async () => {
+      // The block is minted by the write, the way `reading:` is minted into
+      // one: a book dropped in from the shell pane has a note like this.
+      fetchNote.mockResolvedValue("# DDIA");
+      await reading();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(types()).toEqual(["type: Book"]);
+    });
+
+    it("writes nothing at all where the only move was the restore", async () => {
+      // The type rides an accepted position write, and the move that opens the
+      // book is not one. A book opened and never paged through is not typed.
+      await reading();
+
+      FakeView.cfis = ["the page it opened on"];
+      turn();
+      await waited();
+
+      expect(saveNote).not.toHaveBeenCalled();
+    });
+
+    it("leaves a note already saying Book with the one line it had", async () => {
+      fetchNote.mockResolvedValue(held("id: one", "type: Book"));
+      await reading();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(types()).toEqual(["type: Book"]);
+    });
+
+    it("keeps a type the reader typed, and bookmarks the page all the same", async () => {
+      // `Book` goes over `Note` or over nothing and over nothing else. A note
+      // typed by hand keeps what was typed, and reading it does not argue.
+      fetchNote.mockResolvedValue(held("id: one", "type: Source"));
+      await reading();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(types()).toEqual(["type: Source"]);
+      expect(written()).toContain(`reading: ${PLACE}`);
+    });
+
+    it("types the note on the write after the focus has left it", async () => {
+      // The whole reason the type rides the position write and not the upload:
+      // a refused write comes round again, and a one-shot write at upload would
+      // be dropped for good.
+      const app = await reading();
+      app.leader("o");
+      await settle();
+
+      FakeView.cfis = ["the page it opened on", PLACE, ELSEWHERE];
+      turn();
+      turn();
+      await waited();
+      expect(saveNote).not.toHaveBeenCalled();
+
+      app.leader("o");
+      await settle();
+      turn();
+      await waited();
+
+      expect(types()).toEqual(["type: Book"]);
+      expect(written()).toContain(`reading: ${ELSEWHERE}`);
     });
   });
 
