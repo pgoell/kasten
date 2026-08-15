@@ -33,11 +33,20 @@ A note rather than a config file, so nothing validates a relation and an unknown
 name works. The editor's completion reads this, and so does anyone with `cat`.
 """
 
+INDEX_GUIDE_PATH = "99 Misc/01 Config/01 Agents/How-To-Index.md"
+"""Where the shape of the two reserved files is written down, for whoever writes one.
+
+Beside the format guides, because that is what it is. `reading-this-vault.md`
+says these two carry no block, which is what a reader needs; this says what to
+put in one, which is what a writer needs, and every agent in this vault is both.
+"""
+
 STARTUP_NOTES = {
     READER_PATH: (Path(__file__).parent / "reading-this-vault.md").read_text(encoding="utf-8"),
     ONTOLOGY_PATH: (Path(__file__).parent / "ontology.md").read_text(encoding="utf-8"),
+    INDEX_GUIDE_PATH: (Path(__file__).parent / "how-to-index.md").read_text(encoding="utf-8"),
 }
-"""The notes the bundle cannot be read without, and the text each one arrives as.
+"""The notes the bundle cannot be read or written without, and the text each arrives as.
 
 Read off the package the way the guides are. Markdown in a Python string is
 markdown nobody can read in a diff.

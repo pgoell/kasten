@@ -68,6 +68,12 @@ practice:
   deleting the block would delete an id and a creation date the note owns, and
   the body has to become a listing or a log either way.
 
+What goes *in* one of those files is not kasten's business, so it is not stated
+here. It is stated in the vault, at
+`99 Misc/01 Config/01 Agents/How-To-Index.md`, which the backend writes into a
+vault that does not hold it: the readers are agents working in the vault rather
+than people reading this repository.
+
 ## Every other field is yours
 
 Anything else in the block is copied through a save unread, in the order it was

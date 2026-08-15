@@ -91,6 +91,14 @@ two are nameable one way. That is correct rather than unfortunate: a listing is
 about where things are, so a name that survives a move would be naming the wrong
 thing.
 
+Knowing a file carries no block is what a reader needs. What to put in one is
+what a writer needs, and every agent in this vault is both, so the shape of the
+two is written down in the vault as well, at
+`99 Misc/01 Config/01 Agents/How-To-Index.md`. It sits beside the todo and exam
+guides because it is the same kind of thing: a format an agent is expected to
+write, stated where the agent will look for it. It also carries the half kasten
+cannot automate, which is the conversion below.
+
 ## Why the vocabulary is a note
 
 The types a note may carry, and the relation names a note writes between notes,
@@ -136,6 +144,9 @@ Conforming, today:
   vault that does not hold it. A bundle whose links only resolve inside the app
   that wrote them is not a bundle anybody else can read, and that note is what
   makes the wikilinks readable from outside.
+* The shape of a reserved file is written down too, in
+  `99 Misc/01 Config/01 Agents/How-To-Index.md`, so an agent asked for a folder
+  index writes a listing rather than a note that happens to be called one.
 
 Not conforming, and left that way on purpose: a note renamed onto `index.md` or
 `log.md`. It keeps the block it had, and the bundle stops conforming until
