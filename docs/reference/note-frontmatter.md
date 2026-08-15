@@ -102,6 +102,37 @@ The block is not parsed as YAML. Four keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from
 reordering keys, requoting strings or dropping comments.
 
+## What a note says it is
+
+`type` says what kind of thing a note is. Every note kasten writes for you
+carries it in the block it arrives with, and nothing rewrites the field
+afterwards.
+
+| What wrote the note | `type` |
+| --- | --- |
+| A periodic note, at any of the five grains | `Periodic Note` |
+| [A clipped web page](/reference/editor-keys.md#importing-a-web-page) | `Source` |
+| The saved todo views note | `Reference` |
+| `How-To-TODO.md` and `How-To-Exam.md`, the two format guides | `Reference` |
+| A note with a book beside it | `Book` |
+
+One type for all five periodic notes rather than five. `01 Periodic/00 Daily/`
+already says which grain the note is, and `Daily Note` beside that folder is the
+same fact written twice. The block is the first thing in the template, ahead of
+the heading, because a block that does not open the file is prose and the note
+would carry no type at all.
+
+The book note is the one nothing writes at the moment the note is made. An
+upload goes to the sidecar path of the note you are already in, and a book
+dropped into the vault from a terminal pane passes through no upload, so
+`type: Book` rides the write that keeps your place instead. It lands on the
+first page you turn to rather than on the upload: a book you open and never page
+through leaves its note untyped until you do, and a write refused because you
+are typing in that note comes round again on the next page.
+
+It goes in over `Note` or over nothing, and over nothing else. A note you typed
+`Source` or `Concept` into keeps what you typed, through every page turn after.
+
 ## When the block is written
 
 * [`POST /api/files/{path}`](/reference/http-api.md#post-apifilespath) starts a
