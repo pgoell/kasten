@@ -66,3 +66,46 @@ async def test_writes_no_id_into_a_nested_index(client: AsyncClient, vault: Path
     await client.post("/api/files/notes/index.md", json={"content": "# Notes\n"})
 
     assert "id:" not in (vault / "notes" / "index.md").read_text(encoding="utf-8")
+
+
+async def test_stamps_a_note_renamed_off_a_reserved_name(client: AsyncClient, vault: Path) -> None:
+    # The file was exempt because of what it was called. Rename it and it is a
+    # note like any other, so it gets the block a note has.
+    await client.post("/api/files/index.md", json={"content": "# Was the index\n"})
+
+    response = await client.patch("/api/files/index.md", json={"path": "ideas.md"})
+
+    written = (vault / "ideas.md").read_text(encoding="utf-8")
+    assert response.json()["content"] == written
+    assert written.startswith("---\n")
+    assert "\nid: " in written
+    assert "\ncreated: " in written
+    assert "\nmodified: " in written
+    assert "\ntype: Note\n" in written
+
+
+async def test_keeps_the_okf_version_a_renamed_index_carried(
+    client: AsyncClient, vault: Path
+) -> None:
+    body = '---\nokf_version: "0.2"\n---\n\n# Was the index\n'
+    await client.post("/api/files/index.md", json={"content": body})
+
+    await client.patch("/api/files/index.md", json={"path": "ideas.md"})
+
+    written = (vault / "ideas.md").read_text(encoding="utf-8")
+    assert '\nokf_version: "0.2"\n' in written
+    assert "\nid: " in written
+
+
+async def test_leaves_the_block_alone_on_a_rename_onto_a_reserved_name(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The other direction is not handled and must not be. Deleting the block
+    # here would delete the note's id and its creation date, and kasten does not
+    # delete a field you own. The bundle stops conforming until the file is
+    # converted by hand, body and all.
+    created = (await client.post("/api/files/ideas.md")).json()["content"]
+
+    await client.patch("/api/files/ideas.md", json={"path": "index.md"})
+
+    assert (vault / "index.md").read_text(encoding="utf-8") == created

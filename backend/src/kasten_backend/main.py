@@ -895,6 +895,7 @@ async def move_file(
     if target.exists():
         raise HTTPException(status_code=409, detail="A note is already there")
 
+    source = relative_path(settings.vault_path, note)
     relative = relative_path(settings.vault_path, target)
 
     await begin_change(settings.vault_path, relative)
@@ -902,8 +903,16 @@ async def move_file(
     # the note is still where the links were written to find it. Inside the jj
     # bracket, because the rewritten links are part of the move rather than an
     # edit that happened to follow it.
-    await relink_note_move(settings.vault_path, relative_path(settings.vault_path, note), relative)
+    await relink_note_move(settings.vault_path, source, relative)
     rename_note(note, target)
+    # A file exempt from the block because of what it was called is a note again
+    # under any other name, so it is stamped where it lands. Inside the bracket,
+    # so the rewrite is part of the move. The other direction is not handled and
+    # must not be: a note renamed onto a reserved name keeps the block it had,
+    # because deleting it would delete an id and a creation date the note owns,
+    # and converting the body is a job for a person.
+    if reserved(source) and not reserved(relative):
+        write_note(target, stamp(target.read_text(encoding="utf-8")))
     # After the note and before the prune, so a folder the pair has both left
     # is one the prune can take.
     move_asset_beside(note, target)
