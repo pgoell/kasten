@@ -16,6 +16,8 @@ interface NoteEditorProps {
   images?: string[];
   /** Every tag in the vault, which the editor completes an open `#` against. */
   tags?: string[];
+  /** Every relation name the ontology note lists, which the editor completes. */
+  relations?: string[];
   /** Line to open on, which a search hit names and nothing else does. */
   startLine?: number;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
@@ -71,6 +73,7 @@ export const NoteEditor = memo(function NoteEditor({
   paths,
   images,
   tags,
+  relations,
   startLine,
   focusSignal,
   mark,
@@ -112,6 +115,7 @@ export const NoteEditor = memo(function NoteEditor({
       paths={paths}
       images={images}
       tags={tags}
+      relations={relations}
       startLine={startLine}
       focusSignal={focusSignal}
       mark={mark}

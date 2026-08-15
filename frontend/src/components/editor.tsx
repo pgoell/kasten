@@ -21,6 +21,7 @@ import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/i
 import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
+import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { moveCell } from "@/lib/table";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
@@ -218,7 +219,7 @@ const preview = new Compartment();
 const vault = new Compartment();
 
 /**
- * The three listings the vault carries, in the shape the compartment holds them.
+ * The four listings the vault carries, in the shape the compartment holds them.
  *
  * One compartment for all of them, and therefore one place that spells this out.
  * Any of them absent is not an empty vault: it is a view that was told nothing,
@@ -228,11 +229,13 @@ function listings(
   paths: string[] | undefined,
   images: string[] | undefined,
   tags: string[] | undefined,
+  relations: string[] | undefined,
 ): Extension[] {
   return [
     ...(paths ? [vaultPaths.of(paths)] : []),
     ...(images ? [imagePaths.of(images)] : []),
     ...(tags ? [vaultTags.of(tags)] : []),
+    ...(relations ? [vaultRelations.of(relations)] : []),
   ];
 }
 
@@ -370,6 +373,14 @@ interface EditorProps {
    */
   tags?: string[];
   /**
+   * Every relation name the vault's ontology note lists, for completing one.
+   *
+   * Its own list beside the other three, and absent offers nothing the way
+   * theirs does. Read off a note in the vault, so the vocabulary is edited by
+   * editing that note rather than by shipping a release.
+   */
+  relations?: string[];
+  /**
    * Line to open on, counting from one. Absent starts at the top.
    *
    * Not folded into `initialDoc`'s read-once rule: a second search hit can
@@ -457,6 +468,7 @@ export function Editor({
   paths,
   images,
   tags,
+  relations,
   startLine,
   focusSignal,
   mark,
@@ -481,6 +493,7 @@ export function Editor({
   const pathsRef = useRef(paths);
   const imagesRef = useRef(images);
   const tagsRef = useRef(tags);
+  const relationsRef = useRef(relations);
   const commandsRef = useRef(commands);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
@@ -626,6 +639,7 @@ export function Editor({
           markdownLanguage.data.of({ autocomplete: todoCompletions }),
           markdownLanguage.data.of({ autocomplete: imageCompletions }),
           markdownLanguage.data.of({ autocomplete: tagCompletions }),
+          markdownLanguage.data.of({ autocomplete: relationCompletions }),
           // The clipboard's image goes into the vault and the note gets the
           // path. Ahead of nothing in particular: CodeMirror's own paste is a
           // handler on the same event and runs when this one declines, which is
@@ -633,7 +647,9 @@ export function Editor({
           imagePaste(),
           noticeHandler.of((message) => onNoticeRef.current?.(message)),
           followOnClick,
-          vault.of(listings(pathsRef.current, imagesRef.current, tagsRef.current)),
+          vault.of(
+            listings(pathsRef.current, imagesRef.current, tagsRef.current, relationsRef.current),
+          ),
           preview.of(renderedRef.current ? livePreview() : []),
           oneDark,
           EditorView.lineWrapping,
@@ -765,14 +781,14 @@ export function Editor({
   }, [rendered]);
 
   // A note written elsewhere is a link in this note that has just come to life,
-  // so the listing goes in whenever the route hands over a new one. The images
-  // and the tags ride along in the same compartment: all three are the vault
-  // saying what it holds.
+  // so the listing goes in whenever the route hands over a new one. The images,
+  // the tags and the relation names ride along in the same compartment: all four
+  // are the vault saying what it holds.
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: vault.reconfigure(listings(paths, images, tags)),
+      effects: vault.reconfigure(listings(paths, images, tags, relations)),
     });
-  }, [paths, images, tags]);
+  }, [paths, images, tags, relations]);
 
   return <div ref={host} className="h-full overflow-auto" />;
 }

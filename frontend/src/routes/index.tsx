@@ -46,6 +46,7 @@ import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookPath, importedNote, noteName } from "@/lib/note-path";
+import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -166,6 +167,20 @@ function Home() {
   // filtered by the archive toggle: a tag written in an archived note is
   // still a tag, and spelling it the same way is the whole point.
   const { data: tags } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
+  // The vault's own vocabulary, for the completion a relation name is offered
+  // by. Gated on the listing above, the way the todo pane asks whether the
+  // vault holds its views note: no request for a vault that has none, and no
+  // `try` around a `GET` that would have to tell a missing note from a backend
+  // that is down. The key is the one the editor reads notes with, so the
+  // route's own event handler keeps it fresh and an edit to the vocabulary
+  // reaches the completion without a reload.
+  const { data: ontology } = useQuery({
+    queryKey: ["note", ONTOLOGY_NOTE],
+    queryFn: () => fetchNote(ONTOLOGY_NOTE),
+    enabled: data?.includes(ONTOLOGY_NOTE) === true,
+    retry: false,
+  });
+  const relations = useMemo(() => relationNames(ontology ?? ""), [ontology]);
   /**
    * Whether the archive is in what the four lookups answer with.
    *
@@ -1705,6 +1720,7 @@ function Home() {
                     paths={data}
                     images={images}
                     tags={tags}
+                    relations={relations}
                     startLine={shown.line}
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}
