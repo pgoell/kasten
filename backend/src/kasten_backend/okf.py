@@ -53,10 +53,18 @@ async def backfill(root: Path) -> list[str]:
             continue
 
         note = root / relative
-        held = note.read_text(encoding="utf-8")
+        # Read without translating the line endings, then put back the ones the
+        # note had. `read_text` turns every CRLF into an LF and `write_note`
+        # writes what it is handed, so a note written on Windows would come out
+        # of this pass with every one of its lines rewritten beside the one
+        # field it was here for.
+        raw = note.read_text(encoding="utf-8", newline="")
+        held = raw.replace("\r\n", "\n")
         typed = with_type(held)
-        if typed != held:
-            pending.append((note, typed, relative))
+        if typed == held:
+            continue
+
+        pending.append((note, typed.replace("\n", "\r\n") if "\r\n" in raw else typed, relative))
 
     if not pending:
         return []
@@ -94,5 +102,16 @@ if __name__ == "__main__":
     import asyncio
     import sys
 
-    for changed in asyncio.run(backfill(Path(sys.argv[1]))):
+    _, *given = sys.argv
+    if len(given) != 1:
+        sys.exit("usage: python -m kasten_backend.okf <vault>")
+
+    root = Path(given[0])
+    # A missing directory reads as an empty vault everywhere else, which is what
+    # lets a fresh checkout serve. Here it would mean a typo'd path printing
+    # nothing and exiting zero, which reads exactly like a pass with nothing to do.
+    if not root.is_dir():
+        sys.exit(f"No vault at {root}")
+
+    for changed in asyncio.run(backfill(root)):
         print(changed)

@@ -45,10 +45,12 @@ rule about paths.
 
 ## What that costs, and it is a real cost
 
-A note made by following a dangling link gets `Note`. The same note made by a
-periodic key gets `Periodic Note`. Which type a note ends up with therefore
-depends on how it was made, and two notes that are the same kind of thing can
-disagree because they arrived by different doors.
+A writer that knows what it is making says so in the text it hands over, and
+everything else gets the default. So the type a note ends up with is decided by
+the door it came in by, and two notes that are the same kind of thing can
+disagree because they were made in different ways. A note typed into an empty
+buffer and a note made by following a dangling link are both `Note`, whatever
+they turn out to hold.
 
 Living with that is the call. The alternative is a rule that reads a type off a
 path, and every such rule is wrong the first time a folder is renamed. A type

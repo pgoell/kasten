@@ -49,8 +49,8 @@ async def write_missing(root: Path, notes: dict[str, str]) -> None:
     and deleted another gets a change naming what actually came back.
 
     The text goes through `stamp`, which fills in what the block is missing and
-    leaves what it carries alone. A startup note that opens with its own `type`
-    keeps it, which is how the guides are `Reference` rather than `Note`.
+    leaves what it carries alone, so a startup note that opens with its own
+    `type` keeps it rather than being called a `Note`.
     """
     for path, text in notes.items():
         note = resolve_path(root, path)

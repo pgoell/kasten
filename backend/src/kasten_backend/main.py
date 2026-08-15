@@ -916,7 +916,12 @@ async def move_file(
     # because deleting it would delete an id and a creation date the note owns,
     # and converting the body is a job for a person.
     if reserved(source) and not reserved(relative):
-        write_note(target, stamp(target.read_text(encoding="utf-8")))
+        # Read without translating the line endings and put back the ones the
+        # file had, for the reason the backfill does it: a note is rewritten
+        # here, and only its block was asked for.
+        raw = target.read_text(encoding="utf-8", newline="")
+        stamped = stamp(raw.replace("\r\n", "\n"))
+        write_note(target, stamped.replace("\n", "\r\n") if "\r\n" in raw else stamped)
     # After the note and before the prune, so a folder the pair has both left
     # is one the prune can take.
     move_asset_beside(note, target)

@@ -252,3 +252,29 @@ async def test_startup_types_a_note_the_vault_already_held(startup_vault: Path) 
         pass
 
     assert "\ntype: Note\n" in untyped.read_text(encoding="utf-8")
+
+
+async def test_backfill_leaves_the_line_endings_it_found(tmp_path: Path) -> None:
+    # A note written on Windows keeps its line endings. Reading a file the plain
+    # way translates them, and `write_note` writes what it is handed, so the one
+    # field asked for would arrive with every line in the note rewritten beside it.
+    written = tmp_path / "borges.md"
+    written.write_text("# borges\r\n\r\nText.\r\n", encoding="utf-8", newline="")
+
+    await backfill(tmp_path)
+
+    assert written.read_text(encoding="utf-8", newline="") == (
+        "---\r\ntype: Note\r\n---\r\n# borges\r\n\r\nText.\r\n"
+    )
+
+
+async def test_stamping_a_renamed_index_leaves_its_line_endings(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "index.md").write_text("# Was the index\r\n", encoding="utf-8", newline="")
+
+    await client.patch("/api/files/index.md", json={"path": "ideas.md"})
+
+    written = (vault / "ideas.md").read_text(encoding="utf-8", newline="")
+    assert "\ntype: Note\r\n" in written
+    assert "\n" not in written.replace("\r\n", "")
