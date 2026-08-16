@@ -91,6 +91,23 @@ describe("ReviewPane on a nested deck", () => {
     expect(child).toHaveAttribute("data-deck", "databases/postgres");
     expect(child.style.paddingLeft).toBe("1.5rem");
   });
+
+  it("counts the card once in the header, not once per row above it", async () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue([
+      { path: "d.md", line: 1, text: "#flashcards/databases/postgres" },
+      { path: "d.md", line: 2, text: "a::b" },
+    ]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole("button", { name: /postgres/ });
+
+    expect(screen.getByText(/to go/).textContent).toBe("1 to go");
+  });
 });
 
 describe("ReviewPane leaving a sitting", () => {

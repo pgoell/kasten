@@ -40,7 +40,12 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
 
   const today = readClock(new Date()).date;
   const decks = hits === undefined ? [] : decksFrom(hits, today);
-  const waiting = decks.reduce((count, deck) => count + deck.due + deck.fresh, 0);
+  // Top-level rows only. A deck counts every card under it, so summing all of
+  // them would count a card in `databases/postgres` again for `databases`, and
+  // an imported Anki tree would read as twice the cards it holds.
+  const waiting = decks
+    .filter((deck) => depthOf(deck.name) === 0)
+    .reduce((count, deck) => count + deck.due + deck.fresh, 0);
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
