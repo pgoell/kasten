@@ -19,8 +19,8 @@
  */
 
 import type { SearchHit } from "@/lib/api";
-import { fences, SUSPEND_TOKEN, suspended } from "@/lib/card-line";
-import { cardTags, deckName, deckPath, deckTags } from "@/lib/deck-tag";
+import { type Divided, divide, fences, parks, suspended } from "@/lib/card-line";
+import { cardTags, deckName, deckPath, deckTags, withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 
 /** One deck as the overview draws it. */
@@ -66,9 +66,18 @@ const NOTE_DUE = /^sr-due:\s*(\d{4}-\d{2}-\d{2})/;
 /** The date out of a schedule comment, wherever on the line it sits. */
 const SCHEDULED = /<!--SR:!(\d{4}-\d{2}-\d{2}),/;
 
-/** Whether this line is a card, which is the `::` or the `?` and never the comment. */
-function isCard(text: string): boolean {
-  return text.includes("::") || divides(text);
+/**
+ * The two halves of a card written on one line, or null where the line is none.
+ *
+ * `divide` is the shared rule and this adds the one thing it leaves to its
+ * callers: a line opening with the divider is prose, not a card missing its
+ * question. `srs.ts:188` makes the same call on the same words, which is what
+ * stops the overview counting a line the sitting will never ask.
+ */
+function halvesOf(text: string): Divided | null {
+  const halves = divide(text);
+  if (halves === null || withoutTags(halves.front).trim() === "") return null;
+  return halves;
 }
 
 /** The `?` dividing a card written over several lines, whose front is above it. */
@@ -111,8 +120,9 @@ function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
   for (const [at, { line, text }] of lines.entries()) {
     if (fenced[at]) continue;
     const own = cardTags(text);
+    const halves = halvesOf(text);
 
-    if (isCard(text)) {
+    if (halves !== null || divides(text)) {
       const above = lines[at - 1];
       const opened =
         divides(text) && above !== undefined && above.line === line - 1
@@ -121,7 +131,10 @@ function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
       cards.push({
         tags: own ?? opened ?? [],
         due: SCHEDULED.exec(text)?.[1] ?? null,
-        parked: suspended(text),
+        // The token, or a question with no answer under it, which is parked by
+        // its shape alone. A `?` card carries neither here: its token sits on
+        // the line under its back and is read below.
+        parked: suspended(text) || halves?.back === "",
       });
       continue;
     }
@@ -130,12 +143,12 @@ function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
     // both. Either belongs to the card above, which is where the format puts
     // them and the one place this reader has to look back a line.
     const scheduled = SCHEDULED.exec(text)?.[1];
-    const parks = text.trimStart().startsWith(SUSPEND_TOKEN);
-    if (scheduled !== undefined || parks) {
+    const parked = parks(text);
+    if (scheduled !== undefined || parked) {
       const last = cards.at(-1);
       if (last !== undefined) {
         if (scheduled !== undefined && last.due === null) last.due = scheduled;
-        if (parks) last.parked = true;
+        if (parked) last.parked = true;
       }
       continue;
     }

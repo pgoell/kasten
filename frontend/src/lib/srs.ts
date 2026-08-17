@@ -29,7 +29,7 @@
  * the same thing off the matched lines alone.
  */
 
-import { fences, SUSPEND_TOKEN, suspended, withoutToken } from "@/lib/card-line";
+import { divide, fences, parks, SR, suspended } from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
 import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
@@ -93,13 +93,6 @@ export interface Card {
   parked: Parked | null;
 }
 
-/**
- * The comment holding a schedule. `!` is obsidian-spaced-repetition's and is
- * matched rather than assumed, so a comment written without one is left alone
- * instead of read as a card that has never been answered.
- */
-const SR = /<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
-
 /** What a card starts life at, which is SM-2's 2.5 and Anki's default. */
 const NEW_EASE = 250;
 
@@ -114,11 +107,6 @@ const LEAST_EASE = 130;
 
 /** A heading, which is a hash and a space and not any hash at all. */
 const HEADING = /^#{1,6}[ \t]/;
-
-/** A line that parks the card above it, which is where the token is written. */
-function parks(line: string | undefined): boolean {
-  return line !== undefined && line.trimStart().startsWith(SUSPEND_TOKEN);
-}
 
 /** A line that ends whatever card was being read: blank, a heading, tags or the token. */
 function breaks(line: string | undefined): boolean {
@@ -206,15 +194,11 @@ export function parseCards(text: string, note = ""): Card[] {
   }
 
   for (const [at, line] of lines.entries()) {
-    if (fenced[at] || taken[at] || !line.includes("::")) continue;
-    // The first `::` divides the card, so a back holding one of its own keeps it.
-    const divide = line.indexOf("::");
-    const front = line.slice(0, divide);
-    // The token goes before the comment on the line, so both come off the back
-    // and neither reaches the card on screen.
-    const written = line.slice(divide + 2).replace(SR, "");
-    const back = withoutToken(written);
-    if (front.trim() === "" || back.trim() === "") continue;
+    if (fenced[at] || taken[at]) continue;
+    const halves = divide(line);
+    // A line opening with the divider is prose, not a card missing its
+    // question. A card missing its answer is the other way round and is kept.
+    if (halves === null || withoutTags(halves.front).trim() === "") continue;
 
     const own = cardTags(line) ?? [];
     if (own.length > 0) claimed.add(at);
@@ -223,12 +207,14 @@ export function parseCards(text: string, note = ""): Card[] {
     cards.push({
       from: at,
       to: at,
-      front: withoutTags(front).trim(),
-      back: back.trim(),
+      front: withoutTags(halves.front).trim(),
+      back: halves.back,
       inline: true,
       decks: [],
       held: readSchedule(line),
-      parked: suspended(written) ? "suspended" : null,
+      // The token first: a card carrying it was parked on purpose, and a card
+      // parked on purpose before it was ever answered has both shapes at once.
+      parked: suspended(line) ? "suspended" : halves.back === "" ? "unanswered" : null,
     });
   }
 

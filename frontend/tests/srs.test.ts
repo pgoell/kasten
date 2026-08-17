@@ -173,6 +173,32 @@ Standard, Infrequent Access, Glacier
   });
 });
 
+describe("parseCards on a question with no answer", () => {
+  const STUB = `#flashcards/aws
+
+What is a VPC?::A private cloud
+
+What is a moved block?::
+`;
+
+  it("keeps it as a card rather than dropping it", () => {
+    expect(parseCards(STUB).map((card) => card.front)).toEqual([
+      "What is a VPC?",
+      "What is a moved block?",
+    ]);
+  });
+
+  it("parks it by its shape, with an empty back", () => {
+    const card = parseCards(STUB)[1];
+    expect(card?.parked).toBe("unanswered");
+    expect(card?.back).toBe("");
+  });
+
+  it("goes on reading a line opening with the divider as no card at all", () => {
+    expect(parseCards("#flashcards\n\n::an answer with no question\n")).toEqual([]);
+  });
+});
+
 describe("readSchedule", () => {
   it("reads the three numbers the comment holds", () => {
     expect(readSchedule("a::b <!--SR:!2026-08-20,4,270-->")).toEqual({

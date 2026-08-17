@@ -151,6 +151,11 @@ describe("decksFrom on a parked card", () => {
     const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "c::d !suspended"]), TODAY);
     expect(deck).toMatchObject({ fresh: 1, parked: 1 });
   });
+
+  it("counts a question with no answer as parked rather than new", () => {
+    const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "Question::"]), TODAY);
+    expect(deck).toMatchObject({ fresh: 1, parked: 1 });
+  });
 });
 
 describe("decksFrom on a note marked for review", () => {
