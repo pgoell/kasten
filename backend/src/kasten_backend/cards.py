@@ -8,7 +8,7 @@ The backend does not parse a card. It finds the candidate lines and hands them
 over whole, because the browser has to parse the format anyway to draw a card
 and two parsers in two languages drift. That division is what lets one endpoint
 answer both halves of the feature: a deck of cards and a whole note marked for
-review are different things to `srs.ts` and the same five patterns here.
+review are different things to `srs.ts` and the same six patterns here.
 """
 
 from typing import TYPE_CHECKING
@@ -57,15 +57,26 @@ because the reader on the other side has no other way to tell a card from a
 `std::vector`, the lines inside a block matching nothing that would reach it.
 """
 
-NOTE_LINE = r"#flashcards|#review|^sr-due:"
-"""What marks a note as a deck, and the due date of a note that is itself the card.
+PARKED_LINE = r"^[ \t]*!suspended"
+"""The token parking a card written over several lines.
 
-`#flashcards` and `#flashcards/aws` are both matched by the first branch, the
-deck name being the client's to read off the tag. `sr-due` is anchored because
-it is a frontmatter field, and an unanchored one would match the word in prose.
+Anchored, because `the account was !suspended for a week` is a sentence and not
+a card. A card written on one line needs no branch of its own: the token sits
+after the answer and the line already matches `CARD_LINE` on its `::`. This one
+is for the `?` form, whose token sits on the schedule's line, and for a `?` card
+parked before its first answer, whose line holds the token and no comment.
 """
 
-CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{FENCE_LINE}|{NOTE_LINE}"
+NOTE_LINE = r"#flashcards|#review|^sr-due:|^sr-suspended:"
+"""What marks a note as a deck, and the two fields of a note that is itself the card.
+
+`#flashcards` and `#flashcards/aws` are both matched by the first branch, the
+deck name being the client's to read off the tag. `sr-due` and `sr-suspended`
+are anchored because they are frontmatter fields, and unanchored ones would
+match the words in prose.
+"""
+
+CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{FENCE_LINE}|{PARKED_LINE}|{NOTE_LINE}"
 
 
 async def find_cards(root: Path, skip: str | None = None) -> list[Hit]:

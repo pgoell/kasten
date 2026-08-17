@@ -91,6 +91,53 @@ async def test_finds_a_note_marked_for_review(client: AsyncClient, vault: Path) 
     ]
 
 
+PARKED = """#flashcards/aws
+
+The three storage classes
+?
+Standard, Infrequent Access, Glacier
+!suspended <!--SR:!2026-08-20,4,270-->
+
+What is a VPC?
+?
+A private cloud
+!suspended
+"""
+
+
+async def test_finds_a_parked_line(client: AsyncClient, vault: Path) -> None:
+    write(vault, "decks/aws.md", PARKED)
+    # The word in prose, at the head of a line, which the anchor is there for.
+    write(vault, "notes/outage.md", "the account was !suspended for a week\n")
+
+    response = await client.get("/api/cards")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"path": "decks/aws.md", "line": 1, "text": "#flashcards/aws"},
+        {"path": "decks/aws.md", "line": 4, "text": "?"},
+        {
+            "path": "decks/aws.md",
+            "line": 6,
+            "text": "!suspended <!--SR:!2026-08-20,4,270-->",
+        },
+        {"path": "decks/aws.md", "line": 9, "text": "?"},
+        {"path": "decks/aws.md", "line": 11, "text": "!suspended"},
+    ]
+
+
+async def test_finds_a_suspended_note(client: AsyncClient, vault: Path) -> None:
+    write(vault, "notes/tls.md", "---\nsr-suspended: true\n---\n# TLS\n\n#review\n")
+
+    response = await client.get("/api/cards")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"path": "notes/tls.md", "line": 2, "text": "sr-suspended: true"},
+        {"path": "notes/tls.md", "line": 6, "text": "#review"},
+    ]
+
+
 async def test_leaves_prose_alone(client: AsyncClient, vault: Path) -> None:
     write(vault, "notes/prose.md", "# Title\n\nAn ordinary sentence, no card in it.\n")
 
