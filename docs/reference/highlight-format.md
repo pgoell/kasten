@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Highlight format
-description: The block a passage taken out of a book is written as, the quote rule and its character classes, the chapter line and its fallback, the anchor, and the rule that reads a highlight back.
+description: The block a passage taken out of a book is written as, the quote rule and its character classes, the figure line, the chapter line and its fallback, the anchor, and the rule that reads a highlight back.
 resource: frontend/src/lib/highlight.ts
 tags: [vault, reader, epub, format, frontend]
 status: stable
@@ -9,9 +9,9 @@ status: stable
 
 # Highlight format
 
-A highlight is three lines of a note. The lines are the whole record: nothing
-about a highlight is held anywhere else, so a vault read by Obsidian, by another
-editor or by `cat` carries every part of one.
+A highlight is three lines of a note, four where it carries a figure. The lines
+are the whole record: nothing about a highlight is held anywhere else, so a vault
+read by Obsidian, by another editor or by `cat` carries every part of one.
 
 ```markdown
 ## Highlights
@@ -66,6 +66,46 @@ book again.
 
 A paragraph that itself opens with `>` is written `> > x`. Nothing strips a
 caret the book's own words carried.
+
+## The figure
+
+A selection holding a picture writes one more line, above the quote, and the
+picture itself goes in the vault:
+
+```markdown
+## Highlights
+
+![](99%20Misc/02%20Assets/01%20Images/2026-08-17-ab12cd34.png)
+
+> Figure 4-3. A B-tree with three levels.
+
+Storage and Retrieval ^hl-a3f9c1
+```
+
+Above the quote because a book's caption sits under its figure, and the quote is
+usually that caption. A plain markdown image and not an embed: that is what the
+editor draws, and it is the same line a pasted screenshot writes.
+
+The file lands in `99 Misc/02 Assets/01 Images` under the name a paste gives one,
+today's date and eight hex digits, and the suffix comes off the media type the
+epub declared. One folder for every picture in the vault, so a figure and a
+screenshot are the same kind of thing to everything downstream. The path is
+`encodeURI`d, a space in `99 Misc` otherwise ending the destination.
+
+The bytes are the book's own. foliate rewrites every resource in a chapter to a
+`blob:` URL, so the reader fetches the file the epub shipped rather than
+re-encoding what fits on the page.
+
+**A selection with no words in it is a figure on its own**, which is what a drag
+over a plate gives: the image line is then the whole block, and the chapter line
+follows it. Nothing reads such a block back, the rule below wanting a quote, so
+it is a picture in a note and no more than that.
+
+The upload goes first and the block is written when it lands. A vault that
+refuses the file, an `.svg` plate being the case that happens, leaves the note
+as it was and says so in the status bar rather than writing a reference to
+nothing. The formats the vault takes are png, jpeg, gif and webp, listed in
+`ASSET_MAGIC` in `backend/src/kasten_backend/vault.py`.
 
 ## The chapter line
 
@@ -133,6 +173,10 @@ quote was written with. Both are the identity on anything the writer wrote.
 
 A run edited down to a lone `>` leaves no paragraph at all, and that is not a
 highlight either: an empty quote is a question the book should never be asked.
+A figure taken on its own is the same case for the same reason.
+
+An image line sits outside the run, `![](` not being `>`, so it neither joins the
+quote nor breaks the block above it.
 
 ## What the round trip does not recover
 

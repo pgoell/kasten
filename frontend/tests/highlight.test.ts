@@ -15,6 +15,10 @@ const SECOND = "A system that is reliable does what the user expects.";
 const CHAPTER = "Storage and Retrieval";
 const ID = "hl-a3f9c1";
 
+/** Where a figure taken out of the book lands, and how the note spells it. */
+const FIGURE = "99 Misc/02 Assets/01 Images/2026-08-17-ab12cd34.png";
+const ENCODED = "99%20Misc/02%20Assets/01%20Images/2026-08-17-ab12cd34.png";
+
 /** The one-based line holding `text`, which is how a case names a cursor. */
 function lineOf(note: string, text: string): number {
   return note.split("\n").findIndex((line) => line.includes(text)) + 1;
@@ -105,6 +109,20 @@ describe("addHighlight", () => {
   it("trims the ends of what was selected", () => {
     expect(addHighlight(NOTE, { text: `  ${QUOTE}\n\n`, chapter: CHAPTER }, ID)).toBe(
       quoted(`> ${QUOTE}`),
+    );
+  });
+
+  it("writes a figure above the quote it was taken with", () => {
+    expect(addHighlight(NOTE, { text: QUOTE, chapter: CHAPTER, image: FIGURE }, ID)).toBe(
+      quoted(`![](${ENCODED})`, "", `> ${QUOTE}`),
+    );
+  });
+
+  it("writes a figure taken with no words as the whole block", () => {
+    // What a drag over a plate gives: `selection.toString()` is empty and the
+    // picture is the passage.
+    expect(addHighlight(NOTE, { text: "", chapter: CHAPTER, image: FIGURE }, ID)).toBe(
+      quoted(`![](${ENCODED})`),
     );
   });
 

@@ -159,7 +159,7 @@ export function imageCompletions(context: CompletionContext): CompletionResult |
 }
 
 /**
- * The name a pasted image is filed under: today, eight hex digits, and the type.
+ * The name an image is filed under: today, eight hex digits, and the type.
  *
  * The clipboard hands over `image.png` for every image ever copied and the vault
  * overwrites nothing, so the name has to be one nothing else can claim. The date
@@ -168,8 +168,11 @@ export function imageCompletions(context: CompletionContext): CompletionResult |
  * The suffix comes off the MIME type, so `image/png` files as `.png`. A type the
  * backend does not hold a magic for is refused there rather than sorted out
  * here, which is one list of formats instead of two.
+ *
+ * Exported for the reader, which files a figure out of a book the same way: one
+ * naming rule for everything that lands in `IMAGE_FOLDER`.
  */
-function pastedName(type: string): string {
+export function filedName(type: string): string {
   const unique = crypto.randomUUID().slice(0, 8);
   return `${readClock(new Date()).date}-${unique}.${type.replace(NAMED, "")}`;
 }
@@ -219,7 +222,7 @@ export function imagePaste() {
       if (image === undefined) return false;
 
       event.preventDefault();
-      void fileImage(view, image, pastedName(image.type));
+      void fileImage(view, image, filedName(image.type));
       return true;
     },
   });

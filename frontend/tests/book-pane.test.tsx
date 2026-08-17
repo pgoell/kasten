@@ -17,8 +17,12 @@ import {
 } from "./foliate-fake";
 import { stubCommands } from "./stub-commands";
 
-const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchBook, fetchNote }));
+const { fetchBook, fetchNote, uploadAsset } = vi.hoisted(() => ({
+  fetchBook: vi.fn(),
+  fetchNote: vi.fn(),
+  uploadAsset: vi.fn(),
+}));
+vi.mock("@/lib/api", () => ({ fetchBook, fetchNote, uploadAsset }));
 
 // The factory is not optional. A bare `vi.mock(path)` automocks, and vitest's
 // automock keeps the module body and replaces only its exports, so the real
@@ -158,6 +162,18 @@ function rows(): (string | null)[] {
 /** Select `text` in a section document, inside `act` because the pane renders. */
 function selects(text: string, doc: Document = lastView().section) {
   act(() => selectIn(doc, text));
+}
+
+/** A one pixel png, which is what a book's figure is in these cases. */
+const PLATE =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==";
+
+/** Where a figure lands, which is the folder a pasted image lands in. */
+const FILED = /^99 Misc\/02 Assets\/01 Images\/\d{4}-\d{2}-\d{2}-[0-9a-f]{8}\.png$/;
+
+/** Select `text` and the figure above it, the way a drag over a plate does. */
+function selectsFigure(text: string, doc: Document = lastView().section) {
+  act(() => selectIn(doc, text, PLATE));
 }
 
 /** Let go of what was selected, which a click in the book does. */
@@ -679,6 +695,7 @@ describe("taking a passage into the note", () => {
     resetFoliateFake();
     fetchBook.mockResolvedValue(new Blob(["a book"]));
     fetchNote.mockResolvedValue("");
+    uploadAsset.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -823,6 +840,61 @@ describe("taking a passage into the note", () => {
       text: "A sentence worth keeping.",
       chapter: "Section 1",
     });
+  });
+
+  it("files a figure the selection held and reports where it landed", async () => {
+    const pane = await opened();
+    at(CHAPTERS[0]);
+
+    selectsFigure("Figure 4-3. A B-tree with three levels.");
+    press(lastView().section, "y");
+
+    await waitFor(() => expect(pane.onTake).toHaveBeenCalledTimes(1));
+    const [path, blob] = uploadAsset.mock.calls[0] as [string, Blob];
+    expect(path).toMatch(FILED);
+    // The book's own bytes and its own media type, which is what makes the
+    // vault take the file: a canvas would answer with a re-encode.
+    expect(blob.type).toBe("image/png");
+    expect(blob.size).toBeGreaterThan(0);
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "Figure 4-3. A B-tree with three levels.",
+      chapter: "One",
+      image: path,
+    });
+  });
+
+  it("takes a plate selected with no words at all", async () => {
+    // `selection.toString()` is empty for a drag over a picture, so the text
+    // alone cannot say whether anything is selected.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+
+    selectsFigure("");
+    press(lastView().section, "y");
+
+    await waitFor(() => expect(pane.onTake).toHaveBeenCalledTimes(1));
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "",
+      chapter: "One",
+      image: expect.stringMatching(FILED),
+    });
+  });
+
+  it("writes no highlight when the vault refuses the figure", async () => {
+    // The paste's rule: a refused upload leaves the note as it was rather than
+    // holding a reference to nothing. An `.svg` plate is the real case, the
+    // vault holding no magic for one.
+    const pane = await opened();
+    at(CHAPTERS[0]);
+    uploadAsset.mockRejectedValue(new Error("That file is not what its name says"));
+
+    selectsFigure("Figure 4-3. A B-tree with three levels.");
+    press(lastView().section, "y");
+
+    await waitFor(() =>
+      expect(pane.onNotice).toHaveBeenCalledWith("That file is not what its name says"),
+    );
+    expect(pane.onTake).not.toHaveBeenCalled();
   });
 
   it("reports no selection of whitespace alone", async () => {
