@@ -137,6 +137,42 @@ describe("parseCards on the decks a card is in", () => {
   });
 });
 
+describe("parseCards on a parked card", () => {
+  const PARKED = `#flashcards/aws
+
+What is a VPC?::A private cloud
+
+What is Direct Connect?::A private link !suspended <!--SR:!2026-08-20,4,270-->
+
+The three storage classes
+?
+Standard, Infrequent Access, Glacier
+!suspended
+`;
+
+  it("keeps the card in the note's order rather than dropping it", () => {
+    const cards = parseCards(PARKED);
+    expect(cards.map((card) => card.front)).toEqual([
+      "What is a VPC?",
+      "What is Direct Connect?",
+      "The three storage classes",
+    ]);
+  });
+
+  it("marks the one carrying the token and leaves its neighbour alone", () => {
+    const cards = parseCards(PARKED);
+    expect(cards.map((card) => card.parked)).toEqual([null, "suspended", "suspended"]);
+  });
+
+  it("keeps the token and the comment off the back of a card written on one line", () => {
+    expect(parseCards(PARKED)[1]?.back).toBe("A private link");
+  });
+
+  it("keeps the token off the back of a card written over several lines", () => {
+    expect(parseCards(PARKED)[2]?.back).toBe("Standard, Infrequent Access, Glacier");
+  });
+});
+
 describe("readSchedule", () => {
   it("reads the three numbers the comment holds", () => {
     expect(readSchedule("a::b <!--SR:!2026-08-20,4,270-->")).toEqual({

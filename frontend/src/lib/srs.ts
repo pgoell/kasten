@@ -29,7 +29,7 @@
  * the same thing off the matched lines alone.
  */
 
-import { fences } from "@/lib/card-line";
+import { fences, SUSPEND_TOKEN, suspended, withoutToken } from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
 import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
@@ -52,6 +52,16 @@ export interface Schedule {
   ease: number;
 }
 
+/**
+ * Why a card is out of the queue, or null where it is not.
+ *
+ * Two shapes of the same state and worth telling apart, because only one of
+ * them has a token to remove: `suspended` is a marker somebody wrote beside the
+ * card, `unanswered` is a question with no answer under it yet and is parked by
+ * its shape alone.
+ */
+export type Parked = "suspended" | "unanswered";
+
 /** One card, and where in the note it is written. */
 export interface Card {
   /** First line of the card, zero-based. */
@@ -72,6 +82,15 @@ export interface Card {
   decks: string[];
   /** Null until the card has been answered once. */
   held: Schedule | null;
+  /**
+   * Why the sitting will not ask it, or null where it will.
+   *
+   * A parked card stays in this array rather than leaving it. The queue
+   * addresses a card by its ordinal among its note's cards
+   * (`review-session.tsx:82`), so dropping one here would renumber every card
+   * behind it in a sitting already running.
+   */
+  parked: Parked | null;
 }
 
 /**
@@ -96,9 +115,18 @@ const LEAST_EASE = 130;
 /** A heading, which is a hash and a space and not any hash at all. */
 const HEADING = /^#{1,6}[ \t]/;
 
-/** A line that ends whatever card was being read: blank, a heading, or tags. */
+/** A line that parks the card above it, which is where the token is written. */
+function parks(line: string | undefined): boolean {
+  return line !== undefined && line.trimStart().startsWith(SUSPEND_TOKEN);
+}
+
+/** A line that ends whatever card was being read: blank, a heading, tags or the token. */
 function breaks(line: string | undefined): boolean {
   if (line === undefined || line.trim() === "") return true;
+  // The token ends the back for the same reason the schedule does: it is the
+  // format around the card and not a line of the answer. Without this the `?`
+  // form asks `!suspended` as the last line of what it is showing you.
+  if (parks(line)) return true;
   // A heading and not every hash. `#flashcards/dbt What is a macro?` opens a
   // card, and reading its tag as a heading would leave that card no front to
   // be asked by; a line of nothing but tags is the note's and breaks as before.
@@ -145,9 +173,13 @@ export function parseCards(text: string, note = ""): Card[] {
     if (to === at) continue;
 
     const back = lines.slice(at + 1, to + 1);
-    // The schedule sits on its own line under the back, where the plugin puts it.
-    const schedule = readSchedule(lines[to + 1] ?? "");
-    if (schedule !== null) to++;
+    // The schedule sits on its own line under the back, where the plugin puts
+    // it, and the token sits at the head of that same line. Either one takes
+    // the line into the card's span, so `setSuspended` has a line to write on.
+    const under = lines[to + 1] ?? "";
+    const schedule = readSchedule(under);
+    const held = parks(under);
+    if (schedule !== null || held) to++;
 
     // A card's own tags sit at the head of its first line, and that line is
     // the one directly above the `?`. A front running over two lines is prose
@@ -169,6 +201,7 @@ export function parseCards(text: string, note = ""): Card[] {
       inline: false,
       decks: [],
       held: schedule,
+      parked: held ? "suspended" : null,
     });
   }
 
@@ -177,7 +210,10 @@ export function parseCards(text: string, note = ""): Card[] {
     // The first `::` divides the card, so a back holding one of its own keeps it.
     const divide = line.indexOf("::");
     const front = line.slice(0, divide);
-    const back = line.slice(divide + 2).replace(SR, "");
+    // The token goes before the comment on the line, so both come off the back
+    // and neither reaches the card on screen.
+    const written = line.slice(divide + 2).replace(SR, "");
+    const back = withoutToken(written);
     if (front.trim() === "" || back.trim() === "") continue;
 
     const own = cardTags(line) ?? [];
@@ -192,6 +228,7 @@ export function parseCards(text: string, note = ""): Card[] {
       inline: true,
       decks: [],
       held: readSchedule(line),
+      parked: suspended(written) ? "suspended" : null,
     });
   }
 

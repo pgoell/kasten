@@ -4,7 +4,14 @@ import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import type { Deck } from "@/lib/review";
 
-const DECK: Deck = { name: "aws", notes: ["decks/aws.md"], due: 0, fresh: 1, whole: false };
+const DECK: Deck = {
+  name: "aws",
+  notes: ["decks/aws.md"],
+  due: 0,
+  fresh: 1,
+  parked: 0,
+  whole: false,
+};
 
 const NOTE = "#flashcards/aws\n\nWhat does S3 stand for?::Simple Storage Service\n";
 
@@ -97,7 +104,14 @@ describe("ReviewSession typing", () => {
 });
 
 describe("ReviewSession on a whole note", () => {
-  const NOTE_DECK: Deck = { name: "tls", notes: ["notes/tls.md"], due: 1, fresh: 0, whole: true };
+  const NOTE_DECK: Deck = {
+    name: "tls",
+    notes: ["notes/tls.md"],
+    due: 1,
+    fresh: 0,
+    parked: 0,
+    whole: true,
+  };
   const MARKED =
     "---\nsr-due: 2026-01-01\nsr-interval: 4\nsr-ease: 250\n---\n# TLS\n\nthe handshake\n";
 
@@ -150,6 +164,7 @@ describe("ReviewSession on a deck spanning two notes", () => {
     notes: ["db/procs.md", "db/dbt.md"],
     due: 0,
     fresh: 2,
+    parked: 0,
     whole: false,
   };
   const PROCS =
@@ -210,6 +225,7 @@ describe("ReviewSession on a parent deck", () => {
     notes: ["db/postgres.md"],
     due: 0,
     fresh: 1,
+    parked: 0,
     whole: false,
   };
   const NESTED = "#flashcards/databases/postgres\n\nWhat is MVCC?::a row per version\n";
@@ -229,5 +245,31 @@ describe("ReviewSession on a parent deck", () => {
     );
 
     expect(await screen.findByTestId("review-card")).toHaveTextContent("What is MVCC?");
+  });
+});
+
+describe("ReviewSession on a parked card", () => {
+  const PARKED =
+    "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\n" +
+    "What is Direct Connect?::A private link !suspended\n";
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("leaves the parked card out of the queue", async () => {
+    vi.spyOn(api, "fetchNote").mockResolvedValue(PARKED);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={{ ...DECK, parked: 1 }} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    const card = await screen.findByTestId("review-card");
+    expect(card).toHaveTextContent("What is a VPC?");
+    expect(card).not.toHaveTextContent("What is Direct Connect?");
+    expect(screen.getByText(/left/).textContent).toBe("1 left");
   });
 });

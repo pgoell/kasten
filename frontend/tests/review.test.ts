@@ -146,6 +146,13 @@ describe("decksFrom", () => {
   });
 });
 
+describe("decksFrom on a parked card", () => {
+  it("counts a card carrying the token as parked rather than new", () => {
+    const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "c::d !suspended"]), TODAY);
+    expect(deck).toMatchObject({ fresh: 1, parked: 1 });
+  });
+});
+
 describe("decksFrom on a note marked for review", () => {
   it("makes the note a deck of its own", () => {
     const [deck] = decksFrom(hits("notes/tls.md", ["#review"]), TODAY);

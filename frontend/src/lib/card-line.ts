@@ -20,3 +20,26 @@ export function fences(lines: string[]): boolean[] {
     return inside;
   });
 }
+
+/** What parks a finished card by hand, written beside its schedule. */
+export const SUSPEND_TOKEN = "!suspended";
+
+/**
+ * The token, at the head of a line or after a space, and whole.
+ *
+ * Whole so `!suspendedly` is a word and not a marker, and after a space so a
+ * card asking what the token means keeps its answer. An answer that really does
+ * end in the literal text is the one false positive left, and it is one the
+ * author typed on purpose.
+ */
+const TOKEN = /(?:^|\s)!suspended(?!\S)/;
+
+/** Whether this text carries the token that parks a card. */
+export function suspended(text: string): boolean {
+  return TOKEN.test(text);
+}
+
+/** `text` with the token taken off, which is how a parked card is shown. */
+export function withoutToken(text: string): string {
+  return text.replace(TOKEN, "").trimEnd();
+}

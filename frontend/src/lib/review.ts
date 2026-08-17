@@ -19,7 +19,7 @@
  */
 
 import type { SearchHit } from "@/lib/api";
-import { fences } from "@/lib/card-line";
+import { fences, SUSPEND_TOKEN, suspended } from "@/lib/card-line";
 import { cardTags, deckName, deckPath, deckTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 
@@ -33,6 +33,14 @@ export interface Deck {
   due: number;
   /** Cards nothing has answered yet. */
   fresh: number;
+  /**
+   * Cards the sitting will not ask: parked by a token, or by having no answer.
+   *
+   * Counted rather than left out, because a deck of nothing but parked cards
+   * draws a row that cannot be sat and a bare `0 new` would leave no way to
+   * find out why. It is the number the parked screen lists.
+   */
+  parked: number;
   /**
    * Whether the note is itself the card, rather than a note holding cards.
    *
@@ -68,10 +76,11 @@ function divides(text: string): boolean {
   return text.trim() === "?";
 }
 
-/** One card as the lines describe it: the decks it is in, and when it is next due. */
+/** One card as the lines describe it: the decks it is in, when it is due, and whether it is parked. */
 interface Counted {
   tags: string[];
   due: string | null;
+  parked: boolean;
 }
 
 /**
@@ -109,14 +118,25 @@ function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
         divides(text) && above !== undefined && above.line === line - 1
           ? cardTags(above.text)
           : null;
-      cards.push({ tags: own ?? opened ?? [], due: SCHEDULED.exec(text)?.[1] ?? null });
+      cards.push({
+        tags: own ?? opened ?? [],
+        due: SCHEDULED.exec(text)?.[1] ?? null,
+        parked: suspended(text),
+      });
       continue;
     }
 
+    // The line under a `?` card's back, carrying its schedule, its token, or
+    // both. Either belongs to the card above, which is where the format puts
+    // them and the one place this reader has to look back a line.
     const scheduled = SCHEDULED.exec(text)?.[1];
-    if (scheduled !== undefined) {
+    const parks = text.trimStart().startsWith(SUSPEND_TOKEN);
+    if (scheduled !== undefined || parks) {
       const last = cards.at(-1);
-      if (last !== undefined && last.due === null) last.due = scheduled;
+      if (last !== undefined) {
+        if (scheduled !== undefined && last.due === null) last.due = scheduled;
+        if (parks) last.parked = true;
+      }
       continue;
     }
 
@@ -154,6 +174,7 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
     }
     held.due += deck.due;
     held.fresh += deck.fresh;
+    held.parked += deck.parked;
     for (const note of deck.notes) if (!held.notes.includes(note)) held.notes.push(note);
   };
 
@@ -180,6 +201,7 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
         notes: [note],
         due: due !== undefined && due <= today ? 1 : 0,
         fresh: due === undefined ? 1 : 0,
+        parked: 0,
         whole: true,
       });
       continue;
@@ -193,8 +215,12 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
         bump(deck, {
           name: deck,
           notes: [note],
-          due: card.due !== null && card.due <= today ? 1 : 0,
-          fresh: card.due === null ? 1 : 0,
+          // Parked first, and exclusive: a parked card is one the sitting will
+          // not ask, whatever date it is carrying, so counting it due as well
+          // would put the disagreement this file exists to close back in.
+          due: !card.parked && card.due !== null && card.due <= today ? 1 : 0,
+          fresh: !card.parked && card.due === null ? 1 : 0,
+          parked: card.parked ? 1 : 0,
           whole: false,
         });
       }
