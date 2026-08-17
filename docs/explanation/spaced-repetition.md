@@ -114,6 +114,15 @@ still worth keeping and no longer what you are looking for, which is what the
 archive is for. Adding a concept here would have meant two ways to file
 something away, and the second one would apply to decks only.
 
+What the folder cannot do is take out one card. Archiving moves a note, and a
+deck of two hundred cards holding one you are tired of is not a note you are
+finished with. So there is a per-card state beside the folder,
+[a parked card](/reference/flashcard-format.md#parking-a-card), and it is a
+token on the card's own line rather than a key: the card is the thing being
+parked, the note is not, and the state belongs where the card is written. The
+two do not overlap. The folder files a note away, the token takes one card out
+of the queue, and neither is a worse way of doing the other.
+
 ## SM-2, not FSRS
 
 FSRS predicts recall better than SM-2. It is also a weight table and a few

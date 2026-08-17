@@ -145,6 +145,20 @@ describe("ReviewSession on a whole note", () => {
     expect(screen.queryByRole("button", { name: "Show answer" })).not.toBeInTheDocument();
   });
 
+  it("does not ask a note its frontmatter parks", async () => {
+    const parked = MARKED.replace("---\nsr-due:", "---\nsr-suspended: true\nsr-due:");
+    vi.spyOn(api, "fetchNote").mockResolvedValue(parked);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={{ ...NOTE_DECK, due: 0, parked: 1 }} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByTestId("review-done")).toBeInTheDocument();
+    expect(screen.queryByTestId("review-card")).not.toBeInTheDocument();
+  });
+
   it("writes the schedule into the note's frontmatter", async () => {
     const saved = renderNote();
     await screen.findByTestId("review-card");

@@ -359,3 +359,28 @@ export function writeNoteSchedule(text: string, next: Schedule): string {
   written = setField(written, "sr-interval", String(next.interval));
   return setField(written, "sr-ease", String(next.ease));
 }
+
+/**
+ * Whether a note that is itself the card is parked.
+ *
+ * The whole-note twin of the token on a card's line. A note reviewed as one
+ * thing has no line to hang a marker on, so the marker goes in the block where
+ * its schedule already lives, beside `sr-due`.
+ *
+ * True for the literal word and nothing else, which is what keeps a note that
+ * carries the key for some other reason out of the parked list.
+ */
+export function readNoteSuspended(text: string): boolean {
+  return readField(text, "sr-suspended") === "true";
+}
+
+/**
+ * `text` with the note parked or put back.
+ *
+ * Put back writes `false` rather than taking the key out, because
+ * `note-frontmatter.ts` exports no delete and inventing one for this field
+ * alone is a larger change than a line reading `sr-suspended: false` costs.
+ */
+export function writeNoteSuspended(text: string, on: boolean): string {
+  return setField(text, "sr-suspended", on ? "true" : "false");
+}

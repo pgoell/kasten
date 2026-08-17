@@ -63,6 +63,9 @@ const REVIEW_TAG = /#review(?![\w/-])/;
 /** The note's own due date, off the frontmatter field. */
 const NOTE_DUE = /^sr-due:\s*(\d{4}-\d{2}-\d{2})/;
 
+/** The field parking a note that is itself the card, true for the word alone. */
+const NOTE_PARKED = /^sr-suspended:\s*true\s*$/;
+
 /** The date out of a schedule comment, wherever on the line it sits. */
 const SCHEDULED = /<!--SR:!(\d{4}-\d{2}-\d{2}),/;
 
@@ -209,12 +212,16 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
     if (asked.length === 0) {
       if (!lines.some((line) => REVIEW_TAG.test(line.text))) continue;
       const due = lines.map((line) => NOTE_DUE.exec(line.text)?.[1]).find((at) => at !== undefined);
+      // The whole-note twin of the token on a card's line, and exclusive the
+      // same way: a parked note is one the sitting will not ask, whatever date
+      // it carries.
+      const held = lines.some((line) => NOTE_PARKED.test(line.text));
       bump(`note:${note}`, {
         name,
         notes: [note],
-        due: due !== undefined && due <= today ? 1 : 0,
-        fresh: due === undefined ? 1 : 0,
-        parked: 0,
+        due: !held && due !== undefined && due <= today ? 1 : 0,
+        fresh: !held && due === undefined ? 1 : 0,
+        parked: held ? 1 : 0,
         whole: true,
       });
       continue;

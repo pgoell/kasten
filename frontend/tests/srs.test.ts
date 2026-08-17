@@ -3,9 +3,11 @@ import {
   nextSchedule,
   parseCards,
   readNoteSchedule,
+  readNoteSuspended,
   readSchedule,
   sameAnswer,
   writeNoteSchedule,
+  writeNoteSuspended,
   writeSchedule,
 } from "@/lib/srs";
 
@@ -385,5 +387,39 @@ describe("parseCards on a front running over two lines", () => {
 
     expect(cards[0]?.front).toBe("What is it,\nthe long way round");
     expect(cards.map((card) => card.decks)).toEqual([["db"], ["db"]]);
+  });
+});
+
+describe("readNoteSuspended", () => {
+  it("reads the field as true only for the word", () => {
+    expect(readNoteSuspended("---\nsr-suspended: true\n---\n# TLS\n")).toBe(true);
+  });
+
+  it("is false where the field says so", () => {
+    expect(readNoteSuspended("---\nsr-suspended: false\n---\n# TLS\n")).toBe(false);
+  });
+
+  it("is false where the note carries no such field", () => {
+    expect(readNoteSuspended("---\nid: 1\n---\n# TLS\n")).toBe(false);
+  });
+});
+
+describe("writeNoteSuspended", () => {
+  it("writes a note the reader takes as suspended", () => {
+    const written = writeNoteSuspended("---\nid: 1\n---\n# TLS\n", true);
+    expect(readNoteSuspended(written)).toBe(true);
+  });
+
+  it("leaves the note's schedule where it was", () => {
+    const note = "---\nsr-due: 2026-08-20\nsr-interval: 4\nsr-ease: 250\n---\n# TLS\n";
+    const written = writeNoteSuspended(note, true);
+    expect(written).toContain("sr-due: 2026-08-20");
+    expect(readNoteSchedule(written)).toEqual({ due: "2026-08-20", interval: 4, ease: 250 });
+  });
+
+  it("sets the field to false rather than taking it out", () => {
+    const written = writeNoteSuspended("---\nsr-suspended: true\n---\n# TLS\n", false);
+    expect(written).toContain("sr-suspended: false");
+    expect(readNoteSuspended(written)).toBe(false);
   });
 });

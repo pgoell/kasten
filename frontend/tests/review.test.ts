@@ -174,6 +174,11 @@ describe("decksFrom on a note marked for review", () => {
     expect(deck).toMatchObject({ due: 0, fresh: 0 });
   });
 
+  it("counts a note its frontmatter parks as parked, not new", () => {
+    const [deck] = decksFrom(hits("notes/tls.md", ["sr-suspended: true", "#review"]), TODAY);
+    expect(deck).toMatchObject({ parked: 1, fresh: 0, due: 0 });
+  });
+
   it("keeps a note holding cards as a deck of cards", () => {
     const [deck] = decksFrom(hits("d.md", ["#flashcards/aws", "a::b"]), TODAY);
     expect(deck).toMatchObject({ name: "aws", fresh: 1 });

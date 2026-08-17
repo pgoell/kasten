@@ -13,6 +13,7 @@ import {
   parseCards,
   type Rating,
   readNoteSchedule,
+  readNoteSuspended,
   sameAnswer,
   writeNoteSchedule,
   writeSchedule,
@@ -338,7 +339,17 @@ function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
       if (deck.whole) {
         const held = readNoteSchedule(text);
         const whole = { from: 0, to: 0, front: noteBody(text).trim(), back: "", inline: false };
-        return [note, [{ ...whole, decks: [deck.name], held, parked: null }]];
+        return [
+          note,
+          [
+            {
+              ...whole,
+              decks: [deck.name],
+              held,
+              parked: readNoteSuspended(text) ? "suspended" : null,
+            },
+          ],
+        ];
       }
       // A deck below this one is part of it, so a sitting of `databases` asks
       // the cards filed under `databases/postgres` as well.

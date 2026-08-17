@@ -105,7 +105,12 @@ that, and how fast the gap grows. The client writes these too, and the same rule
 holds: `sr-due` typed by hand is enough to schedule a note, and deleting all
 three takes the note out of the review and nothing else.
 
-The block is not parsed as YAML. Four keys are found by reading lines, and
+Beside them is `sr-suspended`, which
+[parks the note](/reference/flashcard-format.md#a-whole-note-for-review) without
+touching its schedule. `true` parks it and anything else does not, so a note put
+back carries `sr-suspended: false` rather than losing the key.
+
+The block is not parsed as YAML. Five keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from
 reordering keys, requoting strings or dropping comments.
 
