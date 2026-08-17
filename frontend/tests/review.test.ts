@@ -47,6 +47,22 @@ describe("decksFrom", () => {
     expect(deck).toMatchObject({ due: 1, fresh: 1 });
   });
 
+  it("leaves a card inside a code fence out", () => {
+    // The lines `GET /api/cards` hands over for the fenced note in
+    // `backend/tests/test_cards.py`, at the numbers they really sit on.
+    const [deck] = decksFrom(
+      [
+        { path: "decks/cpp.md", line: 3, text: "#flashcards/cpp" },
+        { path: "decks/cpp.md", line: 5, text: "live::answer" },
+        { path: "decks/cpp.md", line: 7, text: "```cpp" },
+        { path: "decks/cpp.md", line: 8, text: "fenced::answer" },
+        { path: "decks/cpp.md", line: 9, text: "```" },
+      ],
+      TODAY,
+    );
+    expect(deck).toMatchObject({ fresh: 1 });
+  });
+
   it("leaves a note carrying no tag out, whatever it holds", () => {
     expect(decksFrom(hits("code.md", ["std::vector", "a::b", "?"]), TODAY)).toEqual([]);
   });

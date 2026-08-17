@@ -8,7 +8,7 @@ The backend does not parse a card. It finds the candidate lines and hands them
 over whole, because the browser has to parse the format anyway to draw a card
 and two parsers in two languages drift. That division is what lets one endpoint
 answer both halves of the feature: a deck of cards and a whole note marked for
-review are different things to `srs.ts` and the same four patterns here.
+review are different things to `srs.ts` and the same five patterns here.
 """
 
 from typing import TYPE_CHECKING
@@ -48,6 +48,15 @@ what makes the count work out: every card matches exactly once through
 `CARD_LINE`, and every schedule exactly once through this.
 """
 
+FENCE_LINE = r"^[ \t]*```"
+"""A fenced code block's marker, handed over so the client can find the block.
+
+A fence line is a card in no reading of the format: it holds no `::`, no `?` and
+no tag, so nothing counted it before and nothing counts it now. It comes back
+because the reader on the other side has no other way to tell a card from a
+`std::vector`, the lines inside a block matching nothing that would reach it.
+"""
+
 NOTE_LINE = r"#flashcards|#review|^sr-due:"
 """What marks a note as a deck, and the due date of a note that is itself the card.
 
@@ -56,7 +65,7 @@ deck name being the client's to read off the tag. `sr-due` is anchored because
 it is a frontmatter field, and an unanchored one would match the word in prose.
 """
 
-CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{NOTE_LINE}"
+CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{FENCE_LINE}|{NOTE_LINE}"
 
 
 async def find_cards(root: Path, skip: str | None = None) -> list[Hit]:
