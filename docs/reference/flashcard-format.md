@@ -197,9 +197,9 @@ What is a moved block?::
 ```
 
 That is a question written down to answer later. It is not a card missing half
-of itself and it is not an error: nothing asks it until the answer is there. A
-line opening with the divider and no question in front of it is prose, and no
-card at all.
+of itself and it is not an error: nothing asks it until the answer is there, and
+[the parked screen](#the-parked-screen) is where it waits. A line opening with
+the divider and no question in front of it is prose, and no card at all.
 
 ## A whole note for review
 
@@ -250,15 +250,46 @@ Two places, the same session in both:
 
 | Key in the pane | What it does |
 | --- | --- |
-| `j`, `k` | Walk the decks on the overview |
+| `j`, `k` | Walk the decks on the overview, or the rows on the parked list |
 | `l` | Start the sitting on the deck under the cursor |
-| `h` | Leave the sitting, back to the decks |
+| `p` | Open the parked list |
+| `h` | Leave the sitting or the parked list, back to the decks |
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Again, Hard, Good, Easy |
+| `s` | Park the card on screen |
+| `n` | Jot a new question into the note the card came from |
+| `u` | Put the parked row under the cursor back |
+| `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
 
 The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.
+
+### The parked screen
+
+The third screen lists every [parked](#parking-a-card) card, its deck and why it
+is parked. `p` opens it at a desk and the `N parked` count in the header opens it
+on a phone, which has no key to press.
+
+A row does two things. Putting it back takes the token off and returns the card
+to its deck on the schedule it already held; only a card carrying a token gets
+that control, a question with no answer having none to remove. Opening the row
+puts its note in a pane at a desk and on the page on a phone, which is how a
+question written mid-sitting gets its answer.
+
+### A question you think of mid-sitting
+
+`s` parks the card in front of you and moves on without rating it. `n` opens a
+line for a question the card just reminded you of: what you type lands at the end
+of the note that card came from, written `Question::` and waiting on the parked
+screen until you answer it. The card on screen and the rest of the queue are
+untouched, because a card added at the end is last in line order and every card
+already in the queue keeps its place.
+
+A deck tag typed at the head of the question files it elsewhere, the way
+[a card in a second deck](#a-card-in-a-second-deck) does:
+`#flashcards/terraform What is a moved block?` goes into the terraform deck
+whatever note it is written in.
 
 Cards come due first and new second, each in its note's order and the notes in
 the order the deck found them. Nothing is shuffled: a deck written in an order

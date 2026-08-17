@@ -341,3 +341,67 @@ describe("ReviewSession on a parked card", () => {
     expect(screen.getByText(/left/).textContent).toBe("1 left");
   });
 });
+
+describe("ReviewSession jotting a new question", () => {
+  const DECK_NOTE = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\nWhat is S3?::Storage\n";
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  function renderJot() {
+    vi.spyOn(api, "fetchNote").mockResolvedValue(DECK_NOTE);
+    const saved = vi.spyOn(api, "saveNote").mockResolvedValue({
+      path: "decks/aws.md",
+      content: DECK_NOTE,
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={{ ...DECK, fresh: 2 }} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    return saved;
+  }
+
+  it("appends it to the note the card on screen came from", async () => {
+    const saved = renderJot();
+    await screen.findByTestId("review-card");
+
+    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.change(screen.getByLabelText("a new question"), {
+      target: { value: "What is a moved block?" },
+    });
+    fireEvent.submit(screen.getByTestId("review-capture"));
+
+    expect(saved.mock.calls[0]?.[0]).toBe("decks/aws.md");
+    expect(saved.mock.calls[0]?.[1]).toContain("What is a moved block?::");
+  });
+
+  it("leaves the card on screen and the queue behind it alone", async () => {
+    renderJot();
+    await screen.findByTestId("review-card");
+    expect(screen.getByText(/left/).textContent).toBe("2 left");
+
+    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.change(screen.getByLabelText("a new question"), {
+      target: { value: "What is a moved block?" },
+    });
+    fireEvent.submit(screen.getByTestId("review-capture"));
+
+    expect(screen.getByTestId("review-card")).toHaveTextContent("What is a VPC?");
+    expect(screen.getByText(/left/).textContent).toBe("2 left");
+  });
+
+  it("closes the field once the question is written", async () => {
+    renderJot();
+    await screen.findByTestId("review-card");
+
+    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q" } });
+    fireEvent.submit(screen.getByTestId("review-capture"));
+
+    expect(screen.queryByLabelText("a new question")).not.toBeInTheDocument();
+  });
+});

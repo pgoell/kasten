@@ -66,6 +66,21 @@ describe("ReviewPane keys on the deck overview", () => {
 
     expect(await screen.findByTestId("review-card")).toHaveTextContent("c");
   });
+
+  it("keeps the keyboard after l starts the sitting", async () => {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue("#flashcards/beta\n\nc::d\n");
+
+    // Twice, the way the test above does: the mocked note is `beta`'s.
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    await screen.findByTestId("review-card");
+
+    // The deck row it pressed has gone with the overview, so without this the
+    // focus falls to the body and no key of the sitting reaches the pane.
+    expect(document.activeElement).toBe(pane);
+  });
 });
 
 describe("ReviewPane on a nested deck", () => {
@@ -288,5 +303,44 @@ describe("ReviewPane on the parked screen", () => {
     fireEvent.keyDown(pane, { key: "o" });
 
     expect(onOpen).toHaveBeenCalledWith("a.md");
+  });
+});
+
+describe("ReviewPane jotting a question mid-sitting", () => {
+  const TWO = "#flashcards/beta\n\nc::d\n\ne::f\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function inSitting() {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue(TWO);
+    const saved = vi.spyOn(api, "saveNote").mockResolvedValue({ path: "b.md", content: TWO });
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    await screen.findByTestId("review-card");
+    return { pane, saved };
+  }
+
+  it("opens the field on n and puts the cursor in it", async () => {
+    const { pane } = await inSitting();
+
+    fireEvent.keyDown(pane, { key: "n" });
+
+    expect(document.activeElement).toBe(screen.getByLabelText("a new question"));
+  });
+
+  it("does not rate the card while a question is being typed", async () => {
+    const { pane, saved } = await inSitting();
+    fireEvent.keyDown(pane, { key: "n" });
+
+    // The pane's own rating keys are live on the section this bubbles to.
+    fireEvent.keyDown(screen.getByLabelText("a new question"), { key: "1" });
+
+    expect(saved).not.toHaveBeenCalled();
+    expect(screen.getByTestId("review-card")).toHaveTextContent("c");
   });
 });

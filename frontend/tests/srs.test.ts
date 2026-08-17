@@ -1,4 +1,5 @@
 import {
+  appendStub,
   type Card,
   nextSchedule,
   parseCards,
@@ -461,5 +462,28 @@ describe("setSuspended", () => {
     for (const text of [INLINE_HELD, INLINE_FRESH, MULTI_HELD, MULTI_FRESH]) {
       expect(roundTrip(text)).toBe(text);
     }
+  });
+});
+
+describe("appendStub", () => {
+  it("puts the question at the end, with a divider and no answer", () => {
+    expect(appendStub("#flashcards\n\na::b\n", "What is a moved block?")).toBe(
+      "#flashcards\n\na::b\n\nWhat is a moved block?::\n",
+    );
+  });
+
+  it("leaves exactly one blank line above it, whatever the note ended with", () => {
+    for (const ending of ["a::b", "a::b\n", "a::b\n\n\n"]) {
+      expect(appendStub(ending, "Q")).toBe("a::b\n\nQ::\n");
+    }
+  });
+
+  it("adds one card, last, parked for want of an answer", () => {
+    const text = "#flashcards\n\na::b\n";
+    const before = parseCards(text);
+    const after = parseCards(appendStub(text, "Q"));
+
+    expect(after).toHaveLength(before.length + 1);
+    expect(after.at(-1)).toMatchObject({ front: "Q", back: "", parked: "unanswered" });
   });
 });

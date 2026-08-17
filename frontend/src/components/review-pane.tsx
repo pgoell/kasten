@@ -54,6 +54,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     reveal: () => void;
     rate: (rating: Rating) => void;
     suspend: () => void;
+    capture: () => void;
   } | null>(null);
   const panel = useRef<HTMLElement>(null);
 
@@ -87,6 +88,12 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     }
 
     if (event.ctrlKey || event.altKey || event.metaKey) return;
+
+    // A field has the keyboard, so the pane stands down: `1` is a digit in a
+    // question and `space` is a space in one, not a rating and not the reveal.
+    // The leader above still runs, which is the one thing that has to.
+    const target = event.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
     // The overview is showing. The browser moves the focus between buttons on
     // Tab and nothing else, so `j` and `k` do it here, and `l` presses the one
@@ -150,6 +157,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     // Before the reveal as well as after it, because a card you want out of the
     // deck is one you have recognised from its question alone.
     else if (key === "s") controls.current?.suspend();
+    else if (key === "n") controls.current?.capture();
     else if (key === "q") onClose();
     else return;
 
@@ -197,6 +205,9 @@ function walk(panel: HTMLElement | null, selector: string, key: string): void {
   const at = rows.indexOf(document.activeElement as HTMLButtonElement);
   if (key === "l") {
     rows[at]?.click();
+    // The row it pressed goes with the overview, taking the focus to the body
+    // with it, and no key of the sitting would reach the pane after that.
+    panel?.focus();
     return;
   }
   const by = key === "j" ? 1 : -1;

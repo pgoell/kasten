@@ -435,3 +435,19 @@ export function readNoteSuspended(text: string): boolean {
 export function writeNoteSuspended(text: string, on: boolean): string {
   return setField(text, "sr-suspended", on ? "true" : "false");
 }
+
+/**
+ * `text` with `question` written at the end as a card waiting for its answer.
+ *
+ * Appends and never inserts. A card added at the end is last in line order, so
+ * every ordinal a running sitting already holds still addresses the card it
+ * did; an insert in the middle would renumber the cards under it, which is the
+ * rule `review-session.tsx:82` states.
+ *
+ * A deck tag typed at the head of the question needs nothing here. `cardTags`
+ * reads a tag at the head of a card line, so
+ * `#flashcards/terraform What is a moved block?` files itself.
+ */
+export function appendStub(text: string, question: string): string {
+  return `${text.replace(/\n*$/, "")}\n\n${question}::\n`;
+}
