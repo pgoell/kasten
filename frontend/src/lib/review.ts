@@ -19,6 +19,7 @@
  */
 
 import type { SearchHit } from "@/lib/api";
+import { fences } from "@/lib/card-line";
 import { cardTags, deckName, deckPath, deckTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 
@@ -93,8 +94,13 @@ interface Counted {
 function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
   const cards: Counted[] = [];
   const tags: string[] = [];
+  // The scan hands the fence markers over for this, and only for this: they
+  // hold no `::`, no `?` and no tag, so the walk below would read every one of
+  // them as a line of prose and count the `std::vector` between them as a card.
+  const fenced = fences(lines.map((hit) => hit.text));
 
   for (const [at, { line, text }] of lines.entries()) {
+    if (fenced[at]) continue;
     const own = cardTags(text);
 
     if (isCard(text)) {

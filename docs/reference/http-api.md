@@ -222,11 +222,13 @@ optional `archive` and answers with at most 100,000 matches, in the shape
 One `rg` pass, carrying the same flags search carries. Nothing is indexed and
 Postgres is not consulted, for the reason search does not consult it.
 
-It matches four shapes:
+It matches five shapes:
 
 * a line holding `::`, or a line that is exactly `?`, which are
   [the two ways a card is written](/reference/flashcard-format.md#the-two-ways-to-write-a-card)
 * a line holding `<!--SR:!`, which is a card's schedule
+* a line opening a fenced code block, which is how the client tells a card from a
+  `std::vector`
 * a line holding `#flashcards` or `#review`, which is what makes a note a deck
 * a line opening `sr-due:`, which is the due date of a note that is itself the card
 
@@ -240,6 +242,11 @@ a line in this answer and never a card on screen: the deck tag decides which
 notes are asked at all, so a note nobody tagged contributes nothing however many
 colons are in it. Tightening the pattern here would mean reading every note that
 matched.
+
+The fence branch is what a tagged note needs instead. A `std::vector` inside a
+code block in a note that is a deck would be counted as a card, the lines around
+it matching nothing that reaches the client, so the markers come over and the
+client skips what sits between them.
 
 The cap is 100,000 rather than search's 2,000, for the reason `GET /api/todos`
 carries that number: a backstop against one generated file, not a limit on how

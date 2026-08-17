@@ -29,6 +29,7 @@
  * the same thing off the matched lines alone.
  */
 
+import { fences } from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
 import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
@@ -102,19 +103,6 @@ function breaks(line: string | undefined): boolean {
   // card, and reading its tag as a heading would leave that card no front to
   // be asked by; a line of nothing but tags is the note's and breaks as before.
   return HEADING.test(line.trimStart()) || onlyTags(line);
-}
-
-/** Which lines sit inside a fenced code block, so `std::vector` is not a card. */
-function fences(lines: string[]): boolean[] {
-  let inside = false;
-  return lines.map((line) => {
-    if (line.trimStart().startsWith("```")) {
-      inside = !inside;
-      // The fence itself is never a card either way.
-      return true;
-    }
-    return inside;
-  });
 }
 
 /** The three numbers one `<!--SR:!…-->` holds, or null where there is none. */

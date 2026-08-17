@@ -52,6 +52,33 @@ async def test_finds_every_shape(client: AsyncClient, vault: Path) -> None:
     ]
 
 
+FENCED = """# C++ drills
+
+#flashcards/cpp
+
+live::answer
+
+```cpp
+fenced::answer
+```
+"""
+
+
+async def test_finds_a_fence(client: AsyncClient, vault: Path) -> None:
+    write(vault, "decks/cpp.md", FENCED)
+
+    response = await client.get("/api/cards")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"path": "decks/cpp.md", "line": 3, "text": "#flashcards/cpp"},
+        {"path": "decks/cpp.md", "line": 5, "text": "live::answer"},
+        {"path": "decks/cpp.md", "line": 7, "text": "```cpp"},
+        {"path": "decks/cpp.md", "line": 8, "text": "fenced::answer"},
+        {"path": "decks/cpp.md", "line": 9, "text": "```"},
+    ]
+
+
 async def test_finds_a_note_marked_for_review(client: AsyncClient, vault: Path) -> None:
     write(vault, "notes/tls.md", "---\nsr-due: 2026-08-20\n---\n# TLS\n\n#review\n")
 
