@@ -3,9 +3,11 @@ import {
   nextSchedule,
   parseCards,
   readNoteSchedule,
+  readNoteSuspended,
   readSchedule,
   sameAnswer,
   writeNoteSchedule,
+  writeNoteSuspended,
   writeSchedule,
 } from "@/lib/srs";
 
@@ -134,6 +136,68 @@ describe("parseCards on the decks a card is in", () => {
 
   it("reads no deck out of a fenced tag", () => {
     expect(only("```\n#flashcards/db\n```\n\na::b\n").decks).toEqual([]);
+  });
+});
+
+describe("parseCards on a parked card", () => {
+  const PARKED = `#flashcards/aws
+
+What is a VPC?::A private cloud
+
+What is Direct Connect?::A private link !suspended <!--SR:!2026-08-20,4,270-->
+
+The three storage classes
+?
+Standard, Infrequent Access, Glacier
+!suspended
+`;
+
+  it("keeps the card in the note's order rather than dropping it", () => {
+    const cards = parseCards(PARKED);
+    expect(cards.map((card) => card.front)).toEqual([
+      "What is a VPC?",
+      "What is Direct Connect?",
+      "The three storage classes",
+    ]);
+  });
+
+  it("marks the one carrying the token and leaves its neighbour alone", () => {
+    const cards = parseCards(PARKED);
+    expect(cards.map((card) => card.parked)).toEqual([null, "suspended", "suspended"]);
+  });
+
+  it("keeps the token and the comment off the back of a card written on one line", () => {
+    expect(parseCards(PARKED)[1]?.back).toBe("A private link");
+  });
+
+  it("keeps the token off the back of a card written over several lines", () => {
+    expect(parseCards(PARKED)[2]?.back).toBe("Standard, Infrequent Access, Glacier");
+  });
+});
+
+describe("parseCards on a question with no answer", () => {
+  const STUB = `#flashcards/aws
+
+What is a VPC?::A private cloud
+
+What is a moved block?::
+`;
+
+  it("keeps it as a card rather than dropping it", () => {
+    expect(parseCards(STUB).map((card) => card.front)).toEqual([
+      "What is a VPC?",
+      "What is a moved block?",
+    ]);
+  });
+
+  it("parks it by its shape, with an empty back", () => {
+    const card = parseCards(STUB)[1];
+    expect(card?.parked).toBe("unanswered");
+    expect(card?.back).toBe("");
+  });
+
+  it("goes on reading a line opening with the divider as no card at all", () => {
+    expect(parseCards("#flashcards\n\n::an answer with no question\n")).toEqual([]);
   });
 });
 
@@ -323,5 +387,39 @@ describe("parseCards on a front running over two lines", () => {
 
     expect(cards[0]?.front).toBe("What is it,\nthe long way round");
     expect(cards.map((card) => card.decks)).toEqual([["db"], ["db"]]);
+  });
+});
+
+describe("readNoteSuspended", () => {
+  it("reads the field as true only for the word", () => {
+    expect(readNoteSuspended("---\nsr-suspended: true\n---\n# TLS\n")).toBe(true);
+  });
+
+  it("is false where the field says so", () => {
+    expect(readNoteSuspended("---\nsr-suspended: false\n---\n# TLS\n")).toBe(false);
+  });
+
+  it("is false where the note carries no such field", () => {
+    expect(readNoteSuspended("---\nid: 1\n---\n# TLS\n")).toBe(false);
+  });
+});
+
+describe("writeNoteSuspended", () => {
+  it("writes a note the reader takes as suspended", () => {
+    const written = writeNoteSuspended("---\nid: 1\n---\n# TLS\n", true);
+    expect(readNoteSuspended(written)).toBe(true);
+  });
+
+  it("leaves the note's schedule where it was", () => {
+    const note = "---\nsr-due: 2026-08-20\nsr-interval: 4\nsr-ease: 250\n---\n# TLS\n";
+    const written = writeNoteSuspended(note, true);
+    expect(written).toContain("sr-due: 2026-08-20");
+    expect(readNoteSchedule(written)).toEqual({ due: "2026-08-20", interval: 4, ease: 250 });
+  });
+
+  it("sets the field to false rather than taking it out", () => {
+    const written = writeNoteSuspended("---\nsr-suspended: true\n---\n# TLS\n", false);
+    expect(written).toContain("sr-suspended: false");
+    expect(readNoteSuspended(written)).toBe(false);
   });
 });

@@ -29,7 +29,7 @@
  * the same thing off the matched lines alone.
  */
 
-import { fences } from "@/lib/card-line";
+import { divide, fences, parks, SR, suspended } from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
 import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
@@ -52,6 +52,16 @@ export interface Schedule {
   ease: number;
 }
 
+/**
+ * Why a card is out of the queue, or null where it is not.
+ *
+ * Two shapes of the same state and worth telling apart, because only one of
+ * them has a token to remove: `suspended` is a marker somebody wrote beside the
+ * card, `unanswered` is a question with no answer under it yet and is parked by
+ * its shape alone.
+ */
+export type Parked = "suspended" | "unanswered";
+
 /** One card, and where in the note it is written. */
 export interface Card {
   /** First line of the card, zero-based. */
@@ -72,14 +82,16 @@ export interface Card {
   decks: string[];
   /** Null until the card has been answered once. */
   held: Schedule | null;
+  /**
+   * Why the sitting will not ask it, or null where it will.
+   *
+   * A parked card stays in this array rather than leaving it. The queue
+   * addresses a card by its ordinal among its note's cards
+   * (`review-session.tsx:82`), so dropping one here would renumber every card
+   * behind it in a sitting already running.
+   */
+  parked: Parked | null;
 }
-
-/**
- * The comment holding a schedule. `!` is obsidian-spaced-repetition's and is
- * matched rather than assumed, so a comment written without one is left alone
- * instead of read as a card that has never been answered.
- */
-const SR = /<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 
 /** What a card starts life at, which is SM-2's 2.5 and Anki's default. */
 const NEW_EASE = 250;
@@ -96,9 +108,13 @@ const LEAST_EASE = 130;
 /** A heading, which is a hash and a space and not any hash at all. */
 const HEADING = /^#{1,6}[ \t]/;
 
-/** A line that ends whatever card was being read: blank, a heading, or tags. */
+/** A line that ends whatever card was being read: blank, a heading, tags or the token. */
 function breaks(line: string | undefined): boolean {
   if (line === undefined || line.trim() === "") return true;
+  // The token ends the back for the same reason the schedule does: it is the
+  // format around the card and not a line of the answer. Without this the `?`
+  // form asks `!suspended` as the last line of what it is showing you.
+  if (parks(line)) return true;
   // A heading and not every hash. `#flashcards/dbt What is a macro?` opens a
   // card, and reading its tag as a heading would leave that card no front to
   // be asked by; a line of nothing but tags is the note's and breaks as before.
@@ -145,9 +161,13 @@ export function parseCards(text: string, note = ""): Card[] {
     if (to === at) continue;
 
     const back = lines.slice(at + 1, to + 1);
-    // The schedule sits on its own line under the back, where the plugin puts it.
-    const schedule = readSchedule(lines[to + 1] ?? "");
-    if (schedule !== null) to++;
+    // The schedule sits on its own line under the back, where the plugin puts
+    // it, and the token sits at the head of that same line. Either one takes
+    // the line into the card's span, so `setSuspended` has a line to write on.
+    const under = lines[to + 1] ?? "";
+    const schedule = readSchedule(under);
+    const held = parks(under);
+    if (schedule !== null || held) to++;
 
     // A card's own tags sit at the head of its first line, and that line is
     // the one directly above the `?`. A front running over two lines is prose
@@ -169,16 +189,16 @@ export function parseCards(text: string, note = ""): Card[] {
       inline: false,
       decks: [],
       held: schedule,
+      parked: held ? "suspended" : null,
     });
   }
 
   for (const [at, line] of lines.entries()) {
-    if (fenced[at] || taken[at] || !line.includes("::")) continue;
-    // The first `::` divides the card, so a back holding one of its own keeps it.
-    const divide = line.indexOf("::");
-    const front = line.slice(0, divide);
-    const back = line.slice(divide + 2).replace(SR, "");
-    if (front.trim() === "" || back.trim() === "") continue;
+    if (fenced[at] || taken[at]) continue;
+    const halves = divide(line);
+    // A line opening with the divider is prose, not a card missing its
+    // question. A card missing its answer is the other way round and is kept.
+    if (halves === null || withoutTags(halves.front).trim() === "") continue;
 
     const own = cardTags(line) ?? [];
     if (own.length > 0) claimed.add(at);
@@ -187,11 +207,14 @@ export function parseCards(text: string, note = ""): Card[] {
     cards.push({
       from: at,
       to: at,
-      front: withoutTags(front).trim(),
-      back: back.trim(),
+      front: withoutTags(halves.front).trim(),
+      back: halves.back,
       inline: true,
       decks: [],
       held: readSchedule(line),
+      // The token first: a card carrying it was parked on purpose, and a card
+      // parked on purpose before it was ever answered has both shapes at once.
+      parked: suspended(line) ? "suspended" : halves.back === "" ? "unanswered" : null,
     });
   }
 
@@ -335,4 +358,29 @@ export function writeNoteSchedule(text: string, next: Schedule): string {
   let written = setField(text, "sr-due", next.due);
   written = setField(written, "sr-interval", String(next.interval));
   return setField(written, "sr-ease", String(next.ease));
+}
+
+/**
+ * Whether a note that is itself the card is parked.
+ *
+ * The whole-note twin of the token on a card's line. A note reviewed as one
+ * thing has no line to hang a marker on, so the marker goes in the block where
+ * its schedule already lives, beside `sr-due`.
+ *
+ * True for the literal word and nothing else, which is what keeps a note that
+ * carries the key for some other reason out of the parked list.
+ */
+export function readNoteSuspended(text: string): boolean {
+  return readField(text, "sr-suspended") === "true";
+}
+
+/**
+ * `text` with the note parked or put back.
+ *
+ * Put back writes `false` rather than taking the key out, because
+ * `note-frontmatter.ts` exports no delete and inventing one for this field
+ * alone is a larger change than a line reading `sr-suspended: false` costs.
+ */
+export function writeNoteSuspended(text: string, on: boolean): string {
+  return setField(text, "sr-suspended", on ? "true" : "false");
 }

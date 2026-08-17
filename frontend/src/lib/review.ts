@@ -19,8 +19,8 @@
  */
 
 import type { SearchHit } from "@/lib/api";
-import { fences } from "@/lib/card-line";
-import { cardTags, deckName, deckPath, deckTags } from "@/lib/deck-tag";
+import { type Divided, divide, fences, parks, suspended } from "@/lib/card-line";
+import { cardTags, deckName, deckPath, deckTags, withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 
 /** One deck as the overview draws it. */
@@ -33,6 +33,14 @@ export interface Deck {
   due: number;
   /** Cards nothing has answered yet. */
   fresh: number;
+  /**
+   * Cards the sitting will not ask: parked by a token, or by having no answer.
+   *
+   * Counted rather than left out, because a deck of nothing but parked cards
+   * draws a row that cannot be sat and a bare `0 new` would leave no way to
+   * find out why. It is the number the parked screen lists.
+   */
+  parked: number;
   /**
    * Whether the note is itself the card, rather than a note holding cards.
    *
@@ -55,12 +63,24 @@ const REVIEW_TAG = /#review(?![\w/-])/;
 /** The note's own due date, off the frontmatter field. */
 const NOTE_DUE = /^sr-due:\s*(\d{4}-\d{2}-\d{2})/;
 
+/** The field parking a note that is itself the card, true for the word alone. */
+const NOTE_PARKED = /^sr-suspended:\s*true\s*$/;
+
 /** The date out of a schedule comment, wherever on the line it sits. */
 const SCHEDULED = /<!--SR:!(\d{4}-\d{2}-\d{2}),/;
 
-/** Whether this line is a card, which is the `::` or the `?` and never the comment. */
-function isCard(text: string): boolean {
-  return text.includes("::") || divides(text);
+/**
+ * The two halves of a card written on one line, or null where the line is none.
+ *
+ * `divide` is the shared rule and this adds the one thing it leaves to its
+ * callers: a line opening with the divider is prose, not a card missing its
+ * question. `srs.ts:188` makes the same call on the same words, which is what
+ * stops the overview counting a line the sitting will never ask.
+ */
+function halvesOf(text: string): Divided | null {
+  const halves = divide(text);
+  if (halves === null || withoutTags(halves.front).trim() === "") return null;
+  return halves;
 }
 
 /** The `?` dividing a card written over several lines, whose front is above it. */
@@ -68,10 +88,11 @@ function divides(text: string): boolean {
   return text.trim() === "?";
 }
 
-/** One card as the lines describe it: the decks it is in, and when it is next due. */
+/** One card as the lines describe it: the decks it is in, when it is due, and whether it is parked. */
 interface Counted {
   tags: string[];
   due: string | null;
+  parked: boolean;
 }
 
 /**
@@ -102,21 +123,36 @@ function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
   for (const [at, { line, text }] of lines.entries()) {
     if (fenced[at]) continue;
     const own = cardTags(text);
+    const halves = halvesOf(text);
 
-    if (isCard(text)) {
+    if (halves !== null || divides(text)) {
       const above = lines[at - 1];
       const opened =
         divides(text) && above !== undefined && above.line === line - 1
           ? cardTags(above.text)
           : null;
-      cards.push({ tags: own ?? opened ?? [], due: SCHEDULED.exec(text)?.[1] ?? null });
+      cards.push({
+        tags: own ?? opened ?? [],
+        due: SCHEDULED.exec(text)?.[1] ?? null,
+        // The token, or a question with no answer under it, which is parked by
+        // its shape alone. A `?` card carries neither here: its token sits on
+        // the line under its back and is read below.
+        parked: suspended(text) || halves?.back === "",
+      });
       continue;
     }
 
+    // The line under a `?` card's back, carrying its schedule, its token, or
+    // both. Either belongs to the card above, which is where the format puts
+    // them and the one place this reader has to look back a line.
     const scheduled = SCHEDULED.exec(text)?.[1];
-    if (scheduled !== undefined) {
+    const parked = parks(text);
+    if (scheduled !== undefined || parked) {
       const last = cards.at(-1);
-      if (last !== undefined && last.due === null) last.due = scheduled;
+      if (last !== undefined) {
+        if (scheduled !== undefined && last.due === null) last.due = scheduled;
+        if (parked) last.parked = true;
+      }
       continue;
     }
 
@@ -154,6 +190,7 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
     }
     held.due += deck.due;
     held.fresh += deck.fresh;
+    held.parked += deck.parked;
     for (const note of deck.notes) if (!held.notes.includes(note)) held.notes.push(note);
   };
 
@@ -175,11 +212,16 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
     if (asked.length === 0) {
       if (!lines.some((line) => REVIEW_TAG.test(line.text))) continue;
       const due = lines.map((line) => NOTE_DUE.exec(line.text)?.[1]).find((at) => at !== undefined);
+      // The whole-note twin of the token on a card's line, and exclusive the
+      // same way: a parked note is one the sitting will not ask, whatever date
+      // it carries.
+      const held = lines.some((line) => NOTE_PARKED.test(line.text));
       bump(`note:${note}`, {
         name,
         notes: [note],
-        due: due !== undefined && due <= today ? 1 : 0,
-        fresh: due === undefined ? 1 : 0,
+        due: !held && due !== undefined && due <= today ? 1 : 0,
+        fresh: !held && due === undefined ? 1 : 0,
+        parked: held ? 1 : 0,
         whole: true,
       });
       continue;
@@ -193,8 +235,12 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
         bump(deck, {
           name: deck,
           notes: [note],
-          due: card.due !== null && card.due <= today ? 1 : 0,
-          fresh: card.due === null ? 1 : 0,
+          // Parked first, and exclusive: a parked card is one the sitting will
+          // not ask, whatever date it is carrying, so counting it due as well
+          // would put the disagreement this file exists to close back in.
+          due: !card.parked && card.due !== null && card.due <= today ? 1 : 0,
+          fresh: !card.parked && card.due === null ? 1 : 0,
+          parked: card.parked ? 1 : 0,
           whole: false,
         });
       }

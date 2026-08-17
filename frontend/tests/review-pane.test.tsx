@@ -130,3 +130,48 @@ describe("ReviewPane leaving a sitting", () => {
     expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
   });
 });
+
+describe("ReviewPane on a deck holding parked cards", () => {
+  /** One deck with a live card beside a parked one, one deck of nothing else. */
+  const PARKED = [
+    { path: "a.md", line: 1, text: "#flashcards/alpha" },
+    { path: "a.md", line: 2, text: "a::b" },
+    { path: "a.md", line: 3, text: "c::d !suspended" },
+    { path: "b.md", line: 1, text: "#flashcards/beta" },
+    { path: "b.md", line: 2, text: "e::f !suspended" },
+  ];
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function renderParked() {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(PARKED);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: /alpha/ });
+  }
+
+  it("counts the parked cards in the header beside the ones to go", async () => {
+    await renderParked();
+
+    expect(screen.getByText(/to go/).textContent).toBe("1 to go");
+    expect(screen.getByText("2 parked")).toBeInTheDocument();
+  });
+
+  it("says on the row how many of its cards are parked", async () => {
+    await renderParked();
+
+    expect(screen.getByRole("button", { name: /alpha/ })).toHaveTextContent("1 parked");
+  });
+
+  it("cannot sit a deck holding nothing but parked cards", async () => {
+    await renderParked();
+
+    expect(screen.getByRole("button", { name: /beta/ })).toBeDisabled();
+  });
+});

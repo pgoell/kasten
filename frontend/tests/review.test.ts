@@ -146,6 +146,18 @@ describe("decksFrom", () => {
   });
 });
 
+describe("decksFrom on a parked card", () => {
+  it("counts a card carrying the token as parked rather than new", () => {
+    const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "c::d !suspended"]), TODAY);
+    expect(deck).toMatchObject({ fresh: 1, parked: 1 });
+  });
+
+  it("counts a question with no answer as parked rather than new", () => {
+    const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "Question::"]), TODAY);
+    expect(deck).toMatchObject({ fresh: 1, parked: 1 });
+  });
+});
+
 describe("decksFrom on a note marked for review", () => {
   it("makes the note a deck of its own", () => {
     const [deck] = decksFrom(hits("notes/tls.md", ["#review"]), TODAY);
@@ -160,6 +172,11 @@ describe("decksFrom on a note marked for review", () => {
   it("counts it neither due nor new when its date is ahead", () => {
     const [deck] = decksFrom(hits("notes/tls.md", ["sr-due: 2026-09-01", "#review"]), TODAY);
     expect(deck).toMatchObject({ due: 0, fresh: 0 });
+  });
+
+  it("counts a note its frontmatter parks as parked, not new", () => {
+    const [deck] = decksFrom(hits("notes/tls.md", ["sr-suspended: true", "#review"]), TODAY);
+    expect(deck).toMatchObject({ parked: 1, fresh: 0, due: 0 });
   });
 
   it("keeps a note holding cards as a deck of cards", () => {

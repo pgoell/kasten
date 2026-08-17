@@ -13,6 +13,7 @@ import {
   parseCards,
   type Rating,
   readNoteSchedule,
+  readNoteSuspended,
   sameAnswer,
   writeNoteSchedule,
   writeSchedule,
@@ -114,10 +115,14 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         const seats = [...cardsOf(deck, texts)].flatMap(([note, cards]) =>
           cards.map((card, at) => ({ note, at, card })),
         );
+        // A parked card keeps its seat and its ordinal and is never asked. It
+        // has to keep them: the queue addresses a card by its ordinal, so a
+        // card taken out of the array renumbers the ones behind it.
+        const asked = seats.filter(({ card }) => card.parked === null);
         setQueue(
           [
-            ...seats.filter(({ card }) => isDue(card, today)),
-            ...seats.filter(({ card }) => card.held === null),
+            ...asked.filter(({ card }) => isDue(card, today)),
+            ...asked.filter(({ card }) => card.held === null),
           ].map(({ note, at }) => ({ note, at })),
         );
       },
@@ -334,7 +339,17 @@ function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
       if (deck.whole) {
         const held = readNoteSchedule(text);
         const whole = { from: 0, to: 0, front: noteBody(text).trim(), back: "", inline: false };
-        return [note, [{ ...whole, decks: [deck.name], held }]];
+        return [
+          note,
+          [
+            {
+              ...whole,
+              decks: [deck.name],
+              held,
+              parked: readNoteSuspended(text) ? "suspended" : null,
+            },
+          ],
+        ];
       }
       // A deck below this one is part of it, so a sitting of `databases` asks
       // the cards filed under `databases/postgres` as well.

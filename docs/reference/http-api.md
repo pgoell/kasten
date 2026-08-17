@@ -222,15 +222,18 @@ optional `archive` and answers with at most 100,000 matches, in the shape
 One `rg` pass, carrying the same flags search carries. Nothing is indexed and
 Postgres is not consulted, for the reason search does not consult it.
 
-It matches five shapes:
+It matches six shapes:
 
 * a line holding `::`, or a line that is exactly `?`, which are
   [the two ways a card is written](/reference/flashcard-format.md#the-two-ways-to-write-a-card)
 * a line holding `<!--SR:!`, which is a card's schedule
 * a line opening a fenced code block, which is how the client tells a card from a
   `std::vector`
+* a line opening `!suspended`, which is
+  [the token parking a card](/reference/flashcard-format.md#parking-a-card)
 * a line holding `#flashcards` or `#review`, which is what makes a note a deck
-* a line opening `sr-due:`, which is the due date of a note that is itself the card
+* a line opening `sr-due:` or `sr-suspended:`, which are the due date and the
+  parked state of a note that is itself the card
 
 Nothing here parses a card. The endpoint hands the lines over whole, because the
 browser has to parse the format anyway to draw one and two parsers in two

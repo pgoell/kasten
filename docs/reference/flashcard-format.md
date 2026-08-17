@@ -164,6 +164,43 @@ Standard, Infrequent Access, Glacier
 kasten writes this line and nothing else. Every other line of the note is
 byte-identical after a rating, because a rating is not licence to reflow a note.
 
+## Parking a card
+
+A parked card stays in the note and leaves the queue. Nothing asks it, and the
+deck's row counts it under `parked` rather than under `due` or `new`. Two shapes
+park a card, and only one of them is written by hand.
+
+`!suspended` beside the schedule parks a card you are finished with for now. On
+a one-line card the token goes after the answer:
+
+```markdown
+What is Direct Connect?::A private link !suspended <!--SR:!2026-08-20,4,270-->
+```
+
+On a card written over several lines it goes at the head of the line the
+schedule sits on, or on a line of its own where the card has no schedule yet:
+
+```markdown
+The three storage classes worth knowing
+?
+Standard, Infrequent Access, Glacier
+!suspended <!--SR:!2026-08-20,4,270-->
+```
+
+The token and the schedule are separate things. Parking a card never touches the
+three numbers, so putting it back returns it on the date it already held.
+
+A question with no answer under it is parked by its shape and carries no token:
+
+```markdown
+What is a moved block?::
+```
+
+That is a question written down to answer later. It is not a card missing half
+of itself and it is not an error: nothing asks it until the answer is there. A
+line opening with the divider and no question in front of it is prose, and no
+card at all.
+
 ## A whole note for review
 
 Some things are not a question and an answer. A note you want to re-read every
@@ -185,6 +222,9 @@ The note is shown whole, without its frontmatter, and rated the same four ways.
 `sr-due` written by hand is enough; the other two are filled in on the first
 rating. A note carrying both `#flashcards` and `#review` is read as a deck of
 cards, the cards being the more specific claim.
+
+A note like this has no line to hang a token on, so `sr-suspended: true` in the
+same block parks it, beside the schedule it already keeps there.
 
 ## The schedule kasten writes
 
@@ -245,6 +285,10 @@ That is the whole of archiving here, and it is
 [the archive](/explanation/the-archive.md) doing the work rather than anything
 this format knows about.
 
+Archiving is no longer the only way to take a card out of the review. It moves a
+whole note; [parking](#parking-a-card) takes one card and leaves the note where
+it is.
+
 ## What is not read
 
 * **Reversed cards.** `:::` and `??` ask the same pair backwards in
@@ -253,7 +297,8 @@ this format knows about.
 * **Cloze.** `==text==` is a card in obsidian-spaced-repetition and prose here.
   [An imported Anki deck](/how-to/import-an-anki-deck.md) keeps its cloze marks
   so nothing is lost, and nothing asks them yet.
-* **A daily limit on new cards.** Every new card in a deck is offered.
+* **A daily limit on new cards.** Every new card in a deck is offered, except
+  the ones [parked](#parking-a-card).
 
 ## See also
 
