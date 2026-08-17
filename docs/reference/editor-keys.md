@@ -382,7 +382,10 @@ says so instead of drawing an empty box.
 Selecting a passage draws a button over it, and clicking that button and
 pressing `y` are the same thing: the passage lands under `## Highlights` in the
 note beside the book, as a blockquote, a blank line, then the chapter it was
-selected in and an anchor. The selection is the whole of what a highlight is
+selected in and an anchor. A selection holding a figure takes the picture too:
+the file goes into the vault's images folder and an `![](path)` line above the
+quote points at it, so a drag over a plate and its caption keeps both. A drag
+over the plate alone is a figure with no quote under it. The selection is the whole of what a highlight is
 found by later, so there is nothing else in the note to keep in step and
 deleting a highlight is deleting the lines.
 [Highlight format](highlight-format.md) states the block. A fixed-layout book

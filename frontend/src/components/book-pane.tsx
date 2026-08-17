@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
-import { fetchBook, fetchNote } from "@/lib/api";
+import { fetchBook, fetchNote, uploadAsset } from "@/lib/api";
 import { findQuotes } from "@/lib/find-quote";
 import { type HighlightBlock, highlightBlocks, type Passage } from "@/lib/highlight";
+import { filedName, IMAGE_FOLDER } from "@/lib/image";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { readField } from "@/lib/note-frontmatter";
 import { bookPath } from "@/lib/note-path";
@@ -136,6 +137,23 @@ function runsBackward(doc: Document, selection: Selection): boolean {
 }
 
 /**
+ * The figure a selection holds, as the URL the book carries it at, or null.
+ *
+ * foliate rewrites every resource in a section to a `blob:` URL and makes those
+ * in the main frame (`epub.js:727`), so this reads out of the same origin the
+ * pane runs in and `fetch` below answers with the file the epub shipped, bytes
+ * and media type both. A canvas would answer with a re-encode of whatever fits
+ * on the page.
+ *
+ * `cloneContents` rather than a walk over `commonAncestorContainer`: the clone
+ * is the selection and nothing else, so a figure two paragraphs down the page
+ * cannot come along with a run of text that never touched it.
+ */
+function figureIn(range: Range): string | null {
+  return range.cloneContents().querySelector("img")?.src ?? null;
+}
+
+/**
  * The button drawn over a selection, which is the mouse's half of `y`.
  *
  * The transform puts its middle over the middle of the words and its bottom
@@ -258,7 +276,13 @@ export function BookPane({
    * and never asked about again: everything true of a passage is true when you
    * select it and may not be a second later.
    */
-  const taking = useRef<{ passage: Passage; range: Range; backward: boolean } | null>(null);
+  const taking = useRef<{
+    passage: Passage;
+    /** The book's own URL for the figure the selection holds, null where it holds none. */
+    figure: string | null;
+    range: Range;
+    backward: boolean;
+  } | null>(null);
 
   // Read through refs, the way `terminal-pane.tsx` reads the same prop. The
   // view is built in one effect keyed on the bytes, and naming these in its
@@ -288,13 +312,45 @@ export function BookPane({
    * gives that the press landed, and the document to clear it in comes off the
    * range rather than out of a fourth field on the ref.
    */
-  const take = useCallback(() => {
+  const take = useCallback(async () => {
     const held = taking.current;
     if (held === null) return;
-    onTakeRef.current(held.passage);
     taking.current = null;
     setAt(null);
     held.range.startContainer.ownerDocument?.getSelection()?.removeAllRanges();
+
+    // A figure goes in the vault before the passage is reported, the rule the
+    // paste in `image.ts` settled: a refused upload leaves the note as it was
+    // rather than holding a reference to nothing. So a take carrying a picture
+    // is refused whole, caption included, and says why.
+    let image: string | undefined;
+    if (held.figure !== null) {
+      const blob = await fetch(held.figure).then(
+        (answer) => answer.blob(),
+        () => null,
+      );
+      if (blob === null) {
+        onNoticeRef.current("The figure could not be read out of the book");
+        return;
+      }
+
+      const path = `${IMAGE_FOLDER}/${filedName(blob.type)}`;
+      const landed = await uploadAsset(path, blob).then(
+        () => true,
+        // A typed `unknown` and not an untyped catch, the way the paste catches:
+        // a `fetch` rejects with no response at all on a dropped connection, and
+        // there is no status to name. An epub figure the vault holds no magic
+        // for, an `.svg` plate, is refused here rather than sorted out above.
+        (error: unknown) => {
+          onNoticeRef.current(error instanceof Error ? error.message : "The figure did not go in");
+          return false;
+        },
+      );
+      if (!landed) return;
+      image = path;
+    }
+
+    onTakeRef.current({ ...held.passage, image });
   }, []);
 
   /**
@@ -341,7 +397,7 @@ export function BookPane({
       else if (event.key === "w") commandsRef.current.exportNote();
       // Nothing selected is nothing to take, the way `t` on a book still opening
       // is nothing to draw.
-      else if (event.key === "y") take();
+      else if (event.key === "y") void take();
       else if (event.key === "t") {
         const book = viewRef.current?.book;
         // On the book and not on its toc. The view is in the ref from the moment
@@ -632,7 +688,12 @@ export function BookPane({
       // Chromium, a range runs two paragraphs together where a selection keeps
       // the break, and that break is what the whole format rests on.
       const text = selection === null ? "" : selection.toString();
-      if (selection === null || selection.rangeCount === 0 || text.trim() === "") {
+      const range =
+        selection === null || selection.rangeCount === 0 ? null : selection.getRangeAt(0);
+      const figure = range === null ? null : figureIn(range);
+      // A figure is a passage with no words in it: a drag over a plate gives an
+      // empty string, so the text alone cannot say whether anything is selected.
+      if (selection === null || range === null || (text.trim() === "" && figure === null)) {
         taking.current = null;
         setAt(null);
         return;
@@ -643,9 +704,8 @@ export function BookPane({
       // holding several, so a drag that runs past a boundary would otherwise
       // be named for wherever it came to rest.
       const chapter = taking.current?.passage.chapter ?? chapterNow();
-      const range = selection.getRangeAt(0);
       const backward = runsBackward(doc, selection);
-      taking.current = { passage: { text, chapter }, range, backward };
+      taking.current = { passage: { text, chapter }, figure, range, backward };
       setAt(place(range, backward));
     }
 
@@ -871,7 +931,7 @@ export function BookPane({
         <button
           type="button"
           data-take
-          onClick={take}
+          onClick={() => void take()}
           style={{ left: at.x, top: at.y }}
           className={TAKE}
         >

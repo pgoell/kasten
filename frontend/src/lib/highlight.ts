@@ -37,6 +37,14 @@ export interface Passage {
    * fallback where there was none. Unformatted, the way `text` is.
    */
   chapter: string;
+  /**
+   * The vault path of the figure the selection held, where it held one.
+   *
+   * A path and never the `blob:` URL the book carries the picture at: the pane
+   * puts the file in the vault before it reports the passage, so by the time
+   * this is written the note can point at something that outlives the reader.
+   */
+  image?: string;
 }
 
 /**
@@ -55,10 +63,18 @@ export function addHighlight(note: string, passage: Passage, id: string): string
     .map((paragraph) => `> ${paragraph}`)
     .join("\n>\n");
 
+  // Above the quote, because a book's caption sits under its figure and the
+  // quote is usually that caption. `encodeURI` for the reason the paste writes
+  // one: a space in `99 Misc` ends a markdown destination that is not encoded.
+  const picture = passage.image === undefined ? "" : `![](${encodeURI(passage.image)})`;
+
   // The leading newline is the caller's to supply: no branch of `appendUnder`
   // puts a blank line in front of the block, so this is the gap between the
-  // heading and the quote and between one highlight and the next.
-  const block = `\n${quote}\n\n${collapse(passage.chapter)} ^${id}`;
+  // heading and the quote and between one highlight and the next. The filter is
+  // what lets a figure taken with no words be the whole block, and a quote
+  // taken with no figure stay the three lines it always was.
+  const body = [picture, quote].filter((part) => part !== "").join("\n\n");
+  const block = `\n${body}\n\n${collapse(passage.chapter)} ^${id}`;
   return appendUnder(note, HIGHLIGHTS, block);
 }
 

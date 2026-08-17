@@ -324,12 +324,27 @@ export class FakeView extends HTMLElement {
  * listener goes to jsdom's virtual console, so a missing one of these fails
  * somewhere else entirely.
  *
+ * `figure` wraps the words in a `<figure>` carrying a plate at that URL, which
+ * is the selection a drag over a picture makes. An empty `text` beside it is a
+ * plate selected on its own.
+ *
  * The caller wraps this in `act`: the pane answers it with a state update.
  */
-export function selectIn(doc: Document, text: string): void {
+export function selectIn(doc: Document, text: string, figure?: string): void {
   const node = doc.createTextNode(text);
   const range = doc.createRange();
-  range.selectNodeContents(node);
+  if (figure === undefined) range.selectNodeContents(node);
+  else {
+    // A `<figure>` holding the plate and its caption, which is the markup the
+    // pane reads a figure out of. Appended to the document rather than left
+    // detached, so the range sits where a drag would have made it.
+    const holder = doc.createElement("figure");
+    const image = doc.createElement("img");
+    image.src = figure;
+    holder.append(image, node);
+    doc.body.append(holder);
+    range.selectNodeContents(holder);
+  }
   doc.getSelection = () =>
     ({
       toString: () => text,

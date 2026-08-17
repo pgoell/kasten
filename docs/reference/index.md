@@ -10,7 +10,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [Exam format](exam-format.md) - the note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands
 * [Flashcard format](flashcard-format.md) - the two ways a card is written, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, and the keys a sitting takes
 * [Todo format](todo-format.md) - the line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the terms that filter one, and the note that saves them
-* [Highlight format](highlight-format.md) - the block a passage taken out of a book is written as, the quote rule and its character classes, the chapter line and its fallback, the anchor, and the rule that reads a highlight back
+* [Highlight format](highlight-format.md) - the block a passage taken out of a book is written as, the quote rule and its character classes, the figure line, the chapter line and its fallback, the anchor, and the rule that reads a highlight back
 * [Relation format](relation-format.md) - the line a typed relation is written on, the nine rules of its grammar, how the backlinks panel groups by it, and the one thing it reads that it should not
 * [Configuration](configuration.md) - every backend setting, its default, and where the values come from
 * [Editor keys](editor-keys.md) - every keyboard binding kasten adds, the mode each one applies in, the prompt, finder and search they open, how a wikilink is followed, and how a highlight reaches the book it came from
