@@ -159,6 +159,19 @@ describe("ReviewSession on a whole note", () => {
     expect(screen.queryByTestId("review-card")).not.toBeInTheDocument();
   });
 
+  it("parks a whole note through its frontmatter, not through a line", async () => {
+    const saved = renderNote();
+    await screen.findByTestId("review-card");
+
+    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+
+    const written = saved.mock.calls[0]?.[1] ?? "";
+    expect(written).toContain("sr-suspended: true");
+    expect(written).toContain("sr-due: 2026-01-01");
+    expect(written.split("\n")[0]).toBe("---");
+    expect(written).not.toContain("!suspended");
+  });
+
   it("writes the schedule into the note's frontmatter", async () => {
     const saved = renderNote();
     await screen.findByTestId("review-card");
@@ -270,6 +283,47 @@ describe("ReviewSession on a parked card", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+  });
+
+  const TWO =
+    "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\n" +
+    "What is Direct Connect?::A private link\n";
+
+  function renderTwo() {
+    vi.spyOn(api, "fetchNote").mockResolvedValue(TWO);
+    const saved = vi.spyOn(api, "saveNote").mockResolvedValue({
+      path: "decks/aws.md",
+      content: TWO,
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={{ ...DECK, fresh: 2 }} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    return saved;
+  }
+
+  it("writes the token onto the card on screen", async () => {
+    const saved = renderTwo();
+    await screen.findByTestId("review-card");
+
+    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+
+    expect(saved.mock.calls[0]?.[0]).toBe("decks/aws.md");
+    expect(saved.mock.calls[0]?.[1]).toContain("What is a VPC?::A private cloud !suspended");
+    expect(saved.mock.calls[0]?.[1]).toContain("What is Direct Connect?::A private link\n");
+  });
+
+  it("drops it from the queue and moves to the next card", async () => {
+    renderTwo();
+    await screen.findByTestId("review-card");
+    expect(screen.getByText(/left/).textContent).toBe("2 left");
+
+    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+
+    expect(screen.getByText(/left/).textContent).toBe("1 left");
+    expect(screen.getByTestId("review-card")).toHaveTextContent("What is Direct Connect?");
   });
 
   it("leaves the parked card out of the queue", async () => {

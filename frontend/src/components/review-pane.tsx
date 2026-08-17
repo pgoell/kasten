@@ -37,7 +37,11 @@ const KEYED: Record<string, Rating> = { "1": "again", "2": "hard", "3": "good", 
 export function ReviewPane({ commands, onClose, focusSignal }: ReviewPaneProps) {
   const [deck, setDeck] = useState<Deck | null>(null);
   const [pending, setPending] = useState("");
-  const controls = useRef<{ reveal: () => void; rate: (rating: Rating) => void } | null>(null);
+  const controls = useRef<{
+    reveal: () => void;
+    rate: (rating: Rating) => void;
+    suspend: () => void;
+  } | null>(null);
   const panel = useRef<HTMLElement>(null);
 
   const onControls = useCallback((given: typeof controls.current) => {
@@ -108,6 +112,9 @@ export function ReviewPane({ commands, onClose, focusSignal }: ReviewPaneProps) 
     const rating = KEYED[key];
     if (rating !== undefined) controls.current?.rate(rating);
     else if (key === " " || key === "Enter") controls.current?.reveal();
+    // Before the reveal as well as after it, because a card you want out of the
+    // deck is one you have recognised from its question alone.
+    else if (key === "s") controls.current?.suspend();
     else if (key === "q") onClose();
     else return;
 

@@ -15,7 +15,9 @@ import {
   readNoteSchedule,
   readNoteSuspended,
   sameAnswer,
+  setSuspended,
   writeNoteSchedule,
+  writeNoteSuspended,
   writeSchedule,
 } from "@/lib/srs";
 
@@ -60,7 +62,13 @@ interface ReviewSessionProps {
    * nothing, its buttons being the whole interface. Neither shell holds a rule
    * about scheduling, which is what keeps the two from drifting.
    */
-  onControls?: (controls: { reveal: () => void; rate: (rating: Rating) => void } | null) => void;
+  onControls?: (
+    controls: {
+      reveal: () => void;
+      rate: (rating: Rating) => void;
+      suspend: () => void;
+    } | null,
+  ) => void;
 }
 
 /** One card in the sitting: which note holds it, and which of that note's cards. */
@@ -176,6 +184,42 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     [cards, deck, queryClient, seat, texts, today],
   );
 
+  /**
+   * Park the card on screen and move on, without rating it.
+   *
+   * The card leaves the queue and keeps its seat in the note, which is the
+   * property the ordinals depend on: `setSuspended` splices a token and never
+   * adds or removes a card, so every seat behind this one still addresses the
+   * card it did before.
+   */
+  const suspend = useCallback(() => {
+    if (texts === null || seat === undefined) return;
+    const text = texts.get(seat.note);
+    const held = cards.get(seat.note)?.[seat.at];
+    if (text === undefined || held === undefined) return;
+
+    // A whole note has no line to splice. Its synthetic card spans line 0, so
+    // `setSuspended` would put the token under the opening `---` and break the
+    // block, park nothing, and leave a line no screen can reach to undo.
+    const next = deck.whole ? writeNoteSuspended(text, true) : setSuspended(text, held, true);
+    setTexts((was) => new Map(was).set(seat.note, next));
+    setRevealed(false);
+    setTyped("");
+    setQueue((queued) => queued.slice(1));
+
+    void saveNote(seat.note, next).then(
+      () => {
+        void queryClient.invalidateQueries({ queryKey: ["cards"] });
+      },
+      (error: unknown) => {
+        // The same call `rate` makes, for the same reason: a write that failed
+        // silently would be a card you believe is parked and meet again
+        // tomorrow.
+        setFailed(error instanceof Error ? error.message : "could not write the note");
+      },
+    );
+  }, [cards, deck, queryClient, seat, texts]);
+
   const reveal = useCallback(() => {
     setRevealed(true);
   }, []);
@@ -188,9 +232,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   }, []);
 
   useEffect(() => {
-    onControls?.(card === undefined ? null : { reveal, rate });
+    onControls?.(card === undefined ? null : { reveal, rate, suspend });
     return () => onControls?.(null);
-  }, [card, onControls, rate, reveal]);
+  }, [card, onControls, rate, reveal, suspend]);
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
@@ -206,6 +250,17 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         <span className="text-[11px] text-one-muted uppercase tracking-wider">
           {queue.length} left
         </span>
+        {/* Beside Type and before the reveal, because a card you want out of
+            the deck is one you have recognised from its question alone. */}
+        {card !== undefined && (
+          <button
+            type="button"
+            onClick={suspend}
+            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent"
+          >
+            Suspend
+          </button>
+        )}
         <button
           type="button"
           onClick={toggleTyping}

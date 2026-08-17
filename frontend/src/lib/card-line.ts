@@ -50,6 +50,21 @@ export function parks(line: string | undefined): boolean {
   return line?.trimStart().startsWith(SUSPEND_TOKEN) ?? false;
 }
 
+/** The token where it opens a line, with the space after it and not the indent. */
+const HEAD_TOKEN = /^([ \t]*)!suspended[ \t]*/;
+
+/**
+ * `line` with the token it opens taken off, the indent kept.
+ *
+ * The twin of `withoutToken` and a different job. That one takes the token out
+ * of an answer, so it eats the space before it; this one takes it off the line
+ * it owns, so it eats the space after it and what is left is the schedule, or
+ * nothing at all.
+ */
+export function withoutHeadToken(line: string): string {
+  return line.replace(HEAD_TOKEN, "$1");
+}
+
 /** `text` with the token taken off, which is how a parked card is shown. */
 export function withoutToken(text: string): string {
   return text.replace(TOKEN, "").trimEnd();

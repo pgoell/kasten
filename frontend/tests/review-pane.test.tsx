@@ -175,3 +175,26 @@ describe("ReviewPane on a deck holding parked cards", () => {
     expect(screen.getByRole("button", { name: /beta/ })).toBeDisabled();
   });
 });
+
+describe("ReviewPane suspending the card on screen", () => {
+  const TWO = "#flashcards/beta\n\nc::d\n\ne::f\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("parks it on s and shows the next one", async () => {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue(TWO);
+    vi.spyOn(api, "saveNote").mockResolvedValue({ path: "b.md", content: TWO });
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    expect(await screen.findByTestId("review-card")).toHaveTextContent("c");
+
+    fireEvent.keyDown(pane, { key: "s" });
+
+    expect(screen.getByTestId("review-card")).toHaveTextContent("e");
+  });
+});
