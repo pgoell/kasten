@@ -19,7 +19,7 @@ async function renderPane() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+      <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
     </QueryClientProvider>,
   );
   await screen.findByRole("button", { name: /alpha/ });
@@ -81,7 +81,7 @@ describe("ReviewPane on a nested deck", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -100,7 +100,7 @@ describe("ReviewPane on a nested deck", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -150,7 +150,7 @@ describe("ReviewPane on a deck holding parked cards", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
     await screen.findByRole("button", { name: /alpha/ });
@@ -196,5 +196,61 @@ describe("ReviewPane suspending the card on screen", () => {
     fireEvent.keyDown(pane, { key: "s" });
 
     expect(screen.getByTestId("review-card")).toHaveTextContent("e");
+  });
+});
+
+describe("ReviewPane on the parked screen", () => {
+  const PARKED_HITS = [
+    { path: "a.md", line: 1, text: "#flashcards/alpha" },
+    { path: "a.md", line: 2, text: "a::b" },
+    { path: "a.md", line: 3, text: "What is a VPC?::A private cloud !suspended" },
+  ];
+  const A = "#flashcards/alpha\na::b\nWhat is a VPC?::A private cloud !suspended\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function openParked() {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(PARKED_HITS);
+    vi.spyOn(api, "fetchNote").mockResolvedValue(A);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: /alpha/ });
+    const pane = screen.getByLabelText("review");
+    fireEvent.keyDown(pane, { key: "p" });
+    return { pane, container };
+  }
+
+  it("opens the parked list on p, leaving the decks behind", async () => {
+    const { container } = await openParked();
+
+    expect(await screen.findByText("What is a VPC?")).toBeInTheDocument();
+    // By the attribute, not the name: a parked row names its deck too.
+    expect(container.querySelector("button[data-deck]")).toBeNull();
+  });
+
+  it("walks the parked rows with j rather than the decks", async () => {
+    const { pane } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+
+    expect(document.activeElement).toHaveAttribute("data-parked", "a.md:1");
+    expect(document.activeElement).not.toHaveAttribute("data-deck");
+  });
+
+  it("goes back to the decks on h", async () => {
+    const { pane, container } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "h" });
+
+    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+    expect(container.querySelector("button[data-deck]")).not.toBeNull();
   });
 });

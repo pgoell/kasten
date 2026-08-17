@@ -249,3 +249,28 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
 
   return [...decks.values()].sort((one, two) => one.name.localeCompare(two.name));
 }
+
+/**
+ * The notes holding at least one parked line, in the order the scan found them.
+ *
+ * What the parked screen fetches. It reads the notes rather than the matched
+ * lines because putting a card back means editing and writing the note, and
+ * because the front of a card written over several lines is not among the lines
+ * the scan matched.
+ *
+ * Deliberately loose, the way the scan's own pattern is. A `foo::` inside a
+ * fenced code block names its note here, and `parseCards` then finds no parked
+ * card in it and draws no row. The cost is one note read; teaching this the
+ * fence rule would mean grouping the hits by note first, which is the work the
+ * screen is about to do anyway.
+ */
+export function parkedNotes(hits: SearchHit[]): string[] {
+  const notes = new Set<string>();
+  for (const { path, text } of hits) {
+    const halves = halvesOf(text);
+    if (suspended(text) || parks(text) || NOTE_PARKED.test(text) || halves?.back === "") {
+      notes.add(path);
+    }
+  }
+  return [...notes];
+}

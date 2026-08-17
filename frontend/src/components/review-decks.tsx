@@ -17,6 +17,8 @@ function leafOf(name: string): string {
 interface ReviewDecksProps {
   /** Start a sitting on this deck. */
   onPick: (deck: Deck) => void;
+  /** Open the list of parked cards, which is `p` at a desk and this on a phone. */
+  onParked: () => void;
   /** Whether to count decks filed in the archive. Off, the way search is off. */
   archive?: boolean;
 }
@@ -29,7 +31,7 @@ interface ReviewDecksProps {
  * and no note reads at all. The session opens the note it is about to ask, and
  * only then.
  */
-export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
+export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksProps) {
   const [imported, setImported] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -55,10 +57,16 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
           {decks.length} deck{decks.length === 1 ? "" : "s"}
         </span>
         <span className="text-[11px] text-one-muted uppercase tracking-wider">{waiting} to go</span>
+        {/* A button and not only `p`, because `/review` is the phone's way in
+            and a phone has no keyboard to press it on. */}
         {parked > 0 && (
-          <span className="text-[11px] text-one-muted uppercase tracking-wider opacity-60">
+          <button
+            type="button"
+            onClick={onParked}
+            className="min-h-11 px-1 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent"
+          >
             {parked} parked
-          </span>
+          </button>
         )}
       </header>
 

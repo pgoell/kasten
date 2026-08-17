@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ReviewDecks } from "@/components/review-decks";
+import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
 import { type EditorCommands, LEADER } from "@/lib/key-bindings";
 import type { Deck } from "@/lib/review";
@@ -10,9 +11,20 @@ interface ReviewPaneProps {
   commands: EditorCommands;
   /** Close the pane, which is `q`. */
   onClose: () => void;
+  /** Open a note in a pane, the way `ExamPane` is handed the same job. */
+  onOpen: (path: string) => void;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
 }
+
+/**
+ * Which of the three screens is showing.
+ *
+ * One nullable deck used to answer this, and a third screen reached with a null
+ * deck would silently inherit the overview's keys. Naming the screen is what
+ * stops `j` walking the decks behind a list that is not the decks.
+ */
+type Screen = { at: "decks" } | { at: "sitting"; deck: Deck } | { at: "parked" };
 
 /** `1` to `4`, in the order the buttons are drawn. */
 const KEYED: Record<string, Rating> = { "1": "again", "2": "hard", "3": "good", "4": "easy" };
@@ -25,17 +37,18 @@ const KEYED: Record<string, Rating> = { "1": "again", "2": "hard", "3": "good", 
  * whole of the pane: the phone route renders the same two components with no
  * keys at all, so a rule cannot be true at a desk and false on a phone.
  *
- * On the overview `j` and `k` walk the decks and `l` starts the sitting, and
- * `h` in a sitting goes back to the list. None of the four is needed on the
- * phone, where a thumb taps the row and the `← Decks` button.
+ * On the overview `j` and `k` walk the decks, `l` starts the sitting and `p`
+ * opens the parked list, where `j` and `k` walk the rows instead. `h` goes back
+ * to the decks from either of the other two screens. None of these is needed on
+ * the phone, where a thumb taps the row and the `← Decks` button.
  *
  * `q` closes and `Escape` is deliberately not bound, which is the one place
  * this diverges from the other panes. The keys here are an accelerator over
  * buttons that are always there, and a binding that only works on hardware the
  * phone lacks is a binding the phone must never need.
  */
-export function ReviewPane({ commands, onClose, focusSignal }: ReviewPaneProps) {
-  const [deck, setDeck] = useState<Deck | null>(null);
+export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPaneProps) {
+  const [screen, setScreen] = useState<Screen>({ at: "decks" });
   const [pending, setPending] = useState("");
   const controls = useRef<{
     reveal: () => void;
@@ -78,27 +91,31 @@ export function ReviewPane({ commands, onClose, focusSignal }: ReviewPaneProps) 
     // The overview is showing. The browser moves the focus between buttons on
     // Tab and nothing else, so `j` and `k` do it here, and `l` presses the one
     // focused the way Enter on a focused button already does.
-    if (deck === null && (key === "j" || key === "k" || key === "l")) {
-      const decks = [
-        ...(panel.current?.querySelectorAll<HTMLButtonElement>(
-          "button[data-deck]:not(:disabled)",
-        ) ?? []),
-      ];
-      const at = decks.indexOf(document.activeElement as HTMLButtonElement);
-      if (key === "l") decks[at]?.click();
-      else {
-        const by = key === "j" ? 1 : -1;
-        decks[at === -1 ? 0 : Math.min(Math.max(at + by, 0), decks.length - 1)]?.focus();
-      }
+    if (screen.at === "decks" && (key === "j" || key === "k" || key === "l")) {
+      walk(panel.current, "button[data-deck]:not(:disabled)", key);
       event.preventDefault();
       return;
     }
 
-    // Back to the list, which is the `← Decks` button and the way out of one
-    // deck into another. `q` closes the pane from either screen, so leaving a
-    // sitting and leaving the review are two different keys.
-    if (deck !== null && key === "h") {
-      setDeck(null);
+    // The same walk over a different selector. `data-parked` and not
+    // `data-deck`, so neither screen's keys can reach the other's rows.
+    if (screen.at === "parked" && (key === "j" || key === "k")) {
+      walk(panel.current, "button[data-parked]", key);
+      event.preventDefault();
+      return;
+    }
+
+    if (screen.at === "decks" && key === "p") {
+      setScreen({ at: "parked" });
+      event.preventDefault();
+      return;
+    }
+
+    // Back to the decks, which is the `← Decks` button, the way out of one deck
+    // into another and the way off the parked list. `q` closes the pane from
+    // any screen, so leaving a sitting and leaving the review are two keys.
+    if (screen.at !== "decks" && key === "h") {
+      setScreen({ at: "decks" });
       event.preventDefault();
       return;
     }
@@ -132,11 +149,38 @@ export function ReviewPane({ commands, onClose, focusSignal }: ReviewPaneProps) 
       aria-label="review"
       className="h-full outline-none"
     >
-      {deck === null ? (
-        <ReviewDecks onPick={setDeck} />
+      {screen.at === "decks" ? (
+        <ReviewDecks
+          onPick={(deck) => setScreen({ at: "sitting", deck })}
+          onParked={() => setScreen({ at: "parked" })}
+        />
+      ) : screen.at === "parked" ? (
+        <ReviewParked onLeave={() => setScreen({ at: "decks" })} onOpen={onOpen} />
       ) : (
-        <ReviewSession deck={deck} onLeave={() => setDeck(null)} onControls={onControls} />
+        <ReviewSession
+          deck={screen.deck}
+          onLeave={() => setScreen({ at: "decks" })}
+          onControls={onControls}
+        />
       )}
     </section>
   );
+}
+
+/**
+ * Move the focus between the rows a selector names, or press the one focused.
+ *
+ * Two screens draw a list of buttons and neither is in the tab order, so the
+ * walk is the same and only the selector differs. Neither wraps: the first and
+ * the last are where the list ends, which is what tells you so without looking.
+ */
+function walk(panel: HTMLElement | null, selector: string, key: string): void {
+  const rows = [...(panel?.querySelectorAll<HTMLButtonElement>(selector) ?? [])];
+  const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+  if (key === "l") {
+    rows[at]?.click();
+    return;
+  }
+  const by = key === "j" ? 1 : -1;
+  rows[at === -1 ? 0 : Math.min(Math.max(at + by, 0), rows.length - 1)]?.focus();
 }
