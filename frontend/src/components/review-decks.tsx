@@ -43,9 +43,9 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
   // Top-level rows only. A deck counts every card under it, so summing all of
   // them would count a card in `databases/postgres` again for `databases`, and
   // an imported Anki tree would read as twice the cards it holds.
-  const waiting = decks
-    .filter((deck) => depthOf(deck.name) === 0)
-    .reduce((count, deck) => count + deck.due + deck.fresh, 0);
+  const top = decks.filter((deck) => depthOf(deck.name) === 0);
+  const waiting = top.reduce((count, deck) => count + deck.due + deck.fresh, 0);
+  const parked = top.reduce((count, deck) => count + deck.parked, 0);
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
@@ -55,6 +55,11 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
           {decks.length} deck{decks.length === 1 ? "" : "s"}
         </span>
         <span className="text-[11px] text-one-muted uppercase tracking-wider">{waiting} to go</span>
+        {parked > 0 && (
+          <span className="text-[11px] text-one-muted uppercase tracking-wider opacity-60">
+            {parked} parked
+          </span>
+        )}
       </header>
 
       <label className="flex min-h-11 cursor-pointer items-center gap-3 border-one-line border-b px-3 text-[13px] text-one-muted hover:text-one-accent">
@@ -126,6 +131,14 @@ export function ReviewDecks({ onPick, archive = false }: ReviewDecksProps) {
                 <span className="min-w-0 flex-1 truncate text-[13px]">{leafOf(deck.name)}</span>
                 <span className="text-[12px] text-one-accent">{deck.due} due</span>
                 <span className="text-[12px] text-one-muted">{deck.fresh} new</span>
+                {/* Only where there are any. A deck of nothing but parked cards
+                    lands disabled on the rule above, and a bare `0 new` would
+                    leave no way to find out why. */}
+                {deck.parked > 0 && (
+                  <span className="text-[12px] text-one-muted opacity-60">
+                    {deck.parked} parked
+                  </span>
+                )}
               </button>
             </li>
           ))}
