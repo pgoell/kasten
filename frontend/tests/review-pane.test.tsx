@@ -19,7 +19,7 @@ async function renderPane() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+      <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
     </QueryClientProvider>,
   );
   await screen.findByRole("button", { name: /alpha/ });
@@ -66,6 +66,21 @@ describe("ReviewPane keys on the deck overview", () => {
 
     expect(await screen.findByTestId("review-card")).toHaveTextContent("c");
   });
+
+  it("keeps the keyboard after l starts the sitting", async () => {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue("#flashcards/beta\n\nc::d\n");
+
+    // Twice, the way the test above does: the mocked note is `beta`'s.
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    await screen.findByTestId("review-card");
+
+    // The deck row it pressed has gone with the overview, so without this the
+    // focus falls to the body and no key of the sitting reaches the pane.
+    expect(document.activeElement).toBe(pane);
+  });
 });
 
 describe("ReviewPane on a nested deck", () => {
@@ -81,7 +96,7 @@ describe("ReviewPane on a nested deck", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -100,7 +115,7 @@ describe("ReviewPane on a nested deck", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -150,7 +165,7 @@ describe("ReviewPane on a deck holding parked cards", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <ReviewPane commands={stubCommands()} onClose={vi.fn()} />
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
     await screen.findByRole("button", { name: /alpha/ });
@@ -173,5 +188,159 @@ describe("ReviewPane on a deck holding parked cards", () => {
     await renderParked();
 
     expect(screen.getByRole("button", { name: /beta/ })).toBeDisabled();
+  });
+});
+
+describe("ReviewPane suspending the card on screen", () => {
+  const TWO = "#flashcards/beta\n\nc::d\n\ne::f\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("parks it on s and shows the next one", async () => {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue(TWO);
+    vi.spyOn(api, "saveNote").mockResolvedValue({ path: "b.md", content: TWO });
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    expect(await screen.findByTestId("review-card")).toHaveTextContent("c");
+
+    fireEvent.keyDown(pane, { key: "s" });
+
+    expect(screen.getByTestId("review-card")).toHaveTextContent("e");
+  });
+});
+
+describe("ReviewPane on the parked screen", () => {
+  const PARKED_HITS = [
+    { path: "a.md", line: 1, text: "#flashcards/alpha" },
+    { path: "a.md", line: 2, text: "a::b" },
+    { path: "a.md", line: 3, text: "What is a VPC?::A private cloud !suspended" },
+  ];
+  const A = "#flashcards/alpha\na::b\nWhat is a VPC?::A private cloud !suspended\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function openParked() {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(PARKED_HITS);
+    vi.spyOn(api, "fetchNote").mockResolvedValue(A);
+    vi.spyOn(api, "saveNote").mockResolvedValue({ path: "a.md", content: A });
+    const onOpen = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={onOpen} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: /alpha/ });
+    const pane = screen.getByLabelText("review");
+    fireEvent.keyDown(pane, { key: "p" });
+    return { pane, container, onOpen };
+  }
+
+  it("opens the parked list on p, leaving the decks behind", async () => {
+    const { container } = await openParked();
+
+    expect(await screen.findByText("What is a VPC?")).toBeInTheDocument();
+    // By the attribute, not the name: a parked row names its deck too.
+    expect(container.querySelector("button[data-deck]")).toBeNull();
+  });
+
+  it("walks the parked rows with j rather than the decks", async () => {
+    const { pane } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+
+    expect(document.activeElement).toHaveAttribute("data-parked", "a.md:1");
+    expect(document.activeElement).not.toHaveAttribute("data-deck");
+  });
+
+  it("goes back to the decks on h", async () => {
+    const { pane, container } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "h" });
+
+    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+    expect(container.querySelector("button[data-deck]")).not.toBeNull();
+  });
+
+  it("puts the focused row back on u", async () => {
+    const { pane } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "u" });
+
+    expect(screen.queryByText("What is a VPC?")).not.toBeInTheDocument();
+  });
+
+  it("keeps the keyboard after putting a row back", async () => {
+    const { pane } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "u" });
+
+    // The row it was on has gone with it, so without this the focus falls to
+    // the body and every key after `u` reaches nothing.
+    expect(document.activeElement).toBe(pane);
+    fireEvent.keyDown(pane, { key: "h" });
+    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+  });
+
+  it("opens the note the focused row is written in on o", async () => {
+    const { pane, onOpen } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "o" });
+
+    expect(onOpen).toHaveBeenCalledWith("a.md");
+  });
+});
+
+describe("ReviewPane jotting a question mid-sitting", () => {
+  const TWO = "#flashcards/beta\n\nc::d\n\ne::f\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function inSitting() {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue(TWO);
+    const saved = vi.spyOn(api, "saveNote").mockResolvedValue({ path: "b.md", content: TWO });
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    await screen.findByTestId("review-card");
+    return { pane, saved };
+  }
+
+  it("opens the field on n and puts the cursor in it", async () => {
+    const { pane } = await inSitting();
+
+    fireEvent.keyDown(pane, { key: "n" });
+
+    expect(document.activeElement).toBe(screen.getByLabelText("a new question"));
+  });
+
+  it("does not rate the card while a question is being typed", async () => {
+    const { pane, saved } = await inSitting();
+    fireEvent.keyDown(pane, { key: "n" });
+
+    // The pane's own rating keys are live on the section this bubbles to.
+    fireEvent.keyDown(screen.getByLabelText("a new question"), { key: "1" });
+
+    expect(saved).not.toHaveBeenCalled();
+    expect(screen.getByTestId("review-card")).toHaveTextContent("c");
   });
 });

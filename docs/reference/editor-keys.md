@@ -668,24 +668,42 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 
 | Key | What it does |
 | --- | --- |
-| `j`, `k` | Walk the decks on the overview |
+| `j`, `k` | Walk the decks on the overview, or the rows on the parked list |
 | `l` | Start the sitting on the deck under the cursor |
-| `h` | Leave the sitting, back to the decks |
+| `p` | Open [the parked list](/reference/flashcard-format.md#parking-a-card) |
+| `h` | Leave the sitting or the parked list, back to the decks |
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
+| `s` | Park the card on screen, before or after the answer |
+| `n` | Jot a new question into the note the card came from |
+| `u` | Put the parked row under the cursor back |
+| `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
 
 `j` and `k` move the focus itself rather than a highlight of their own, so
 Enter on the deck they reach opens it the way the browser already opens a
 focused button, and `l` is the same press under the finger vim leaves it on. A
-deck with nothing waiting is skipped: its row is disabled and cannot be sat.
+deck with nothing waiting is skipped: its row is disabled and cannot be sat, and
+a deck holding nothing but parked cards is one of those, its row saying how many
+so a `0 new` is never a mystery.
 A deck [under another](/reference/flashcard-format.md#a-deck-inside-a-deck) is
 one row like any other, so `j` walks parents and children alike.
 
-`h` is the way out of one deck into another: it ends the sitting and draws the
-decks again, where `q` closes the whole pane from either screen. A sitting left
-halfway keeps every rating it took, each one having been written to its note as
-it was given, so the deck you come back to is the deck you left.
+Each of the three screens scopes its own keys. `j` and `k` walk deck rows on the
+overview and parked rows on the parked list, and neither can reach the other's.
+
+`h` is the way out of one deck into another and the way off the parked list: it
+ends the sitting and draws the decks again, where `q` closes the whole pane from
+any screen. A sitting left halfway keeps every rating it took, each one having
+been written to its note as it was given, so the deck you come back to is the
+deck you left.
+
+`s` parks the card in front of you without rating it, before the answer is shown
+as well as after: a card you want out of the deck is one you recognised from its
+question alone. `n` opens a line for a question you thought of mid-sitting, which
+is written at the end of the note the card came from and waits on the parked list
+until you answer it. While that line has the cursor the pane's own keys stand
+down, so a `1` in a question is a digit and not a rating.
 
 Everything the keys reach is also a button, because the same two components draw
 `/review`, which is [the phone's way in](/reference/flashcard-format.md#sitting-one)

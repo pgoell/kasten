@@ -29,7 +29,16 @@
  * the same thing off the matched lines alone.
  */
 
-import { divide, fences, parks, SR, suspended } from "@/lib/card-line";
+import {
+  divide,
+  fences,
+  parks,
+  SR,
+  SUSPEND_TOKEN,
+  suspended,
+  withoutHeadToken,
+  withoutToken,
+} from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
 import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
@@ -310,6 +319,48 @@ export function writeSchedule(text: string, card: Card, next: Schedule): string 
 }
 
 /**
+ * `text` with this card parked or put back, every other line byte-identical.
+ *
+ * A line splice, the way `writeSchedule` is one and for the same reason, and it
+ * follows the same two shapes. On a one-line card the token goes before the
+ * comment where there is one and on the end of the line where there is not. On
+ * a card written over several lines it goes at the head of the schedule's line,
+ * or on a line spliced in under the back where the card has no schedule yet.
+ *
+ * The token and the schedule are orthogonal. Parking a card never touches the
+ * three numbers, so putting it back returns it on the date it already held, and
+ * the round trip leaves the note as it was byte for byte.
+ */
+export function setSuspended(text: string, card: Card, on: boolean): string {
+  const lines = text.split("\n");
+  const last = lines[card.to] ?? "";
+
+  if (card.inline) {
+    lines[card.to] = on
+      ? SR.test(last)
+        ? last.replace(SR, `${SUSPEND_TOKEN} $&`)
+        : `${last.trimEnd()} ${SUSPEND_TOKEN}`
+      : withoutToken(last);
+    return lines.join("\n");
+  }
+
+  if (!on) {
+    const bare = withoutHeadToken(last);
+    // A line the token was the whole of goes with it, so the note is left as
+    // it was rather than gaining a blank line per parking.
+    if (bare.trim() === "") lines.splice(card.to, 1);
+    else lines[card.to] = bare;
+    return lines.join("\n");
+  }
+
+  // `card.to` is the schedule's line where the card has one, and the last line
+  // of its back where it has none.
+  if (SR.test(last)) lines[card.to] = `${SUSPEND_TOKEN} ${last}`;
+  else lines.splice(card.to + 1, 0, SUSPEND_TOKEN);
+  return lines.join("\n");
+}
+
+/**
  * Whether what was typed counts as the card's answer.
  *
  * Forgiving on everything that is not the answer: case, the space around and
@@ -383,4 +434,20 @@ export function readNoteSuspended(text: string): boolean {
  */
 export function writeNoteSuspended(text: string, on: boolean): string {
   return setField(text, "sr-suspended", on ? "true" : "false");
+}
+
+/**
+ * `text` with `question` written at the end as a card waiting for its answer.
+ *
+ * Appends and never inserts. A card added at the end is last in line order, so
+ * every ordinal a running sitting already holds still addresses the card it
+ * did; an insert in the middle would renumber the cards under it, which is the
+ * rule `review-session.tsx:82` states.
+ *
+ * A deck tag typed at the head of the question needs nothing here. `cardTags`
+ * reads a tag at the head of a card line, so
+ * `#flashcards/terraform What is a moved block?` files itself.
+ */
+export function appendStub(text: string, question: string): string {
+  return `${text.replace(/\n*$/, "")}\n\n${question}::\n`;
 }

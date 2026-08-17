@@ -1,5 +1,5 @@
 import type { SearchHit } from "@/lib/api";
-import { decksFrom } from "@/lib/review";
+import { decksFrom, parkedNotes } from "@/lib/review";
 
 const TODAY = "2026-08-13";
 
@@ -216,5 +216,31 @@ describe("decksFrom on a nested deck tag", () => {
     );
     expect(decks.map((deck) => deck.name)).toEqual(["databases", "databases/postgres"]);
     expect(decks[0]).toMatchObject({ fresh: 1 });
+  });
+});
+
+describe("parkedNotes", () => {
+  it("names the notes holding a parked line and leaves the others out", () => {
+    const found = parkedNotes([
+      ...hits("a.md", ["#flashcards", "a::b !suspended"]),
+      ...hits("b.md", ["#flashcards", "c::d"]),
+      ...hits("c.md", ["#flashcards", "?", "!suspended"]),
+    ]);
+
+    expect(found).toEqual(["a.md", "c.md"]);
+  });
+
+  it("names a note holding two parked lines once", () => {
+    const found = parkedNotes(hits("a.md", ["#flashcards", "a::b !suspended", "c::d !suspended"]));
+
+    expect(found).toEqual(["a.md"]);
+  });
+
+  it("names a note holding a question with no answer", () => {
+    expect(parkedNotes(hits("s.md", ["#flashcards", "Question::"]))).toEqual(["s.md"]);
+  });
+
+  it("names a note its frontmatter parks", () => {
+    expect(parkedNotes(hits("n.md", ["sr-suspended: true", "#review"]))).toEqual(["n.md"]);
   });
 });

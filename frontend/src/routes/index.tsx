@@ -1633,6 +1633,7 @@ function Home() {
                   <ReviewPane
                     commands={commands}
                     onClose={() => void commands.closeNote()}
+                    onOpen={(path) => void openInPane(path)}
                     focusSignal={focused ? focusSignal : 0}
                   />
                 ) : shown.exam !== undefined ? (

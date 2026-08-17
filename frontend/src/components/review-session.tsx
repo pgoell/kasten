@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote, saveNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
@@ -8,6 +8,7 @@ import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import type { Deck } from "@/lib/review";
 import {
+  appendStub,
   type Card,
   nextSchedule,
   parseCards,
@@ -15,7 +16,9 @@ import {
   readNoteSchedule,
   readNoteSuspended,
   sameAnswer,
+  setSuspended,
   writeNoteSchedule,
+  writeNoteSuspended,
   writeSchedule,
 } from "@/lib/srs";
 
@@ -60,7 +63,14 @@ interface ReviewSessionProps {
    * nothing, its buttons being the whole interface. Neither shell holds a rule
    * about scheduling, which is what keeps the two from drifting.
    */
-  onControls?: (controls: { reveal: () => void; rate: (rating: Rating) => void } | null) => void;
+  onControls?: (
+    controls: {
+      reveal: () => void;
+      rate: (rating: Rating) => void;
+      suspend: () => void;
+      capture: () => void;
+    } | null,
+  ) => void;
 }
 
 /** One card in the sitting: which note holds it, and which of that note's cards. */
@@ -92,6 +102,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   /** What was typed for the card showing, kept so the verdict can quote it back. */
   const [typed, setTyped] = useState("");
   const [done, setDone] = useState(0);
+  /** The question being jotted, or null while the capture line is closed. */
+  const [jotting, setJotting] = useState<string | null>(null);
+  const field = useRef<HTMLInputElement>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -176,6 +189,87 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     [cards, deck, queryClient, seat, texts, today],
   );
 
+  /**
+   * Park the card on screen and move on, without rating it.
+   *
+   * The card leaves the queue and keeps its seat in the note, which is the
+   * property the ordinals depend on: `setSuspended` splices a token and never
+   * adds or removes a card, so every seat behind this one still addresses the
+   * card it did before.
+   */
+  const suspend = useCallback(() => {
+    if (texts === null || seat === undefined) return;
+    const text = texts.get(seat.note);
+    const held = cards.get(seat.note)?.[seat.at];
+    if (text === undefined || held === undefined) return;
+
+    // A whole note has no line to splice. Its synthetic card spans line 0, so
+    // `setSuspended` would put the token under the opening `---` and break the
+    // block, park nothing, and leave a line no screen can reach to undo.
+    const next = deck.whole ? writeNoteSuspended(text, true) : setSuspended(text, held, true);
+    setTexts((was) => new Map(was).set(seat.note, next));
+    setRevealed(false);
+    setTyped("");
+    setQueue((queued) => queued.slice(1));
+
+    void saveNote(seat.note, next).then(
+      () => {
+        void queryClient.invalidateQueries({ queryKey: ["cards"] });
+      },
+      (error: unknown) => {
+        // The same call `rate` makes, for the same reason: a write that failed
+        // silently would be a card you believe is parked and meet again
+        // tomorrow.
+        setFailed(error instanceof Error ? error.message : "could not write the note");
+      },
+    );
+  }, [cards, deck, queryClient, seat, texts]);
+
+  /**
+   * Write what was jotted at the end of the note the card on screen came from.
+   *
+   * The end, and never the middle: a card appended is last in line order, so
+   * the ordinals the queue is holding all still address the cards they did.
+   * Nothing about the sitting moves, which is the point of writing it here
+   * rather than stopping to open the note.
+   */
+  function jot(question: string) {
+    if (texts === null || seat === undefined) return;
+    const text = texts.get(seat.note);
+    if (text === undefined || question.trim() === "") return;
+
+    const next = appendStub(text, question.trim());
+    setTexts((was) => new Map(was).set(seat.note, next));
+    setJotting(null);
+
+    void saveNote(seat.note, next).then(
+      () => {
+        void queryClient.invalidateQueries({ queryKey: ["cards"] });
+      },
+      (error: unknown) => {
+        setFailed(error instanceof Error ? error.message : "could not write the note");
+      },
+    );
+  }
+
+  const capture = useCallback(() => {
+    setJotting("");
+  }, []);
+
+  const jotOpen = jotting !== null;
+
+  // The key opened the line, so the cursor belongs in it. An effect rather than
+  // `autoFocus`, the way `clip-prompt.tsx:47` takes it, and the focus goes back
+  // to the pane on the way out so the keys work again without a click.
+  useEffect(() => {
+    if (!jotOpen) return;
+    const opener = document.activeElement;
+    field.current?.focus();
+    return () => {
+      if (opener instanceof HTMLElement) opener.focus();
+    };
+  }, [jotOpen]);
+
   const reveal = useCallback(() => {
     setRevealed(true);
   }, []);
@@ -188,9 +282,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   }, []);
 
   useEffect(() => {
-    onControls?.(card === undefined ? null : { reveal, rate });
+    onControls?.(card === undefined ? null : { reveal, rate, suspend, capture });
     return () => onControls?.(null);
-  }, [card, onControls, rate, reveal]);
+  }, [capture, card, onControls, rate, reveal, suspend]);
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
@@ -206,6 +300,26 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         <span className="text-[11px] text-one-muted uppercase tracking-wider">
           {queue.length} left
         </span>
+        {/* Beside Type and before the reveal, because a card you want out of
+            the deck is one you have recognised from its question alone. */}
+        {card !== undefined && (
+          <button
+            type="button"
+            onClick={suspend}
+            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent"
+          >
+            Suspend
+          </button>
+        )}
+        {card !== undefined && (
+          <button
+            type="button"
+            onClick={capture}
+            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent"
+          >
+            Jot
+          </button>
+        )}
         <button
           type="button"
           onClick={toggleTyping}
@@ -217,6 +331,36 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           Type
         </button>
       </header>
+
+      {/* Under the header rather than in the footer, which is the reveal's and
+          the ratings'. A question you thought of belongs beside the card that
+          prompted it, and the card stays on screen while you write it. */}
+      {jotting !== null && (
+        <form
+          data-testid="review-capture"
+          onSubmit={(event) => {
+            event.preventDefault();
+            jot(jotting);
+          }}
+          className="flex gap-2 border-one-line border-b px-3 py-2"
+        >
+          <input
+            // Off, both of them, for the reason the typing field has them off:
+            // a question is as often a term of art as a sentence.
+            autoCapitalize="off"
+            autoCorrect="off"
+            ref={field}
+            aria-label="a new question"
+            value={jotting}
+            onChange={(event) => setJotting(event.target.value)}
+            placeholder="A question to answer later"
+            className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] text-one-fg outline-none focus:border-one-accent"
+          />
+          <button type="submit" className={BUTTON}>
+            Jot it
+          </button>
+        </form>
+      )}
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px]">
         {texts === null && failed === null && <p className="text-one-muted">Reading the deck…</p>}

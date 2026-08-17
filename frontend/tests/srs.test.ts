@@ -1,4 +1,5 @@
 import {
+  appendStub,
   type Card,
   nextSchedule,
   parseCards,
@@ -6,6 +7,7 @@ import {
   readNoteSuspended,
   readSchedule,
   sameAnswer,
+  setSuspended,
   writeNoteSchedule,
   writeNoteSuspended,
   writeSchedule,
@@ -421,5 +423,67 @@ describe("writeNoteSuspended", () => {
     const written = writeNoteSuspended("---\nsr-suspended: true\n---\n# TLS\n", false);
     expect(written).toContain("sr-suspended: false");
     expect(readNoteSuspended(written)).toBe(false);
+  });
+});
+
+describe("setSuspended", () => {
+  const INLINE_HELD = "a::b <!--SR:!2026-08-20,4,270-->\n";
+  const INLINE_FRESH = "a::b\n";
+  const MULTI_HELD = "q\n?\nr\n<!--SR:!2026-08-14,1,230-->\n";
+  const MULTI_FRESH = "q\n?\nr\n";
+
+  /** Park it, read the note back, and put it back. */
+  function roundTrip(text: string): string {
+    const parked = setSuspended(text, only(text), true);
+    return setSuspended(parked, only(parked), false);
+  }
+
+  it("puts the token between the answer and the comment on a one-line card", () => {
+    expect(setSuspended(INLINE_HELD, only(INLINE_HELD), true)).toBe(
+      "a::b !suspended <!--SR:!2026-08-20,4,270-->\n",
+    );
+  });
+
+  it("puts it on the end of a one-line card carrying no comment", () => {
+    expect(setSuspended(INLINE_FRESH, only(INLINE_FRESH), true)).toBe("a::b !suspended\n");
+  });
+
+  it("puts it at the head of the schedule's line on a card written over several", () => {
+    expect(setSuspended(MULTI_HELD, only(MULTI_HELD), true)).toBe(
+      "q\n?\nr\n!suspended <!--SR:!2026-08-14,1,230-->\n",
+    );
+  });
+
+  it("splices a line of its own under a card that has no schedule yet", () => {
+    expect(setSuspended(MULTI_FRESH, only(MULTI_FRESH), true)).toBe("q\n?\nr\n!suspended\n");
+  });
+
+  it("leaves the note byte-identical after parking and putting back", () => {
+    for (const text of [INLINE_HELD, INLINE_FRESH, MULTI_HELD, MULTI_FRESH]) {
+      expect(roundTrip(text)).toBe(text);
+    }
+  });
+});
+
+describe("appendStub", () => {
+  it("puts the question at the end, with a divider and no answer", () => {
+    expect(appendStub("#flashcards\n\na::b\n", "What is a moved block?")).toBe(
+      "#flashcards\n\na::b\n\nWhat is a moved block?::\n",
+    );
+  });
+
+  it("leaves exactly one blank line above it, whatever the note ended with", () => {
+    for (const ending of ["a::b", "a::b\n", "a::b\n\n\n"]) {
+      expect(appendStub(ending, "Q")).toBe("a::b\n\nQ::\n");
+    }
+  });
+
+  it("adds one card, last, parked for want of an answer", () => {
+    const text = "#flashcards\n\na::b\n";
+    const before = parseCards(text);
+    const after = parseCards(appendStub(text, "Q"));
+
+    expect(after).toHaveLength(before.length + 1);
+    expect(after.at(-1)).toMatchObject({ front: "Q", back: "", parked: "unanswered" });
   });
 });
