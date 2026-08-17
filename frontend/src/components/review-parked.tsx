@@ -1,9 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { fetchCards, fetchNote } from "@/lib/api";
+import { fetchCards, fetchNote, saveNote } from "@/lib/api";
 import { noteName } from "@/lib/note-path";
 import { parkedNotes } from "@/lib/review";
-import { type Parked, parseCards, readNoteSuspended } from "@/lib/srs";
+import {
+  type Parked,
+  parseCards,
+  readNoteSuspended,
+  setSuspended,
+  writeNoteSuspended,
+} from "@/lib/srs";
 
 /** One row: a card the sitting will not ask, and where to find it again. */
 interface ParkedRow {
@@ -13,6 +19,8 @@ interface ParkedRow {
   front: string;
   deck: string;
   reason: Parked;
+  /** Whether the note is itself the card, which is parked in its frontmatter. */
+  whole: boolean;
 }
 
 interface ReviewParkedProps {
@@ -36,6 +44,7 @@ interface ReviewParkedProps {
 export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedProps) {
   const [texts, setTexts] = useState<Map<string, string> | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // The same key the overview holds, so opening this screen reads no cards the
   // list behind it has not already fetched.
@@ -62,6 +71,35 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
   }, [notes]);
 
   const rows = useMemo(() => rowsOf(texts ?? new Map()), [texts]);
+
+  /**
+   * Take the token off and write the note, which returns the card to its deck.
+   *
+   * On the schedule it already held: parking never touched the three numbers,
+   * so there is nothing to restore and nothing to guess.
+   */
+  function putBack(row: ParkedRow) {
+    const text = texts?.get(row.note);
+    if (text === undefined) return;
+
+    let next: string;
+    if (row.whole) next = writeNoteSuspended(text, false);
+    else {
+      const card = parseCards(text, noteName(row.note))[row.at];
+      if (card === undefined) return;
+      next = setSuspended(text, card, false);
+    }
+
+    setTexts((was) => new Map(was).set(row.note, next));
+    void saveNote(row.note, next).then(
+      () => {
+        void queryClient.invalidateQueries({ queryKey: ["cards"] });
+      },
+      (error: unknown) => {
+        setFailed(error instanceof Error ? error.message : "could not write the note");
+      },
+    );
+  }
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
@@ -107,6 +145,19 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
                 <span className="text-[12px] text-one-muted">{row.deck}</span>
                 <span className="text-[12px] text-one-muted opacity-60">{row.reason}</span>
               </button>
+              {/* Only where there is a token to take off. A question with no
+                  answer has none, and its answer is written in the editor,
+                  which is what opening the row is for. */}
+              {row.reason === "suspended" && (
+                <button
+                  type="button"
+                  onClick={() => putBack(row)}
+                  data-unpark={`${row.note}:${row.at}`}
+                  className="min-h-11 rounded border border-one-line px-3 text-[12px] text-one-muted hover:border-one-accent hover:text-one-accent"
+                >
+                  Put back
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -135,11 +186,20 @@ function rowsOf(texts: Map<string, string>): ParkedRow[] {
     const cards = parseCards(text, name).flatMap((card, at) =>
       card.parked === null || card.decks.length === 0
         ? []
-        : [{ note, at, front: card.front, deck: card.decks[0] ?? name, reason: card.parked }],
+        : [
+            {
+              note,
+              at,
+              front: card.front,
+              deck: card.decks[0] ?? name,
+              reason: card.parked,
+              whole: false,
+            },
+          ],
     );
     if (cards.length > 0) return cards;
     return readNoteSuspended(text)
-      ? [{ note, at: 0, front: name, deck: name, reason: "suspended" as const }]
+      ? [{ note, at: 0, front: name, deck: name, reason: "suspended" as const, whole: true }]
       : [];
   });
 }

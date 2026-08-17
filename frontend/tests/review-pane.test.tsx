@@ -214,16 +214,18 @@ describe("ReviewPane on the parked screen", () => {
   async function openParked() {
     vi.spyOn(api, "fetchCards").mockResolvedValue(PARKED_HITS);
     vi.spyOn(api, "fetchNote").mockResolvedValue(A);
+    vi.spyOn(api, "saveNote").mockResolvedValue({ path: "a.md", content: A });
+    const onOpen = vi.fn();
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(
       <QueryClientProvider client={client}>
-        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={onOpen} />
       </QueryClientProvider>,
     );
     await screen.findByRole("button", { name: /alpha/ });
     const pane = screen.getByLabelText("review");
     fireEvent.keyDown(pane, { key: "p" });
-    return { pane, container };
+    return { pane, container, onOpen };
   }
 
   it("opens the parked list on p, leaving the decks behind", async () => {
@@ -252,5 +254,39 @@ describe("ReviewPane on the parked screen", () => {
 
     expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
     expect(container.querySelector("button[data-deck]")).not.toBeNull();
+  });
+
+  it("puts the focused row back on u", async () => {
+    const { pane } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "u" });
+
+    expect(screen.queryByText("What is a VPC?")).not.toBeInTheDocument();
+  });
+
+  it("keeps the keyboard after putting a row back", async () => {
+    const { pane } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "u" });
+
+    // The row it was on has gone with it, so without this the focus falls to
+    // the body and every key after `u` reaches nothing.
+    expect(document.activeElement).toBe(pane);
+    fireEvent.keyDown(pane, { key: "h" });
+    expect(await screen.findByRole("button", { name: /alpha/ })).toBeInTheDocument();
+  });
+
+  it("opens the note the focused row is written in on o", async () => {
+    const { pane, onOpen } = await openParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "o" });
+
+    expect(onOpen).toHaveBeenCalledWith("a.md");
   });
 });

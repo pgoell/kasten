@@ -105,6 +105,24 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
+    // The focused row's own controls, pressed rather than reimplemented, the
+    // way `l` presses the focused deck. `u` reaches the put-back button beside
+    // the row, which an unanswered row does not draw.
+    if (screen.at === "parked" && (key === "u" || key === "o")) {
+      const row = document.activeElement as HTMLButtonElement | null;
+      if (row?.dataset.parked !== undefined) {
+        if (key === "o") row.click();
+        else {
+          row.closest("li")?.querySelector<HTMLButtonElement>("button[data-unpark]")?.click();
+          // The row goes with the card, taking the focus to the body with it,
+          // and every key after this one would reach nothing.
+          panel.current?.focus();
+        }
+      }
+      event.preventDefault();
+      return;
+    }
+
     if (screen.at === "decks" && key === "p") {
       setScreen({ at: "parked" });
       event.preventDefault();
