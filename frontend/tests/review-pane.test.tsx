@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
+import { shownCard } from "./review-card";
 import { stubCommands } from "./stub-commands";
 
 /** Two decks with cards waiting, and one with nothing, which cannot be picked. */
@@ -64,7 +65,7 @@ describe("ReviewPane keys on the deck overview", () => {
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "l" });
 
-    expect(await screen.findByTestId("review-card")).toHaveTextContent("c");
+    expect(await shownCard()).toHaveTextContent("c");
   });
 
   it("keeps the keyboard after l starts the sitting", async () => {
@@ -75,7 +76,7 @@ describe("ReviewPane keys on the deck overview", () => {
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "l" });
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     // The deck row it pressed has gone with the overview, so without this the
     // focus falls to the body and no key of the sitting reaches the pane.
@@ -137,7 +138,7 @@ describe("ReviewPane leaving a sitting", () => {
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "l" });
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     fireEvent.keyDown(pane, { key: "h" });
 
@@ -206,7 +207,7 @@ describe("ReviewPane suspending the card on screen", () => {
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "l" });
-    expect(await screen.findByTestId("review-card")).toHaveTextContent("c");
+    expect(await shownCard()).toHaveTextContent("c");
 
     fireEvent.keyDown(pane, { key: "s" });
 
@@ -321,7 +322,7 @@ describe("ReviewPane jotting a question mid-sitting", () => {
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "l" });
-    await screen.findByTestId("review-card");
+    await shownCard();
     return { pane, saved };
   }
 
