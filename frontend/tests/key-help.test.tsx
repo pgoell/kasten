@@ -236,6 +236,11 @@ describe("the key tables", () => {
       nextTab: () => {},
       prevTab: () => {},
       goToTab: () => {},
+      movePaneLeft: () => {},
+      movePaneDown: () => {},
+      movePaneUp: () => {},
+      movePaneRight: () => {},
+      zoomPane: () => {},
     } satisfies EditorCommands;
     const commands = new Set(Object.keys(stub));
 
@@ -290,6 +295,11 @@ describe("the key tables", () => {
       nextTab: () => {},
       prevTab: () => {},
       goToTab: () => {},
+      movePaneLeft: () => {},
+      movePaneDown: () => {},
+      movePaneUp: () => {},
+      movePaneRight: () => {},
+      zoomPane: () => {},
     } satisfies EditorCommands;
     const commands = new Set(Object.keys(stub));
 

@@ -70,7 +70,9 @@ import {
   removeFocused,
   splitFocused,
   stepTab,
+  swapPanes,
   tabPanes,
+  toggleZoom,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
 import { newId, parseTodo, type TodoState } from "@/lib/todo";
@@ -400,13 +402,42 @@ function Home() {
    * update, which React is free to run more than once. Nothing happens with no
    * pane that way, so the focus is not raised for a key that moved nothing.
    */
-  const movePane = useCallback(
+  const focusToward = useCallback(
     (dir: Direction) => {
       const target = paneToward(paneRects(), pane.id, dir);
       if (target === null) return;
       moveTo((previous) => focusPane(previous, target));
     },
     [moveTo, pane.id],
+  );
+
+  /**
+   * Trade places with the pane in one direction, standing still at the edge.
+   *
+   * The same question `focusToward` asks, answered off the same boxes, and the
+   * answer swaps the two panes rather than moving the focus. Through `moveTo`
+   * like every other change to the layout: React blurs an element it moves
+   * between two parents, and the signal that call raises is what puts the
+   * cursor back in the pane you are still in.
+   *
+   * Written first, which no move of the focus has to do. The autosave follows
+   * the focused pane's note, and a swap leaves that note where it was, so
+   * nothing flushes it: the hook's cleanup fires on a change of path and this
+   * changes none. A swap between two splits builds the editor again from the
+   * vault's copy, and without this the line typed in the last second is the
+   * one the rebuild would drop.
+   */
+  const swapToward = useCallback(
+    async (dir: Direction) => {
+      const target = paneToward(paneRects(), pane.id, dir);
+      if (target === null) return;
+      if (!(await saveFirst())) {
+        refuse();
+        return;
+      }
+      moveTo((previous) => swapPanes(previous, target));
+    },
+    [moveTo, refuse, saveFirst, pane.id],
   );
 
   // The URL names the note in the focused pane, so a reload comes back to what
@@ -1494,17 +1525,28 @@ function Home() {
       splitRight: () => moveTo((previous) => splitFocused(previous, "row")),
       splitDown: () => moveTo((previous) => splitFocused(previous, "col")),
       nextPane: () => moveTo(nextPane),
-      paneLeft: () => movePane("left"),
-      paneDown: () => movePane("down"),
-      paneUp: () => movePane("up"),
-      paneRight: () => movePane("right"),
+      paneLeft: () => focusToward("left"),
+      paneDown: () => focusToward("down"),
+      paneUp: () => focusToward("up"),
+      paneRight: () => focusToward("right"),
+      movePaneLeft: () => swapToward("left"),
+      movePaneDown: () => swapToward("down"),
+      movePaneUp: () => swapToward("up"),
+      movePaneRight: () => swapToward("right"),
+      // Not through `moveTo`, the way the archive and the preview are not:
+      // this writes nothing, moves no note and moves no focus, so there is
+      // nothing for a conflicted note to refuse. Hiding a pane cannot blur the
+      // one you are typing in either, which is what the signal `moveTo` raises
+      // is for.
+      zoomPane: () => setLayout(toggleZoom),
       nextTab: () => moveTo((previous) => stepTab(previous, 1)),
       prevTab: () => moveTo((previous) => stepTab(previous, -1)),
       goToTab: (index) => moveTo((previous) => goToTab(previous, index)),
     }),
     [
       moveTo,
-      movePane,
+      focusToward,
+      swapToward,
       saveFirst,
       openPeriodic,
       discardNote,
@@ -1591,6 +1633,9 @@ function Home() {
               node={tab.root}
               focus={tab.focus}
               divided={tabPanes(layout).length > 1}
+              // The focused pane is the one drawn alone, always: every key
+              // that moves the focus turns the zoom off on its way past.
+              zoomed={tab.zoom === true ? tab.focus : null}
               // The one way to another pane that `moveTo` does not stand in
               // front of, and it stays that way on purpose. This is reported
               // after the browser has moved the focus, so declining it would
@@ -1764,6 +1809,7 @@ function Home() {
         archive={archive}
         notice={notice}
         version={version}
+        zoom={tab.zoom}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {clipPrompt && (

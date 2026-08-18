@@ -91,6 +91,11 @@ const INERT: TreeCommands = {
   nextTab: () => {},
   prevTab: () => {},
   goToTab: () => {},
+  movePaneLeft: () => {},
+  movePaneDown: () => {},
+  movePaneUp: () => {},
+  movePaneRight: () => {},
+  zoomPane: () => {},
 };
 
 /** What the route opens with when no note is chosen, shortened. */

@@ -97,6 +97,17 @@ export interface EditorCommands {
   paneDown(): void;
   paneUp(): void;
   paneRight(): void;
+  /**
+   * Trade places with the pane in that direction on screen, or stand still at
+   * the edge. Each pane carries what it holds with it, so this rearranges the
+   * window without opening or closing anything.
+   */
+  movePaneLeft(): void;
+  movePaneDown(): void;
+  movePaneUp(): void;
+  movePaneRight(): void;
+  /** Draw the focused pane on its own, or put the tab back the way it was. */
+  zoomPane(): void;
   nextTab(): void;
   prevTab(): void;
   /** Go to one tab by position, counting from zero. `TAB_KEYS` names the keys. */
@@ -234,6 +245,14 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "j", label: "Move to the pane below", command: "paneDown" },
   { key: "k", label: "Move to the pane above", command: "paneUp" },
   { key: "l", label: "Move to the pane on the right", command: "paneRight" },
+  // The same four shifted, which is how vim spells moving the window rather
+  // than going to it, `<C-w>H`, and how hyprland spells it too. The pane you
+  // are in and the one you point at trade places, each keeping what it holds,
+  // so the window is rearranged without anything being opened or closed.
+  { key: "H", label: "Swap this pane with the one on the left", command: "movePaneLeft" },
+  { key: "J", label: "Swap this pane with the one below", command: "movePaneDown" },
+  { key: "K", label: "Swap this pane with the one above", command: "movePaneUp" },
+  { key: "L", label: "Swap this pane with the one on the right", command: "movePaneRight" },
   // tmux's own next-pane key, kept beside the four above rather than replaced
   // by them. It wraps, so it reaches every pane of the tab by repetition,
   // where a direction stops at the edge of the window.
@@ -259,6 +278,11 @@ export const LEADER: readonly LeaderBinding[] = [
   // talk. `gv` opens the player and this is the one key that then drives it.
   { key: "v", label: "Play or pause this note's video", command: "toggleVideo" },
   { key: "w", label: "Download what this pane holds as a file", command: "exportNote" },
+  // tmux's own zoom key, and hyprland's fullscreen. Nothing is closed and
+  // nothing is written: the other panes are still there holding what they
+  // held, hidden behind this one until the next press or the next move of the
+  // focus brings them back.
+  { key: "z", label: "Draw this pane on its own, or put the tab back", command: "zoomPane" },
   // tmux's own split keys, kept because they are the two this app is imitating
   // and because the shape of each character says which way the pane divides.
   // Both are shifted, which is no obstacle: vim names a key by

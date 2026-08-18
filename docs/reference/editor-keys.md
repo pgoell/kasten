@@ -56,6 +56,10 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>j` | Move to the pane below |
 | `<leader>k` | Move to the pane above |
 | `<leader>l` | Move to the pane on the right |
+| `<leader>H` | Swap this pane with the one on the left |
+| `<leader>J` | Swap this pane with the one below |
+| `<leader>K` | Swap this pane with the one above |
+| `<leader>L` | Swap this pane with the one on the right |
 | `<leader>o` | Move to the next pane |
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>q` | Close the note, then the pane, then the tab |
@@ -70,6 +74,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>v` | Play or pause this note's video |
 | `<leader>w` | Download what this pane holds as a file |
 | `<leader>x` | Cycle the todo on this line |
+| `<leader>z` | Draw this pane on its own, or put the tab back |
 | `<leader>=` | Tidy the markdown in this note |
 | `<leader>%` | Split the pane left and right |
 | `<leader>"` | Split the pane top and bottom |
@@ -174,6 +179,36 @@ goes. This is the same thing vim and tmux do, and for the same reason.
 Moving right out of the bottom half of the window arrives in the bottom half.
 Where two panes are equally close, the upper or the left one wins.
 
+`<leader>H`, `<leader>J`, `<leader>K` and `<leader>L` swap this pane with the
+one in that direction instead of moving to it. Vim spells the pair the same
+way, `<C-w>h` going to a window and `<C-w>H` moving one, and so does hyprland.
+The two panes trade places and each keeps what it holds, so the focus does not
+move: after the swap you are in the same pane, further left. The divisions
+themselves do not change, only which pane sits in which of them, and at the
+edge of the window nothing happens.
+
+A swap between two panes of one split keeps what each pane holds as it is. A
+swap that crosses two splits builds the pane again where it lands, which is the
+browser's rule about moving part of a page rather than a choice, and what that
+costs depends on what the pane held. A note is written first and reopened, so
+nothing typed is lost, but the cursor lands where the note opens and the undo
+history starts over. A terminal reattaches to its herdr session with the
+scrollback gone, the way closing it and opening it again leaves it. An exam
+being sat loses the answers typed into it, which live on screen and nowhere
+else until the sitting is graded. A book and a video are rebuilt whichever kind
+of swap it was, each being a frame of its own that the browser reloads when it
+moves: the reader comes back to the page it recorded and the player to the
+second the note names.
+
+`<leader>z` draws the focused pane over the whole window, and a second press
+puts the tab back. It is tmux's own zoom key and hyprland's fullscreen. Nothing
+is closed: the other panes are still there holding what they held, a line not
+yet written still waiting to be saved, a terminal still attached, a video still
+playing. The footer says `zoom` while it is on. Any key that moves the focus
+turns it off, which is what tmux does, so `<leader>o` moves to the next pane
+and unzooms in one press. The four directions have nowhere to go while it is
+on, one pane being all there is on screen.
+
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
 nothing to tell it apart from.
@@ -182,7 +217,8 @@ No pane or tab key on this page moves while the note in the focused pane reads
 `Changed on disk`. Leaving the pane would write that note, so the key flashes
 the status bar and stays put until `:w` or `:e!` settles it, which
 [Saving](#saving) covers. A click into another pane is the one thing that still
-goes through.
+goes through. `<leader>z` is the other: it writes nothing, opens nothing and
+moves the focus nowhere, so a conflicted note is no reason to refuse it.
 
 `<leader>ct` starts a tab. `<leader>tl` and `<leader>th` walk them, and
 `<leader>1` through `<leader>9` go straight to one, with `<leader>0` for the

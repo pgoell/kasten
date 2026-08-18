@@ -104,6 +104,11 @@ function OpenNote({ path }: { path: string }) {
       nextTab: () => {},
       prevTab: () => {},
       goToTab: () => {},
+      movePaneLeft: () => {},
+      movePaneDown: () => {},
+      movePaneUp: () => {},
+      movePaneRight: () => {},
+      zoomPane: () => {},
     }),
     [],
   );

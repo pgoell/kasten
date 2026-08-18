@@ -4,10 +4,13 @@ import {
   activeTab,
   addTab,
   emptyLayout,
+  focusPane,
   type Layout,
   openBookBeside,
+  openInFocused,
   splitFocused,
   tabPanes,
+  toggleZoom,
 } from "@/lib/panes";
 
 /** Draw one tab's panes the way the route does, with a button to focus in each. */
@@ -18,6 +21,7 @@ function draw(layout: Layout, onFocus = vi.fn()) {
       node={tab.root}
       focus={tab.focus}
       divided={tabPanes(layout).length > 1}
+      zoomed={tab.zoom === true ? tab.focus : null}
       onFocus={onFocus}
     >
       {(pane, focused) => (
@@ -50,6 +54,32 @@ describe("PaneLayout", () => {
     expect(panes(container)).toHaveLength(2);
     expect(screen.getByText("a.md")).toBeInTheDocument();
     expect(screen.getByText("empty")).toBeInTheDocument();
+  });
+
+  it("hides the other panes while one is zoomed, without taking them down", () => {
+    const layout = toggleZoom(splitFocused(emptyLayout("a.md"), "row"));
+    const [first, second] = tabPanes(layout);
+    const { container } = draw(layout);
+
+    // Both are still drawn, so the editor in the hidden one keeps its cursor
+    // and whatever has not reached the vault yet.
+    expect(panes(container)).toHaveLength(2);
+    expect(screen.getByText("a.md")).toBeInTheDocument();
+    expect(container.querySelector(`[data-pane="${first?.id}"]`)).toHaveClass("hidden");
+    expect(container.querySelector(`[data-pane="${second?.id}"]`)).not.toHaveClass("hidden");
+  });
+
+  it("hides a whole split holding none of the zoomed pane", () => {
+    // a / (b | c), zoomed on a, so the row the other two share goes with them:
+    // a split still taking its share of the room would hold it open around
+    // nothing.
+    const column = openInFocused(splitFocused(emptyLayout("a.md"), "col"), "b.md");
+    const three = openInFocused(splitFocused(column, "row"), "c.md");
+    const layout = toggleZoom(focusPane(three, tabPanes(three)[0]?.id ?? ""));
+    const { container } = draw(layout);
+
+    expect(container.querySelector(".flex-row")).toHaveClass("hidden");
+    expect(container.querySelector(".flex-col")).not.toHaveClass("hidden");
   });
 
   it("lays a row out along the row and a column down it", () => {
