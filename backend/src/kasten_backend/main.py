@@ -15,6 +15,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
+from kasten_backend.agent import ConflictError, TooLargeError
+from kasten_backend.agent_routes import note_changed, too_large
+from kasten_backend.agent_routes import router as agent_router
 from kasten_backend.anki import as_note, read_apkg
 from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
@@ -91,6 +94,15 @@ Two copies of it drifted apart once already: the release was cut, the tag moved
 and this string did not, so `/docs` reported a version behind the code serving
 it. `pyproject.toml` is the one place it lives now, and the deploy workflow
 refuses a release whose tag disagrees with it.
+"""
+
+app.include_router(agent_router)
+app.add_exception_handler(ConflictError, note_changed)
+app.add_exception_handler(TooLargeError, too_large)
+"""The one prefix reached without an oauth2-proxy session in front of it.
+
+Gated by the router's own bearer dependency instead. See `agent_routes.py` and
+docs/explanation/the-agent-boundary.md.
 """
 
 KEEPALIVE_SECONDS = 30.0

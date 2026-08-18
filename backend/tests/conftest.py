@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
+from kasten_backend.tokens import mint
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
@@ -41,6 +42,62 @@ async def client() -> AsyncIterator[AsyncClient]:
         AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http_client,
     ):
         yield http_client
+
+
+@pytest.fixture
+async def agent_vault(
+    client: AsyncClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[Path]:
+    """An empty vault with a token store beside it, reached through the environment.
+
+    Not `app.dependency_overrides[get_settings]`, which the `vault` fixture below
+    uses: the bearer check and the MCP tools read the settings outside a request,
+    and an override only answers one. `KASTEN_TOKENS_PATH` is set rather than
+    left at its default, which is the cwd-relative `tokens.json`, so a test that
+    mints does not write into the repo root.
+
+    `client` is a parameter rather than a sibling so the lifespan runs first and
+    writes its guides into the startup vault. That is what leaves this one empty.
+    """
+    root = tmp_path / "agent"
+    root.mkdir()
+    monkeypatch.setenv("KASTEN_VAULT_PATH", str(root))
+    monkeypatch.setenv("KASTEN_TOKENS_PATH", str(tmp_path / "tokens.json"))
+    get_settings.cache_clear()
+
+    yield root
+
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+async def token(agent_vault: Path) -> str:
+    """One token called `laptop`, and the only copy of its secret.
+
+    Takes the vault so the store is the one beside it, and reads the path off the
+    settings rather than rebuilding it.
+    """
+    return (await mint(get_settings().tokens_path, "laptop")).secret
+
+
+@pytest.fixture
+def versioned_agent_vault(agent_vault: Path) -> Path:
+    """The agent's vault, made a colocated jj repo, for the tests that read `jj log`."""
+    assert JJ is not None
+    # Not through `jj()`: `--repository` names a repo that does not exist yet.
+    subprocess.run(  # noqa: S603
+        [JJ, "git", "init", "--colocate", str(agent_vault)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return agent_vault
+
+
+@pytest.fixture
+def bearer(token: str) -> dict[str, str]:
+    """The header a token holder sends, which every `/agent/` request carries."""
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _serve_vault(root: Path) -> Iterator[Path]:
