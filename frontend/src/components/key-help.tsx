@@ -5,6 +5,7 @@ import {
   INDENT,
   LEADER,
   LEADER_EDITS,
+  SCREENS,
   TAB_KEYS,
   TERMINAL,
   TERMINAL_CHORD,
@@ -162,6 +163,9 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     },
     { title: "File tree", keys: TREE },
     { title: "Todo pane", keys: TODO_PANE },
+    // Last, because it is the one group whose left column is an address rather
+    // than something to press.
+    { title: "Screens you type", keys: SCREENS },
   ];
 
   return (
