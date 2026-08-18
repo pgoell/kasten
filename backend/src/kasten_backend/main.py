@@ -18,6 +18,7 @@ from starlette.requests import ClientDisconnect
 from kasten_backend.anki import as_note, read_apkg
 from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
+from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.frontmatter import reserved, stamp
@@ -55,7 +56,7 @@ from kasten_backend.vault import (
     resolve_path,
     write_note,
 )
-from kasten_backend.vcs import begin_change, snapshot, write_ignores
+from kasten_backend.vcs import write_ignores
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -508,24 +509,31 @@ async def import_anki(
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
-    # Every path resolved and every collision found before anything is written,
-    # so an export whose fourth deck is already there leaves the first three
-    # unwritten rather than half-importing and reporting a failure.
-    targets: list[tuple[Path, str]] = []
-    for deck in decks:
-        note = resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md")
-        if note is None:
-            raise HTTPException(status_code=400, detail=f"The vault will not take {deck.name}")
-        if note.exists():
-            raise HTTPException(status_code=409, detail=f"{deck.name} is already in the vault")
-        targets.append((note, as_note(deck)))
-
     written: list[str] = []
-    for note, text in targets:
-        note.parent.mkdir(parents=True, exist_ok=True)
-        relative = relative_path(settings.vault_path, note)
-        create_note(note, text if reserved(relative) else stamp(text))
-        written.append(relative)
+    # The whole import under one lock, so a deck found free by the precheck
+    # cannot be taken by another writer before the loop below reaches it.
+    async with vault_write():
+        # Every path resolved and every collision found before anything is
+        # written, so an export whose fourth deck is already there leaves the
+        # first three unwritten rather than half-importing and reporting a
+        # failure. Outside the change, so a refused import leaves none behind.
+        targets: list[tuple[Path, str]] = []
+        for deck in decks:
+            note = resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md")
+            if note is None:
+                raise HTTPException(status_code=400, detail=f"The vault will not take {deck.name}")
+            if note.exists():
+                raise HTTPException(status_code=409, detail=f"{deck.name} is already in the vault")
+            targets.append((note, as_note(deck)))
+
+        # One change for the import rather than one per deck, the way the type
+        # backfill takes one for its pass.
+        async with vault_change(settings.vault_path, settings.flashcards_path):
+            for note, text in targets:
+                note.parent.mkdir(parents=True, exist_ok=True)
+                relative = relative_path(settings.vault_path, note)
+                create_note(note, text if reserved(relative) else stamp(text))
+                written.append(relative)
 
     return AnkiImport(
         notes=written,
@@ -644,6 +652,7 @@ async def write_asset(
     asset = resolve_asset_path(settings.vault_path, path)
     if asset is None:
         raise HTTPException(status_code=400, detail="The vault will not take that path")
+    relative = relative_path(settings.vault_path, asset)
     # A courtesy in front of the guarantee, not the guarantee itself. It is
     # here so you learn the path is taken before you send 30MB; the `os.link`
     # below is what actually refuses an overwrite. Deleting this would cost the
@@ -711,7 +720,11 @@ async def write_asset(
         # raises, and the filesystem decides which, so no window exists in
         # which two requests both believe the path is free.
         try:
-            os.link(temporary, asset)
+            # The lock covers the link and nothing before it. Holding it across
+            # the stream above would serialise every browser save behind one
+            # slow upload.
+            async with vault_write(), vault_change(settings.vault_path, relative):
+                os.link(temporary, asset)
         except FileExistsError as taken:
             # Around the link alone, so it cannot swallow the temp's own
             # `open("xb")` colliding, which means something else entirely and
@@ -750,13 +763,14 @@ async def delete_asset(
     would be the one edit a restore could not take back. The editor draws a
     reference to a file that is not there as a picture that will not load.
     """
-    asset = resolve_asset(settings.vault_path, path)
-    if asset is None or asset.suffix == ASSET_SUFFIX:
-        raise HTTPException(status_code=404, detail="No such image")
+    async with vault_write():
+        asset = resolve_asset(settings.vault_path, path)
+        if asset is None or asset.suffix == ASSET_SUFFIX:
+            raise HTTPException(status_code=404, detail="No such image")
 
-    relative = relative_path(settings.vault_path, asset)
+        relative = relative_path(settings.vault_path, asset)
 
-    return TrashEntry.of(await move_to_trash(settings.vault_path, asset, relative))
+        return TrashEntry.of(await move_to_trash(settings.vault_path, asset, relative))
 
 
 @app.get("/api/files/{path:path}")
@@ -807,19 +821,19 @@ async def create_file(
     refusals return before any of that, so a bounced create leaves no change
     behind.
     """
-    note = resolve_path(settings.vault_path, path)
-    if note is None:
-        raise HTTPException(status_code=400, detail="The vault will not take that path")
-    if note.exists():
-        raise HTTPException(status_code=409, detail="A note is already there")
+    async with vault_write():
+        note = resolve_path(settings.vault_path, path)
+        if note is None:
+            raise HTTPException(status_code=400, detail="The vault will not take that path")
+        if note.exists():
+            raise HTTPException(status_code=409, detail="A note is already there")
 
-    relative = relative_path(settings.vault_path, note)
-    raw = edit.content if edit else ""
-    content = raw if reserved(relative) else stamp(raw)
+        relative = relative_path(settings.vault_path, note)
+        raw = edit.content if edit else ""
+        content = raw if reserved(relative) else stamp(raw)
 
-    await begin_change(settings.vault_path, relative)
-    create_note(note, content)
-    await snapshot(settings.vault_path)
+        async with vault_change(settings.vault_path, relative):
+            create_note(note, content)
 
     return Note(path=relative, content=content)
 
@@ -845,20 +859,20 @@ async def save_file(
     the edit is bracketed by the history rather than trailing it. A vault that
     is not a jj repo skips both.
     """
-    note = resolve_note(settings.vault_path, path)
-    if note is None:
-        raise HTTPException(status_code=404, detail="No such note")
+    async with vault_write():
+        note = resolve_note(settings.vault_path, path)
+        if note is None:
+            raise HTTPException(status_code=404, detail="No such note")
 
-    relative = relative_path(settings.vault_path, note)
-    content = (
-        edit.content
-        if reserved(relative)
-        else stamp(edit.content, note.read_text(encoding="utf-8"))
-    )
+        relative = relative_path(settings.vault_path, note)
+        content = (
+            edit.content
+            if reserved(relative)
+            else stamp(edit.content, note.read_text(encoding="utf-8"))
+        )
 
-    await begin_change(settings.vault_path, relative)
-    write_note(note, content)
-    await snapshot(settings.vault_path)
+        async with vault_change(settings.vault_path, relative):
+            write_note(note, content)
 
     return Note(path=path, content=content)
 
@@ -889,44 +903,45 @@ async def move_file(
     The answer says nothing about that, because there is nothing a client does
     differently: it swaps the suffix for itself, the way it always has.
     """
-    note = resolve_note(settings.vault_path, path)
-    if note is None:
-        raise HTTPException(status_code=404, detail="No such note")
+    async with vault_write():
+        note = resolve_note(settings.vault_path, path)
+        if note is None:
+            raise HTTPException(status_code=404, detail="No such note")
 
-    target = resolve_path(settings.vault_path, move.path)
-    if target is None:
-        raise HTTPException(status_code=400, detail="The vault will not take that path")
-    if target.exists():
-        raise HTTPException(status_code=409, detail="A note is already there")
+        target = resolve_path(settings.vault_path, move.path)
+        if target is None:
+            raise HTTPException(status_code=400, detail="The vault will not take that path")
+        if target.exists():
+            raise HTTPException(status_code=409, detail="A note is already there")
 
-    source = relative_path(settings.vault_path, note)
-    relative = relative_path(settings.vault_path, target)
+        source = relative_path(settings.vault_path, note)
+        relative = relative_path(settings.vault_path, target)
 
-    await begin_change(settings.vault_path, relative)
-    # Before the move, because a bare `[[borges]]` only names this note while
-    # the note is still where the links were written to find it. Inside the jj
-    # bracket, because the rewritten links are part of the move rather than an
-    # edit that happened to follow it.
-    await relink_note_move(settings.vault_path, source, relative)
-    rename_note(note, target)
-    # A file exempt from the block because of what it was called is a note again
-    # under any other name, so it is stamped where it lands. Inside the bracket,
-    # so the rewrite is part of the move. The other direction is not handled and
-    # must not be: a note renamed onto a reserved name keeps the block it had,
-    # because deleting it would delete an id and a creation date the note owns,
-    # and converting the body is a job for a person.
-    if reserved(source) and not reserved(relative):
-        # Read without translating the line endings and put back the ones the
-        # file had, for the reason the backfill does it: a note is rewritten
-        # here, and only its block was asked for.
-        raw = target.read_text(encoding="utf-8", newline="")
-        stamped = stamp(raw.replace("\r\n", "\n"))
-        write_note(target, stamped.replace("\n", "\r\n") if "\r\n" in raw else stamped)
-    # After the note and before the prune, so a folder the pair has both left
-    # is one the prune can take.
-    move_asset_beside(note, target)
-    prune_empty_folders(settings.vault_path, note.parent)
-    await snapshot(settings.vault_path)
+        async with vault_change(settings.vault_path, relative):
+            # Before the move, because a bare `[[borges]]` only names this note
+            # while the note is still where the links were written to find it.
+            # Inside the jj bracket, because the rewritten links are part of the
+            # move rather than an edit that happened to follow it.
+            await relink_note_move(settings.vault_path, source, relative)
+            rename_note(note, target)
+            # A file exempt from the block because of what it was called is a
+            # note again under any other name, so it is stamped where it lands.
+            # Inside the bracket, so the rewrite is part of the move. The other
+            # direction is not handled and must not be: a note renamed onto a
+            # reserved name keeps the block it had, because deleting it would
+            # delete an id and a creation date the note owns, and converting the
+            # body is a job for a person.
+            if reserved(source) and not reserved(relative):
+                # Read without translating the line endings and put back the
+                # ones the file had, for the reason the backfill does it: a note
+                # is rewritten here, and only its block was asked for.
+                raw = target.read_text(encoding="utf-8", newline="")
+                stamped = stamp(raw.replace("\r\n", "\n"))
+                write_note(target, stamped.replace("\n", "\r\n") if "\r\n" in raw else stamped)
+            # After the note and before the prune, so a folder the pair has both
+            # left is one the prune can take.
+            move_asset_beside(note, target)
+            prune_empty_folders(settings.vault_path, note.parent)
 
     return Note(path=relative, content=target.read_text(encoding="utf-8"))
 
@@ -956,30 +971,31 @@ async def move_folder(
     they are unchanged, and the client works out where they went from the folder
     path alone.
     """
-    folder = resolve_folder(settings.vault_path, path)
-    if folder is None:
-        raise HTTPException(status_code=404, detail="No such folder")
+    async with vault_write():
+        folder = resolve_folder(settings.vault_path, path)
+        if folder is None:
+            raise HTTPException(status_code=404, detail="No such folder")
 
-    target = resolve_folder_path(settings.vault_path, move.path)
-    if target is None or target.is_relative_to(folder):
-        raise HTTPException(status_code=400, detail="The vault will not take that path")
-    if target.exists():
-        raise HTTPException(status_code=409, detail="Something is already there")
+        target = resolve_folder_path(settings.vault_path, move.path)
+        if target is None or target.is_relative_to(folder):
+            raise HTTPException(status_code=400, detail="The vault will not take that path")
+        if target.exists():
+            raise HTTPException(status_code=409, detail="Something is already there")
 
-    relative = relative_path(settings.vault_path, target)
+        relative = relative_path(settings.vault_path, target)
 
-    # The trailing slash is what tells one of these apart from a note's change
-    # in `jj log`, where the two would otherwise read the same.
-    await begin_change(settings.vault_path, f"{relative}/")
-    # Before the move, the way a note's rewrite is, and for one reason more: the
-    # notes holding these links are often the ones inside the folder, and after
-    # the rename none of them is at the path the rewrite would write to.
-    await relink_folder_move(
-        settings.vault_path, relative_path(settings.vault_path, folder), relative
-    )
-    rename_folder(folder, target)
-    prune_empty_folders(settings.vault_path, folder.parent)
-    await snapshot(settings.vault_path)
+        # The trailing slash is what tells one of these apart from a note's
+        # change in `jj log`, where the two would otherwise read the same.
+        async with vault_change(settings.vault_path, f"{relative}/"):
+            # Before the move, the way a note's rewrite is, and for one reason
+            # more: the notes holding these links are often the ones inside the
+            # folder, and after the rename none of them is at the path the
+            # rewrite would write to.
+            await relink_folder_move(
+                settings.vault_path, relative_path(settings.vault_path, folder), relative
+            )
+            rename_folder(folder, target)
+            prune_empty_folders(settings.vault_path, folder.parent)
 
     return Folder(path=relative)
 
@@ -1003,13 +1019,14 @@ async def delete_file(
     and rewriting the vault to say a note is gone would be the one edit a
     restore could not take back.
     """
-    note = resolve_note(settings.vault_path, path)
-    if note is None:
-        raise HTTPException(status_code=404, detail="No such note")
+    async with vault_write():
+        note = resolve_note(settings.vault_path, path)
+        if note is None:
+            raise HTTPException(status_code=404, detail="No such note")
 
-    relative = relative_path(settings.vault_path, note)
+        relative = relative_path(settings.vault_path, note)
 
-    return TrashEntry.of(await move_to_trash(settings.vault_path, note, relative))
+        return TrashEntry.of(await move_to_trash(settings.vault_path, note, relative))
 
 
 @app.delete("/api/folders/{path:path}")
@@ -1027,13 +1044,14 @@ async def delete_folder(
     it comes back in one, so the thing you get back is the folder you deleted
     rather than a list of notes to put back yourself.
     """
-    folder = resolve_folder(settings.vault_path, path)
-    if folder is None:
-        raise HTTPException(status_code=404, detail="No such folder")
+    async with vault_write():
+        folder = resolve_folder(settings.vault_path, path)
+        if folder is None:
+            raise HTTPException(status_code=404, detail="No such folder")
 
-    relative = relative_path(settings.vault_path, folder)
+        relative = relative_path(settings.vault_path, folder)
 
-    return TrashEntry.of(await move_to_trash(settings.vault_path, folder, relative))
+        return TrashEntry.of(await move_to_trash(settings.vault_path, folder, relative))
 
 
 @app.get("/api/trash")
@@ -1059,16 +1077,17 @@ async def restore_entry(
     own name. An entry the trash has not got is a 404, and a path something has
     taken since is a 409, which is the create's answer and the move's.
     """
-    found = resolve_entry(settings.vault_path, entry)
-    if found is None:
-        raise HTTPException(status_code=404, detail="No such entry")
+    async with vault_write():
+        found = resolve_entry(settings.vault_path, entry)
+        if found is None:
+            raise HTTPException(status_code=404, detail="No such entry")
 
-    target = resolve_folder_path(settings.vault_path, found.path)
-    if target is None:
-        raise HTTPException(status_code=400, detail="The vault will not take that path")
-    if target.exists():
-        raise HTTPException(status_code=409, detail="Something is already there")
+        target = resolve_folder_path(settings.vault_path, found.path)
+        if target is None:
+            raise HTTPException(status_code=400, detail="The vault will not take that path")
+        if target.exists():
+            raise HTTPException(status_code=409, detail="Something is already there")
 
-    await restore(settings.vault_path, found)
+        await restore(settings.vault_path, found)
 
     return Restored(path=found.path)

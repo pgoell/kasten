@@ -11,10 +11,10 @@ today, which is the one thing a notebook must never do to your own history.
 
 from pathlib import Path
 
+from kasten_backend.change import vault_change, vault_write
 from kasten_backend.frontmatter import reserved, with_type
 from kasten_backend.guide import write_missing
 from kasten_backend.vault import list_markdown_files, write_note
-from kasten_backend.vcs import begin_change, snapshot
 
 BACKFILL_LABEL = "type backfill"
 """What the pass calls its jj change, in the slot a note's path usually fills."""
@@ -64,32 +64,36 @@ async def backfill(root: Path) -> list[str]:
     Reserved names are skipped, and the walk skips a hidden directory without
     entering it, so `.trash` and the jj repo beside the notes are untouched.
     """
-    pending = []
-    for relative in list_markdown_files(root):
-        if reserved(relative):
-            continue
+    # The scan and the writes under one lock, so a note another writer touches
+    # between the two is not rewritten from the copy this pass read.
+    async with vault_write():
+        pending = []
+        for relative in list_markdown_files(root):
+            if reserved(relative):
+                continue
 
-        note = root / relative
-        # Read without translating the line endings, then put back the ones the
-        # note had. `read_text` turns every CRLF into an LF and `write_note`
-        # writes what it is handed, so a note written on Windows would come out
-        # of this pass with every one of its lines rewritten beside the one
-        # field it was here for.
-        raw = note.read_text(encoding="utf-8", newline="")
-        held = raw.replace("\r\n", "\n")
-        typed = with_type(held)
-        if typed == held:
-            continue
+            note = root / relative
+            # Read without translating the line endings, then put back the ones
+            # the note had. `read_text` turns every CRLF into an LF and
+            # `write_note` writes what it is handed, so a note written on
+            # Windows would come out of this pass with every one of its lines
+            # rewritten beside the one field it was here for.
+            raw = note.read_text(encoding="utf-8", newline="")
+            held = raw.replace("\r\n", "\n")
+            typed = with_type(held)
+            if typed == held:
+                continue
 
-        pending.append((note, typed.replace("\n", "\r\n") if "\r\n" in raw else typed, relative))
+            pending.append(
+                (note, typed.replace("\n", "\r\n") if "\r\n" in raw else typed, relative)
+            )
 
-    if not pending:
-        return []
+        if not pending:
+            return []
 
-    await begin_change(root, BACKFILL_LABEL)
-    for note, typed, _ in pending:
-        write_note(note, typed)
-    await snapshot(root)
+        async with vault_change(root, BACKFILL_LABEL):
+            for note, typed, _ in pending:
+                write_note(note, typed)
 
     return [relative for _, _, relative in pending]
 
