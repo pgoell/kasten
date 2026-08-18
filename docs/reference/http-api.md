@@ -9,9 +9,14 @@ status: stable
 
 # HTTP API
 
-The backend serves twenty-four endpoints. Thirteen read, ten write, and one
-streams. The interactive schema is at `/docs` while the backend runs, and the
-machine-readable one at `/openapi.json`.
+The backend serves twenty-seven endpoints under `/api/`. Fourteen read, twelve
+write, and one streams. The interactive schema is at `/docs` while the backend
+runs, and the machine-readable one at `/openapi.json`.
+
+Five more sit under `/agent/`, and they are documented on their own page,
+[the Agent API](/reference/agent-api.md). Everything here is reached with an
+oauth2-proxy session and nothing else; everything there is reached with a bearer
+token and nothing else.
 
 ## GET /api/health
 
@@ -979,8 +984,57 @@ delete took the empty ones with it.
 
 A restore that lands is recorded the way a save is, named `vault: <path>`.
 
+## GET /api/tokens
+
+Lists every [agent token](/reference/agent-api.md) the vault holds.
+
+```json
+[{ "name": "laptop", "created": "2026-08-18T09:00:00+00:00" }]
+```
+
+Never a digest and never a secret. Only the digest is kept at all, so there is
+no way back to a secret from here even by mistake.
+
+## POST /api/tokens
+
+Mints one agent token and hands back the only copy of its secret.
+
+```json
+{ "name": "laptop" }
+```
+
+```json
+{
+  "name": "laptop",
+  "created": "2026-08-18T09:00:00+00:00",
+  "secret": "kasten_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+`201`, and the one moment the secret exists outside its holder. It is not
+recoverable: the store keeps a SHA-256 digest and nothing else, so a lost secret
+is replaced rather than found.
+
+A name already taken is a `409`, the create's answer, because the user is about
+to retype it and has to know which it was.
+
+This route is under `/api/`, which means it inherits oauth2-proxy and carries no
+authentication of its own. That does put minting inside the internal trust zone,
+and [The agent boundary](/explanation/the-agent-boundary.md) says why that grants
+the shell container nothing it does not already have.
+
+## DELETE /api/tokens/{name}
+
+Revokes one agent token, and answers `204`.
+
+The next request carrying that token is refused. Nothing is held between
+requests, so there is no window in which a revoked token still works.
+
+A name the store has not got is a `404`.
+
 ## Related
 
 * [Deleting a note](/explanation/deleting-a-note.md) - why a delete keeps the note
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md) - push a change here through to the frontend
 * [Configuration](/reference/configuration.md) - which directory `/api/files` reads
+* [Agent API](/reference/agent-api.md) - the five routes a token reaches, and the ones it never does

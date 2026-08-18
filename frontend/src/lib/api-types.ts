@@ -4,6 +4,90 @@
  */
 
 export interface paths {
+    "/agent/notes/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Note
+         * @description Read one note, with the digest a conditional write presents back.
+         */
+        get: operations["read_note_agent_notes__path__get"];
+        /**
+         * Save Note
+         * @description Write one note, creating it when `sha` is absent and the note is.
+         */
+        put: operations["save_note_agent_notes__path__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notes
+         * @description List every note in the vault, or every note in one folder of it.
+         */
+        get: operations["list_notes_agent_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Notes
+         * @description Find every line in the vault holding `q`, ignoring case.
+         */
+        get: operations["search_notes_agent_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/notes/{path}/append": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Append Note
+         * @description Add a line to the end of one note, creating it when there is none.
+         */
+        post: operations["append_note_agent_notes__path__append_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -299,6 +383,66 @@ export interface paths {
          */
         post: operations["import_anki_api_anki_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Tokens
+         * @description Every agent token the store holds, by name and creation date.
+         *
+         *     Never a digest and never a secret. Only the digest is kept at all, so there
+         *     is no way back to a secret from here even by mistake.
+         */
+        get: operations["read_tokens_api_tokens_get"];
+        put?: never;
+        /**
+         * Create Token
+         * @description Mint one agent token, and hand back the only copy of its secret.
+         *
+         *     Under `/api/`, so it inherits oauth2-proxy and needs no authentication of
+         *     its own. That does put minting inside the internal trust zone, which
+         *     `the-agent-boundary.md` states plainly: the shell container reaches this
+         *     over the docker network without a session. It grants that container nothing,
+         *     since it already has the vault bind-mounted and every other `/api/` route.
+         *
+         *     A taken name is a 409, the create's answer, because the user is about to
+         *     retype it and has to know which it was.
+         */
+        post: operations["create_token_api_tokens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tokens/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Token
+         * @description Revoke one agent token. The next request carrying it is refused.
+         *
+         *     `response_class` for the reason `POST /api/assets/{path}` carries one:
+         *     without it FastAPI documents a 204 as JSON carrying an empty schema, and
+         *     `openapi-typescript` turns that into a body for a response that has none.
+         */
+        delete: operations["delete_token_api_tokens__name__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -635,6 +779,16 @@ export interface components {
             dropped_media: number;
         };
         /**
+         * Append
+         * @description A line to add, and the digest of the note the caller read, when it read one.
+         */
+        Append: {
+            /** Text */
+            text: string;
+            /** Sha */
+            sha?: string | null;
+        };
+        /**
          * Build
          * @description What the backend is running, for the reading in the status bar.
          */
@@ -675,6 +829,37 @@ export interface components {
             status: string;
         };
         /**
+         * Hit
+         * @description One matching line: where it lives, which line it is, and what it says.
+         *
+         *     Its own model rather than `main.SearchHit`, because nothing here may import
+         *     from `main.py`: that would point the dependency at the surface instead of
+         *     away from it, and the MCP tools import this module too.
+         */
+        Hit: {
+            /** Path */
+            path: string;
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
+        /**
+         * Minted
+         * @description One token as its owner sees it, once.
+         */
+        Minted: {
+            /** Name */
+            name: string;
+            /**
+             * Created
+             * Format: date-time
+             */
+            created: string;
+            /** Secret */
+            secret: string;
+        };
+        /**
          * Note
          * @description One note, as it sits on disk.
          */
@@ -704,6 +889,18 @@ export interface components {
             path: string;
         };
         /**
+         * NoteRead
+         * @description One note, and the digest a conditional write presents back.
+         */
+        NoteRead: {
+            /** Path */
+            path: string;
+            /** Content */
+            content: string;
+            /** Sha */
+            sha: string;
+        };
+        /**
          * Page
          * @description One web page as it arrived, for the client to make a note out of.
          */
@@ -722,6 +919,16 @@ export interface components {
             path: string;
         };
         /**
+         * Save
+         * @description A whole note, and the digest of the one the caller read.
+         */
+        Save: {
+            /** Content */
+            content: string;
+            /** Sha */
+            sha?: string | null;
+        };
+        /**
          * SearchHit
          * @description One line in the vault that matched, and enough to open the note on it.
          */
@@ -732,6 +939,27 @@ export interface components {
             line: number;
             /** Text */
             text: string;
+        };
+        /**
+         * Token
+         * @description One token as anything but the mint may see it.
+         */
+        Token: {
+            /** Name */
+            name: string;
+            /**
+             * Created
+             * Format: date-time
+             */
+            created: string;
+        };
+        /**
+         * TokenName
+         * @description What a mint is asked for: a name to tell one token from another.
+         */
+        TokenName: {
+            /** Name */
+            name: string;
         };
         /**
          * TrashEntry
@@ -770,6 +998,170 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    read_note_agent_notes__path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_note_agent_notes__path__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Save"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notes_agent_notes_get: {
+        parameters: {
+            query?: {
+                folder?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_notes_agent_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    append_note_agent_notes__path__append_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Append"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -1031,6 +1423,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnkiImport"];
+                };
+            };
+        };
+    };
+    read_tokens_api_tokens_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Token"][];
+                };
+            };
+        };
+    };
+    create_token_api_tokens_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenName"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Minted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_token_api_tokens__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
