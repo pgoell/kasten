@@ -32,6 +32,7 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onDeleteImage?: (startPath: string) => void;
   onFindNote?: () => void;
   onSearchNotes?: () => void;
+  onGoToTab?: (index: number) => void;
 };
 
 /** Holds the open state the route holds in the app, so folding still works. */
@@ -44,6 +45,7 @@ function Harness({
   onDeleteImage,
   onFindNote,
   onSearchNotes,
+  onGoToTab,
   ...props
 }: TreeProps) {
   const [open, setOpen] = useState(true);
@@ -104,7 +106,7 @@ function Harness({
         paneRight: () => {},
         nextTab: () => {},
         prevTab: () => {},
-        goToTab: () => {},
+        goToTab: onGoToTab ?? (() => {}),
       }}
     />
   );
@@ -317,6 +319,19 @@ describe("the tree keyboard", () => {
     press("b");
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("goes to a tab on the leader and a digit", () => {
+    // The digits live in `TAB_KEYS` rather than in `LEADER`, and reading one
+    // table and not the other is how they used to reach a tab from a note and
+    // nothing at all from in here.
+    const onGoToTab = vi.fn();
+    renderTree({ onGoToTab });
+
+    press(" ");
+    press("3");
+
+    expect(onGoToTab).toHaveBeenCalledWith(2);
   });
 
   it("opens the note prompt on the leader, c, then f", () => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LEADER, type TreeCommands } from "@/lib/key-bindings";
+import { leaderAction, leaderPrefix, type TreeCommands } from "@/lib/key-bindings";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -541,20 +541,21 @@ export function FileExplorer({
       const sequence = pending + key;
       const typed = sequence.slice(1);
       const leader = sequence.startsWith(" ");
-      const binding = leader ? LEADER.find((entry) => entry.key === typed) : undefined;
+      // Only the tree knows what the cursor sits on, and these two are the
+      // commands that ask for it, so the sequence is resolved against a set
+      // where they already reach the row rather than the pane.
+      const run = leader
+        ? leaderAction(typed, { ...commands, createNote: newNote, renameNote })
+        : null;
       // A leader key can be more than one letter, so a sequence that still
       // prefixes one waits for the rest instead of being dropped. The exact
       // match is taken first, the way vim takes it.
-      const partial = !binding && leader && LEADER.some((entry) => entry.key.startsWith(typed));
+      const partial = !run && leader && leaderPrefix(typed);
       setPending(partial ? sequence : "");
 
-      if (binding) {
+      if (run) {
         event.preventDefault();
-        // Only the tree knows what the cursor sits on, and these two are the
-        // commands that ask for it.
-        if (binding.command === "createNote") newNote();
-        else if (binding.command === "renameNote") renameNote();
-        else commands[binding.command]();
+        run();
       } else if (sequence === "gg") {
         event.preventDefault();
         setActive(0);
