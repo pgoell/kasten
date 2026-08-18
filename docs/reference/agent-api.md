@@ -278,7 +278,9 @@ path-inserted spelling off the `401` header and ChatGPT probes the bare one, and
 a `404` on whichever a client tries ends the flow there.
 
 `kasten:notes` is the one scope. It names the five capabilities and there is
-nothing to narrow.
+nothing to narrow. `read_guide` is a sixth tool under it and not a sixth
+capability: it answers with a string compiled into the image and reads no note,
+so the audit this prefix exists for is still a list of five things.
 
 ### GET /.well-known/oauth-authorization-server
 

@@ -14,6 +14,7 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
 from backend.tests.conftest import JJ, descriptions
+from kasten_backend.agent_mcp import INSTRUCTIONS
 from kasten_backend.config import get_settings
 from kasten_backend.main import app
 
@@ -233,6 +234,71 @@ async def test_the_reading_tools_say_so(
         "list_notes": True,
         "read_note": True,
         "search_notes": True,
+        "read_guide": True,
         "save_note": False,
         "append_note": False,
     }
+
+
+async def test_the_guide_reaches_a_client_that_reads_instructions(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Claude Code, codex and ChatGPT read this field. It rides the handshake, so
+    # a model has it before it chooses a first call.
+    response = await client.post(
+        ENDPOINT,
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1"},
+            },
+        },
+        headers={**bearer, **RPC},
+    )
+
+    instructions = payload(response.text)["result"]["instructions"]
+
+    assert "There is no grep" in instructions
+    assert "Do not call it" in instructions
+
+
+async def test_the_guide_reaches_a_client_that_drops_them(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # claude.ai and Claude Desktop discard the field above, and `tools/list` is
+    # the path no client drops. Same text, minus the line telling a reader who
+    # already has it not to ask.
+    response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
+
+    guide = payload(response.text)["result"]["content"][0]["text"]
+
+    assert "There is no grep" in guide
+    assert "Do not call it" not in guide
+
+
+async def test_the_guide_touches_no_note(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # A sixth tool and not a sixth capability. What comes back is the string
+    # compiled into the server, whole, so no read of the vault stands behind it.
+    response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
+
+    assert payload(response.text)["result"]["content"][0]["text"] == INSTRUCTIONS
+
+
+async def test_the_guide_says_where_a_new_note_goes(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Advisory rather than enforced, the way this vault's other conventions are.
+    # Nothing in `agent.py` moves a write, so this sentence is the whole of the
+    # rule and a test is what keeps it from being edited away by accident.
+    response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
+
+    guide = payload(response.text)["result"]["content"][0]["text"]
+
+    assert "00 Inbox/00 Agent/" in guide
+    assert "no delete, no move and no rename" in guide
