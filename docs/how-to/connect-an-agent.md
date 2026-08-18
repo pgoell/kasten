@@ -39,7 +39,10 @@ claude mcp add --transport http kasten https://kasten.pascalkraus.com/agent/mcp 
 ```
 
 Check it with `/mcp` inside Claude Code. The five tools are `list_notes`,
-`read_note`, `search_notes`, `save_note` and `append_note`.
+`read_note`, `search_notes`, `save_note` and `append_note`, and a sixth,
+`read_guide`, hands back how the vault is filed. Claude Code reads a server's
+instructions at the handshake, so it holds that text already and the tool tells
+it to skip the call.
 
 ## codex
 

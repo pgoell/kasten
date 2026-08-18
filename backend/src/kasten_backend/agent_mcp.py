@@ -35,6 +35,7 @@ so it is refused here rather than left to the SDK.
 
 from contextlib import asynccontextmanager
 from importlib.metadata import version
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcp.server import MCPServer
@@ -56,6 +57,34 @@ if TYPE_CHECKING:
 
 PATH = "/mcp"
 """The endpoint inside the SDK's own app, which the `/agent` mount completes."""
+
+# Read off the package rather than spelled in Python, the way `guide.py` and
+# `okf.py` read theirs: prose in a Python string is prose nobody can read in a
+# diff.
+INSTRUCTIONS = (Path(__file__).parent / "mcp-instructions.md").read_text(encoding="utf-8").strip()
+"""What a model is told about this vault before it calls anything.
+
+Two channels carry it, because no one channel reaches every client. The
+`instructions` field below is dropped by claude.ai and Claude Desktop and read
+by Claude Code, codex and ChatGPT. `tools/list` is dropped by nobody, which is
+why `read_guide` hands the same text back on request.
+
+Claude Code truncates a server's instructions at 2KiB, mid-word and silently, so
+this stays well inside it, and what a client needs first, the shape of the vault
+and the limits of the tools, is in the opening lines.
+"""
+
+REDUNDANT = (
+    "\n\nYou have just read this, so `read_guide` would only repeat it back. "
+    "Do not call it: the clients it exists for are the ones that never saw this "
+    "paragraph."
+)
+"""The one line the tool's own answer must never carry.
+
+Only the `instructions` field gets it. A client reading this already holds the
+text, and a client calling `read_guide` by definition does not, so telling the
+second one to skip the call it just made would be nonsense.
+"""
 
 _serving: list[ASGIApp] = []
 """What the lifespan built, or nothing when the process is not serving.
@@ -97,10 +126,25 @@ async def append_note(path: str, text: str, sha: str | None = None) -> dict[str,
     return await _written(agent.append_note(get_settings(), path, text, sha))
 
 
-TOOLS = (list_notes, read_note, search_notes, save_note, append_note)
-"""The five, in the order the reference page lists them."""
+async def read_guide() -> str:
+    """How this vault is filed, what the other tools do, and what they cannot do.
 
-READING = frozenset({"list_notes", "read_note", "search_notes"})
+    Call this first. It reads nothing from the vault and takes no argument: the
+    text is compiled into the server, which is what makes it the one capability
+    here that touches no note.
+    """
+    return INSTRUCTIONS
+
+
+TOOLS = (list_notes, read_note, search_notes, save_note, append_note, read_guide)
+"""The five, in the order the reference page lists them, and the guide behind them.
+
+`read_guide` is a sixth tool and not a sixth capability. It reads a string
+compiled into the image, never the vault, so the audit this prefix exists for is
+still a list of five things.
+"""
+
+READING = frozenset({"list_notes", "read_note", "search_notes", "read_guide"})
 """Which of the five only read, told to the client as `readOnlyHint`.
 
 chatgpt.com treats a tool without it as a write and asks you to confirm every
@@ -214,7 +258,11 @@ def build() -> tuple[ASGIApp, MCPServer]:
     The server comes back too because its session manager exists only after this
     call, and the lifespan is what enters it.
     """
-    server: MCPServer = MCPServer(name="kasten", version=version("kasten-backend"))
+    server: MCPServer = MCPServer(
+        name="kasten",
+        version=version("kasten-backend"),
+        instructions=INSTRUCTIONS + REDUNDANT,
+    )
     for tool in TOOLS:
         # The SDK's model is snake_case with a camelCase alias, so this is
         # `readOnlyHint` on the wire, which is where the test reads it.
