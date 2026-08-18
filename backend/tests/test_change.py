@@ -129,3 +129,19 @@ async def test_a_published_image_is_in_the_log(client: AsyncClient, versioned_va
     assert response.status_code == 201
     assert descriptions(versioned_vault) == ["vault: pictures/plate.png"]
     assert changed_paths(versioned_vault, "@") == ["pictures/plate.png"]
+
+
+async def test_an_agent_write_is_named_in_the_log(
+    client: AsyncClient, versioned_agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # The second half is what proves `require_token` resets its contextvar. A
+    # leak there would label the browser save an agent write, with every test
+    # of the agent surface still green.
+    await client.put("/agent/notes/borges.md", json={"content": "# from the agent"}, headers=bearer)
+
+    await client.put("/api/files/borges.md", json={"content": "# from the browser"})
+
+    assert descriptions(versioned_agent_vault) == [
+        "vault: borges.md",
+        "agent(laptop): borges.md",
+    ]

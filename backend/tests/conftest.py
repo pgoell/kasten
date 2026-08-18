@@ -81,6 +81,20 @@ async def token(agent_vault: Path) -> str:
 
 
 @pytest.fixture
+def versioned_agent_vault(agent_vault: Path) -> Path:
+    """The agent's vault, made a colocated jj repo, for the tests that read `jj log`."""
+    assert JJ is not None
+    # Not through `jj()`: `--repository` names a repo that does not exist yet.
+    subprocess.run(  # noqa: S603
+        [JJ, "git", "init", "--colocate", str(agent_vault)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return agent_vault
+
+
+@pytest.fixture
 def bearer(token: str) -> dict[str, str]:
     """The header a token holder sends, which every `/agent/` request carries."""
     return {"Authorization": f"Bearer {token}"}

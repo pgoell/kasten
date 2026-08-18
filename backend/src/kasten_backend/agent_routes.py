@@ -12,6 +12,7 @@ tools call too.
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from kasten_backend import agent, vcs
 from kasten_backend.config import Settings, get_settings
@@ -83,3 +84,46 @@ async def search_notes(
 ) -> list[agent.Hit]:
     """Find every line in the vault holding `q`, ignoring case."""
     return await agent.search_notes(settings, q, archive)
+
+
+@router.put("/notes/{path:path}")
+async def save_note(
+    path: str, edit: agent.Save, settings: Annotated[Settings, Depends(get_settings)]
+) -> agent.NoteRead:
+    """Write one note, creating it when `sha` is absent and the note is."""
+    return _written(await agent.save_note(settings, path, edit.content, edit.sha))
+
+
+@router.post("/notes/{path:path}/append")
+async def append_note(
+    path: str, edit: agent.Append, settings: Annotated[Settings, Depends(get_settings)]
+) -> agent.NoteRead:
+    """Add a line to the end of one note, creating it when there is none."""
+    return _written(await agent.append_note(settings, path, edit.text, edit.sha))
+
+
+def _written(landed: agent.NoteRead | None) -> agent.NoteRead:
+    """What the write left on disk, or the refusal a path the vault will not take earns."""
+    if landed is None:
+        raise HTTPException(status_code=404, detail="No such note")
+
+    return landed
+
+
+async def note_changed(_request: Request, error: Exception) -> JSONResponse:
+    """Answer a refused write with the digest the caller needs to re-read and retry.
+
+    Registered on the app in `main.py`, an exception handler belonging to the
+    application rather than to a router. The body is the one the MCP tool error
+    carries word for word, so both surfaces refuse in the same words.
+    """
+    # Narrowed rather than annotated. Starlette types every handler's second
+    # argument as `Exception`, and this one is registered for one class.
+    current = error.current if isinstance(error, agent.ConflictError) else None
+
+    return JSONResponse(status_code=409, content={"detail": str(error), "current": current})
+
+
+async def too_large(_request: Request, error: Exception) -> JSONResponse:
+    """Answer a write that would leave more than `MOST_CONTENT_BYTES` on disk."""
+    return JSONResponse(status_code=413, content={"detail": str(error)})

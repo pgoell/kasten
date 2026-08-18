@@ -123,3 +123,184 @@ async def test_search_honours_the_archive_setting(
     )
 
     assert [hit["path"] for hit in found.json()] == ["old/borges.md"]
+
+
+async def test_save_creates_when_sha_is_null(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.put(
+        "/agent/notes/daily/2026-08-18.md", json={"content": "# today"}, headers=bearer
+    )
+
+    assert response.status_code == 200
+    assert (agent_vault / "daily" / "2026-08-18.md").read_text().endswith("# today")
+
+
+async def test_save_refuses_a_null_sha_on_an_existing_note(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "borges.md").write_text("# borges\n")
+
+    response = await client.put(
+        "/agent/notes/borges.md", json={"content": "# gone"}, headers=bearer
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "The note changed since you read it"
+    assert response.json()["current"] == sha("# borges\n")
+    assert (agent_vault / "borges.md").read_text() == "# borges\n"
+
+
+async def test_save_refuses_a_sha_on_an_absent_note(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # `current` is null in exactly this case: a digest was presented for a note
+    # that does not exist, so there is no current one to hand back.
+    response = await client.put(
+        "/agent/notes/absent.md", json={"content": "# new", "sha": sha("# new")}, headers=bearer
+    )
+
+    assert response.status_code == 409
+    assert response.json()["current"] is None
+    assert not (agent_vault / "absent.md").exists()
+
+
+async def test_save_refuses_a_stale_sha_and_returns_the_current_one(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "borges.md").write_text("# borges\n")
+    read = (await client.get("/agent/notes/borges.md", headers=bearer)).json()
+    (agent_vault / "borges.md").write_text("# edited in the browser\n")
+
+    response = await client.put(
+        "/agent/notes/borges.md",
+        json={"content": "# from the agent", "sha": read["sha"]},
+        headers=bearer,
+    )
+
+    assert response.status_code == 409
+    fresh = (await client.get("/agent/notes/borges.md", headers=bearer)).json()
+    assert response.json()["current"] == fresh["sha"]
+
+
+async def test_saved_sha_is_of_what_landed_not_of_what_was_sent(
+    client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    # `stamp` rewrites `modified`, so the bytes written are never the bytes
+    # sent. A caller that computed its next digest locally would be refused
+    # forever.
+    response = await client.put(
+        "/agent/notes/borges.md", json={"content": "# borges"}, headers=bearer
+    )
+
+    assert response.json()["sha"] != sha("# borges")
+    assert response.json()["sha"] == sha(response.json()["content"])
+
+
+async def test_a_reserved_name_is_not_stamped(client: AsyncClient, bearer: dict[str, str]) -> None:
+    # `index.md` and `log.md` get no block at all, so their bytes are exactly
+    # what was sent and the digest of the two agree.
+    response = await client.put(
+        "/agent/notes/index.md", json={"content": "# index\n"}, headers=bearer
+    )
+
+    assert response.json()["content"] == "# index\n"
+    assert response.json()["sha"] == sha("# index\n")
+
+
+async def test_the_returned_sha_is_accepted_on_the_next_save(
+    client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    first = await client.put("/agent/notes/borges.md", json={"content": "# once"}, headers=bearer)
+
+    second = await client.put(
+        "/agent/notes/borges.md",
+        json={"content": "# twice", "sha": first.json()["sha"]},
+        headers=bearer,
+    )
+
+    assert second.status_code == 200
+
+
+async def test_save_preserves_crlf(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # `stamp` rebuilds the file with `"\n".join(...)`, so passing CRLF text
+    # through it would destroy every line ending in the note beside the one
+    # field the save was for.
+    block = "---\r\nid: 019\r\ncreated: 2026-08-01T00:00:00+00:00\r\ntype: Note\r\n"
+    (agent_vault / "windows.md").write_bytes(
+        (block + "modified: 2026-08-01T00:00:00+00:00\r\n---\r\n\r\n# one\r\n").encode()
+    )
+    read = (await client.get("/agent/notes/windows.md", headers=bearer)).json()
+
+    response = await client.put(
+        "/agent/notes/windows.md",
+        json={"content": read["content"], "sha": read["sha"]},
+        headers=bearer,
+    )
+
+    assert response.status_code == 200
+    landed = (agent_vault / "windows.md").read_bytes()
+    assert b"\n" in landed
+    assert landed.replace(b"\r\n", b"\n").count(b"\n") == landed.count(b"\r\n")
+    assert landed.endswith(b"\r\n\r\n# one\r\n")
+
+
+async def test_append_creates_with_no_leading_blank_line(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # `create_note(note, stamp(text))`, the call `POST /api/files` makes, rather
+    # than an empty note appended to, which would put a blank line between the
+    # block and the first word.
+    response = await client.post(
+        "/agent/notes/inbox.md/append", json={"text": "The first line."}, headers=bearer
+    )
+
+    assert response.status_code == 200
+    assert (agent_vault / "inbox.md").read_text().endswith("---\nThe first line.")
+
+
+async def test_append_joins_with_exactly_one_blank_line(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "inbox.md").write_text("---\ntype: Note\n---\n\nThe first line.\n")
+
+    response = await client.post(
+        "/agent/notes/inbox.md/append", json={"text": "The second line."}, headers=bearer
+    )
+
+    assert response.status_code == 200
+    assert (agent_vault / "inbox.md").read_text().endswith("The first line.\n\nThe second line.\n")
+
+
+async def test_append_without_a_sha_is_race_free(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # `sha` is optional on an append and checked when given: the read and the
+    # write happen under one acquisition of the write lock, so nothing can
+    # change the note in between.
+    (agent_vault / "inbox.md").write_text("---\ntype: Note\n---\n\nOne.\n")
+
+    for line in ("Two.", "Three."):
+        assert (
+            await client.post("/agent/notes/inbox.md/append", json={"text": line}, headers=bearer)
+        ).status_code == 200
+
+    assert (agent_vault / "inbox.md").read_text().endswith("One.\n\nTwo.\n\nThree.\n")
+
+
+async def test_a_write_whose_result_exceeds_the_bound_is_refused(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # The bound is on the bytes that would land, after the join and after the
+    # stamp. Bounding the incoming text alone would let a note just under the
+    # line plus a small append cross it.
+    (agent_vault / "big.md").write_text("x" * (1024 * 1024 - 64))
+
+    response = await client.post(
+        "/agent/notes/big.md/append", json={"text": "y" * 256}, headers=bearer
+    )
+
+    assert response.status_code == 413
+    assert (agent_vault / "big.md").read_text() == "x" * (1024 * 1024 - 64)
