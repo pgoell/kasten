@@ -96,6 +96,16 @@ curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
   "$KASTEN_AGENT/notes/00%20Inbox/today.md/append"
 ```
 
+The routes describe themselves, so an agent that lands with a token and no
+documentation can read the shapes off the schema:
+
+```sh
+curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/openapi.json"
+```
+
+That document names these five routes and nothing else. The one at the root
+describes the browser's API and is behind oauth2-proxy.
+
 An append needs no digest. A whole-note save does: read the note first and
 present the `sha` that read returned, not a digest of the text you are sending.
 [What a digest is of](/reference/agent-api.md#what-a-digest-is-of-and-why-it-is-never-the-digest-of-what-you-sent)

@@ -204,6 +204,30 @@
         }
       }
     },
+    "/agent/openapi.json": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Schema",
+        "description": "This prefix, described as OpenAPI, for a caller with no MCP client.\n\nAn agent over MCP discovers the five capabilities from `tools/list`. One\nholding a token and a curl has nothing to read, because `/openapi.json` at\nthe root is behind oauth2-proxy and describes the browser's API rather than\nthis one.\n\nBuilt from this router's own routes rather than by filtering the whole\napplication's schema, so it names the five and pulls in only the models they\nreference. A token holder cannot reach anything under `/api/`, and handing\none the map of those routes would give it away for nothing.",
+        "operationId": "schema_agent_openapi_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Schema Agent Openapi Json Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent/notes/{path}/append": {
       "post": {
         "tags": [

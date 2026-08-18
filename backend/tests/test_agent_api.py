@@ -304,3 +304,40 @@ async def test_a_write_whose_result_exceeds_the_bound_is_refused(
 
     assert response.status_code == 413
     assert (agent_vault / "big.md").read_text() == "x" * (1024 * 1024 - 64)
+
+
+async def test_the_schema_needs_a_token(client: AsyncClient, agent_vault: Path) -> None:
+    # Gated by the router's own dependency, not by the MCP mount below it, which
+    # would answer 401 for an unmatched path and make this pass either way.
+    assert str(agent_vault)
+
+    response = await client.get("/agent/openapi.json")
+
+    assert response.status_code == 401
+
+
+async def test_the_schema_describes_the_agent_routes(
+    client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    response = await client.get("/agent/openapi.json", headers=bearer)
+
+    assert response.status_code == 200
+    assert set(response.json()["paths"]) == {
+        "/agent/notes",
+        "/agent/notes/{path}",
+        "/agent/notes/{path}/append",
+        "/agent/search",
+        "/agent/openapi.json",
+    }
+
+
+async def test_the_schema_names_no_route_a_token_cannot_reach(
+    client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    # The point of the prefix is that the audit is a list of five things. A
+    # schema handing a token holder the map of the twenty-seven routes it cannot
+    # reach would give that away for nothing.
+    schema = (await client.get("/agent/openapi.json", headers=bearer)).json()
+
+    assert not [path for path in schema["paths"] if not path.startswith("/agent/")]
+    assert "TrashEntry" not in schema.get("components", {}).get("schemas", {})
