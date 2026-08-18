@@ -44,6 +44,32 @@ The token's name is recorded with the write it makes: an agent's change reads
 `agent(laptop): daily/2026-08-18.md` in `jj log`, where a browser's reads
 `vault: daily/2026-08-18.md`.
 
+## GET /agent/openapi.json
+
+This prefix, described as OpenAPI, for a caller that has a token and a curl
+rather than an MCP client.
+
+```json
+{
+  "openapi": "3.1.0",
+  "info": { "title": "kasten agent API", "version": "0.17.0" },
+  "paths": { "/agent/notes": {}, "/agent/search": {} }
+}
+```
+
+It names the routes on this page and nothing else. `/openapi.json` at the root
+is a different document: it describes the browser's API, it is behind
+oauth2-proxy, and no token reaches it.
+
+Built from this router's own routes rather than by filtering the whole
+application's schema, so the models it defines are the ones these routes use and
+no others. That is deliberate rather than tidy. A token holder cannot reach
+anything under `/api/`, and handing one the map of those twenty-seven routes
+would give it away for nothing.
+
+An agent over MCP needs none of this: `tools/list` describes the same five
+capabilities with the same argument shapes.
+
 ## GET /agent/notes
 
 Lists every note in the vault as a relative POSIX path, sorted.

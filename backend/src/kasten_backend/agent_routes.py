@@ -9,9 +9,10 @@ Nothing here decides what a capability does. That is `agent.py`, which the MCP
 tools call too.
 """
 
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from kasten_backend import agent, vcs
@@ -84,6 +85,27 @@ async def search_notes(
 ) -> list[agent.Hit]:
     """Find every line in the vault holding `q`, ignoring case."""
     return await agent.search_notes(settings, q, archive)
+
+
+@router.get("/openapi.json")
+async def schema(request: Request) -> dict[str, Any]:
+    """This prefix, described as OpenAPI, for a caller with no MCP client.
+
+    An agent over MCP discovers the five capabilities from `tools/list`. One
+    holding a token and a curl has nothing to read, because `/openapi.json` at
+    the root is behind oauth2-proxy and describes the browser's API rather than
+    this one.
+
+    Built from this router's own routes rather than by filtering the whole
+    application's schema, so it names the five and pulls in only the models they
+    reference. A token holder cannot reach anything under `/api/`, and handing
+    one the map of those routes would give it away for nothing.
+    """
+    return get_openapi(
+        title=f"{request.app.title} agent API",
+        version=request.app.version,
+        routes=router.routes,
+    )
 
 
 @router.put("/notes/{path:path}")
