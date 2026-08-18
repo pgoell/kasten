@@ -470,6 +470,21 @@ export const TREE: readonly { key: string; label: string }[] = [
  * switch. It lists the whole set the phase arrives at, so the reference page
  * and the help panel describe one pane rather than each other.
  */
+/**
+ * The screens reached by typing their address rather than by pressing a key.
+ *
+ * Not bindings, and on the panel for exactly that reason: a screen nothing
+ * links to and no key opens is one the app never mentions, and a URL you have
+ * to read the documentation to learn is a URL you do not have.
+ */
+export const SCREENS: readonly { key: string; label: string }[] = [
+  // The two screens with a URL and nothing else: no key, no link, no row in
+  // the tree. Both are worth having and neither is worth a leader key, being
+  // visited a few times a year, so the help panel is where they are named.
+  // Without this the app says nowhere at all that `/tokens` exists.
+  { key: "/tokens", label: "Mint and revoke the tokens an agent reaches the vault with" },
+  { key: "/review", label: "The review, on a page of its own, sized for a phone" },
+];
 export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "j / k", label: "Move the cursor down or up" },
   { key: "Enter", label: "Open the note the todo is in" },

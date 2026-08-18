@@ -1641,3 +1641,23 @@ it back, which fights the hand that moved it, or leaving a pane whose border
 says focused while the cursor is somewhere else. Every key into that pane
 refuses, so this is the one route that still overwrites, and `:w` or `:e!`
 first is what avoids it.
+
+## Screens you type
+
+Two screens have a URL and nothing else: no key, no link and no row in the tree.
+The keys panel lists them under **Screens you type**, which is the only place in
+the app that says they exist.
+
+| Address | What it is |
+| --- | --- |
+| `/tokens` | Mint and revoke the [tokens](/reference/agent-api.md) an agent reaches the vault with |
+| `/review` | The review, on a page of its own, sized for a phone |
+
+Neither gets a leader key, and the reason is the same for both: a key is worth
+spending on something pressed daily, and these are visited a few times a year.
+What they were missing was not a key but a mention, because a screen nothing
+links to and no key opens is one you have to read the documentation to find.
+
+`/review` is the phone's shell around the review; at a desk the same three
+screens are in a pane behind `<leader>gs`. `/tokens` has no pane and no
+equivalent, so its address is the whole of the way in.

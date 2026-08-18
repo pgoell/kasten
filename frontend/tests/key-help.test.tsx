@@ -7,6 +7,7 @@ import {
   INDENT,
   LEADER,
   LEADER_EDITS,
+  SCREENS,
   TERMINAL,
   TERMINAL_CHORD,
   TODO_PANE,
@@ -132,6 +133,17 @@ describe("KeyHelp", () => {
 
     for (const { key, label } of TODO_PANE) {
       expect(group("Todo pane").getByText(key).nextElementSibling).toHaveTextContent(label);
+    }
+  });
+
+  it("lists every screen reached by typing its address", () => {
+    // The two screens with no key and no link. Without this group nothing in
+    // the app says `/tokens` exists at all, and finding it means reading the
+    // documentation for a URL.
+    render(<KeyHelp onClose={() => {}} />);
+
+    for (const { key, label } of SCREENS) {
+      expect(group("Screens you type").getByText(key).nextElementSibling).toHaveTextContent(label);
     }
   });
 
