@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
+from kasten_backend import agent_mcp
 from kasten_backend.agent import ConflictError, TooLargeError
 from kasten_backend.agent_routes import note_changed, too_large
 from kasten_backend.agent_routes import router as agent_router
@@ -85,7 +86,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # vault, and it should read one that is finished being written to.
     await prepare(settings.vault_path)
     await purge_trash(settings.vault_path, settings.trash_days)
-    yield
+    # A mounted sub-application does not run its own lifespan, and the MCP
+    # session manager is single-use, so the endpoint is built here and rebuilt
+    # on every entry rather than once at import.
+    async with agent_mcp.serving():
+        yield
 
 
 app = FastAPI(title="kasten", version=version("kasten-backend"), lifespan=lifespan)
@@ -100,6 +105,14 @@ refuses a release whose tag disagrees with it.
 app.include_router(agent_router)
 app.add_exception_handler(ConflictError, note_changed)
 app.add_exception_handler(TooLargeError, too_large)
+app.mount("/agent", agent_mcp.mounted)
+"""The MCP endpoint, at exactly `/agent/mcp`.
+
+Mounted after the router above, so every path it names is matched by a route
+before this is reached. Mounted at `/agent` rather than at `/agent/mcp` because
+the SDK's app owns `/mcp` internally: the deeper mount would answer the
+documented URL with a redirect.
+"""
 """The one prefix reached without an oauth2-proxy session in front of it.
 
 Gated by the router's own bearer dependency instead. See `agent_routes.py` and
