@@ -16,6 +16,7 @@ None of this may ever stop a note being saved.
 
 import asyncio
 import logging
+from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -23,8 +24,31 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DESCRIPTION = "vault: {path}"
-"""How a change is named. The path is how one note's change is told from another's."""
+writer: ContextVar[str | None] = ContextVar("writer", default=None)
+"""The token name behind the write in hand, or None when the browser is writing.
+
+Set for the length of one agent request and reset after it. A contextvar rather
+than an argument threaded through eleven call sites, because every one of those
+sites names a path and none of them knows who asked.
+"""
+
+
+def describe(label: str) -> str:
+    """How a change is named: the label, and who wrote it when that was not the browser.
+
+    The label is how one note's change is told from another's, and the prefix is
+    how an agent's is told from yours. Formatted here rather than prepended by
+    the caller, because `begin_change` compares the whole description against the
+    one in hand: a prefix added outside would make every agent save open a change
+    the next one could not amend.
+
+    A switch of writer therefore opens a new change even when the note is the
+    same, which is the point. An agent write must never amend the change holding
+    your browser edits.
+    """
+    name = writer.get()
+    return f"agent({name}): {label}" if name else f"vault: {label}"
+
 
 IGNORES = ("*.epub", ".*.tmp")
 """What the vault's history never takes a copy of.
@@ -110,7 +134,7 @@ async def begin_change(root: Path, relative: str) -> None:
     if description is None:
         return
 
-    wanted = DESCRIPTION.format(path=relative)
+    wanted = describe(relative)
     if description.strip() == wanted:
         return
 

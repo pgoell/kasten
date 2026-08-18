@@ -25,8 +25,8 @@ import shutil
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple
 
+from kasten_backend.change import vault_change, vault_write
 from kasten_backend.vault import prune_empty_folders, resolve_folder_path
-from kasten_backend.vcs import begin_change, snapshot
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -176,10 +176,9 @@ async def move_to_trash(
     )
     target = root / TRASH / entry.entry
 
-    await begin_change(root, f"{TRASH}/{entry.entry}")
-    _move(node, target)
-    prune_empty_folders(root, node.parent)
-    await snapshot(root)
+    async with vault_change(root, f"{TRASH}/{entry.entry}"):
+        _move(node, target)
+        prune_empty_folders(root, node.parent)
 
     return entry
 
@@ -195,10 +194,9 @@ async def restore(root: Path, found: Entry) -> None:
     """
     source = root / TRASH / found.entry
 
-    await begin_change(root, found.path)
-    _move(source, root / found.path)
-    prune_empty_folders(root / TRASH, source.parent)
-    await snapshot(root)
+    async with vault_change(root, found.path):
+        _move(source, root / found.path)
+        prune_empty_folders(root / TRASH, source.parent)
 
 
 async def purge_trash(root: Path, days: int) -> None:
@@ -214,13 +212,13 @@ async def purge_trash(root: Path, days: int) -> None:
     """
     trash = root / TRASH
     cutoff = datetime.now(UTC) - timedelta(days=days)
-    expired = [found for found in list_trash(root) if found.deleted < cutoff]
-    if not expired:
-        return
+    async with vault_write():
+        expired = [found for found in list_trash(root) if found.deleted < cutoff]
+        if not expired:
+            return
 
-    await begin_change(root, TRASH)
-    for found in expired:
-        path = trash / found.entry
-        _remove(path)
-        prune_empty_folders(trash, path.parent)
-    await snapshot(root)
+        async with vault_change(root, TRASH):
+            for found in expired:
+                path = trash / found.entry
+                _remove(path)
+                prune_empty_folders(trash, path.parent)

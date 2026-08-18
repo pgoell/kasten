@@ -6,7 +6,7 @@ and the bytes that arrive are the bytes on disk.
 """
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, call
+from unittest.mock import MagicMock, call
 
 from asgi_lifespan import LifespanManager
 
@@ -202,17 +202,14 @@ async def test_backfill_records_one_change_for_the_whole_pass(
 ) -> None:
     # One change for the pass rather than one per note. A vault of a thousand
     # untyped notes is one line in `jj log`, not a thousand.
-    begin = AsyncMock()
-    end = AsyncMock()
-    monkeypatch.setattr("kasten_backend.okf.begin_change", begin)
-    monkeypatch.setattr("kasten_backend.okf.snapshot", end)
+    changes = MagicMock()
+    monkeypatch.setattr("kasten_backend.okf.vault_change", changes)
     for name in ("a.md", "b.md", "c.md"):
         note(tmp_path, name, "# note\n")
 
     await backfill(tmp_path)
 
-    assert begin.await_args_list == [call(tmp_path, BACKFILL_LABEL)]
-    assert end.await_count == 1
+    assert changes.call_args_list == [call(tmp_path, BACKFILL_LABEL)]
 
 
 async def test_backfill_touches_jj_not_at_all_when_it_writes_nothing(
@@ -220,12 +217,12 @@ async def test_backfill_touches_jj_not_at_all_when_it_writes_nothing(
 ) -> None:
     # A boot on an unchanged vault leaves no empty change behind, which is why
     # every rewrite is worked out before anything is written.
-    begin = AsyncMock()
-    monkeypatch.setattr("kasten_backend.okf.begin_change", begin)
+    changes = MagicMock()
+    monkeypatch.setattr("kasten_backend.okf.vault_change", changes)
     note(tmp_path, "typed.md", "---\ntype: Source\n---\n")
 
     assert await backfill(tmp_path) == []
-    assert begin.await_count == 0
+    assert changes.call_count == 0
 
 
 async def test_startup_writes_the_reader_guide(startup_vault: Path) -> None:

@@ -16,9 +16,9 @@ trying to be both.
 
 from pathlib import Path
 
+from kasten_backend.change import vault_change, vault_write
 from kasten_backend.frontmatter import stamp
 from kasten_backend.vault import create_note, resolve_path
-from kasten_backend.vcs import begin_change, snapshot
 
 GUIDE_PATH = "99 Misc/01 Config/01 Agents/How-To-TODO.md"
 """Where the todo guide lives, beside the saved views the todo pane writes."""
@@ -53,10 +53,12 @@ async def write_missing(root: Path, notes: dict[str, str]) -> None:
     `type` keeps it rather than being called a `Note`.
     """
     for path, text in notes.items():
-        note = resolve_path(root, path)
-        if note is None or note.exists():
-            continue
+        # The lock is taken per note rather than for the loop, so the guide the
+        # vault is missing arrives in its own change the way it always has.
+        async with vault_write():
+            note = resolve_path(root, path)
+            if note is None or note.exists():
+                continue
 
-        await begin_change(root, path)
-        create_note(note, stamp(text))
-        await snapshot(root)
+            async with vault_change(root, path):
+                create_note(note, stamp(text))
