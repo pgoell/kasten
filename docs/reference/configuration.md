@@ -77,6 +77,41 @@ Long enough to notice the delete was a mistake, short enough that the trash is
 not a second vault. The reasoning is in
 [Deleting a note](/explanation/deleting-a-note.md).
 
+## KASTEN_TOKENS_PATH
+
+Where the [agent tokens](/reference/agent-api.md) are kept, one JSON record per
+token holding a name, a creation date and a SHA-256 digest.
+
+| | |
+| --- | --- |
+| Default | `tokens.json` |
+| Read by | every `/agent/` route, and `/api/tokens` |
+
+A relative path resolves against the working directory, the way
+`KASTEN_VAULT_PATH` does. Production names a file inside a mounted directory.
+
+Beside the vault and never inside it. A token in the vault would enter jj
+history for good and sit one search away from any agent reading notes.
+
+The *directory* is what production mounts, never this file: `os.replace` over a
+bind-mounted file fails with `EBUSY`, and every mint and revoke would break.
+
+A store that does not exist reads as an empty list, so a box with no tokens
+refuses every bearer rather than failing to start.
+
+## KASTEN_AGENT_HOST
+
+The `Host` header the MCP endpoint answers to.
+
+| | |
+| --- | --- |
+| Default | empty, which accepts any host |
+| Read by | `POST /agent/mcp` |
+
+The MCP SDK's DNS-rebinding protection is left on, and its own default allowlist
+is localhost only, which answers `421` to everything arriving through a proxy.
+Empty is what dev on loopback needs; production sets the hostname Caddy serves.
+
 ## KASTEN_VAULT_PATH
 
 ```
@@ -94,3 +129,4 @@ the repo root. Production overrides this with the absolute container path
 * [The vault and the derived index](/explanation/vault-and-derived-index.md) - what these settings mean to each other
 * [Deleting a note](/explanation/deleting-a-note.md) - what the trash is for
 * [Two environments](/explanation/environments.md) - the values dev and prod actually run with
+* [The agent boundary](/explanation/the-agent-boundary.md) - what the token store is for

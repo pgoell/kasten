@@ -65,6 +65,28 @@ class Settings(BaseSettings):
     read at startup, which is when the trash is emptied.
     """
 
+    tokens_path: Path = Path("tokens.json")
+    """The JSON file holding one record per agent token, beside the vault.
+
+    Never inside it. A token there would enter jj history for good and sit one
+    `search_notes` call away from any agent reading notes.
+
+    Relative by default, which resolves against the working directory the way
+    `vault_path` does. Production sets the absolute path of a file in a mounted
+    directory; the directory is what is mounted and never this file, because
+    `os.replace` over a bind-mounted file fails with `EBUSY` and every mint would
+    break.
+    """
+
+    agent_host: str = ""
+    """The `Host` the MCP endpoint answers to, or empty for any.
+
+    The SDK's DNS-rebinding protection is left on, and its own default allowlist
+    is localhost only, which answers 421 to everything arriving through a proxy.
+    Empty is what dev on loopback and the test client need; production names the
+    hostname Caddy serves.
+    """
+
     vault_path: Path = Path("vault")
     """Directory of markdown files. This is the source of truth.
 
