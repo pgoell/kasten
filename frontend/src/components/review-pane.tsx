@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
-import { type EditorCommands, LEADER } from "@/lib/key-bindings";
+import { type EditorCommands, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import type { Deck } from "@/lib/review";
 import type { Rating } from "@/lib/srs";
 
@@ -76,13 +76,14 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     if (pending) {
       const sequence = pending + key;
       const wanted = sequence.slice(1);
-      const binding = LEADER.find((entry) => entry.key === wanted);
-      const partial = !binding && LEADER.some((entry) => entry.key.startsWith(wanted));
-      setPending(partial ? sequence : "");
+      const run = leaderAction(wanted, commands);
+      // A leader key can be more than one letter, so a sequence that still
+      // prefixes one waits for the rest instead of being dropped.
+      setPending(!run && leaderPrefix(wanted) ? sequence : "");
 
-      if (binding) {
+      if (run) {
         event.preventDefault();
-        commands[binding.command]();
+        run();
       }
       return;
     }

@@ -56,7 +56,12 @@ const TODOS = [
 function recorder() {
   const reached: string[] = [];
   const commands = new Proxy({} as EditorCommands, {
-    get: (_target, name: string) => () => reached.push(name),
+    // The argument comes with the name where there is one, which only
+    // `goToTab` carries: which tab it went to is the whole of what it does.
+    get:
+      (_target, name: string) =>
+      (...args: unknown[]) =>
+        reached.push(args.length === 0 ? name : `${name}:${args[0]}`),
   });
   return { reached, commands };
 }
@@ -738,6 +743,19 @@ describe("the todo pane", () => {
     // The route empties the pane rather than removing it, which is one step in
     // from what the same key does on a note.
     expect(pane.reached).toEqual(["closeNote"]);
+  });
+
+  it("goes to a tab on the leader and a digit", async () => {
+    // The digits live in `TAB_KEYS` rather than in `LEADER`, and reading one
+    // table and not the other is how they used to reach a tab from a note and
+    // nothing at all from in here.
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press(" ");
+    pane.press("3");
+
+    expect(pane.reached).toEqual(["goToTab:2"]);
   });
 
   it("still resolves a leader sequence from inside the list", async () => {

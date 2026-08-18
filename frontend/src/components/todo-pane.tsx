@@ -4,7 +4,7 @@ import { TodoHints } from "@/components/todo-hints";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
-import { type EditorCommands, LEADER } from "@/lib/key-bindings";
+import { type EditorCommands, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { dailyDate } from "@/lib/periodic";
 import {
@@ -620,17 +620,14 @@ export function TodoPane({
     if (pending) {
       const sequence = pending + key;
       const wanted = sequence.slice(1);
-      const binding = LEADER.find((entry) => entry.key === wanted);
+      const run = leaderAction(wanted, commands);
       // A leader key can be more than one letter, so a sequence that still
       // prefixes one waits for the rest instead of being dropped.
-      const partial = !binding && LEADER.some((entry) => entry.key.startsWith(wanted));
-      setPending(partial ? sequence : "");
+      setPending(!run && leaderPrefix(wanted) ? sequence : "");
 
-      if (binding) {
+      if (run) {
         event.preventDefault();
-        // With no argument, every one of them: no row here names a note the
-        // way the file tree's cursor does.
-        commands[binding.command]();
+        run();
       }
       return;
     }

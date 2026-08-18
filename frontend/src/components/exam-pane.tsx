@@ -11,7 +11,7 @@ import {
   resultNote,
   resultPath,
 } from "@/lib/exam";
-import { type EditorCommands, LEADER } from "@/lib/key-bindings";
+import { type EditorCommands, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
 
 /**
@@ -155,13 +155,14 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     if (pending) {
       const sequence = pending + key;
       const wanted = sequence.slice(1);
-      const binding = LEADER.find((entry) => entry.key === wanted);
-      const partial = !binding && LEADER.some((entry) => entry.key.startsWith(wanted));
-      setPending(partial ? sequence : "");
+      const run = leaderAction(wanted, commands);
+      // A leader key can be more than one letter, so a sequence that still
+      // prefixes one waits for the rest instead of being dropped.
+      setPending(!run && leaderPrefix(wanted) ? sequence : "");
 
-      if (binding) {
+      if (run) {
         event.preventDefault();
-        commands[binding.command]();
+        run();
       }
       return;
     }

@@ -332,6 +332,33 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
 export const TAB_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 /**
+ * What a leader sequence reaches, or null while it reaches nothing.
+ *
+ * The editor resolves the leader through vim, which registers `LEADER`,
+ * `LEADER_EDITS` and `TAB_KEYS` in three loops of its own. Every other pane
+ * resolves it by hand, and each of them read `LEADER` alone, so `<leader>2`
+ * went to a tab from a note and did nothing at all from the todo pane, the
+ * tree, the reader or the review. This is the one place that answers for both
+ * tables, so a pane cannot come to own half the leader again. `LEADER_EDITS`
+ * stays out of it: those write to a buffer, and none of the panes hold one.
+ */
+export function leaderAction(typed: string, commands: EditorCommands): (() => void) | null {
+  const tab = TAB_KEYS.indexOf(typed);
+  if (tab !== -1) return () => commands.goToTab(tab);
+
+  const binding = LEADER.find((entry) => entry.key === typed);
+  return binding ? () => commands[binding.command]() : null;
+}
+
+/**
+ * Whether more keys could still finish the sequence, so it waits rather than
+ * being dropped. `LEADER` alone: a tab key is one press and prefixes nothing.
+ */
+export function leaderPrefix(typed: string): boolean {
+  return LEADER.some((entry) => entry.key.startsWith(typed));
+}
+
+/**
  * The modifiers a terminal chord is held with, in one place so retuning the
  * whole set is one edit.
  *
