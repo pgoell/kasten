@@ -17,6 +17,12 @@ take that same sha back; pass none only when creating a note that is not there.
 A stale sha is refused, so read before you write. The note's own frontmatter is
 written for you, so never hand-write id, created or modified.
 
+Either write creates the note when there is none at that path, and the folders
+above it are made on the way. File a note you were not told where to put in
+"00 Inbox/00 Agent/", and use the path you were given when you were given one.
+There is no delete, no move and no rename here, so a note written to the wrong
+place stays there until someone moves it from the app.
+
 Four more guides sit in "99 Misc/01 Config/01 Agents/": Ontology.md for the note
 types and the relations between them, How-To-Index.md for what an index.md or a
 log.md carries, and How-To-TODO.md and How-To-Exam.md for the two formats a line

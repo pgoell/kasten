@@ -288,3 +288,17 @@ async def test_the_guide_touches_no_note(
     response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
 
     assert payload(response.text)["result"]["content"][0]["text"] == INSTRUCTIONS
+
+
+async def test_the_guide_says_where_a_new_note_goes(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Advisory rather than enforced, the way this vault's other conventions are.
+    # Nothing in `agent.py` moves a write, so this sentence is the whole of the
+    # rule and a test is what keeps it from being edited away by accident.
+    response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
+
+    guide = payload(response.text)["result"]["content"][0]["text"]
+
+    assert "00 Inbox/00 Agent/" in guide
+    assert "no delete, no move and no rename" in guide
