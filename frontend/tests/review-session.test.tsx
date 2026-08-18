@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import type { Deck } from "@/lib/review";
+import { shownCard } from "./review-card";
 
 const DECK: Deck = {
   name: "aws",
@@ -26,7 +27,7 @@ function renderSession() {
     </QueryClientProvider>,
   );
 
-  return screen.findByTestId("review-card");
+  return shownCard();
 }
 
 describe("ReviewSession typing", () => {
@@ -138,7 +139,7 @@ describe("ReviewSession on a whole note", () => {
   it("shows the note without its frontmatter and rates it straight away", async () => {
     renderNote();
 
-    const card = await screen.findByTestId("review-card");
+    const card = await shownCard();
     expect(card).toHaveTextContent("the handshake");
     expect(card).not.toHaveTextContent("sr-ease");
     expect(screen.getByRole("button", { name: "Good" })).toBeInTheDocument();
@@ -161,7 +162,7 @@ describe("ReviewSession on a whole note", () => {
 
   it("parks a whole note through its frontmatter, not through a line", async () => {
     const saved = renderNote();
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
 
@@ -174,7 +175,7 @@ describe("ReviewSession on a whole note", () => {
 
   it("writes the schedule into the note's frontmatter", async () => {
     const saved = renderNote();
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
@@ -221,13 +222,13 @@ describe("ReviewSession on a deck spanning two notes", () => {
     renderSpread();
 
     // The tagged card of the procs note, and not the untagged one beside it.
-    expect(await screen.findByTestId("review-card")).toHaveTextContent("What is a macro?");
+    expect(await shownCard()).toHaveTextContent("What is a macro?");
     expect(screen.getByTestId("review-card")).not.toHaveTextContent("What is a proc?");
   });
 
   it("writes each rating back into the note that card is in", async () => {
     const saved = renderSpread();
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
@@ -237,7 +238,7 @@ describe("ReviewSession on a deck spanning two notes", () => {
     expect(saved.mock.calls[0]?.[1]).toContain("#flashcards/dbt What is a macro?::jinja <!--SR:!");
     expect(saved.mock.calls[0]?.[1]).toContain("What is a proc?::a block\n");
 
-    expect(await screen.findByTestId("review-card")).toHaveTextContent("What does dbt render?");
+    expect(await shownCard()).toHaveTextContent("What does dbt render?");
 
     fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
@@ -271,7 +272,7 @@ describe("ReviewSession on a parent deck", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByTestId("review-card")).toHaveTextContent("What is MVCC?");
+    expect(await shownCard()).toHaveTextContent("What is MVCC?");
   });
 });
 
@@ -306,7 +307,7 @@ describe("ReviewSession on a parked card", () => {
 
   it("writes the token onto the card on screen", async () => {
     const saved = renderTwo();
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
 
@@ -317,7 +318,7 @@ describe("ReviewSession on a parked card", () => {
 
   it("drops it from the queue and moves to the next card", async () => {
     renderTwo();
-    await screen.findByTestId("review-card");
+    await shownCard();
     expect(screen.getByText(/left/).textContent).toBe("2 left");
 
     fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
@@ -335,7 +336,7 @@ describe("ReviewSession on a parked card", () => {
       </QueryClientProvider>,
     );
 
-    const card = await screen.findByTestId("review-card");
+    const card = await shownCard();
     expect(card).toHaveTextContent("What is a VPC?");
     expect(card).not.toHaveTextContent("What is Direct Connect?");
     expect(screen.getByText(/left/).textContent).toBe("1 left");
@@ -367,7 +368,7 @@ describe("ReviewSession jotting a new question", () => {
 
   it("appends it to the note the card on screen came from", async () => {
     const saved = renderJot();
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     fireEvent.click(screen.getByRole("button", { name: "Jot" }));
     fireEvent.change(screen.getByLabelText("a new question"), {
@@ -381,7 +382,7 @@ describe("ReviewSession jotting a new question", () => {
 
   it("leaves the card on screen and the queue behind it alone", async () => {
     renderJot();
-    await screen.findByTestId("review-card");
+    await shownCard();
     expect(screen.getByText(/left/).textContent).toBe("2 left");
 
     fireEvent.click(screen.getByRole("button", { name: "Jot" }));
@@ -396,7 +397,7 @@ describe("ReviewSession jotting a new question", () => {
 
   it("closes the field once the question is written", async () => {
     renderJot();
-    await screen.findByTestId("review-card");
+    await shownCard();
 
     fireEvent.click(screen.getByRole("button", { name: "Jot" }));
     fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q" } });

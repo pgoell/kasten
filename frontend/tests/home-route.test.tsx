@@ -324,11 +324,21 @@ function clicked(): HTMLAnchorElement[] {
 // the real timer is kept from before the fakes go in.
 const realTimeout = globalThis.setTimeout;
 
-/** Let the digest of a write the route made land, which takes a real tick. */
+/**
+ * Let the digest of a write the route made land, which takes a real tick.
+ *
+ * Rounds rather than one tick, the way `settle` takes three: `crypto.subtle`
+ * finishes on a thread pool, and a single macrotask is enough on an idle
+ * machine and not always enough on a loaded one. A digest that lands after the
+ * event below reads as somebody else's write, which is the reading this test
+ * exists to rule out.
+ */
 async function hashed() {
-  await act(async () => {
-    await new Promise((resolve) => realTimeout(resolve, 0));
-  });
+  for (let round = 0; round < 5; round += 1) {
+    await act(async () => {
+      await new Promise((resolve) => realTimeout(resolve, 0));
+    });
+  }
 }
 
 describe("the route", () => {
