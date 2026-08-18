@@ -98,6 +98,19 @@ every request.
 A token store that does not exist reads as an empty list. There is no
 configuration in which the gate opens.
 
+## Where minting sits
+
+The three routes that mint, list and revoke a token are under `/api/`, so they
+inherit oauth2-proxy and carry no authentication of their own. The screen that
+drives them is `/tokens` in the notebook.
+
+That does put minting inside the internal trust zone: the shell container
+reaches `/api/tokens` over the docker network with no session at all. It is
+worth stating rather than hiding, and it grants that container nothing. It
+already has the vault bind-mounted and unauthenticated access to every other
+`/api/` route, so it can already do more than any token it could mint for
+itself.
+
 ## What is recorded
 
 The token's name goes into the description of the jj change its write makes, so

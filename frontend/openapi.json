@@ -5,6 +5,258 @@
     "version": "0.16.0"
   },
   "paths": {
+    "/agent/notes/{path}": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Read Note",
+        "description": "Read one note, with the digest a conditional write presents back.",
+        "operationId": "read_note_agent_notes__path__get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Save Note",
+        "description": "Write one note, creating it when `sha` is absent and the note is.",
+        "operationId": "save_note_agent_notes__path__put",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Save"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/notes": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "List Notes",
+        "description": "List every note in the vault, or every note in one folder of it.",
+        "operationId": "list_notes_agent_notes_get",
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Folder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Notes Agent Notes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/search": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Search Notes",
+        "description": "Find every line in the vault holding `q`, ignoring case.",
+        "operationId": "search_notes_agent_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Hit"
+                  },
+                  "title": "Response Search Notes Agent Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/notes/{path}/append": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Append Note",
+        "description": "Add a line to the end of one note, creating it when there is none.",
+        "operationId": "append_note_agent_notes__path__append_post",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Append"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -331,6 +583,99 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AnkiImport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tokens": {
+      "get": {
+        "summary": "Read Tokens",
+        "description": "Every agent token the store holds, by name and creation date.\n\nNever a digest and never a secret. Only the digest is kept at all, so there\nis no way back to a secret from here even by mistake.",
+        "operationId": "read_tokens_api_tokens_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Token"
+                  },
+                  "type": "array",
+                  "title": "Response Read Tokens Api Tokens Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Token",
+        "description": "Mint one agent token, and hand back the only copy of its secret.\n\nUnder `/api/`, so it inherits oauth2-proxy and needs no authentication of\nits own. That does put minting inside the internal trust zone, which\n`the-agent-boundary.md` states plainly: the shell container reaches this\nover the docker network without a session. It grants that container nothing,\nsince it already has the vault bind-mounted and every other `/api/` route.\n\nA taken name is a 409, the create's answer, because the user is about to\nretype it and has to know which it was.",
+        "operationId": "create_token_api_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenName"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Minted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tokens/{name}": {
+      "delete": {
+        "summary": "Delete Token",
+        "description": "Revoke one agent token. The next request carrying it is refused.\n\n`response_class` for the reason `POST /api/assets/{path}` carries one:\nwithout it FastAPI documents a 204 as JSON carrying an empty schema, and\n`openapi-typescript` turns that into a body for a response that has none.",
+        "operationId": "delete_token_api_tokens__name__delete",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -867,6 +1212,31 @@
         "title": "AnkiImport",
         "description": "What one `.apkg` turned into."
       },
+      "Append": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "Append",
+        "description": "A line to add, and the digest of the note the caller read, when it read one."
+      },
       "Build": {
         "properties": {
           "backend": {
@@ -936,6 +1306,55 @@
         "title": "Health",
         "description": "Liveness response."
       },
+      "Hit": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "line",
+          "text"
+        ],
+        "title": "Hit",
+        "description": "One matching line: where it lives, which line it is, and what it says.\n\nIts own model rather than `main.SearchHit`, because nothing here may import\nfrom `main.py`: that would point the dependency at the surface instead of\naway from it, and the MCP tools import this module too."
+      },
+      "Minted": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created"
+          },
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "created",
+          "secret"
+        ],
+        "title": "Minted",
+        "description": "One token as its owner sees it, once."
+      },
       "Note": {
         "properties": {
           "path": {
@@ -983,6 +1402,30 @@
         "title": "NoteMove",
         "description": "Where a note should live from now on. Where it lives today comes from the URL."
       },
+      "NoteRead": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "content",
+          "sha"
+        ],
+        "title": "NoteRead",
+        "description": "One note, and the digest a conditional write presents back."
+      },
       "Page": {
         "properties": {
           "url": {
@@ -1016,6 +1459,31 @@
         "title": "Restored",
         "description": "Where a restored note or folder landed, which is where it was."
       },
+      "Save": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "Save",
+        "description": "A whole note, and the digest of the one the caller read."
+      },
       "SearchHit": {
         "properties": {
           "path": {
@@ -1039,6 +1507,40 @@
         ],
         "title": "SearchHit",
         "description": "One line in the vault that matched, and enough to open the note on it."
+      },
+      "Token": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "created"
+        ],
+        "title": "Token",
+        "description": "One token as anything but the mint may see it."
+      },
+      "TokenName": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TokenName",
+        "description": "What a mint is asked for: a name to tell one token from another."
       },
       "TrashEntry": {
         "properties": {
