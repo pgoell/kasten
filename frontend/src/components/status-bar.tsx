@@ -177,6 +177,14 @@ interface StatusBarProps {
    * call the footer draws from.
    */
   version?: string;
+  /**
+   * Whether the tab is drawn as one pane over the rest of them.
+   *
+   * Shown for the reason `archive` is: it is a mode, and a zoomed tab holding
+   * four panes looks exactly like a tab holding one. Without a word here the
+   * direction keys would read as broken rather than as having nowhere to go.
+   */
+  zoom?: boolean;
 }
 
 /**
@@ -185,7 +193,15 @@ interface StatusBarProps {
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({ status, reason, flash, archive, notice, version }: StatusBarProps) {
+export function StatusBar({
+  status,
+  reason,
+  flash,
+  archive,
+  notice,
+  version,
+  zoom,
+}: StatusBarProps) {
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
   // holding no note, would play it again with nothing refused. `animationend`
@@ -215,6 +231,11 @@ export function StatusBar({ status, reason, flash, archive, notice, version }: S
         {archive === true && (
           <span data-testid="archive-shown" className="text-[11px] text-one-muted">
             archive
+          </span>
+        )}
+        {zoom === true && (
+          <span data-testid="zoom-shown" className="text-[11px] text-one-muted">
+            zoom
           </span>
         )}
       </div>

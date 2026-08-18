@@ -12,6 +12,14 @@ interface PaneLayoutProps {
   children: (pane: Pane, focused: boolean) => ReactNode;
   /** Whether the tab has more than one pane, which is when saying so is worth it. */
   divided: boolean;
+  /**
+   * The pane drawn on its own, or null while the whole tab is drawn.
+   *
+   * The rest are hidden rather than taken down, so a zoom costs nothing: the
+   * editors keep their cursors and their unwritten text, a terminal keeps its
+   * socket, and a video keeps playing where it was.
+   */
+  zoomed?: string | null;
 }
 
 /**
@@ -28,7 +36,19 @@ interface PaneLayoutProps {
  * Each pane draws its own border on top of that, blue on the focused one, so
  * where a pane ends and which one is listening are both on screen.
  */
-export function PaneLayout({ node, focus, onFocus, children, divided }: PaneLayoutProps) {
+export function PaneLayout({
+  node,
+  focus,
+  onFocus,
+  children,
+  divided,
+  zoomed = null,
+}: PaneLayoutProps) {
+  // `display: none` takes the box out of the layout altogether, so what is
+  // left shares the whole window. A split holding none of the zoomed pane goes
+  // with them, or its share of the room would be held open around nothing.
+  const hidden = zoomed !== null && !panesOf(node).some((pane) => pane.id === zoomed);
+
   if (!isSplit(node)) {
     const focused = node.id === focus;
     return (
@@ -38,7 +58,7 @@ export function PaneLayout({ node, focus, onFocus, children, divided }: PaneLayo
       <div
         data-pane={node.id}
         onFocusCapture={() => onFocus(node.id)}
-        className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-one-bg ${
+        className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-one-bg ${hidden ? "hidden" : ""} ${
           // Only worth drawing once there is another pane it could have been.
           // An undivided window has one pane and the border says nothing.
           //
@@ -57,12 +77,19 @@ export function PaneLayout({ node, focus, onFocus, children, divided }: PaneLayo
 
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-one-selection ${
+      className={`flex min-h-0 min-w-0 flex-1 gap-0.5 bg-one-selection ${hidden ? "hidden" : ""} ${
         node.dir === "row" ? "flex-row" : "flex-col"
       }`}
     >
       {node.children.map((child) => (
-        <PaneLayout key={child.id} node={child} focus={focus} onFocus={onFocus} divided={divided}>
+        <PaneLayout
+          key={child.id}
+          node={child}
+          focus={focus}
+          onFocus={onFocus}
+          divided={divided}
+          zoomed={zoomed}
+        >
           {children}
         </PaneLayout>
       ))}

@@ -86,6 +86,20 @@ describe("moving into a column from a pane spanning it", () => {
   });
 });
 
+describe("a pane hidden behind a zoomed one", () => {
+  // `display: none` measures zero on every side, so a zoomed tab hands this
+  // one real box and a zero box per pane behind it. None of them is a place a
+  // direction key can arrive in, which is what leaves the four directions with
+  // nowhere to go while a pane is zoomed.
+  const ZOOMED = [box("A", 0, 0, 100, 100), box("B", 0, 0, 0, 0), box("C", 0, 0, 0, 0)];
+
+  it("is never the pane a direction arrives at", () => {
+    for (const dir of ["left", "right", "up", "down"] as const) {
+      expect(paneToward(ZOOMED, "A", dir)).toBeNull();
+    }
+  });
+});
+
 describe("a pane the layout has not drawn yet", () => {
   it("moves nowhere rather than guessing", () => {
     expect(paneToward(GRID, "nobody", "left")).toBeNull();

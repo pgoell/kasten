@@ -50,5 +50,10 @@ export function stubCommands() {
     nextTab: vi.fn(),
     prevTab: vi.fn(),
     goToTab: vi.fn(),
+    movePaneLeft: vi.fn(),
+    movePaneDown: vi.fn(),
+    movePaneUp: vi.fn(),
+    movePaneRight: vi.fn(),
+    zoomPane: vi.fn(),
   } satisfies EditorCommands;
 }

@@ -719,6 +719,43 @@ describe("the route", () => {
     expect(saveNote).toHaveBeenCalledTimes(1);
   });
 
+  it("writes what is waiting before it swaps two panes", async () => {
+    // A swap between two splits builds the editor again from the vault's copy,
+    // and nothing else flushes it: the autosave follows the focused pane's
+    // note and this leaves that note exactly where it was. Without the write,
+    // the character deleted a moment ago comes back on screen.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    app.leader("%");
+    await settle();
+    // Back to the pane holding the note, which the split left behind. `o`
+    // wraps and needs no boxes, unlike the four directions.
+    app.leader("o");
+    await settle();
+
+    app.press("x");
+    expect(app.text()).toBe("he index note");
+
+    // jsdom measures nothing, so the boxes a direction is answered off have to
+    // be stood in for: the two panes side by side, in the order they are drawn.
+    const boxes = [...document.querySelectorAll("[data-pane]")];
+    boxes.forEach((box, index) => {
+      box.getBoundingClientRect = () =>
+        ({ left: index * 100, top: 0, right: index * 100 + 99, bottom: 100 }) as DOMRect;
+    });
+
+    app.leader("L");
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note");
+    // And the panes did trade places: the focus is where it was, on the note,
+    // which is now the second pane on screen.
+    expect(app.focusedPane()).toBe(1);
+  });
+
   it("starts the tab once :w has settled the conflict", async () => {
     const app = await editing();
     somebodyElseWrote();

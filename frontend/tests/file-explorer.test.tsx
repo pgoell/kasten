@@ -107,6 +107,11 @@ function Harness({
         nextTab: () => {},
         prevTab: () => {},
         goToTab: onGoToTab ?? (() => {}),
+        movePaneLeft: () => {},
+        movePaneDown: () => {},
+        movePaneUp: () => {},
+        movePaneRight: () => {},
+        zoomPane: () => {},
       }}
     />
   );

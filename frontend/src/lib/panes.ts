@@ -105,6 +105,16 @@ export interface Tab {
   root: PaneNode;
   /** Which pane in this tab has the focus, by id. Each tab keeps its own. */
   focus: string;
+  /**
+   * Whether the focused pane is drawn on its own, the rest of the tab hidden
+   * behind it.
+   *
+   * Per tab, the way the focus is, so zooming one says nothing about another.
+   * A flag rather than the pane's id, because the pane drawn alone is always
+   * the focused one: every move of the focus puts the tab back the way it was,
+   * which is what tmux's own zoom does.
+   */
+  zoom?: boolean;
 }
 
 export interface Layout {
@@ -355,6 +365,7 @@ export function splitFocused(layout: Layout, dir: Split["dir"]): Layout {
     ...tab,
     root: normalize(insertBeside(tab.root, tab.focus, pane, dir)),
     focus: pane.id,
+    zoom: false,
   });
 }
 
@@ -395,7 +406,7 @@ export function removeFocused(layout: Layout): Layout {
   // closed pane was at the end. Landing back at the start would be a jump.
   const landed = must(remaining[Math.min(at, remaining.length - 1)], "pane after the close");
 
-  return withTab(layout, { ...tab, root, focus: landed.id });
+  return withTab(layout, { ...tab, root, focus: landed.id, zoom: false });
 }
 
 /** Move to the next pane of this tab, wrapping at the end. */
@@ -406,7 +417,7 @@ export function nextPane(layout: Layout): Layout {
 
   const landed = must(order[(at + 1) % order.length], "next pane");
 
-  return withTab(layout, { ...tab, focus: landed.id });
+  return withTab(layout, { ...tab, focus: landed.id, zoom: false });
 }
 
 /**
@@ -418,7 +429,51 @@ export function nextPane(layout: Layout): Layout {
  */
 export function focusPane(layout: Layout, id: string): Layout {
   const tab = activeTab(layout);
-  return tab.focus === id ? layout : withTab(layout, { ...tab, focus: id });
+  return tab.focus === id ? layout : withTab(layout, { ...tab, focus: id, zoom: false });
+}
+
+/**
+ * Trade places with another pane, the arrangement itself standing still.
+ *
+ * Each leaf carries its id and what it holds with it, so the focus needs no
+ * moving: the pane you were in is the pane you are in, and it is somewhere
+ * else on screen. React keys a pane by that id, so two panes of one split keep
+ * the editors they hold, cursor and undo history and all; a swap across two
+ * splits builds them again, there being no way to move a subtree between two
+ * parents without React unmounting it.
+ *
+ * The route names the other pane, having read the boxes on screen the way it
+ * reads them to move the focus. A pane of another tab, or the focused one
+ * itself, is nothing to swap with.
+ */
+export function swapPanes(layout: Layout, id: string): Layout {
+  const tab = activeTab(layout);
+  const panes = tabPanes(layout);
+  const here = panes.find((pane) => pane.id === tab.focus);
+  const there = panes.find((pane) => pane.id === id);
+  if (here === undefined || there === undefined || here.id === there.id) return layout;
+
+  // An arrow rather than a declaration, so the compiler keeps what the guard
+  // above proved about the two panes: a declaration is hoisted past it.
+  const swap = (node: PaneNode): PaneNode => {
+    if (isSplit(node)) return { ...node, children: node.children.map(swap) };
+    if (node.id === here.id) return there;
+    return node.id === there.id ? here : node;
+  };
+
+  return withTab(layout, { ...tab, root: swap(tab.root) });
+}
+
+/**
+ * Draw the focused pane on its own, or put the tab back the way it was.
+ *
+ * Nothing is closed and nothing moves: the other panes are still there, still
+ * holding what they held, and every function that moves the focus turns this
+ * off again on its way past.
+ */
+export function toggleZoom(layout: Layout): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, { ...tab, zoom: tab.zoom !== true });
 }
 
 /** Start a tab on one empty pane, and go to it. */

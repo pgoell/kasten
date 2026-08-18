@@ -52,6 +52,11 @@ function stubCommands() {
     nextTab: vi.fn(),
     prevTab: vi.fn(),
     goToTab: vi.fn(),
+    movePaneLeft: vi.fn(),
+    movePaneDown: vi.fn(),
+    movePaneUp: vi.fn(),
+    movePaneRight: vi.fn(),
+    zoomPane: vi.fn(),
   } satisfies EditorCommands;
 }
 
@@ -410,6 +415,48 @@ describe("the leader key", () => {
 
     expect(commands.nextTab).toHaveBeenCalledTimes(1);
     expect(commands.prevTab).toHaveBeenCalledTimes(1);
+  });
+
+  // Shifted, so vim sees the uppercase letter rather than shift and a letter,
+  // the same trap `<C-S-H>` carries in the formatting keys below.
+  it("swaps the pane leftward on space then shift h", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: "H", shiftKey: true });
+
+    // Nothing yet: the leader was not pressed, and bare `H` is vim's own move
+    // to the top of the screen.
+    expect(commands.movePaneLeft).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "H", shiftKey: true });
+
+    expect(commands.movePaneLeft).toHaveBeenCalledTimes(1);
+  });
+
+  it("swaps the pane down, up and right on the other three", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    for (const key of ["J", "K", "L"]) {
+      fireEvent.keyDown(editor, { key: " " });
+      fireEvent.keyDown(editor, { key, shiftKey: true });
+    }
+
+    expect(commands.movePaneDown).toHaveBeenCalledTimes(1);
+    expect(commands.movePaneUp).toHaveBeenCalledTimes(1);
+    expect(commands.movePaneRight).toHaveBeenCalledTimes(1);
+  });
+
+  it("zooms the pane on space then z", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "z" });
+
+    expect(commands.zoomPane).toHaveBeenCalledTimes(1);
   });
 
   // The digits are the sequence most likely to be eaten on the way through:

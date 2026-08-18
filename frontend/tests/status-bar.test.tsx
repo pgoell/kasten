@@ -152,6 +152,17 @@ describe("the clock in the bar", () => {
     expect(screen.queryByTestId("version")).toBeNull();
   });
 
+  it("says a tab is zoomed, and says nothing while none is", () => {
+    // A mode with nothing on screen saying so: a zoomed tab of four panes is
+    // drawn exactly like a tab of one, and the direction keys have nowhere to
+    // go while it is on.
+    const { rerender } = render(<StatusBar />);
+    expect(screen.queryByTestId("zoom-shown")).toBeNull();
+
+    rerender(<StatusBar zoom />);
+    expect(screen.getByTestId("zoom-shown")).toHaveTextContent("zoom");
+  });
+
   it("draws the notice before the archive tag", () => {
     render(<StatusBar notice="A book is already there" archive />);
 
