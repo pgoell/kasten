@@ -16,6 +16,12 @@ dependencies = [
     # client fastapi's standard extra brings it in for.
     "httpx>=0.28",
     "markdown-it-py>=3.0",
+    # Pinned exactly, not floored. There is no dependabot or renovate in
+    # `.github/`, so a bump is something a person does on purpose; the pin plus
+    # the round-trip test in `test_mcp.py` is what turns one into a CI answer
+    # rather than a production discovery. The SDK renamed its server class
+    # between major versions and moved the option names with it.
+    "mcp==2.0.0",
     "psycopg[binary]>=3.3",
     "pydantic-settings>=2.7",
     "sqlalchemy[asyncio]>=2.0.35",
