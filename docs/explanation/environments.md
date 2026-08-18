@@ -34,10 +34,18 @@ no build step.
 ## What they do share
 
 Both hostnames sit behind the shared oauth2-proxy, locked to one GitHub user.
-kasten itself contains no authentication code at all. That is worth restating
-because it is easy to forget when reading the backend: there is no login,
-no session, no user model, and the API is open to whoever reaches it. The gate
-is entirely in front.
+The browser path is gated entirely in front: there is no login, no session and
+no user model in the backend, and everything under `/api/` is open to whoever
+reaches it.
+
+One prefix is the exception, and it is worth naming rather than leaving to be
+discovered while reading the backend. `/agent/` is served in production by a
+Caddy block with no `oauth2_auth` in it, and the backend gates it itself with a
+bearer token, because a headless agent cannot complete a browser sign-in flow.
+That is the only authentication code kasten contains, it reaches five routes and
+an MCP endpoint, and it reaches nothing else.
+[The agent boundary](/explanation/the-agent-boundary.md) is why it exists and
+what it deliberately cannot do.
 
 That matters more now that one of the things behind the gate is a shell. Both
 environments reach the shell container the same way, through a Caddy

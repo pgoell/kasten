@@ -37,6 +37,15 @@ services:
       # herdr sessions a terminal pane could attach to. A listing and nothing
       # more: this container has no herdr and cannot touch a session.
       - kasten-shell-home:/herdr-home:ro
+      # The agent token store, beside the vault and never inside it: a token in
+      # the vault would enter jj history for good and sit one `search_notes`
+      # call away from any agent reading notes.
+      #
+      # The directory, never `tokens.json` itself. A bind-mounted file is a
+      # mount point, and `os.replace` over one fails with EBUSY, so mounting the
+      # file would break every mint and every revoke in production while passing
+      # every test there is.
+      - /home/pascal/kasten-data/agent:/agent-data
     depends_on:
       kasten-migrate-prod:
         condition: service_completed_successfully
