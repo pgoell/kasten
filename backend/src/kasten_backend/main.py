@@ -17,6 +17,7 @@ from starlette.requests import ClientDisconnect
 
 from kasten_backend import agent_mcp
 from kasten_backend.agent import ConflictError, TooLargeError
+from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, too_large
 from kasten_backend.agent_routes import router as agent_router
 from kasten_backend.anki import as_note, read_apkg
@@ -100,6 +101,15 @@ Two copies of it drifted apart once already: the release was cut, the tag moved
 and this string did not, so `/docs` reported a version behind the code serving
 it. `pyproject.toml` is the one place it lives now, and the deploy workflow
 refuses a release whose tag disagrees with it.
+"""
+
+app.include_router(oauth_router)
+"""The authorization server the browser products connect through.
+
+Above the mount, and that is the whole of why the order here matters: a mount
+matches by prefix, so `/agent/oauth/token` registered below it would resolve to
+the MCP app, meet the bearer check and answer 401 to the one caller that cannot
+have a token yet. See `agent_oauth.py`.
 """
 
 app.include_router(agent_router)

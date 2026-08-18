@@ -101,16 +101,26 @@ refuses every bearer rather than failing to start.
 
 ## KASTEN_AGENT_HOST
 
-The `Host` header the MCP endpoint answers to.
+The `Host` header the MCP endpoint answers to, and the OAuth issuer.
 
 | | |
 | --- | --- |
-| Default | empty, which accepts any host |
-| Read by | `POST /agent/mcp` |
+| Default | empty, which accepts any host and takes the issuer from the request |
+| Read by | `POST /agent/mcp`, its `401`, the two `.well-known` documents, and the `iss` on the authorize redirect |
 
 The MCP SDK's DNS-rebinding protection is left on, and its own default allowlist
 is localhost only, which answers `421` to everything arriving through a proxy.
 Empty is what dev on loopback needs; production sets the hostname Caddy serves.
+
+The issuer is `https://{value}`, so the value is a bare hostname. It is what the
+discovery documents state and what a [connector](/how-to/connect-an-agent.md)
+compares, as an exact string with no normalising, so a trailing slash or a
+scheme in front of the name fails the flow at the first comparison.
+
+Unset, the issuer comes from the request, which is what dev and the tests run
+on. In production that is wrong: the container runs uvicorn without
+`--forwarded-allow-ips`, so an issuer built from the request says `http` where
+the world sees `https`, and every comparison fails.
 
 ## KASTEN_VAULT_PATH
 

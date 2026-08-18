@@ -111,6 +111,84 @@ already has the vault bind-mounted and unauthenticated access to every other
 `/api/` route, so it can already do more than any token it could mint for
 itself.
 
+## The second way to get a token
+
+claude.ai and chatgpt.com have no field for a header. A token minted at
+`/tokens` cannot be given to either product, because the box you would paste it
+into does not exist. What both have instead is a Connect button that finds an
+authorization server, sends you through it and carries whatever it issues. An
+authorization server is the only door those two products have.
+
+What that server issues is an ordinary row in the same `tokens.json`, named for
+the product's host. The gate calls the same `verify`, `/tokens` revokes it with
+the same button, and a second Connect from the same product revokes the old row
+before minting the new one. So this is a second way to obtain a token and not a
+second thing a token reaches. The five capabilities are still five, there is one
+gate, one store and one verification path, and nothing in the gate can tell an
+OAuth grant from a string typed into a terminal. The protocol asks for two
+things the store does not keep: the metadata names one scope, `kasten:notes`,
+which covers all five capabilities and narrows nothing, and the token response
+states ten years as the lifetime of a token that ends when it is revoked.
+
+Claude Code and codex still carry the header, and none of this touches them.
+Claude Code cannot use this flow: it has no field to paste a client id into, so
+reaching it would take dynamic client registration or client id metadata
+documents, and a rule for loopback redirects on top of that: the allowlist names
+three hosts, and a laptop is not one of them. That is left out on purpose.
+
+## What the authorization server exposes
+
+Four URLs must be reachable with no session, because the machine fetching them
+has no way to get one: two metadata documents, one of them served under two
+spellings because the two products probe different ones, and the endpoint that
+exchanges a code. The exchange sits under `/agent/`, which is already the one
+Caddy block carrying no `oauth2_auth`. The three metadata URLs need a block of
+their own, and without it the catch-all answers each of them with a redirect to
+a sign-in page on another host, which a connector reads as neither a document
+nor "there is none". That block is a stanza in another repository, written out
+in [Deploy to the VPS](/how-to/deploy-to-the-vps.md), and no connector reaches
+this vault until it is deployed there. Getting it wrong stops the flow rather
+than opening anything: the gate on `/agent/mcp` does not depend on it.
+
+Consent is not among the four. It stays under `/api/`, where oauth2-proxy proves
+who you are, and that is why kasten has no sign-in form of its own.
+
+The exchange is the part worth arguing about, because a stranger can reach it
+and it writes to the file the gate reads on every request. What bounds that
+write is the code it spends: 256 bits from `secrets`, held in this process,
+dropped when it is spent, worth nothing sixty seconds after it was issued, and
+refused unless the caller presents the verifier behind the PKCE challenge and
+the same redirect the code was issued for. The file has a ceiling too. A row is
+named for the redirect's host, the allowlist names three hosts, and a repeat
+revokes before it mints, so however often this flow runs it can leave three rows
+in `tokens.json` and no more.
+
+An address is matched whole: the three fixed ones by equality, and ChatGPT's
+per-app shape with a `fullmatch` rather than a search, which would take any
+address carrying that shape somewhere inside it. Where a code is sent matters
+more on this host than on most, because the host carries a session cookie scoped
+to `.pascalkraus.com`. The same reasoning is why a refusal at the authorize step
+renders as a 400 and never as an error redirect. Sending the caller on to an
+address just judged untrusted is the hole being refused.
+
+The consent screen is a form with one button, and the POST is what mints a code.
+The GET that draws the form mints nothing. The attacker worth picturing is not
+someone holding your claude.ai session; it is someone with their own claude.ai
+account and a connector flow pointed at this vault, waiting for a code to
+arrive. If a GET minted one, that person would only have to get your browser to
+open the authorize URL. oauth2-proxy's cookie is `SameSite=Lax`, a browser
+attaches a Lax cookie to a top-level navigation, and your session would mint a
+code straight into their pending flow. A cross-site POST carries no Lax cookie,
+so oauth2-proxy turns it away before any of this runs, and the only POST that
+arrives is the one from the form on the same origin.
+
+The passthrough the MCP spec warns about cannot happen here, and the honest
+reason is structure rather than defence. kasten mints opaque random strings and
+is the only party that can verify one. There is a single audience and nothing
+downstream to forward a token to, so a token taken from here cannot be replayed
+against another server, and this server has nowhere to pass one on. That is not
+RFC 8707 conformance, which is neither built nor claimed.
+
 ## What is recorded
 
 The token's name goes into the description of the jj change its write makes, so
@@ -118,6 +196,9 @@ The token's name goes into the description of the jj change its write makes, so
 `vault: daily/2026-08-18.md`. That is why there is no `last_used` field on a
 token: it would mean a file write on every request to answer a question the
 history already answers, and answers better.
+
+A token from the connector flow carries the product's host as its name, so a
+note written from claude.ai reads `agent(claude.ai): daily/2026-08-18.md`.
 
 A switch of writer opens a new change even when the note has not moved. That is
 deliberate. An agent write must never amend the change holding your browser
@@ -136,6 +217,13 @@ header returning anything but `401`.
 An agent can also grow the vault without bound. There is no delete, so a looping
 agent that creates notes cannot clean up after itself and you must use the
 browser or the shell. Each request is capped at 1MiB, and the aggregate is not.
+
+A leaked token is the whole vault. `list_notes` and `read_note` together are
+every note there is, and no revoke takes back a copy someone already holds. The
+writing half is the recoverable one: an agent write lands in the jj repo beside
+the vault like any other, so a bad `save_note` is one command from being undone.
+Reading is the half nothing undoes, and that is the asymmetry to weigh when
+handing a token out.
 
 ## Related
 
