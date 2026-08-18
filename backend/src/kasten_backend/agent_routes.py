@@ -67,3 +67,19 @@ async def read_note(
         raise HTTPException(status_code=404, detail="No such note")
 
     return found
+
+
+@router.get("/notes")
+async def list_notes(
+    settings: Annotated[Settings, Depends(get_settings)], folder: str = ""
+) -> list[str]:
+    """List every note in the vault, or every note in one folder of it."""
+    return await agent.list_notes(settings, folder)
+
+
+@router.get("/search")
+async def search_notes(
+    q: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
+) -> list[agent.Hit]:
+    """Find every line in the vault holding `q`, ignoring case."""
+    return await agent.search_notes(settings, q, archive)

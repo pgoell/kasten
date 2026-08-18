@@ -21,7 +21,13 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from kasten_backend.vault import relative_path, resolve_note
+from kasten_backend.search import search_vault
+from kasten_backend.vault import (
+    list_markdown_files,
+    relative_path,
+    resolve_folder,
+    resolve_note,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,6 +41,19 @@ class NoteRead(BaseModel):
     path: str
     content: str
     sha: str
+
+
+class Hit(BaseModel):
+    """One matching line: where it lives, which line it is, and what it says.
+
+    Its own model rather than `main.SearchHit`, because nothing here may import
+    from `main.py`: that would point the dependency at the surface instead of
+    away from it, and the MCP tools import this module too.
+    """
+
+    path: str
+    line: int
+    text: str
 
 
 def digest(content: bytes) -> str:
@@ -67,3 +86,39 @@ async def read_note(settings: Settings, path: str) -> NoteRead | None:
         return None
 
     return _read(settings.vault_path, note)
+
+
+async def list_notes(settings: Settings, folder: str = "") -> list[str]:
+    """Every note in the vault, or in one folder of it, as sorted relative paths.
+
+    `""` is an explicit sentinel for the whole vault and does not go through the
+    folder resolver, which refuses the vault root by design. The root case
+    filters the listing by prefix instead.
+
+    A folder outside the vault is an empty list rather than a refusal, matching
+    how every other escape in `vault.py` reads as absent.
+    """
+    notes = list_markdown_files(settings.vault_path)
+    if not folder:
+        return notes
+
+    found = resolve_folder(settings.vault_path, folder)
+    if found is None:
+        return []
+
+    prefix = f"{relative_path(settings.vault_path, found)}/"
+
+    return [note for note in notes if note.startswith(prefix)]
+
+
+async def search_notes(settings: Settings, query: str, archive: bool = False) -> list[Hit]:
+    """Every line in the vault holding `query`, ignoring case, up to the same cap.
+
+    The archive folder is walked past unless it is asked for, and its name comes
+    off the settings rather than a literal `98 Archive`, which is one vault's
+    filing convention and not kasten's.
+    """
+    skip = None if archive else settings.archive_path
+    hits = await search_vault(settings.vault_path, query, skip)
+
+    return [Hit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]

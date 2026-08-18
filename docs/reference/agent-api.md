@@ -44,6 +44,43 @@ The token's name is recorded with the write it makes: an agent's change reads
 `agent(laptop): daily/2026-08-18.md` in `jj log`, where a browser's reads
 `vault: daily/2026-08-18.md`.
 
+## GET /agent/notes
+
+Lists every note in the vault as a relative POSIX path, sorted.
+
+```json
+["daily/2026-08-18.md", "index.md", "projects/kasten.md"]
+```
+
+An optional `folder` narrows it to one folder and everything under it:
+
+```
+GET /agent/notes?folder=projects
+```
+
+A folder the vault does not hold, and one that climbs out of it, both answer
+with an empty list. Every refusal here reads as absent.
+
+## GET /agent/search
+
+Finds every line in the vault holding `q`, ignoring case, up to 2,000 matches.
+
+```
+GET /agent/search?q=forking&archive=false
+```
+
+```json
+[{ "path": "borges.md", "line": 3, "text": "The garden of forking paths." }]
+```
+
+The match is literal rather than a regex or a fuzzy one, the same rg pass
+`GET /api/search` makes. `line` is 1-based.
+
+The archive folder is walked past unless `archive=true`. Which folder that is
+comes from `KASTEN_ARCHIVE_PATH` rather than a hardcoded `98 Archive`, so a
+vault that files things differently is searched correctly. A blank `q` answers
+with nothing rather than with everything.
+
 ## GET /agent/notes/{path}
 
 Reads one note, with the digest a conditional write presents back.
