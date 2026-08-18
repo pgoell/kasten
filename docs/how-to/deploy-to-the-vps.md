@@ -157,6 +157,68 @@ healthcheck.
 **Rollback.** Run the `Deploy production` workflow by hand with the `tag` input
 set to an older release. It skips the build and redeploys that tag.
 
+## Open the agent door
+
+Do this once, and only after the release carrying the token gate is live. A
+backend that predates it answers `404` to everything under `/agent/`, never the
+vault, so the order is safe either way, but there is no reason to open a door
+onto a room that is not built.
+
+Nothing in the kasten repository can test any of this. The Caddyfile lives in
+`~/Code/server-infra`, which has no pipeline, so the three curls below are the
+check and there is no automated one behind them.
+
+**1. Make the host directory.** Beside the vault, never inside it.
+
+```sh
+mkdir -p /home/pascal/kasten-data/agent
+chown 1000:1000 /home/pascal/kasten-data/agent
+```
+
+The directory is what `deploy/compose.yaml` mounts, never `tokens.json` itself.
+A bind-mounted file is a mount point and `os.replace` over one fails with
+`EBUSY`, so mounting the file would break every mint and every revoke in
+production while passing every test there is.
+
+**2. Add the Caddy stanza** to the `kasten.pascalkraus.com` block in
+`~/Code/server-infra/caddy/Caddyfile`, beside the existing `handle` blocks:
+
+```
+# The one block here with no oauth2_auth. Every route under it is token-gated
+# in the backend, which is the entire trust boundary. Removing the gate from
+# any other block, `/term/*` above all, is a different matter entirely: see
+# kasten's docs/explanation/the-agent-boundary.md.
+handle /agent/* {
+    reverse_proxy kasten-backend-prod:8000
+}
+```
+
+`handle` sorts by path specificity exactly as `/api/*` and `/term/*` do, so this
+needs no named matcher and has no ordering hazard against them.
+
+**3. Reload Caddy** and run the three curls. `$KASTEN_TOKEN` is a token minted
+at `/tokens` in the notebook.
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/agent/notes
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Authorization: Bearer wrong' https://kasten.pascalkraus.com/agent/notes
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $KASTEN_TOKEN" https://kasten.pascalkraus.com/agent/notes
+```
+
+`401`, `401`, `200`.
+
+* `302` on any of them means the stanza did not take and the request went to the
+  sign-in page.
+* **`200` on the first means the gate is not running. Stop and roll the Caddy
+  change back.** That is the one answer here that is an incident rather than a
+  misconfiguration.
+* `404` on the third means the backend predates the release that carries
+  `/agent/`.
+
+**4. Mint a token at `/tokens` and revoke it**, which proves `os.replace` works
+against the mounted directory. A mint that fails means step 1 mounted the file
+rather than the directory.
+
 ## Prove the shell is not exposed
 
 Run this after any change to compose or the Caddyfile. Two things stand between
@@ -212,3 +274,5 @@ unit fixes both. Unset it and vite goes back to plain localhost behaviour.
 * [Cut a release](cut-a-release.md) - the version, the tag and the workflow that deploys them
 * [Run the checks](run-the-checks.md) - the linters and tests, and clearing a stale `.container/node_modules`
 * [Configuration](/reference/configuration.md) - every `KASTEN_` setting the env files carry
+* [The agent boundary](/explanation/the-agent-boundary.md) - what the one ungated block is holding
+* [Connect an agent](/how-to/connect-an-agent.md) - what to point at the door once it is open
