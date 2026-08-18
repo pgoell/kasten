@@ -4,7 +4,7 @@ Recipes for jobs you already know you need. Each one assumes you have kasten
 running; if you do not, start with [Getting started](/tutorials/getting-started.md).
 
 * [Add a database migration](add-a-database-migration.md) - generate, review and apply an Alembic migration against the dev database
-* [Connect an agent](connect-an-agent.md) - mint a token and point Claude Code, codex, Claude Desktop or curl at the vault from another machine
+* [Connect an agent](connect-an-agent.md) - mint a token and point Claude Code, codex or curl at the vault from another machine, or send claude.ai and chatgpt.com through the OAuth flow
 * [Cut a release](cut-a-release.md) - pick the next version from the commits, bump it, tag it and watch it deploy
 * [Deploy to the VPS](deploy-to-the-vps.md) - bootstrap dev and prod on the box, deploy day to day, and prove the shell is still behind its gate
 * [Import an Anki deck](import-an-anki-deck.md) - turn an .apkg export into markdown notes, and know what does not survive the trip

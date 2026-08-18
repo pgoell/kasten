@@ -165,8 +165,8 @@ vault, so the order is safe either way, but there is no reason to open a door
 onto a room that is not built.
 
 Nothing in the kasten repository can test any of this. The Caddyfile lives in
-`~/Code/server-infra`, which has no pipeline, so the three curls below are the
-check and there is no automated one behind them.
+`~/Code/server-infra`, which has no pipeline, so the curls below are the check
+and there is no automated one behind them.
 
 **1. Make the host directory.** Beside the vault, never inside it.
 
@@ -180,7 +180,7 @@ A bind-mounted file is a mount point and `os.replace` over one fails with
 `EBUSY`, so mounting the file would break every mint and every revoke in
 production while passing every test there is.
 
-**2. Add the Caddy stanza** to the `kasten.pascalkraus.com` block in
+**2. Add the Caddy stanzas** to the `kasten.pascalkraus.com` block in
 `~/Code/server-infra/caddy/Caddyfile`, beside the existing `handle` blocks:
 
 ```
@@ -193,11 +193,36 @@ handle /agent/* {
 }
 ```
 
-`handle` sorts by path specificity exactly as `/api/*` and `/term/*` do, so this
-needs no named matcher and has no ordering hazard against them.
+And a second stanza, for the OAuth metadata documents:
 
-**3. Reload Caddy** and run the three curls. `$KASTEN_TOKEN` is a token minted
-at `/tokens` in the notebook.
+```
+# Fetched by a machine with no session and no way to get one. The catch-all
+# block imports oauth2_auth, so without this every path here answers 302 to a
+# sign-in page on another host, and a connector reads that as neither a
+# document nor "there is none".
+handle /.well-known/* {
+    reverse_proxy kasten-backend-prod:8000
+}
+```
+
+The whole of `/.well-known/`, not `/.well-known/oauth-*`: a client that falls
+back to `/.well-known/openid-configuration` has to get a `404`, and a narrower
+match leaves that path on the catch-all, which answers a redirect. Widening
+takes nothing away: certificates on this host come from the DNS-01 challenge
+(`acme_dns cloudflare` in the global block), so nothing else is served under the
+prefix.
+
+The other two OAuth paths need no stanza of their own. `/agent/oauth/token` is
+called by a machine with no session and rides the ungated block above;
+`/api/oauth/authorize` is opened by your browser and rides `/api/*`, where
+`oauth2_auth` is what proves who is pressing the button.
+
+`handle` sorts by path specificity exactly as `/api/*` and `/term/*` do, so
+neither stanza needs a named matcher and where they sit in the block does not
+matter.
+
+**3. Reload Caddy** and run the curls. `$KASTEN_TOKEN` is a token minted at
+`/tokens` in the notebook.
 
 ```sh
 curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/agent/notes
@@ -207,13 +232,32 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $KASTEN_TOKEN
 
 `401`, `401`, `200`.
 
-* `302` on any of them means the stanza did not take and the request went to the
-  sign-in page.
+* `302` on any of them means the `/agent/*` stanza did not take and the request
+  went to the sign-in page.
 * **`200` on the first means the gate is not running. Stop and roll the Caddy
   change back.** That is the one answer here that is an incident rather than a
   misconfiguration.
 * `404` on the third means the backend predates the release that carries
   `/agent/`.
+
+Then the metadata documents, which no token touches:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/oauth-protected-resource
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/oauth-protected-resource/agent/mcp
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/oauth-authorization-server
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/openid-configuration
+```
+
+`200`, `200`, `200`, `404`. Claude reads the second spelling, off the
+`resource_metadata` in the `401` header; ChatGPT probes the first.
+
+* `302` on any of them means the `/.well-known/*` stanza did not take. That is
+  the state the host is in before the change, and it ends a connector flow.
+* `404` on the first three means the backend predates the release that carries
+  the OAuth server.
+* `200` on the fourth means something else on this host claims the prefix. The
+  backend serves no OpenID metadata.
 
 **4. Mint a token at `/tokens` and revoke it**, which proves `os.replace` works
 against the mounted directory. A mint that fails means step 1 mounted the file

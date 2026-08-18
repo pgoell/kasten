@@ -209,3 +209,30 @@ async def test_a_conflict_reaches_the_client_as_a_tool_error(
 
     assert "The note changed since you read it" in response.text
     assert payload(response.text)["result"]["isError"] is True
+
+
+async def test_the_reading_tools_say_so(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Spelled `readOnlyHint` on the wire, whatever the SDK calls the field.
+    # chatgpt.com asks the user to confirm every call to a tool without it, so
+    # an unannotated `read_note` turns a search across the vault into one button
+    # press per note.
+    response = await client.post(
+        ENDPOINT,
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        headers={**bearer, **RPC},
+    )
+
+    hints = {
+        tool["name"]: tool["annotations"]["readOnlyHint"]
+        for tool in payload(response.text)["result"]["tools"]
+    }
+
+    assert hints == {
+        "list_notes": True,
+        "read_note": True,
+        "search_notes": True,
+        "save_note": False,
+        "append_note": False,
+    }

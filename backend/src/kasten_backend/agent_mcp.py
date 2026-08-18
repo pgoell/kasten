@@ -40,9 +40,11 @@ from typing import TYPE_CHECKING, Any
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse
 
 from kasten_backend import agent, vcs
+from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
 from kasten_backend.config import get_settings
 from kasten_backend.tokens import verify
@@ -98,6 +100,14 @@ async def append_note(path: str, text: str, sha: str | None = None) -> dict[str,
 TOOLS = (list_notes, read_note, search_notes, save_note, append_note)
 """The five, in the order the reference page lists them."""
 
+READING = frozenset({"list_notes", "read_note", "search_notes"})
+"""Which of the five only read, told to the client as `readOnlyHint`.
+
+chatgpt.com treats a tool without it as a write and asks you to confirm every
+call, so an unannotated `read_note` turns a search across the vault into one
+button press per note.
+"""
+
 
 async def _written(write: Any) -> dict[str, Any]:
     """Await one write and turn its refusals into tool errors.
@@ -137,7 +147,18 @@ def _security(host: str) -> TransportSecuritySettings:
     return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=[host, f"{host}:*"],
-        allowed_origins=[f"https://{host}", f"http://{host}"],
+        # The browser products call from their own backends, where the SDK's
+        # check passes on an absent `Origin` rather than a matching one. These
+        # three are for the case where one is sent: the `Host` allowlist above
+        # already pins the vault, so naming them costs nothing and the failure
+        # they prevent is a 403 on every tool call with a valid token in hand.
+        allowed_origins=[
+            f"https://{host}",
+            f"http://{host}",
+            "https://claude.ai",
+            "https://claude.com",
+            "https://chatgpt.com",
+        ],
     )
 
 
@@ -150,6 +171,7 @@ def _gate(inner: ASGIApp) -> ASGIApp:
             return
 
         headers = dict(scope["headers"])
+        host = headers.get(b"host", b"").decode("latin-1")
         header = headers.get(b"authorization", b"").decode("latin-1")
         name = (
             await verify(get_settings().tokens_path, header.removeprefix(BEARER))
@@ -159,7 +181,14 @@ def _gate(inner: ASGIApp) -> ASGIApp:
         # Before the method check, so a caller with no token learns nothing
         # about what this endpoint accepts.
         if name is None:
-            await JSONResponse({"detail": REFUSED}, status_code=401)(scope, receive, send)
+            await JSONResponse(
+                {"detail": REFUSED},
+                status_code=401,
+                # The one thing that turns this refusal into a sign-in. A
+                # browser product has no field for a header, so this header is
+                # how it learns there is an authorization server at all.
+                headers={"WWW-Authenticate": challenge(host, scope.get("scheme") == "https")},
+            )(scope, receive, send)
             return
 
         if scope["method"] != "POST":
@@ -187,7 +216,9 @@ def build() -> tuple[ASGIApp, MCPServer]:
     """
     server: MCPServer = MCPServer(name="kasten", version=version("kasten-backend"))
     for tool in TOOLS:
-        server.add_tool(tool)
+        # The SDK's model is snake_case with a camelCase alias, so this is
+        # `readOnlyHint` on the wire, which is where the test reads it.
+        server.add_tool(tool, annotations=ToolAnnotations(read_only_hint=tool.__name__ in READING))
 
     inner = server.streamable_http_app(
         streamable_http_path=PATH,

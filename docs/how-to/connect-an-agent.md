@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Connect an agent
-description: Mint a token and point Claude Code, codex, Claude Desktop or curl at the vault from another machine.
+description: Mint a token and point Claude Code, codex, claude.ai, chatgpt.com or curl at the vault from another machine.
 tags: [agent, mcp, tokens, claude]
 status: stable
 ---
@@ -9,7 +9,9 @@ status: stable
 # Connect an agent
 
 An agent on a machine that is not the VPS reaches the vault through `/agent/`,
-with a token and nothing else. What that grants, and what it does not, is
+with a token and nothing else. A client that can send a header is given one. The
+two browser products cannot, so they are sent through an OAuth flow that hands
+them the same kind of token. What either grants, and what neither does, is
 [The agent boundary](/explanation/the-agent-boundary.md).
 
 ## Mint the token
@@ -111,14 +113,40 @@ present the `sha` that read returned, not a digest of the text you are sending.
 [What a digest is of](/reference/agent-api.md#what-a-digest-is-of-and-why-it-is-never-the-digest-of-what-you-sent)
 says why those two differ.
 
-## claude.ai on the web cannot connect
+## claude.ai and chatgpt.com
 
-Not an oversight and not a setting. A custom connector on claude.ai expects
-OAuth and cannot be given a header. Reaching it means kasten becoming an OAuth
-2.1 resource server with RFC 9728 protected-resource metadata, plus an
-authorization server to issue the tokens, and oauth2-proxy cannot mint them.
-Claude Desktop, above, is the reachable one, and it costs a bridge rather than
-server code.
+Neither has a field for a header, so neither can be given a token. Both instead
+discover an authorization server and send you through it, and kasten carries one
+for exactly this. What it issues is an ordinary row in the same store, so the
+connector's token is revoked at `/tokens` beside every other one.
+
+The Caddy stanza in [Deploy to the VPS](/how-to/deploy-to-the-vps.md) has to be
+in place first. Without it the discovery documents answer a sign-in redirect
+rather than themselves, and a connector reads that as neither a document nor an
+absence.
+
+**claude.ai**: Settings, Connectors, Add custom connector. The URL is
+`https://kasten.pascalkraus.com/agent/mcp`. Leave the OAuth Client ID and Client
+Secret fields empty. The same connector reaches Claude Desktop and the phone,
+which is the reason to prefer it to the `mcp-remote` bridge above.
+
+**chatgpt.com**: turn on Developer mode under Settings, Security and login, then
+add the server at `https://chatgpt.com/plugins`. Same URL. Developer mode wants
+a Plus, Pro, Business, Enterprise or Education account, and works on the web
+only.
+
+Both then open a kasten page with one button on it. You are already signed in
+there, because that page is behind oauth2-proxy like the notebook itself, so the
+button is the whole of the consent. Pressing it hands the product a token named
+for it, `claude.ai` or `chatgpt.com`, which is what `/tokens` lists and what
+`jj log` records against every note that arrives that way.
+
+Connecting a second time replaces that token rather than adding one. The old one
+stops working on the next request.
+
+Claude Code cannot use this flow. It has no field for a client id and would need
+kasten to register clients on demand, which it does not do. Use the header, as
+above; it is less machinery either way.
 
 ## When it does not work
 
@@ -130,6 +158,9 @@ server code.
 | `409` on a save | The note changed since you read it. Read it again and present the new `sha` |
 | `413` | The write would leave more than 1MiB on disk |
 | A redirect to a sign-in page | The Caddy block is not in place. See [Deploy to the VPS](/how-to/deploy-to-the-vps.md) |
+| A connector that will not save, with no request in Caddy's log | Cloudflare refused it before Caddy saw it. Read the zone's security events for the host |
+| `Couldn't register` in a connector dialog | The client wanted to register itself. kasten has no registration endpoint, so leave the Client ID field empty rather than filling it |
+| A connector that connects and then finds no tools | The token is minted but the tool call was refused. Read `docker logs kasten-backend-prod` for the `401` or the `403` |
 
 ## Related
 
