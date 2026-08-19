@@ -25,7 +25,7 @@ move-right, because the leader is registered in normal mode only.
 | Key | Does |
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
-| `<leader>cb` | Add an epub to the inbox, with a note beside it |
+| `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
 | `<leader>cm` | Import markdown files from your disk into the inbox |
@@ -348,26 +348,37 @@ name is how you get back to it, which is the mechanism the sessions already have
 
 `<leader>gr` opens the book that sits beside the open note and puts it in a new
 pane to the right, with the note still on screen. The book is the note's path
-with the suffix swapped, so `20 Literature/DDIA.md` is read beside
-`20 Literature/DDIA.epub` and nothing anywhere records that pair.
-[Books in the vault](/explanation/books-in-the-vault.md) says why.
+with the suffix swapped, and the suffix is `.epub` or `.pdf`, so
+`20 Literature/DDIA.md` is read beside `20 Literature/DDIA.epub` or
+`20 Literature/DDIA.pdf` and nothing anywhere records that pair. Which of the
+two is there is the vault's to answer, in
+[GET /api/books/{path}](/reference/http-api.md#get-apibookspath), and a note
+that somehow has one of each beside it is read as the epub.
+[The file beside a note](/explanation/books-in-the-vault.md) says why.
 
-A note with no book beside it draws a panel naming the path it wanted, rather
-than an empty reader. So does a book the reader cannot open.
+A note with nothing beside it draws a panel rather than an empty reader:
+`Nothing to read beside 20 Literature/DDIA.md`, and under it `.epub or .pdf of
+the same name goes here`. It names the note and both suffixes because there is
+no one path to name: the pair is a convention, and which of the two you meant is
+not something the reader can know. A file the reader cannot open draws the same
+panel.
 
 `<leader>cb` is how a book gets into the vault without a terminal. It opens the
-browser's file picker, and the file you choose lands in `00 Inbox/02 Books/`
-under its own name, with a note of the same name beside it. That note opens in
-the focused pane, which is the only thing on screen saying the upload worked.
-`<leader>gr` then reads it.
+browser's file picker, and the file you choose lands under its own name, with a
+note of the same name beside it. An epub lands in `00 Inbox/02 Books/` and a pdf
+in `00 Inbox/02 Documents/`, the folders differing because the files do: an epub
+is a book and nothing else, while a pdf is as often a paper, a report or a deck.
+That note opens in the focused pane, which is the only thing on screen saying
+the upload worked. `<leader>gr` then reads it.
 
 The key needs no note open and never renames the file after one: the book
 brings its own note, and the pair is yours to move somewhere permanent once you
 know where it belongs. A folder move carries both halves at once.
 
 A refusal, a book of that name already there above all, puts one sentence at
-the foot of the window, and the next press of the key clears it. There is no
-way back out from the app: nothing here deletes a book.
+the foot of the window, and the next press of the key clears it. A file whose
+suffix is neither of the two is turned down there as well, before anything goes
+out. There is no way back out from the app: nothing here deletes a book.
 
 Opening a book again puts you back on the page you stopped at. The place is one
 line in the note's own block, `reading:`, written a minute after the last page
@@ -390,10 +401,11 @@ the leader would cost you the space bar for nothing.
 | `Ctrl+Shift+H` `J` `K` `L` `O` | Walk the panes, as in a terminal |
 | `Ctrl+Shift+Q` | Take the book out of the pane |
 
-`w` hands the epub to the browser under its own name, so
-`20 Literature/DDIA.epub` arrives in your downloads as `DDIA.epub`. It is vim's
-own key for writing what you are looking at out to a file, said bare here for
-the reason `q` is.
+`w` hands the file that is actually there to the browser under its own name, so
+`20 Literature/DDIA.epub` arrives in your downloads as `DDIA.epub` and
+`20 Literature/Attention.pdf` as `Attention.pdf`. It is vim's own key for
+writing what you are looking at out to a file, said bare here for the reason `q`
+is.
 
 The six bare keys answer an unmodified press only, so `Ctrl+H` is left to the
 browser's history window. The chords are the terminal's own, read from
@@ -412,8 +424,9 @@ one under the cursor, and Escape puts the list away with the book still on the
 page you were on. The cursor opens on the chapter you are in, so walking back to
 chapter one is `k` held down rather than a hunt. The list is the publisher's
 own, so a nested chapter is drawn indented, and a part heading the book gave no
-link to is a row Enter does nothing on. A book whose publisher wrote no contents
-says so instead of drawing an empty box.
+link to is a row Enter does nothing on. A pdf's list is its own outline, walked
+and nested the same way. A book whose publisher wrote no contents, or a pdf
+whose author wrote none, says so instead of drawing an empty box.
 
 Selecting a passage draws a button over it, and clicking that button and
 pressing `y` are the same thing: the passage lands under `## Highlights` in the
@@ -424,17 +437,31 @@ quote points at it, so a drag over a plate and its caption keeps both. A drag
 over the plate alone is a figure with no quote under it. The selection is the whole of what a highlight is
 found by later, so there is nothing else in the note to keep in step and
 deleting a highlight is deleting the lines.
-[Highlight format](highlight-format.md) states the block. A fixed-layout book
-gets neither the button nor the key: a spread shows two pages at once and the
-reader would take the passage from the wrong one.
+[Highlight format](highlight-format.md) states the block. A pre-paginated epub
+gets neither the button nor the key: a spread shows two pages at once, and
+foliate scales both of its frames with a CSS transform, so no rectangle taken
+out of one says where the words are on screen. A pdf goes through that same
+renderer and refuses nothing, being scaled inside its own document instead, so a
+rectangle in the frame is a rectangle on the page.
+
+A passage taken out of a pdf lands in the note one line per line of the pdf. The
+quote is cut where the selection breaks, and a pdf breaks its lines where the
+page does, so a paragraph running six lines across the page is six lines in the
+note. An epub gives one line per paragraph. Nothing rejoins either, the words
+being what the highlight is found by later and both being read back the same
+way.
+
+Where an epub names the chapter, a pdf names the outline entry the page sits
+under, and `Page N` where the pdf carries no outline at all.
 
 Opening a book draws the note's highlights on the page, in the app's accent
 colour, for every passage the chapter on screen holds. Paging into another
 chapter draws its own as it arrives. Delete a highlight in the editor and save,
 and it stops being drawn without you touching the reader; edit a quote's
 wording so the book no longer holds it, and nothing is drawn for it and nothing
-complains. A fixed-layout book is drawn on not at all, foliate offering nothing
-to draw on there.
+complains. A pdf page is drawn on too, though foliate hands out no overlay for
+one: the pane hangs its own inside the text layer pdf.js drew. A pre-paginated
+epub gets nothing, there being no such layer to hang one in.
 
 The write goes out whether or not the note is the pane you are typing in. It is
 a press, so you asked for it, and a buffer with unsaved text in it says
@@ -456,7 +483,7 @@ an empty pane. Closing the reader puts the note back in the URL as soon as the
 focus reaches it.
 
 Moving the folder that holds the pair carries the reader with it. Renaming the
-note alone does not, because the epub stays where it was, and the reader then
+note alone does not, because the file stays where it was, and the reader then
 says its note is gone.
 
 ## The video pane
@@ -628,8 +655,9 @@ files nothing in a folder nobody asked for.
 the browser as a file under its own name, so `20 Literature/DDIA.md` arrives in
 your downloads as `DDIA.md`. In an image pane it is the picture, `shot.png`,
 and an exam counts as its note. A reader says it `w` on its own, that pane
-having no leader, and hands over the book, `DDIA.epub`. A terminal and the todo
-list are not files, so nothing goes out from either.
+having no leader, and hands over whichever file sits beside the note,
+`DDIA.epub` or `DDIA.pdf`. A terminal and the todo list are not files, so
+nothing goes out from either.
 
 For a note, text still waiting is written to the vault first, so the file holds
 the note as you last typed it rather than as the vault last read it. A book and
@@ -1069,7 +1097,9 @@ the cursor cannot rest between the name and what follows it, and both edges
 count as on the link.
 
 On a highlight block it opens the book instead, at the passage the block
-quotes. Four places in a block answer: the quote line, the blank line under it,
+quotes. In a pdf that is the page holding the quote, found by reading each
+page's own words, a pdf handing out no document until the page is drawn. Four
+places in a block answer: the quote line, the blank line under it,
 the chapter words and the anchor, the last two sharing a line. The book opens
 in a pane beside the note when nothing has it open, and where a pane is already
 reading it the cursor moves there rather than a second reader opening. Where

@@ -174,6 +174,7 @@ async def test_refuses_a_target_under_a_note(client: AsyncClient, vault: Path) -
 
 
 BOOK = b"PK\x03\x04 not really a book"
+PDF = b"%PDF-1.7 not really a book either"
 
 
 async def test_carries_the_book_beside_the_note(client: AsyncClient, vault: Path) -> None:
@@ -208,6 +209,54 @@ async def test_leaves_the_book_where_it_is_when_the_target_has_one(
     assert (vault / "inbox" / "borges.epub").read_bytes() == BOOK
 
 
+async def test_carries_the_pdf_beside_the_note(client: AsyncClient, vault: Path) -> None:
+    (vault / "inbox").mkdir()
+    (vault / "inbox" / "borges.md").write_text("# borges")
+    (vault / "inbox" / "borges.pdf").write_bytes(PDF)
+
+    response = await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert response.status_code == 200
+    assert (vault / "reading" / "borges.pdf").read_bytes() == PDF
+    assert not (vault / "inbox" / "borges.pdf").exists()
+
+
+async def test_carries_both_books_when_a_note_has_two(client: AsyncClient, vault: Path) -> None:
+    # Nothing stops a vault holding both, so a move that carried one and left
+    # the other would break the pair it did not take.
+    (vault / "inbox").mkdir()
+    (vault / "inbox" / "borges.md").write_text("# borges")
+    (vault / "inbox" / "borges.epub").write_bytes(BOOK)
+    (vault / "inbox" / "borges.pdf").write_bytes(PDF)
+
+    response = await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert response.status_code == 200
+    assert (vault / "reading" / "borges.epub").read_bytes() == BOOK
+    assert (vault / "reading" / "borges.pdf").read_bytes() == PDF
+    assert not (vault / "inbox").exists()
+
+
+async def test_leaves_one_book_behind_when_only_its_landing_is_taken(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The two are weighed one at a time: a taken landing holds back the format
+    # that would have gone there and nothing else.
+    (vault / "inbox").mkdir()
+    (vault / "reading").mkdir()
+    (vault / "inbox" / "borges.md").write_text("# borges")
+    (vault / "inbox" / "borges.epub").write_bytes(BOOK)
+    (vault / "inbox" / "borges.pdf").write_bytes(PDF)
+    (vault / "reading" / "borges.pdf").write_bytes(b"%PDF-1.7 another book")
+
+    response = await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+
+    assert response.status_code == 200
+    assert (vault / "reading" / "borges.epub").read_bytes() == BOOK
+    assert (vault / "reading" / "borges.pdf").read_bytes() == b"%PDF-1.7 another book"
+    assert (vault / "inbox" / "borges.pdf").read_bytes() == PDF
+
+
 async def test_moves_a_note_that_has_no_book(client: AsyncClient, vault: Path) -> None:
     # A guard: most notes have none, and the move must not go looking for one.
     (vault / "inbox").mkdir()
@@ -217,3 +266,4 @@ async def test_moves_a_note_that_has_no_book(client: AsyncClient, vault: Path) -
 
     assert response.status_code == 200
     assert not (vault / "reading" / "borges.epub").exists()
+    assert not (vault / "reading" / "borges.pdf").exists()

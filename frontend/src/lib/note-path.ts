@@ -13,13 +13,40 @@ export type NotePathVerdict =
 
 const SUFFIX = ".md";
 
-const BOOK_SUFFIX = ".epub";
-
 /** The one folder in the vault for things not yet filed. */
 const INBOX = "00 Inbox";
 
-/** Where an uploaded book and its note land, until you file them somewhere. */
-const BOOK_INBOX = `${INBOX}/02 Books`;
+/**
+ * The formats the reader opens, and what the vault does with each.
+ *
+ * `.epub` first, which is the order the vault resolves a pair in when a note
+ * has one of each beside it. `GET /api/books/{note}` reads that same order off
+ * its own copy, so the two lists must not disagree about which wins.
+ *
+ * The folder and the type differ because the files do. An epub is a book and
+ * nothing else, while a pdf is as often a paper, a report or a deck, and both
+ * `02 Books` and `type: Book` would file one of those under a word that is not
+ * true. `Source` is the ontology's own name for something written elsewhere,
+ * which is every one of them.
+ */
+const FORMATS = [
+  { suffix: ".epub", folder: `${INBOX}/02 Books`, type: "Book" },
+  { suffix: ".pdf", folder: `${INBOX}/02 Documents`, type: "Source" },
+] as const;
+
+/** What the reader opens, in the order the vault prefers them. */
+export const BOOK_SUFFIXES = FORMATS.map((format) => format.suffix);
+
+/**
+ * What a note holding this file is, which the bookmark writes into its type.
+ *
+ * Takes the book's path and not the note's, because the note's says nothing:
+ * the whole question is which of the pair is sitting beside it, and only the
+ * vault knows that.
+ */
+export function bookType(book: string): string {
+  return FORMATS.find((format) => book.toLowerCase().endsWith(format.suffix))?.type ?? "Book";
+}
 
 /**
  * What a note's name may not carry.
@@ -65,22 +92,32 @@ export interface BookNote {
 /**
  * Where the file you just picked belongs, and what its note is called.
  *
- * The book keeps its own name. It used to take the name of whatever note was
- * in the pane, which threw the title away and pinned the book to a note that
- * was about something else. Nothing has to be open for this now.
+ * The file keeps its own name and its own suffix. It used to take the name of
+ * whatever note was in the pane, which threw the title away and pinned the book
+ * to a note that was about something else. Nothing has to be open for this now.
+ *
+ * The suffix picks the folder, so an epub and a pdf are filed apart. It also
+ * decides whether there is anything to file at all: the name used to have
+ * `.epub` appended whatever it arrived as, so picking `Ulysses.pdf` wrote
+ * `Ulysses.pdf.epub` and the upload refused it for bytes that did not match a
+ * name nobody chose.
  *
  * The pair lands in the inbox rather than at its final home, for the reason a
  * clipping does: filing is a decision, and a folder move carries both halves
  * of the pair at once.
  */
 export function bookNote(fileName: string): BookNote | null {
-  const name = safeName(fileName.replace(/\.epub$/i, ""));
+  const lowered = fileName.toLowerCase();
+  const format = FORMATS.find((candidate) => lowered.endsWith(candidate.suffix));
+  if (format === undefined) return null;
+
+  const name = safeName(fileName.slice(0, -format.suffix.length));
   if (name === "") return null;
 
   return {
     name,
-    book: `${BOOK_INBOX}/${name}${BOOK_SUFFIX}`,
-    note: `${BOOK_INBOX}/${name}${SUFFIX}`,
+    book: `${format.folder}/${name}${format.suffix}`,
+    note: `${format.folder}/${name}${SUFFIX}`,
   };
 }
 
@@ -105,16 +142,6 @@ export function importedNote(fileName: string): string | null {
 /** The note's name, which is what every link to it carries. */
 export function noteName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
-}
-
-/**
- * The book that sits beside a note, which is the note's path with the suffix swapped.
- *
- * The whole sidecar convention is this line. Nothing stores a book's path, so
- * there is no field to keep in step with where the note went.
- */
-export function bookPath(note: string): string {
-  return note.replace(/\.md$/, ".epub");
 }
 
 /**

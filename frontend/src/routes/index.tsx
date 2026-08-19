@@ -22,6 +22,7 @@ import { TodoPrompt } from "@/components/todo-prompt";
 import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
+  type BookBeside,
   createNote,
   deleteFolder,
   deleteImage,
@@ -45,7 +46,7 @@ import { readClock } from "@/lib/clock";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { readField, setField } from "@/lib/note-frontmatter";
-import { bookNote, bookPath, importedNote, noteName } from "@/lib/note-path";
+import { bookNote, bookType, importedNote, noteName } from "@/lib/note-path";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -653,17 +654,26 @@ function Home() {
 
   const { moved, flush, cancel } = useBookmark((note, cfi) =>
     writePosition(note, (text) => {
-      // The one writer of `type: Book`, and it rides the position write rather
-      // than the upload for two reasons. A refused write comes round again on
-      // the next page you turn, where a one-shot write at upload is dropped for
-      // good; and a book dropped into the vault from the shell pane passes
-      // through no upload at all while it does get read.
+      // The one writer of the reader's type, and it rides the position write
+      // rather than the upload for two reasons. A refused write comes round
+      // again on the next page you turn, where a one-shot write at upload is
+      // dropped for good; and a file dropped into the vault from the shell pane
+      // passes through no upload at all while it does get read.
       //
+      // Which type it is comes off the file rather than off the note: a pdf is
+      // as often a paper or a deck as a book, so it is typed `Source`. Read out
+      // of the cache the reader filled, and `Book` when there is nothing there,
+      // which is the older of the two and the only one a stale cache can name
+      // wrongly.
+      const beside = queryClient.getQueryData<BookBeside>(["book", note]);
       // Over `Note` or over nothing, and over nothing else: a type the reader
       // put there by hand is theirs, and turning a page is not an argument
       // with it.
       const held = readField(text, "type");
-      const typed = held === undefined || held === "Note" ? setField(text, "type", "Book") : text;
+      const typed =
+        held === undefined || held === "Note"
+          ? setField(text, "type", beside === undefined ? "Book" : bookType(beside.path))
+          : text;
       return setField(typed, "reading", cfi);
     }),
   );
@@ -1203,7 +1213,7 @@ function Home() {
       // Cloudflare refuses an oversize body before kasten sees it, with a page
       // of its own: the backend's 413 is a backstop and this is the message.
       if (file.size > ASSET_LIMIT_BYTES) {
-        setNotice("That book is too big");
+        setNotice("That file is too big");
         return;
       }
 
@@ -1219,7 +1229,8 @@ function Home() {
 
       // The `listing` event the upload fires invalidates `["files"]` alone, so
       // a reader already sitting on "no sidecar" would never notice this one.
-      void queryClient.invalidateQueries({ queryKey: ["book", filed.book] });
+      // Keyed on the note, which is what the reader asks the vault about.
+      void queryClient.invalidateQueries({ queryKey: ["book", filed.note] });
 
       const made = (data ?? []).includes(filed.note)
         ? null
@@ -1478,7 +1489,12 @@ function Home() {
           return;
         }
         if (pane.book !== undefined) {
-          downloadAsset(bookPath(pane.book));
+          // Out of the cache the reader filled, because the pane's own field
+          // is the note and only the vault knows which file is beside it. A
+          // reader whose fetch has not landed has nothing to download, and a
+          // reader showing "nothing to read beside" is that same case.
+          const beside = queryClient.getQueryData<BookBeside>(["book", pane.book]);
+          if (beside !== undefined) downloadAsset(beside.path);
           return;
         }
 
@@ -1950,7 +1966,7 @@ function Home() {
       <input
         ref={picker}
         type="file"
-        accept=".epub,application/epub+zip"
+        accept=".epub,.pdf,application/epub+zip,application/pdf"
         className="hidden"
         onChange={chooseBook}
       />

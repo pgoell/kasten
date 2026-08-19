@@ -112,7 +112,10 @@ describe("a script inside a real book", () => {
     // Slice 3 proved the mechanism with hand-built documents because no reader
     // existed yet. This proves it through foliate's own blob rewriting, on the
     // same file the box check reads.
-    fetchBook.mockResolvedValue(await (await fetch(scriptedUrl)).blob());
+    fetchBook.mockResolvedValue({
+      path: "20 Literature/Scripted.epub",
+      blob: await (await fetch(scriptedUrl)).blob(),
+    });
     // The pane reads its note before it navigates, and a factory missing an
     // export throws the moment it is called. This file mounts the pane only to
     // prove the policy, which is what makes it the one nobody thinks of.

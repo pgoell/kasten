@@ -31,3 +31,7 @@ vault/
 
 # Router types the TanStack plugin regenerates on every dev run.
 .tanstack/
+
+# Staged into public/ by the `foliatePdfjs` plugin in vite.config.ts, out of
+# foliate's own vendored pdf.js. Generated on every dev start and every build.
+frontend/public/pdfjs/

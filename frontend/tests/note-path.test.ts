@@ -1,6 +1,6 @@
 import {
   bookNote,
-  bookPath,
+  bookType,
   describeFolderPath,
   describeNotePath,
   importedNote,
@@ -259,16 +259,6 @@ describe("describeFolderPath", () => {
   });
 });
 
-describe("bookPath", () => {
-  it("swaps the note's suffix for the book's", () => {
-    expect(bookPath("20 Literature/Books/DDIA.md")).toBe("20 Literature/Books/DDIA.epub");
-  });
-
-  it("leaves a dot in a folder name alone", () => {
-    expect(bookPath("a.b/c.md")).toBe("a.b/c.epub");
-  });
-});
-
 describe("safeName", () => {
   it("keeps a name the vault will take", () => {
     expect(safeName("Talk Like TED")).toBe("Talk Like TED");
@@ -335,9 +325,73 @@ describe("bookNote", () => {
     expect(bookNote("vol.2 of 3.epub")?.name).toBe("vol.2 of 3");
   });
 
+  it("files a pdf apart from the books, under its own suffix", () => {
+    // The other folder, and it is not a filing whim: `02 Books` is a claim
+    // about what the file is, and a pdf is as often a paper, a report or a
+    // deck as it is a book.
+    expect(bookNote("Attention Is All You Need.pdf")).toEqual({
+      name: "Attention Is All You Need",
+      book: "00 Inbox/02 Documents/Attention Is All You Need.pdf",
+      note: "00 Inbox/02 Documents/Attention Is All You Need.md",
+    });
+  });
+
+  it("reads a pdf's suffix in capitals, and files it under the canonical one", () => {
+    // The suffix written is the format's own rather than the one that was
+    // typed, so a vault of `.PDF` and `.pdf` files sorts as one kind.
+    expect(bookNote("Grundzuege.PDF")).toEqual({
+      name: "Grundzuege",
+      book: "00 Inbox/02 Documents/Grundzuege.pdf",
+      note: "00 Inbox/02 Documents/Grundzuege.md",
+    });
+  });
+
+  it("never turns a pdf into a .pdf.epub", () => {
+    // What the older cut did to every file it was handed: `.epub` went on the
+    // name whatever it arrived as, so the upload was refused for bytes that
+    // did not match a name nobody chose.
+    expect(bookNote("Ulysses.pdf")?.book).not.toContain(".epub");
+  });
+
+  it("answers null for a file the reader cannot open at all", () => {
+    // The picker's `accept` filters its default view and stops nothing, the
+    // reader being free to switch it to all files, so this is the answer for
+    // an `.mobi` chosen by hand.
+    expect(bookNote("Ulysses.mobi")).toBeNull();
+  });
+
+  it("answers null for a file carrying no suffix at all", () => {
+    expect(bookNote("Ulysses")).toBeNull();
+  });
+
   it("answers null for a file whose name leaves nothing behind", () => {
     // A path the vault would refuse is not one to guess a name for. The bar
     // says so instead.
     expect(bookNote("///.epub")).toBeNull();
+  });
+
+  it("answers null for a pdf whose name leaves nothing behind", () => {
+    expect(bookNote("///.pdf")).toBeNull();
+  });
+});
+
+describe("bookType", () => {
+  it("types an epub Book", () => {
+    expect(bookType("00 Inbox/02 Books/Talk Like TED.epub")).toBe("Book");
+  });
+
+  it("types a pdf Source, which is what the ontology calls one", () => {
+    expect(bookType("00 Inbox/02 Documents/Attention Is All You Need.pdf")).toBe("Source");
+  });
+
+  it("reads the suffix whatever its case", () => {
+    expect(bookType("00 Inbox/02 Documents/Grundzuege.PDF")).toBe("Source");
+  });
+
+  it("falls back to Book for a suffix it does not know", () => {
+    // The older of the two types, and the only one a stale answer can name
+    // wrongly. Reachable if a format is added to the backend before it is
+    // added here.
+    expect(bookType("00 Inbox/02 Books/Ulysses.mobi")).toBe("Book");
   });
 });

@@ -11,6 +11,7 @@
       "**",
       "!dist",
       "!node_modules",
+      "!public/pdfjs",
       "!src/routeTree.gen.ts",
       "!src/lib/api-types.ts",
       "!openapi.json"

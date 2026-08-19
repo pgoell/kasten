@@ -50,13 +50,14 @@ def describe(label: str) -> str:
     return f"agent({name}): {label}" if name else f"vault: {label}"
 
 
-IGNORES = ("*.epub", ".*.tmp")
+IGNORES = ("*.epub", "*.pdf", ".*.tmp")
 """What the vault's history never takes a copy of.
 
-A book, because jj tracks any untracked file under a megabyte and a save's
-snapshot would sweep one in. And the temp file a write lands in first, because
-that snapshot runs while an upload is still streaming into it, which would put
-half a book in the history for good.
+A book in either format, because jj tracks any untracked file under a megabyte
+and a save's snapshot would sweep one in, one line per format the vault reads.
+And the temp file a write lands in first, because that snapshot runs while an
+upload is still streaming into it, which would put half a book in the history
+for good.
 """
 
 

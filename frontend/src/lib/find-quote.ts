@@ -67,8 +67,15 @@ function haystackOf(strings: string[]): Haystack {
   return { text: characters.join(""), index, offset };
 }
 
-/** The range covering `quote`'s paragraphs in `haystack`, or null for a paragraph it lacks. */
-function locate(haystack: Haystack, quote: string[], makeRange: MakeRange): Range | null {
+/**
+ * Where `quote`'s paragraphs run in `text`, as a half open pair, or null.
+ *
+ * The one rule for what it means for something to hold a quote. `locate` below
+ * turns the answer into a range for drawing, and `holdsQuote` asks the question
+ * of a page nothing has drawn yet, and the point of the shared function is that
+ * `gf` cannot take you somewhere the draw pass then refuses to mark.
+ */
+function span(text: string, quote: string[]): [number, number] | null {
   let from = -1;
   let to = 0;
 
@@ -80,13 +87,33 @@ function locate(haystack: Haystack, quote: string[], makeRange: MakeRange): Rang
     // Each paragraph from the end of the one before it, so the order the note
     // holds them is the order the book has to hold them. Greedy and it does not
     // back up: where a paragraph appears twice the first match is taken.
-    const at = haystack.text.indexOf(needle, to);
+    const at = text.indexOf(needle, to);
     if (at === -1) return null;
     if (from === -1) from = at;
     to = at + needle.length;
   }
 
-  if (from === -1) return null;
+  return from === -1 ? null : [from, to];
+}
+
+/**
+ * Whether `text` holds every paragraph of `quote`, in the order the note has them.
+ *
+ * For a page whose words can be had without drawing it, which is a pdf's:
+ * `findQuotes` needs a document and a pdf page has none until it is rendered.
+ * The text is collapsed here rather than by the caller, so the caller may hand
+ * over whatever the format gave it.
+ */
+export function holdsQuote(text: string, quote: string[]): boolean {
+  return span(collapse(text), quote) !== null;
+}
+
+/** The range covering `quote`'s paragraphs in `haystack`, or null for a paragraph it lacks. */
+function locate(haystack: Haystack, quote: string[], makeRange: MakeRange): Range | null {
+  const found = span(haystack.text, quote);
+  if (found === null) return null;
+
+  const [from, to] = found;
   const last = to - 1;
   return makeRange(
     haystack.index[from] as number,

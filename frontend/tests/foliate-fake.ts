@@ -27,10 +27,15 @@ export function deferred(): Deferred {
   return { promise, resolve };
 }
 
-/** What `open` builds, and what the pane hangs its `relocate` listener on. */
+/**
+ * What `open` builds, and what the pane hangs its `relocate` listener on.
+ *
+ * `index` is optional because a fixed-layout renderer answers without one
+ * (`fixed-layout.js:308-313`), where the paginator always carries it.
+ */
 interface FakeRenderer extends EventTarget {
   setStyles?: (css: string) => void;
-  getContents?: () => { index: number; doc: Document; overlayer?: FakeOverlayer }[];
+  getContents?: () => { index?: number; doc: Document; overlayer?: FakeOverlayer }[];
 }
 
 /** foliate's overlay, as far as the pane is concerned: two calls and a record of them. */
@@ -108,6 +113,17 @@ export class FakeView extends HTMLElement {
   /** Whether the next view's renderer has `setStyles`, which a fixed-layout one has not. */
   static withStyles = true;
   /**
+   * Whether the next view opens a pre-paginated book, which changes two things.
+   *
+   * `isFixedLayout` is set by `open` off the book's own rendition
+   * (`view.js:254`), and the renderer swapped in for one answers `{ doc }` and
+   * nothing else: no index, and no overlayer, `fixed-layout.js:308-313` saying
+   * `// TODO` where the paginator builds one. So a page of such a book carries
+   * nothing to draw a highlight on unless it is a pdf, whose text layer the
+   * pane hangs an overlay in itself.
+   */
+  static fixedLayout = false;
+  /**
    * Whether the next view's `init` navigates nowhere, leaving `lastLocation`
    * falsy. That is what a cfi naming a spine item the book has not got does:
    * the renderer refuses the index and returns without loading a section.
@@ -177,7 +193,7 @@ export class FakeView extends HTMLElement {
    * Whether the book is pre-paginated, which the real view reads off its own
    * rendition (`view.js:254`). The pane refuses to report a selection in one.
    */
-  isFixedLayout = false;
+  isFixedLayout = FakeView.fixedLayout;
   /** Every href `goTo` was asked for, in order. */
   gone: string[] = [];
   renderer: FakeRenderer;
@@ -197,8 +213,15 @@ export class FakeView extends HTMLElement {
     // Empty until a section has loaded, the way the real one is: the paginator
     // answers off a view it only builds on the first `goTo`
     // (`paginator.js:667-676, 1092-1099`).
-    this.renderer.getContents = () =>
-      this.loaded ? [{ index: this.index, doc: this.section, overlayer: this.overlayer }] : [];
+    this.renderer.getContents = () => {
+      if (!this.loaded) return [];
+      // The whole entry and not a nulled field: the fixed-layout renderer
+      // hands back an object with neither key on it, so a pane reading
+      // `entry.index` or `entry.overlayer` there finds nothing rather than
+      // undefined-under-a-key.
+      if (FakeView.fixedLayout) return [{ doc: this.section }];
+      return [{ index: this.index, doc: this.section, overlayer: this.overlayer }];
+    };
     if (FakeView.withStyles)
       this.renderer.setStyles = (css: string) => {
         this.styles = css;
@@ -375,6 +398,7 @@ export function resetFoliateFake(): void {
   FakeView.openWith = null;
   FakeView.initWith = null;
   FakeView.withStyles = true;
+  FakeView.fixedLayout = false;
   FakeView.navigatesNowhere = false;
   FakeView.cfis = [];
   FakeView.toc = undefined;

@@ -8,7 +8,7 @@ keyboard; they answer "why" rather than "how".
 * [Deleting a note](deleting-a-note.md) - why a delete moves the note into a hidden folder instead of removing it
 * [Live preview and the vim mode](live-preview.md) - why the editor renders markdown in normal mode and shows you the source in insert mode
 * [The archive](the-archive.md) - why finished work goes in a folder rather than a field, and why one key rather than a filter on every list
-* [Books in the vault](books-in-the-vault.md) - why a book is its note's path with the suffix swapped, the two doors one comes in by, why a highlight is found again by searching the page for its words, and why the vault's history never takes a copy of one
+* [The file beside a note](books-in-the-vault.md) - why what you read is its note's path with the suffix swapped, why the suffix is one of two, the two doors a file comes in by, why a highlight is found again by searching the page for its words, and why the vault's history never takes a copy
 * [OKF in the vault](okf-in-the-vault.md) - why the vault is an Open Knowledge Format bundle, what the one adopted field buys, why the backfill is not a save, what a note renamed onto a reserved name costs, and why the vocabulary is a note nothing validates
 * [Spaced repetition](spaced-repetition.md) - why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, and why the review has two front ends
 * [The agent boundary](the-agent-boundary.md) - why a token reaches five capabilities under a prefix of their own rather than the routes the browser uses, what it cannot do, why the write is conditional in one direction only, and what one Caddy block is holding

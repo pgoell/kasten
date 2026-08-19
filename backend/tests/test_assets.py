@@ -14,6 +14,9 @@ if TYPE_CHECKING:
 BOOK = b"PK\x03\x04 not really a book"
 """Enough bytes to tell one response from another. Nothing on this path opens one."""
 
+PDF = b"%PDF-1.7 not really a book either"
+"""The other format the vault reads, and the one the epub's zip magic misses."""
+
 
 async def test_reads_a_book_out_of_the_vault(client: AsyncClient, vault: Path) -> None:
     (vault / "books").mkdir()
@@ -156,6 +159,28 @@ async def test_refuses_a_body_over_the_cap(
     assert pulled == [3]
     assert not (vault / "books" / "DDIA.epub").exists()
     assert list((vault / "books").iterdir()) == []
+
+
+async def test_a_pdf_lands_and_reads_back(client: AsyncClient, vault: Path) -> None:
+    response = await client.post("/api/assets/books/DDIA.pdf", content=PDF)
+
+    assert response.status_code == 201
+
+    read = await client.get("/api/assets/books/DDIA.pdf")
+
+    assert read.status_code == 200
+    assert read.content == PDF
+    assert read.headers["content-type"] == "application/pdf"
+
+
+async def test_refuses_bytes_that_are_not_a_pdf(client: AsyncClient, vault: Path) -> None:
+    # The magic is picked by the suffix, so the two formats cannot be sent
+    # under each other's names.
+    response = await client.post("/api/assets/books/DDIA.pdf", content=BOOK)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "That file is not what its name says"
+    assert not (vault / "books" / "DDIA.pdf").exists()
 
 
 async def test_refuses_bytes_that_are_not_a_zip(client: AsyncClient, vault: Path) -> None:
@@ -403,11 +428,14 @@ async def test_lists_the_images_in_the_vault(client: AsyncClient, vault: Path) -
     (vault / "99 Misc" / "shot.png").write_bytes(PNG)
     (vault / "note.md").write_text("# note")
     (vault / "DDIA.epub").write_bytes(BOOK)
+    (vault / "SICP.pdf").write_bytes(PDF)
 
     response = await client.get("/api/images")
 
-    # The note and the book both sit out: the listing is what a `![](` completes
-    # against, and neither is an image.
+    # The note and both books sit out: the listing is what a `![](` completes
+    # against and what the file tree draws, and none of the three is an image.
+    # The pdf is the one that gets in when the image suffixes subtract a single
+    # book format rather than the whole tuple.
     assert response.status_code == 200
     assert response.json() == ["99 Misc/shot.png"]
 
@@ -439,16 +467,21 @@ async def test_puts_a_deleted_image_back(client: AsyncClient, vault: Path) -> No
     assert (await client.get("/api/assets/shot.png")).status_code == 200
 
 
-async def test_refuses_to_delete_a_book(client: AsyncClient, vault: Path) -> None:
+@pytest.mark.parametrize("book", [("DDIA.epub", BOOK), ("DDIA.pdf", PDF)], ids=["epub", "pdf"])
+async def test_refuses_to_delete_a_book(
+    client: AsyncClient, vault: Path, book: tuple[str, bytes]
+) -> None:
     # A book travels with the note beside it, and this route decides nothing
-    # about that pair.
-    (vault / "DDIA.epub").write_bytes(BOOK)
+    # about that pair. Both formats, because the refusal reads a tuple now and
+    # a suffix left out of it is a book the app can delete and never restore.
+    name, content = book
+    (vault / name).write_bytes(content)
 
-    response = await client.delete("/api/assets/DDIA.epub")
+    response = await client.delete(f"/api/assets/{name}")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "No such image"
-    assert (vault / "DDIA.epub").exists()
+    assert (vault / name).exists()
 
 
 async def test_reports_deleting_an_image_that_is_not_there(

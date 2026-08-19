@@ -139,7 +139,7 @@ resolves to the first one.
 
 The `reading:` field in the note's frontmatter is an epubcfi, and that is a
 different job. It is kasten's own bookmark rather than a citation, and nothing
-has to read it by hand. [Books in the vault](/explanation/books-in-the-vault.md)
+has to read it by hand. [The file beside a note](/explanation/books-in-the-vault.md)
 says why a quote is the anchor.
 
 ## Reading a highlight back

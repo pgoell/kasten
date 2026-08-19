@@ -19,27 +19,65 @@ describe("fetchBook", () => {
     vi.unstubAllGlobals();
   });
 
-  it("asks for the book at the path, percent encoded", async () => {
-    const bytes = new Blob(["book"]);
-    const fetching = vi.fn().mockResolvedValue({ ok: true, blob: async () => bytes });
+  /** The vault answering with one file, named the way the route names it. */
+  function answering(named: string, bytes = new Blob(["book"])) {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      // Encoded, because a header is latin-1 on the wire. The backend spells
+      // it this way and this is the other half of that one rule.
+      headers: new Headers({ "X-Book-Path": encodeURIComponent(named) }),
+      blob: async () => bytes,
+    });
+  }
+
+  it("asks the vault what sits beside the note, percent encoded", async () => {
+    // The note's path and not the file's: two suffixes answer to the pair now,
+    // and which of them is there is the vault's answer rather than a guess
+    // this side could make without spending a 404 on every pdf.
+    const fetching = answering("20 Literature/DDIA.epub");
     vi.stubGlobal("fetch", fetching);
 
-    await fetchBook("20 Literature/DDIA.epub");
+    await fetchBook("20 Literature/DDIA.md");
 
-    expect(fetching).toHaveBeenCalledWith("/api/assets/20%20Literature%2FDDIA.epub");
+    expect(fetching).toHaveBeenCalledWith("/api/books/20%20Literature%2FDDIA.md");
+  });
+
+  it("hands back the file the answer named, with its bytes", async () => {
+    const bytes = new Blob(["book"]);
+    vi.stubGlobal("fetch", answering("20 Literature/DDIA.pdf", bytes));
+
+    await expect(fetchBook("20 Literature/DDIA.md")).resolves.toEqual({
+      path: "20 Literature/DDIA.pdf",
+      blob: bytes,
+    });
+  });
+
+  it("decodes a name the header could not carry as it stands", async () => {
+    // The case the encoding exists for: a vault holds notes called
+    // `Grundzüge`, and a header carrying that byte for byte is not latin-1.
+    vi.stubGlobal("fetch", answering("00 Inbox/02 Documents/Grundzüge.pdf"));
+
+    await expect(fetchBook("00 Inbox/02 Documents/Grundzüge.md")).resolves.toMatchObject({
+      path: "00 Inbox/02 Documents/Grundzüge.pdf",
+    });
+  });
+
+  it("refuses an answer that names no file", async () => {
+    // A backend that changed under this one. It reads as no book rather than
+    // as a book called nothing, which is what the reader would download and
+    // put in its own failure message.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), blob: async () => new Blob() }),
+    );
+
+    await expect(fetchBook("20 Literature/DDIA.md")).rejects.toThrow("without naming the file");
   });
 
   it("says what the vault answered when it refused", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
 
-    await expect(fetchBook("gone.epub")).rejects.toThrow("404");
-  });
-
-  it("hands back the bytes when the vault has them", async () => {
-    const bytes = new Blob(["book"]);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, blob: async () => bytes }));
-
-    await expect(fetchBook("there.epub")).resolves.toBe(bytes);
+    await expect(fetchBook("gone.md")).rejects.toThrow("404");
   });
 });
 
