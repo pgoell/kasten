@@ -39,6 +39,7 @@ function stubCommands() {
     openReview: vi.fn(),
     openExam: vi.fn(),
     focusTree: vi.fn(),
+    revealTree: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),
     importPage: vi.fn(),
@@ -161,6 +162,19 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "e" });
 
     expect(commands.focusTree).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the reveal command on space then shifted e", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "E", shiftKey: true });
+
+    expect(commands.revealTree).toHaveBeenCalledTimes(1);
+    // One keystroke apart from the focus, and the shift is the whole
+    // difference. This is the assertion that keeps them apart.
+    expect(commands.focusTree).not.toHaveBeenCalled();
   });
 
   it("runs the create command on space then c then f", () => {

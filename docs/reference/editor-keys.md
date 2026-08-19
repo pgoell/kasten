@@ -36,6 +36,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>df` | Move the open note into the trash |
 | `<leader>du` | Put the last deleted note or folder back |
 | `<leader>e` | Move the focus to the file tree |
+| `<leader>E` | Unfold the tree down to the open note and put its cursor there |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
 | `<leader>ft` | Open the todo overlay |
@@ -135,7 +136,10 @@ links to it and the other what it links to. Both do nothing with no note on
 screen, which is how the keys say there is nothing to ask about.
 
 `<leader>e` unfolds the tree first if it was folded away, and lands on the row
-the tree cursor is already on. Escape in the tree comes back to the editor.
+the tree cursor is already on. `<leader>E` does that and one thing more: it
+unfolds the way down to the note the pane holds and takes the cursor to it, so a
+note you reached by any route but the tree stops being a note the tree cannot
+show you. Escape in the tree comes back to the editor.
 
 `<leader>q` closes the note only once the vault holds the text. A write that
 fails leaves the note open with the warning in the status bar, because closing
@@ -1418,6 +1422,22 @@ you open it, which is what keeps a big vault cheap: at 10,000 notes that is 8
 rows on screen rather than 10,842. The folders on the way to the open note are
 unfolded for you, so a reload lands on the note it says is open rather than on
 a tree that has hidden it.
+
+That unfolding happens once, when the page loads. Every note you open after
+that, through the finder, a `[[link]]`, a backlink or a periodic key, leaves the
+tree where it was: folded the way you left it, cursor on the row you left it on.
+`<leader>E` is the way to catch it up. It unfolds the way down to whatever the
+focused pane holds, note or image, puts the tree's cursor on that row and moves
+the focus there, which is `<leader>e` plus the jump. It unfolds on top of what
+you already had open rather than in place of it, so nothing you opened by hand
+folds away. A pane holding no note, and a note the archive is hiding, leave the
+cursor where it is: there is no row to go to, and moving it nowhere is worse
+than not moving it.
+
+A reader and a practice exam count as the note they were opened from, so
+`<leader>E` reaches that note from either, and the tree marks its row while you
+are reading. It is the pane where knowing where you are is worth most: a book
+fills the screen and says nothing about which note in the vault opened it.
 
 | Key | Does |
 | --- | --- |

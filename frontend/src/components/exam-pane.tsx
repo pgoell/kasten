@@ -11,7 +11,7 @@ import {
   resultNote,
   resultPath,
 } from "@/lib/exam";
-import { type EditorCommands, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
 
 /**
@@ -151,6 +151,10 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
 
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
+
+    // A modifier holds itself down before the key it is held for arrives, and
+    // a pending sequence that read it as a key would drop the sequence there.
+    if (heldModifier(key)) return;
 
     if (pending) {
       const sequence = pending + key;

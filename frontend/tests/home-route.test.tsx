@@ -265,6 +265,8 @@ async function renderApp() {
     readerPane: () => container.querySelector("[data-book-pane]") as HTMLElement,
     /** The tree's own panel, which is where its bare keys are pressed. */
     tree: () => container.querySelector("[aria-label='Vault']") as HTMLElement,
+    /** The row the tree's cursor is on: the panel's only tab stop. */
+    treeCursor: () => container.querySelector<HTMLElement>("[aria-label='Vault'] [tabindex='0']"),
     /** Choose a file in the picker, which is what `userEvent.upload` does. */
     choose: (file: File) => {
       const input = container.querySelector("input[type='file']") as HTMLInputElement;
@@ -1234,6 +1236,21 @@ describe("a reader when the vault moves under it", () => {
     app.fill(to);
     await settle();
   }
+
+  it("reveals the note the reader is reading", async () => {
+    // `openPath` is what the tree is told the focused pane holds, and a reader
+    // holds `pane.book` rather than `pane.path`. Without that arm `<leader>E`
+    // does nothing in the one pane where you least know where you are.
+    const app = await reading();
+    // Clicking a row does not move the tree cursor, so it is still on the
+    // folder the tree opened on.
+    expect(app.treeCursor()?.textContent).toBe("20 Literature");
+
+    app.leader("E");
+    await settle();
+
+    expect(app.treeCursor()).toHaveAttribute("title", LIT);
+  });
 
   it("follows the note when its folder moves", async () => {
     const app = await reading();

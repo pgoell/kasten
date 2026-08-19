@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
-import { type EditorCommands, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import type { Deck } from "@/lib/review";
 import type { Rating } from "@/lib/srs";
 
@@ -70,6 +70,10 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
 
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
+
+    // A modifier holds itself down before the key it is held for arrives, and
+    // a pending sequence that read it as a key would drop the sequence there.
+    if (heldModifier(key)) return;
 
     // The leader still works inside the pane, the way it does inside the exam,
     // so the other panes stay reachable mid-session.

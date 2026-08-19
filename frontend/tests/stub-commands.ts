@@ -14,6 +14,7 @@ export function stubCommands() {
     closeNote: vi.fn(),
     showHelp: vi.fn(),
     focusTree: vi.fn(),
+    revealTree: vi.fn(),
     createNote: vi.fn(),
     renameNote: vi.fn(),
     deleteNote: vi.fn(),

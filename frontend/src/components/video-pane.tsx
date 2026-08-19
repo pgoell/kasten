@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchNote } from "@/lib/api";
-import { type EditorCommands, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
 import { LABEL } from "@/lib/overlay-styles";
 import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";
@@ -189,6 +189,10 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
   // the player owning every key that reaches it.
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
+
+    // A modifier holds itself down before the key it is held for arrives, and
+    // a pending sequence that read it as a key would drop the sequence there.
+    if (heldModifier(key)) return;
 
     if (pending) {
       const sequence = pending + key;

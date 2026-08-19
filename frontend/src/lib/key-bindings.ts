@@ -26,6 +26,16 @@ export interface EditorCommands {
   closeNote(): void;
   showHelp(): void;
   focusTree(): void;
+  /**
+   * Unfold the tree down to the note the focused pane holds, and put the tree's
+   * cursor on its row.
+   *
+   * `focusTree` leaves the cursor where it was, which is right after you have
+   * walked the tree and wrong after you have not: a note reached by the finder,
+   * a wikilink or a backlink is somewhere the tree has never heard of, and the
+   * panel goes on pointing at whatever row it opened on.
+   */
+  revealTree(): void;
   /** The folder the prompt opens on, which only the file tree knows. */
   createNote(startPath?: string): void;
   /** The note to rename, which the tree knows and the editor leaves to the route. */
@@ -195,6 +205,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // Tab used to be the way into the tree, and binding it to indent took that
   // away. This is the way back in, and it unfolds the panel first.
   { key: "e", label: "Focus the file tree", command: "focusTree" },
+  // Shifted `e`, the way `H` is shifted `h`: the same place, reached harder.
+  // `e` moves the focus and this moves the cursor with it, which is what VS
+  // Code calls revealing a file and nvim-tree calls finding one.
+  { key: "E", label: "Show the open note in the file tree", command: "revealTree" },
   // Telescope spells `find_files` this way, and the shape matches `cf` and `rf`
   // beside it: the group letter, then the thing.
   { key: "ff", label: "Find a note", command: "findNote" },
@@ -380,6 +394,20 @@ export function leaderAction(typed: string, commands: EditorCommands): (() => vo
  */
 export function leaderPrefix(typed: string): boolean {
   return LEADER.some((entry) => entry.key.startsWith(typed));
+}
+
+/**
+ * Whether the press is a modifier holding itself down rather than a key.
+ *
+ * The browser sends a keydown for shift before it sends the letter shift was
+ * held for, so a pane resolving a sequence by hand sees `" "`, `"Shift"`,
+ * `"E"`, and drops the sequence on the middle one: `<leader>E` and `<leader>H`
+ * to `<leader>L` were unreachable from every pane but the editor, which is the
+ * one place vim resolves the keys and vim skips these already, by the same
+ * list in `vim.js`.
+ */
+export function heldModifier(key: string): boolean {
+  return key === "Shift" || key === "Control" || key === "Alt" || key === "Meta";
 }
 
 /**
