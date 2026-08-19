@@ -1639,7 +1639,10 @@ function Home() {
           // The same archive filter the notes answer to. An image in the
           // archive is archived like everything else under that folder.
           images={visible(images ?? [], archive)}
-          openPath={pane.path ?? pane.image}
+          // What the focused pane holds, whichever of the four fields carries
+          // it. A reader and an exam name the note they were opened from, so
+          // the tree marks that note and `<leader>E` reaches it from either.
+          openPath={pane.path ?? pane.book ?? pane.exam ?? pane.image}
           onOpenFile={(path) => void openInPane(path)}
           onOpenImage={(path) => void openImageInPane(path)}
           open={treeOpen}

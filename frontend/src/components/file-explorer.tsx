@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { leaderAction, leaderPrefix, type TreeCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix, type TreeCommands } from "@/lib/key-bindings";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -567,6 +567,10 @@ export function FileExplorer({
    */
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
+
+    // A modifier holds itself down before the key it is held for arrives, and
+    // a pending sequence that read it as a key would drop the sequence there.
+    if (heldModifier(key)) return;
 
     if (pending) {
       const sequence = pending + key;

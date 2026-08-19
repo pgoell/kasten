@@ -397,6 +397,20 @@ export function leaderPrefix(typed: string): boolean {
 }
 
 /**
+ * Whether the press is a modifier holding itself down rather than a key.
+ *
+ * The browser sends a keydown for shift before it sends the letter shift was
+ * held for, so a pane resolving a sequence by hand sees `" "`, `"Shift"`,
+ * `"E"`, and drops the sequence on the middle one: `<leader>E` and `<leader>H`
+ * to `<leader>L` were unreachable from every pane but the editor, which is the
+ * one place vim resolves the keys and vim skips these already, by the same
+ * list in `vim.js`.
+ */
+export function heldModifier(key: string): boolean {
+  return key === "Shift" || key === "Control" || key === "Alt" || key === "Meta";
+}
+
+/**
  * The modifiers a terminal chord is held with, in one place so retuning the
  * whole set is one edit.
  *

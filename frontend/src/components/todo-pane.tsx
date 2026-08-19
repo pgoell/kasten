@@ -4,7 +4,7 @@ import { TodoHints } from "@/components/todo-hints";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
-import { type EditorCommands, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { dailyDate } from "@/lib/periodic";
 import {
@@ -616,6 +616,10 @@ export function TodoPane({
     // reaches and which is still an edit rather than a walk down the list.
     if (event.target instanceof HTMLInputElement || editing !== null) return;
     const { key } = event;
+
+    // A modifier holds itself down before the key it is held for arrives, and
+    // a pending sequence that read it as a key would drop the sequence there.
+    if (heldModifier(key)) return;
 
     if (pending) {
       const sequence = pending + key;

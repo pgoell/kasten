@@ -1434,6 +1434,11 @@ folds away. A pane holding no note, and a note the archive is hiding, leave the
 cursor where it is: there is no row to go to, and moving it nowhere is worse
 than not moving it.
 
+A reader and a practice exam count as the note they were opened from, so
+`<leader>E` reaches that note from either, and the tree marks its row while you
+are reading. It is the pane where knowing where you are is worth most: a book
+fills the screen and says nothing about which note in the vault opened it.
+
 | Key | Does |
 | --- | --- |
 | `j` / `k` | Move the cursor down or up |

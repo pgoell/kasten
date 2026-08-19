@@ -32,6 +32,7 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onDeleteImage?: (startPath: string) => void;
   onFindNote?: () => void;
   onSearchNotes?: () => void;
+  onRevealTree?: () => void;
   onGoToTab?: (index: number) => void;
 };
 
@@ -45,6 +46,7 @@ function Harness({
   onDeleteImage,
   onFindNote,
   onSearchNotes,
+  onRevealTree,
   onGoToTab,
   ...props
 }: TreeProps) {
@@ -68,7 +70,7 @@ function Harness({
         closeNote: () => {},
         showHelp: () => {},
         focusTree: () => {},
-        revealTree: () => {},
+        revealTree: onRevealTree ?? (() => {}),
         createNote: onCreateNote ?? (() => {}),
         renameNote: onRenameNote ?? (() => {}),
         renameFolder: onRenameFolder ?? (() => {}),
@@ -547,6 +549,21 @@ describe("the tree keyboard", () => {
 
     expect(onCreateNote).not.toHaveBeenCalled();
     expect(cursor()).toHaveTextContent("2026-08-04");
+  });
+
+  it("reads a leader key that needs shift", () => {
+    // The browser sends a keydown for the shift key itself before it sends the
+    // letter, and a pending sequence that took it for a key would be dropped
+    // before the letter it was waiting for arrived. Every shifted leader key
+    // reachable from here rides on this: `<leader>E`, and `<leader>H` to `L`.
+    const onRevealTree = vi.fn();
+    renderTree({ onRevealTree });
+
+    press(" ");
+    press("Shift");
+    press("E");
+
+    expect(onRevealTree).toHaveBeenCalledTimes(1);
   });
 
   it("hands focus back to the editor on escape", () => {
