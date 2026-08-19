@@ -563,8 +563,8 @@ export interface paths {
          *     Images alone, though `resolve_asset` answers for books too. A book travels
          *     with the note beside it, and which of the pair a delete should take is a
          *     decision nothing here has made; the file tree, which is what this route
-         *     serves, lists images and no books. So a `.epub` is a 404 like any other path
-         *     this does not serve.
+         *     serves, lists images and no books. So a book is a 404 like any other path
+         *     this does not serve, whichever of `BOOK_SUFFIXES` it ends in.
          *
          *     The notes pointing at the image are left alone, for the reason the note
          *     delete leaves `[[link]]`s alone: rewriting them to say the picture is gone
@@ -572,6 +572,44 @@ export interface paths {
          *     reference to a file that is not there as a picture that will not load.
          */
         delete: operations["delete_asset_api_assets__path__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/books/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Book
+         * @description Read the book filed beside one note.
+         *
+         *     The path is the note's, `20 Literature/DDIA.md`, and never the book's. The
+         *     pair is a convention rather than a record, so the vault is the only thing
+         *     that can resolve it: a client working from the note alone would have to ask
+         *     for one suffix, read the 404 and ask for the next, which is a request per
+         *     format and a guess about the order they should be tried in. Here it is one
+         *     question, and `BOOK_SUFFIXES` answers it in the order the vault prefers.
+         *
+         *     `X-Book-Path` says which of the pair came back, spelled from the vault root.
+         *     A header rather than a body, the body being the book: the client names the
+         *     file it hands the reader after this, and draws the path in the panel it puts
+         *     up when a note has no book. Percent-encoded, because a header goes down the
+         *     wire as latin-1 and a book called `Grundzüge.pdf` would otherwise raise on
+         *     its way out.
+         *
+         *     No `media_type`, for the reason the asset read gives: `mimetypes` answers
+         *     `application/epub+zip` and `application/pdf` off the suffix, and starlette
+         *     reads it off the path.
+         */
+        get: operations["read_book_api_books__path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1658,6 +1696,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TrashEntry"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_book_api_books__path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Where the book that came back sits in the vault. */
+                    "X-Book-Path": string;
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

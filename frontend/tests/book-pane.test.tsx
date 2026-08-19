@@ -4,7 +4,6 @@ import { StrictMode } from "react";
 import type { TocItem } from "@/components/book-contents";
 import { BookPane } from "@/components/book-pane";
 import { addHighlight } from "@/lib/highlight";
-import { bookPath } from "@/lib/note-path";
 import {
   deferred,
   defineFoliateFake,
@@ -31,6 +30,7 @@ vi.mock("@/lib/api", () => ({ fetchBook, fetchNote, uploadAsset }));
 vi.mock("foliate-js/view.js", () => ({}));
 
 const NOTE = "20 Literature/DDIA.md";
+/** The file the vault answers sits beside it, which the pane works out none of. */
 const BOOK = "20 Literature/DDIA.epub";
 
 /** What the One background reads as, so the styling case has a value to find. */
@@ -97,7 +97,12 @@ function draw(props: { note?: string; paths?: string[]; seed?: Blob; held?: stri
   // Seeded so the very first render already has bytes. The effect returns early
   // while the query is pending, and StrictMode double-invokes on mount only, so
   // without this the double mount happens before there is a book to open.
-  if (props.seed) client.setQueryData(["book", bookPath(props.note ?? NOTE)], props.seed);
+  // Under the note's own path, which is the key the pane reads and the route
+  // invalidates: the file's path is what the answer carries rather than what
+  // the question asked.
+  if (props.seed) {
+    client.setQueryData(["book", props.note ?? NOTE], { path: BOOK, blob: props.seed });
+  }
   // The note the pane draws from, seeded for the reason the blob is: the
   // drawing cases emit an overlay by hand and the note has to be in before
   // they do.
@@ -185,7 +190,7 @@ function selectsNothing(doc: Document = lastView().section) {
 describe("BookPane", () => {
   beforeEach(() => {
     resetFoliateFake();
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockResolvedValue({ path: BOOK, blob: new Blob(["a book"]) });
     // A string and not undefined: the pane reads a field off what this answers,
     // and `mockResolvedValue(undefined)` is a default too, one that draws the
     // error panel over every case in this file.
@@ -260,22 +265,26 @@ describe("BookPane", () => {
     expect(lastView().inits).toHaveLength(1);
   });
 
-  it("says which book it wanted when the vault has none", async () => {
-    fetchBook.mockRejectedValue(new Error("GET /api/assets failed with 404"));
+  it("names the note, and both suffixes, when nothing sits beside it", async () => {
+    fetchBook.mockRejectedValue(new Error("GET /api/books failed with 404"));
 
     draw();
 
-    await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
+    // The note and not a file, because the file is the half that is missing
+    // and the pane no longer works out what it would have been called. Both
+    // suffixes because either would answer, which is what "goes here" means.
+    await waitFor(() => expect(panel()).toHaveTextContent(NOTE));
+    expect(panel()).toHaveTextContent(".epub or .pdf");
   });
 
   it("says so for a book of no bytes", async () => {
     // foliate throws `NotFoundError` on `!file.size`, which reads as a broken
     // library rather than as an empty file.
-    fetchBook.mockResolvedValue(new Blob([]));
+    fetchBook.mockResolvedValue({ path: BOOK, blob: new Blob([]) });
 
     draw();
 
-    await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
+    await waitFor(() => expect(panel()).toHaveTextContent(NOTE));
   });
 
   it("says so when the book cannot be opened", async () => {
@@ -283,7 +292,7 @@ describe("BookPane", () => {
 
     draw();
 
-    await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
+    await waitFor(() => expect(panel()).toHaveTextContent(NOTE));
   });
 
   it("says so when the first navigation fails and nothing loaded", async () => {
@@ -295,7 +304,7 @@ describe("BookPane", () => {
 
     draw();
 
-    await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
+    await waitFor(() => expect(panel()).toHaveTextContent(NOTE));
   });
 
   it("goes to the front of the book when the saved place loaded nothing", async () => {
@@ -333,7 +342,7 @@ describe("BookPane", () => {
   it("says so when the note it reads beside has left the vault", async () => {
     draw({ paths: ["something/else.md"] });
 
-    await waitFor(() => expect(panel()).toHaveTextContent(BOOK));
+    await waitFor(() => expect(panel()).toHaveTextContent(NOTE));
   });
 
   it("says nothing while the listing has not arrived", async () => {
@@ -457,7 +466,7 @@ describe("BookPane", () => {
 describe("the keys inside a book", () => {
   beforeEach(() => {
     resetFoliateFake();
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockResolvedValue({ path: BOOK, blob: new Blob(["a book"]) });
     fetchNote.mockResolvedValue("");
   });
 
@@ -693,7 +702,7 @@ describe("the keys inside a book", () => {
 describe("taking a passage into the note", () => {
   beforeEach(() => {
     resetFoliateFake();
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockResolvedValue({ path: BOOK, blob: new Blob(["a book"]) });
     fetchNote.mockResolvedValue("");
     uploadAsset.mockResolvedValue(undefined);
   });
@@ -911,14 +920,19 @@ describe("taking a passage into the note", () => {
     // A spread shows two documents, the location names one side and carries no
     // range, and both frames are scaled, so each of the three would write a
     // wrong highlight rather than none.
+    //
+    // Set before the view is built rather than on the view afterwards, because
+    // the real one reads it off the book's own rendition inside `open`
+    // (`view.js:254`) and its renderer answers a different shape from then on.
+    FakeView.fixedLayout = true;
     const pane = await opened();
-    lastView().isFixedLayout = true;
     at(CHAPTERS[0]);
 
     selects("A sentence worth keeping.");
     press(lastView().section, "y");
 
     expect(pane.onTake).not.toHaveBeenCalled();
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
   });
 
   it("draws no button where the iframe cannot be reached", async () => {
@@ -966,7 +980,7 @@ describe("taking a passage into the note", () => {
 describe("where the reader got to", () => {
   beforeEach(() => {
     resetFoliateFake();
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockResolvedValue({ path: BOOK, blob: new Blob(["a book"]) });
     fetchNote.mockResolvedValue("");
   });
 
@@ -1159,7 +1173,7 @@ describe("where the reader got to", () => {
 describe("drawing the note's highlights", () => {
   beforeEach(() => {
     resetFoliateFake();
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockResolvedValue({ path: BOOK, blob: new Blob(["a book"]) });
     fetchNote.mockResolvedValue("");
   });
 
@@ -1248,6 +1262,24 @@ describe("drawing the note's highlights", () => {
     expect(panel()).toBeNull();
   });
 
+  it("draws nothing on a fixed-layout page carrying no text layer", async () => {
+    // The pre-paginated epub, whose renderer answers `{ doc }` and nothing
+    // else (`fixed-layout.js:308-313`). The other half of the same guard: a
+    // pdf page arrives in that shape too and the pane hangs an overlay in its
+    // text layer, so the pass has to tell one from the other by the layer
+    // rather than by the shape, and an epub page has none.
+    FakeView.fixedLayout = true;
+    await reading([PASSAGE, OTHER]);
+
+    // The very sequence the first case in this block draws both highlights on.
+    act(() => lastView().emitCreateOverlay());
+
+    expect(lastView().overlayer?.added).toEqual([]);
+    // And nothing hung by hand either, which is what the pane does to a pdf.
+    expect(lastView().section.querySelector("svg")).toBeNull();
+    expect(panel()).toBeNull();
+  });
+
   it("draws nothing for a pane that went away between the emit and the pass", async () => {
     const pane = await reading([PASSAGE, OTHER]);
     const view = lastView();
@@ -1276,9 +1308,16 @@ describe("drawing the note's highlights", () => {
   });
 
   it("walks the book to the section holding the passage it is handed", async () => {
-    // The spine in the order the pane walks it: one foliate cannot open, two
-    // holding other words, and the one holding the quote.
-    FakeView.sections = sectionsOf(null, [OTHER], [OTHER], [PASSAGE]);
+    // The spine in the order the pane walks it: one holding other words, one
+    // foliate cannot open, and the one holding the quote.
+    //
+    // The unopenable section is not first, and that is now load-bearing: the
+    // pane reads the head of the spine to tell an epub from a pdf, a pdf's
+    // sections carrying no `createDocument` at all (`pdf.js:150-160`), so a
+    // spine beginning with one would send this book down the pdf arm. No real
+    // epub begins that way, `epub.js:999` dropping every section it could not
+    // build from the spine.
+    FakeView.sections = sectionsOf([OTHER], null, [OTHER], [PASSAGE]);
     const pane = await reading([]);
 
     act(() => pane.send([PASSAGE]));

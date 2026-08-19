@@ -14,25 +14,27 @@ def _ignores(root: Path) -> list[str]:
     return (root / ".gitignore").read_text(encoding="utf-8").splitlines()
 
 
-async def test_startup_writes_both_lines(startup_vault: Path) -> None:
+async def test_startup_writes_every_line(startup_vault: Path) -> None:
     async with LifespanManager(app):
         pass
 
-    assert _ignores(startup_vault) == ["*.epub", ".*.tmp"]
+    # Both book formats, or the first save after a small pdf lands sweeps it
+    # into the history, where nothing takes it back out.
+    assert _ignores(startup_vault) == ["*.epub", "*.pdf", ".*.tmp"]
 
 
 async def test_startup_keeps_the_lines_the_vault_already_had(startup_vault: Path) -> None:
     ignores = startup_vault / ".gitignore"
     ignores.parent.mkdir(parents=True)
-    ignores.write_text("*.pdf\n", encoding="utf-8")
+    ignores.write_text("*.mobi\n", encoding="utf-8")
 
     async with LifespanManager(app):
         pass
 
-    assert _ignores(startup_vault) == ["*.pdf", "*.epub", ".*.tmp"]
+    assert _ignores(startup_vault) == ["*.mobi", "*.epub", "*.pdf", ".*.tmp"]
 
 
-async def test_startup_adds_only_the_missing_line(startup_vault: Path) -> None:
+async def test_startup_adds_only_the_lines_that_are_missing(startup_vault: Path) -> None:
     ignores = startup_vault / ".gitignore"
     ignores.parent.mkdir(parents=True)
     ignores.write_text("*.epub\n", encoding="utf-8")
@@ -40,7 +42,7 @@ async def test_startup_adds_only_the_missing_line(startup_vault: Path) -> None:
     async with LifespanManager(app):
         pass
 
-    assert _ignores(startup_vault) == ["*.epub", ".*.tmp"]
+    assert _ignores(startup_vault) == ["*.epub", "*.pdf", ".*.tmp"]
 
 
 async def test_starting_twice_is_not_an_edit(startup_vault: Path) -> None:
@@ -75,4 +77,4 @@ async def test_the_lines_are_there_before_the_guide_is_written(
     async with LifespanManager(app):
         pass
 
-    assert seen == ["*.epub\n.*.tmp\n"]
+    assert seen == ["*.epub\n*.pdf\n.*.tmp\n"]

@@ -61,38 +61,56 @@ const {
   deleteImage,
   fetchVersion,
   fetchTags,
-} = vi.hoisted(() => ({
-  fetchFiles: vi.fn(),
-  fetchNote: vi.fn(),
-  saveNote: vi.fn(),
-  searchNotes: vi.fn(),
-  createNote: vi.fn(),
-  renameNote: vi.fn(),
-  moveFolder: vi.fn(),
-  deleteNote: vi.fn(),
-  fetchTrash: vi.fn(),
-  restoreEntry: vi.fn(),
-  // The terminal prompt asks for these when it opens. No route test opens
-  // it, so an empty list is the whole of what this has to answer.
-  fetchTerminals: vi.fn().mockResolvedValue([]),
-  // The todo pane asks for these the moment it opens. Nothing here is about
-  // what the vault holds to do, so an empty list is the whole of the answer.
-  fetchTodos: vi.fn().mockResolvedValue([]),
-  // A reader mounted by these tests reads this off the factory. Left out, it
-  // is undefined, the query throws and every case sees the error panel.
-  fetchBook: vi.fn().mockResolvedValue(new Blob(["a book"])),
-  uploadAsset: vi.fn().mockResolvedValue(undefined),
-  // Every note the editor opens asks for these, for the completion inside a
-  // `![](`. Nothing here is about images, so an empty list is the whole answer.
-  fetchImages: vi.fn().mockResolvedValue([]),
-  // Asked once per mount, for the completion an open `#` offers. Nothing here
-  // is about tags, so an empty vocabulary is the whole answer.
-  fetchTags: vi.fn().mockResolvedValue([]),
-  deleteImage: vi.fn(),
-  // The status bar asks for this on every mount. A release, because the bundle
-  // these run against carries no commit either.
-  fetchVersion: vi.fn().mockResolvedValue("0.8.0"),
-}));
+  beside,
+} = vi.hoisted(() => {
+  /**
+   * What the vault answers for a note with a file beside it.
+   *
+   * The path is worked out here because it is the backend that works it out
+   * now: it looks for each suffix in turn beside the note and answers with the
+   * one it found. Nothing in the app guesses it any more, so a fake handing
+   * back a fixed path would let a pane read one note and download another
+   * note's book with every case still green.
+   */
+  const beside = (note: string, suffix = ".epub") => ({
+    path: note.replace(/\.md$/, suffix),
+    blob: new Blob(["a book"]),
+  });
+
+  return {
+    beside,
+    fetchFiles: vi.fn(),
+    fetchNote: vi.fn(),
+    saveNote: vi.fn(),
+    searchNotes: vi.fn(),
+    createNote: vi.fn(),
+    renameNote: vi.fn(),
+    moveFolder: vi.fn(),
+    deleteNote: vi.fn(),
+    fetchTrash: vi.fn(),
+    restoreEntry: vi.fn(),
+    // The terminal prompt asks for these when it opens. No route test opens
+    // it, so an empty list is the whole of what this has to answer.
+    fetchTerminals: vi.fn().mockResolvedValue([]),
+    // The todo pane asks for these the moment it opens. Nothing here is about
+    // what the vault holds to do, so an empty list is the whole of the answer.
+    fetchTodos: vi.fn().mockResolvedValue([]),
+    // A reader mounted by these tests reads this off the factory. Left out, it
+    // is undefined, the query throws and every case sees the error panel.
+    fetchBook: vi.fn(async (note: string) => beside(note)),
+    uploadAsset: vi.fn().mockResolvedValue(undefined),
+    // Every note the editor opens asks for these, for the completion inside a
+    // `![](`. Nothing here is about images, so an empty list is the whole answer.
+    fetchImages: vi.fn().mockResolvedValue([]),
+    // Asked once per mount, for the completion an open `#` offers. Nothing here
+    // is about tags, so an empty vocabulary is the whole answer.
+    fetchTags: vi.fn().mockResolvedValue([]),
+    deleteImage: vi.fn(),
+    // The status bar asks for this on every mount. A release, because the bundle
+    // these run against carries no commit either.
+    fetchVersion: vi.fn().mockResolvedValue("0.8.0"),
+  };
+});
 vi.mock("@/lib/api", () => ({
   fetchFiles,
   fetchNote,
@@ -243,6 +261,8 @@ async function renderApp() {
     reader: () => container.querySelector("foliate-view"),
     /** The panel a reader draws instead of a book. */
     alert: () => container.querySelector("[role='alert']"),
+    /** The reader's own wrapper, which answers its keys with no book in it too. */
+    readerPane: () => container.querySelector("[data-book-pane]") as HTMLElement,
     /** The tree's own panel, which is where its bare keys are pressed. */
     tree: () => container.querySelector("[aria-label='Vault']") as HTMLElement,
     /** Choose a file in the picker, which is what `userEvent.upload` does. */
@@ -357,7 +377,7 @@ describe("the route", () => {
     // it and a query function answering undefined is an error rather than an
     // empty list.
     fetchTodos.mockResolvedValue([]);
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockImplementation(async (note: string) => beside(note));
     // Reset with the rest, for the reason `fetchTodos` is: a query function
     // answering undefined is an error rather than an empty list.
     fetchImages.mockResolvedValue([]);
@@ -1057,7 +1077,11 @@ describe("the route", () => {
     expect(app.reader()).toBeNull();
   });
 
-  it("hands the book in the focused pane to the browser under its own name", async () => {
+  it("hands the file in the focused pane to the browser under the name the vault gave it", async () => {
+    // A pdf beside the note, so a swapped suffix and the vault's own answer
+    // are two different strings. The pane holds the note's path and nothing
+    // else, and the file's name is the answer's to give.
+    fetchBook.mockImplementation(async (note: string) => beside(note, ".pdf"));
     const caught = clicked();
     const app = await renderApp();
     await settle();
@@ -1071,10 +1095,31 @@ describe("the route", () => {
     fireEvent.keyDown(app.reader() as Element, { key: "w" });
     await settle();
 
-    expect(caught[0]?.download).toBe("index.epub");
-    // The address that already serves the book, and no blob: the bytes are on
+    expect(caught[0]?.download).toBe("index.pdf");
+    // The address that already serves the file, and no blob: the bytes are on
     // disk, not in the page.
-    expect(caught[0]?.getAttribute("href")).toBe("/api/assets/index.epub");
+    expect(caught[0]?.getAttribute("href")).toBe("/api/assets/index.pdf");
+  });
+
+  it("hands nothing over where the reader has not been told what is beside the note", async () => {
+    // The reader showing "nothing to read beside", which is the same case as a
+    // fetch that has not landed: there is no file to name, and a guess would
+    // hand the browser a 404 under a name nobody chose.
+    const caught = clicked();
+    fetchBook.mockRejectedValue(new Error("GET /api/books/index.md failed with 404"));
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("g", "r");
+    await settle();
+
+    // On the wrapper rather than on the view, there being no view: the effect
+    // opens nothing while the query has answered with an error.
+    fireEvent.keyDown(app.readerPane(), { key: "w" });
+    await settle();
+
+    expect(caught).toEqual([]);
   });
 
   it("takes the reader out of its pane and leaves the note pane alone", async () => {
@@ -1154,7 +1199,7 @@ describe("a reader when the vault moves under it", () => {
     fetchNote.mockResolvedValue("# DDIA");
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockImplementation(async (note: string) => beside(note));
     resetFoliateFake();
   });
 
@@ -1192,13 +1237,13 @@ describe("a reader when the vault moves under it", () => {
 
   it("follows the note when its folder moves", async () => {
     const app = await reading();
-    expect(fetchBook).toHaveBeenCalledWith("20 Literature/DDIA.epub");
+    expect(fetchBook).toHaveBeenCalledWith("20 Literature/DDIA.md");
     moveFolder.mockResolvedValue({ path: "Literature" });
     fetchFiles.mockResolvedValue(["Literature/DDIA.md", "index.md"]);
 
     await renameFolder(app, "Literature");
 
-    expect(fetchBook).toHaveBeenCalledWith("Literature/DDIA.epub");
+    expect(fetchBook).toHaveBeenCalledWith("Literature/DDIA.md");
     // The moved note and its book are both fresh queries, and the clock has to
     // run for their answers rather than only the microtasks `settle` flushes.
     await act(async () => {
@@ -1237,7 +1282,7 @@ describe("a reader when the vault moves under it", () => {
     // the `.md`, so a reader that stayed on the old path would be reading a
     // file that is no longer there.
     const app = await reading();
-    expect(fetchBook).toHaveBeenCalledWith("20 Literature/DDIA.epub");
+    expect(fetchBook).toHaveBeenCalledWith("20 Literature/DDIA.md");
     // Back to the note's own pane: a rename acts on the focused pane's note.
     app.leader("o");
     await settle();
@@ -1249,7 +1294,7 @@ describe("a reader when the vault moves under it", () => {
     app.fill("20 Literature/Designing.md");
     await settle();
 
-    expect(fetchBook).toHaveBeenCalledWith("20 Literature/Designing.epub");
+    expect(fetchBook).toHaveBeenCalledWith("20 Literature/Designing.md");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(500);
     });
@@ -1271,7 +1316,7 @@ describe("a reader when the vault moves under it", () => {
     app.fill("20 Literature/Designing.md");
     await settle();
 
-    expect(fetchBook).not.toHaveBeenCalledWith("elsewhere/note.epub");
+    expect(fetchBook).not.toHaveBeenCalledWith("elsewhere/note.md");
   });
 
   /** What the pane reports, and what the note ends up carrying. */
@@ -1532,6 +1577,22 @@ describe("a reader when the vault moves under it", () => {
       await waited();
 
       expect(types()).toEqual(["type: Book"]);
+      expect(written()).toContain(`reading: ${PLACE}`);
+    });
+
+    it("types a note Source where what is beside it is a pdf", async () => {
+      // Which type it is comes off the file rather than off the note: a pdf is
+      // as often a paper, a report or a deck as it is a book, and `Source` is
+      // the ontology's own name for something written elsewhere. Read out of
+      // the same cache the reader filled, so nothing asks the vault twice.
+      fetchBook.mockImplementation(async (note: string) => beside(note, ".pdf"));
+      fetchNote.mockResolvedValue(held("id: one", "type: Note"));
+      await reading();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(types()).toEqual(["type: Source"]);
       expect(written()).toContain(`reading: ${PLACE}`);
     });
 
@@ -1931,7 +1992,7 @@ describe("putting a book in the vault", () => {
     fetchNote.mockImplementation(async (path: string) => VAULT[path]);
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockImplementation(async (note: string) => beside(note));
     fetchImages.mockResolvedValue([]);
     // Re-armed with the rest: `resetAllMocks` takes the answer off them, and a
     // call that hands back undefined instead of a promise throws on `await`.
@@ -2000,6 +2061,41 @@ describe("putting a book in the vault", () => {
     // Not `index.epub`. The book is not named after whatever note was open.
     expect(uploadAsset).toHaveBeenCalledWith(BOOK, file);
     expect(createNote).toHaveBeenCalledWith(NOTE, "# Talk Like TED\n");
+  });
+
+  it("files a pdf apart from the books, under its own suffix", async () => {
+    const app = await renderApp();
+    await settle();
+
+    const file = pick(app, "Attention Is All You Need.pdf");
+    await settle();
+
+    // `02 Documents` and not `02 Books`, the folder being a claim about what
+    // the file is. The note goes in beside it, the pair travelling together.
+    expect(uploadAsset).toHaveBeenCalledWith(
+      "00 Inbox/02 Documents/Attention Is All You Need.pdf",
+      file,
+    );
+    expect(createNote).toHaveBeenCalledWith(
+      "00 Inbox/02 Documents/Attention Is All You Need.md",
+      "# Attention Is All You Need\n",
+    );
+  });
+
+  it("refuses a file of a kind the reader cannot open", async () => {
+    // The picker's `accept` filters its default view and stops nothing, the
+    // reader being free to switch it to all files. An older cut put `.epub` on
+    // the name whatever arrived, so this went up as `Ulysses.mobi.epub` and
+    // the vault refused it for bytes that did not match a name nobody chose.
+    const app = await renderApp();
+    await settle();
+
+    pick(app, "Ulysses.mobi");
+    await settle();
+
+    expect(uploadAsset).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+    expect(app.notice()).toBe("The vault will not take that name");
   });
 
   it("opens the note it made, which is the only sign the upload worked", async () => {
@@ -2072,7 +2168,7 @@ describe("putting a book in the vault", () => {
     await settle();
 
     expect(uploadAsset).not.toHaveBeenCalled();
-    expect(app.notice()).toBe("That book is too big");
+    expect(app.notice()).toBe("That file is too big");
   });
 
   it("sends a book exactly at the cap", async () => {
@@ -2256,7 +2352,7 @@ describe("opening a highlight's book with gf", () => {
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
     fetchImages.mockResolvedValue([]);
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockImplementation(async (note: string) => beside(note));
     resetFoliateFake();
     // Without a section holding the words the walk finds nothing and calls
     // `onNotice` instead of navigating, which every case below would pass over.
@@ -2394,7 +2490,7 @@ describe("the vault's own vocabulary", () => {
     );
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
-    fetchBook.mockResolvedValue(new Blob(["a book"]));
+    fetchBook.mockImplementation(async (note: string) => beside(note));
     fetchImages.mockResolvedValue([]);
     resetFoliateFake();
   });

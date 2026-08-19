@@ -95,7 +95,7 @@ literature note as you turn pages. It holds an epubcfi naming the page you
 stopped on, and the reader passes it back to foliate when the book opens again.
 The client writes this one too, into the text it hands to `PUT`, so the same
 rule holds: deleting the line loses a bookmark and nothing else, and
-[Books in the vault](/explanation/books-in-the-vault.md#how-it-keeps-your-place)
+[The file beside a note](/explanation/books-in-the-vault.md#how-it-keeps-your-place)
 says what that costs.
 
 The third is `sr-due`, `sr-interval` and `sr-ease`, which
@@ -117,9 +117,9 @@ reordering keys, requoting strings or dropping comments.
 ## What a note says it is
 
 `type` says what kind of thing a note is. Every writer below says what it makes,
-and nothing rewrites the field afterwards. All but one of them put it in the
-block the note arrives with; the book note is the exception, and the paragraph
-under the table says why.
+and nothing rewrites the field afterwards. All but the reader put it in the
+block the note arrives with; the last two rows are its, and the paragraphs under
+the table say why.
 
 | What wrote the note | `type` |
 | --- | --- |
@@ -127,7 +127,8 @@ under the table says why.
 | [A clipped web page](/reference/editor-keys.md#importing-a-web-page) | `Source` |
 | The saved todo views note | `Reference` |
 | `How-To-TODO.md` and `How-To-Exam.md`, the two format guides | `Reference` |
-| A note with a book beside it | `Book` |
+| A note with an epub beside it | `Book` |
+| A note with a pdf beside it | `Source` |
 
 One type for all five periodic notes rather than five. `01 Periodic/00 Daily/`
 already says which grain the note is, and `Daily Note` beside that folder is the
@@ -138,8 +139,14 @@ would carry no type at all.
 The book note is the one written after the fact. An upload does make the note
 when the vault holds none, but that is not the only door a book comes in by: one
 dropped into the vault from a terminal pane passes through no upload at all, and
-it still gets opened. So `type: Book` rides the write that keeps your place, and
+it still gets opened. So the type rides the write that keeps your place, and
 that write is the one door every book goes through.
+
+Which of the two goes in comes off the file rather than off the note, the
+reader having asked the vault which of `.epub` and `.pdf` sits beside it. An
+epub is a book and nothing else. A pdf is as often a paper, a report or a deck,
+so it is typed `Source`, which is the name the ontology already gives something
+written elsewhere and what a clipped page gets.
 
 It lands on the first page you turn to rather than on the open, because the
 first reported move is the restore rather than a page you chose. A book you open

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Annotated
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
@@ -44,7 +44,7 @@ from kasten_backend.trash import (
 )
 from kasten_backend.vault import (
     ASSET_MAGIC,
-    ASSET_SUFFIX,
+    BOOK_SUFFIXES,
     create_note,
     list_images,
     list_markdown_files,
@@ -56,6 +56,7 @@ from kasten_backend.vault import (
     rename_note,
     resolve_asset,
     resolve_asset_path,
+    resolve_book,
     resolve_folder,
     resolve_folder_path,
     resolve_note,
@@ -842,8 +843,8 @@ async def delete_asset(
     Images alone, though `resolve_asset` answers for books too. A book travels
     with the note beside it, and which of the pair a delete should take is a
     decision nothing here has made; the file tree, which is what this route
-    serves, lists images and no books. So a `.epub` is a 404 like any other path
-    this does not serve.
+    serves, lists images and no books. So a book is a 404 like any other path
+    this does not serve, whichever of `BOOK_SUFFIXES` it ends in.
 
     The notes pointing at the image are left alone, for the reason the note
     delete leaves `[[link]]`s alone: rewriting them to say the picture is gone
@@ -852,12 +853,62 @@ async def delete_asset(
     """
     async with vault_write():
         asset = resolve_asset(settings.vault_path, path)
-        if asset is None or asset.suffix == ASSET_SUFFIX:
+        if asset is None or asset.suffix in BOOK_SUFFIXES:
             raise HTTPException(status_code=404, detail="No such image")
 
         relative = relative_path(settings.vault_path, asset)
 
         return TrashEntry.of(await move_to_trash(settings.vault_path, asset, relative))
+
+
+@app.get(
+    "/api/books/{path:path}",
+    response_class=FileResponse,
+    responses={
+        200: {
+            "headers": {
+                "X-Book-Path": {
+                    "description": "Where the book that came back sits in the vault.",
+                    # Spelled out so the generated client reads it as a string
+                    # rather than as one that might not be there. Every 200 from
+                    # here carries it.
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            }
+        }
+    },
+)
+async def read_book(
+    path: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> FileResponse:
+    """Read the book filed beside one note.
+
+    The path is the note's, `20 Literature/DDIA.md`, and never the book's. The
+    pair is a convention rather than a record, so the vault is the only thing
+    that can resolve it: a client working from the note alone would have to ask
+    for one suffix, read the 404 and ask for the next, which is a request per
+    format and a guess about the order they should be tried in. Here it is one
+    question, and `BOOK_SUFFIXES` answers it in the order the vault prefers.
+
+    `X-Book-Path` says which of the pair came back, spelled from the vault root.
+    A header rather than a body, the body being the book: the client names the
+    file it hands the reader after this, and draws the path in the panel it puts
+    up when a note has no book. Percent-encoded, because a header goes down the
+    wire as latin-1 and a book called `Grundzüge.pdf` would otherwise raise on
+    its way out.
+
+    No `media_type`, for the reason the asset read gives: `mimetypes` answers
+    `application/epub+zip` and `application/pdf` off the suffix, and starlette
+    reads it off the path.
+    """
+    book = resolve_book(settings.vault_path, path)
+    if book is None:
+        raise HTTPException(status_code=404, detail="No book beside that note")
+
+    relative = relative_path(settings.vault_path, book)
+
+    return FileResponse(book, headers={"X-Book-Path": quote(relative)})
 
 
 @app.get("/api/files/{path:path}")
@@ -986,9 +1037,10 @@ async def move_file(
     from here is what stops a note edited outside kasten arriving stale on the
     other side.
 
-    The book beside the note travels with it, or the pair stops being a pair.
+    The books beside the note travel with it, or the pair stops being a pair.
     The answer says nothing about that, because there is nothing a client does
-    differently: it swaps the suffix for itself, the way it always has.
+    differently: it asks `/api/books` about the path it moved the note to, the
+    way it always has.
     """
     async with vault_write():
         note = resolve_note(settings.vault_path, path)

@@ -198,7 +198,12 @@ let mounted: { root: Root; container: HTMLElement } | null = null;
  * fixture to read, which is `plain.epub` for every case that wants no contents.
  */
 async function drawBook(note = "", book = plainUrl) {
-  fetchBook.mockResolvedValue(await (await fetch(book)).blob());
+  // The pane asks the vault what is beside the note and is answered with the
+  // file's own path, so a mock hands back both halves.
+  fetchBook.mockResolvedValue({
+    path: NOTE.replace(/\.md$/, ".epub"),
+    blob: await (await fetch(book)).blob(),
+  });
   fetchNote.mockResolvedValue(note);
   const commands = stubCommands();
   const onFocus = vi.fn();

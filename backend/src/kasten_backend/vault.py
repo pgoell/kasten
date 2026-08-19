@@ -13,15 +13,20 @@ if TYPE_CHECKING:
 SUFFIX = ".md"
 """What a note's name ends in, which is the one rule a folder does not share."""
 
-ASSET_SUFFIX = ".epub"
-"""What a book's name ends in.
+BOOK_SUFFIXES = (".epub", ".pdf")
+"""What a book's name ends in, the preferred format first.
 
-Spelled out rather than passed in. kasten reads one format, and nothing here
+Spelled out rather than passed in. kasten reads these two, and nothing here
 promises anything about mobi or cbz.
+
+The order is what settles a note with both beside it. Nothing stops a vault
+holding `DDIA.epub` and `DDIA.pdf`, the vault being a directory anybody may
+copy into, so something has to choose, and the epub is the one that reflows.
 """
 
 ASSET_MAGIC = {
-    ASSET_SUFFIX: b"PK\x03\x04",
+    ".epub": b"PK\x03\x04",
+    ".pdf": b"%PDF-",
     ".png": b"\x89PNG\r\n\x1a\n",
     ".jpg": b"\xff\xd8\xff",
     ".jpeg": b"\xff\xd8\xff",
@@ -35,7 +40,7 @@ so a new format is one row here. The values belong to the upload, which refuses
 a body disagreeing with the name it arrived under: a usability check and never a
 security one, for the reason `write_asset` spells out.
 
-`.webp` is the loose one of the six. Its four bytes are a RIFF container's,
+`.webp` is the loose one of the seven. Its four bytes are a RIFF container's,
 shared with wav and avi, and the tag that separates them sits at byte eight.
 One prefix per suffix is worth more than that exactness on a check nothing
 downstream relies on.
@@ -44,8 +49,14 @@ Lowercase, the way `SUFFIX` is: a file called `PHOTO.PNG` is not one the vault
 serves, and the same is already true of a note called `NOTES.MD`.
 """
 
-IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - {ASSET_SUFFIX}))
-"""The suffixes `list_images` walks for, which is every asset but the book."""
+IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES)))
+"""The suffixes `list_images` walks for, which is every asset but the books.
+
+The whole tuple comes out, not the format that happened to be here first. A
+book left in this set is a row in the file tree and a candidate for `![](`
+completion, which is the one thing the vault promises about a book: nothing
+lists it.
+"""
 
 _NAME_LIMIT_BYTES = 255
 """The longest one path segment may be, in UTF-8 bytes.
@@ -213,6 +224,39 @@ def resolve_asset(root: Path, relative: str) -> Path | None:
     return path
 
 
+def resolve_book(root: Path, relative: str) -> Path | None:
+    """Return the real path of the book beside a note, or None when there is none.
+
+    The one place the pair is worked out. `relative` is the note's path, and a
+    book is that path with the suffix swapped, so the swap happens here and each
+    of `BOOK_SUFFIXES` is asked for in turn until one of them is a file.
+
+    A path that is not a note's is refused rather than swapped, and the
+    difference is not pedantry. `removesuffix` leaves a path it does not end
+    with alone, so without this `GET /api/books/DDIA` would answer with
+    `DDIA.epub`, and `GET /api/books/DDIA.epub` would answer with
+    `DDIA.epub.pdf` wherever somebody had made one: a route documented as taking
+    the note's path would quietly take two other shapes as well.
+
+    The swap is done to the string rather than through `Path.with_suffix`, which
+    raises on a name that has none, and this path arrives from the URL. Nothing
+    else about it is inspected: `resolve_asset` owns every rule about what the
+    vault will answer for, and a second copy of those rules here would be the
+    loose one.
+    """
+    if not relative.endswith(SUFFIX):
+        return None
+
+    stem = relative.removesuffix(SUFFIX)
+
+    for suffix in BOOK_SUFFIXES:
+        book = resolve_asset(root, f"{stem}{suffix}")
+        if book is not None:
+            return book
+
+    return None
+
+
 def resolve_folder_path(root: Path, relative: str) -> Path | None:
     """Return the real path of a legal folder location under `root`, or None.
 
@@ -310,7 +354,7 @@ def rename_note(source: Path, target: Path) -> None:
 
 
 def move_asset_beside(source: Path, target: Path) -> None:
-    """Carry the book beside a note to wherever the note just went.
+    """Carry the books beside a note to wherever the note just went.
 
     The pair is a convention rather than a record, so a note that moves without
     its book stops having one and the reader draws "No book at ...". Nothing
@@ -320,11 +364,18 @@ def move_asset_beside(source: Path, target: Path) -> None:
     stays where it was. Refusing the whole move instead would leave a note you
     cannot move at all, and overwriting is the one thing nothing here does to a
     book: there is no delete and no history to get one back from.
+
+    Every suffix is carried, and a note with two books beside it has two
+    sidecars rather than one pair. They are weighed one at a time, so a taken
+    landing holds back the format that would have gone there and no other: the
+    epub follows the note while the pdf stays put, and the note ends up read as
+    the epub, which is the one the reader would have picked anyway.
     """
-    book = source.with_suffix(ASSET_SUFFIX)
-    landing = target.with_suffix(ASSET_SUFFIX)
-    if book.is_file() and not landing.exists():
-        book.rename(landing)
+    for suffix in BOOK_SUFFIXES:
+        book = source.with_suffix(suffix)
+        landing = target.with_suffix(suffix)
+        if book.is_file() and not landing.exists():
+            book.rename(landing)
 
 
 def rename_folder(source: Path, target: Path) -> None:

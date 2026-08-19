@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
@@ -80,6 +80,99 @@ function devCsp(): Plugin {
   };
 }
 
+/** Where foliate keeps the pdf.js build it renders a PDF with. */
+const PDFJS = path.resolve(import.meta.dirname, "node_modules/foliate-js/vendor/pdfjs");
+
+/**
+ * The one line of foliate's `pdf.js` that names its own vendored pdf.js.
+ *
+ * Matched literally so a foliate bump that rewrites it fails the build rather
+ * than leaving a reader that draws nothing.
+ */
+const PDFJS_PATH =
+  // A template with both placeholders escaped, so this is the literal text of
+  // foliate's line rather than something interpolated out of it.
+  `const pdfjsPath = path => new URL(\`vendor/pdfjs/\${path}\`, import.meta.url)`;
+
+/**
+ * What a PDF needs beside the bundle, which the bundler cannot work out itself.
+ *
+ * The worker and the two stylesheets are fetched by every PDF; `cmaps` holds
+ * the character maps a CJK document needs and `standard_fonts` the fourteen
+ * fonts a document may name without embedding. `pdf.mjs` is not here: it is a
+ * plain import, so rollup bundles it, and copying it as well would ship 800kB
+ * twice.
+ */
+const PDFJS_FILES = [
+  "pdf.worker.mjs",
+  "text_layer_builder.css",
+  "annotation_layer_builder.css",
+  "cmaps",
+  "standard_fonts",
+];
+
+/**
+ * Serve foliate the pdf.js files it reads at runtime.
+ *
+ * foliate builds those URLs with `new URL(\`vendor/pdfjs/${path}\`,
+ * import.meta.url)`, which Vite rewrites into an `import.meta.glob` over a
+ * pattern of its own making. That pattern is relative to nothing Vite accepts,
+ * so development dies with `Invalid glob: "vendor/pdfjs/*"` and the build
+ * quietly resolves every one of those URLs to the string `undefined`. A glob
+ * could not have answered in any case: two of the five names are directories,
+ * and a directory has no asset URL.
+ *
+ * So the line is replaced with one base, `/pdfjs/`, and the files are staged
+ * into `public/` where Vite already serves a directory untouched and the build
+ * already copies one. That is the whole reason for the copy rather than a
+ * `/@fs/` path straight at `node_modules`: everything under `/@fs/` goes
+ * through the transform pipeline, which turns the two stylesheets into
+ * javascript modules, and foliate `fetch`es them as text. The text layer then
+ * lands unstyled, every span in normal flow at the left edge, which is a
+ * selection that highlights the wrong words rather than a visible failure.
+ *
+ * A middleware would have avoided the copy, and is refused for the reason
+ * `devCsp` refuses one: vitest's browser plugin is `enforce: "pre"` and
+ * installs ahead of it.
+ */
+function foliatePdfjs(): Plugin {
+  return {
+    name: "kasten-foliate-pdfjs",
+    // Ahead of vite's own plugins, which is the whole trick: `vite:import-glob`
+    // is a core plugin and core plugins run before unenforced user ones, so it
+    // reaches that line and throws before this could have replaced it.
+    enforce: "pre",
+    configResolved(config) {
+      // Emptied and copied on every start rather than filled when it is
+      // missing, so a foliate bump cannot leave a stale worker behind. A copy
+      // over the top would not be enough on its own: `cpSync` merges, so a cmap
+      // or a font that a later foliate drops would stay in `public/` and go on
+      // being built into every image after it. It is 4.6MB against the page
+      // cache and it is not in the hot path of anything.
+      const staged = path.join(config.publicDir, "pdfjs");
+      rmSync(staged, { recursive: true, force: true });
+      for (const name of PDFJS_FILES) {
+        cpSync(path.join(PDFJS, name), path.join(staged, name), { recursive: true });
+      }
+    },
+    transform(code, id) {
+      // The query goes first. Development stamps a `?v=` cache token on a
+      // dependency's id, so a plain `endsWith` matches in the build and never
+      // in the dev server, which is the difference between a reader that works
+      // and one that takes the whole dev server down.
+      if (!id.split("?")[0]?.endsWith("/foliate-js/pdf.js")) return;
+      if (!code.includes(PDFJS_PATH)) {
+        this.error("foliate's pdf.js no longer builds its paths the way vite.config.ts expects");
+      }
+      // `PDFJS_BASE` in `book-pane.tsx` is the other copy of this base, the
+      // pdf the seek opens having to be opened with the same character maps and
+      // fonts as the one on screen. Two literals rather than one import,
+      // because nginx and the browser cannot read this file either.
+      return code.replace(PDFJS_PATH, "const pdfjsPath = path => (`/pdfjs/` + path)");
+    },
+  };
+}
+
 export default defineConfig({
   define: { __BUILD__: JSON.stringify(buildId()) },
   plugins: [
@@ -87,12 +180,20 @@ export default defineConfig({
     react(),
     tailwindcss(),
     devCsp(),
+    foliatePdfjs(),
   ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
     },
   },
+  // Development pre-bundles a dependency with esbuild before any plugin sees
+  // it, and `foliatePdfjs` above has to see foliate's own source: the glob Vite
+  // writes over that line is invalid, so the optimiser's copy takes the dev
+  // server down with `Invalid glob: "vendor/pdfjs/*"` before the reader opens
+  // anything. foliate is plain ESM with no CommonJS in it, so there is nothing
+  // the optimiser was buying here.
+  optimizeDeps: { exclude: ["foliate-js"] },
   server: {
     // Defaults to loopback. compose.dev.yml sets 0.0.0.0 because inside a
     // container the only route in is Caddy on the `web` network; no port is

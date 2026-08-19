@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
-import { fetchBook, fetchNote, uploadAsset } from "@/lib/api";
-import { findQuotes } from "@/lib/find-quote";
+import { type BookBeside, fetchBook, fetchNote, uploadAsset } from "@/lib/api";
+import { findQuotes, holdsQuote } from "@/lib/find-quote";
 import { type HighlightBlock, highlightBlocks, type Passage } from "@/lib/highlight";
 import { filedName, IMAGE_FOLDER } from "@/lib/image";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { readField } from "@/lib/note-frontmatter";
-import { bookPath } from "@/lib/note-path";
+import { BOOK_SUFFIXES } from "@/lib/note-path";
 import { STATUS } from "@/lib/overlay-styles";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
@@ -19,10 +19,12 @@ import "foliate-js/view.js";
 // paints a range, handed to the overlay rather than called here.
 import { Overlayer } from "foliate-js/overlayer.js";
 
-/** The two calls the pane makes on foliate's overlay. */
+/** The calls the pane makes on foliate's overlay, and the element it hangs. */
 interface FoliateOverlayer {
   add(key: string, range: Range, draw: unknown, options: object): void;
   remove(key: string): void;
+  /** The svg the highlights are drawn into. Only a pdf page's overlay is hung by hand. */
+  readonly element: SVGElement;
 }
 
 /**
@@ -41,15 +43,16 @@ interface FoliateView extends HTMLElement {
   /**
    * Built by `open`, and a fixed-layout book's renderer has no `setStyles`.
    *
-   * `getContents` answers the one section on screen, or none
-   * (`paginator.js:1092-1099`), which is why the draw pass draws one section:
-   * it is all foliate offers. A fixed-layout book's answer carries no overlayer
-   * and no index (`fixed-layout.js:308-313`), so the optional field is the
-   * whole of the refusal to draw in one.
+   * `getContents` answers the section on screen, or none
+   * (`paginator.js:1092-1099`). A flowing book has exactly one; a fixed-layout
+   * book has the whole spread, up to two, and its answer carries neither an
+   * overlayer nor an index (`fixed-layout.js:308-313`). So the draw pass walks
+   * the list rather than taking its head, and builds the overlay foliate did
+   * not for every page that turns out to be a pdf.
    */
   renderer?: EventTarget & {
     setStyles?: (css: string) => void;
-    getContents?: () => { index: number; doc: Document; overlayer?: FoliateOverlayer }[];
+    getContents?: () => { index?: number; doc: Document; overlayer?: FoliateOverlayer }[];
   };
   /**
    * Assigned by `open` after it awaits `makeBook`, so absent while one opens.
@@ -57,7 +60,19 @@ interface FoliateView extends HTMLElement {
    * A section foliate cannot open carries no `createDocument`, which foliate's
    * own book walk skips rather than throwing over (`view.js:533`).
    */
-  book?: { toc?: TocItem[] | null; sections?: { createDocument?: () => Promise<Document> }[] };
+  book?: {
+    toc?: TocItem[] | null;
+    sections?: { createDocument?: () => Promise<Document> }[];
+    /**
+     * Frees whatever the format holds open, which for a pdf is its worker.
+     *
+     * Nothing in foliate calls it: `close()` frees the renderer alone
+     * (`view.js:297-308`). An epub's is a no-op over a zip reader already
+     * closed, and a pdf's is `pdf.destroy()` (`pdf.js:178`), so the pane calls
+     * it on the way out for both.
+     */
+    destroy?: () => unknown;
+  };
   /**
    * Set by `open` from the book's own `rendition:layout` (`view.js:254`).
    *
@@ -66,8 +81,15 @@ interface FoliateView extends HTMLElement {
    * range, and both frames are scaled. So the pane reports no selection there.
    */
   isFixedLayout?: boolean;
-  /** Take the reader to an href out of the book's own contents. */
-  goTo(target: string): Promise<unknown>;
+  /**
+   * Take the reader to an href out of the book's own contents, or to a page.
+   *
+   * A number is a spine index, which `resolveNavigation` takes as it stands
+   * (`view.js:447-448`) and which is the only thing the pdf seek has to give:
+   * it walks a page's text without building a document, so there is no range to
+   * turn into a cfi.
+   */
+  goTo(target: string | number): Promise<unknown>;
   /**
    * Where the view says it is. Filled by every relocate, nulled by `close`.
    *
@@ -100,7 +122,7 @@ function isError(thrown: unknown): boolean {
 }
 
 /**
- * Close a view, unless closing it would throw.
+ * Free everything a view holds: the renderer, and the book the library forgets.
  *
  * `close` reaches `Paginator.destroy`, which dereferences the inner view the
  * paginator only builds when a section loads (`paginator.js:667-676,
@@ -108,15 +130,248 @@ function isError(thrown: unknown): boolean {
  * every book for as long as the first `goTo` takes, throws on close. Out of the
  * effect's cleanup that throw lands in React's commit and takes the whole app
  * down: the pane the reader switched away from unmounts, and the page is gone
- * until it is reloaded.
- *
- * `getContents` is empty exactly when that field is unset
+ * until it is reloaded. `getContents` is empty exactly when that field is unset
  * (`paginator.js:1092-1099`), and there is nothing to free in that case anyway:
  * no iframe was ever built, and the element the cleanup removes takes the rest
  * with it.
+ *
+ * The book is the second half and it is not foliate's: `close` frees the
+ * renderer and stops (`view.js:297-308`), and nothing in the library ever calls
+ * `book.destroy`, which for a pdf is `pdf.destroy()` and its worker with it
+ * (`pdf.js:178`). Both halves are here rather than at the four call sites,
+ * because the one that matters is the hardest to see: a pane closed while
+ * `open` is still in flight runs its cleanup against a view with no book yet,
+ * and the book arrives afterwards with nobody left to free it.
  */
 function closeView(view: FoliateView): void {
   if (view.renderer?.getContents?.().length) view.close();
+  view.book?.destroy?.();
+}
+
+/**
+ * Whether this page was drawn by pdf.js, which is what its text layer says.
+ *
+ * The file's suffix would not answer it. foliate picks a format off the first
+ * bytes (`view.js:13-27, :106`), and the shell door puts files in the vault
+ * under whatever name somebody typed, so an epub called `.pdf` opens as an
+ * epub. The class is pdf.js's own and it is the thing every part of this
+ * depends on: the text to select, the rects to draw on, the layer to hang an
+ * overlay in.
+ *
+ * ponytail: it is a class name and not a proof, so an epub whose own markup
+ * carries `class="textLayer"` reads as a pdf page here, which loses `gf` for
+ * that book and offers a take in geometry that is not a pdf's. A real test
+ * means asking foliate which format it picked, which it does not say
+ * (`view.js:79-118` keeps that to itself), so the answer would be a fork of
+ * the library.
+ */
+function pdfLayer(doc: Document): HTMLElement | null {
+  return doc.querySelector(".textLayer");
+}
+
+/**
+ * Throw away every text layer on a pdf page but the newest.
+ *
+ * foliate re-renders a page whenever its own box changes, observing it
+ * (`fixed-layout.js:60, :136`), and pdf.js's `TextLayer` **appends** to the
+ * container it was handed rather than replacing what is in it. So a resize
+ * leaves the page holding its words twice over. Measured in Chromium: two spans
+ * become four and the page's text reads twice. Left alone that is a page whose
+ * words are doubled to a selection and to `findQuotes`, and `indexOf` takes the
+ * first of the two, so every highlight anchors to the copy the words have
+ * already left.
+ *
+ * The marker is the `endOfContent` div foliate appends after each render
+ * finishes (`pdf.js:53-56`), which makes it exactly one per completed render
+ * and in the order they completed. So everything up to and including the
+ * second to last one belongs to a render that has been superseded. The canvas
+ * looked like a cheaper marker, being replaced at the top of that same
+ * function, and it is not: two renders overlap when a resize lands inside one,
+ * both replace the canvas before either appends its text, and clearing on the
+ * canvas would then throw away nothing at all.
+ *
+ * ponytail: the newest generation is the last to finish and not necessarily the
+ * last to start, so two resizes close enough together for the earlier render to
+ * land second leave the page holding text laid out for a box it has left. The
+ * next resize corrects it and nothing is lost. foliate hands out no render id
+ * to sort by, so the fix is a queue of our own around a library call we do not
+ * make, which is worth more than the case costs.
+ *
+ * An overlay hung on the page is taken out with whatever generation it happens
+ * to sit inside, which is not every prune: hung after the newest marker, it
+ * survives the next one and is swept by the one after. Neither outcome needs
+ * handling, because the draw pass hangs another whenever `element.isConnected`
+ * says the last one has gone, and aims it at the page every pass either way.
+ */
+function pruneLayer(layer: HTMLElement): void {
+  const ends = layer.querySelectorAll(":scope > .endOfContent");
+  const boundary = ends[ends.length - 2];
+  if (boundary === undefined) return;
+
+  while (layer.firstChild !== null && layer.firstChild !== boundary) layer.firstChild.remove();
+  boundary.remove();
+}
+
+/**
+ * Hang an overlay on a pdf page, which is the one thing foliate does not.
+ *
+ * `fixed-layout.js:308-313` answers `{ doc }` and says `// TODO: index,
+ * overlayer` where the paginator builds one and emits `create-overlay`. The
+ * class itself is standalone, so the pane makes one and hangs it where the
+ * paginator would have.
+ *
+ * Two things about where it goes. It goes **inside the text layer**, which is
+ * `position: absolute; inset: 0` over the page, so its box is the page's own
+ * and the rects a range answers with need no offset. And it is scaled by the
+ * inverse of the root transform, which is the part that is invisible on the
+ * machine this was written on: `pdf.js:17-19` lays the page out at
+ * `zoom * devicePixelRatio` and scales `<html>` back down by `1 / dpr`, so on a
+ * retina screen one layout pixel is half a client pixel while `getClientRects`
+ * answers in client pixels. Read off the computed transform rather than off
+ * `devicePixelRatio`, because what has to be undone is whatever foliate did.
+ */
+function hangOverlay(layer: HTMLElement): FoliateOverlayer {
+  const overlayer = new Overlayer() as unknown as FoliateOverlayer;
+  overlayer.element.style.transformOrigin = "top left";
+  layer.append(overlayer.element);
+  return overlayer;
+}
+
+/**
+ * Point an overlay at the page's coordinates, whatever pdf.js has scaled it to.
+ *
+ * Set on every pass and not once when the overlay is hung, because the scale is
+ * not fixed for the life of a page: `render` recomputes it from the zoom on
+ * every resize (`pdf.js:16`) and the overlay outlives that, so a highlight hung
+ * before a zoom would go on undoing a scale the page no longer has.
+ */
+function aimOverlay(overlayer: FoliateOverlayer, doc: Document): void {
+  overlayer.element.style.transform = `scale(${1 / pageScale(doc)})`;
+}
+
+/**
+ * What pdf.js scaled this page's document by, or 1 where it has not yet.
+ *
+ * `getComputedStyle` answers the string `none` for an element carrying no
+ * transform, which `DOMMatrixReadOnly` throws a `SyntaxError` over rather than
+ * reading as the identity. That is not a hypothetical: the layer exists in the
+ * shell document from the moment the iframe loads and `render` sets the
+ * transform a good while later, so a draw pass landing in that window would
+ * throw out of the overlay and take the highlights on the facing page with it.
+ * A zero scale is guarded for the same reason, dividing by it putting the
+ * overlay at infinity rather than merely in the wrong place.
+ */
+function pageScale(doc: Document): number {
+  const transform = getComputedStyle(doc.documentElement).transform;
+  if (transform === "none" || transform === "") return 1;
+
+  const { a } = new DOMMatrixReadOnly(transform);
+  return a === 0 ? 1 : a;
+}
+
+/**
+ * The little of pdf.js the seek uses, which is a page's words and nothing else.
+ *
+ * Read off `globalThis`, where `pdf.js:3-4` puts it: foliate imports its own
+ * vendored build for that side effect and keeps the document it opens to
+ * itself, `makePDF` closing over it (`pdf.js:115-179`). So this is not a second
+ * copy of the library, only a second reading of the same file, and it exists
+ * because there is no other way to a page's text without drawing the page.
+ */
+interface Pdfjs {
+  getDocument(options: {
+    data: ArrayBuffer;
+    cMapUrl: string;
+    standardFontDataUrl: string;
+    isEvalSupported: boolean;
+  }): {
+    promise: Promise<{
+      numPages: number;
+      getPage(page: number): Promise<{ getTextContent(): Promise<{ items: { str?: string }[] }> }>;
+      destroy(): Promise<void>;
+    }>;
+    /** Frees the worker the task spawned, which a rejected `promise` leaves running. */
+    destroy(): Promise<void>;
+  };
+}
+
+/**
+ * Where the pdf.js files sit, which `vite.config.ts` decides and stages.
+ *
+ * The one copy outside that file, and it has to agree with it. Named here
+ * because a second reading of a pdf has to be opened the way foliate opens the
+ * first: without these two a document whose fonts need predefined character
+ * maps, which is most CJK, hands back text that is not what the page shows, and
+ * `gf` would answer that a passage you can see is not in the book.
+ */
+const PDFJS_BASE = "/pdfjs/";
+
+/**
+ * Which page of `bytes` holds `quote`, counting from zero, or -1.
+ *
+ * `getTextContent` is the cheap half of what rendering a page costs: it parses
+ * the content stream and hands back the runs, and draws nothing. The runs are
+ * joined with nothing between them, which is not a shortcut but the rule: the
+ * text layer puts each run in a span of its own and no whitespace between two
+ * of them, so a page's own words read the same way whether they are being
+ * matched here or in the drawn document.
+ *
+ * `keep` is asked before every page, so a second press or a closed pane ends
+ * the walk rather than finishing a scan nobody is waiting for. The document is
+ * destroyed on every path out, its worker with it.
+ *
+ * Bytes pdf.js will not open answer -1 rather than throwing. The caller picks
+ * this arm by the book carrying no document to walk, and a section of an epub
+ * foliate could not build carries none either (`view.js:533`), so the wrong arm
+ * is reachable and it must end in the same "not in the book" as an honest miss.
+ */
+async function pdfPageHolding(
+  bytes: ArrayBuffer,
+  quote: string[],
+  keep: () => boolean,
+): Promise<number> {
+  const pdfjs = (globalThis as { pdfjsLib?: Pdfjs }).pdfjsLib;
+  // Nothing has opened a pdf in this tab, so nothing set the global. Reachable
+  // only if foliate stops loading that module, which would have broken the
+  // reader long before it reached this.
+  if (pdfjs === undefined) return -1;
+
+  // Opened the way foliate opens its own (`pdf.js:120-127`), the two url
+  // options included: they are what makes this reading of the file the same
+  // reading as the drawn one. `isEvalSupported` is off because the policy in
+  // `csp.ts` carries no `'unsafe-eval'` and never will.
+  const task = pdfjs.getDocument({
+    data: bytes,
+    cMapUrl: `${PDFJS_BASE}cmaps/`,
+    standardFontDataUrl: `${PDFJS_BASE}standard_fonts/`,
+    isEvalSupported: false,
+  });
+  const opened = await task.promise.then(
+    (pdf) => pdf,
+    // A two-arm `then` and not a catch, the way the note read in `draw()`
+    // takes its failure: what is thrown here is pdf.js's own
+    // `InvalidPDFException` for a file that is not one.
+    () => null,
+  );
+  // The task and not the document, there being no document. pdf.js spawns the
+  // worker before it parses a byte, so a refused file that was not freed here
+  // leaves one running for the life of the tab.
+  if (opened === null) {
+    await task.destroy();
+    return -1;
+  }
+
+  try {
+    for (let page = 1; page <= opened.numPages; page += 1) {
+      if (!keep()) return -1;
+      const content = await (await opened.getPage(page)).getTextContent();
+      const text = content.items.map((item) => item.str ?? "").join("");
+      if (holdsQuote(text, quote)) return page - 1;
+    }
+    return -1;
+  } finally {
+    await opened.destroy();
+  }
 }
 
 /**
@@ -177,7 +432,7 @@ const TAKE =
 const INSET = 32;
 
 interface BookPaneProps {
-  /** The literature note this reads beside. The book is its path, suffix swapped. */
+  /** The note this reads beside. The vault answers which file sits with it. */
   note: string;
   /** Every note the vault holds, so the pane can see its own note leave. */
   paths?: string[];
@@ -294,6 +549,10 @@ export function BookPane({
   const onLeavingRef = useRef(onLeaving);
   const onTakeRef = useRef(onTake);
   const onNoticeRef = useRef(onNotice);
+  // Off a ref for the reason the callbacks are: `goToQuote` is a `useCallback`
+  // with no dependencies, so that the effect naming it rebuilds no book, and a
+  // seek into a pdf needs the bytes.
+  const besideRef = useRef<BookBeside | undefined>(undefined);
   useEffect(() => {
     commandsRef.current = commands;
     onFocusRef.current = onFocus;
@@ -301,6 +560,7 @@ export function BookPane({
     onLeavingRef.current = onLeaving;
     onTakeRef.current = onTake;
     onNoticeRef.current = onNotice;
+    besideRef.current = beside;
   });
 
   /**
@@ -458,11 +718,14 @@ export function BookPane({
     return () => element?.removeEventListener("keydown", onKeyDown);
   }, [onKeyDown]);
 
-  // A query rather than an effect, so two panes reading one book share the blob
-  // and so an upload has a key to invalidate.
-  const { data: blob, error } = useQuery({
-    queryKey: ["book", bookPath(note)],
-    queryFn: () => fetchBook(bookPath(note)),
+  // A query rather than an effect, so two panes reading one book share the
+  // bytes and so an upload has a key to invalidate. Keyed on the note, which is
+  // the only half of the pair a pane holds: the vault answers which file is
+  // beside it, and `w` and the bookmark's type read that answer back out of
+  // this cache under the same key.
+  const { data: beside, error } = useQuery({
+    queryKey: ["book", note],
+    queryFn: () => fetchBook(note),
   });
 
   // The same key the editor beside it writes and the events stream
@@ -478,8 +741,22 @@ export function BookPane({
   // Read off a ref by the `create-overlay` listener, which is built with the
   // view and cannot name a value that changes without tearing the book down.
   const blocksRef = useRef(blocks);
-  /** The ids the last pass drew, so the next one can take them off first. */
-  const drawn = useRef<string[]>([]);
+  /**
+   * What the last pass drew, so the next one can take it off first.
+   *
+   * The overlay travels with the id because a spread has two of them and an id
+   * removed from the wrong one does nothing at all (`overlayer.js:26`), which
+   * would leave the old highlight painted over the new.
+   */
+  const drawn = useRef<{ overlayer: FoliateOverlayer; id: string }[]>([]);
+  /**
+   * The overlay each pdf page carries, which foliate builds for no page.
+   *
+   * Weak and keyed on the document, so a page that has scrolled off takes its
+   * overlay with it: `#showSpread` calls `replaceChildren` on its root
+   * (`fixed-layout.js:167`), so every turn builds new frames and new documents.
+   */
+  const overlays = useRef(new WeakMap<Document, FoliateOverlayer>());
   /** The passage being walked for, which a later press overwrites. */
   const wanted = useRef<string[] | null>(null);
   /**
@@ -492,19 +769,35 @@ export function BookPane({
   const ready = useRef(false);
 
   /**
-   * Draw `blocks` on the section on screen, in one walk of its document.
+   * Draw `blocks` on what is on screen, in one walk of each document.
    *
-   * No entry, or an entry with no overlayer, is nothing to draw on: a book
-   * still opening, or a fixed-layout book, which is the whole of that guard.
+   * A flowing book shows one section and a pdf shows a spread, so this walks
+   * the list. An entry with neither an overlayer nor a text layer is nothing to
+   * draw on: a book still opening, a blank half of a spread, or a
+   * pre-paginated epub, which foliate renders through the same renderer as a
+   * pdf and gives no way in to.
    */
   const redraw = useCallback((blocks: HighlightBlock[]) => {
-    const shown = viewRef.current?.renderer?.getContents?.()[0];
-    const overlayer = shown?.overlayer;
-    if (shown === undefined || overlayer === undefined) return;
+    /** The overlay a pdf page carries, hung on first use and after a re-render. */
+    function pdfOverlay(doc: Document): FoliateOverlayer | undefined {
+      const layer = pdfLayer(doc);
+      if (layer === null) return undefined;
+
+      // A re-render takes the old overlay out with the stale text layer, so an
+      // element that has left the tree is what says to hang another.
+      const held = overlays.current.get(doc);
+      if (held?.element.isConnected) return held;
+
+      const made = hangOverlay(layer);
+      overlays.current.set(doc, made);
+      return made;
+    }
+
+    const shown = viewRef.current?.renderer?.getContents?.() ?? [];
 
     // Removing an id from an overlay that never held it does nothing
     // (`overlayer.js:26`), so a fresh section needs no bookkeeping beyond this.
-    for (const id of drawn.current) overlayer.remove(id);
+    for (const { overlayer, id } of drawn.current) overlayer.remove(id);
     drawn.current = [];
 
     // Read the way `pageStyles` reads the palette, so the book, the app and the
@@ -512,17 +805,26 @@ export function BookPane({
     const colour = getComputedStyle(document.documentElement)
       .getPropertyValue("--color-one-accent")
       .trim();
-    const found = findQuotes(
-      shown.doc,
-      blocks.map((block) => block.quote),
-    );
-    for (const [at, range] of found.entries()) {
-      const block = blocks[at];
-      // A quote the book no longer holds is skipped in silence. A pass nobody
-      // asked for gets no answer, which is where drawing and `gf` differ.
-      if (range === null || block === undefined) continue;
-      overlayer.add(block.id, range, Overlayer.highlight, { color: colour });
-      drawn.current.push(block.id);
+
+    for (const entry of shown) {
+      const overlayer = entry.overlayer ?? pdfOverlay(entry.doc);
+      if (overlayer === undefined) continue;
+      // foliate's own overlay is aimed by the paginator; only a hung one is
+      // this pane's to point at the page.
+      if (overlayer !== entry.overlayer) aimOverlay(overlayer, entry.doc);
+
+      const found = findQuotes(
+        entry.doc,
+        blocks.map((block) => block.quote),
+      );
+      for (const [at, range] of found.entries()) {
+        const block = blocks[at];
+        // A quote the book no longer holds is skipped in silence. A pass nobody
+        // asked for gets no answer, which is where drawing and `gf` differ.
+        if (range === null || block === undefined) continue;
+        overlayer.add(block.id, range, Overlayer.highlight, { color: colour });
+        drawn.current.push({ overlayer, id: block.id });
+      }
     }
   }, []);
 
@@ -551,18 +853,58 @@ export function BookPane({
     // put you, which is what was asked for.
     if (view === null || !ready.current) return;
 
-    for (const [index, section] of (view.book?.sections ?? []).entries()) {
-      if (section.createDocument === undefined) continue;
-      const doc = await section.createDocument();
-      // A newer press has taken the walk over, or the pane went away while the
-      // document was being built. What this does not buy is an order on two
-      // `goTo` calls already in flight, which the spec names and refuses.
-      if (viewRef.current !== view || wanted.current !== quote) return;
-      const [range] = findQuotes(doc, [quote]);
-      if (range) {
+    /** Whether this walk is still the one being waited on. See the epub arm. */
+    const mine = () => viewRef.current === view && wanted.current === quote;
+
+    const sections = view.book?.sections ?? [];
+    // A pdf's sections carry a `load` that renders a page and no
+    // `createDocument` at all (`pdf.js:150-160`), so the walk below would skip
+    // every one of them and answer that a passage plainly in the file is not.
+    // pdf.js parses a page's text without drawing it, which is the arm this
+    // takes. It costs a second reading of the file, whole, where the epub arm
+    // costs a section at a time, and it is spent on a keypress rather than on
+    // anything the reader is watching.
+    //
+    // The page on screen decides it, which is the same question `chapterNow`
+    // and `onSelectionChange` ask and the same answer. The spine's head looks
+    // like the cheaper test and is a trap: a section foliate could not build
+    // carries no `createDocument` either (`view.js:533`), so an epub beginning
+    // with one would take this arm and lose `gf` for the whole book. There is
+    // always a page by now, `ready` being set after `init` has navigated.
+    //
+    // ponytail: a press landing in the millisecond between `replaceChildren`
+    // and the new page parsing (`fixed-layout.js:167`) sees documents with no
+    // text layer yet, takes the epub arm over a pdf and answers that the
+    // passage is not in the book. One more press finds it. This is the same
+    // non-ordering the walk below already names and refuses to buy.
+    const onScreen = view.renderer?.getContents?.() ?? [];
+    if (onScreen.some((entry) => pdfLayer(entry.doc) !== null)) {
+      const bytes = await besideRef.current?.blob.arrayBuffer();
+      const page = bytes === undefined ? -1 : await pdfPageHolding(bytes, quote, mine);
+      if (!mine()) return;
+      if (page !== -1) {
         wanted.current = null;
-        void view.goTo(view.getCFI(index, range));
+        // The page index, which `resolveNavigation` takes as it stands
+        // (`view.js:448`). No cfi: a fixed-layout renderer goes to a page and
+        // reads no anchor, so building one out of a range this walk never had
+        // would be a string nothing looks at.
+        void view.goTo(page);
         return;
+      }
+    } else {
+      for (const [index, section] of sections.entries()) {
+        if (section.createDocument === undefined) continue;
+        const doc = await section.createDocument();
+        // A newer press has taken the walk over, or the pane went away while the
+        // document was being built. What this does not buy is an order on two
+        // `goTo` calls already in flight, which the spec names and refuses.
+        if (!mine()) return;
+        const [range] = findQuotes(doc, [quote]);
+        if (range) {
+          wanted.current = null;
+          void view.goTo(view.getCFI(index, range));
+          return;
+        }
       }
     }
 
@@ -582,7 +924,7 @@ export function BookPane({
     const element = host.current;
     // An empty file is a book foliate throws `NotFoundError` for, which reads
     // as a broken library rather than as an empty file. Refused up here.
-    if (element === null || blob === undefined || blob.size === 0) return;
+    if (element === null || beside === undefined || beside.blob.size === 0) return;
 
     setBroken(false);
     let cancelled = false;
@@ -595,9 +937,9 @@ export function BookPane({
     // wrapper nor the window, an event not crossing a document boundary, and a
     // click inside it fires no focus event on any ancestor either. This is the
     // only seam: foliate builds both iframes behind closed shadow roots.
-    const sections: Document[] = [];
+    const sections: { doc: Document; index: number; watcher?: MutationObserver }[] = [];
     function onLoad(event: Event) {
-      const { doc } = (event as CustomEvent<{ doc: Document }>).detail;
+      const { doc, index } = (event as CustomEvent<{ doc: Document; index: number }>).detail;
       doc.addEventListener("keydown", onKeyDown);
       // Two listeners for two ways in, and neither covers the other. A
       // paragraph cannot hold focus, so a real click fires `pointerdown`,
@@ -611,9 +953,62 @@ export function BookPane({
       // chapter travels with the passage, so this is no longer about the
       // label; it is about the range.
       if (taking.current?.range.startContainer.ownerDocument !== doc) taking.current = null;
-      sections.push(doc);
+      forgetPagesThatLeft();
+      sections.push({ doc, index, watcher: watchPage(doc) });
     }
     view.addEventListener("load", onLoad);
+
+    /**
+     * Drop the pages that have gone, which nothing else here would.
+     *
+     * A fixed-layout book builds a new frame and a new document for every turn
+     * and calls `replaceChildren` on the old ones (`fixed-layout.js:167`), where
+     * a flowing book loads a section at a time and has a few dozen at most. So
+     * this list is the difference between a reader that holds two pages and one
+     * that holds every page you have read, each with its own canvas, which for
+     * a long pdf is hundreds of megabytes. `defaultView` is null on a document
+     * whose frame has left the tree, and is the only way to ask.
+     *
+     * The listeners are not taken off, and do not need to be: they were added to
+     * a document that is going away with them.
+     */
+    function forgetPagesThatLeft() {
+      for (let at = sections.length - 1; at >= 0; at -= 1) {
+        const page = sections[at];
+        if (page === undefined || page.doc.defaultView !== null) continue;
+        page.watcher?.disconnect();
+        sections.splice(at, 1);
+      }
+    }
+
+    /**
+     * Watch a pdf page's text layer, which is the only word anyone gets that it
+     * is drawable.
+     *
+     * A page arrives empty and fills later: `#createFrame` emits `load` when the
+     * iframe's shell document loads, and `render` (`pdf.js:14-78`) paints the
+     * canvas and builds the text layer from `#render`, which nothing awaits
+     * (`fixed-layout.js:136`). There is no event for the end of that, so the
+     * layer's own children are the signal, for the first render and for every
+     * one after it.
+     */
+    function watchPage(doc: Document): MutationObserver | undefined {
+      const layer = pdfLayer(doc);
+      if (layer === null) return;
+
+      const filled = new MutationObserver(() => {
+        if (viewRef.current !== view) return;
+        pruneLayer(layer);
+        redraw(blocksRef.current);
+      });
+      filled.observe(layer, { childList: true });
+      return filled;
+    }
+
+    /** Which page of the pdf this document is, off the event that announced it. */
+    function pageOf(doc: Document): number | undefined {
+      return sections.find((page) => page.doc === doc)?.index;
+    }
 
     function onOverlay() {
       // The defer is load-bearing, and the pass fails silently without it.
@@ -661,8 +1056,8 @@ export function BookPane({
       };
     }
 
-    /** The chapter the page is in, as the note is to name it. */
-    function chapterNow(): string {
+    /** Where in the book the page is, as the note is to name it. */
+    function chapterNow(doc: Document): string {
       const label = view.lastLocation?.tocItem?.label;
       // `trim` and not foliate's own normaliser, which strips ASCII whitespace
       // alone (`epub.js:64-67`) while the nav path falls back to a raw `title`
@@ -673,16 +1068,37 @@ export function BookPane({
       // The book's own words or a number, and never the section document's
       // `<title>`: a great many books put the book's title in every chapter
       // file, so that fallback would write the same wrong words throughout.
-      return `Section ${(view.lastLocation?.section?.current ?? 0) + 1}`;
+      //
+      // A pdf's outline is used above wherever there is one, so this is the
+      // only line that has to know what it is reading, and a pdf has pages
+      // where a book has sections.
+      //
+      // The number comes off the page the words are on and not off the view,
+      // which is the same thing in a pane showing one page and not in a pane
+      // showing a spread: nothing relocates when you select on the facing page,
+      // so the view still names the other one. `lastLocation` is the fallback
+      // for a flowing book, whose documents `load` reports the same way but
+      // whose sections and pages are not the same count.
+      if (pdfLayer(doc) === null)
+        return `Section ${(view.lastLocation?.section?.current ?? 0) + 1}`;
+      return `Page ${(pageOf(doc) ?? view.lastLocation?.section?.current ?? 0) + 1}`;
     }
 
     function onSelectionChange(event: Event) {
-      // Not a fixed-layout book. A spread shows two documents, the location
-      // names one side and carries no range, and both frames are scaled, so
-      // every part of a take there would be wrong rather than missing.
-      if (view.isFixedLayout) return;
-
       const doc = event.currentTarget as Document;
+      // A pre-paginated **epub** breaks three of the take's assumptions at
+      // once: a spread shows two documents, the location names one side and
+      // carries no range, and foliate scales both frames with a css transform
+      // (`fixed-layout.js:137`), which no rectangle out of the frame survives.
+      //
+      // A pdf goes through the same renderer and breaks none of them. It is
+      // scaled inside the document rather than outside it, `transform: 'none'`
+      // on that same line, so a rectangle in the frame is a rectangle on the
+      // page; the passage records the words rather than the location; and the
+      // selection names which of the two documents it is in, which is the one
+      // this is being told about.
+      if (view.isFixedLayout && pdfLayer(doc) === null) return;
+
       const selection = doc.getSelection();
       // `selection.toString()` and never `range.toString()`: measured in
       // Chromium, a range runs two paragraphs together where a selection keeps
@@ -703,7 +1119,7 @@ export function BookPane({
       // A chapter can change with no document loading, one spine file often
       // holding several, so a drag that runs past a boundary would otherwise
       // be named for wherever it came to rest.
-      const chapter = taking.current?.passage.chapter ?? chapterNow();
+      const chapter = taking.current?.passage.chapter ?? chapterNow(doc);
       const backward = runsBackward(doc, selection);
       taking.current = { passage: { text, chapter }, figure, range, backward };
       setAt(place(range, backward));
@@ -774,14 +1190,14 @@ export function BookPane({
     // `View.open` takes a `File` and calls `makeBook` itself, so kasten imports
     // nothing of the library but the module. Built out here because a hoisted
     // function body does not see the narrowing the guard above did.
-    const file = new File([blob], bookPath(note));
+    const file = new File([beside.blob], beside.path);
 
     async function draw() {
       try {
         await view.open(file);
         // Not a bare return: the cleanup already ran while `open` was in
-        // flight, and there was no renderer to close then. This is the close
-        // that actually frees one.
+        // flight, and there was neither a renderer nor a book to free then.
+        // This is the close that actually frees both.
         if (cancelled) {
           closeView(view);
           return;
@@ -865,7 +1281,8 @@ export function BookPane({
       view.removeEventListener("load", onLoad);
       view.removeEventListener("create-overlay", onOverlay);
       renderer?.removeEventListener("relocate", onRelocate);
-      for (const doc of sections) {
+      for (const { doc, watcher } of sections) {
+        watcher?.disconnect();
         doc.removeEventListener("keydown", onKeyDown);
         doc.removeEventListener("pointerdown", report);
         doc.removeEventListener("focusin", report);
@@ -880,7 +1297,7 @@ export function BookPane({
     };
     // `redraw` and `goToQuote` are `useCallback`s with no dependencies, so their
     // identities are fixed and naming them here rebuilds nothing.
-  }, [blob, goToQuote, note, onKeyDown, redraw, report]);
+  }, [beside, goToQuote, note, onKeyDown, redraw, report]);
 
   // Mount included, the way the editor and the terminal read the same prop: a
   // freshly split pane is created focused and its first render is the only
@@ -895,7 +1312,7 @@ export function BookPane({
   }, [focusSignal]);
 
   // One effect whose only job is its cleanup. Not folded into the view's, which
-  // tears down whenever the blob or the note changes and would then say this on
+  // tears down whenever the file or the note changes and would then say this on
   // a rebuild rather than on the way out. The cleanup belongs to the mount
   // render, so it reads the callback off the ref at the moment it runs: closing
   // over the prop would flush against the note the pane held when it mounted,
@@ -905,7 +1322,8 @@ export function BookPane({
   // The listing having not arrived is not the same as the note being gone, so
   // an undefined `paths` says nothing.
   const orphaned = paths !== undefined && !paths.includes(note);
-  const failed = broken || error !== null || orphaned || (blob !== undefined && blob.size === 0);
+  const failed =
+    broken || error !== null || orphaned || (beside !== undefined && beside.blob.size === 0);
 
   return (
     // `tabIndex={-1}` so the wrapper can hold the cursor without joining the
@@ -952,7 +1370,9 @@ export function BookPane({
           className="absolute inset-0 flex items-center justify-center bg-one-bg p-6 text-center font-mono text-one-muted text-sm"
         >
           <p>
-            No book at <span className="text-one-fg">{bookPath(note)}</span>
+            Nothing to read beside <span className="text-one-fg">{note}</span>
+            <br />
+            {BOOK_SUFFIXES.join(" or ")} of the same name goes here
           </p>
         </div>
       )}

@@ -380,8 +380,21 @@ export async function fetchImages(): Promise<string[]> {
   return data;
 }
 
+/** What sits beside a note, and which of the two formats it turned out to be. */
+export interface BookBeside {
+  /** The file's own path in the vault, which the note's does not spell. */
+  path: string;
+  blob: Blob;
+}
+
 /**
- * Read one book out of the vault, whole.
+ * Read whatever the reader can open beside `note`, whole.
+ *
+ * The note's path and not the file's, because the file's is not a thing the
+ * client knows: the pair is a convention, two suffixes now answer to it, and
+ * the vault is what resolves which. A client probing instead would spend a 404
+ * on every pdf it opened and would hold a second copy of an ordering the
+ * backend already has.
  *
  * Plain `fetch` rather than the generated client, for the reason the route
  * opens its `EventSource` by hand: with `response_class=FileResponse` and no
@@ -394,14 +407,27 @@ export async function fetchImages(): Promise<string[]> {
  * starlette routes. Every note read in this app already relies on that, the
  * generated client encoding its path parameters the same way.
  */
-export async function fetchBook(path: string): Promise<Blob> {
-  const response = await fetch(`/api/assets/${encodeURIComponent(path)}`);
+export async function fetchBook(note: string): Promise<BookBeside> {
+  const response = await fetch(`/api/books/${encodeURIComponent(note)}`);
 
   if (!response.ok) {
-    throw new Error(`GET /api/assets/${path} failed with ${response.status}`);
+    throw new Error(`GET /api/books/${note} failed with ${response.status}`);
   }
 
-  return response.blob();
+  // The header and not a guess off the length or the bytes: the reader names
+  // the file in its own failure message and downloads it under that name, and
+  // both would otherwise be a second copy of the vault's ordering. A missing
+  // header is a backend that changed under this one, so it reads as no book
+  // rather than as a book called nothing.
+  const named = response.headers.get("X-Book-Path");
+  if (named === null) {
+    throw new Error(`GET /api/books/${note} answered without naming the file`);
+  }
+
+  // Percent-encoded on the way out, because a header is latin-1 on the wire and
+  // a vault holds notes called `Grundzüge`. The backend encodes; this is the
+  // other half of that one rule.
+  return { path: decodeURIComponent(named), blob: await response.blob() };
 }
 
 /**

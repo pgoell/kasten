@@ -420,12 +420,13 @@ gives the Caddy fix.
 ## GET /api/assets/{path}
 
 Reads one book or image out of the vault and answers with the bytes. `path` is a
-vault-relative POSIX path ending in one of six suffixes, and a slash inside it
-may be sent raw or percent-encoded.
+vault-relative POSIX path ending in one of seven suffixes, and a slash inside
+it may be sent raw or percent-encoded.
 
 | Suffix | Answered with |
 | --- | --- |
 | `.epub` | `application/epub+zip` |
+| `.pdf` | `application/pdf` |
 | `.png` | `image/png` |
 | `.jpg`, `.jpeg` | `image/jpeg` |
 | `.gif` | `image/gif` |
@@ -448,7 +449,7 @@ of the vault.
 ## POST /api/assets/{path}
 
 Puts one book or image into the vault at `path`, and never over one already
-there. `path` follows the same rules the read above follows, the six suffixes
+there. `path` follows the same rules the read above follows, the seven suffixes
 included.
 
 The body is the file itself, raw. Not multipart: one file and no fields, so
@@ -485,8 +486,8 @@ sees it. The `413` is a backstop for dev, for the LAN and for a client that did
 not check its file first.
 
 The bytes must start the way the suffix says they will: `PK\x03\x04` for a
-`.epub`, which is what a zip starts with, and the matching magic for each of the
-five image formats. `.webp` is checked on its `RIFF` alone, four bytes it shares
+`.epub`, which is what a zip starts with, `%PDF-` for a `.pdf`, and the matching
+magic for each of the five image formats. `.webp` is checked on its `RIFF` alone, four bytes it shares
 with wav and avi, one prefix per suffix being worth more here than the
 exactness. **This is a usability check and not a security one.** The shell pane
 drops a file straight into the vault without coming near this endpoint, so
@@ -500,7 +501,7 @@ a client that hangs up mid-body too. Where the path was taken, what was already
 there is untouched.
 
 Nothing here writes history. Books are ignored by jj, so a change bracketing
-this would be empty, and [Books in the vault](/explanation/books-in-the-vault.md)
+this would be empty, and [The file beside a note](/explanation/books-in-the-vault.md)
 covers why. Images are not ignored: they are part of what a note says, and the
 next save's snapshot sweeps in any untracked file under a megabyte, which most
 screenshots are.
@@ -524,20 +525,57 @@ entry after where it came from, so an image sits in there beside the notes, and
 folder the image emptied goes with it, the way a note's delete takes the one it
 emptied.
 
-Images alone. A `.epub` is a `404` like any other path this does not serve: a
-book travels with the note beside it, and which of the pair a delete should take
+Images alone. A book is a `404` like any other path this does not serve,
+whichever of the two suffixes it ends in: a book travels with the note beside it, and which of the pair a delete should take
 is a decision nothing here has made. The file tree, which is what this route
 serves, lists images and no books.
 
 | Status | Means |
 | --- | --- |
 | `200` | The image is in the trash, and the body says where it came from |
-| `404` | No image at that path, a `.epub`, a `.md` and a directory included |
+| `404` | No image at that path, a book, a `.md` and a directory included |
 
 The notes referencing the image are left alone, for the reason a delete leaves
 `[[link]]`s alone: rewriting them to say the picture is gone would be the one
 edit a restore could not take back. The editor draws a reference to a file that
 is not there as a picture that will not load.
+
+## GET /api/books/{path}
+
+Reads the book filed beside one note and answers with the bytes. `path` is the
+**note's** path, `20 Literature/DDIA.md`, and never the book's.
+
+The pair is a convention rather than a record, a book being its note's path with
+the suffix swapped, so the vault is the only thing that can resolve it. A client
+working from the note alone would have to ask for one suffix, read the `404` and
+ask for the next, which is a request per format and a guess about the order they
+should be tried in. Here it is one question.
+
+`.epub` first and `.pdf` second, so a note with both beside it is answered with
+the epub, which is the one that reflows. Which of the two came back is in a
+header rather than in the body, the body being the book:
+
+| Header | Carries |
+| --- | --- |
+| `X-Book-Path` | The vault-relative path of the file that came back, percent-encoded |
+
+The encoding is not optional to reverse. A header goes down the wire as latin-1,
+so `Grundzüge.pdf` arrives as `Grundz%C3%BCge.pdf` and the client is what puts
+the name back together, `decodeURIComponent` being the whole of it.
+
+| Status | Means |
+| --- | --- |
+| `200` | The bytes, with `X-Book-Path` naming which of the pair they are |
+| `404` | `No book beside that note` |
+
+The `404` covers a note with neither format beside it, a note that is not there
+at all, and every path the vault refuses: one that climbs out with `..`, an
+absolute one, a symlink pointing outside, a hidden segment. Nothing here asks
+whether the note exists, because the book is what was asked for and a stem with
+no book beside it answers the same either way.
+
+[The file beside a note](/explanation/books-in-the-vault.md) is why the path is not
+stored anywhere.
 
 ## GET /api/files/{path}
 
@@ -704,10 +742,11 @@ The reply is the note at its new path, in the shape `GET` returns.
 
 The book beside the note goes with it, `20 Literature/DDIA.epub` following
 `20 Literature/DDIA.md`, because the pair is a convention rather than a record
-and a note that moved alone would stop having a book. It stays where it is when
-the new path already has a book of its own: the note still moves, and nothing
-here overwrites a book. The reply says nothing either way, a client swapping
-the suffix for itself.
+and a note that moved alone would stop having a book. Both formats travel, and
+each is weighed on its own: one stays where it is when the new path already
+holds a book of that name, the note moving anyway, because nothing here
+overwrites a book. The reply says nothing either way, the client asking
+[the books route](#get-apibookspath) about the path it moved the note to.
 
 One route, not two: renaming a note and moving it between folders are the same
 thing, a change to the path. `PATCH` rather than `/rename` because the path is
