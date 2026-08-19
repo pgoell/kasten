@@ -581,6 +581,7 @@ export function Editor({
             closeNote: () => commandsRef.current?.closeNote(),
             showHelp: () => commandsRef.current?.showHelp(),
             focusTree: () => commandsRef.current?.focusTree(),
+            revealTree: () => commandsRef.current?.revealTree(),
             createNote: (startPath) => commandsRef.current?.createNote(startPath),
             // No path: the editor holds one note, and the route already knows
             // which. The tree is the caller that names one.

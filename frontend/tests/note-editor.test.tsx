@@ -91,6 +91,7 @@ function OpenNote({ path }: { path: string }) {
       openExam: vi.fn(),
       openReview: vi.fn(),
       focusTree: () => {},
+      revealTree: () => {},
       createTab: () => {},
       openTerminal: () => {},
       importPage: () => {},

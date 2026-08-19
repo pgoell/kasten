@@ -320,6 +320,9 @@ function Home() {
   // Raised to ask the tree for the focus. A counter rather than a flag,
   // because asking twice in a row is two requests and has to read as a change.
   const [treeFocus, setTreeFocus] = useState(0);
+  // Raised beside it to ask the tree to unfold down to the open note. Its own
+  // counter, because the focus is asked for without the jump and this is not.
+  const [treeReveal, setTreeReveal] = useState(0);
   // Raised each time a key was refused, which flashes the status bar's reading.
   // A counter for the reason the two above are counters: pressing a refused key
   // twice is two refusals and both have to read as one. How long the flash
@@ -1527,6 +1530,14 @@ function Home() {
         setTreeOpen(true);
         setTreeFocus((previous) => previous + 1);
       },
+      // All three in one render, for the reason above and one more: the panel
+      // moves its cursor off the reveal and carries the focus onto the row it
+      // lands on, so the focus has to be in the tree by then.
+      revealTree: () => {
+        setTreeOpen(true);
+        setTreeReveal((previous) => previous + 1);
+        setTreeFocus((previous) => previous + 1);
+      },
       createTab: () => moveTo(addTab),
       // No save first: opening the prompt moves no path. Naming a session does
       // replace what is in the pane, and that is asked on the way out below.
@@ -1635,6 +1646,7 @@ function Home() {
           onOpenChange={setTreeOpen}
           commands={commands}
           focusSignal={treeFocus}
+          revealSignal={treeReveal}
         />
         {/* min-w-0 lets the panes shrink instead of pushing the tree off-screen.
             The strip sits inside this column rather than over the whole window,

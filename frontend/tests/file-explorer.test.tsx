@@ -68,6 +68,7 @@ function Harness({
         closeNote: () => {},
         showHelp: () => {},
         focusTree: () => {},
+        revealTree: () => {},
         createNote: onCreateNote ?? (() => {}),
         renameNote: onRenameNote ?? (() => {}),
         renameFolder: onRenameFolder ?? (() => {}),
@@ -796,6 +797,94 @@ describe("folding on open", () => {
 
     expect(screen.queryByText("2026-08-04")).toBeNull();
     expect(screen.getByText("index")).toBeInTheDocument();
+  });
+});
+
+describe("revealing the open note", () => {
+  it("unfolds the way down to it and puts the cursor on its row", () => {
+    // The panel is seeded from the note the page loaded on and never hears of
+    // another, so a note reached by the finder or a wikilink sits folded away
+    // while the cursor is still on row zero. `<leader>E` is the way to it.
+    const { rerender } = render(<Harness revealSignal={0} />);
+    expect(screen.queryByText("api-design")).toBeNull();
+
+    rerender(<Harness revealSignal={1} openPath="projects/kasten/api-design.md" />);
+
+    expect(screen.getByText("api-design")).toBeInTheDocument();
+    expect(cursor()).toHaveAttribute("title", "projects/kasten/api-design.md");
+  });
+
+  it("carries the focus onto the row it lands on", () => {
+    // The route raises `focusSignal` in the same render, which is what brings
+    // the focus into the panel; this is the half that then puts it on the
+    // revealed row rather than on the row the cursor was left at.
+    const { rerender } = render(<Harness focusSignal={0} revealSignal={0} />);
+
+    rerender(<Harness focusSignal={1} revealSignal={1} openPath="projects/kasten/api-design.md" />);
+
+    expect(cursor()).toHaveFocus();
+    expect(cursor()).toHaveAttribute("title", "projects/kasten/api-design.md");
+  });
+
+  it("reveals an image the way it reveals a note", () => {
+    const { rerender } = render(<Harness images={["media/diagram.png"]} revealSignal={0} />);
+
+    rerender(
+      <Harness images={["media/diagram.png"]} revealSignal={1} openPath="media/diagram.png" />,
+    );
+
+    expect(cursor()).toHaveAttribute("title", "media/diagram.png");
+  });
+
+  it("leaves the folders it did not need alone", () => {
+    // A reveal shows one note. It is not a way to unfold the whole vault, and
+    // it does not fold away what you had already opened.
+    const { rerender } = render(<Harness revealSignal={0} />);
+    fireEvent.click(screen.getByRole("button", { name: "daily" }));
+    expect(screen.getByText("2026-08-04")).toBeInTheDocument();
+
+    rerender(<Harness revealSignal={1} openPath="projects/kasten/api-design.md" />);
+
+    expect(screen.getByText("api-design")).toBeInTheDocument();
+    expect(screen.getByText("2026-08-04")).toBeInTheDocument();
+  });
+
+  it("leaves the cursor alone when the pane holds no note", () => {
+    // A terminal, the todos or an empty pane. Nothing to reveal is not an
+    // error, it is a key that does nothing.
+    const { rerender } = render(<Harness revealSignal={0} />);
+    expect(cursor()).toHaveTextContent("daily");
+
+    rerender(<Harness revealSignal={1} />);
+
+    expect(cursor()).toHaveTextContent("daily");
+  });
+
+  it("leaves the cursor alone when the open note has no row", () => {
+    // The archive filter cuts notes out of `paths` before the tree sees them,
+    // so the note the pane holds can be one the tree is not showing.
+    const { rerender } = render(<Harness revealSignal={0} />);
+
+    rerender(<Harness revealSignal={1} openPath="archive/gone.md" />);
+
+    expect(cursor()).toHaveTextContent("daily");
+  });
+
+  it("leaves the cursor alone until the signal changes", () => {
+    // Mounting is not a request, the way it is not one for `focusSignal`: a
+    // panel that revealed on the value would drag the cursor back every time
+    // the tree was folded away and brought out again.
+    const { rerender } = render(
+      <Harness revealSignal={3} openPath="projects/kasten/api-design.md" />,
+    );
+    // Seeded folders still unfold the way down, which is the load-time rule,
+    // and the cursor still starts on the first row rather than on the note.
+    expect(screen.getByText("api-design")).toBeInTheDocument();
+    expect(cursor()).toHaveTextContent("daily");
+
+    rerender(<Harness revealSignal={3} openPath="projects/kasten/api-design.md" />);
+
+    expect(cursor()).toHaveTextContent("daily");
   });
 });
 

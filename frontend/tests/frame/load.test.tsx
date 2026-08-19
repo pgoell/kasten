@@ -52,6 +52,7 @@ const INERT: TreeCommands = {
   closeNote: () => {},
   showHelp: () => {},
   focusTree: () => {},
+  revealTree: () => {},
   createNote: () => {},
   renameNote: () => {},
   deleteNote: () => {},

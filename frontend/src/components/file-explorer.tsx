@@ -27,6 +27,9 @@ interface FileExplorerProps {
   /** Raised by the route to ask the panel for the focus. The change is the
    * request, not the value: mounting must not pull focus out of the editor. */
   focusSignal?: number;
+  /** Raised by the route to ask the panel to unfold down to `openPath` and put
+   * its cursor on that row. A change is the request, the way `focusSignal` is. */
+  revealSignal?: number;
 }
 
 interface FolderNode {
@@ -398,6 +401,7 @@ export function FileExplorer({
   onOpenChange,
   commands,
   focusSignal = 0,
+  revealSignal = 0,
 }: FileExplorerProps) {
   // What is unfolded, rather than what is folded away, which is what makes an
   // unopened folder cost nothing. A folder's children are not rendered until it
@@ -418,6 +422,8 @@ export function FileExplorer({
   const nav = useRef<HTMLElement>(null);
   /** The signal already answered, so the first render answers nothing. */
   const answered = useRef(focusSignal);
+  /** The same, for the reveal. Its own ref: the two signals move apart. */
+  const revealed = useRef(revealSignal);
   /** Whether the panel is waiting for a row of its own to go, so it can take
    * the focus back off the body when it does. */
   const deleting = useRef(false);
@@ -434,6 +440,31 @@ export function FileExplorer({
     answered.current = focusSignal;
     nav.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
   }, [focusSignal]);
+
+  // `<leader>E`. The panel is seeded with the folders on the way to the note the
+  // page loaded on and never learns of another, so a note reached by the finder,
+  // a wikilink or a backlink can sit folded away while the tree points at row
+  // zero. This unfolds the way down to it and moves the cursor there; the route
+  // raises `focusSignal` in the same render, and the effect below carries the
+  // focus onto the row this one lands on.
+  useEffect(() => {
+    if (revealSignal === revealed.current) return;
+    revealed.current = revealSignal;
+    if (openPath === undefined) return;
+
+    // Unfolded on top of what is already open rather than in place of it: the
+    // reveal shows one note, it does not fold the rest of the tree away.
+    const folders = new Set([...expanded, ...ancestors(openPath)]);
+    const index = flattenRows(tree, folders).findIndex(
+      (row) => row.node.kind === "file" && row.node.path === openPath,
+    );
+    // The archive filter hides notes from `paths`, so the open note can have no
+    // row to go to. Leaving the cursor where it is beats moving it nowhere.
+    if (index === -1) return;
+
+    setExpanded(folders);
+    setActive(index);
+  }, [revealSignal, openPath, expanded, tree]);
 
   // Only when the panel already holds the focus. Moving the cursor from inside
   // the editor, which `<leader>b` does, must not drag the focus along with it.
