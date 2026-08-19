@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.21.0"
+    "version": "0.22.0"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -1012,7 +1012,7 @@
       },
       "patch": {
         "summary": "Move File",
-        "description": "Give one note a new path, moving it between folders as well as renaming it.\n\n`PATCH` rather than a `/rename` route because the path is the note's\nidentity: `POST` starts a note, `PUT` replaces its text, and this changes\nwhere it lives. A verb in the URL would be the same thing spelled as a\nremote procedure call.\n\nA missing source is a 404, matching the read and the write, so a note you\ncannot open stays a note you cannot move. The target names its refusal the\nway a create does, a 400 for a path the vault will not have and a 409 for\none already taken, because the user is about to retype it and has to know\nwhich it was.\n\nThe text comes back read off disk rather than carried over from the client.\nBoth the URL and the query key change on a move, and seeding the new one\nfrom here is what stops a note edited outside kasten arriving stale on the\nother side.\n\nThe book beside the note travels with it, or the pair stops being a pair.\nThe answer says nothing about that, because there is nothing a client does\ndifferently: it swaps the suffix for itself, the way it always has.",
+        "description": "Give one note a new path, moving it between folders as well as renaming it.\n\n`PATCH` rather than a `/rename` route because the path is the note's\nidentity: `POST` starts a note, `PUT` replaces its text, and this changes\nwhere it lives. A verb in the URL would be the same thing spelled as a\nremote procedure call.\n\nA missing source is a 404, matching the read and the write, so a note you\ncannot open stays a note you cannot move. The target names its refusal the\nway a create does, a 400 for a path the vault will not have and a 409 for\none already taken, because the user is about to retype it and has to know\nwhich it was.\n\nThe text comes back read off disk rather than carried over from the client.\nBoth the URL and the query key change on a move, and seeding the new one\nfrom here is what stops a note edited outside kasten arriving stale on the\nother side.\n\nThe books beside the note travel with it, or the pair stops being a pair.\nThe answer says nothing about that, because there is nothing a client does\ndifferently: it asks `/api/books` about the path it moved the note to, the\nway it always has.",
         "operationId": "move_file_api_files__path__patch",
         "parameters": [
           {

@@ -721,9 +721,10 @@ export interface paths {
          *     from here is what stops a note edited outside kasten arriving stale on the
          *     other side.
          *
-         *     The book beside the note travels with it, or the pair stops being a pair.
+         *     The books beside the note travel with it, or the pair stops being a pair.
          *     The answer says nothing about that, because there is nothing a client does
-         *     differently: it swaps the suffix for itself, the way it always has.
+         *     differently: it asks `/api/books` about the path it moved the note to, the
+         *     way it always has.
          */
         patch: operations["move_file_api_files__path__patch"];
         trace?: never;
