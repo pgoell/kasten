@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Connect an agent
-description: Mint a token and point Claude Code, codex, claude.ai, chatgpt.com or curl at the vault from another machine.
+description: Mint a token and point Claude Code, codex, claude.ai, chatgpt.com or curl at the vault from another machine, or install the skill where MCP is off.
 tags: [agent, mcp, tokens, claude]
 status: stable
 ---
@@ -116,6 +116,48 @@ present the `sha` that read returned, not a digest of the text you are sending.
 [What a digest is of](/reference/agent-api.md#what-a-digest-is-of-and-why-it-is-never-the-digest-of-what-you-sent)
 says why those two differ.
 
+## Claude Code where MCP is off
+
+Some machines run Claude Code with MCP servers turned off by policy. The
+`kasten` plugin in this repository gives it the same five capabilities as a
+skill that drives the curl routes above, so no MCP client is involved.
+
+Add this repository as a marketplace and install the plugin, inside Claude Code:
+
+```
+/plugin marketplace add pgoell/kasten
+/plugin install kasten@kasten
+```
+
+Mint a token named for the machine, `work-laptop`, and set both variables in
+`~/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "KASTEN_TOKEN": "kasten_xxxxxxxx",
+    "KASTEN_AGENT": "https://kasten.pascalkraus.com/agent"
+  }
+}
+```
+
+Claude Code hands its `env` to every command it runs, so this works in whatever
+shell the machine has. A shell profile works too, when Claude Code starts from
+that shell.
+
+The skill loads when a request names kasten, the vault or your notes, or by
+hand as `/kasten:vault`. It carries the rules the MCP server's instructions
+carry, and reads `reading-this-vault.md` before its first write for the same
+reason.
+
+It needs curl 8.3 or newer, which `curl --version` shows. `--variable` and its
+`:url` and `:json` functions are what encode a path holding spaces and escape a
+note's body, so the machine needs no `jq` and no Python.
+
+The plugin carries no version number. Claude Code reads the commit instead, so
+every merge to `main` counts as a new version, and
+`/plugin marketplace update kasten` fetches it.
+
 ## claude.ai and chatgpt.com
 
 Neither has a field for a header, so neither can be given a token. Both instead
@@ -161,6 +203,7 @@ above; it is less machinery either way.
 | `409` on a save | The note changed since you read it. Read it again and present the new `sha` |
 | `413` | The write would leave more than 1MiB on disk |
 | A redirect to a sign-in page | The Caddy block is not in place. See [Deploy to the VPS](/how-to/deploy-to-the-vps.md) |
+| `option --variable: is unknown` from the skill | curl is older than 8.3 |
 | A connector that will not save, with no request in Caddy's log | Cloudflare refused it before Caddy saw it. Read the zone's security events for the host |
 | `Couldn't register` in a connector dialog | The client wanted to register itself. kasten has no registration endpoint, so leave the Client ID field empty rather than filling it |
 | A connector that connects and then finds no tools | The token is minted but the tool call was refused. Read `docker logs kasten-backend-prod` for the `401` or the `403` |

@@ -1,0 +1,16 @@
+{
+  "name": "kasten",
+  "owner": {
+    "name": "pgoell"
+  },
+  "metadata": {
+    "description": "The plugin that ships with kasten, the self-hosted markdown notebook."
+  },
+  "plugins": [
+    {
+      "name": "kasten",
+      "source": "./plugins/kasten",
+      "description": "Read, search and write the kasten vault with curl and a bearer token, for a machine with no MCP."
+    }
+  ]
+}

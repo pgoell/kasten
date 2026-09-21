@@ -72,6 +72,10 @@ why `read_guide` hands the same text back on request.
 Claude Code truncates a server's instructions at 2KiB, mid-word and silently, so
 this stays well inside it, and what a client needs first, the shape of the vault
 and the limits of the tools, is in the opening lines.
+
+`plugins/kasten/skills/vault/SKILL.md` tells the same rules to an agent with no
+MCP client, spelled in routes rather than tool names. A change here belongs
+there too: nothing reads one off the other.
 """
 
 REDUNDANT = (
