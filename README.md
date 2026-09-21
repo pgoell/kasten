@@ -37,6 +37,7 @@ frontend/   Vite SPA
 docs/       documentation, arranged by Diátaxis
 deploy/     dev and prod compose files, and their runbook
 scripts/    OpenAPI type generation
+plugins/    Claude Code plugin for a machine with no MCP
 compose.yaml  dev Postgres
 ```
 

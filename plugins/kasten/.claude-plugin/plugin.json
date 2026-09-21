@@ -1,0 +1,8 @@
+{
+  "name": "kasten",
+  "description": "Read, search and write the kasten vault with curl and a bearer token, for a machine with no MCP.",
+  "author": {
+    "name": "pgoell"
+  },
+  "keywords": ["kasten", "notes", "vault", "markdown"]
+}

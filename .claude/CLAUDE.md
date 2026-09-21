@@ -16,6 +16,9 @@ oauth2-proxy.
   git, curl, jq, Claude Code, codex and dsh beside it. It publishes no port, the way
   in being a Caddy `handle /term/*` behind oauth2-proxy.
 - `vault/`: the notes, and a colocated jj repo holding their history.
+- `plugins/`: the Claude Code plugin that reaches the vault with curl where MCP
+  is off. `.claude-plugin/marketplace.json` at the root makes the repo its
+  marketplace.
 - `compose.yaml` and `compose.dev.yml` at the root run dev. `deploy/` holds the
   prod compose.
 
