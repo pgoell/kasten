@@ -813,7 +813,11 @@ const live = StateField.define<Live>({
     // nothing in `tr.effects` to read it off. A note holding a link to a note
     // that has just been written has to stop calling it dead.
     const vaultChanged = tr.startState.facet(vaultPaths) !== tr.state.facet(vaultPaths);
-    if (!tr.docChanged && !tr.selection && !modeChanged && !vaultChanged) return value;
+    // A long note is parsed in slices off the main thread's idle time, each
+    // slice landing as a transaction that changes nothing else. Without this
+    // the text past the first slice stays raw until the cursor moves.
+    const parsed = syntaxTree(tr.startState) !== syntaxTree(tr.state);
+    if (!tr.docChanged && !tr.selection && !modeChanged && !vaultChanged && !parsed) return value;
     return build(tr.state);
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),

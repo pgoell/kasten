@@ -115,14 +115,12 @@ async def test_the_production_host_is_accepted(
     # the REST routes only, so a 421-on-everything endpoint would surface first
     # in production.
     (agent_vault / "borges.md").write_text("# borges\n")
-    monkeypatch.setenv("KASTEN_AGENT_HOST", "kasten.pascalkraus.com")
+    monkeypatch.setenv("KASTEN_AGENT_HOST", "kasten.pgoell.com")
     get_settings.cache_clear()
 
     async with (
         LifespanManager(app),
-        AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://kasten.pascalkraus.com"
-        ) as gated,
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://kasten.pgoell.com") as gated,
     ):
         response = await gated.post(
             ENDPOINT,
@@ -137,7 +135,7 @@ async def test_a_foreign_host_is_refused(
     agent_vault: Path, token: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (agent_vault / "borges.md").write_text("# borges\n")
-    monkeypatch.setenv("KASTEN_AGENT_HOST", "kasten.pascalkraus.com")
+    monkeypatch.setenv("KASTEN_AGENT_HOST", "kasten.pgoell.com")
     get_settings.cache_clear()
 
     async with (

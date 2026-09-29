@@ -34,7 +34,7 @@ request the token is used for.
 An `http` server with the token in a header:
 
 ```sh
-claude mcp add --transport http kasten https://kasten.pascalkraus.com/agent/mcp \
+claude mcp add --transport http kasten https://kasten.pgoell.com/agent/mcp \
   --header "Authorization: Bearer kasten_xxxxxxxx"
 ```
 
@@ -51,7 +51,7 @@ file:
 
 ```toml
 [mcp_servers.kasten]
-url = "https://kasten.pascalkraus.com/agent/mcp"
+url = "https://kasten.pgoell.com/agent/mcp"
 bearer_token_env_var = "KASTEN_TOKEN"
 ```
 
@@ -70,7 +70,7 @@ front. In its `claude_desktop_config.json`:
       "args": [
         "-y",
         "mcp-remote",
-        "https://kasten.pascalkraus.com/agent/mcp",
+        "https://kasten.pgoell.com/agent/mcp",
         "--header",
         "Authorization: Bearer kasten_xxxxxxxx"
       ]
@@ -89,7 +89,7 @@ Every shape is in [the Agent API](/reference/agent-api.md).
 
 ```sh
 export KASTEN_TOKEN=kasten_xxxxxxxx
-export KASTEN_AGENT=https://kasten.pascalkraus.com/agent
+export KASTEN_AGENT=https://kasten.pgoell.com/agent
 
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/notes"
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/search?q=forking"
@@ -136,7 +136,7 @@ Mint a token named for the machine, `work-laptop`, and set both variables in
 {
   "env": {
     "KASTEN_TOKEN": "kasten_xxxxxxxx",
-    "KASTEN_AGENT": "https://kasten.pascalkraus.com/agent"
+    "KASTEN_AGENT": "https://kasten.pgoell.com/agent"
   }
 }
 ```
@@ -171,7 +171,7 @@ rather than themselves, and a connector reads that as neither a document nor an
 absence.
 
 **claude.ai**: Settings, Connectors, Add custom connector. The URL is
-`https://kasten.pascalkraus.com/agent/mcp`. Leave the OAuth Client ID and Client
+`https://kasten.pgoell.com/agent/mcp`. Leave the OAuth Client ID and Client
 Secret fields empty. The same connector reaches Claude Desktop and the phone,
 which is the reason to prefer it to the `mcp-remote` bridge above.
 
