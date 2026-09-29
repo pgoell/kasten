@@ -100,6 +100,7 @@ function Harness({
         createTab: () => {},
         openTerminal: () => {},
         importPage: () => {},
+        captureDump: () => {},
         splitRight: () => {},
         splitDown: () => {},
         nextPane: () => {},

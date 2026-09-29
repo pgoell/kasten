@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { dailyDate, periodicNote } from "@/lib/periodic";
 
 // Built from local parts rather than parsed from a string, because a bare ISO
@@ -58,6 +60,21 @@ describe("the daily note", () => {
 
   it("ends with the section the add prompt writes into", () => {
     expect(made.body).toMatch(/\n\n## TODOs\n$/);
+  });
+});
+
+describe("the daily note the backend makes", () => {
+  it("is the one this makes, word for word", () => {
+    // `POST /api/dump` makes a missing daily note on the server, off a copy of
+    // this template in `periodic.py`. Both sides read this file, so editing
+    // one copy and not the other fails a test on the side left behind.
+    const fixture = path.join(import.meta.dirname, "fixtures/daily-notes.json");
+    const expected = JSON.parse(readFileSync(fixture, "utf8")) as Record<string, string>;
+
+    for (const [day, body] of Object.entries(expected)) {
+      const [year, month, date] = day.split("-").map(Number);
+      expect(periodicNote("daily", new Date(year ?? 0, (month ?? 1) - 1, date)).body).toBe(body);
+    }
   });
 });
 

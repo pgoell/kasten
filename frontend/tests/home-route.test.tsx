@@ -2,8 +2,9 @@ import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ASSET_LIMIT_BYTES } from "@/lib/api";
+import { readClock } from "@/lib/clock";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
@@ -61,6 +62,7 @@ const {
   deleteImage,
   fetchVersion,
   fetchTags,
+  captureDump,
   beside,
 } = vi.hoisted(() => {
   /**
@@ -109,6 +111,7 @@ const {
     // The status bar asks for this on every mount. A release, because the bundle
     // these run against carries no commit either.
     fetchVersion: vi.fn().mockResolvedValue("0.8.0"),
+    captureDump: vi.fn(),
   };
 });
 vi.mock("@/lib/api", () => ({
@@ -130,6 +133,7 @@ vi.mock("@/lib/api", () => ({
   deleteImage,
   fetchVersion,
   fetchTags,
+  captureDump,
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.
@@ -2489,6 +2493,73 @@ describe("opening a highlight's book with gf", () => {
     await follows(app);
 
     expect(app.notice()).toBeNull();
+  });
+});
+
+describe("capturing into today's dump", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    captureDump.mockImplementation(async () => ({ path: "x.md", content: "" }));
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  /** The prompt's own input, which is not the only one the route mounts. */
+  const field = () => screen.getByLabelText("dump");
+
+  it("sends the thought for today on Enter, and says it landed", async () => {
+    const app = await renderApp();
+    await settle();
+
+    app.leader("c", "d");
+    fireEvent.change(field(), { target: { value: "ask Jonas about the flat" } });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await settle();
+
+    expect(captureDump).toHaveBeenCalledWith(
+      "ask Jonas about the flat",
+      readClock(new Date()).date,
+    );
+    expect(screen.queryByRole("dialog", { name: "Capture a thought" })).toBeNull();
+    expect(app.notice()).toBe("Captured into today's dump");
+  });
+
+  it("puts the vault's refusal where the confirmation would have been", async () => {
+    captureDump.mockRejectedValue(new Error("The vault will not take that path"));
+    const app = await renderApp();
+    await settle();
+
+    app.leader("c", "d");
+    fireEvent.change(field(), { target: { value: "a thought" } });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await settle();
+
+    expect(app.notice()).toBe("The vault will not take that path");
+  });
+
+  it("writes nothing when Escape closes it", async () => {
+    const app = await renderApp();
+    await settle();
+
+    app.leader("c", "d");
+    fireEvent.change(field(), { target: { value: "half a thought" } });
+    fireEvent.keyDown(field(), { key: "Escape" });
+    await settle();
+
+    expect(captureDump).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Capture a thought" })).toBeNull();
   });
 });
 

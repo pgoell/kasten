@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kasten</title>
+    <!-- use-credentials, because the whole site sits behind oauth2-proxy and a
+         manifest is fetched without cookies by default: it would get the
+         sign-in redirect instead of the JSON. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+    <link rel="apple-touch-icon" href="/icons/capture-192.png" />
   </head>
   <body>
     <div id="root"></div>

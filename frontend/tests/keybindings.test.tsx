@@ -43,6 +43,7 @@ function stubCommands() {
     createTab: vi.fn(),
     openTerminal: vi.fn(),
     importPage: vi.fn(),
+    captureDump: vi.fn(),
     splitRight: vi.fn(),
     splitDown: vi.fn(),
     nextPane: vi.fn(),
@@ -532,6 +533,18 @@ describe("the leader key", () => {
     for (const command of Object.values(commands)) {
       expect(command).not.toHaveBeenCalled();
     }
+  });
+
+  it("opens the dump prompt on space then c then d", () => {
+    const commands = stubCommands();
+    const { editor } = open("plain", commands);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "c" });
+    fireEvent.keyDown(editor, { key: "d" });
+
+    expect(commands.captureDump).toHaveBeenCalledTimes(1);
+    expect(commands.deleteNote).not.toHaveBeenCalled();
   });
 
   it("waits for the second letter rather than acting on space then c", () => {

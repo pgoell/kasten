@@ -1,4 +1,4 @@
-"""The same five capabilities, served as MCP tools at `/agent/mcp`.
+"""The same six capabilities, served as MCP tools at `/agent/mcp`.
 
 Thin wrappers over `agent.py` and nothing else. The rules about what an agent
 may do live there, so the two surfaces cannot drift into disagreeing about them.
@@ -34,6 +34,7 @@ so it is refused here rather than left to the SDK.
 """
 
 from contextlib import asynccontextmanager
+from datetime import date  # noqa: TC003  the SDK reads the annotation at runtime
 from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -130,6 +131,22 @@ async def append_note(path: str, text: str, sha: str | None = None) -> dict[str,
     return await _written(agent.append_note(get_settings(), path, text, sha))
 
 
+async def dump(text: str, date: date) -> dict[str, Any]:
+    """Add a thought to the `## Dump` section of the user's daily note for `date`.
+
+    The dump is where the user collects the day's loose thoughts, and it is read
+    at the end of the day to plan the next. Use this, not append_note, when the
+    user asks you to dump, note or remember something for later without naming
+    a note. `date` is the user's own local date as YYYY-MM-DD; there is no
+    default, because the server may keep another timezone. The note and the
+    section are made when missing, and the text lands as a paragraph of its own.
+    """
+    try:
+        return await _written(agent.dump(get_settings(), text, date))
+    except agent.EmptyCaptureError as empty:
+        raise ToolError(str(empty)) from empty
+
+
 async def read_guide() -> str:
     """How this vault is filed, what the other tools do, and what they cannot do.
 
@@ -140,16 +157,16 @@ async def read_guide() -> str:
     return INSTRUCTIONS
 
 
-TOOLS = (list_notes, read_note, search_notes, save_note, append_note, read_guide)
-"""The five, in the order the reference page lists them, and the guide behind them.
+TOOLS = (list_notes, read_note, search_notes, save_note, append_note, dump, read_guide)
+"""The six, in the order the reference page lists them, and the guide behind them.
 
-`read_guide` is a sixth tool and not a sixth capability. It reads a string
+`read_guide` is a seventh tool and not a seventh capability. It reads a string
 compiled into the image, never the vault, so the audit this prefix exists for is
-still a list of five things.
+still a list of six things.
 """
 
 READING = frozenset({"list_notes", "read_note", "search_notes", "read_guide"})
-"""Which of the five only read, told to the client as `readOnlyHint`.
+"""Which of the tools only read, told to the client as `readOnlyHint`.
 
 chatgpt.com treats a tool without it as a write and asks you to confirm every
 call, so an unannotated `read_note` turns a search across the vault into one
@@ -276,7 +293,7 @@ def build() -> tuple[ASGIApp, MCPServer]:
         streamable_http_path=PATH,
         # Stateless, so there is no session to keep and a POST carries the whole
         # exchange. JSON rather than a stream for the same reason: every one of
-        # these five answers in one message.
+        # these six answers in one message.
         stateless_http=True,
         json_response=True,
         transport_security=_security(get_settings().agent_host),

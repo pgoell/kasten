@@ -326,6 +326,7 @@ async def test_the_schema_describes_the_agent_routes(
         "/agent/notes",
         "/agent/notes/{path}",
         "/agent/notes/{path}/append",
+        "/agent/dump",
         "/agent/search",
         "/agent/openapi.json",
     }
@@ -334,10 +335,71 @@ async def test_the_schema_describes_the_agent_routes(
 async def test_the_schema_names_no_route_a_token_cannot_reach(
     client: AsyncClient, bearer: dict[str, str]
 ) -> None:
-    # The point of the prefix is that the audit is a list of five things. A
+    # The point of the prefix is that the audit is a list of six things. A
     # schema handing a token holder the map of the twenty-seven routes it cannot
     # reach would give that away for nothing.
     schema = (await client.get("/agent/openapi.json", headers=bearer)).json()
 
     assert not [path for path in schema["paths"] if not path.startswith("/agent/")]
     assert "TrashEntry" not in schema.get("components", {}).get("schemas", {})
+
+
+DAY = "01 Periodic/00 Daily/2026-09-29.md"
+
+
+async def test_dump_makes_the_daily_note_and_its_section(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.post(
+        "/agent/dump", json={"text": "answer Jonas", "date": "2026-09-29"}, headers=bearer
+    )
+
+    assert response.status_code == 200
+    assert response.json()["path"] == DAY
+    assert response.json()["sha"] == sha((agent_vault / DAY).read_text())
+    assert (agent_vault / DAY).read_text().endswith("## TODOs\n\n## Dump\nanswer Jonas\n")
+
+
+async def test_dump_lands_where_the_browser_capture_does(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # One implementation behind both routes, so a thought from the phone and
+    # one from an agent end up in the same section of the same note.
+    (agent_vault / DAY).parent.mkdir(parents=True)
+    (agent_vault / DAY).write_text("# today\n\n## Dump\nmine\n\n## Inbox cleanup\n")
+
+    await client.post(
+        "/agent/dump", json={"text": "the agent's", "date": "2026-09-29"}, headers=bearer
+    )
+
+    assert (
+        (agent_vault / DAY)
+        .read_text()
+        .endswith("## Dump\nmine\n\nthe agent's\n\n## Inbox cleanup\n")
+    )
+
+
+async def test_dump_refuses_text_with_nothing_in_it(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.post(
+        "/agent/dump", json={"text": "  ", "date": "2026-09-29"}, headers=bearer
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Nothing to capture"}
+    assert not (agent_vault / DAY).exists()
+
+
+async def test_dump_needs_the_callers_date(client: AsyncClient, bearer: dict[str, str]) -> None:
+    # No server-side default: the process has no notion of the vault's zone.
+    response = await client.post("/agent/dump", json={"text": "x"}, headers=bearer)
+
+    assert response.status_code == 422
+
+
+async def test_dump_needs_a_token(client: AsyncClient, agent_vault: Path) -> None:
+    response = await client.post("/agent/dump", json={"text": "x", "date": "2026-09-29"})
+
+    assert response.status_code == 401
+    assert not (agent_vault / DAY).exists()

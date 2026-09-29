@@ -97,6 +97,8 @@ export interface EditorCommands {
   openTerminal(): void;
   /** Ask for a web address, and put the page it names in the inbox as a note. */
   importPage(): void;
+  /** Ask for one thought, and put it in the `## Dump` of today's note. */
+  captureDump(): void;
   /** Put an empty pane beside this one, and move to it. */
   splitRight(): void;
   /** Put an empty pane under this one, and move to it. */
@@ -176,6 +178,11 @@ export const LEADER: readonly LeaderBinding[] = [
   // behind is a book in the vault and the note that reads it. `b` for the
   // book, beside `gr` which reads one.
   { key: "cb", label: "Add a book to the inbox", command: "uploadBook" },
+  // `d` for the dump, the section of today's note the thought lands in. In the
+  // `c` group because it creates: a paragraph, and the note and the section
+  // where the day has neither. Not a bare `d`, which would shadow `df` and `du`:
+  // vim fires a complete match without waiting for the next key.
+  { key: "cd", label: "Capture a thought into today's dump", command: "captureDump" },
   // Two letters, the way Obsidian and every vim config spell a create: `c` for
   // the group and `f` for the thing. Both the editor and the tree resolve a
   // sequence, so nothing else has to be single-key from here on.
@@ -572,6 +579,9 @@ export const SCREENS: readonly { key: string; label: string }[] = [
   // Without this the app says nowhere at all that `/tokens` exists.
   { key: "/tokens", label: "Mint and revoke the tokens an agent reaches the vault with" },
   { key: "/review", label: "The review, on a page of its own, sized for a phone" },
+  // `<leader>cd` reaches the same dump from the app. This is the way in from a
+  // phone, and the page Android's share sheet opens.
+  { key: "/capture", label: "Capture a thought into today's dump, sized for a phone" },
 ];
 export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "j / k", label: "Move the cursor down or up" },

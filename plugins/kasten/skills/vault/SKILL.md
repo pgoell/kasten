@@ -1,13 +1,13 @@
 ---
 name: vault
-description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, save_note, append_note) are connected; those do the same job.
+description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there, or to dump a thought for later. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, save_note, append_note, dump) are connected; those do the same job.
 ---
 
 # kasten vault
 
 kasten serves one personal markdown vault. This skill reaches it with curl and
 a bearer token, for a machine where the kasten MCP server cannot be used. The
-five routes are the same five capabilities the MCP tools offer.
+six routes are the same six capabilities the MCP tools offer.
 
 ## Auth
 
@@ -56,7 +56,7 @@ braces.
 
 ## The vault
 
-There is no grep, no regex, no glob and no directory tree. There are five
+There is no grep, no regex, no glob and no directory tree. There are six
 routes.
 
 The vault is an Open Knowledge Format bundle whose notes link to each other
@@ -173,6 +173,24 @@ curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" \
 For text over one line or holding a single quote, write it to a file and use
 `--variable text@/path/to/line.md` instead.
 
+### Dump a thought
+
+Adds a paragraph to the `## Dump` section of the user's daily note for `date`,
+the section they read at the end of the day to plan the next. Use it when the
+user asks you to dump, jot or remember something and names no note, rather than
+filing it in `00 Inbox/00 Agent/`. `date` is the user's local date,
+`YYYY-MM-DD`, and has no default: the server may keep another timezone. The
+note and the section are made when missing. Needs no `sha`:
+
+```sh
+curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --variable 'text=answer Jonas about the flat' --variable "d=$(date +%F)" \
+  --expand-json '{"text": "{{text:json}}", "date": "{{d:json}}"}' \
+  "$KASTEN_AGENT/dump"
+```
+
+`date +%F` is this machine's date. When the user is somewhere else, pass theirs.
+
 ## Errors
 
 | What you see | What it means | Do |
@@ -181,6 +199,7 @@ For text over one line or holding a single quote, write it to a file and use
 | `404` `No such note` | No readable note at that path | For a read, it is absent. Check the spelling with a search or a list |
 | `409` with `current` | The note changed since you read it | Read it again, apply the edit to the new content, save with the new `sha`. Never retry with `current` alone |
 | `413` | The write would leave more than 1MiB on disk | Split the note |
+| `422` `Nothing to capture` | A dump with no words in it | Send the thought itself |
 | `421` | `KASTEN_AGENT` names a host the server does not answer to | Ask the user for the right URL |
 | HTML or a redirect to a sign-in page | `KASTEN_AGENT` does not end in `/agent`, or the proxy in front is misconfigured | Check the URL |
 | `option --variable: is unknown` | curl older than 8.3 | Ask the user to update curl |

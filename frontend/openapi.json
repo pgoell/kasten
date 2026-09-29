@@ -210,7 +210,7 @@
           "agent"
         ],
         "summary": "Schema",
-        "description": "This prefix, described as OpenAPI, for a caller with no MCP client.\n\nAn agent over MCP discovers the five capabilities from `tools/list`. One\nholding a token and a curl has nothing to read, because `/openapi.json` at\nthe root is behind oauth2-proxy and describes the browser's API rather than\nthis one.\n\nBuilt from this router's own routes rather than by filtering the whole\napplication's schema, so it names the five and pulls in only the models they\nreference. A token holder cannot reach anything under `/api/`, and handing\none the map of those routes would give it away for nothing.",
+        "description": "This prefix, described as OpenAPI, for a caller with no MCP client.\n\nAn agent over MCP discovers the six capabilities from `tools/list`. One\nholding a token and a curl has nothing to read, because `/openapi.json` at\nthe root is behind oauth2-proxy and describes the browser's API rather than\nthis one.\n\nBuilt from this router's own routes rather than by filtering the whole\napplication's schema, so it names the six and pulls in only the models they\nreference. A token holder cannot reach anything under `/api/`, and handing\none the map of those routes would give it away for nothing.",
         "operationId": "schema_agent_openapi_json_get",
         "responses": {
           "200": {
@@ -256,6 +256,48 @@
               }
             }
           }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/dump": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Dump",
+        "description": "Add a paragraph to the `## Dump` of the daily note for `date`, making either.",
+        "operationId": "dump_agent_dump_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Dump"
+              }
+            }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1138,6 +1180,45 @@
         }
       }
     },
+    "/api/dump": {
+      "post": {
+        "summary": "Capture Dump",
+        "description": "Add one paragraph to the `## Dump` section of a day's note.\n\nThe daily ritual reads that section at 17:00 and plans the next day from it,\nand this is the way into it from anywhere else: a key in the app, a page on\na phone, a share from another app. The note and the section are made where\nthe vault has neither, the note exactly as `<leader>gd` would make it.\n\nA route of its own rather than a read and a `PUT` from the client, because\nthe read and the write happen under one hold of the lock. A phone and an\neditor autosaving the same note would otherwise race, and the loser's\nparagraph would vanish.\n\n`agent.dump` is the whole of it, and `POST /agent/dump` calls the same\nfunction: one rule about where a thought lands, whoever sent it. Text with\nnothing in it after the trim is a 422, answered by the handler registered\nabove.",
+        "operationId": "capture_dump_api_dump_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Dump"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/folders/{path}": {
       "patch": {
         "summary": "Move Folder",
@@ -1376,6 +1457,26 @@
         ],
         "title": "CaptionLine",
         "description": "One caption as YouTube shows it: when it appears, and what it says."
+      },
+      "Dump": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "date"
+        ],
+        "title": "Dump",
+        "description": "One thought for a day's dump, and the day the sender is having."
       },
       "Folder": {
         "properties": {

@@ -79,8 +79,8 @@ function Tokens() {
 
         <p className="text-[13px] text-one-muted">
           A token reaches <span className="text-one-fg">/agent/</span> and nothing else: list, read,
-          search, save and append. It cannot delete, move or rename anything. The secret is shown
-          once, here, and is never recoverable afterwards.
+          search, save, append and dump. It cannot delete, move or rename anything. The secret is
+          shown once, here, and is never recoverable afterwards.
         </p>
 
         <form

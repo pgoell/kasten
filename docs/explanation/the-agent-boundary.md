@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches five capabilities under /agent/ rather than the twenty-four routes the browser uses, and what it cannot do.
+description: Why a token reaches six capabilities under /agent/ rather than the twenty-four routes the browser uses, and what it cannot do.
 tags: [agent, tokens, security, api]
 status: stable
 ---
@@ -44,13 +44,14 @@ It did not survive review, and the reasons are worth keeping written down:
 
 An allowlist has none of those properties, because the dangerous routes are
 never reachable rather than reachable-and-blocked. That is the whole argument
-for a separate prefix: the audit is a list of five things, not a list of
+for a separate prefix: the audit is a list of six things, not a list of
 twenty-four things with exceptions.
 
 ## What a token grants
 
-Five capabilities and nothing else, listed in
-[the Agent API](/reference/agent-api.md): list, read, search, save and append.
+Six capabilities and nothing else, listed in
+[the Agent API](/reference/agent-api.md): list, read, search, save, append and
+dump.
 
 There is no delete, no move, no rename and no folder operation. The shell
 container keeps the knife, and that makes the honest claim about this feature
@@ -61,11 +62,34 @@ There is no Anki import, no asset upload, no page fetch, no trash and no
 terminal. Each is named individually above because each is a specific hazard
 rather than a route that happened to be left out.
 
-Every token grants all five. There are no scopes, no read-only tokens and no
+Every token grants all six. There are no scopes, no read-only tokens and no
 expiry, which is a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke
 rather than rotating a secret every agent shares.
+
+## Why a sixth capability is acceptable
+
+The list was five for a long time, and the argument for keeping it short is the
+audit: every item on it is a thing to reason about when a token leaks. `dump`
+earns its place because it adds nothing new to that reasoning. It is a
+narrower append, not a new kind of power.
+
+It writes into one section of one note, the daily note for the day it is
+given, and the vault already owns that note: `<leader>gd` makes it and the
+ritual reads it. The caller chooses the words and the day, never the path, so it
+cannot reach any note that `append` could not already reach. It only adds: the
+text goes at the end of `## Dump` and nothing that was there is moved, edited
+or removed, so it cannot overwrite anything. And it is bounded the way every
+other write is, 1MiB on disk, stamped, and recorded in jj under the token's
+name.
+
+What it buys is that a thought reaches the place the user reads it. `append`
+could put the same line in the same note, but only after the agent had learned
+the vault's periodic folder, today's file name and where a section ends, and a
+model that gets any of that wrong files the thought in the inbox instead, which
+is where it gets lost. The section is the ritual's, so the rule for finding it
+belongs in the server rather than in every prompt.
 
 ## Why the write is conditional in one direction
 
@@ -123,11 +147,11 @@ What that server issues is an ordinary row in the same `tokens.json`, named for
 the product's host. The gate calls the same `verify`, `/tokens` revokes it with
 the same button, and a second Connect from the same product revokes the old row
 before minting the new one. So this is a second way to obtain a token and not a
-second thing a token reaches. The five capabilities are still five, there is one
+second thing a token reaches. The six capabilities are still six, there is one
 gate, one store and one verification path, and nothing in the gate can tell an
 OAuth grant from a string typed into a terminal. The protocol asks for two
 things the store does not keep: the metadata names one scope, `kasten:notes`,
-which covers all five capabilities and narrows nothing, and the token response
+which covers all six capabilities and narrows nothing, and the token response
 states ten years as the lifetime of a token that ends when it is revoked.
 
 Claude Code and codex still carry the header, and none of this touches them.
