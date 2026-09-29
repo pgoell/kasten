@@ -14,7 +14,7 @@ def english(language_code: str) -> bool:
     return language_code.partition("-")[0] == "en"
 
 
-def read_transcript(video_id: str) -> FetchedTranscript:
+def read_transcript(video_id: str) -> FetchedTranscript | None:
     """Fetch one video's captions, preferring English written by a person.
 
     The listing yields every manually written track before every generated one,
@@ -22,9 +22,12 @@ def read_transcript(video_id: str) -> FetchedTranscript:
     machine's where not. A video with no English at all gets whatever it has
     first rather than nothing, which is still something to read and search.
 
-    Raises what the library raises. The route decides which of those the
-    reader is told about.
+    None for a video listing no track at all, which the library answers with an
+    empty list rather than an error. Otherwise raises what the library raises,
+    and the route decides which of those the reader is told about.
     """
     tracks = list(YouTubeTranscriptApi().list(video_id))
+    if not tracks:
+        return None
     track = next((track for track in tracks if english(track.language_code)), tracks[0])
     return track.fetch()

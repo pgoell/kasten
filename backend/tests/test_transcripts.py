@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import pytest
+from requests import HTTPError
 from youtube_transcript_api import (
+    AgeRestricted,
     FetchedTranscript,
     FetchedTranscriptSnippet,
     IpBlocked,
@@ -18,6 +20,7 @@ from youtube_transcript_api import (
     RequestBlocked,
     TranscriptsDisabled,
     VideoUnavailable,
+    YouTubeRequestFailed,
 )
 
 from kasten_backend import transcripts
@@ -135,6 +138,9 @@ async def test_falls_back_to_the_first_track(client: AsyncClient, youtube: Calla
         (RequestBlocked(VIDEO), 502),
         # A subclass, and the one YouTube raises for a datacenter address.
         (IpBlocked(VIDEO), 502),
+        (YouTubeRequestFailed(VIDEO, HTTPError("429")), 502),
+        # Not named in the route: the catch-all for the library's other refusals.
+        (AgeRestricted(VIDEO), 404),
     ],
 )
 async def test_says_why_there_is_nothing_to_read(
@@ -146,6 +152,16 @@ async def test_says_why_there_is_nothing_to_read(
 
     assert response.status_code == status
     assert response.json()["detail"].endswith(("transcript", "available"))
+
+
+async def test_a_video_listing_no_track_has_no_transcript(
+    client: AsyncClient, youtube: Callable
+) -> None:
+    youtube([])
+
+    response = await client.get(f"/api/transcripts/{VIDEO}")
+
+    assert response.status_code == 404
 
 
 @pytest.mark.parametrize(

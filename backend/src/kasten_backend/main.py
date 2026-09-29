@@ -16,10 +16,12 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 from youtube_transcript_api import (
+    CouldNotRetrieveTranscript,
     NoTranscriptFound,
     RequestBlocked,
     TranscriptsDisabled,
     VideoUnavailable,
+    YouTubeRequestFailed,
 )
 
 from kasten_backend import agent_mcp
@@ -510,10 +512,17 @@ async def fetch_transcript(
         raise HTTPException(status_code=404, detail="That video has no transcript") from error
     except VideoUnavailable as error:
         raise HTTPException(status_code=404, detail="That video is not available") from error
-    except RequestBlocked as error:
+    except (RequestBlocked, YouTubeRequestFailed) as error:
         raise HTTPException(
             status_code=502, detail="YouTube refused to hand over the transcript"
         ) from error
+    except CouldNotRetrieveTranscript as error:
+        # The rest of the library's refusals, an age gate or a video YouTube
+        # will not play among them, are all about the video: nothing kasten
+        # could read, rather than kasten failing to ask.
+        raise HTTPException(status_code=404, detail="That video has no transcript") from error
+    if fetched is None:
+        raise HTTPException(status_code=404, detail="That video has no transcript")
 
     return Transcript(
         language=fetched.language_code,

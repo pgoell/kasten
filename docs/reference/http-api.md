@@ -190,10 +190,10 @@ event loop free.
 
 Two refusals, each with one sentence in `detail`:
 
-* `404` when the video has no transcript, has them turned off, or is not
-  available
+* `404` when the video has no transcript, has them turned off, is not
+  available, or is age-restricted or unplayable
 * `502` when YouTube refuses the request, which is what it does to an address
-  it takes for a bot
+  it takes for a bot, or the request to YouTube fails
 
 ## GET /api/search
 
