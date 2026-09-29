@@ -11,9 +11,18 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Path as Segment
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
+from youtube_transcript_api import (
+    CouldNotRetrieveTranscript,
+    NoTranscriptFound,
+    RequestBlocked,
+    TranscriptsDisabled,
+    VideoUnavailable,
+    YouTubeRequestFailed,
+)
 
 from kasten_backend import agent_mcp
 from kasten_backend.agent import ConflictError, TooLargeError
@@ -34,6 +43,7 @@ from kasten_backend.search import search_vault
 from kasten_backend.tags import find_tags
 from kasten_backend.todos import find_todos
 from kasten_backend.tokens import Minted, Token, listing, mint, revoke
+from kasten_backend.transcripts import read_transcript
 from kasten_backend.trash import (
     Entry,
     list_trash,
@@ -268,6 +278,32 @@ class Page(BaseModel):
     """The page's markup, untouched."""
 
 
+class CaptionLine(BaseModel):
+    """One caption as YouTube shows it: when it appears, and what it says."""
+
+    start: float
+    """Seconds into the video."""
+
+    text: str
+    """The caption's text, as YouTube wrote it.
+
+    Entities and line breaks included. The client decodes and joins them while
+    it writes the note, which is where the text is turned into prose anyway.
+    """
+
+
+class Transcript(BaseModel):
+    """The captions of one video, and which of its tracks they came from."""
+
+    language: str
+    """The track's language code, `en` or `en-GB` or `de`."""
+
+    generated: bool
+    """Whether YouTube's speech recognition wrote the track rather than a person."""
+
+    lines: list[CaptionLine]
+
+
 class AnkiImport(BaseModel):
     """What one `.apkg` turned into."""
 
@@ -389,11 +425,12 @@ async def list_terminals(settings: Annotated[Settings, Depends(get_settings)]) -
 async def fetch_page(url: str) -> Page:
     """Read one web page off the internet and hand it back unchanged.
 
-    The only endpoint that reads something other than the vault, and it writes
-    nothing: what comes back is markup, and turning it into a note happens in
-    the browser, where defuddle runs. That is where it has to run. defuddle is
-    a DOM library, the browser has the DOM, and the alternative is a second
-    extractor in Python that would read the same pages differently.
+    One of two endpoints that read something other than the vault, the other
+    being `/api/transcripts`, and it writes nothing: what comes back is markup,
+    and turning it into a note happens in the browser, where defuddle runs.
+    That is where it has to run. defuddle is a DOM library, the browser has the
+    DOM, and the alternative is a second extractor in Python that would read the
+    same pages differently.
 
     Fetching cannot happen there, though: a page from another origin is one the
     browser will request and not let the script read, so the request comes from
@@ -448,6 +485,50 @@ async def fetch_page(url: str) -> Page:
             return Page(url=str(response.url), html=html)
     except httpx.HTTPError as error:
         raise HTTPException(status_code=502, detail=f"Could not read that page: {error}") from error
+
+
+@app.get("/api/transcripts/{video_id}")
+async def fetch_transcript(
+    video_id: Annotated[str, Segment(pattern=r"^[A-Za-z0-9_-]{11}$")],
+) -> Transcript:
+    r"""Read the captions of one YouTube video.
+
+    The second endpoint that reaches the internet, and a narrower one than
+    `/api/fetch`: it takes the eleven characters YouTube names a video with and
+    nothing else, so what it asks for is always a YouTube video and never an
+    address someone chose. The pattern is the `[\w-]{11}` `video.ts` reads off
+    a note, spelled out: `\w` in the Rust regex pydantic checks with is every
+    letter in Unicode, where in JavaScript it is ASCII.
+
+    A video with nothing to read is a 404, and YouTube refusing to answer this
+    machine is a 502, the line `/api/fetch` draws too: the first is about the
+    video, the second about kasten failing to ask.
+    """
+    try:
+        # The library is synchronous and a fetch is two or three round trips to
+        # YouTube, so it runs on a worker thread rather than holding the loop.
+        fetched = await asyncio.to_thread(read_transcript, video_id)
+    except (NoTranscriptFound, TranscriptsDisabled) as error:
+        raise HTTPException(status_code=404, detail="That video has no transcript") from error
+    except VideoUnavailable as error:
+        raise HTTPException(status_code=404, detail="That video is not available") from error
+    except (RequestBlocked, YouTubeRequestFailed) as error:
+        raise HTTPException(
+            status_code=502, detail="YouTube refused to hand over the transcript"
+        ) from error
+    except CouldNotRetrieveTranscript as error:
+        # The rest of the library's refusals, an age gate or a video YouTube
+        # will not play among them, are all about the video: nothing kasten
+        # could read, rather than kasten failing to ask.
+        raise HTTPException(status_code=404, detail="That video has no transcript") from error
+    if fetched is None:
+        raise HTTPException(status_code=404, detail="That video has no transcript")
+
+    return Transcript(
+        language=fetched.language_code,
+        generated=fetched.is_generated,
+        lines=[CaptionLine(start=line.start, text=line.text) for line in fetched],
+    )
 
 
 @app.get("/api/search")

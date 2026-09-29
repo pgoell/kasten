@@ -42,6 +42,7 @@ vi.mock("@/lib/api", () => ({
   fetchNote,
   fetchImages: () => Promise.resolve([]),
   uploadAsset: () => Promise.resolve(),
+  fetchTranscript: () => Promise.resolve(),
 }));
 
 /** Every page document foliate reported, which is the only way inside. */

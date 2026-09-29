@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves twenty-seven endpoints under `/api/`. Fourteen read, twelve
+The backend serves twenty-nine endpoints under `/api/`. Sixteen read, twelve
 write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -119,8 +119,9 @@ finally came from.
 { "url": "https://example.com/2025/post", "html": "<!doctype html>…" }
 ```
 
-The other endpoint that touches nothing of the vault, and the only one that
-goes outside the machine. It writes nothing: turning the markup into a note is
+One of the endpoints that touch nothing of the vault, and one of the two that
+go outside the machine; `GET /api/transcripts/{video_id}` below is the other,
+and asks YouTube alone. It writes nothing: turning the markup into a note is
 [defuddle](https://github.com/kepano/defuddle) running in the browser, and the
 note is made through `POST /api/files/{path}` like any other.
 
@@ -152,6 +153,47 @@ this endpoint is missing rather than that the page is.
 The request goes out under a browser's user agent string. A great many sites
 answer an unfamiliar agent with a challenge page, and this is one page asked
 for by hand, by somebody who could have opened it in a tab.
+
+## GET /api/transcripts/{video_id}
+
+Reads the captions of one YouTube video. The path takes the video's eleven
+character id, and the answer names the track and holds every caption with the
+second it appears at.
+
+```json
+{
+  "language": "en",
+  "generated": false,
+  "lines": [
+    { "start": 0.0, "text": "We&#39;re no strangers to love" },
+    { "start": 3.2, "text": "You know the rules\nand so do I" }
+  ]
+}
+```
+
+`language` is the track's language code. `generated` is `true` when YouTube's
+speech recognition wrote the track rather than a person. `lines` is the text as
+YouTube serves it, entities and line breaks included: the editor turns it into
+prose when it writes it into a note, under
+[its transcript in the note](/reference/editor-keys.md#its-transcript-in-the-note).
+
+A track written by a person in English is taken first, then YouTube's generated
+English, then the first track the video has in any language. Any region counts
+as English, `en-GB` as much as `en`.
+
+The id must match `[A-Za-z0-9_-]{11}`, the alphabet YouTube writes ids in, and
+anything else is a `422` before YouTube is asked. That check is what keeps the
+route from being turned into a fetch of an address someone chose. The captions
+are read with [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api),
+which is synchronous, so the request runs on a worker thread and leaves the
+event loop free.
+
+Two refusals, each with one sentence in `detail`:
+
+* `404` when the video has no transcript, has them turned off, is not
+  available, or is age-restricted or unplayable
+* `502` when YouTube refuses the request, which is what it does to an address
+  it takes for a bot, or the request to YouTube fails
 
 ## GET /api/search
 
