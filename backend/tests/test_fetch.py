@@ -1,7 +1,7 @@
 """Reading a web page so the client can turn it into a note.
 
-The one endpoint that goes out to the internet rather than to the vault. It
-answers with the page's HTML and the address it finally came from, and does
+The endpoint that goes out to any address on the internet rather than to the
+vault. It answers with the page's HTML and the address it finally came from, and does
 nothing else with it: the extraction runs in the browser, where defuddle lives.
 
 The requests here never leave the process. `httpx.MockTransport` answers them,

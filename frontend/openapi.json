@@ -391,7 +391,7 @@
     "/api/fetch": {
       "get": {
         "summary": "Fetch Page",
-        "description": "Read one web page off the internet and hand it back unchanged.\n\nThe only endpoint that reads something other than the vault, and it writes\nnothing: what comes back is markup, and turning it into a note happens in\nthe browser, where defuddle runs. That is where it has to run. defuddle is\na DOM library, the browser has the DOM, and the alternative is a second\nextractor in Python that would read the same pages differently.\n\nFetching cannot happen there, though: a page from another origin is one the\nbrowser will request and not let the script read, so the request comes from\nhere.\n\nhttp and https and nothing else. The scheme is the trust boundary: `file://`\nwould read this container's disk and hand it to the browser, and the check\nis made before anything is opened.\n\nA page that could not be read is a 502 rather than the status the other end\ngave. The reader asked kasten for a note and kasten could not get one; a\n404 here would say the endpoint is missing.",
+        "description": "Read one web page off the internet and hand it back unchanged.\n\nOne of two endpoints that read something other than the vault, the other\nbeing `/api/transcripts`, and it writes nothing: what comes back is markup,\nand turning it into a note happens in the browser, where defuddle runs.\nThat is where it has to run. defuddle is a DOM library, the browser has the\nDOM, and the alternative is a second extractor in Python that would read the\nsame pages differently.\n\nFetching cannot happen there, though: a page from another origin is one the\nbrowser will request and not let the script read, so the request comes from\nhere.\n\nhttp and https and nothing else. The scheme is the trust boundary: `file://`\nwould read this container's disk and hand it to the browser, and the check\nis made before anything is opened.\n\nA page that could not be read is a 502 rather than the status the other end\ngave. The reader asked kasten for a note and kasten could not get one; a\n404 here would say the endpoint is missing.",
         "operationId": "fetch_page_api_fetch_get",
         "parameters": [
           {
@@ -411,6 +411,47 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/transcripts/{video_id}": {
+      "get": {
+        "summary": "Fetch Transcript",
+        "description": "Read the captions of one YouTube video.\n\nThe second endpoint that reaches the internet, and a narrower one than\n`/api/fetch`: it takes the eleven characters YouTube names a video with and\nnothing else, so what it asks for is always a YouTube video and never an\naddress someone chose. The pattern is the `[\\w-]{11}` `video.ts` reads off\na note, spelled out: `\\w` in the Rust regex pydantic checks with is every\nletter in Unicode, where in JavaScript it is ASCII.\n\nA video with nothing to read is a 404, and YouTube refusing to answer this\nmachine is a 502, the line `/api/fetch` draws too: the first is about the\nvideo, the second about kasten failing to ask.",
+        "operationId": "fetch_transcript_api_transcripts__video_id__get",
+        "parameters": [
+          {
+            "name": "video_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{11}$",
+              "title": "Video Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transcript"
                 }
               }
             }
@@ -1317,6 +1358,25 @@
         "title": "Build",
         "description": "What the backend is running, for the reading in the status bar."
       },
+      "CaptionLine": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "text"
+        ],
+        "title": "CaptionLine",
+        "description": "One caption as YouTube shows it: when it appears, and what it says."
+      },
       "Folder": {
         "properties": {
           "path": {
@@ -1607,6 +1667,33 @@
         ],
         "title": "TokenName",
         "description": "What a mint is asked for: a name to tell one token from another."
+      },
+      "Transcript": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "generated": {
+            "type": "boolean",
+            "title": "Generated"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/CaptionLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "generated",
+          "lines"
+        ],
+        "title": "Transcript",
+        "description": "The captions of one video, and which of its tracks they came from."
       },
       "TrashEntry": {
         "properties": {

@@ -13,6 +13,9 @@ export type SearchHit = components["schemas"]["SearchHit"];
 /** One web page the backend read for us: where it came from, and its markup. */
 export type Page = components["schemas"]["Page"];
 
+/** One video's captions, the track they came from, and when each one appears. */
+export type Transcript = components["schemas"]["Transcript"];
+
 /** One deleted note or folder waiting in the trash, and the way back to it. */
 export type TrashEntry = components["schemas"]["TrashEntry"];
 
@@ -33,8 +36,9 @@ const client = createClient<paths>();
  * What the backend said went wrong, or nothing where it said nothing.
  *
  * Every other call here reports its own status code, which is all a reader of
- * the console needs. A clip is the one whose failure is put in front of the
- * person who pressed the key, and `detail` is the sentence written for them.
+ * the console needs. A clip and a transcript are the two whose failure is put
+ * in front of the person who pressed the key, and `detail` is the sentence
+ * written for them.
  */
 function reason(error: { detail?: unknown } | undefined): string | null {
   return typeof error?.detail === "string" ? error.detail : null;
@@ -264,7 +268,7 @@ export async function saveNote(path: string, content: string): Promise<Note> {
  * here, in `clip.ts`.
  *
  * The message is the backend's own words rather than a status code: this is
- * the one call whose failure is read by the person who asked for it.
+ * one of the two calls whose failure is read by the person who asked for it.
  */
 export async function fetchPage(url: string): Promise<Page> {
   const { data, error, response } = await client.GET("/api/fetch", {
@@ -273,6 +277,25 @@ export async function fetchPage(url: string): Promise<Page> {
 
   if (!data) {
     throw new Error(reason(error) ?? `GET /api/fetch failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * The captions of one YouTube video, read by the backend off YouTube.
+ *
+ * The other call whose failure is read by the person who asked, so it throws
+ * the backend's sentence: that the video has no transcript, or that YouTube
+ * would not hand it over.
+ */
+export async function fetchTranscript(id: string): Promise<Transcript> {
+  const { data, error, response } = await client.GET("/api/transcripts/{video_id}", {
+    params: { path: { video_id: id } },
+  });
+
+  if (!data) {
+    throw new Error(reason(error) ?? `GET /api/transcripts/${id} failed with ${response.status}`);
   }
 
   return data;

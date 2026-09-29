@@ -247,11 +247,12 @@ export interface paths {
          * Fetch Page
          * @description Read one web page off the internet and hand it back unchanged.
          *
-         *     The only endpoint that reads something other than the vault, and it writes
-         *     nothing: what comes back is markup, and turning it into a note happens in
-         *     the browser, where defuddle runs. That is where it has to run. defuddle is
-         *     a DOM library, the browser has the DOM, and the alternative is a second
-         *     extractor in Python that would read the same pages differently.
+         *     One of two endpoints that read something other than the vault, the other
+         *     being `/api/transcripts`, and it writes nothing: what comes back is markup,
+         *     and turning it into a note happens in the browser, where defuddle runs.
+         *     That is where it has to run. defuddle is a DOM library, the browser has the
+         *     DOM, and the alternative is a second extractor in Python that would read the
+         *     same pages differently.
          *
          *     Fetching cannot happen there, though: a page from another origin is one the
          *     browser will request and not let the script read, so the request comes from
@@ -266,6 +267,37 @@ export interface paths {
          *     404 here would say the endpoint is missing.
          */
         get: operations["fetch_page_api_fetch_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transcripts/{video_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch Transcript
+         * @description Read the captions of one YouTube video.
+         *
+         *     The second endpoint that reaches the internet, and a narrower one than
+         *     `/api/fetch`: it takes the eleven characters YouTube names a video with and
+         *     nothing else, so what it asks for is always a YouTube video and never an
+         *     address someone chose. The pattern is the `[\w-]{11}` `video.ts` reads off
+         *     a note, spelled out: `\w` in the Rust regex pydantic checks with is every
+         *     letter in Unicode, where in JavaScript it is ASCII.
+         *
+         *     A video with nothing to read is a 404, and YouTube refusing to answer this
+         *     machine is a 502, the line `/api/fetch` draws too: the first is about the
+         *     video, the second about kasten failing to ask.
+         */
+        get: operations["fetch_transcript_api_transcripts__video_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -866,6 +898,16 @@ export interface components {
             backend: string;
         };
         /**
+         * CaptionLine
+         * @description One caption as YouTube shows it: when it appears, and what it says.
+         */
+        CaptionLine: {
+            /** Start */
+            start: number;
+            /** Text */
+            text: string;
+        };
+        /**
          * Folder
          * @description One folder, as the vault spells it.
          *
@@ -1029,6 +1071,18 @@ export interface components {
         TokenName: {
             /** Name */
             name: string;
+        };
+        /**
+         * Transcript
+         * @description The captions of one video, and which of its tracks they came from.
+         */
+        Transcript: {
+            /** Language */
+            language: string;
+            /** Generated */
+            generated: boolean;
+            /** Lines */
+            lines: components["schemas"]["CaptionLine"][];
         };
         /**
          * TrashEntry
@@ -1371,6 +1425,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_transcript_api_transcripts__video_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Transcript"];
                 };
             };
             /** @description Validation Error */

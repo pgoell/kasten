@@ -9,6 +9,7 @@ import {
 } from "@/lib/format-commands";
 import { toggleImageAtCursor } from "@/lib/image";
 import { cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
+import { writeTranscript } from "@/lib/transcript";
 
 /**
  * Every binding the app owns, in one table.
@@ -334,6 +335,14 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
   // and opens the list of images to fill them with. It sits here rather than in
   // `LEADER` because all three of those are writes to the buffer.
   { key: "ci", label: "Toggle an image at the cursor", run: toggleImageAtCursor },
+  // `c` for the group and `v` for the video, the thing being taken in, the way
+  // `cw` takes the web. Not under `v`: a bare `v` plays and pauses, and vim
+  // fires a full match without waiting to see whether `vt` was meant.
+  {
+    key: "cv",
+    label: "Write this note's video transcript into it",
+    run: (view) => void writeTranscript(view),
+  },
   // `x` is what obsidian-tasks, vim's own checkbox plugins and every todo.txt
   // binding spell a tick, and bare `x` in normal mode is vim's own cut.
   { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },
