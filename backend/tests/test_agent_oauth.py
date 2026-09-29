@@ -182,7 +182,7 @@ async def test_an_unregistered_address_is_refused_without_redirecting(
 ) -> None:
     # Never as an error redirect. Sending anything to an address just judged
     # untrusted is the hole this is refusing, and the host carries a
-    # .pascalkraus.com session cookie.
+    # .pgoell.com session cookie.
     response = await client.post(
         "/api/oauth/authorize",
         data=consent(redirect_uri="https://attacker.example/callback"),

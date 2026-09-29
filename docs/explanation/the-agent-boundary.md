@@ -167,7 +167,7 @@ An address is matched whole: the three fixed ones by equality, and ChatGPT's
 per-app shape with a `fullmatch` rather than a search, which would take any
 address carrying that shape somewhere inside it. Where a code is sent matters
 more on this host than on most, because the host carries a session cookie scoped
-to `.pascalkraus.com`. The same reasoning is why a refusal at the authorize step
+to `.pgoell.com`. The same reasoning is why a refusal at the authorize step
 renders as a 400 and never as an error redirect. Sending the caller on to an
 address just judged untrusted is the hole being refused.
 

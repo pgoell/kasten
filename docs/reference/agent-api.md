@@ -40,7 +40,7 @@ in every case, so it says nothing about which it was.
 refusal that names anything:
 
 ```
-WWW-Authenticate: Bearer error="invalid_token", resource_metadata="https://kasten.pascalkraus.com/.well-known/oauth-protected-resource/agent/mcp", scope="kasten:notes"
+WWW-Authenticate: Bearer error="invalid_token", resource_metadata="https://kasten.pgoell.com/.well-known/oauth-protected-resource/agent/mcp", scope="kasten:notes"
 ```
 
 The header names one document and no more. That document is public, holds three
@@ -266,8 +266,8 @@ RFC 9728, which names the endpoint and points at whoever authorizes it.
 
 ```json
 {
-  "resource": "https://kasten.pascalkraus.com/agent/mcp",
-  "authorization_servers": ["https://kasten.pascalkraus.com"],
+  "resource": "https://kasten.pgoell.com/agent/mcp",
+  "authorization_servers": ["https://kasten.pgoell.com"],
   "scopes_supported": ["kasten:notes"]
 }
 ```
@@ -288,9 +288,9 @@ RFC 8414. Every field here is read by one product or the other.
 
 ```json
 {
-  "issuer": "https://kasten.pascalkraus.com",
-  "authorization_endpoint": "https://kasten.pascalkraus.com/api/oauth/authorize",
-  "token_endpoint": "https://kasten.pascalkraus.com/agent/oauth/token",
+  "issuer": "https://kasten.pgoell.com",
+  "authorization_endpoint": "https://kasten.pgoell.com/api/oauth/authorize",
+  "token_endpoint": "https://kasten.pgoell.com/agent/oauth/token",
   "response_types_supported": ["code"],
   "grant_types_supported": ["authorization_code"],
   "code_challenge_methods_supported": ["S256"],
@@ -331,7 +331,7 @@ widening reaches ChatGPT and nowhere else.
 
 Anything else is a `400` rendered here and never sent on as an error redirect:
 redirecting to an address just judged untrusted is the hole being refused, and
-the host in question carries a `.pascalkraus.com` session cookie. A
+the host in question carries a `.pgoell.com` session cookie. A
 missing `code_challenge`, or a `code_challenge_method` other than `S256`, is
 refused the same way, so `plain` does not work here.
 

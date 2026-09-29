@@ -14,7 +14,7 @@ both. Why they are built in opposite ways is in
 
 | | dev | prod |
 |---|---|---|
-| URL | `kasten-dev.pascalkraus.com` | `kasten.pascalkraus.com` |
+| URL | `kasten-dev.pgoell.com` | `kasten.pgoell.com` |
 | What runs | uvicorn `--reload` and vite dev, in containers with the tree bind-mounted | Images from GHCR, in containers |
 | Who deploys | you, on the box | GitHub Actions only |
 | Trigger | saving a file | publishing a GitHub release |
@@ -30,7 +30,7 @@ running from `/home/pascal/Code/server-infra/`.
 ### 1. DNS
 
 Two proxied A records in Cloudflare pointing at `162.55.81.13`: `kasten` and
-`kasten-dev`. There is no wildcard on `pascalkraus.com`, so both are needed.
+`kasten-dev`. There is no wildcard on `pgoell.com`, so both are needed.
 
 ### 2. Caddy
 
@@ -180,7 +180,7 @@ A bind-mounted file is a mount point and `os.replace` over one fails with
 `EBUSY`, so mounting the file would break every mint and every revoke in
 production while passing every test there is.
 
-**2. Add the Caddy stanzas** to the `kasten.pascalkraus.com` block in
+**2. Add the Caddy stanzas** to the `kasten.pgoell.com` block in
 `~/Code/server-infra/caddy/Caddyfile`, beside the existing `handle` blocks:
 
 ```
@@ -225,9 +225,9 @@ matter.
 `/tokens` in the notebook.
 
 ```sh
-curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/agent/notes
-curl -s -o /dev/null -w '%{http_code}\n' -H 'Authorization: Bearer wrong' https://kasten.pascalkraus.com/agent/notes
-curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $KASTEN_TOKEN" https://kasten.pascalkraus.com/agent/notes
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pgoell.com/agent/notes
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Authorization: Bearer wrong' https://kasten.pgoell.com/agent/notes
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $KASTEN_TOKEN" https://kasten.pgoell.com/agent/notes
 ```
 
 `401`, `401`, `200`.
@@ -243,10 +243,10 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $KASTEN_TOKEN
 Then the metadata documents, which no token touches:
 
 ```sh
-curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/oauth-protected-resource
-curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/oauth-protected-resource/agent/mcp
-curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/oauth-authorization-server
-curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pascalkraus.com/.well-known/openid-configuration
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pgoell.com/.well-known/oauth-protected-resource
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pgoell.com/.well-known/oauth-protected-resource/agent/mcp
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pgoell.com/.well-known/oauth-authorization-server
+curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pgoell.com/.well-known/openid-configuration
 ```
 
 `200`, `200`, `200`, `404`. Claude reads the second spelling, off the
@@ -283,7 +283,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
   -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==' \
   -H 'Sec-WebSocket-Protocol: tty' \
-  https://kasten.pascalkraus.com/term/ws
+  https://kasten.pgoell.com/term/ws
 ```
 
 `302` is right: oauth2-proxy sending an unauthenticated caller to the sign-in
@@ -292,13 +292,13 @@ page. `101` means the gate is missing and the internet has a shell. `400` or
 number. `502` means the container is not up yet, which is expected before the
 first release ships the image and is not the same answer as `302`.
 
-Run it against `kasten-dev.pascalkraus.com` too, and check that
+Run it against `kasten-dev.pgoell.com` too, and check that
 `grep -A4 'handle /term' caddy/Caddyfile` prints `import oauth2_auth` for both
 hosts rather than one.
 
 ## Look at dev in a browser
 
-`kasten-dev.pascalkraus.com` is behind the OAuth gate, so a browser on the box
+`kasten-dev.pgoell.com` is behind the OAuth gate, so a browser on the box
 cannot reach it without signing in. For a quick visual check, load
 `http://127.0.0.1:5173` instead: the dev ports are published on loopback for
 exactly this.

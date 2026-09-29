@@ -40,7 +40,7 @@ run = "bun run dev"
 
 # ─── Hosted dev environment ─────────────────────────────────────────────────
 # Reload servers in containers with the working tree bind-mounted, reached
-# through Caddy at kasten-dev.pascalkraus.com. Editing a file reloads the
+# through Caddy at kasten-dev.pgoell.com. Editing a file reloads the
 # running service. Nothing about dev goes through GitHub Actions; production is
 # the opposite, images only, built in CI. See docs/explanation/environments.md.
 
