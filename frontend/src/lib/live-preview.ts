@@ -123,6 +123,9 @@ class Picture extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const image = document.createElement("img");
     image.className = "cm-image";
+    // Sites that refuse hotlinking mostly key on the referrer, and this one
+    // would name the note being read.
+    image.referrerPolicy = "no-referrer";
     image.src = this.source;
     // The alt text the note wrote, which is empty for most images and is the
     // right value for one that carries no meaning of its own.
@@ -660,9 +663,8 @@ function build(state: EditorState): Live {
       // inside a widget, and `x` on the first character of one would delete a
       // bracket nobody can see.
       //
-      // A path outside the vault renders as its source instead. `img-src`
-      // allows this origin alone, so a remote address would draw a broken
-      // picture where the text at least says what was meant.
+      // An address `imageSource` cannot load renders as its source instead,
+      // since a broken picture would hide what the text says was meant.
       if (isImage) {
         const url = node.node.getChild("URL");
         const address = url === null ? "" : state.doc.sliceString(url.from, url.to);
@@ -689,8 +691,8 @@ function build(state: EditorState): Live {
             : source !== null
               ? new Picture(source, alt)
               : null;
-        // Neither a video nor a path the vault holds: a remote picture, drawn
-        // as its own source for the reason above.
+        // Neither a video nor an image that can load, drawn as its own source
+        // for the reason above.
         if (widget === null) return;
         decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
         hidden.push(HIDDEN.range(node.from, node.to));

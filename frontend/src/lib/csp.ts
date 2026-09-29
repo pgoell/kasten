@@ -24,8 +24,10 @@ const DIRECTIVES = [
   // style-mod, and a book's own stylesheet arrives as a blob URL.
   "style-src 'self' 'unsafe-inline' blob:",
   // A book's images and fonts arrive as blob URLs, and the editor and the book
-  // both use inline SVG data URLs.
-  "img-src 'self' data: blob:",
+  // both use inline SVG data URLs. `https:` is for the pictures a clipped
+  // article links rather than holds. An image cannot run code, so the cost is
+  // the host learning the page was opened, a book's included.
+  "img-src 'self' data: blob: https:",
   "font-src 'self' data: blob:",
   "media-src 'self' blob:",
   // The API, the event stream and the ttyd WebSocket are all same origin, and
