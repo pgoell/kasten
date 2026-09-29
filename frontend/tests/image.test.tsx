@@ -60,13 +60,21 @@ describe("rendering an image", () => {
     expect(container.querySelector(".cm-content")?.textContent).toContain(`![a shot](${ENCODED})`);
   });
 
-  it("leaves an address somewhere else as the text of it", () => {
-    // `img-src` allows this origin alone, so drawing this would draw a broken
-    // picture where the source at least says what was meant.
-    const { container } = open("![](https://example.com/shot.png)");
+  it("draws an https address as it stands, sending no referrer", () => {
+    const { container } = open("![a chart](https://example.com/shot.png?v=1)");
+
+    const image = container.querySelector("img.cm-image") as HTMLImageElement;
+    expect(image.getAttribute("src")).toBe("https://example.com/shot.png?v=1");
+    expect(image.referrerPolicy).toBe("no-referrer");
+  });
+
+  it("leaves an address it cannot load as the text of it", () => {
+    // `http:` is mixed content on an https page, so drawing this would draw a
+    // broken picture where the source at least says what was meant.
+    const { container } = open("![](http://example.com/shot.png)");
 
     expect(container.querySelector("img.cm-image")).toBeNull();
-    expect(container.querySelector(".cm-content")?.textContent).toContain("https://");
+    expect(container.querySelector(".cm-content")?.textContent).toContain("http://");
   });
 
   it("draws a link as a link, that being no image", () => {

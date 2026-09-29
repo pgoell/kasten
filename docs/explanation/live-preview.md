@@ -202,8 +202,10 @@ An image is drawn, and it is the one widget here that loads something. That is
 what it cost to render: [GET /api/assets/{path}](/reference/http-api.md) already
 served books, so a picture only needed a suffix added to it, and the widget asks
 for the line to be measured again when the bytes land, the height of an image
-being unknown until then. A path pointing anywhere but the vault stays as its
-source, the page's own policy allowing images from this origin alone.
+being unknown until then. An `https:` address is drawn too, since a clipped
+article links its pictures rather than holding them; the page's own policy
+allows images from `https:` and sends no referrer, so the host never learns
+which note asked. Any other address stays as its source.
 
 The same brackets around a YouTube address draw the player instead, `videoId`
 in `video.ts` reading the address the pane already reads. It is the second

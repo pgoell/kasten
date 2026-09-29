@@ -59,14 +59,17 @@ export const noticeHandler = Facet.define<NoticeHandler, NoticeHandler | undefin
 });
 
 /**
- * The URL of the vault image an `![](path)` names, or null for anything else.
+ * The URL of the image an `![](path)` names, or null for one that cannot load.
  *
- * A path and not a URL is the rule: `img-src` allows this origin alone, so a
- * remote address would draw a broken image where the source at least says what
- * was meant. The path is already percent-encoded, the toggle and the
- * completion both writing it that way, so it goes into the URL as it stands.
+ * A vault path goes through the assets route, and an `https:` address is taken
+ * as it stands, `img-src` allowing both. Any other scheme would draw a broken
+ * image where the source at least says what was meant: `img-src` refuses it, or
+ * the browser blocks it as mixed content. The path is already percent-encoded,
+ * the toggle and the completion both writing it that way, so it goes into the
+ * URL as it stands.
  */
 export function imageSource(url: string): string | null {
+  if (/^https:\/\//i.test(url)) return url;
   if (/^[a-z][a-z\d+.-]*:|^\/\//i.test(url)) return null;
   return `/api/assets/${url}`;
 }

@@ -1243,9 +1243,10 @@ which the line being typed cannot see.
 An image is a plain markdown image, `![alt](path)`, and the path is
 vault-relative. The editor draws the picture where the text sits, never wider
 than the column, and `i` on that line hands the `![alt](path)` back the way it
-does for every other mark. An address pointing anywhere but the vault is left as
-text: the page's own policy allows images from this origin alone, so drawing one
-would draw a broken picture where the source at least says what was meant.
+does for every other mark. An `https:` address is drawn too, with no referrer
+sent. Any other address, `http:` included, is left as text: the page's own
+policy and the browser both refuse it, so drawing one would draw a broken
+picture where the source at least says what was meant.
 
 | Key | Does |
 | --- | --- |
