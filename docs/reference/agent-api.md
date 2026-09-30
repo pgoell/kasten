@@ -13,7 +13,7 @@ Everything under `/agent/` is reached with a bearer token and nothing else,
 except the token endpoint of [the OAuth flow](#the-oauth-flow), which by
 definition meets a caller that has none. Nothing in front of the prefix asks for
 a session, so the token check in the backend is the entire trust boundary. Why
-the prefix exists at all, and why it carries five capabilities rather than the
+the prefix exists at all, and why it carries six capabilities rather than the
 twenty-four in [the HTTP API](/reference/http-api.md), is in
 [The agent boundary](/explanation/the-agent-boundary.md).
 
@@ -81,7 +81,7 @@ no others. That is deliberate rather than tidy. A token holder cannot reach
 anything under `/api/`, and handing one the map of those twenty-seven routes
 would give it away for nothing.
 
-An agent over MCP needs none of this: `tools/list` describes the same five
+An agent over MCP needs none of this: `tools/list` describes the same six
 capabilities with the same argument shapes.
 
 ## GET /agent/notes
@@ -190,9 +190,36 @@ arrives, and a trailing newline is added when the text lacks one. A note that
 does not exist yet is created with the text as its whole body and no leading
 blank line, exactly as a note created in the browser is.
 
+## POST /agent/dump
+
+Adds a paragraph to the `## Dump` section of the user's daily note for `date`,
+the section the user reads at the end of the day to plan the next one. The MCP
+tool is `dump`, taking the same two arguments.
+
+```json
+{ "text": "answer Jonas about the flat", "date": "2026-09-29" }
+```
+
+`date` is the user's local date, `YYYY-MM-DD`, and it is required. The process
+has no notion of the vault's timezone to fall back on, and a guess made in UTC
+files an evening's thought under tomorrow.
+
+It runs the same function as
+[`POST /api/dump`](/reference/http-api.md#post-apidump), so everything that
+page says about where the text lands holds here: the daily note is made where
+there is none, exactly as `<leader>gd` makes it, the section is made where the
+note has none, and the text goes at the end of the section as a paragraph of
+its own. No `sha`, for the reason an append needs none.
+
+The answer is the shape a read gives: the path, the note as it landed and its
+digest. Text with nothing in it once trimmed is `422` with
+`Nothing to capture`, and the MCP tool reports the same sentence as a tool
+error. The write is recorded as `agent(<name>): 01 Periodic/00 Daily/<date>.md`
+like every other agent write.
+
 ## What a digest is of, and why it is never the digest of what you sent
 
-Both writes stamp the note on the way through, the same stamp a browser save
+Every write stamps the note on the way through, the same stamp a browser save
 applies: an id when the note has none, a creation date, a type and this moment
 in `modified`. Not stamping would leave `modified` untouched on every agent
 write, and would let an agent that dropped the frontmatter block earn the note a
@@ -277,10 +304,10 @@ The same document answers at
 path-inserted spelling off the `401` header and ChatGPT probes the bare one, and
 a `404` on whichever a client tries ends the flow there.
 
-`kasten:notes` is the one scope. It names the five capabilities and there is
-nothing to narrow. `read_guide` is a sixth tool under it and not a sixth
+`kasten:notes` is the one scope. It names the six capabilities and there is
+nothing to narrow. `read_guide` is a seventh tool under it and not a seventh
 capability: it answers with a string compiled into the image and reads no note,
-so the audit this prefix exists for is still a list of five things.
+so the audit this prefix exists for is still a list of six things.
 
 ### GET /.well-known/oauth-authorization-server
 
@@ -306,7 +333,7 @@ endpoint, which is both of them.
 
 ### GET and POST /api/oauth/authorize
 
-The `GET` renders one button, naming the host it would give the five
+The `GET` renders one button, naming the host it would give the six
 capabilities to. The `POST` behind that button mints a code and answers `302` to
 the address it was given, carrying `code`, `state` and `iss`.
 

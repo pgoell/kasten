@@ -1,0 +1,26 @@
+{
+  "id": "/capture",
+  "name": "kasten capture",
+  "short_name": "dump",
+  "description": "Put a thought into today's dump.",
+  "start_url": "/capture",
+  "scope": "/capture",
+  "display": "standalone",
+  "background_color": "#282c34",
+  "theme_color": "#282c34",
+  "icons": [
+    { "src": "/icons/capture-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/capture-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/capture-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/capture",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
+}

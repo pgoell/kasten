@@ -10,19 +10,21 @@ copy of it. Each function takes a `Settings` rather than a bare path, because
 the archive folder is a setting and a capability that hardcoded `98 Archive`
 would break the moment a vault filed things differently.
 
-Deliberately five things and not the twenty-four `/api/*` serves. There is no
+Deliberately six things and not the twenty-four `/api/*` serves. There is no
 delete, no move and no folder operation: a move rewrites wikilinks across the
 whole vault, and getting that wrong from outside the box is a vault-wide edit.
 The shell container keeps the knife.
 """
 
 import hashlib
+from datetime import date  # noqa: TC003  pydantic reads the annotation at runtime
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.frontmatter import reserved, stamp
+from kasten_backend.periodic import append_dump, daily_note, daily_path
 from kasten_backend.search import search_vault
 from kasten_backend.vault import (
     create_note,
@@ -75,6 +77,21 @@ class Append(BaseModel):
     sha: str | None = None
 
 
+class Dump(BaseModel):
+    """One thought for a day's dump, and the day the sender is having."""
+
+    text: str
+
+    date: date
+    """The sender's own date, not the server's.
+
+    The server's clock may sit in another timezone, and a thought typed at half
+    past midnight belongs to the day the person typing it is in. Required for
+    the same reason: the process has no notion of the vault's zone to fall back
+    on, and a guess made in UTC files an evening's thought under tomorrow.
+    """
+
+
 class ConflictError(Exception):
     """The note on disk is not the one the caller read."""
 
@@ -94,8 +111,19 @@ class TooLargeError(Exception):
     """
 
 
+class EmptyCaptureError(Exception):
+    """A dump was asked to take text with nothing in it once trimmed.
+
+    Its own class for the reason `TooLargeError` is one: its handler is
+    registered on the whole application.
+    """
+
+
 CHANGED = "The note changed since you read it"
 """What both surfaces say when a write is refused, word for word."""
+
+NOTHING = "Nothing to capture"
+"""What every surface says when a dump is handed no words."""
 
 MOST_CONTENT_BYTES = 1024 * 1024
 """The most one write may leave on disk.
@@ -281,3 +309,38 @@ async def append_note(settings: Settings, path: str, text: str, sha: str | None)
     empty note appended to.
     """
     return await _put(settings, path, text, sha, appending=True)
+
+
+async def dump(settings: Settings, text: str, day: date) -> NoteRead | None:
+    """Add `text` as a paragraph at the end of the `## Dump` section of `day`'s note.
+
+    The one implementation behind both `POST /api/dump` and the agent's `dump`.
+    The note is made where the vault has none, exactly as `<leader>gd` would
+    make it, and the section where the note has none.
+
+    A sixth capability, and a narrower one than the append beside it: the path
+    is not the caller's to choose, and nothing already in the note can be
+    overwritten. No digest, for the reason an append needs none: the read and
+    the write happen under one hold of the lock.
+    """
+    capture = text.strip()
+    if capture == "":
+        raise EmptyCaptureError(NOTHING)
+
+    note = resolve_path(settings.vault_path, daily_path(day))
+    if note is None:
+        return None
+
+    relative = relative_path(settings.vault_path, note)
+    async with vault_write():
+        previous = note.read_bytes() if note.is_file() else None
+        held = daily_note(day) if previous is None else previous.decode("utf-8")
+        content = _bounded(_write(relative, append_dump(held, capture), previous))
+
+        async with vault_change(settings.vault_path, relative):
+            if previous is None:
+                create_note(note, content)
+            else:
+                write_note(note, content)
+
+        return _read(settings.vault_path, note)

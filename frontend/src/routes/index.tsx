@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookPane } from "@/components/book-pane";
 import { ClipPrompt } from "@/components/clip-prompt";
+import { DumpPrompt } from "@/components/dump-prompt";
 import { Editor } from "@/components/editor";
 import { ExamPane } from "@/components/exam-pane";
 import { FileExplorer } from "@/components/file-explorer";
@@ -23,6 +24,7 @@ import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
   type BookBeside,
+  captureDump,
   createNote,
   deleteFolder,
   deleteImage,
@@ -30,7 +32,6 @@ import {
   fetchFiles,
   fetchImages,
   fetchNote,
-  fetchPage,
   fetchTags,
   fetchTerminals,
   fetchTrash,
@@ -41,7 +42,7 @@ import {
   uploadAsset,
 } from "@/lib/api";
 import { visible } from "@/lib/archive";
-import { clipPage } from "@/lib/clip";
+import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
@@ -300,6 +301,9 @@ function Home() {
   // it. The todo is typed out rather than picked, so the parent is the whole of
   // what this holds: it decides which note the line lands in.
   const [todoPrompt, setTodoPrompt] = useState<{ parent?: SearchHit } | null>(null);
+  // A flag like the clip's: the thought is typed, and today's note is the only
+  // place it can go.
+  const [dumpPrompt, setDumpPrompt] = useState(false);
   // The sessions the prompt offers. Asked for only while it is open: they
   // change when something outside the browser starts one, and nothing else on
   // screen reads them, so there is no reason to hold a copy the rest of the
@@ -904,11 +908,8 @@ function Home() {
    * Not through `follow`, which is the other place a note is made and opened
    * together: that one is about a link with nothing behind it and puts the
    * cursor where you would start typing, while this one has the whole note in
-   * hand already and nothing to type.
-   *
-   * A page clipped twice is one note. Opening what is already there beats both
-   * a second copy under a name with a number after it and a refusal over a note
-   * the reader would have to go and find.
+   * hand already and nothing to type. `importPage` is the import itself, which
+   * the capture page runs too.
    *
    * Nothing is caught. What throws here is what the prompt puts on screen, and
    * it is the only thing that can: the reader is looking at the address that
@@ -916,9 +917,7 @@ function Home() {
    */
   const clip = useCallback(
     async (url: string) => {
-      const page = await fetchPage(url);
-      const { path, body } = clipPage(page.html, page.url);
-      const made = (data ?? []).includes(path) ? null : await createNote(path, body);
+      const { path, made } = await importPage(url, data ?? []);
 
       if (made !== null) {
         queryClient.setQueryData(["note", made.path], made.content);
@@ -926,7 +925,7 @@ function Home() {
       }
 
       setClipPrompt(false);
-      await openInPane(made?.path ?? path);
+      await openInPane(path);
     },
     [data, queryClient, openInPane],
   );
@@ -1169,6 +1168,24 @@ function Home() {
     },
     [data, todosWritten, refocusPane, todoPrompt],
   );
+
+  /**
+   * Put a typed thought in the `## Dump` of today's note, from `<leader>cd`.
+   *
+   * The day is read here rather than when the prompt opened, for the reason
+   * `addTodo` reads it here. The backend makes the note and the section where
+   * the vault has neither, and an editor holding the note hears about the
+   * write through the event stream like any other change on disk, so nothing
+   * here touches a cache.
+   */
+  const capture = useCallback((text: string) => {
+    setDumpPrompt(false);
+    void captureDump(text, readClock(new Date()).date).then(
+      () => setNotice("Captured into today's dump"),
+      (error: unknown) =>
+        setNotice(error instanceof Error ? error.message : "The capture was not written"),
+    );
+  }, []);
 
   /**
    * Put an edited line back in its note, from the pane's `e`.
@@ -1546,6 +1563,12 @@ function Home() {
       // it moves no path. The note it makes is opened through `openInPane`,
       // which asks.
       importPage: () => setClipPrompt(true),
+      // The press clears the last notice, so the one this leaves behind is
+      // about this capture and not an earlier one.
+      captureDump: () => {
+        setNotice(undefined);
+        setDumpPrompt(true);
+      },
       // A bare `nextPane` and `goToTab` inside these reach the imports, not the
       // keys they are written beside: an object literal's keys are not names in
       // the scope its values are written in.
@@ -1865,6 +1888,13 @@ function Home() {
             moveTo((previous) => openTerminalInFocused(previous, session));
           }}
           onClose={() => setTerminalPrompt(false)}
+        />
+      )}
+      {dumpPrompt && (
+        <DumpPrompt
+          onCapture={capture}
+          onClose={() => setDumpPrompt(false)}
+          today={readClock(new Date()).date}
         />
       )}
       {todoPrompt !== null && (

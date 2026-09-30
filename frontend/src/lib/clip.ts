@@ -20,6 +20,7 @@
 // load, and this repo does not take those. Split the route if the first paint
 // starts to hurt.
 import Defuddle from "defuddle/full";
+import { createNote, fetchPage, type Note } from "@/lib/api";
 import { safeName } from "@/lib/note-path";
 
 /** Where a clipping lands. The one folder in the vault for things not yet filed. */
@@ -78,4 +79,30 @@ export function clipPage(html: string, url: string): Clipping {
     path: `${INBOX}/${name}.md`,
     body: `${front}\n# ${parsed.title || name}\n\n${parsed.content}\n`,
   };
+}
+
+/**
+ * Read one page off the internet and put it in the inbox, unless it is there.
+ *
+ * The whole of an import bar what happens on screen afterwards, which is the
+ * one part the two callers do differently: `<leader>cw` opens the note in a
+ * pane, and the capture page, which has no panes, says where it went.
+ *
+ * A page clipped twice is one note. `paths` is the vault's listing, read by
+ * the caller, and a note already at the path is answered with `null` in place
+ * of the note this made. Opening what is there beats both a second copy under
+ * a name with a number after it and a refusal over a note the reader would
+ * have to go and find.
+ *
+ * Nothing is caught. What throws is what the caller puts on screen.
+ */
+export async function importPage(
+  url: string,
+  paths: string[],
+): Promise<{ path: string; made: Note | null }> {
+  const page = await fetchPage(url);
+  const { path, body } = clipPage(page.html, page.url);
+  const made = paths.includes(path) ? null : await createNote(path, body);
+
+  return { path: made?.path ?? path, made };
 }

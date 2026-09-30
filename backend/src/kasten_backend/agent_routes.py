@@ -91,13 +91,13 @@ async def search_notes(
 async def schema(request: Request) -> dict[str, Any]:
     """This prefix, described as OpenAPI, for a caller with no MCP client.
 
-    An agent over MCP discovers the five capabilities from `tools/list`. One
+    An agent over MCP discovers the six capabilities from `tools/list`. One
     holding a token and a curl has nothing to read, because `/openapi.json` at
     the root is behind oauth2-proxy and describes the browser's API rather than
     this one.
 
     Built from this router's own routes rather than by filtering the whole
-    application's schema, so it names the five and pulls in only the models they
+    application's schema, so it names the six and pulls in only the models they
     reference. A token holder cannot reach anything under `/api/`, and handing
     one the map of those routes would give it away for nothing.
     """
@@ -122,6 +122,14 @@ async def append_note(
 ) -> agent.NoteRead:
     """Add a line to the end of one note, creating it when there is none."""
     return _written(await agent.append_note(settings, path, edit.text, edit.sha))
+
+
+@router.post("/dump")
+async def dump(
+    capture: agent.Dump, settings: Annotated[Settings, Depends(get_settings)]
+) -> agent.NoteRead:
+    """Add a paragraph to the `## Dump` of the daily note for `date`, making either."""
+    return _written(await agent.dump(settings, capture.text, capture.date))
 
 
 def _written(landed: agent.NoteRead | None) -> agent.NoteRead:
@@ -149,3 +157,12 @@ async def note_changed(_request: Request, error: Exception) -> JSONResponse:
 async def too_large(_request: Request, error: Exception) -> JSONResponse:
     """Answer a write that would leave more than `MOST_CONTENT_BYTES` on disk."""
     return JSONResponse(status_code=413, content={"detail": str(error)})
+
+
+async def nothing_to_capture(_request: Request, error: Exception) -> JSONResponse:
+    """Answer a dump handed no words, with the status a malformed body gets.
+
+    Registered on the app, like the two above, so `POST /api/dump` and `POST
+    /agent/dump` refuse in the same words.
+    """
+    return JSONResponse(status_code=422, content={"detail": str(error)})

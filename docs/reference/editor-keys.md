@@ -26,6 +26,7 @@ move-right, because the leader is registered in normal mode only.
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
+| `<leader>cd` | Capture a thought into the `## Dump` of today's note |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
 | `<leader>cm` | Import markdown files from your disk into the inbox |
@@ -672,6 +673,38 @@ what the vault is for, so it is never overwritten.
 A page that could not be read leaves the prompt open with the reason in it and
 the address still in the input, which is where half of these are fixed: a
 mistyped path, or a page that wants a login.
+
+## Capturing into today's dump
+
+`<leader>cd` puts one thought in the `## Dump` section of today's daily note,
+from wherever the focus is: a note, the tree, the todo pane, the reader. It
+opens a one-line prompt over the page, the shape of the todo pane's add prompt,
+with the day it writes to under the input.
+
+| Key | Does |
+| --- | --- |
+| Enter | Send what was typed, close the prompt and leave the focus where it was |
+| Escape | Close the prompt and write nothing |
+
+Enter on an empty input does nothing. The text is sent as it was typed, bar the
+spaces around it, and a short line in the status bar says it landed, or says
+why it did not. The day is read at the press, so a prompt left open over
+midnight writes into the new day.
+
+The dump is the section of prose the day's loose thoughts collect in, so each
+capture lands as a paragraph of its own at the end of the section, before any
+section that follows it. The daily note is made where the vault has none,
+exactly as `<leader>gd` makes it, and the section is made at the end of the note
+where the note has none. [`POST /api/dump`](/reference/http-api.md#post-apidump)
+covers where the text goes line by line.
+
+`d` for the dump, in the `c` group because it creates: a paragraph, and the note
+and the section where the day has neither. A bare `<leader>d` is not free: vim
+runs a complete match the moment it is typed, so it would fire before `df` or
+`du` could be finished.
+
+The same capture has a page of its own for a phone, `/capture`, which
+[Capture from your phone](/how-to/capture-from-your-phone.md) covers.
 
 ## Importing markdown, and taking a note out
 
@@ -1408,6 +1441,9 @@ The week is the ISO one, counted from its Thursday, so 2027-01-01 opens
 `2026-W53` rather than a week of 2027. The month above a week is that Thursday's
 month for the same reason: `2026-W53` links up to `2026-12`, not to `2027-01`.
 
+A capture into [today's dump](#capturing-into-todays-dump) makes the daily note
+the same way when the vault has none, on the server rather than in the browser.
+
 ## Backticks
 
 A backtick closes itself, the way a bracket and a quote already did. Markdown
@@ -1770,19 +1806,21 @@ first is what avoids it.
 
 ## Screens you type
 
-Two screens have a URL and nothing else: no key, no link and no row in the tree.
-The keys panel lists them under **Screens you type**, which is the only place in
-the app that says they exist.
+Three screens have a URL and nothing else: no link and no row in the tree. The
+keys panel lists them under **Screens you type**, which is the only place in the
+app that says they exist.
 
 | Address | What it is |
 | --- | --- |
 | `/tokens` | Mint and revoke the [tokens](/reference/agent-api.md) an agent reaches the vault with |
 | `/review` | The review, on a page of its own, sized for a phone |
+| `/capture` | Capture a thought into today's dump, sized for a phone |
 
-Neither gets a leader key, and the reason is the same for both: a key is worth
-spending on something pressed daily, and these are visited a few times a year.
+None of the three opens from a leader key. `/tokens` and `/review` are visited
+a few times a year, and a key is worth spending on something pressed daily.
 What they were missing was not a key but a mention, because a screen nothing
 links to and no key opens is one you have to read the documentation to find.
+`/capture` is the phone's; at a desk the same capture is `<leader>cd`.
 
 `/review` is the phone's shell around the review; at a desk the same three
 screens are in a pane behind `<leader>gs`. `/tokens` has no pane and no

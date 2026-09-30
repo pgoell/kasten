@@ -79,13 +79,13 @@ export interface paths {
          * Schema
          * @description This prefix, described as OpenAPI, for a caller with no MCP client.
          *
-         *     An agent over MCP discovers the five capabilities from `tools/list`. One
+         *     An agent over MCP discovers the six capabilities from `tools/list`. One
          *     holding a token and a curl has nothing to read, because `/openapi.json` at
          *     the root is behind oauth2-proxy and describes the browser's API rather than
          *     this one.
          *
          *     Built from this router's own routes rather than by filtering the whole
-         *     application's schema, so it names the five and pulls in only the models they
+         *     application's schema, so it names the six and pulls in only the models they
          *     reference. A token holder cannot reach anything under `/api/`, and handing
          *     one the map of those routes would give it away for nothing.
          */
@@ -112,6 +112,26 @@ export interface paths {
          * @description Add a line to the end of one note, creating it when there is none.
          */
         post: operations["append_note_agent_notes__path__append_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/dump": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dump
+         * @description Add a paragraph to the `## Dump` of the daily note for `date`, making either.
+         */
+        post: operations["dump_agent_dump_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -761,6 +781,41 @@ export interface paths {
         patch: operations["move_file_api_files__path__patch"];
         trace?: never;
     };
+    "/api/dump": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capture Dump
+         * @description Add one paragraph to the `## Dump` section of a day's note.
+         *
+         *     The daily ritual reads that section at 17:00 and plans the next day from it,
+         *     and this is the way into it from anywhere else: a key in the app, a page on
+         *     a phone, a share from another app. The note and the section are made where
+         *     the vault has neither, the note exactly as `<leader>gd` would make it.
+         *
+         *     A route of its own rather than a read and a `PUT` from the client, because
+         *     the read and the write happen under one hold of the lock. A phone and an
+         *     editor autosaving the same note would otherwise race, and the loser's
+         *     paragraph would vanish.
+         *
+         *     `agent.dump` is the whole of it, and `POST /agent/dump` calls the same
+         *     function: one rule about where a thought lands, whoever sent it. Text with
+         *     nothing in it after the trim is a 422, answered by the handler registered
+         *     above.
+         */
+        post: operations["capture_dump_api_dump_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/folders/{path}": {
         parameters: {
             query?: never;
@@ -906,6 +961,19 @@ export interface components {
             start: number;
             /** Text */
             text: string;
+        };
+        /**
+         * Dump
+         * @description One thought for a day's dump, and the day the sender is having.
+         */
+        Dump: {
+            /** Text */
+            text: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
         };
         /**
          * Folder
@@ -1284,6 +1352,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Append"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dump_agent_dump_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Dump"];
             };
         };
         responses: {
@@ -1969,6 +2070,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["NoteMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_dump_api_dump_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Dump"];
             };
         };
         responses: {

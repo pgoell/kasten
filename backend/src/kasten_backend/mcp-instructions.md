@@ -1,4 +1,4 @@
-kasten serves one personal markdown vault: five capabilities and no shell.
+kasten serves one personal markdown vault: six capabilities and no shell.
 There is no grep, no regex, no glob and no directory tree.
 
 The vault is an Open Knowledge Format bundle whose notes link to each other with
@@ -7,10 +7,9 @@ The vault is an Open Knowledge Format bundle whose notes link to each other with
 five-step rule by which a [[wikilink]] resolves, which you cannot guess, and
 what the block at the top of a note carries.
 
-list_notes returns note paths, for the whole vault or for one folder, and is how
-you see the shape of the vault. search_notes is a fixed-string case-insensitive
-scan of every line, not a regex, and it walks past the archive folder unless you
-ask for it.
+list_notes returns note paths, for the whole vault or for one folder.
+search_notes is a fixed-string case-insensitive scan of every line, not a regex,
+and it walks past the archive folder unless you ask for it.
 
 Writes are conditional. read_note returns a sha, and save_note and append_note
 take that same sha back; pass none only when creating a note that is not there.
@@ -23,7 +22,10 @@ above it are made on the way. File a note you were not told where to put in
 There is no delete, no move and no rename here, so a note written to the wrong
 place stays there until someone moves it from the app.
 
-Four more guides sit in "99 Misc/01 Config/01 Agents/": Ontology.md for the note
-types and the relations between them, How-To-Index.md for what an index.md or a
-log.md carries, and How-To-TODO.md and How-To-Exam.md for the two formats a line
-and a note are written in.
+dump adds a paragraph to "## Dump" in the user's daily note, read at day's end
+to plan tomorrow. A thought to jot or remember with no note named goes there,
+not into the inbox. Pass the user's local date.
+
+Four more guides sit in "99 Misc/01 Config/01 Agents/": Ontology.md for note
+types and relations, How-To-Index.md for index.md and log.md, and How-To-TODO.md
+and How-To-Exam.md for the todo line and the exam note.

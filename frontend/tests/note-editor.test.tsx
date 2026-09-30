@@ -95,6 +95,7 @@ function OpenNote({ path }: { path: string }) {
       createTab: () => {},
       openTerminal: () => {},
       importPage: () => {},
+      captureDump: () => {},
       splitRight: () => {},
       splitDown: () => {},
       nextPane: () => {},

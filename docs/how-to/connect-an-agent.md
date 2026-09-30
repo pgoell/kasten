@@ -38,9 +38,9 @@ claude mcp add --transport http kasten https://kasten.pgoell.com/agent/mcp \
   --header "Authorization: Bearer kasten_xxxxxxxx"
 ```
 
-Check it with `/mcp` inside Claude Code. The five tools are `list_notes`,
-`read_note`, `search_notes`, `save_note` and `append_note`, and a sixth,
-`read_guide`, hands back how the vault is filed. Claude Code reads a server's
+Check it with `/mcp` inside Claude Code. The six tools are `list_notes`,
+`read_note`, `search_notes`, `save_note`, `append_note` and `dump`, and a
+seventh, `read_guide`, hands back how the vault is filed. Claude Code reads a server's
 instructions at the handshake, so it holds that text already and the tool tells
 it to skip the call.
 
@@ -84,7 +84,7 @@ send.
 
 ## curl
 
-The REST routes are the same five capabilities and need no MCP client at all.
+The REST routes are the same six capabilities and need no MCP client at all.
 Every shape is in [the Agent API](/reference/agent-api.md).
 
 ```sh
@@ -99,6 +99,11 @@ curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
   -H 'content-type: application/json' \
   -d '{"text": "A line to file."}' \
   "$KASTEN_AGENT/notes/00%20Inbox/today.md/append"
+
+curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
+  -H 'content-type: application/json' \
+  -d "{\"text\": \"answer Jonas\", \"date\": \"$(date +%F)\"}" \
+  "$KASTEN_AGENT/dump"
 ```
 
 The routes describe themselves, so an agent that lands with a token and no
@@ -108,7 +113,7 @@ documentation can read the shapes off the schema:
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/openapi.json"
 ```
 
-That document names these five routes and nothing else. The one at the root
+That document names these six routes and nothing else. The one at the root
 describes the browser's API and is behind oauth2-proxy.
 
 An append needs no digest. A whole-note save does: read the note first and
@@ -119,7 +124,7 @@ says why those two differ.
 ## Claude Code where MCP is off
 
 Some machines run Claude Code with MCP servers turned off by policy. The
-`kasten` plugin in this repository gives it the same five capabilities as a
+`kasten` plugin in this repository gives it the same six capabilities as a
 skill that drives the curl routes above, so no MCP client is involved.
 
 Add this repository as a marketplace and install the plugin, inside Claude Code:

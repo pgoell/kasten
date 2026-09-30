@@ -1,4 +1,4 @@
-"""The MCP surface: the same five capabilities, over JSON-RPC at one endpoint.
+"""The MCP surface: the same six capabilities, over JSON-RPC at one endpoint.
 
 The tests here go through the whole application rather than calling the tools,
 because every hazard this slice has is in the wiring: where the endpoint answers,
@@ -235,6 +235,7 @@ async def test_the_reading_tools_say_so(
         "read_guide": True,
         "save_note": False,
         "append_note": False,
+        "dump": False,
     }
 
 
@@ -300,3 +301,53 @@ async def test_the_guide_says_where_a_new_note_goes(
 
     assert "00 Inbox/00 Agent/" in guide
     assert "no delete, no move and no rename" in guide
+
+
+async def test_dump_lands_in_the_daily_note(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.post(
+        ENDPOINT,
+        json=call("dump", {"text": "answer Jonas", "date": "2026-09-29"}),
+        headers={**bearer, **RPC},
+    )
+
+    day = agent_vault / "01 Periodic/00 Daily/2026-09-29.md"
+    assert payload(response.text)["result"]["structuredContent"]["content"] == day.read_text()
+    assert day.read_text().endswith("## Dump\nanswer Jonas\n")
+
+
+async def test_an_empty_dump_is_a_tool_error(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.post(
+        ENDPOINT, json=call("dump", {"text": " ", "date": "2026-09-29"}), headers={**bearer, **RPC}
+    )
+
+    assert payload(response.text)["result"]["isError"] is True
+    assert "Nothing to capture" in response.text
+
+
+@pytest.mark.skipif(JJ is None, reason="jj is not installed")
+async def test_a_dump_is_named_for_the_agent_in_the_log(
+    client: AsyncClient, versioned_agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    await client.post(
+        ENDPOINT,
+        json=call("dump", {"text": "answer Jonas", "date": "2026-09-29"}),
+        headers={**bearer, **RPC},
+    )
+
+    assert descriptions(versioned_agent_vault) == [
+        "agent(laptop): 01 Periodic/00 Daily/2026-09-29.md"
+    ]
+
+
+async def test_the_guide_says_where_a_thought_goes(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # The tool is only useful if a model reaches for it rather than filing the
+    # thought in the agent inbox, and the guide is where it learns which.
+    response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
+
+    assert "dump" in payload(response.text)["result"]["content"][0]["text"]

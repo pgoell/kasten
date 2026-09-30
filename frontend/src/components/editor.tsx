@@ -610,6 +610,7 @@ export function Editor({
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),
             importPage: () => commandsRef.current?.importPage(),
+            captureDump: () => commandsRef.current?.captureDump(),
             splitRight: () => commandsRef.current?.splitRight(),
             splitDown: () => commandsRef.current?.splitDown(),
             nextPane: () => commandsRef.current?.nextPane(),

@@ -9,11 +9,11 @@ status: stable
 
 # HTTP API
 
-The backend serves twenty-nine endpoints under `/api/`. Sixteen read, twelve
+The backend serves thirty endpoints under `/api/`. Sixteen read, thirteen
 write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
-Five more sit under `/agent/`, and they are documented on their own page,
+Six more sit under `/agent/`, and they are documented on their own page,
 [the Agent API](/reference/agent-api.md). Everything here is reached with an
 oauth2-proxy session and nothing else; everything there is reached with a bearer
 token and nothing else.
@@ -767,6 +767,72 @@ and a snapshot after, so a new note arrives as its own `vault: <path>` change.
 A vault that is not a jj repo takes the note just the same and keeps no
 history.
 
+## POST /api/dump
+
+Adds one paragraph to the `## Dump` section of a day's daily note. The body
+carries the text and the day:
+
+```json
+{ "text": "answer Jonas about the flat", "date": "2026-09-29" }
+```
+
+`date` is the sender's own date, `YYYY-MM-DD`, never the server's. The server's
+clock may keep another timezone, and a thought typed at half past midnight
+belongs to the day the person typing it is in. The note is
+`01 Periodic/00 Daily/<date>.md`.
+
+The reply is the note as it landed, in the shape `GET /api/files/{path}`
+returns, and the status is `200` whether the note was made or was already
+there:
+
+```json
+{ "path": "01 Periodic/00 Daily/2026-09-29.md", "content": "---\nid: …" }
+```
+
+Where the text goes:
+
+* No daily note for that day: it is made exactly as
+  [`<leader>gd`](/reference/editor-keys.md#periodic-notes) makes it, heading,
+  line of links and `## TODOs`, and a `## Dump` section is added at its end.
+* A daily note with no `## Dump`: the section is added at the end of the note.
+* A `## Dump` already there: the text goes at the end of that section, which is
+  before the next `#` or `##` heading, or at the end of the note when none
+  follows. A `###` inside the dump is part of the dump. The blank line in front
+  of the next heading stays where it is.
+
+Each capture is a paragraph of its own, a blank line apart from the one before
+it, because the dump is prose rather than a list. The first sits straight under
+the heading. The text is trimmed and otherwise kept as written, line breaks
+included.
+
+The note is stamped on the way through the way a save is, so a note that was
+made gains its [frontmatter block](/reference/note-frontmatter.md) and one that
+was there gets a fresh `modified`. The write is recorded as a `vault: <path>`
+change, the way a save's is, and an editor holding the note hears about it on
+[the change stream](#get-apievents) like any other change on disk.
+
+The read and the write happen under one hold of the vault's write lock, which
+is why this is a route rather than a read and a `PUT` from the client: a phone
+and an editor autosaving the same note could otherwise interleave, and one of
+the two paragraphs would vanish.
+
+The daily template has two copies. `frontend/src/lib/periodic.ts` builds it for
+the periodic keys and the todo prompt, and `backend/src/kasten_backend/periodic.py`
+builds it here. Both suites read `frontend/tests/fixtures/daily-notes.json`, so
+editing one copy and not the other fails a test.
+
+### What a capture refuses
+
+* `422` with `Nothing to capture` when the text is empty once trimmed.
+* `422` when `date` is missing or is not a real day, `2026-02-30` included.
+* `400` when the vault will not take the daily note's path, which only happens
+  when something that is not a folder stands where `01 Periodic/00 Daily` should
+  be.
+
+`POST /agent/dump` in [the Agent API](/reference/agent-api.md#post-agentdump)
+runs the same function behind a bearer token, so a thought from an agent lands
+in the same place.
+
 ## PATCH /api/files/{path}
 
 Gives a note a new path. The URL says where it lives now, the body where it
@@ -1118,4 +1184,5 @@ A name the store has not got is a `404`.
 * [Deleting a note](/explanation/deleting-a-note.md) - why a delete keeps the note
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md) - push a change here through to the frontend
 * [Configuration](/reference/configuration.md) - which directory `/api/files` reads
-* [Agent API](/reference/agent-api.md) - the five routes a token reaches, and the ones it never does
+* [Agent API](/reference/agent-api.md) - the six routes a token reaches, and the ones it never does
+* [Capture from your phone](/how-to/capture-from-your-phone.md) - the page and the share sheet that post to `/api/dump`

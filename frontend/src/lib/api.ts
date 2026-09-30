@@ -260,6 +260,23 @@ export async function saveNote(path: string, content: string): Promise<Note> {
 }
 
 /**
+ * Add one paragraph to the `## Dump` of the daily note for `date`.
+ *
+ * `date` is this browser's own day rather than the server's, which may keep
+ * another timezone. The message is the backend's words where it has any: the
+ * person who typed the thought is the one reading the failure.
+ */
+export async function captureDump(text: string, date: string): Promise<Note> {
+  const { data, error, response } = await client.POST("/api/dump", { body: { text, date } });
+
+  if (!data) {
+    throw new Error(reason(error) ?? `POST /api/dump failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
  * Read one web page through the backend, which is the only thing that can.
  *
  * The browser will ask another origin for a page and refuse to let a script

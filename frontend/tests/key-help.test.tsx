@@ -227,6 +227,7 @@ describe("the key tables", () => {
       createTab: () => {},
       openTerminal: () => {},
       importPage: () => {},
+      captureDump: () => {},
       splitRight: () => {},
       splitDown: () => {},
       nextPane: () => {},
@@ -287,6 +288,7 @@ describe("the key tables", () => {
       createTab: () => {},
       openTerminal: () => {},
       importPage: () => {},
+      captureDump: () => {},
       splitRight: () => {},
       splitDown: () => {},
       nextPane: () => {},
@@ -320,6 +322,16 @@ describe("the key tables", () => {
     // twice loses a row rather than showing two, and nothing says which.
     const all = [...LEADER, ...LEADER_EDITS];
     expect(new Set(all.map(({ key }) => key)).size).toBe(all.length);
+  });
+
+  it("lets no leader binding shadow a longer one", () => {
+    // Vim fires a complete match the moment it is typed, so a `d` of its own
+    // would run before `df` or `du` could be finished, and neither would ever
+    // be reached again.
+    const keys = [...LEADER, ...LEADER_EDITS].map(({ key }) => key);
+    for (const short of keys) {
+      expect(keys.filter((key) => key !== short && key.startsWith(short))).toEqual([]);
+    }
   });
 
   it("spells a terminal chord with the letter shift actually produces", () => {

@@ -24,10 +24,10 @@ from youtube_transcript_api import (
     YouTubeRequestFailed,
 )
 
-from kasten_backend import agent_mcp
-from kasten_backend.agent import ConflictError, TooLargeError
+from kasten_backend import agent, agent_mcp
+from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
-from kasten_backend.agent_routes import note_changed, too_large
+from kasten_backend.agent_routes import note_changed, nothing_to_capture, too_large
 from kasten_backend.agent_routes import router as agent_router
 from kasten_backend.anki import as_note, read_apkg
 from kasten_backend.build import build_id
@@ -126,6 +126,7 @@ have a token yet. See `agent_oauth.py`.
 app.include_router(agent_router)
 app.add_exception_handler(ConflictError, note_changed)
 app.add_exception_handler(TooLargeError, too_large)
+app.add_exception_handler(EmptyCaptureError, nothing_to_capture)
 app.mount("/agent", agent_mcp.mounted)
 """The MCP endpoint, at exactly `/agent/mcp`.
 
@@ -1094,6 +1095,34 @@ async def save_file(
             write_note(note, content)
 
     return Note(path=path, content=content)
+
+
+@app.post("/api/dump")
+async def capture_dump(
+    capture: agent.Dump, settings: Annotated[Settings, Depends(get_settings)]
+) -> Note:
+    """Add one paragraph to the `## Dump` section of a day's note.
+
+    The daily ritual reads that section at 17:00 and plans the next day from it,
+    and this is the way into it from anywhere else: a key in the app, a page on
+    a phone, a share from another app. The note and the section are made where
+    the vault has neither, the note exactly as `<leader>gd` would make it.
+
+    A route of its own rather than a read and a `PUT` from the client, because
+    the read and the write happen under one hold of the lock. A phone and an
+    editor autosaving the same note would otherwise race, and the loser's
+    paragraph would vanish.
+
+    `agent.dump` is the whole of it, and `POST /agent/dump` calls the same
+    function: one rule about where a thought lands, whoever sent it. Text with
+    nothing in it after the trim is a 422, answered by the handler registered
+    above.
+    """
+    landed = await agent.dump(settings, capture.text, capture.date)
+    if landed is None:
+        raise HTTPException(status_code=400, detail="The vault will not take that path")
+
+    return Note(path=landed.path, content=landed.content)
 
 
 @app.patch("/api/files/{path:path}")

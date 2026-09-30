@@ -41,6 +41,7 @@ export function stubCommands() {
     createTab: vi.fn(),
     openTerminal: vi.fn(),
     importPage: vi.fn(),
+    captureDump: vi.fn(),
     splitRight: vi.fn(),
     splitDown: vi.fn(),
     nextPane: vi.fn(),
