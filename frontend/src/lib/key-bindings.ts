@@ -75,6 +75,14 @@ export interface EditorCommands {
   openYearly(): void;
   /** Read the focused pane's note's book in a pane beside it. */
   openBook(): void;
+  /**
+   * Show the card for the person whose note the focused pane holds, beside it.
+   *
+   * Needs a person's note open, the way `openBook` needs a note with a book. A
+   * press anywhere else does nothing: a card about a note that is not a person
+   * is three empty lists.
+   */
+  openPerson(): void;
   /** Play the video the focused pane's note links, in a pane beside it. */
   openVideo(): void;
   /** Play or pause that video without leaving the note, or nothing if none is open. */
@@ -242,6 +250,10 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "ge", label: "Sit this note as a practice exam", command: "openExam" },
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
+  // `g` for go and `p` for person, the one letter of the group still free. It
+  // sits with `gr` and `gv`: all three put what the note is about in a pane
+  // beside the note itself.
+  { key: "gp", label: "Show this person's card beside their note", command: "openPerson" },
   { key: "gq", label: "Open this quarter's note", command: "openQuarterly" },
   // `g` for go and `r` for read. The book is the note's path with the suffix
   // swapped, so the key needs nothing but a note in the focused pane.

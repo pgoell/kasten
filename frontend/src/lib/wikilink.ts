@@ -155,6 +155,19 @@ export function wikiLinkTargets(text: string): string[] {
 }
 
 /**
+ * The line with its links written plainly: no brackets, and the name alone.
+ *
+ * For a list that draws a line rather than editing it. A row of the person card
+ * is a line that links a person by construction, so the brackets are noise on
+ * every row, and a link written as a path costs the row the words that say what
+ * happened. The name is what a reader of `[[02 Projects/2026-09-28 Kickoff]]`
+ * was going to read anyway.
+ */
+export function plainLinks(text: string): string {
+  return text.replace(LINK, (_, target: string) => target.slice(target.lastIndexOf("/") + 1));
+}
+
+/**
  * Every note in the vault `text` links to, once each, in the order written.
  *
  * The other half of the backlinks panel, read off one note rather than off the

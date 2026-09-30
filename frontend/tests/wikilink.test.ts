@@ -3,6 +3,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import {
   outgoingLinks,
+  plainLinks,
   vaultPaths,
   WikiLink,
   wikiLinkCompletions,
@@ -178,5 +179,20 @@ describe("wikiLinkCompletions", () => {
 
   it("offers nothing where the vault is not known, as in a preview pane", () => {
     expect(complete("see [[")).toBeNull();
+  });
+});
+
+describe("plainLinks", () => {
+  it("writes a link as its name, brackets and folders gone", () => {
+    expect(plainLinks("paired with [[Max Bosch]] on the script")).toBe(
+      "paired with Max Bosch on the script",
+    );
+    expect(plainLinks("see [[02 Projects/2026-09-28 Kickoff]]")).toBe("see 2026-09-28 Kickoff");
+  });
+
+  it("leaves a line holding no link exactly as it was", () => {
+    expect(plainLinks("ask Max for the script [not a link]")).toBe(
+      "ask Max for the script [not a link]",
+    );
   });
 });

@@ -90,6 +90,7 @@ function Harness({
         openQuarterly: () => {},
         openYearly: () => {},
         openBook: () => {},
+        openPerson: () => {},
         openVideo: () => {},
         toggleVideo: () => {},
         uploadBook: () => {},

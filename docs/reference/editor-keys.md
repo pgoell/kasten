@@ -47,6 +47,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>ge` | Sit the open note as a practice exam |
 | `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
+| `<leader>gp` | Show this person's card in a pane beside their note |
 | `<leader>gq` | Open this quarter's note |
 | `<leader>gr` | Read this note's book in a pane beside it |
 | `<leader>gs` | Put the review in the focused pane |
@@ -642,6 +643,46 @@ all of it goes. The whole write is one change, so one `u` takes it back out.
 It reads the first video the note links, even when the pane is showing another.
 A note linking no video, a video with no captions, and YouTube refusing the
 request each say so in the status bar, and leave the note as it was.
+
+## The person card
+
+A person is a note like any other, marked `type: Person` in its frontmatter.
+That mark is the whole of what makes one, and it is what the card draws under.
+
+The card says what the vault holds on them right now, in three lists.
+
+| List | What is in it |
+| --- | --- |
+| open todos | every todo that is neither done nor rejected and links them, soonest due first |
+| last meetings | the three most recent notes whose filename opens with a date and link them |
+| recently done | the five most recent `- ✅` log lines that link them |
+
+It is drawn in two places. At the foot of the person's own note, where it
+appears as soon as the note says `type: Person` and nowhere else, and in a pane
+beside that note on `<leader>gp`. Reach for the pane to keep someone on screen
+while you write somewhere else; a second press moves to the card already open
+rather than drawing a second one, the way the reader and the player do. Pressed
+over any other note the key does nothing, a card about a note that is not a
+person being three empty lists. Every row opens the line it names, and draws
+the links on it plainly, the brackets gone and a path shown as the note's own
+name: every row of a card links the person it is about, so the brackets say
+nothing there that the heading has not said already.
+
+**A link, never a name.** A line counts when it carries a `[[wikilink]]` that
+resolves to the person's note, so `ask Max about the script` is on nobody's card
+and `ask [[Max Bosch]] about the script` is on his. Two colleagues share a first
+name and a surname is also a word, so a card that read prose would put one
+person's work on another's page. What it costs is that a todo written without
+the link is invisible here, which is why the vault's own `How-To-TODO` asks
+agents to write the link.
+
+The done log copies the words of the todo, so a person linked once shows on
+their card while the work is open and again once it is finished.
+
+The card asks nothing new of the backend. It reads `GET /api/todos` and
+`GET /api/search` for the person's name, which are the two answers the todo pane
+and [the link panels](#the-link-panels) already hold, and decides for itself
+which of those lines are links.
 
 ## Importing a web page
 
