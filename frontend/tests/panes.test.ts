@@ -13,6 +13,7 @@ import {
   openBookBeside,
   openImageInFocused,
   openInFocused,
+  openPersonBeside,
   openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -506,6 +507,36 @@ describe("a video in a pane beside its note", () => {
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(player);
+  });
+});
+
+describe("a person's card in a pane beside their note", () => {
+  const MAX = "03 Areas/08 People/Max Bosch.md";
+
+  it("splits the focused pane and puts the card in the new one", () => {
+    const layout = openPersonBeside(emptyLayout(MAX), MAX);
+
+    // The note stays where it was: the card is read against whatever is open,
+    // and a key that ate that note would leave nothing to read it against.
+    expect(tabPanes(layout).map((pane) => pane.path ?? null)).toEqual([MAX, null]);
+    expect(tabPanes(layout).map((pane) => pane.person ?? null)).toEqual([null, MAX]);
+    expect(focusedPane(layout).person).toBe(MAX);
+  });
+
+  it("sets the card beside the note rather than under it", () => {
+    const root = activeTab(openPersonBeside(emptyLayout(MAX), MAX)).root;
+
+    expect(isSplit(root) && root.dir).toBe("row");
+  });
+
+  it("goes to the pane already showing that person rather than making a second", () => {
+    const once = openPersonBeside(emptyLayout(MAX), MAX);
+    const card = focusedPane(once).id;
+
+    const twice = openPersonBeside(nextPane(once), MAX);
+
+    expect(tabPanes(twice)).toHaveLength(2);
+    expect(focusedPane(twice).id).toBe(card);
   });
 });
 

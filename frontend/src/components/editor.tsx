@@ -600,6 +600,7 @@ export function Editor({
             openQuarterly: () => commandsRef.current?.openQuarterly(),
             openYearly: () => commandsRef.current?.openYearly(),
             openBook: () => commandsRef.current?.openBook(),
+            openPerson: () => commandsRef.current?.openPerson(),
             openVideo: () => commandsRef.current?.openVideo(),
             toggleVideo: () => commandsRef.current?.toggleVideo(),
             uploadBook: () => commandsRef.current?.uploadBook(),

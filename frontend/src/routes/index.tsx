@@ -14,6 +14,8 @@ import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
+import { PersonFooter } from "@/components/person-card";
+import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review-pane";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
@@ -65,6 +67,7 @@ import {
   openExamInFocused,
   openImageInFocused,
   openInFocused,
+  openPersonBeside,
   openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
@@ -77,6 +80,7 @@ import {
   toggleZoom,
 } from "@/lib/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
+import { isPerson } from "@/lib/person";
 import { newId, parseTodo, type TodoState } from "@/lib/todo";
 import {
   addSubtaskInVault,
@@ -1450,6 +1454,18 @@ function Home() {
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
       },
+      // Needs a person's note in the focused pane, which is what the type in
+      // its frontmatter says. Read out of the cache the editor filled, so a
+      // `type: Person` typed and not yet saved is not seen until the autosave
+      // lands, the way a link typed into a note is not followed before then.
+      // A press over any other note does nothing, which is how the key says
+      // this one is not about a person.
+      openPerson: () => {
+        if (pane.path === undefined) return;
+        const note = pane.path;
+        if (!isPerson(queryClient.getQueryData<string>(["note", note]) ?? "")) return;
+        moveTo((previous) => openPersonBeside(previous, note));
+      },
       // Needs a note in the focused pane for the reason `openBook` does: the
       // link is in that note, and the pane reads it out for itself. No
       // `saveFirst` for the same reason either, this splitting rather than
@@ -1790,6 +1806,15 @@ function Home() {
                     // this with it.
                     onWatched={(id, seconds) => keepPosition(shown.video ?? "", id, seconds)}
                   />
+                ) : shown.person !== undefined ? (
+                  <PersonPane
+                    person={shown.person}
+                    commands={commands}
+                    paths={data}
+                    archive={archive}
+                    focusSignal={focused ? focusSignal : 0}
+                    onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                  />
                 ) : shown.term !== undefined ? (
                   <TerminalPane
                     session={shown.term}
@@ -1818,38 +1843,52 @@ function Home() {
                     onFollow={follow}
                   />
                 ) : (
-                  <NoteEditor
-                    path={shown.path}
-                    commands={commands}
-                    preview={preview}
-                    paths={data}
-                    images={images}
-                    tags={tags}
-                    relations={relations}
-                    startLine={shown.line}
-                    focusSignal={focused ? focusSignal : 0}
-                    focused={focused}
-                    // Only the focused pane reports its typing. Nothing else can
-                    // be typed into, and an unfocused pane that somehow did
-                    // would be writing its text to the focused pane's path.
-                    onChange={focused ? change : IGNORE}
-                    // Asked for the focused pane alone, for the reason its
-                    // typing is reported alone: the autosave follows that pane,
-                    // so any other pane asking would be handing it a question
-                    // about a note it is not holding. An unfocused pane cannot
-                    // be typed into, so it is always clean and always reloads.
-                    allowReload={focused ? allowReload : undefined}
-                    // The focused pane alone, for the reason its typing is
-                    // reported alone: the note this reads is the one the
-                    // autosave follows, which is the note in that pane.
-                    onReload={focused ? reload : undefined}
-                    mark={mark?.note === shown.path ? mark : undefined}
-                    onSave={save}
-                    onFollow={follow}
-                    onCycleTodo={logCycledTodo}
-                    onOpenHighlight={openPassage}
-                    onNotice={setNotice}
-                  />
+                  // A column rather than the editor alone, so a person's note
+                  // can carry their card at its foot. `PersonFooter` draws
+                  // nothing under every other note, which leaves the editor the
+                  // whole pane it has always had.
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="min-h-0 flex-1">
+                      <NoteEditor
+                        path={shown.path}
+                        commands={commands}
+                        preview={preview}
+                        paths={data}
+                        images={images}
+                        tags={tags}
+                        relations={relations}
+                        startLine={shown.line}
+                        focusSignal={focused ? focusSignal : 0}
+                        focused={focused}
+                        // Only the focused pane reports its typing. Nothing else can
+                        // be typed into, and an unfocused pane that somehow did
+                        // would be writing its text to the focused pane's path.
+                        onChange={focused ? change : IGNORE}
+                        // Asked for the focused pane alone, for the reason its
+                        // typing is reported alone: the autosave follows that pane,
+                        // so any other pane asking would be handing it a question
+                        // about a note it is not holding. An unfocused pane cannot
+                        // be typed into, so it is always clean and always reloads.
+                        allowReload={focused ? allowReload : undefined}
+                        // The focused pane alone, for the reason its typing is
+                        // reported alone: the note this reads is the one the
+                        // autosave follows, which is the note in that pane.
+                        onReload={focused ? reload : undefined}
+                        mark={mark?.note === shown.path ? mark : undefined}
+                        onSave={save}
+                        onFollow={follow}
+                        onCycleTodo={logCycledTodo}
+                        onOpenHighlight={openPassage}
+                        onNotice={setNotice}
+                      />
+                    </div>
+                    <PersonFooter
+                      path={shown.path}
+                      paths={data}
+                      archive={archive}
+                      onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                    />
+                  </div>
                 );
               }}
             </PaneLayout>

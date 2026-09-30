@@ -82,6 +82,15 @@ export interface Pane {
    * out above.
    */
   video?: string;
+  /**
+   * The person note this pane is showing the card for, absent otherwise.
+   *
+   * The person's own note path, following `book` and `video` rather than
+   * `image`: the card is read off that note and everything linking to it, so a
+   * folder move that rewrites `path` carries the card with it. A ninth optional
+   * field for the reason `book` is the fourth, written out above.
+   */
+  person?: string;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -337,6 +346,29 @@ export function openVideoBeside(layout: Layout, note: string): Layout {
   return withTab(split, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, video: note }),
+  });
+}
+
+/**
+ * Put one person's card in a pane beside this one, or go to the one showing it.
+ *
+ * Beside and not over, following `openBookBeside` down to the reuse: the card
+ * is read next to the note that made you ask about them, and a key that ate
+ * that note would leave nothing to read it against. A second press moves to the
+ * card rather than opening a second one.
+ */
+export function openPersonBeside(layout: Layout, person: string): Layout {
+  const showing = tabPanes(layout).find((pane) => pane.person === person);
+  if (showing) return focusPane(layout, showing.id);
+
+  // `row` the way the reader takes it: a card is a column of short lines and
+  // reads beside a note rather than under it.
+  const split = splitFocused(layout, "row");
+  const tab = activeTab(split);
+
+  return withTab(split, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, person }),
   });
 }
 
