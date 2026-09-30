@@ -204,13 +204,95 @@
         }
       }
     },
+    "/agent/graph": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Graph",
+        "description": "The notes as a graph, narrowed by a filter or asked a pattern.",
+        "operationId": "graph_agent_graph_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "around",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Around"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5,
+              "minimum": 0,
+              "default": 1,
+              "title": "Depth"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Graph"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent/openapi.json": {
       "get": {
         "tags": [
           "agent"
         ],
         "summary": "Schema",
-        "description": "This prefix, described as OpenAPI, for a caller with no MCP client.\n\nAn agent over MCP discovers the six capabilities from `tools/list`. One\nholding a token and a curl has nothing to read, because `/openapi.json` at\nthe root is behind oauth2-proxy and describes the browser's API rather than\nthis one.\n\nBuilt from this router's own routes rather than by filtering the whole\napplication's schema, so it names the six and pulls in only the models they\nreference. A token holder cannot reach anything under `/api/`, and handing\none the map of those routes would give it away for nothing.",
+        "description": "This prefix, described as OpenAPI, for a caller with no MCP client.\n\nAn agent over MCP discovers the seven capabilities from `tools/list`. One\nholding a token and a curl has nothing to read, because `/openapi.json` at\nthe root is behind oauth2-proxy and describes the browser's API rather than\nthis one.\n\nBuilt from this router's own routes rather than by filtering the whole\napplication's schema, so it names the seven and pulls in only the models they\nreference. A token holder cannot reach anything under `/api/`, and handing\none the map of those routes would give it away for nothing.",
         "operationId": "schema_agent_openapi_json_get",
         "responses": {
           "200": {
@@ -671,6 +753,85 @@
                   },
                   "type": "array",
                   "title": "Response List Tags Api Tags Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/graph": {
+      "get": {
+        "summary": "Show Graph",
+        "description": "The notes as a graph, narrowed by a filter or asked a pattern.\n\nThe query is text and the backend reads it, so the pane, this route and the\nagent's tool share one parser. `around` names a note and draws only what is\nwithin `depth` links of it, which is the local graph. A query that cannot\nbe read is a 400 whose detail says why, in words the pane shows as they are.\n\n`archive` walks the archive folder too, off for the reason it is off on a\nsearch: a finished project's links are true of the note and not of the\nvault as it is now.",
+        "operationId": "show_graph_api_graph_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "around",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Around"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5,
+              "minimum": 0,
+              "default": 1,
+              "title": "Depth"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Graph"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1505,6 +1666,135 @@
         ],
         "title": "FolderMove",
         "description": "Where a folder should live from now on, and every note under it with it."
+      },
+      "Graph": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNode"
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdge"
+            },
+            "type": "array",
+            "title": "Edges"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nodes",
+          "edges",
+          "columns",
+          "rows",
+          "truncated"
+        ],
+        "title": "Graph",
+        "description": "What a query drew, and for a pattern the rows it matched."
+      },
+      "GraphEdge": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation"
+          },
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "target",
+          "relation",
+          "line"
+        ],
+        "title": "GraphEdge",
+        "description": "One note linking another, once per pair and relation however often it is written."
+      },
+      "GraphNode": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "missing": {
+            "type": "boolean",
+            "title": "Missing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "type",
+          "tags",
+          "missing"
+        ],
+        "title": "GraphNode",
+        "description": "One note, or one a link names that nobody has written."
       },
       "HTTPValidationError": {
         "properties": {

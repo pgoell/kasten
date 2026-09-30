@@ -10,7 +10,7 @@ copy of it. Each function takes a `Settings` rather than a bare path, because
 the archive folder is a setting and a capability that hardcoded `98 Archive`
 would break the moment a vault filed things differently.
 
-Deliberately six things and not the twenty-four `/api/*` serves. There is no
+Deliberately seven things and not the twenty-four `/api/*` serves. There is no
 delete, no move and no folder operation: a move rewrites wikilinks across the
 whole vault, and getting that wrong from outside the box is a vault-wide edit.
 The shell container keeps the knife.
@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.frontmatter import reserved, stamp
+from kasten_backend.graph import Graph, query_graph
 from kasten_backend.periodic import append_dump, daily_note, daily_path
 from kasten_backend.search import search_vault
 from kasten_backend.vault import (
@@ -200,6 +201,24 @@ async def search_notes(settings: Settings, query: str, archive: bool = False) ->
     hits = await search_vault(settings.vault_path, query, skip)
 
     return [Hit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+async def graph(
+    settings: Settings,
+    query: str = "",
+    around: str | None = None,
+    depth: int = 1,
+    archive: bool = False,
+) -> Graph:
+    """The notes as a graph, narrowed by a filter or asked a pattern.
+
+    The function `GET /api/graph` calls, so the browser's graph and the agent's
+    answer from one parser. A seventh capability and a read: it walks the same
+    notes a search walks, and an agent asking what depends on a note would
+    otherwise read every note that names it and parse the relations itself.
+    """
+    skip = None if archive else settings.archive_path
+    return await query_graph(settings.vault_path, query, around, depth, skip)
 
 
 def _agree(previous: bytes | None, sha: str | None, *, optional: bool) -> None:

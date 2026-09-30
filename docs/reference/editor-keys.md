@@ -45,6 +45,8 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>gb` | Show what links to the open note |
 | `<leader>gd` | Open today's note |
 | `<leader>ge` | Sit the open note as a practice exam |
+| `<leader>gg` | Put the graph of the whole vault in the focused pane |
+| `<leader>gl` | Show the graph around this note in a pane beside it |
 | `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
 | `<leader>gp` | Show this person's card in a pane beside their note |
@@ -683,6 +685,56 @@ The card asks nothing new of the backend. It reads `GET /api/todos` and
 `GET /api/search` for the person's name, which are the two answers the todo pane
 and [the link panels](#the-link-panels) already hold, and decides for itself
 which of those lines are links.
+
+## The graph pane
+
+`<leader>gg` puts the graph of the whole vault in the focused pane, over what
+was there, the way `<leader>gt` puts the todo list there. `<leader>gl` draws the
+graph around the open note in a pane beside it, one edge out; a second press
+moves to that pane rather than drawing a second one. Pressed with no note open,
+`<leader>gl` does nothing.
+
+Each note is a dot, larger the more edges it has, coloured by its `type`:
+
+| Type | Colour |
+| --- | --- |
+| `Concept` | purple |
+| `Source` | orange |
+| `Person` | green |
+| `Book` | yellow |
+| `Reference` | blue |
+| `Periodic Note` | grey |
+| anything else | the text colour |
+
+A note a link names and nobody has written is a hollow ring. A typed relation
+is a purple line with an arrow at the note it points to; a plain link is a
+faint line with none. The centre of a local graph wears a blue ring.
+
+Names fade in as you zoom. Hovering a note lights it and its neighbours and
+dims the rest, and names the relations on its edges. Drag a note to move it,
+drag the background to pan, and scroll to zoom. A click opens the note in the
+pane, and a click on a hollow ring makes the note the way following its link
+would.
+
+The line at the top takes a query in the language
+[Graph query](/reference/graph-query.md) states: a filter such as
+`type:Concept -tag:#draft`, or a pattern such as `?paper supports ?idea`. It is
+asked a quarter second after typing stops, or at once on Enter. A pattern also
+answers in a table under the graph, each note in it a click away. A query the
+backend cannot read leaves the last drawing up and says why under the line.
+
+| Key | Does |
+| --- | --- |
+| `/` | Move into the query line |
+| `Enter`, `Escape` | In the query line: ask now, or leave it, and go back to the graph |
+| `+` or `=` | Around a note: reach one edge further out, up to 5 |
+| `-` | Around a note: pull one edge back in, down to 0 |
+| `f` | Zoom until every note is on screen |
+| `q` | Close the pane |
+
+The leader keys work here as in every pane. `<leader>a` puts the archive in the
+drawing too. A note written anywhere, by you or by an agent, redraws a graph on
+screen.
 
 ## Importing a web page
 

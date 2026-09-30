@@ -54,7 +54,8 @@ line.
 
 Dataview accepts it without the space and we do not, because the space is what
 makes `GET /api/search?q=":: "` a candidate superset of every relation in the
-vault. That is the whole reason there is no endpoint for relations.
+vault. The editor reads relations off that answer rather than off an
+endpoint of their own.
 
 ### 4. The target follows the separator
 
@@ -106,6 +107,18 @@ viewed.** The panel keeps a line when any wikilink on it resolves, so
 `depends-on:: [[A]] because [[B]]` shows in B's panel too. Grouping that by the
 name alone would tell you B is a dependency when the line says A is. Where the
 target is another note, the hit goes in the untyped group.
+
+## How the graph reads it
+
+[`GET /api/graph`](/reference/http-api.md#get-apigraph) reads relations on the
+backend, with a copy of this grammar in `graph.py`, so a relation is an edge
+carrying its name. The two copies answer to this page, and the tests on each
+side describe the same lines.
+
+The graph reads one thing the editor does not yet: an alias or a heading in the
+target, `supports:: [[GraphRAG paper|the paper]]`, is cut off, and the relation
+points at `GraphRAG paper`. [Graph query](/reference/graph-query.md#what-the-graph-holds)
+states every rule it reads links by.
 
 ## The accepted cost
 

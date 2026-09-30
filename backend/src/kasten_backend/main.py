@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Annotated
 from urllib.parse import quote, urlsplit
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi import Path as Segment
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -36,6 +36,7 @@ from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.frontmatter import reserved, stamp
+from kasten_backend.graph import MOST_DEPTH, Graph, GraphError, query_graph
 from kasten_backend.guide import write_guide
 from kasten_backend.links import relink_folder_move, relink_note_move
 from kasten_backend.okf import prepare
@@ -603,6 +604,33 @@ async def list_tags(settings: Annotated[Settings, Depends(get_settings)]) -> lis
     is what the editor completes an open `#` from.
     """
     return await find_tags(settings.vault_path)
+
+
+@app.get("/api/graph")
+async def show_graph(
+    settings: Annotated[Settings, Depends(get_settings)],
+    q: str = "",
+    around: str | None = None,
+    depth: Annotated[int, Query(ge=0, le=MOST_DEPTH)] = 1,
+    archive: bool = False,
+) -> Graph:
+    """The notes as a graph, narrowed by a filter or asked a pattern.
+
+    The query is text and the backend reads it, so the pane, this route and the
+    agent's tool share one parser. `around` names a note and draws only what is
+    within `depth` links of it, which is the local graph. A query that cannot
+    be read is a 400 whose detail says why, in words the pane shows as they are.
+
+    `archive` walks the archive folder too, off for the reason it is off on a
+    search: a finished project's links are true of the note and not of the
+    vault as it is now.
+    """
+    try:
+        return await query_graph(
+            settings.vault_path, q, around, depth, None if archive else settings.archive_path
+        )
+    except GraphError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/anki", status_code=201)

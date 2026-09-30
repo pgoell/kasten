@@ -68,6 +68,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Graph
+         * @description The notes as a graph, narrowed by a filter or asked a pattern.
+         */
+        get: operations["graph_agent_graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent/openapi.json": {
         parameters: {
             query?: never;
@@ -79,13 +99,13 @@ export interface paths {
          * Schema
          * @description This prefix, described as OpenAPI, for a caller with no MCP client.
          *
-         *     An agent over MCP discovers the six capabilities from `tools/list`. One
+         *     An agent over MCP discovers the seven capabilities from `tools/list`. One
          *     holding a token and a curl has nothing to read, because `/openapi.json` at
          *     the root is behind oauth2-proxy and describes the browser's API rather than
          *     this one.
          *
          *     Built from this router's own routes rather than by filtering the whole
-         *     application's schema, so it names the six and pulls in only the models they
+         *     application's schema, so it names the seven and pulls in only the models they
          *     reference. A token holder cannot reach anything under `/api/`, and handing
          *     one the map of those routes would give it away for nothing.
          */
@@ -434,6 +454,35 @@ export interface paths {
          *     is what the editor completes an open `#` from.
          */
         get: operations["list_tags_api_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show Graph
+         * @description The notes as a graph, narrowed by a filter or asked a pattern.
+         *
+         *     The query is text and the backend reads it, so the pane, this route and the
+         *     agent's tool share one parser. `around` names a note and draws only what is
+         *     within `depth` links of it, which is the local graph. A query that cannot
+         *     be read is a 400 whose detail says why, in words the pane shows as they are.
+         *
+         *     `archive` walks the archive folder too, off for the reason it is off on a
+         *     search: a finished project's links are true of the note and not of the
+         *     vault as it is now.
+         */
+        get: operations["show_graph_api_graph_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -994,6 +1043,54 @@ export interface components {
             /** Path */
             path: string;
         };
+        /**
+         * Graph
+         * @description What a query drew, and for a pattern the rows it matched.
+         */
+        Graph: {
+            /** Nodes */
+            nodes: components["schemas"]["GraphNode"][];
+            /** Edges */
+            edges: components["schemas"]["GraphEdge"][];
+            /** Columns */
+            columns: string[];
+            /** Rows */
+            rows: {
+                [key: string]: string;
+            }[];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * GraphEdge
+         * @description One note linking another, once per pair and relation however often it is written.
+         */
+        GraphEdge: {
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /** Relation */
+            relation: string | null;
+            /** Line */
+            line: number;
+        };
+        /**
+         * GraphNode
+         * @description One note, or one a link names that nobody has written.
+         */
+        GraphNode: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string | null;
+            /** Tags */
+            tags: string[];
+            /** Missing */
+            missing: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1305,6 +1402,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Hit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    graph_agent_graph_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                around?: string | null;
+                depth?: number;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Graph"];
                 };
             };
             /** @description Validation Error */
@@ -1680,6 +1811,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+        };
+    };
+    show_graph_api_graph_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                around?: string | null;
+                depth?: number;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Graph"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

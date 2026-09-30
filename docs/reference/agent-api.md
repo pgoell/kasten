@@ -13,7 +13,7 @@ Everything under `/agent/` is reached with a bearer token and nothing else,
 except the token endpoint of [the OAuth flow](#the-oauth-flow), which by
 definition meets a caller that has none. Nothing in front of the prefix asks for
 a session, so the token check in the backend is the entire trust boundary. Why
-the prefix exists at all, and why it carries six capabilities rather than the
+the prefix exists at all, and why it carries seven capabilities rather than the
 twenty-four in [the HTTP API](/reference/http-api.md), is in
 [The agent boundary](/explanation/the-agent-boundary.md).
 
@@ -81,7 +81,7 @@ no others. That is deliberate rather than tidy. A token holder cannot reach
 anything under `/api/`, and handing one the map of those twenty-seven routes
 would give it away for nothing.
 
-An agent over MCP needs none of this: `tools/list` describes the same six
+An agent over MCP needs none of this: `tools/list` describes the same seven
 capabilities with the same argument shapes.
 
 ## GET /agent/notes
@@ -120,6 +120,61 @@ The archive folder is walked past unless `archive=true`. Which folder that is
 comes from `KASTEN_ARCHIVE_PATH` rather than a hardcoded `98 Archive`, so a
 vault that files things differently is searched correctly. A blank `q` answers
 with nothing rather than with everything.
+
+## GET /agent/graph
+
+The notes as a graph of the links between them, narrowed by a filter or asked a
+pattern. The MCP tool is `query_graph`, taking `query` for `q` and the other
+three under the same names.
+
+```
+GET /agent/graph?q=?paper supports [[GraphRAG]]; ?paper type:Source
+```
+
+```json
+{
+  "nodes": [
+    { "path": "sources/edge.md", "name": "edge", "type": "Source", "tags": ["#ai"], "missing": false },
+    { "path": "concepts/GraphRAG.md", "name": "GraphRAG", "type": "Concept", "tags": [], "missing": false }
+  ],
+  "edges": [
+    { "source": "sources/edge.md", "target": "concepts/GraphRAG.md", "relation": "supports", "line": 7 }
+  ],
+  "columns": ["?paper"],
+  "rows": [{ "?paper": "sources/edge.md" }],
+  "truncated": false
+}
+```
+
+It runs the same function as
+[`GET /api/graph`](/reference/http-api.md#get-apigraph) and answers the same shape, so the graph
+the browser draws and the one an agent reads come from one parser. What `q` may
+say is [the graph query](/reference/graph-query.md). A filter such as
+`type:Concept -tag:#draft rel:depends-on is:orphan` narrows the notes and leaves
+`columns` and `rows` empty. A pattern, one or more clauses holding a
+`?variable`, answers in `rows`, one binding of every column per row, and
+`truncated` says more rows matched than came back. A blank `q` is the whole
+vault.
+
+`around` names a note and `depth` how many links out from it to reach, `0` to
+`5` and `1` unless given. The neighbourhood is taken first and `q` applied
+inside it, and the note named stays in `nodes` whatever the filter says. Prefer
+`around` or a pattern to the whole graph, which lists every note in the vault.
+
+`missing` marks a note that a link names and nobody has written. `relation` is
+the name of a typed relation, or `null` for a plain `[[link]]`, and `line` is
+the first line of `source` that writes it.
+
+The archive folder is left out unless `archive=true`, as in a search.
+
+A query it cannot read is `400`, with a sentence saying why:
+
+```json
+{ "detail": "That pattern matches too much to answer. Name a note, a type or a relation" }
+```
+
+So is an `around` naming a note the graph does not hold. The MCP tool reports
+the same sentence as a tool error.
 
 ## GET /agent/notes/{path}
 
@@ -304,10 +359,10 @@ The same document answers at
 path-inserted spelling off the `401` header and ChatGPT probes the bare one, and
 a `404` on whichever a client tries ends the flow there.
 
-`kasten:notes` is the one scope. It names the six capabilities and there is
-nothing to narrow. `read_guide` is a seventh tool under it and not a seventh
+`kasten:notes` is the one scope. It names the seven capabilities and there is
+nothing to narrow. `read_guide` is an eighth tool under it and not an eighth
 capability: it answers with a string compiled into the image and reads no note,
-so the audit this prefix exists for is still a list of six things.
+so the audit this prefix exists for is still a list of seven things.
 
 ### GET /.well-known/oauth-authorization-server
 
@@ -333,7 +388,7 @@ endpoint, which is both of them.
 
 ### GET and POST /api/oauth/authorize
 
-The `GET` renders one button, naming the host it would give the six
+The `GET` renders one button, naming the host it would give the seven
 capabilities to. The `POST` behind that button mints a code and answers `302` to
 the address it was given, carrying `code`, `state` and `iss`.
 

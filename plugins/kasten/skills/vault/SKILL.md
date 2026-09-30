@@ -1,13 +1,13 @@
 ---
 name: vault
-description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there, or to dump a thought for later. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, save_note, append_note, dump) are connected; those do the same job.
+description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there, or to dump a thought for later. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, query_graph, save_note, append_note, dump) are connected; those do the same job.
 ---
 
 # kasten vault
 
 kasten serves one personal markdown vault. This skill reaches it with curl and
 a bearer token, for a machine where the kasten MCP server cannot be used. The
-six routes are the same six capabilities the MCP tools offer.
+seven routes are the same seven capabilities the MCP tools offer.
 
 ## Auth
 
@@ -56,7 +56,7 @@ braces.
 
 ## The vault
 
-There is no grep, no regex, no glob and no directory tree. There are six
+There is no grep, no regex, no glob and no directory tree. There are seven
 routes.
 
 The vault is an Open Knowledge Format bundle whose notes link to each other
@@ -109,6 +109,40 @@ A fixed-string, case-insensitive scan of every line, not a regex, up to 2,000
 hits: `[{"path": "…", "line": 3, "text": "…"}]`, `line` 1-based. It walks past
 the archive folder; add `-d archive=true` to include it. A blank `q` answers
 `[]`.
+
+### Query the graph
+
+The notes and the links between them, `name:: [[target]]` relations included.
+A filter narrows the notes; a pattern with `?variables` asks a question and
+answers in rows. Every note that depends on one:
+
+```sh
+curl -sS --fail-with-body -G -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --data-urlencode 'q=?note depends-on [[GraphRAG]]' "$KASTEN_AGENT/graph"
+```
+
+Every note within two links of one, narrowed to concepts:
+
+```sh
+curl -sS --fail-with-body -G -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --data-urlencode 'around=GraphRAG' -d depth=2 \
+  --data-urlencode 'q=type:Concept' "$KASTEN_AGENT/graph"
+```
+
+Answers `{"nodes", "edges", "columns", "rows", "truncated"}`. A node is
+`{"path", "name", "type", "tags", "missing"}`, `missing` true for a note a link
+names and nobody wrote. An edge is `{"source", "target", "relation", "line"}`,
+`relation` null for a plain link. A pattern fills `rows`, one
+`{"?note": "path"}` per match, and `truncated` is true when more matched than
+came back. `depth` is 0 to 5, default 1. It walks past the archive folder; add
+`-d archive=true` to include it. A blank `q` with no `around` lists every note,
+so name a note, a type or a relation.
+
+Filters: `type:Concept`, `tag:#ai`, `-tag:#draft`, `rel:depends-on`,
+`is:orphan`, `path:"00 Inbox"`, or bare words matching a name. A pattern is
+clauses split by `;`, each `subject relation object` or `subject filter`:
+`?paper supports [[GraphRAG]]; ?paper type:Source`. The relation may be a
+name, a `?variable`, `*` for any typed relation or `links` for any link.
 
 ### Read a note
 
@@ -198,6 +232,7 @@ curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" \
 | `401` `That is not a token this vault knows` | Token unset, wrong or revoked | Ask the user to check `KASTEN_TOKEN`; never print it |
 | `404` `No such note` | No readable note at that path | For a read, it is absent. Check the spelling with a search or a list |
 | `409` with `current` | The note changed since you read it | Read it again, apply the edit to the new content, save with the new `sha`. Never retry with `current` alone |
+| `400` with a sentence | The graph query could not be read, matches too much, or `around` names no note | Read the sentence, fix the query |
 | `413` | The write would leave more than 1MiB on disk | Split the note |
 | `422` `Nothing to capture` | A dump with no words in it | Send the thought itself |
 | `421` | `KASTEN_AGENT` names a host the server does not answer to | Ask the user for the right URL |
@@ -215,6 +250,8 @@ curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGEN
 ## How to work
 
 - To find a note, search before you list. A list of the whole vault is long.
+- To learn what links to or depends on a note, query the graph rather than
+  reading every note that names it.
 - Reads need no confirmation. When the user asked for a write, write. When the
   path is your own choice, name it in your reply.
 - Make every edit to a note in one save rather than several. Each save is a

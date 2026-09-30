@@ -19,7 +19,8 @@ export interface Relation {
  *
  * The space after `::` is not optional and Dataview's is. It is what makes
  * `GET /api/search?q=":: "` a candidate superset of every relation in the vault,
- * which is the whole reason there is no `/api/relations`.
+ * which is what the editor reads relations off. `graph.py` holds a copy of this
+ * rule for the graph, and both answer to `docs/reference/relation-format.md`.
  *
  * The indent stops at three because four opens a CommonMark code block, and a
  * code block should not become a relation. A bullet nested two levels deep and

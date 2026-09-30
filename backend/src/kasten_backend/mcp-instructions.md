@@ -1,4 +1,4 @@
-kasten serves one personal markdown vault: six capabilities and no shell.
+kasten serves one personal markdown vault: seven capabilities and no shell.
 There is no grep, no regex, no glob and no directory tree.
 
 The vault is an Open Knowledge Format bundle whose notes link to each other with
@@ -10,6 +10,8 @@ what the block at the top of a note carries.
 list_notes returns note paths, for the whole vault or for one folder.
 search_notes is a fixed-string case-insensitive scan of every line, not a regex,
 and it walks past the archive folder unless you ask for it.
+query_graph reads the links between notes: a filter such as type:Concept, or
+a pattern such as ?p supports [[X]], which answers in rows.
 
 Writes are conditional. read_note returns a sha, and save_note and append_note
 take that same sha back; pass none only when creating a note that is not there.

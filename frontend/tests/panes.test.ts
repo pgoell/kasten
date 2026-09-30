@@ -11,6 +11,8 @@ import {
   mapPanes,
   nextPane,
   openBookBeside,
+  openGraphBeside,
+  openGraphInFocused,
   openImageInFocused,
   openInFocused,
   openPersonBeside,
@@ -556,5 +558,29 @@ describe("openReviewInFocused", () => {
 
     expect(tabPanes(layout).filter((pane) => pane.review === true)).toHaveLength(1);
     expect(tabPanes(layout)).toHaveLength(2);
+  });
+});
+
+describe("the graph in a pane", () => {
+  const NOTE = "ideas/rag.md";
+
+  it("puts the whole vault's graph over the focused pane", () => {
+    const layout = openGraphInFocused(emptyLayout(NOTE));
+
+    expect(tabPanes(layout)).toHaveLength(1);
+    expect(focusedPane(layout)).toMatchObject({ graph: {} });
+    expect(focusedPane(layout).path).toBeUndefined();
+  });
+
+  it("puts a note's local graph beside it, and goes back to it on a second press", () => {
+    const once = openGraphBeside(emptyLayout(NOTE), NOTE);
+    const drawing = focusedPane(once).id;
+
+    expect(tabPanes(once).map((pane) => pane.graph?.around ?? null)).toEqual([null, NOTE]);
+
+    const twice = openGraphBeside(nextPane(once), NOTE);
+
+    expect(tabPanes(twice)).toHaveLength(2);
+    expect(focusedPane(twice).id).toBe(drawing);
   });
 });

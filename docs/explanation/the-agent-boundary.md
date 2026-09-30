@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches six capabilities under /agent/ rather than the twenty-four routes the browser uses, and what it cannot do.
+description: Why a token reaches seven capabilities under /agent/ rather than the twenty-four routes the browser uses, and what it cannot do.
 tags: [agent, tokens, security, api]
 status: stable
 ---
@@ -44,14 +44,14 @@ It did not survive review, and the reasons are worth keeping written down:
 
 An allowlist has none of those properties, because the dangerous routes are
 never reachable rather than reachable-and-blocked. That is the whole argument
-for a separate prefix: the audit is a list of six things, not a list of
+for a separate prefix: the audit is a list of seven things, not a list of
 twenty-four things with exceptions.
 
 ## What a token grants
 
-Six capabilities and nothing else, listed in
-[the Agent API](/reference/agent-api.md): list, read, search, save, append and
-dump.
+Seven capabilities and nothing else, listed in
+[the Agent API](/reference/agent-api.md): list, read, search, graph, save,
+append and dump.
 
 There is no delete, no move, no rename and no folder operation. The shell
 container keeps the knife, and that makes the honest claim about this feature
@@ -62,7 +62,7 @@ There is no Anki import, no asset upload, no page fetch, no trash and no
 terminal. Each is named individually above because each is a specific hazard
 rather than a route that happened to be left out.
 
-Every token grants all six. There are no scopes, no read-only tokens and no
+Every token grants all seven. There are no scopes, no read-only tokens and no
 expiry, which is a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke
@@ -90,6 +90,20 @@ the vault's periodic folder, today's file name and where a section ends, and a
 model that gets any of that wrong files the thought in the inbox instead, which
 is where it gets lost. The section is the ritual's, so the rule for finding it
 belongs in the server rather than in every prompt.
+
+## Why a seventh capability is acceptable
+
+`query_graph` is a read, and a read adds nothing to what a leaked token can
+break. It walks the same notes a search walks, under the same archive rule, and
+writes nothing: no note, no index and no history. Everything it answers, a
+token holder could already learn by listing the vault and reading each note.
+
+That last sentence is also the case for it. An agent asking what depends on a
+note would otherwise search for the note's name, read every note the search
+turned up and parse the `name:: [[target]]` lines itself, one request per note
+and a rule to get wrong in every prompt. The server already holds that parser,
+because the browser's graph uses it, so the agent asks the one question and
+gets the answer the graph pane would draw.
 
 ## Why the write is conditional in one direction
 
@@ -147,11 +161,11 @@ What that server issues is an ordinary row in the same `tokens.json`, named for
 the product's host. The gate calls the same `verify`, `/tokens` revokes it with
 the same button, and a second Connect from the same product revokes the old row
 before minting the new one. So this is a second way to obtain a token and not a
-second thing a token reaches. The six capabilities are still six, there is one
+second thing a token reaches. The seven capabilities are still seven, there is one
 gate, one store and one verification path, and nothing in the gate can tell an
 OAuth grant from a string typed into a terminal. The protocol asks for two
 things the store does not keep: the metadata names one scope, `kasten:notes`,
-which covers all six capabilities and narrows nothing, and the token response
+which covers all seven capabilities and narrows nothing, and the token response
 states ten years as the lifetime of a token that ends when it is revoked.
 
 Claude Code and codex still carry the header, and none of this touches them.
