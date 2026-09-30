@@ -9,11 +9,11 @@ status: stable
 
 # HTTP API
 
-The backend serves thirty endpoints under `/api/`. Sixteen read, thirteen
-write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves thirty-one endpoints under `/api/`. Seventeen read,
+thirteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
-Six more sit under `/agent/`, and they are documented on their own page,
+Seven more sit under `/agent/`, and they are documented on their own page,
 [the Agent API](/reference/agent-api.md). Everything here is reached with an
 oauth2-proxy session and nothing else; everything there is reached with a bearer
 token and nothing else.
@@ -255,6 +255,52 @@ It takes no `archive`, unlike the scans below. What is filed away is out of a
 search because it is not what is being looked for; a tag is a word you are
 trying to spell the way you spelled it last time, and archiving the note that
 taught you the spelling does not unteach it.
+
+## GET /api/graph
+
+Answers with the notes as a graph: every note a node, every link between two an
+edge. Takes an optional `q`, `around`, `depth` and `archive`.
+
+```json
+{
+  "nodes": [
+    { "path": "ideas/rag.md", "name": "rag", "type": "Concept", "tags": ["#ai"], "missing": false },
+    { "path": "Ghost.md", "name": "Ghost", "type": null, "tags": [], "missing": true }
+  ],
+  "edges": [
+    { "source": "ideas/rag.md", "target": "Ghost.md", "relation": "depends-on", "line": 7 }
+  ],
+  "columns": [],
+  "rows": [],
+  "truncated": false
+}
+```
+
+`q` is a filter or a pattern in the language [Graph query](/reference/graph-query.md)
+states, read here and nowhere else. The graph pane sends it as typed. A filter
+answers with empty `columns` and `rows`; a pattern fills them, and the nodes and
+edges are what its rows matched.
+
+`relation` is the typed relation's name, or null for a plain link. `line` is the
+first line of the source note the edge is written on. `type` is the note's
+frontmatter `type`, or null. `missing` marks a note a link names and nobody has
+written.
+
+`around` names a note, resolved the way a link is, and keeps only what is within
+`depth` edges of it, either way along an edge. `depth` runs from 0 to 5 and is 1
+when not given. It is the local graph.
+
+Nothing is indexed. Three `rg` passes read the lines holding `[[`, the
+frontmatter fences with the `type` between them, and the tags, with the flags
+search carries, so the graph sees exactly the notes `GET /api/files` lists. The
+prod vault, 312 notes and 1,181 edges, answers in about 50ms.
+
+`archive` defaults to false for the reason it does on a search. A link from a
+live note to an archived one is then dropped rather than drawn as a note nobody
+wrote.
+
+A query it cannot read is a `400` whose `detail` says why, and so is an
+`around` naming a note not in the graph.
 
 ## GET /api/cards
 
@@ -1184,5 +1230,5 @@ A name the store has not got is a `404`.
 * [Deleting a note](/explanation/deleting-a-note.md) - why a delete keeps the note
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md) - push a change here through to the frontend
 * [Configuration](/reference/configuration.md) - which directory `/api/files` reads
-* [Agent API](/reference/agent-api.md) - the six routes a token reaches, and the ones it never does
+* [Agent API](/reference/agent-api.md) - the seven routes a token reaches, and the ones it never does
 * [Capture from your phone](/how-to/capture-from-your-phone.md) - the page and the share sheet that post to `/api/dump`

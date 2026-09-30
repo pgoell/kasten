@@ -1,4 +1,4 @@
-"""The MCP surface: the same six capabilities, over JSON-RPC at one endpoint.
+"""The MCP surface: the same seven capabilities, over JSON-RPC at one endpoint.
 
 The tests here go through the whole application rather than calling the tools,
 because every hazard this slice has is in the wiring: where the endpoint answers,
@@ -62,6 +62,22 @@ async def test_tools_call_reads_a_note(
 
     assert response.status_code == 200
     assert payload(response.text)["result"]["structuredContent"]["content"] == "# borges\n"
+
+
+async def test_tools_call_queries_the_graph(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "rag.md").write_text("depends-on:: [[embeddings]]\n")
+    (agent_vault / "embeddings.md").write_text("# embeddings\n")
+
+    response = await client.post(
+        ENDPOINT,
+        json=call("query_graph", {"query": "[[rag]] ?how ?what"}),
+        headers={**bearer, **RPC},
+    )
+
+    rows = payload(response.text)["result"]["structuredContent"]["rows"]
+    assert rows == [{"?how": "depends-on", "?what": "embeddings.md"}]
 
 
 async def test_no_bearer_is_refused(client: AsyncClient, agent_vault: Path) -> None:
@@ -232,6 +248,7 @@ async def test_the_reading_tools_say_so(
         "list_notes": True,
         "read_note": True,
         "search_notes": True,
+        "query_graph": True,
         "read_guide": True,
         "save_note": False,
         "append_note": False,
@@ -282,7 +299,7 @@ async def test_the_guide_reaches_a_client_that_drops_them(
 async def test_the_guide_touches_no_note(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:
-    # A sixth tool and not a sixth capability. What comes back is the string
+    # An eighth tool and not an eighth capability. What comes back is the string
     # compiled into the server, whole, so no read of the vault stands behind it.
     response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
 

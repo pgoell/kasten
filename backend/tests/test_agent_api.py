@@ -106,6 +106,28 @@ async def test_search_finds_a_line(
     ]
 
 
+async def test_graph_answers_a_pattern(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "rag.md").write_text("depends-on:: [[embeddings]]\n")
+    (agent_vault / "embeddings.md").write_text("# embeddings\n")
+
+    response = await client.get(
+        "/agent/graph", params={"q": "?a depends-on [[embeddings]]"}, headers=bearer
+    )
+
+    assert response.status_code == 200
+    assert response.json()["rows"] == [{"?a": "rag.md"}]
+
+
+async def test_graph_refuses_a_query_it_cannot_read(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.get("/agent/graph", params={"q": "colour:red"}, headers=bearer)
+
+    assert response.status_code == 400
+
+
 async def test_search_honours_the_archive_setting(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -328,6 +350,7 @@ async def test_the_schema_describes_the_agent_routes(
         "/agent/notes/{path}/append",
         "/agent/dump",
         "/agent/search",
+        "/agent/graph",
         "/agent/openapi.json",
     }
 
@@ -335,7 +358,7 @@ async def test_the_schema_describes_the_agent_routes(
 async def test_the_schema_names_no_route_a_token_cannot_reach(
     client: AsyncClient, bearer: dict[str, str]
 ) -> None:
-    # The point of the prefix is that the audit is a list of six things. A
+    # The point of the prefix is that the audit is a list of seven things. A
     # schema handing a token holder the map of the twenty-seven routes it cannot
     # reach would give that away for nothing.
     schema = (await client.get("/agent/openapi.json", headers=bearer)).json()

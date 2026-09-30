@@ -11,12 +11,13 @@ tools call too.
 
 from typing import TYPE_CHECKING, Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from kasten_backend import agent, vcs
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.tokens import verify
 
 if TYPE_CHECKING:
@@ -87,17 +88,32 @@ async def search_notes(
     return await agent.search_notes(settings, q, archive)
 
 
+@router.get("/graph")
+async def graph(
+    settings: Annotated[Settings, Depends(get_settings)],
+    q: str = "",
+    around: str | None = None,
+    depth: Annotated[int, Query(ge=0, le=MOST_DEPTH)] = 1,
+    archive: bool = False,
+) -> Graph:
+    """The notes as a graph, narrowed by a filter or asked a pattern."""
+    try:
+        return await agent.graph(settings, q, around, depth, archive)
+    except GraphError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
 @router.get("/openapi.json")
 async def schema(request: Request) -> dict[str, Any]:
     """This prefix, described as OpenAPI, for a caller with no MCP client.
 
-    An agent over MCP discovers the six capabilities from `tools/list`. One
+    An agent over MCP discovers the seven capabilities from `tools/list`. One
     holding a token and a curl has nothing to read, because `/openapi.json` at
     the root is behind oauth2-proxy and describes the browser's API rather than
     this one.
 
     Built from this router's own routes rather than by filtering the whole
-    application's schema, so it names the six and pulls in only the models they
+    application's schema, so it names the seven and pulls in only the models they
     reference. A token holder cannot reach anything under `/api/`, and handing
     one the map of those routes would give it away for nothing.
     """

@@ -42,7 +42,7 @@ One prefix is the exception, and it is worth naming rather than leaving to be
 discovered while reading the backend. `/agent/` is served in production by a
 Caddy block with no `oauth2_auth` in it, and the backend gates it itself with a
 bearer token, because a headless agent cannot complete a browser sign-in flow.
-That is the only authentication code kasten contains, it reaches six routes and
+That is the only authentication code kasten contains, it reaches seven routes and
 an MCP endpoint, and it reaches nothing else.
 [The agent boundary](/explanation/the-agent-boundary.md) is why it exists and
 what it deliberately cannot do.

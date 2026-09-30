@@ -601,6 +601,8 @@ export function Editor({
             openYearly: () => commandsRef.current?.openYearly(),
             openBook: () => commandsRef.current?.openBook(),
             openPerson: () => commandsRef.current?.openPerson(),
+            openGraph: () => commandsRef.current?.openGraph(),
+            openLocalGraph: () => commandsRef.current?.openLocalGraph(),
             openVideo: () => commandsRef.current?.openVideo(),
             toggleVideo: () => commandsRef.current?.toggleVideo(),
             uploadBook: () => commandsRef.current?.uploadBook(),

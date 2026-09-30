@@ -83,6 +83,15 @@ export interface EditorCommands {
    * is three empty lists.
    */
   openPerson(): void;
+  /** Put the graph of the whole vault in the focused pane. */
+  openGraph(): void;
+  /**
+   * Draw the graph around the focused pane's note, beside it.
+   *
+   * Needs a note open, the way `openBook` does. A press anywhere else does
+   * nothing: there is no note to draw around.
+   */
+  openLocalGraph(): void;
   /** Play the video the focused pane's note links, in a pane beside it. */
   openVideo(): void;
   /** Play or pause that video without leaving the note, or nothing if none is open. */
@@ -248,6 +257,12 @@ export const LEADER: readonly LeaderBinding[] = [
   // turn the note in the pane into something else to read, and neither creates
   // anything until you finish.
   { key: "ge", label: "Sit this note as a practice exam", command: "openExam" },
+  // `g` for go and `g` for graph. Doubled rather than on a letter of its own
+  // because the group's letters are spent, and `gg` is the key vim already
+  // spends on going to the top of everything.
+  { key: "gg", label: "Open the graph of the whole vault", command: "openGraph" },
+  // `g` for go and `l` for local, Obsidian's word for the graph around a note.
+  { key: "gl", label: "Show the graph around this note beside it", command: "openLocalGraph" },
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
   // `g` for go and `p` for person, the one letter of the group still free. It

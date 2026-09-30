@@ -32,6 +32,8 @@ export function stubCommands() {
     openYearly: vi.fn(),
     openBook: vi.fn(),
     openPerson: vi.fn(),
+    openGraph: vi.fn(),
+    openLocalGraph: vi.fn(),
     openVideo: vi.fn(),
     toggleVideo: vi.fn(),
     uploadBook: vi.fn(),

@@ -7,6 +7,7 @@ import { DumpPrompt } from "@/components/dump-prompt";
 import { Editor } from "@/components/editor";
 import { ExamPane } from "@/components/exam-pane";
 import { FileExplorer } from "@/components/file-explorer";
+import { GraphPane } from "@/components/graph-pane";
 import { ImagePane } from "@/components/image-pane";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
@@ -65,6 +66,8 @@ import {
   nextPane,
   openBookBeside,
   openExamInFocused,
+  openGraphBeside,
+  openGraphInFocused,
   openImageInFocused,
   openInFocused,
   openPersonBeside,
@@ -519,6 +522,9 @@ function Home() {
         // a note the tree already draws, and that is most writes. `cancelRefetch`
         // off for the reason the two invalidations beside it have it off.
         queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
+        // A link or a relation is a line of a note, so any write can move an
+        // edge. Only a graph on screen is asked again, the rest marked stale.
+        queryClient.invalidateQueries({ queryKey: ["graph"] }, { cancelRefetch: false });
       }
 
       // A write to a note the tree already draws changes no row, and this is
@@ -1420,6 +1426,19 @@ function Home() {
       openTodos: async () => {
         if (await saveFirst()) moveTo(openTodosInFocused);
       },
+      // Saved first for the reason `openTodos` is: the graph replaces what the
+      // pane holds.
+      openGraph: async () => {
+        if (await saveFirst()) moveTo(openGraphInFocused);
+      },
+      // Beside the note, so nothing is unmounted and nothing needs saving
+      // first, the way `openBook` needs none. A link typed and not yet saved is
+      // drawn once the autosave lands.
+      openLocalGraph: () => {
+        if (pane.path === undefined) return;
+        const note = pane.path;
+        moveTo((previous) => openGraphBeside(previous, note));
+      },
       // The one command that needs a note open, because what it shows is what
       // links to that note. With an empty pane there is nothing to ask about,
       // and doing nothing is how the key says so.
@@ -1814,6 +1833,15 @@ function Home() {
                     archive={archive}
                     focusSignal={focused ? focusSignal : 0}
                     onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                  />
+                ) : shown.graph !== undefined ? (
+                  <GraphPane
+                    around={shown.graph.around}
+                    commands={commands}
+                    archive={archive}
+                    focusSignal={focused ? focusSignal : 0}
+                    onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                    onFollow={follow}
                   />
                 ) : shown.term !== undefined ? (
                   <TerminalPane

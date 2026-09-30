@@ -91,6 +91,16 @@ export interface Pane {
    * field for the reason `book` is the fourth, written out above.
    */
   person?: string;
+  /**
+   * Set on a pane holding the graph, absent on every other.
+   *
+   * `around` names the note a local graph is drawn around, and is absent on
+   * the graph of the whole vault. An object rather than the path alone, so the
+   * whole vault has a value that is not an empty string standing for nothing.
+   * A tenth optional field for the reason `book` is the fourth, written out
+   * above.
+   */
+  graph?: { around?: string };
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -369,6 +379,39 @@ export function openPersonBeside(layout: Layout, person: string): Layout {
   return withTab(split, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, person }),
+  });
+}
+
+/**
+ * Put the graph of the whole vault in the focused pane, replacing whatever was there.
+ *
+ * Over the pane rather than beside it, following `openTodosInFocused`: the
+ * whole vault is not a thing about the note you are in.
+ */
+export function openGraphInFocused(layout: Layout): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, graph: {} }),
+  });
+}
+
+/**
+ * Put the graph around a note in a pane beside it, or go to the one already drawing it.
+ *
+ * Beside and not over, following `openPersonBeside` down to the reuse: the
+ * local graph is read next to the note it is drawn around.
+ */
+export function openGraphBeside(layout: Layout, note: string): Layout {
+  const drawing = tabPanes(layout).find((pane) => pane.graph?.around === note);
+  if (drawing) return focusPane(layout, drawing.id);
+
+  const split = splitFocused(layout, "row");
+  const tab = activeTab(split);
+
+  return withTab(split, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, graph: { around: note } }),
   });
 }
 

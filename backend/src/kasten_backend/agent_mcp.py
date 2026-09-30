@@ -1,4 +1,4 @@
-"""The same six capabilities, served as MCP tools at `/agent/mcp`.
+"""The same seven capabilities, served as MCP tools at `/agent/mcp`.
 
 Thin wrappers over `agent.py` and nothing else. The rules about what an agent
 may do live there, so the two surfaces cannot drift into disagreeing about them.
@@ -49,6 +49,7 @@ from kasten_backend import agent, vcs
 from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
 from kasten_backend.config import get_settings
+from kasten_backend.graph import MOST_DEPTH, GraphError
 from kasten_backend.tokens import verify
 
 if TYPE_CHECKING:
@@ -147,6 +148,31 @@ async def dump(text: str, date: date) -> dict[str, Any]:
         raise ToolError(str(empty)) from empty
 
 
+async def query_graph(
+    query: str = "", around: str | None = None, depth: int = 1, archive: bool = False
+) -> dict[str, Any]:
+    """The vault as a graph of notes and the links between them, or the rows a pattern matches.
+
+    A filter narrows the notes: `type:Concept tag:#ai -path:"98 Archive"`,
+    `rel:depends-on`, `is:orphan`, or bare words matching a name. A pattern asks
+    a question and answers in `rows`: clauses split by `;`, each
+    `subject relation object` or `subject filter`, where a subject or object is
+    a `?variable` or a `[[note]]` and the relation is a name, `?variable`, `*`
+    for any typed relation or `links` for any link. Example:
+    `?paper supports [[GraphRAG]]; ?paper type:Source`. `around` and `depth`
+    keep only the notes within that many links of one note. Prefer a pattern
+    or `around` over the whole graph, which lists every note in the vault.
+    """
+    try:
+        found = await agent.graph(
+            get_settings(), query, around, max(0, min(depth, MOST_DEPTH)), archive
+        )
+    except GraphError as error:
+        raise ToolError(str(error)) from error
+
+    return found.model_dump()
+
+
 async def read_guide() -> str:
     """How this vault is filed, what the other tools do, and what they cannot do.
 
@@ -157,15 +183,15 @@ async def read_guide() -> str:
     return INSTRUCTIONS
 
 
-TOOLS = (list_notes, read_note, search_notes, save_note, append_note, dump, read_guide)
-"""The six, in the order the reference page lists them, and the guide behind them.
+TOOLS = (list_notes, read_note, search_notes, query_graph, save_note, append_note, dump, read_guide)
+"""The seven, in the order the reference page lists them, and the guide behind them.
 
-`read_guide` is a seventh tool and not a seventh capability. It reads a string
+`read_guide` is an eighth tool and not an eighth capability. It reads a string
 compiled into the image, never the vault, so the audit this prefix exists for is
-still a list of six things.
+still a list of seven things.
 """
 
-READING = frozenset({"list_notes", "read_note", "search_notes", "read_guide"})
+READING = frozenset({"list_notes", "read_note", "search_notes", "query_graph", "read_guide"})
 """Which of the tools only read, told to the client as `readOnlyHint`.
 
 chatgpt.com treats a tool without it as a write and asks you to confirm every
@@ -293,7 +319,7 @@ def build() -> tuple[ASGIApp, MCPServer]:
         streamable_http_path=PATH,
         # Stateless, so there is no session to keep and a POST carries the whole
         # exchange. JSON rather than a stream for the same reason: every one of
-        # these six answers in one message.
+        # these seven answers in one message.
         stateless_http=True,
         json_response=True,
         transport_security=_security(get_settings().agent_host),
