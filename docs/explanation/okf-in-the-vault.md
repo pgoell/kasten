@@ -100,7 +100,9 @@ thing.
 Knowing a file carries no block is what a reader needs. What to put in one is
 what a writer needs, and every agent in this vault is both, so the shape of the
 two is written down in the vault as well, at
-`99 Misc/01 Config/01 Agents/How-To-Index.md`. It sits beside the todo and exam
+`99 Misc/01 Config/01 Agents/How-To-Index.md` on the default layout
+([`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders) moves
+`99 Misc/01 Config`). It sits beside the todo and exam
 guides because it is the same kind of thing: a format an agent is expected to
 write, stated where the agent will look for it. It also carries the half kasten
 cannot automate, which is the conversion below.

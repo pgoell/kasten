@@ -14,9 +14,9 @@ thirteen write, and one streams. The interactive schema is at `/docs` while the 
 runs, and the machine-readable one at `/openapi.json`.
 
 Seven more sit under `/agent/`, and they are documented on their own page,
-[the Agent API](/reference/agent-api.md). Everything here is reached with an
-oauth2-proxy session and nothing else; everything there is reached with a bearer
-token and nothing else.
+[the Agent API](/reference/agent-api.md). Everything here is reached through
+the login gate in front of kasten and nothing else; everything there is reached
+with a bearer token and nothing else.
 
 The OAuth consent step, `GET` and `POST /api/oauth/authorize`, sits under
 `/api/` too but is left out of the count and the schema. It is documented with
@@ -583,8 +583,9 @@ nothing has to parse a boundary at either end. No response body comes back,
 only the status, because the client already knows the path it sent to.
 
 The endpoint takes any legal path and decides nothing about where a book or an
-image belongs. `<leader>cb` sends `00 Inbox/02 Books/<the file's own name>.epub`
-and writes the note beside it afterwards; a pasted image goes to
+image belongs. On the default layout, `<leader>cb` sends
+`00 Inbox/02 Books/<the file's own name>.epub` and writes the note beside it
+afterwards; a pasted image goes to
 `99 Misc/02 Assets/01 Images/<today>-<eight hex digits>.png`. Both are choices
 made in the client and not rules of this endpoint.
 
@@ -863,7 +864,9 @@ carries the text and the day:
 `date` is the sender's own date, `YYYY-MM-DD`, never the server's. The server's
 clock may keep another timezone, and a thought typed at half past midnight
 belongs to the day the person typing it is in. The note is
-`01 Periodic/00 Daily/<date>.md`.
+`00 Daily/<date>.md` in the periodic folder, `01 Periodic` unless
+[`KASTEN_PERIODIC_PATH`](/reference/configuration.md#the-vaults-folders) names
+another.
 
 The reply is the note as it landed, in the shape `GET /api/files/{path}`
 returns, and the status is `200` whether the note was made or was already
@@ -910,8 +913,8 @@ editing one copy and not the other fails a test.
 * `422` with `Nothing to capture` when the text is empty once trimmed.
 * `422` when `date` is missing or is not a real day, `2026-02-30` included.
 * `400` when the vault will not take the daily note's path, which only happens
-  when something that is not a folder stands where `01 Periodic/00 Daily` should
-  be.
+  when something that is not a folder stands where `00 Daily` in the periodic
+  folder should be.
 
 `POST /agent/dump` in [the Agent API](/reference/agent-api.md#post-agentdump)
 runs the same function behind a bearer token, so a thought from an agent lands
@@ -968,7 +971,7 @@ The rule a target is read by is the editor's, so what a rename follows is what
 `gf` opens: a target with a slash is a path, a bare name is looked for anywhere
 in the vault, and the note at the vault root wins a tie. A link the vault
 already answers with another note is therefore left alone. Where nothing answers
-the two part: the editor puts the note it is about to make in `00 Inbox`, and a
+the two part: the editor puts the note it is about to make in the inbox, and a
 rename leaves the name where it stands, there being no note to follow. The rule is written
 out twice, in `backend/src/kasten_backend/links.py` and in
 `frontend/src/lib/wikilink.ts`, which is what the editor resolving a link
@@ -1249,8 +1252,8 @@ is replaced rather than found.
 A name already taken is a `409`, the create's answer, because the user is about
 to retype it and has to know which it was.
 
-This route is under `/api/`, which means it inherits oauth2-proxy and carries no
-authentication of its own. That does put minting inside the internal trust zone,
+This route is under `/api/`, which means it inherits the login gate and carries
+no authentication of its own. That does put minting inside the internal trust zone,
 and [The agent boundary](/explanation/the-agent-boundary.md) says why that grants
 the shell container nothing it does not already have.
 

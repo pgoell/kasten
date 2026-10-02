@@ -34,21 +34,17 @@ no build step.
 ## What they do share
 
 Both hostnames sit behind the shared oauth2-proxy, locked to one GitHub user.
-The browser path is gated entirely in front: there is no login, no session and
-no user model in the backend, and everything under `/api/` is open to whoever
-reaches it.
+kasten has no login of its own, so that gate is the whole of the browser's
+security; [Security model](/explanation/security-model.md) says why, and what
+the backend still checks for itself.
 
-One prefix is the exception, and it is worth naming rather than leaving to be
-discovered while reading the backend. `/agent/` is served in production by a
-Caddy block with no `oauth2_auth` in it, and the backend gates it itself with a
-bearer token, because a headless agent cannot complete a browser sign-in flow.
-That is the only authentication code kasten contains, it reaches seven routes and
-an MCP endpoint, and it reaches nothing else.
-[The agent boundary](/explanation/the-agent-boundary.md) is why it exists and
-what it deliberately cannot do.
+On this box the gate lives in a Caddyfile in `~/Code/server-infra`, as an
+`import oauth2_auth` on each kasten block. Two blocks carry none: `/agent/*`,
+which the backend gates with a bearer token, and `/.well-known/*`, the public
+OAuth documents. [The agent boundary](/explanation/the-agent-boundary.md) is why
+the first exists and what it cannot do.
 
-That matters more now that one of the things behind the gate is a shell. Both
-environments reach the shell container the same way, through a Caddy
+Both environments reach the shell container the same way, through a Caddy
 `handle /term/*` carrying `import oauth2_auth`, and neither container publishes
 a port. Those two facts are the whole of its security, so
 [Deploy to the VPS](/how-to/deploy-to-the-vps.md#prove-the-shell-is-not-exposed)
@@ -172,7 +168,7 @@ directory the backend does, the two environments not sharing it, and it does
 not get the docker socket. It carries `KASTEN_API`, the backend's address on
 the `web` network, `http://backend-dev:8000` in dev and
 `http://kasten-backend-prod:8000` in prod. The vault's own
-`99 Misc/01 Config/01 Agents/How-To-TODO.md` tells an agent in there to tick a
+`01 Agents/How-To-TODO.md`, in the config folder, tells an agent in there to tick a
 todo through `PUT /api/files/{path}`, and that is where it sends it. Nothing is
 published to the host for it, and `curl` and `jq` are in the image for the same
 reason.

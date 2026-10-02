@@ -8,9 +8,10 @@ status: stable
 
 # The agent boundary
 
-Every route the backend serves sits behind `import oauth2_auth` in the
-Caddyfile, and that snippet redirects a caller with no session to a browser
-sign-in page. A headless agent cannot complete that flow. So the only agent that
+Every route the backend serves sits behind the login gate in front of it,
+which on the maintainer's box is `import oauth2_auth` in the Caddyfile and
+redirects a caller with no session to a browser sign-in page. A headless agent
+cannot complete that flow. So the only agent that
 could touch the vault was one running in the shell container, launched from
 inside the app, or one holding an SSH key to the whole VPS.
 
@@ -139,7 +140,7 @@ configuration in which the gate opens.
 ## Where minting sits
 
 The three routes that mint, list and revoke a token are under `/api/`, so they
-inherit oauth2-proxy and carry no authentication of their own. The screen that
+inherit the login gate and carry no authentication of their own. The screen that
 drives them is `/tokens` in the notebook.
 
 That does put minting inside the internal trust zone: the shell container
@@ -179,17 +180,18 @@ three hosts, and a laptop is not one of them. That is left out on purpose.
 Four URLs must be reachable with no session, because the machine fetching them
 has no way to get one: two metadata documents, one of them served under two
 spellings because the two products probe different ones, and the endpoint that
-exchanges a code. The exchange sits under `/agent/`, which is already the one
-Caddy block carrying no `oauth2_auth`. The three metadata URLs need a block of
-their own, and without it the catch-all answers each of them with a redirect to
-a sign-in page on another host, which a connector reads as neither a document
-nor "there is none". That block is a stanza in another repository, written out
-in [Deploy to the VPS](/how-to/deploy-to-the-vps.md), and no connector reaches
-this vault until it is deployed there. Getting it wrong stops the flow rather
-than opening anything: the gate on `/agent/mcp` does not depend on it.
+exchanges a code. The exchange sits under `/agent/`, which is already open past
+the login gate. The three metadata URLs need `/.well-known/*` open as well, and
+without it the gate answers each of them with a sign-in page or a `401`, which a
+connector reads as neither a document nor "there is none". The self-host stack's
+Caddyfile ships both routes; on the maintainer's box they are stanzas in another
+repository, written out in [Deploy to the VPS](/how-to/deploy-to-the-vps.md).
+[Reverse-proxy routes](/reference/reverse-proxy-routes.md) is the list for any
+proxy. Getting it wrong stops the flow rather than opening anything: the gate on
+`/agent/mcp` does not depend on it.
 
-Consent is not among the four. It stays under `/api/`, where oauth2-proxy proves
-who you are, and that is why kasten has no sign-in form of its own.
+Consent is not among the four. It stays under `/api/`, where the login gate
+proves who you are, and that is why kasten has no sign-in form of its own.
 
 The exchange is the part worth arguing about, because a stranger can reach it
 and it writes to the file the gate reads on every request. What bounds that
@@ -204,8 +206,8 @@ in `tokens.json` and no more.
 An address is matched whole: the three fixed ones by equality, and ChatGPT's
 per-app shape with a `fullmatch` rather than a search, which would take any
 address carrying that shape somewhere inside it. Where a code is sent matters
-more on this host than on most, because the host carries a session cookie scoped
-to `.pgoell.com`. The same reasoning is why a refusal at the authorize step
+more on this host than on most, because it may carry a session cookie scoped to
+its whole parent domain, as the maintainer's does. The same reasoning is why a refusal at the authorize step
 renders as a 400 and never as an error redirect. Sending the caller on to an
 address just judged untrusted is the hole being refused.
 
@@ -254,12 +256,14 @@ entries than they used to.
 
 ## What this does not protect against
 
-One Caddy block is the entire boundary, it lives in another repository, and no
-CI here can test it. What makes that survivable is that the backend gate is
+One proxy route is the entire boundary, and no CI here can test it. On the
+maintainer's box it lives in another repository. What makes that survivable is that the backend gate is
 mandatory rather than a second layer: a Caddy stanza that is wrong exposes an
 endpoint answering `401`, not the vault. The deploy runbook carries three curls
 that check exactly this, and the one that must never pass is a request with no
-header returning anything but `401`.
+header returning anything but `401`, and
+[Self-host kasten](/how-to/self-host-kasten.md#6-check-the-gate) runs the same
+check.
 
 An agent can also grow the vault without bound. There is no delete, so a looping
 agent that creates notes cannot clean up after itself and you must use the

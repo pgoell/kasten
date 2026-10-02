@@ -1,12 +1,21 @@
 ---
 type: How-to Guide
 title: Deploy to the VPS
-description: Bootstrap dev and prod on the Hetzner box, on amd64 or arm64, deploy day to day, and prove the shell is still behind its gate.
+description: The maintainer's runbook for one deployment. Bootstrap dev and prod on the Hetzner box, on amd64 or arm64, deploy day to day, and prove the shell is still behind its gate.
 tags: [deploy, vps, caddy, postgres, ci]
 status: stable
 ---
 
 # Deploy to the VPS
+
+> **The maintainer's runbook.** This page is one worked deployment: kasten on
+> the maintainer's Hetzner box, sharing a Caddy, an oauth2-proxy and a Postgres
+> with other sites, deployed by GitHub Actions. Its hostnames, paths and
+> addresses are that box's. To run kasten on a machine of your own, follow
+> [Self-host on a server](/tutorials/self-host-on-a-server.md) or
+> [Self-host kasten](/how-to/self-host-kasten.md); the general rules are in
+> [Reverse-proxy routes](/reference/reverse-proxy-routes.md) and
+> [Security model](/explanation/security-model.md).
 
 Two environments run on the same Hetzner box. This page is the runbook for
 both. Why they are built in opposite ways is in

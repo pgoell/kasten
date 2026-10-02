@@ -12,6 +12,9 @@ By the end of this page you have kasten running on your own machine, with two
 notes of your own in the file tree: one you write on the shell, and one you
 make from the browser. It takes about ten minutes, most of it downloads.
 
+This runs kasten from source, for working on its code. To run it for real on a
+server, follow [Self-host on a server](/tutorials/self-host-on-a-server.md).
+
 You need Docker and [mise](https://mise.jdx.dev). mise installs everything
 else, so you do not need Python, bun or Postgres up front.
 

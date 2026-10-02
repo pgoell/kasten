@@ -215,9 +215,11 @@ wrong.
 
 ## The agent note
 
-Starting the backend writes `99 Misc/01 Config/01 Agents/How-To-Exam.md` into a
-vault holding none: this page said to an agent that is about to write you an
-exam. It sits beside `How-To-TODO.md` and comes back the next time the backend
+Starting the backend writes `99 Misc/01 Config/01 Agents/How-To-Exam.md` (on the
+default layout;
+[`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders) moves
+`99 Misc/01 Config`) into a vault holding none: this page said to an agent that
+is about to write you an exam. It sits beside `How-To-TODO.md` and comes back the next time the backend
 starts if you delete it.
 
 ## See also

@@ -309,7 +309,9 @@ how you like to be asked, not a fact about the notes.
 
 ## Filing one away
 
-Move the note into `98 Archive`. The scan walks past that folder, so the cards
+Move the note into the archive, `98 Archive` unless
+[`KASTEN_ARCHIVE_PATH`](/reference/configuration.md#kasten_archive_path) names
+another. The scan walks past that folder, so the cards
 in that note leave the overview and nothing else about the note changes. A deck
 another note still carries the tag of stays, holding what that other note holds.
 That is the whole of archiving here, and it is
