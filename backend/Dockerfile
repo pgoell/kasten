@@ -56,6 +56,13 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# The mount points deploy/compose.yaml uses. The settings' own defaults are
+# relative, which suits dev from the repo root, but here they would resolve
+# under /app, inside the container: a deploy that forgot the variable would
+# save notes and tokens that vanish with the next image. An env_file still wins.
+ENV KASTEN_VAULT_PATH=/vault \
+    KASTEN_TOKENS_PATH=/agent-data/tokens.json
+
 EXPOSE 8000
 # `--timeout-graceful-shutdown` bounds how long a deploy waits on `/api/events`.
 # That endpoint runs until its reader leaves, and uvicorn waits for open

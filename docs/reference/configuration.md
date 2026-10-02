@@ -17,6 +17,12 @@ Every value below is already the default, so a fresh clone runs without a
 `.env` file at all. `backend/.env.example` exists to give your own overrides an
 obvious home.
 
+The backend image changes two of them. It sets `KASTEN_VAULT_PATH=/vault` and
+`KASTEN_TOKENS_PATH=/agent-data/tokens.json`, the mount points
+`deploy/compose.yaml` uses, because the relative defaults would resolve under
+`/app` inside the container and vanish with it. An env file still wins over
+both.
+
 ## KASTEN_DATABASE_URL
 
 ```
@@ -84,11 +90,12 @@ token holding a name, a creation date and a SHA-256 digest.
 
 | | |
 | --- | --- |
-| Default | `tokens.json` |
+| Default | `tokens.json`, and `/agent-data/tokens.json` in the backend image |
 | Read by | every `/agent/` route, and `/api/tokens` |
 
 A relative path resolves against the working directory, the way
-`KASTEN_VAULT_PATH` does. Production names a file inside a mounted directory.
+`KASTEN_VAULT_PATH` does. Production names a file inside a mounted directory,
+the same path the image sets.
 
 Beside the vault and never inside it. A token in the vault would enter jj
 history for good and sit one search away from any agent reading notes.
@@ -122,17 +129,45 @@ on. In production that is wrong: the container runs uvicorn without
 `--forwarded-allow-ips`, so an issuer built from the request says `http` where
 the world sees `https`, and every comparison fails.
 
-## KASTEN_VAULT_PATH
+The backend logs a warning at startup while this is empty, and starts anyway.
+It also bounds the `Origin` check on the
+[consent `POST`](/reference/agent-api.md#get-and-post-apioauthauthorize):
+`https://{value}` is accepted there as well as the request's own host.
 
-```
-vault
-```
+## KASTEN_HERDR_SESSIONS_PATH
+
+Where the shell container keeps one directory per named herdr session.
+
+| | |
+| --- | --- |
+| Default | `/herdr-home/.config/herdr/sessions` |
+| Read by | `GET /api/terminals` |
+
+The shell container's home, which `deploy/compose.yaml` mounts read-only at
+`/herdr-home`, so the terminal prompt can offer the sessions that already
+exist. The path is only ever listed; nothing here starts, stops or reads into a
+session.
+
+The default is the container path rather than something relative, because
+production sets no variable for it. A backend without the mount answers `[]`
+and the notebook works as before.
+
+## KASTEN_VAULT_PATH
 
 The directory of markdown files that is the source of truth.
 
+| | |
+| --- | --- |
+| Default | `vault`, and `/vault` in the backend image |
+| Read by | every route that reads or writes a note |
+
 A relative path resolves against the working directory, so start the app from
-the repo root. Production overrides this with the absolute container path
-`/vault`.
+the repo root. The backend image sets `/vault`, its mount point, and production
+sets the same value in its env file.
+
+The backend logs a warning at startup when this directory holds no `.jj`, since
+saves there are not recorded in any history. See
+[Recover an earlier version of a note](/how-to/recover-an-earlier-version.md).
 
 ## Related
 

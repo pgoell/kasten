@@ -220,6 +220,15 @@ code straight into their pending flow. A cross-site POST carries no Lax cookie,
 so oauth2-proxy turns it away before any of this runs, and the only POST that
 arrives is the one from the form on the same origin.
 
+That last step is oauth2-proxy's, not kasten's, and kasten has no login of its
+own to fall back on. Put basic auth in front instead and the browser resends
+the credentials with any POST to this host, from whatever site sends it. So the
+POST checks its own origin as well: a `Sec-Fetch-Site` other than `same-origin`
+is refused, and so is an `Origin` naming another host when that header is
+missing. Behind oauth2-proxy the check never fires, because the only POST that
+gets that far already came from the form. It is there for a proxy that does
+less.
+
 The passthrough the MCP spec warns about cannot happen here, and the honest
 reason is structure rather than defence. kasten mints opaque random strings and
 is the only party that can verify one. There is a single audience and nothing

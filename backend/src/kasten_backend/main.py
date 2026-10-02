@@ -1,8 +1,11 @@
 """FastAPI application entrypoint."""
 
 import asyncio
+import ipaddress
+import logging
 import os
 import secrets
+import socket
 from contextlib import asynccontextmanager
 from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
 from importlib.metadata import version
@@ -74,13 +77,35 @@ from kasten_backend.vault import (
     resolve_path,
     write_note,
 )
-from kasten_backend.vcs import write_ignores
+from kasten_backend.vcs import is_versioned, write_ignores
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from pathlib import Path
 
     from kasten_backend.events import VaultEvent
+
+logger = logging.getLogger(__name__)
+
+
+def warn_unsafe(settings: Settings) -> None:
+    """Say at startup what this setup leaves open, without refusing to start.
+
+    Warnings rather than errors, because both are what dev from a fresh
+    checkout runs with. On a server either one is a gap nothing else would
+    point out until it mattered.
+    """
+    if not settings.agent_host:
+        logger.warning(
+            "KASTEN_AGENT_HOST is empty: the MCP endpoint answers any Host, so its "
+            "DNS-rebinding protection is off, and the OAuth issuer is read off each "
+            "request. Set it to the public hostname on a server."
+        )
+    if not is_versioned(settings.vault_path):
+        logger.warning(
+            "%s has no .jj directory, so saves are not recorded in any history",
+            settings.vault_path,
+        )
 
 
 @asynccontextmanager
@@ -91,6 +116,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     on, and the vault the process serves is the vault this writes into.
     """
     settings = get_settings()
+    warn_unsafe(settings)
     # Before the guide, whose write takes a jj snapshot. A book already sitting
     # in the vault would be swept into it.
     write_ignores(settings.vault_path)
@@ -197,6 +223,13 @@ PAGE_FAILED = 400
 
 The line HTTP itself draws, and named because a bare 400 in a comparison says
 nothing about which of the two numbers on that line is which.
+"""
+
+PAGE_REDIRECTS = 20
+"""How many redirects a page may take before the reader is told it did not load.
+
+httpx's own cap, kept now that the redirects are followed here rather than by
+httpx, so a page that loaded before still loads.
 """
 
 PAGE_TIMEOUT_SECONDS = 20.0
@@ -423,6 +456,44 @@ async def list_terminals(settings: Annotated[Settings, Depends(get_settings)]) -
     return sorted(entry.name for entry in root.iterdir() if entry.is_dir())
 
 
+async def _addresses(host: str) -> list[str]:
+    """Every address the host resolves to, the way the fetch itself will resolve it."""
+    found = await asyncio.get_running_loop().getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    return [str(entry[4][0]) for entry in found]
+
+
+async def _refuse_private(url: httpx.URL) -> None:
+    """Refuse an address that leads anywhere but the public internet.
+
+    The backend sits on the docker network beside Postgres, the shell and
+    whatever else the box runs, none of which expects a request from it. Every
+    address the name resolves to is checked, not the first: the fetch may pick
+    any of them. An IPv4 address hidden in an IPv6 one is checked as the IPv4
+    address it is. `is_global` leaves out loopback, private, link-local,
+    shared (CGNAT and Tailscale) and reserved space, and multicast is refused
+    on its own because some of it counts as global.
+
+    ponytail: httpx resolves the name again when it connects, so a name that
+    answers one address here and another there slips past. Closing that means
+    connecting to the address checked here, which costs the TLS name handling
+    httpx gives for free. Rebinding a name inside one request is a narrow gap.
+    """
+    if url.scheme not in ("http", "https") or not url.host:
+        raise HTTPException(status_code=400, detail="Only http and https addresses")
+
+    try:
+        found = await _addresses(url.host)
+    except OSError as error:
+        raise HTTPException(status_code=502, detail=f"Could not find {url.host}") from error
+
+    for address in found:
+        ip = ipaddress.ip_address(address.split("%", 1)[0])
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        if not ip.is_global or ip.is_multicast:
+            raise HTTPException(status_code=400, detail="That address is not on the internet")
+
+
 @app.get("/api/fetch")
 async def fetch_page(url: str) -> Page:
     """Read one web page off the internet and hand it back unchanged.
@@ -440,7 +511,8 @@ async def fetch_page(url: str) -> Page:
 
     http and https and nothing else. The scheme is the trust boundary: `file://`
     would read this container's disk and hand it to the browser, and the check
-    is made before anything is opened.
+    is made before anything is opened. The address is the other half of it, and
+    `_refuse_private` holds every hop to the public internet.
 
     A page that could not be read is a 502 rather than the status the other end
     gave. The reader asked kasten for a note and kasten could not get one; a
@@ -450,43 +522,58 @@ async def fetch_page(url: str) -> Page:
         raise HTTPException(status_code=400, detail="Only http and https addresses")
 
     try:
-        async with (
-            httpx.AsyncClient(
-                follow_redirects=True,
-                timeout=PAGE_TIMEOUT_SECONDS,
-                headers={"user-agent": PAGE_AGENT},
-            ) as reader,
-            reader.stream("GET", url) as response,
-        ):
-            # Read rather than raised for, so what reaches the reader is the
-            # number and not httpx's paragraph about it. The prompt puts this
-            # sentence on screen.
-            if response.status_code >= PAGE_FAILED:
-                raise HTTPException(
-                    status_code=502, detail=f"That page answered {response.status_code}"
-                )
+        async with httpx.AsyncClient(
+            timeout=PAGE_TIMEOUT_SECONDS, headers={"user-agent": PAGE_AGENT}
+        ) as reader:
+            # Followed here rather than by httpx, so every hop meets the address
+            # check: a public page that redirects to the box itself is the
+            # obvious way round a check made once.
+            request = reader.build_request("GET", url)
+            for _ in range(PAGE_REDIRECTS + 1):
+                await _refuse_private(request.url)
+                response = await reader.send(request, stream=True)
+                if response.next_request is None:
+                    break
+                await response.aclose()
+                request = response.next_request
+            else:
+                raise HTTPException(status_code=502, detail="That page redirects too many times")
 
-            if "html" not in response.headers.get("content-type", ""):
-                raise HTTPException(status_code=415, detail="That address is not a web page")
-
-            # Streamed rather than read whole, so the count below is the way out
-            # of a page that never ends rather than a look at what has already
-            # been held in memory.
-            body = bytearray()
-            async for chunk in response.aiter_bytes():
-                body += chunk
-                if len(body) > PAGE_LIMIT_BYTES:
-                    raise HTTPException(status_code=502, detail="That page is too big to read")
-
-            # The header's charset, and utf-8 when it names none. A page that
-            # declares its encoding in a meta tag and not in its headers is read
-            # as utf-8, which is right for almost all of them and legible for
-            # the rest: a replaced character is a typo, a raised decode error is
-            # no note at all.
-            html = body.decode(response.charset_encoding or "utf-8", errors="replace")
-            return Page(url=str(response.url), html=html)
+            try:
+                return await _read_page(response)
+            finally:
+                await response.aclose()
     except httpx.HTTPError as error:
         raise HTTPException(status_code=502, detail=f"Could not read that page: {error}") from error
+
+
+async def _read_page(response: httpx.Response) -> Page:
+    """Turn the response a fetch ended at into the page the reader gets."""
+    # Read rather than raised for, so what reaches the reader is the
+    # number and not httpx's paragraph about it. The prompt puts this
+    # sentence on screen.
+    if response.status_code >= PAGE_FAILED:
+        raise HTTPException(status_code=502, detail=f"That page answered {response.status_code}")
+
+    if "html" not in response.headers.get("content-type", ""):
+        raise HTTPException(status_code=415, detail="That address is not a web page")
+
+    # Streamed rather than read whole, so the count below is the way out
+    # of a page that never ends rather than a look at what has already
+    # been held in memory.
+    body = bytearray()
+    async for chunk in response.aiter_bytes():
+        body += chunk
+        if len(body) > PAGE_LIMIT_BYTES:
+            raise HTTPException(status_code=502, detail="That page is too big to read")
+
+    # The header's charset, and utf-8 when it names none. A page that
+    # declares its encoding in a meta tag and not in its headers is read
+    # as utf-8, which is right for almost all of them and legible for
+    # the rest: a replaced character is a typo, a raised decode error is
+    # no note at all.
+    html = body.decode(response.charset_encoding or "utf-8", errors="replace")
+    return Page(url=str(response.url), html=html)
 
 
 @app.get("/api/transcripts/{video_id}")

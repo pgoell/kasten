@@ -23,6 +23,27 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 
+PUBLIC = "93.184.215.14"
+"""An address on the public internet, which every name resolves to by default."""
+
+
+@pytest.fixture(autouse=True)
+def resolve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, list[str]]], None]:
+    """Hand back a way to say what a name resolves to, and keep DNS off the network.
+
+    Every name is public unless a test says otherwise, so the tests that are not
+    about the address check do not depend on a resolver being reachable.
+    """
+    table: dict[str, list[str]] = {}
+
+    async def lookup(host: str) -> list[str]:
+        return table.get(host, [PUBLIC])
+
+    monkeypatch.setattr(main, "_addresses", lookup)
+
+    return table.update
+
+
 @pytest.fixture
 def answer(monkeypatch: pytest.MonkeyPatch) -> Callable[[Callable], None]:
     """Hand back a way to say what the internet replies with.
@@ -119,3 +140,104 @@ async def test_says_when_the_page_could_not_be_read(client: AsyncClient, answer:
 
     assert response.status_code == 502
     assert response.json()["detail"] == "That page answered 404"
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "127.0.0.1",
+        "10.0.0.5",
+        "172.18.0.3",
+        "192.168.1.1",
+        "169.254.169.254",
+        "100.100.100.100",
+        "0.0.0.0",  # noqa: S104  an address to refuse, not one to bind
+        "224.0.0.1",
+        "240.0.0.1",
+        "::1",
+        "::",
+        "fe80::1",
+        "fd00::1",
+        "ff02::1",
+        "::ffff:127.0.0.1",
+        "::ffff:10.0.0.1",
+    ],
+)
+async def test_refuses_an_address_off_the_internet(
+    client: AsyncClient, answer: Callable, resolve: Callable, address: str
+) -> None:
+    """The backend shares a network with the database and the shell, and the
+    clipper is not a way to reach them. Nothing is sent to such an address."""
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, html="<html></html>")
+
+    answer(handler)
+    resolve({"inside.example": [address]})
+
+    response = await client.get("/api/fetch", params={"url": "http://inside.example/"})
+
+    assert response.status_code == 400
+    assert sent == []
+
+
+async def test_refuses_a_name_with_one_private_address_among_public_ones(
+    client: AsyncClient, answer: Callable, resolve: Callable
+) -> None:
+    """The connection may land on any address the name has, so all are checked."""
+    answer(lambda request: httpx.Response(200, html="<html></html>"))
+    resolve({"mixed.example": [PUBLIC, "127.0.0.1"]})
+
+    response = await client.get("/api/fetch", params={"url": "https://mixed.example/"})
+
+    assert response.status_code == 400
+
+
+async def test_refuses_an_address_literal(
+    client: AsyncClient, answer: Callable, resolve: Callable
+) -> None:
+    """An IP in the address resolves to itself, so it meets the same check."""
+    answer(lambda request: httpx.Response(200, html="<html></html>"))
+    resolve({"::1": ["::1"]})
+
+    response = await client.get("/api/fetch", params={"url": "http://[::1]:8000/api/health"})
+
+    assert response.status_code == 400
+
+
+async def test_refuses_a_redirect_off_the_internet(
+    client: AsyncClient, answer: Callable, resolve: Callable
+) -> None:
+    """A public page that points back at the box is the way round a single check."""
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request.url.host)
+        if request.url.host == "example.com":
+            return httpx.Response(302, headers={"location": "http://postgres:5432/"})
+        return httpx.Response(200, html="<html></html>")
+
+    answer(handler)
+    resolve({"postgres": ["172.18.0.2"]})
+
+    response = await client.get("/api/fetch", params={"url": "https://example.com/post"})
+
+    assert response.status_code == 400
+    assert sent == ["example.com"]
+
+
+async def test_gives_up_on_a_page_that_redirects_forever(
+    client: AsyncClient, answer: Callable
+) -> None:
+    answer(
+        lambda request: httpx.Response(
+            302, headers={"location": f"https://example.com/{len(request.url.path)}x"}
+        )
+    )
+
+    response = await client.get("/api/fetch", params={"url": "https://example.com/"})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "That page redirects too many times"

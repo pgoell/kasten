@@ -16,8 +16,11 @@ import hashlib
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
+import pytest
+
 from backend.tests.test_mcp import ENDPOINT, RPC, call
 from kasten_backend.agent_routes import BEARER
+from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -251,3 +254,70 @@ async def test_the_consent_page_is_a_form_rather_than_a_redirect(
 
     assert response.status_code == 200
     assert "<form method=post" in response.text
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        # What a browser sends when the consent page posts back to itself, which
+        # is the one way the real flow reaches this.
+        {"sec-fetch-site": "same-origin", "origin": "http://test"},
+        # A dev proxy that rewrites Host: Sec-Fetch-Site settles it alone.
+        {"sec-fetch-site": "same-origin", "origin": "http://localhost:5173"},
+        # A browser too old for Sec-Fetch-Site still sends Origin on a POST.
+        {"origin": "http://test"},
+        # curl and the other tests here: no browser, so nothing to forge.
+        {},
+    ],
+)
+async def test_the_consent_page_posting_to_itself_is_accepted(
+    client: AsyncClient, agent_vault: Path, headers: dict[str, str]
+) -> None:
+    response = await client.post(
+        "/api/oauth/authorize", data=consent(), headers=headers, follow_redirects=False
+    )
+
+    assert response.status_code == 302
+
+
+async def test_the_agent_host_is_accepted_as_the_origin(
+    client: AsyncClient, agent_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Production runs uvicorn behind a proxy that may not pass the Host through,
+    # and the named host is what the Origin is held to there.
+    monkeypatch.setenv("KASTEN_AGENT_HOST", "kasten.example.com")
+    get_settings.cache_clear()
+
+    response = await client.post(
+        "/api/oauth/authorize",
+        data=consent(),
+        headers={"origin": "https://kasten.example.com"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"sec-fetch-site": "cross-site", "origin": "https://attacker.example"},
+        {"sec-fetch-site": "same-site", "origin": "https://evil.test"},
+        {"sec-fetch-site": "none"},
+        # Sec-Fetch-Site settles it, even beside an Origin that would pass.
+        {"sec-fetch-site": "cross-site", "origin": "http://test"},
+        {"origin": "https://attacker.example"},
+        {"origin": "null"},
+    ],
+)
+async def test_a_cross_site_consent_is_refused_without_redirecting(
+    client: AsyncClient, agent_vault: Path, headers: dict[str, str]
+) -> None:
+    # Behind basic auth the browser resends the credentials to any site that
+    # posts here, so this check is all that stops that site minting a code.
+    response = await client.post(
+        "/api/oauth/authorize", data=consent(), headers=headers, follow_redirects=False
+    )
+
+    assert response.status_code == 403
+    assert "location" not in response.headers

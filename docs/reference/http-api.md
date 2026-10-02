@@ -18,6 +18,11 @@ Seven more sit under `/agent/`, and they are documented on their own page,
 oauth2-proxy session and nothing else; everything there is reached with a bearer
 token and nothing else.
 
+The OAuth consent step, `GET` and `POST /api/oauth/authorize`, sits under
+`/api/` too but is left out of the count and the schema. It is documented with
+the rest of [the OAuth flow](/reference/agent-api.md#get-and-post-apioauthauthorize),
+including the check that refuses a cross-site `POST` with a `403`.
+
 ## GET /api/health
 
 Reports that the process is up. It deliberately does not touch the database, so
@@ -135,13 +140,26 @@ request goes out from the server.
 before anything is opened: `file:///etc/passwd` would otherwise read the
 container's disk and hand it to the browser. Anything else is a `400`.
 
+The host must also be on the public internet. Every address its name resolves
+to is checked, and one that is loopback, private, link-local, shared (CGNAT,
+which Tailscale uses), multicast, reserved or unspecified is a `400`, in IPv4
+or IPv6, with an IPv4 address inside an IPv6 one checked as the IPv4 address.
+The backend shares a docker network with the database and the shell, and this
+is not a way to reach them.
+
+Redirects are followed one hop at a time, at most twenty, and every hop meets
+the same two checks before it is opened. A public page that redirects to the
+box itself is the obvious way round a check made once.
+
 The address that comes back is the one after redirects, because a page's
 relative links are relative to that and the client resolves them.
 
-Three refusals beside the scheme, and each says which it is, because the reader
+Four refusals beside the address, and each says which it is, because the reader
 is looking at the address they pasted and is the one who can fix it:
 
 * `415` when the answer is not HTML, which is what a link to a PDF gets
+* `502` when the name does not resolve, or the page redirects more than twenty
+  times
 * `502` with the number when the page answered `400` or worse
 * `502` when the page is bigger than 8 MB, counted as the bytes arrive rather
   than believed off `content-length`, or when it did not answer inside twenty
