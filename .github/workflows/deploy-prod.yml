@@ -120,9 +120,11 @@ jobs:
           echo "build=$(jq -cn '$ARGS.positional' --args "${build[@]}")" >> "$GITHUB_OUTPUT"
 
   # One leg per image and architecture, each on a runner of that architecture.
-  # The shell image compiles node-pty, which under QEMU runs many times slower
-  # than on a native arm64 runner, and public repos get those for free. Each
-  # leg pushes its image by digest alone; the job below tags the pair.
+  # Under QEMU every arm64 instruction is emulated: the shell image's npm
+  # install alone took four minutes that way on a local build, and a node-gyp
+  # fallback would take far longer. Native arm64 runners are free for public
+  # repos. Each leg pushes its image by digest alone; the job below tags the
+  # pair.
   build:
     name: Build ${{ matrix.component }} for ${{ matrix.arch }}
     needs: [plan]

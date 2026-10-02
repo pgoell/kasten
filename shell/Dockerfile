@@ -122,12 +122,14 @@ RUN echo "${STARSHIP_SHA256}  /tmp/starship.tar.gz" | sha256sum -c - \
 
 FROM starship-${TARGETARCH} AS starship
 
-# The three agents come from npm, and one of them compiles: dsh depends on
-# node-pty, which publishes prebuilds for macOS and Windows only, so on Linux,
-# x64 and arm64 alike, node-gyp builds it from source and wants python3 and a
-# compiler. The runtime has no use for either afterwards, so they are installed
-# here and only the finished tree is copied over. The same node base is not a
-# nicety: a compiled `pty.node` is built against one node ABI and one CPU.
+# The three agents come from npm, and one of them may compile: dsh depends on
+# node-pty, whose install script falls back to node-gyp, which wants python3
+# and a compiler, when no prebuild fits. The pinned node-pty ships prebuilds
+# for linux-x64 and linux-arm64, so today the fallback does not run on either
+# image, but a dsh bump can move node-pty to a version where it does. The
+# runtime has no use for the toolchain afterwards, so it is installed here and
+# only the finished tree is copied over. The same node base is not a nicety: a
+# `pty.node` is built against one node ABI and one CPU.
 #
 # Exact versions, not a range: an image rebuilt in six months should be the
 # image that was tested. An update lands in the container's writable layer and

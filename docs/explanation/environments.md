@@ -217,9 +217,11 @@ for aarch64, so the arm64 image carries the glibc build, which runs against the
 glibc the Debian base already has.
 
 Each architecture builds on a runner of its own kind, `ubuntu-latest` and
-`ubuntu-24.04-arm`, rather than on one runner with QEMU. The shell image
-compiles node-pty with node-gyp, and under emulation that compile runs many
-times slower. The two builds run side by side, so a release takes about as
+`ubuntu-24.04-arm`, rather than on one runner with QEMU. Under emulation every
+arm64 instruction is translated, so the shell image's npm install alone took
+four minutes in a local build, and a release whose dsh pulls a node-pty that
+has to be compiled with node-gyp would take far longer. Native arm64 runners
+cost nothing on a public repo. The two builds run side by side, so a release takes about as
 long as the slower of the two, and a last job joins their digests under the
 release tag.
 
