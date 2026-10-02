@@ -5,6 +5,7 @@ name = "kasten-backend"
 # docs/how-to/cut-a-release.md.
 version = "0.29.0"
 description = "kasten HTTP backend (FastAPI) over a markdown vault"
+license = "AGPL-3.0-only"
 authors = [
     { name = "pgoell", email = "pascal98kraus@gmail.com" }
 ]
