@@ -40,7 +40,7 @@ in every case, so it says nothing about which it was.
 refusal that names anything:
 
 ```
-WWW-Authenticate: Bearer error="invalid_token", resource_metadata="https://kasten.pgoell.com/.well-known/oauth-protected-resource/agent/mcp", scope="kasten:notes"
+WWW-Authenticate: Bearer error="invalid_token", resource_metadata="https://notes.example.com/.well-known/oauth-protected-resource/agent/mcp", scope="kasten:notes"
 ```
 
 The header names one document and no more. That document is public, holds three
@@ -72,8 +72,8 @@ rather than an MCP client.
 ```
 
 It names the routes on this page and nothing else. `/openapi.json` at the root
-is a different document: it describes the browser's API, it is behind
-oauth2-proxy, and no token reaches it.
+is a different document: it describes the browser's API, it is behind the
+login gate, and no token reaches it.
 
 Built from this router's own routes rather than by filtering the whole
 application's schema, so the models it defines are the ones these routes use and
@@ -310,9 +310,11 @@ you through it, and carry what it issues. The routes below are that server, and
 walking a product through them is
 [Connect an agent](/how-to/connect-an-agent.md).
 
-Claude Code cannot use this flow. It has no field for a client id and would need
-kasten to register clients on demand, which it does not do. It and codex are
-unchanged and still send the header.
+Only those two products can use this flow, because a code is sent only to the
+redirect addresses [listed below](#get-and-post-apioauthauthorize). Claude Code,
+codex and any other MCP client send the header instead: kasten has no
+registration endpoint, and a loopback redirect on your own machine is not on the
+list.
 
 What the flow issues is an ordinary row in the same store, named for the
 client's host, `claude.ai` or `chatgpt.com`. The gate above cannot tell an OAuth
@@ -324,15 +326,15 @@ revokes the old row and mints a new one.
 Where each route sits is load-bearing. `/.well-known/*` and `/agent/oauth/token`
 are fetched by a machine with no session and no way to get one, so nothing in
 front of them may ask for one. `/api/oauth/authorize` is opened by your browser,
-and oauth2-proxy in front of it is what proves who you are; kasten has no login
-form of its own.
+and the login gate in front of it is what proves who you are; kasten has no
+login form of its own.
 
-Caddy is what holds that arrangement, and its config lives in the server-infra
-repo rather than in this one. Until `/.well-known/*` is routed to the backend
-there, the catch-all block answers those three paths with a redirect to a
-sign-in page, and a connector reads that as neither a document nor an absence.
-[Deploy to the VPS](/how-to/deploy-to-the-vps.md) has the stanza and the curls
-that check it.
+The reverse proxy is what holds that arrangement, and
+[Reverse-proxy routes](/reference/reverse-proxy-routes.md) lists every route it
+needs. The self-host stack's `deploy/selfhost/Caddyfile` ships them. Until
+`/.well-known/*` reaches the backend ungated, the gate answers those paths with
+a sign-in page or a `401`, and a connector reads that as neither a document nor
+an absence.
 
 Every URL these routes hand out, the `iss` on the redirect and the one in the
 `401` header above, is built from `KASTEN_AGENT_HOST` as `https://{host}`, which
@@ -348,8 +350,8 @@ RFC 9728, which names the endpoint and points at whoever authorizes it.
 
 ```json
 {
-  "resource": "https://kasten.pgoell.com/agent/mcp",
-  "authorization_servers": ["https://kasten.pgoell.com"],
+  "resource": "https://notes.example.com/agent/mcp",
+  "authorization_servers": ["https://notes.example.com"],
   "scopes_supported": ["kasten:notes"]
 }
 ```
@@ -370,9 +372,9 @@ RFC 8414. Every field here is read by one product or the other.
 
 ```json
 {
-  "issuer": "https://kasten.pgoell.com",
-  "authorization_endpoint": "https://kasten.pgoell.com/api/oauth/authorize",
-  "token_endpoint": "https://kasten.pgoell.com/agent/oauth/token",
+  "issuer": "https://notes.example.com",
+  "authorization_endpoint": "https://notes.example.com/api/oauth/authorize",
+  "token_endpoint": "https://notes.example.com/agent/oauth/token",
   "response_types_supported": ["code"],
   "grant_types_supported": ["authorization_code"],
   "code_challenge_methods_supported": ["S256"],
@@ -395,7 +397,8 @@ the address it was given, carrying `code`, `state` and `iss`.
 A `GET` never mints. oauth2-proxy's cookie is `SameSite=Lax`, which a browser
 attaches to a top-level navigation, so a link here would otherwise mint a code
 into whatever connector flow the linking page has waiting. A cross-site `POST`
-carries no cookie, so oauth2-proxy turns it away before this route is reached.
+carries no Lax cookie, so behind oauth2-proxy it is turned away before this
+route is reached.
 
 The `POST` also checks for itself that it came from the consent page, because
 basic auth in front of kasten resends its credentials to any site that posts
@@ -425,7 +428,7 @@ widening reaches ChatGPT and nowhere else.
 
 Anything else is a `400` rendered here and never sent on as an error redirect:
 redirecting to an address just judged untrusted is the hole being refused, and
-the host in question carries a `.pgoell.com` session cookie. A
+the host in question may carry a session cookie for its whole parent domain. A
 missing `code_challenge`, or a `code_challenge_method` other than `S256`, is
 refused the same way, so `plain` does not work here.
 

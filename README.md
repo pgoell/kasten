@@ -42,16 +42,26 @@ compose.yaml      dev Postgres
 compose.dev.yml   hosted dev environment
 ```
 
-## Self-hosting
+## Self-host
 
-[Self-host kasten](docs/how-to/self-host-kasten.md) runs the whole stack on one
-machine of your own, with Caddy doing TLS and a login of basic auth,
-oauth2-proxy or Tailscale in front.
+`deploy/selfhost/` runs the whole stack on one Linux machine of your own, amd64
+or arm64, with Caddy doing TLS and a login of basic auth, oauth2-proxy or
+Tailscale in front. No database to run.
+
+* [Self-host on a server](docs/tutorials/self-host-on-a-server.md): the first
+  run, from an empty server to a note and a connected agent
+* [Self-host kasten](docs/how-to/self-host-kasten.md): every step, and all
+  three logins
+* [Connect an agent](docs/how-to/connect-an-agent.md),
+  [Back up and restore](docs/how-to/back-up-and-restore.md) and
+  [Upgrade kasten](docs/how-to/upgrade-kasten.md): what comes after
 
 ## Documentation
 
 [`docs/`](docs/index.md) holds the tutorials, how-to guides, reference and
-explanation. Start with [Getting started](docs/tutorials/getting-started.md).
+explanation. To run kasten, start with
+[Self-host on a server](docs/tutorials/self-host-on-a-server.md); to work on
+its code, with [Getting started](docs/tutorials/getting-started.md).
 
 ## License
 

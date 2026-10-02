@@ -31,8 +31,8 @@ Given `[[target]]`, in this order:
 
 Step 4 is the one to get right. A note at the root does not win by being at the
 root; it wins at step 2, by being spelled exactly. Sorted paths put
-`00 Inbox/borges.md` before `borges.md`, so `[[BORGES]]`, which matches neither
-exactly, finds the inbox note.
+`authors/borges.md` before `borges.md`, so `[[BORGES]]`, which matches neither
+exactly, finds the note in `authors/`.
 
 ## What the block at the top holds
 

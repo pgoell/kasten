@@ -51,8 +51,9 @@ Four rules for the links:
    never heard of this vault, and a wikilink means nothing to one.
 2. **Relative to the file the index sits in.** A folder's index links its own
    folder's contents.
-3. **Encode the spaces.** `99 Misc/` is written `99%20Misc/`. This vault's
-   folders have spaces in their names and a raw space breaks the link.
+3. **Encode the spaces.** A raw space ends the link, so a folder called
+   `Reading List/` is written `Reading%20List/`. Any name with a space in it
+   needs this, a folder's or a note's.
 4. **A trailing slash for a folder, the full filename for a note.**
 
 Group entries under `##` sections when there are enough of them to want

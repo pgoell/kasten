@@ -117,7 +117,9 @@ position and an option by its text, and the same option may answer two rows.
 ## Have an agent write one
 
 The vault carries the format as a note, so an agent in a terminal pane or on
-your laptop can read it without being told:
+your laptop can read it without being told. On the default layout, where
+[`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders) names no
+other config folder:
 
 ```
 Read 99 Misc/01 Config/01 Agents/How-To-Exam.md, then turn my notes in

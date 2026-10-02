@@ -70,7 +70,9 @@ practice:
 
 What goes *in* one of those files is not kasten's business, so it is not stated
 here. It is stated in the vault, at
-`99 Misc/01 Config/01 Agents/How-To-Index.md`, which the backend writes into a
+`99 Misc/01 Config/01 Agents/How-To-Index.md` on the default layout
+([`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders) moves
+`99 Misc/01 Config`), which the backend writes into a
 vault that does not hold it: the readers are agents working in the vault rather
 than people reading this repository.
 
@@ -130,9 +132,9 @@ the table say why.
 | A note with an epub beside it | `Book` |
 | A note with a pdf beside it | `Source` |
 
-One type for all five periodic notes rather than five. `01 Periodic/00 Daily/`
-already says which grain the note is, and `Daily Note` beside that folder is the
-same fact written twice. The block is the first thing in the template, ahead of
+One type for all five periodic notes rather than five. `01 Periodic/00 Daily/`,
+on the default layout, already says which grain the note is, and `Daily Note`
+beside that folder is the same fact written twice. The block is the first thing in the template, ahead of
 the heading, because a block that does not open the file is prose and the note
 would carry no type at all.
 

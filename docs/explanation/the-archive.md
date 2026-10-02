@@ -19,10 +19,10 @@ about it, because the obvious solutions are all worse.
 
 ## It is a folder
 
-`98 Archive` is an ordinary directory in the vault. Not a frontmatter field, not
-a tag, not a row in Postgres. Moving a note into it is `<leader>rf` and a new
-path, the same key that moves a note anywhere else, and nothing in kasten runs
-when it happens.
+The archive, `98 Archive` by default, is an ordinary directory in the vault. Not
+a frontmatter field, not a tag, not a row in Postgres. Moving a note into it is
+`<leader>rf` and a new path, the same key that moves a note anywhere else, and
+nothing in kasten runs when it happens.
 
 This follows from [the one rule](/explanation/vault-and-derived-index.md). A
 field would want a writer, a reader and a migration; a folder is already there,
@@ -71,7 +71,7 @@ whatever the toggle says. This is the one place the archive is not honoured, and
 it is deliberate.
 
 That listing is what resolves a `[[wikilink]]`. Following a link kasten cannot
-resolve makes a new note in `00 Inbox`, which is the right answer for a link to
+resolve makes a new note in the inbox, which is the right answer for a link to
 a note nobody has written and precisely the wrong answer for a link to a note
 that is sitting in the archive: you would get an empty second copy and no sign
 that the first one existed. So `gf` into the archive opens the archived note

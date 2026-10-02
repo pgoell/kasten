@@ -436,7 +436,9 @@ you typed to look for. A bare `#` names no tag and is a word like any other.
 
 ## Saved views
 
-`99 Misc/01 Config/todo-views.md` holds named filters, one per list item, and
+`99 Misc/01 Config/todo-views.md` on the default layout
+([`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders) moves
+`99 Misc/01 Config`) holds named filters, one per list item, and
 `v` in the todo pane walks them. A plain note, so a view is written and edited
 like any other line of the vault.
 

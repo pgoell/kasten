@@ -84,7 +84,9 @@ note of the same name beside it and opens that note. That is the door the app
 owns, and it is the one that works from the keyboard with no terminal open.
 
 The suffix picks the folder, and this is the one place the two formats part
-company:
+company. The paths are on the default layout;
+[`KASTEN_INBOX_PATH`](/reference/configuration.md#the-vaults-folders) moves
+`00 Inbox`.
 
 | Picked | Filed in | Typed |
 | --- | --- | --- |

@@ -401,8 +401,10 @@ panel.
 
 `<leader>cb` is how a book gets into the vault without a terminal. It opens the
 browser's file picker, and the file you choose lands under its own name, with a
-note of the same name beside it. An epub lands in `00 Inbox/02 Books/` and a pdf
-in `00 Inbox/02 Documents/`, the folders differing because the files do: an epub
+note of the same name beside it. An epub lands in `02 Books/` and a pdf in
+`02 Documents/` under the inbox, `00 Inbox` unless
+[`KASTEN_INBOX_PATH`](/reference/configuration.md#the-vaults-folders) names
+another, the folders differing because the files do: an epub
 is a book and nothing else, while a pdf is as often a paper, a report or a deck.
 That note opens in the focused pane, which is the only thing on screen saying
 the upload worked. `<leader>gr` then reads it.
@@ -766,7 +768,7 @@ screen.
 ## Importing a web page
 
 `<leader>cw` puts a web page in the vault as a note. It opens a prompt that
-takes one address; paste it, press Enter, and the page arrives in `00 Inbox`
+takes one address; paste it, press Enter, and the page arrives in the inbox
 under its own title, open in the focused pane.
 
 The reading is [defuddle](https://github.com/kepano/defuddle), the extractor
@@ -830,7 +832,7 @@ The same capture has a page of its own for a phone, `/capture`, which
 
 `<leader>cm` puts markdown files from your disk into the vault. It opens the
 browser's file picker on `.md`; choose one file or a folder full, and each one
-lands in `00 Inbox` under its own name, with the first of them open in the
+lands in the inbox under its own name, with the first of them open in the
 focused pane.
 
 They go in one at a time, each write finished before the next begins, because
@@ -1368,7 +1370,7 @@ What the target names is decided against the vault's own listing:
 * A target nothing answers to is a note that is not there yet. Following it
   makes an empty note there, folders on the way included, and opens it. A name
   says which note and never where it belongs, so a bare one lands in
-  `00 Inbox`; a target that spelled a path out is made at the path it spelled.
+  the inbox; a target that spelled a path out is made at the path it spelled.
 
 That last one is the point of writing a link before the note: `gf` is where the
 note begins. It uses [POST /api/files/{path}](/reference/http-api.md), so a path
@@ -1486,7 +1488,9 @@ picture where the source at least says what was meant.
 | `<leader>w` | Download the picture in the pane, in an image pane |
 
 Pasting is the way in. A screenshot on the clipboard is uploaded to
-`99 Misc/02 Assets/01 Images/`, named for today and eight random hex digits, and
+the images folder, `99 Misc/02 Assets/01 Images/` unless
+[`KASTEN_IMAGES_PATH`](/reference/configuration.md#the-vaults-folders) names
+another, named for today and eight random hex digits, and
 `![](that path)` lands where the cursor is when the upload finishes. Nothing
 asks first and nothing else changes. A paste carrying text is left to the
 editor's own paste, which is every paste but this one.

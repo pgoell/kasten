@@ -14,6 +14,9 @@ is no database to run; the backend reads and writes the vault and nothing else.
 
 You need a Linux machine with Docker and the compose plugin (2.24 or later), on
 amd64 or arm64. arm64 images exist from the first release after 0.29.0.
+[Requirements](/reference/requirements.md) has the ports, memory and disk. For
+a guided first run with basic auth, follow
+[Self-host on a server](/tutorials/self-host-on-a-server.md) instead.
 
 ## 1. Get the files
 
@@ -36,7 +39,8 @@ come up at all.
 Every route asks for the login except two. `/agent/*` checks a bearer token
 minted at `/tokens`, and `/.well-known/*` serves the documents an agent
 connector reads before it has one. [The agent boundary](/explanation/the-agent-boundary.md)
-says why those two can stand open.
+says why those two can stand open, and
+[Reverse-proxy routes](/reference/reverse-proxy-routes.md) lists every route.
 
 ### Basic auth
 
@@ -165,19 +169,18 @@ tailnet: no connection at all.
 Stop the stack** (`docker compose down`) and check that `KASTEN_GATE` and the
 `/term/*` route in the `Caddyfile` are as shipped.
 
-## Upgrade
+## Next
 
-```sh
-docker compose pull
-docker compose up -d
-```
-
-`KASTEN_IMAGE_TAG=latest` follows every release. Set it to a version number to
-stay on one, and change it when you choose to move.
+* Back up `data/` before you trust it with notes: [Back up and restore](/how-to/back-up-and-restore.md).
+* Mint a token and connect an agent: [Connect an agent](/how-to/connect-an-agent.md).
+* Move to a new release: [Upgrade kasten](/how-to/upgrade-kasten.md).
+  `KASTEN_IMAGE_TAG=latest` follows every release; a version number stays on one.
+* Something refuses: [Troubleshoot a self-hosted kasten](/how-to/troubleshoot-self-hosting.md).
 
 ## Related
 
-* [Configuration](/reference/configuration.md): every backend setting, for `backend.env`
+* [Configuration](/reference/configuration.md): every backend setting, for `backend.env`, and every variable in `.env`
+* [Security model](/explanation/security-model.md): what the gate covers, and what the backend checks itself
 * [Connect an agent](/how-to/connect-an-agent.md): mint a token and point an agent at the vault
 * [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md): what the jj history in step 4 is for
-* [Deploy to the VPS](/how-to/deploy-to-the-vps.md): the original deployment, which shares a Caddy and an oauth2-proxy with other sites
+* [Deploy to the VPS](/how-to/deploy-to-the-vps.md): the maintainer's own deployment, which shares a Caddy and an oauth2-proxy with other sites

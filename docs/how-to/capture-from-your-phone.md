@@ -15,7 +15,7 @@ of the dump in today's daily note, which is made if the day has none yet.
 
 ## Open the page
 
-Go to `https://kasten.pgoell.com/capture` in the phone's browser and sign in the
+Go to `https://<your-host>/capture` in the phone's browser and sign in the
 way you do on the desktop. The page keeps the last few sends under the button,
 which is how you know they landed. That list lives in the page and goes when you
 close it; the dump itself is in the daily note.
@@ -29,9 +29,9 @@ The icon opens the page on its own, without the browser's address bar. Install
 from `/capture` itself, the page the manifest names as the app.
 
 If Chrome offers only a shortcut rather than an install, the manifest did not
-load. The site is behind oauth2-proxy, and the page asks for the manifest with
-its cookies for that reason; a session that has run out gets the sign-in page
-instead. Reload `/capture`, sign in again, and try once more.
+load. The site is behind a login gate, and the page asks for the manifest with
+its credentials for that reason; behind oauth2-proxy, a session that has run out
+gets the sign-in page instead. Reload `/capture`, sign in again, and try once more.
 
 ## Share into it
 
@@ -44,7 +44,7 @@ Once it is installed, **kasten capture** appears in Android's share sheet.
 4. Press **Send** to put it in the dump.
 
 When what was shared holds a web address, a second button appears beside Send:
-**Clip to inbox**. It reads the page and files it in `00 Inbox` as a note, the
+**Clip to inbox**. It reads the page and files it in the inbox as a note, the
 same import `<leader>cw` runs at the desk, and puts nothing in the dump. A page
 clipped twice opens as one note, not two.
 

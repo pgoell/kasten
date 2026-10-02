@@ -86,11 +86,13 @@ Above the quote because a book's caption sits under its figure, and the quote is
 usually that caption. A plain markdown image and not an embed: that is what the
 editor draws, and it is the same line a pasted screenshot writes.
 
-The file lands in `99 Misc/02 Assets/01 Images` under the name a paste gives one,
+The file lands in the images folder, `99 Misc/02 Assets/01 Images` unless
+[`KASTEN_IMAGES_PATH`](/reference/configuration.md#the-vaults-folders) names
+another, under the name a paste gives one,
 today's date and eight hex digits, and the suffix comes off the media type the
 epub declared. One folder for every picture in the vault, so a figure and a
 screenshot are the same kind of thing to everything downstream. The path is
-`encodeURI`d, a space in `99 Misc` otherwise ending the destination.
+`encodeURI`d, a space like the one in `99 Misc` otherwise ending the destination.
 
 The bytes are the book's own. foliate rewrites every resource in a chapter to a
 `blob:` URL, so the reader fetches the file the epub shipped rather than

@@ -105,7 +105,7 @@ it files it under `dbt` alone.
 ## Archiving is the archive
 
 There is no "archive this deck" button, no `archived: true`, no key.
-[Moving the note into `98 Archive`](/explanation/the-archive.md) takes it out of
+[Moving the note into the archive](/explanation/the-archive.md) takes it out of
 the review, because the scan walks past that folder the way search does.
 
 This is the second time that folder has paid for itself without being extended.
