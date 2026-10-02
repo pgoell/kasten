@@ -868,13 +868,17 @@ function nudgeOutOfHidden(
   let changed = false;
 
   const ranges = next.ranges.map((range, index) => {
+    // A cursor only. Vim reads a yank by selecting what it covers, `yy` from
+    // column zero, and walking that selection's ends out of the marks yanked
+    // `## Notes` as `Notes`. A selection in visual mode reveals its marks, so
+    // its ends have nothing hidden to land in.
+    if (!range.empty) return range;
     const before = previous.ranges[Math.min(index, previous.ranges.length - 1)];
     const bias = before && range.head < before.head ? -1 : 1;
     const head = skipHidden(range.head, bias, hidden, doc);
-    const anchor = range.empty ? head : skipHidden(range.anchor, bias, hidden, doc);
-    if (head === range.head && anchor === range.anchor) return range;
+    if (head === range.head) return range;
     changed = true;
-    return EditorSelection.range(anchor, head);
+    return EditorSelection.cursor(head);
   });
 
   return changed ? EditorSelection.create(ranges, next.mainIndex) : null;

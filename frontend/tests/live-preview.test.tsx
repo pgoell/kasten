@@ -1,3 +1,4 @@
+import { EditorView } from "@codemirror/view";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
@@ -502,6 +503,24 @@ describe("live preview", () => {
     fireEvent.keyDown(editor, { key: "x" });
 
     expect(content(container)).toBe("otes");
+  });
+
+  it("yanks the marks it hides along with the text", () => {
+    // `yy` selects the line to read it, and walking that selection's start
+    // out of the hidden `## ` yanked the heading without its hashes.
+    const { container } = render(<Editor initialDoc={"## Notes\nbeta"} />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "y" });
+    fireEvent.keyDown(editor, { key: "y" });
+    fireEvent.keyDown(editor, { key: "j" });
+    fireEvent.keyDown(editor, { key: "p" });
+
+    expect(
+      EditorView.findFromDOM(
+        container.querySelector(".cm-editor") as HTMLElement,
+      )?.state.doc.toString(),
+    ).toBe("## Notes\nbeta\n## Notes");
   });
 
   it("leaves other lines rendered while one is revealed", async () => {
