@@ -361,10 +361,10 @@ box: `KASTEN_NETWORK` (`web`) for the external network, and `KASTEN_DB_PORT`
 
 ## Related
 
-* [Two environments](/explanation/environments.md) - why dev and prod are built in opposite ways, and the constraints this box imposes
+* [Two environments](/explanation/environments.md): why dev and prod are built in opposite ways, and the constraints this box imposes
 * [Self-host kasten](/how-to/self-host-kasten.md): the whole stack on one machine, with its own Caddy and login
-* [Cut a release](cut-a-release.md) - the version, the tag and the workflow that deploys them
-* [Run the checks](run-the-checks.md) - the linters and tests, and clearing a stale `.container/node_modules`
-* [Configuration](/reference/configuration.md) - every `KASTEN_` setting the env files carry
-* [The agent boundary](/explanation/the-agent-boundary.md) - what the one ungated block is holding
-* [Connect an agent](/how-to/connect-an-agent.md) - what to point at the door once it is open
+* [Cut a release](cut-a-release.md): the version, the tag and the workflow that deploys them
+* [Run the checks](run-the-checks.md): the linters and tests, and clearing a stale `.container/node_modules`
+* [Configuration](/reference/configuration.md): every `KASTEN_` setting the env files carry
+* [The agent boundary](/explanation/the-agent-boundary.md): what the one ungated block is holding
+* [Connect an agent](/how-to/connect-an-agent.md): what to point at the door once it is open

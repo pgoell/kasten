@@ -42,4 +42,4 @@ TypeScript 7. The indirection goes away when the generator supports TypeScript 7
 
 ## Related
 
-* [HTTP API](/reference/http-api.md) - the endpoints the schema is built from
+* [HTTP API](/reference/http-api.md): the endpoints the schema is built from

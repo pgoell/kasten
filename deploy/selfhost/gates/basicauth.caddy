@@ -3,9 +3,10 @@
 # terminal's WebSocket included.
 #
 # A name with no hash is an error, and Caddy refuses the whole file rather
-# than serve an open notebook. The `unset` fallback is there for the case of
-# both missing: an empty block parses fine, so it gives the line a name and
-# makes the missing hash the error.
+# than serve an open notebook. With both empty, which is what compose passes
+# for a blank `.env` line, Caddy starts and refuses every login: closed, not
+# open. The `unset` fallback covers a variable missing from the environment
+# altogether, where an empty block would parse fine.
 
 (site) {
 }

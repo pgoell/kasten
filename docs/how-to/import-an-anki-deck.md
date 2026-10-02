@@ -96,6 +96,6 @@ from there.
 
 ## See also
 
-* [Flashcard format](/reference/flashcard-format.md) - what an imported note is written in
-* [Spaced repetition](/explanation/spaced-repetition.md) - why the import writes markdown rather than rows
-* [Configuration](/reference/configuration.md) - the setting naming the folder
+* [Flashcard format](/reference/flashcard-format.md): what an imported note is written in
+* [Spaced repetition](/explanation/spaced-repetition.md): why the import writes markdown rather than rows
+* [Configuration](/reference/configuration.md): the setting naming the folder

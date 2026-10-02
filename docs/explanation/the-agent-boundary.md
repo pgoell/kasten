@@ -1,16 +1,16 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches seven capabilities under /agent/ rather than the twenty-four routes the browser uses, and what it cannot do.
+description: Why a token reaches seven capabilities under /agent/ rather than the thirty-one routes the browser uses, and what it cannot do.
 tags: [agent, tokens, security, api]
 status: stable
 ---
 
 # The agent boundary
 
-Every route the backend serves sits behind the login gate in front of it,
-which on the maintainer's box is `import oauth2_auth` in the Caddyfile and
-redirects a caller with no session to a browser sign-in page. A headless agent
+Before `/agent/` existed, every route the backend served sat behind the login
+gate in front of it, which on the maintainer's box is `import oauth2_auth` in
+the Caddyfile and redirects a caller with no session to a browser sign-in page. A headless agent
 cannot complete that flow. So the only agent that
 could touch the vault was one running in the shell container, launched from
 inside the app, or one holding an SSH key to the whole VPS.
@@ -278,7 +278,7 @@ handing a token out.
 
 ## Related
 
-* [Agent API](/reference/agent-api.md) - the routes, the bearer rule and the digest contract
-* [Connect an agent](/how-to/connect-an-agent.md) - how each client is configured
-* [Two environments](/explanation/environments.md) - where the gate in front of everything else lives
-* [Deploy to the VPS](/how-to/deploy-to-the-vps.md) - the Caddy stanza and the curls that check it
+* [Agent API](/reference/agent-api.md): the routes, the bearer rule and the digest contract
+* [Connect an agent](/how-to/connect-an-agent.md): how each client is configured
+* [Two environments](/explanation/environments.md): where the gate in front of everything else lives
+* [Deploy to the VPS](/how-to/deploy-to-the-vps.md): the Caddy stanza and the curls that check it

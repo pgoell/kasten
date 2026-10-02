@@ -282,6 +282,6 @@ clear those variables, or the medians above will not appear.
 
 ## Related
 
-* [mise tasks](/reference/mise-tasks.md) - what `fe:test`, `fe:frame` and `fe:bench` run
-* [Editor keys](/reference/editor-keys.md) - the keys of both lists, and the cap they move through
-* [Run the checks](/how-to/run-the-checks.md) - which of these CI runs
+* [mise tasks](/reference/mise-tasks.md): what `fe:test`, `fe:frame` and `fe:bench` run
+* [Editor keys](/reference/editor-keys.md): the keys of both lists, and the cap they move through
+* [Run the checks](/how-to/run-the-checks.md): which of these CI runs

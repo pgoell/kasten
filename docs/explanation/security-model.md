@@ -8,9 +8,8 @@ status: stable
 
 # Security model
 
-kasten is a notebook for one person, and it trusts whoever reaches it. That
-sentence is the whole design, and the rest of this page is what it costs and
-where the edges are.
+kasten is a notebook for one person, and it trusts whoever reaches it. The rest
+of this page is what that costs and where the edges are.
 
 ## No login of its own
 
@@ -20,7 +19,7 @@ basic auth, oauth2-proxy or Tailscale in
 [the self-host stack](/how-to/self-host-kasten.md), and oauth2-proxy on the
 maintainer's box.
 
-That is a choice, not a gap waiting to be filled. A login written into kasten
+That is a choice. A login written into kasten
 would be one more password store, one more session cookie and one more place
 for a bug, all to hold one user. The gates in front are small, widely used and
 built for exactly this, and each brings what kasten would never build well on
@@ -86,13 +85,14 @@ The gate does most of the work, but two attacks get through some gates and not
 others, so the backend checks for them itself.
 
 **The consent step.** Pressing Connect in a claude.ai or chatgpt.com flow posts
-to `/api/oauth/authorize`, and that post mints a code. Behind oauth2-proxy, a
-cross-site post carries no session cookie, because the cookie is
-`SameSite=Lax`, so another site cannot press the button for you. Behind basic
-auth the browser resends the password with any post to the host, from any site.
-So the backend refuses the post unless `Sec-Fetch-Site` says `same-origin`, or,
-when a browser sends no such header, unless `Origin` names this host. The
-details are in [Agent API](/reference/agent-api.md#get-and-post-apioauthauthorize).
+to `/api/oauth/authorize`, and that post mints a code. oauth2-proxy's
+`SameSite=Lax` cookie keeps another site from pressing the button for you;
+basic auth does not, because the browser resends the password with any post to
+the host, from any site. So the backend refuses a post that does not come from
+its own page.
+[The agent boundary](/explanation/the-agent-boundary.md#what-the-authorization-server-exposes)
+says why, and [Agent API](/reference/agent-api.md#get-and-post-apioauthauthorize)
+states the headers it reads.
 
 **Page fetching.** `GET /api/fetch` reads a web page from the server, because a
 browser will not let a script read another site's page. A server that fetches

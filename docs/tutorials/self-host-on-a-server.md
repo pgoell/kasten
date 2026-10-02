@@ -13,9 +13,10 @@ yours, behind a password, with a note in it that you wrote in the browser and
 Claude Code then added a line to. It takes about half an hour, most of it
 waiting for DNS and image downloads.
 
-This is the simplest of the three ways in: one user name and one password,
-asked for by the browser. [Self-host kasten](/how-to/self-host-kasten.md)
-covers the other two, oauth2-proxy and Tailscale, once you know what you want.
+The password is basic auth, the simplest of kasten's three login gates: one
+user name and one password, asked for by the browser.
+[Self-host kasten](/how-to/self-host-kasten.md) covers the other two,
+oauth2-proxy and Tailscale.
 
 To run kasten on your own machine for development instead, follow
 [Getting started](/tutorials/getting-started.md).
@@ -85,12 +86,13 @@ The notes live in `data/vault` on the server, and the agent tokens in
 
 ```sh
 mkdir -p data/vault data/agent
-id -u; id -g
+sudo chown -R 1000:1000 data
 ```
 
-If those two numbers are not both `1000`, put them in `.env` as `KASTEN_UID`
-and `KASTEN_GID`. The containers run as that user, so they can write the files
-you own.
+The containers run as uid 1000, so the directories must belong to it. If
+`id -u` prints `1000`, they are yours already and the `chown` changes nothing.
+If not, you can still read the notes on the server, but editing them there
+takes `sudo`.
 
 ## 5. Give the vault a history
 
@@ -103,7 +105,8 @@ docker compose run --rm --no-deps backend jj -R /vault config set --repo user.na
 docker compose run --rm --no-deps backend jj -R /vault config set --repo user.email "you@example.com"
 ```
 
-The first command pulls the backend image, so it takes a while.
+The first command pulls the backend image, so it takes a while. Each `config set` warns that the working copy's author stays empty. That is
+the vault's first, empty change, and it does no harm.
 
 ## 6. Start it
 

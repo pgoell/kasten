@@ -4,18 +4,18 @@ The commands, endpoints and settings, stated plainly. These pages describe what
 is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 [how-to guide](/how-to/index.md).
 
-* [mise tasks](mise-tasks.md) - every task defined in mise.toml, by group
-* [HTTP API](http-api.md) - every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, and the addresses `GET /api/fetch` refuses
-* [Note frontmatter](note-frontmatter.md) - the YAML block every note carries, which fields kasten manages, when they are written, and the two filenames that get no block at all
-* [Exam format](exam-format.md) - the note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands
-* [Flashcard format](flashcard-format.md) - the two ways a card is written, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, and the keys a sitting takes
-* [Todo format](todo-format.md) - the line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the terms that filter one, and the note that saves them
-* [Highlight format](highlight-format.md) - the block a passage taken out of a book is written as, the quote rule and its character classes, the figure line, the chapter line and its fallback, the anchor, and the rule that reads a highlight back
-* [Relation format](relation-format.md) - the line a typed relation is written on, the nine rules of its grammar, how the backlinks panel groups by it, and the one thing it reads that it should not
-* [Graph query](graph-query.md) - the language the graph pane, `GET /api/graph` and the agent's `query_graph` read, what a filter keeps, what a pattern answers, and what the graph holds
-* [Agent API](agent-api.md) - the routes an agent outside the box reaches the vault with, the bearer rule in front of them, what a digest means, and the origin check on the consent step
-* [Configuration](configuration.md): every backend setting and compose variable, the self-host stack's included, its default, the folders a vault can name for itself, the startup type pass and how to turn it off, what the backend image sets instead, what the backend warns about at startup, and the `JJ_USER` and `JJ_EMAIL` the shell container reads
-* [Reverse-proxy routes](reverse-proxy-routes.md): every path the proxy in front of kasten routes, which carry the login gate and which must not, and the event stream and WebSocket rules
-* [Requirements](requirements.md): the machine, ports, memory and disk the self-host stack needs, measured on a running copy
-* [Editor keys](editor-keys.md) - every keyboard binding kasten adds, the mode each one applies in, the prompt, finder and search they open, how a wikilink is followed, how a highlight reaches the book it came from, and what to do in a new terminal the first time
-* [Ranking performance](ranking-performance.md) - the bar a keystroke in the note prompt and the note finder is held to, the harnesses that measure it, and every recorded number
+* [mise tasks](mise-tasks.md): every task defined in mise.toml, by group
+* [HTTP API](http-api.md): every endpoint the backend serves, with its response shape, the folders `GET /api/layout` names, and the addresses `GET /api/fetch` refuses
+* [Note frontmatter](note-frontmatter.md): the YAML block every note carries, which fields kasten manages, when they are written, and the two filenames that get no block at all
+* [Exam format](exam-format.md): the note a practice exam is written in, every part it can carry, the two shapes a question takes, the two places an answer goes, what a sitting scores, and where the result note lands
+* [Flashcard format](flashcard-format.md): the two ways a card is written, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, and the keys a sitting takes
+* [Todo format](todo-format.md): the line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the terms that filter one, and the note that saves them
+* [Highlight format](highlight-format.md): the block a passage taken out of a book is written as, the quote rule and its character classes, the figure line, the chapter line and its fallback, the anchor, and the rule that reads a highlight back
+* [Relation format](relation-format.md): the line a typed relation is written on, the nine rules of its grammar, how the backlinks panel groups by it, and the one thing it reads that it should not
+* [Graph query](graph-query.md): the language the graph pane, `GET /api/graph` and the agent's `query_graph` read, what a filter keeps, what a pattern answers, and what the graph holds
+* [Agent API](agent-api.md): the routes an agent outside the box reaches the vault with, the bearer rule in front of them, what a digest means, and the origin check on the consent step
+* [Configuration](configuration.md): every backend setting and compose variable with its default, the self-host stack's included, the folders a vault can name for itself, the startup type pass, and the `JJ_USER` and `JJ_EMAIL` the shell container reads
+* [Reverse-proxy routes](reverse-proxy-routes.md): every path the proxy in front of kasten routes, which carry the login gate, and the event stream and WebSocket rules
+* [Requirements](requirements.md): the machine, ports, memory and disk the self-host stack needs
+* [Editor keys](editor-keys.md): every keyboard binding kasten adds, the mode each one applies in, the prompt, finder and search they open, how a wikilink is followed, how a highlight reaches the book it came from, and what to do in a new terminal the first time
+* [Ranking performance](ranking-performance.md): the bar a keystroke in the note prompt and the note finder is held to, the harnesses that measure it, and every recorded number

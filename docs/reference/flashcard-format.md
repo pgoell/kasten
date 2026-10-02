@@ -335,8 +335,8 @@ it is.
 
 ## See also
 
-* [Import an Anki deck](/how-to/import-an-anki-deck.md) - turning an `.apkg` into notes
-* [Spaced repetition](/explanation/spaced-repetition.md) - why the schedule is in the file
-* [Editor keys](editor-keys.md) - every binding, including `<leader>gs`
-* [Todo format](todo-format.md) - the other borrowed format
-* [HTTP API](http-api.md) - the endpoints a sitting reads and writes
+* [Import an Anki deck](/how-to/import-an-anki-deck.md): turning an `.apkg` into notes
+* [Spaced repetition](/explanation/spaced-repetition.md): why the schedule is in the file
+* [Editor keys](editor-keys.md): every binding, including `<leader>gs`
+* [Todo format](todo-format.md): the other borrowed format
+* [HTTP API](http-api.md): the endpoints a sitting reads and writes

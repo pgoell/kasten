@@ -139,7 +139,7 @@ image.
 
 ## Related
 
-* [Deploy to the VPS](deploy-to-the-vps.md) - the runbook for both environments, bootstrap through rollback
-* [Two environments](/explanation/environments.md) - what the two environments are and why they are wired that way
-* [Regenerate the API types](regenerate-the-api-types.md) - the step 2 command, and why it runs through bunx
-* [Run the checks](run-the-checks.md) - the tests and linters CI runs on the release branch
+* [Deploy to the VPS](deploy-to-the-vps.md): the runbook for both environments, bootstrap through rollback
+* [Two environments](/explanation/environments.md): what the two environments are and why they are wired that way
+* [Regenerate the API types](regenerate-the-api-types.md): the step 2 command, and why it runs through bunx
+* [Run the checks](run-the-checks.md): the tests and linters CI runs on the release branch

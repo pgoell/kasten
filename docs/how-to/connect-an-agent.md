@@ -19,7 +19,8 @@ kind of token. What either grants, and what neither does, is
 
 ## Before you start
 
-The server needs three things. The self-host stack does all three for you.
+The server needs three things. The self-host stack does all three; on another
+setup, check them.
 
 * `/agent/*` and `/.well-known/*` reach the backend with no login gate in front,
   and every other route stays behind it.
@@ -28,10 +29,8 @@ The server needs three things. The self-host stack does all three for you.
   bare hostname the world uses, `notes.example.com`, with no scheme, port or
   slash. The self-host stack copies it from `KASTEN_DOMAIN`.
 * [`KASTEN_TOKENS_PATH`](/reference/configuration.md#kasten_tokens_path) names a
-  file in a directory mounted from the host. The file keeps a SHA-256 digest of
-  each secret, never the secret. On the host, tokens outlive an upgrade; inside
-  the container, every redeploy forgets them all. The self-host stack keeps the
-  file at `data/agent/tokens.json`.
+  file in a directory mounted from the host, or every redeploy forgets the
+  tokens. The self-host stack keeps it at `data/agent/tokens.json`.
 
 ## Mint, list and revoke a token
 
@@ -87,7 +86,7 @@ Check it with `/mcp` inside Claude Code. The seven tools are `list_notes`,
 `read_note`, `search_notes`, `query_graph`, `save_note`, `append_note` and
 `dump`, and an eighth, `read_guide`, hands back how the vault is filed. Claude
 Code reads a server's instructions at the handshake, so it holds that text
-already and the tool tells it to skip the call.
+already and those instructions tell it to skip the call.
 
 ## codex
 
@@ -141,8 +140,8 @@ a sign-in button fails there; give it a token instead.
 ## curl
 
 The REST routes are the same seven capabilities and need no MCP client at all.
-Every shape is in [the Agent API](/reference/agent-api.md). The paths below are
-on the default folders; yours may differ.
+Every shape is in [the Agent API](/reference/agent-api.md). Write a space in
+a path as `%20`.
 
 ```sh
 export KASTEN_TOKEN=kasten_xxxxxxxx
@@ -152,12 +151,12 @@ curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/notes"
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/search?q=forking"
 curl -s -G -H "Authorization: Bearer $KASTEN_TOKEN" \
   --data-urlencode 'q=?paper supports [[GraphRAG]]' "$KASTEN_AGENT/graph"
-curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/notes/00%20Inbox/borges.md"
+curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/notes/reading/borges.md"
 
 curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
   -H 'content-type: application/json' \
   -d '{"text": "A line to file."}' \
-  "$KASTEN_AGENT/notes/00%20Inbox/today.md/append"
+  "$KASTEN_AGENT/notes/reading/borges.md/append"
 
 curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
   -H 'content-type: application/json' \
@@ -172,7 +171,7 @@ documentation can read the shapes off the schema:
 curl -s -H "Authorization: Bearer $KASTEN_TOKEN" "$KASTEN_AGENT/openapi.json"
 ```
 
-That document names these seven routes and nothing else. The one at the root
+That document names the agent routes and nothing else. The one at the root
 describes the browser's API and is behind the login gate.
 
 An append needs no digest. A whole-note save does: read the note first and
@@ -250,8 +249,8 @@ only.
 
 Both then open a kasten page, `/api/oauth/authorize`, with one button on it. The
 login gate asks who you are first if you have no session, so the button is the
-whole of the consent. Pressing it hands the product a token named for it,
-`claude.ai` or `chatgpt.com`, which is what `/tokens` lists and what `jj log`
+whole of the consent. Pressing it hands the product a token named for its
+callback host, `claude.ai`, `claude.com` or `chatgpt.com`, which is what `/tokens` lists and what `jj log`
 records against every note that arrives that way.
 
 The page refuses a press that did not come from itself. A `403` there means the

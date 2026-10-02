@@ -45,13 +45,13 @@ compose.dev.yml   hosted dev environment
 ## Self-host
 
 `deploy/selfhost/` runs the whole stack on one Linux machine of your own, amd64
-or arm64, with Caddy doing TLS and a login of basic auth, oauth2-proxy or
+or arm64, with Caddy doing TLS and a login gate of basic auth, oauth2-proxy or
 Tailscale in front. No database to run.
 
 * [Self-host on a server](docs/tutorials/self-host-on-a-server.md): the first
   run, from an empty server to a note and a connected agent
 * [Self-host kasten](docs/how-to/self-host-kasten.md): every step, and all
-  three logins
+  three login gates
 * [Connect an agent](docs/how-to/connect-an-agent.md),
   [Back up and restore](docs/how-to/back-up-and-restore.md) and
   [Upgrade kasten](docs/how-to/upgrade-kasten.md): what comes after

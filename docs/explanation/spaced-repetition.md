@@ -174,7 +174,7 @@ Each of these is a real feature of Anki, left out on purpose:
 
 ## Related
 
-* [The vault and the derived index](/explanation/vault-and-derived-index.md) - why the schedule is in the file
-* [The archive](/explanation/the-archive.md) - the folder doing the filing
-* [Flashcard format](/reference/flashcard-format.md) - what all this looks like written down
-* [Import an Anki deck](/how-to/import-an-anki-deck.md) - the runbook
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): why the schedule is in the file
+* [The archive](/explanation/the-archive.md): the folder doing the filing
+* [Flashcard format](/reference/flashcard-format.md): what all this looks like written down
+* [Import an Anki deck](/how-to/import-an-anki-deck.md): the runbook

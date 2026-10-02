@@ -118,5 +118,5 @@ already was.
 
 ## Related
 
-* [Run the checks](/how-to/run-the-checks.md) - which of these CI runs, and what to do when the hooks misbehave
-* [Ranking performance](/reference/ranking-performance.md) - what `fe:test`, `fe:frame` and `fe:bench` measure, and every recorded number
+* [Run the checks](/how-to/run-the-checks.md): which of these CI runs, and what to do when the hooks misbehave
+* [Ranking performance](/reference/ranking-performance.md): what `fe:test`, `fe:frame` and `fe:bench` measure, and every recorded number
