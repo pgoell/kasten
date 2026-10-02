@@ -24,6 +24,11 @@
      @replit/codemirror-vim so the file tree's cursor reads as the same idea. */
   --color-one-cursor: #ff9696;
   --color-one-line: #181a1f;
+  /* The panel colour as a shade rather than a paint, for surfaces inside the
+     editor. CodeMirror draws the selection in a layer behind the text, so an
+     opaque background on a line or a mark hides the selection over it. Black
+     at this strength over the editor's background lands on the panel colour. */
+  --color-one-well: rgb(0 0 0 / 18%);
 
   /* What a refused key does to the one reading in the status bar. Long enough
      to be seen without watching for it, and over before a hand that noticed can
@@ -322,7 +327,7 @@ body {
 .cm-inline-code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--color-one-panel);
+  background: var(--color-one-well);
   color: var(--color-one-green);
   border-radius: 3px;
   padding: 0.1em 0.3em;
@@ -334,7 +339,7 @@ body {
 .cm-line.cm-code-block {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--color-one-panel);
+  background: var(--color-one-well);
   padding-left: 0.75em;
   padding-right: 0.75em;
 }
