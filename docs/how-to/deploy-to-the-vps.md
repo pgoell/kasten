@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Deploy to the VPS
-description: Bootstrap dev and prod on the Hetzner box, deploy day to day, and prove the shell is still behind its gate.
+description: Bootstrap dev and prod on the Hetzner box, on amd64 or arm64, deploy day to day, and prove the shell is still behind its gate.
 tags: [deploy, vps, caddy, postgres, ci]
 status: stable
 ---
@@ -18,7 +18,8 @@ both. Why they are built in opposite ways is in
 | What runs | uvicorn `--reload` and vite dev, in containers with the tree bind-mounted | Images from GHCR, in containers |
 | Who deploys | you, on the box | GitHub Actions only |
 | Trigger | saving a file | publishing a GitHub release |
-| Built where | nowhere, it runs from source | `ubuntu-latest` in CI |
+| Built where | nowhere, it runs from source | `ubuntu-latest` and `ubuntu-24.04-arm` in CI |
+| Architectures | whatever the box is | `linux/amd64` and `linux/arm64` |
 | Database | `kasten_dev`, kasten's own compose Postgres on `:5434` | `kasten_prod`, on the shared `postgres` container |
 | Vault | `/home/pascal/Code/kasten/vault` | `/home/pascal/kasten-data/vault` |
 
@@ -26,6 +27,12 @@ both. Why they are built in opposite ways is in
 
 Prerequisites already on the VPS: Caddy, the shared Postgres, and oauth2-proxy
 running from `/home/pascal/Code/server-infra/`.
+
+The prod images are published for `linux/amd64` and `linux/arm64` under one
+tag, so the same steps work on an x86 box like this one and on an ARM one such
+as a Hetzner CAX or a 64-bit Raspberry Pi. Docker pulls the image that matches
+the host; nothing in `deploy/` names an architecture. A 32-bit ARM board has no
+image.
 
 ### 1. DNS
 
@@ -149,8 +156,9 @@ dependency change, `mise run dev:logs` when something looks wrong,
 **Prod.** Cut a GitHub release, following [Cut a release](cut-a-release.md):
 pick the version off the commits, bump `backend/pyproject.toml`, then tag. The
 workflow checks the tag against that version and stops there if they disagree,
-then builds all three images on `ubuntu-latest`, tags them with the release tag
-and `latest`, pushes to GHCR, and the self-hosted runner pulls, runs migrations
+then builds each changed image twice, for amd64 on `ubuntu-latest` and for
+arm64 on `ubuntu-24.04-arm`, tags the pair with the release tag and `latest`,
+pushes to GHCR, and the self-hosted runner pulls, runs migrations
 as a one-shot container, restarts the services, and waits for the backend
 healthcheck.
 

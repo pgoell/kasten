@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Two environments
-description: Why dev and prod are deployed in deliberately different ways, and the constraints this box imposes on both.
+description: Why dev and prod are deployed in deliberately different ways, the constraints this box imposes on both, and why prod images are built for amd64 and arm64.
 tags: [deploy, environments, ci]
 status: stable
 ---
@@ -198,6 +198,32 @@ what `claude update` needs to write; putting it under `/usr/local` would hand
 that user ttyd and herdr as well. An update lands in the container's writable
 layer, so recreating the container returns to the version `shell/Dockerfile`
 pins, and bumping the pin is how a version sticks.
+
+## Two architectures
+
+This box is amd64, but the prod images are built for `linux/amd64` and
+`linux/arm64` both, so kasten can also be hosted on an ARM machine. Each tag
+names one image index over the two, and Docker on the host picks its own half.
+
+Most of what goes into an image is source or comes from a base image that is
+already published for both. The exceptions are the binaries the Dockerfiles
+download: jj and rg in the backend, and ttyd, herdr, jj, rg and starship in the
+shell. Each has one stage per architecture with its own URL and its own pinned
+checksum, and `FROM <tool>-${TARGETARCH}` picks the stage, so a build only
+fetches its own. The amd64 stages are the lines that were there before arm64
+was added, unchanged, which is why an amd64 host gets the same binaries it
+always did. The one asymmetry is rg: ripgrep publishes no static musl build
+for aarch64, so the arm64 image carries the glibc build, which runs against the
+glibc the Debian base already has.
+
+Each architecture builds on a runner of its own kind, `ubuntu-latest` and
+`ubuntu-24.04-arm`, rather than on one runner with QEMU. Under emulation every
+arm64 instruction is translated, so the shell image's npm install alone took
+four minutes in a local build, and a release whose dsh pulls a node-pty that
+has to be compiled with node-gyp would take far longer. Native arm64 runners
+cost nothing on a public repo. The two builds run side by side, so a release takes about as
+long as the slower of the two, and a last job joins their digests under the
+release tag.
 
 ## The runbook
 

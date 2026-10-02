@@ -27,6 +27,13 @@ def arg(dockerfile: str, name: str) -> str:
     return found.group(1)
 
 
+def checksums(dockerfile: str, name: str) -> list[str]:
+    """Every `ARG NAME=value` line's value, one per architecture, in file order."""
+    found = re.findall(rf"^ARG {name}=(\S+)$", dockerfile, re.MULTILINE)
+    assert len(found) == 2, f"expected an amd64 and an arm64 {name}, found {found}"
+    return found
+
+
 def mise_tool(entry: str) -> str:
     """The version mise pins a tool at. Versions only; mise carries no checksums."""
     found = re.search(rf'^"{re.escape(entry)}" = "(\S+)"$', MISE, re.MULTILINE)
@@ -47,6 +54,10 @@ def test_rg_is_one_version_everywhere() -> None:
 
 
 def test_the_two_images_fetch_the_same_binaries() -> None:
-    """Same version and a different checksum would be a fetch nobody noticed."""
-    assert arg(SHELL, "JJ_SHA256") == arg(BACKEND, "JJ_SHA256")
-    assert arg(SHELL, "RG_SHA256") == arg(BACKEND, "RG_SHA256")
+    """Same version and a different checksum would be a fetch nobody noticed.
+
+    Each Dockerfile carries one checksum per architecture, amd64 first, so the
+    lists are compared whole: a swap or a drift on either architecture fails.
+    """
+    assert checksums(SHELL, "JJ_SHA256") == checksums(BACKEND, "JJ_SHA256")
+    assert checksums(SHELL, "RG_SHA256") == checksums(BACKEND, "RG_SHA256")
