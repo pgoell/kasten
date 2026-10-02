@@ -1,0 +1,16 @@
+# Your tailnet is the gate. KASTEN_DOMAIN is this machine's MagicDNS name,
+# `<machine>.<tailnet>.ts.net`, and Caddy fetches its certificate from the
+# local tailscaled through the socket compose.tailscale.yaml mounts.
+#
+# Binding the ports to the machine's tailnet address (KASTEN_BIND_ADDRESS) is
+# what keeps the stack off the internet. The address check is the second lock,
+# for the day that bind is forgotten: a request from outside the Tailscale
+# ranges is dropped without an answer.
+
+(site) {
+	@outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48
+}
+
+(gate) {
+	abort @outside_tailnet
+}

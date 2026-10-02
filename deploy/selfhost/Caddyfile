@@ -1,0 +1,53 @@
+# deploy/selfhost/Caddyfile
+#
+# The one front door. Caddy gets a certificate for $KASTEN_DOMAIN, splits the
+# paths between the three containers and puts a login gate on every route
+# except the two the backend guards itself.
+#
+# The gate is a file, not an edit. `gates/$KASTEN_GATE.caddy` defines two
+# snippets: `site`, imported once into the site block, and `gate`, imported
+# into every gated route. Name a gate that has no file and Caddy refuses to
+# start, so a typo cannot leave the notebook open.
+
+import gates/{$KASTEN_GATE}.caddy
+
+{$KASTEN_DOMAIN} {
+	import site
+
+	# Everything but the event stream. `encode` buffers `/api/events` whole,
+	# and the browser then holds a connection that never delivers, which reads
+	# as a healthy stream rather than as an error.
+	@compressible not path /api/events
+	encode @compressible zstd gzip
+
+	handle /api/* {
+		import gate
+		reverse_proxy backend:8000
+	}
+
+	# No gate here, and none on `/.well-known/*` below. Every route under
+	# `/agent/` checks a bearer token minted at /tokens, which is the whole
+	# trust boundary for agents. The discovery documents are fetched by
+	# machines with no session, and a sign-in page in their place ends a
+	# connector's flow. See docs/explanation/the-agent-boundary.md.
+	handle /agent/* {
+		reverse_proxy backend:8000
+	}
+
+	handle /.well-known/* {
+		reverse_proxy backend:8000
+	}
+
+	# ttyd, which is a shell. The gate is the only thing between it and
+	# whoever can reach this port: the container publishes none. Never remove
+	# it. `handle` keeps the path, which is what ttyd's `-b /term` expects.
+	handle /term/* {
+		import gate
+		reverse_proxy shell:7681
+	}
+
+	handle {
+		import gate
+		reverse_proxy frontend:3000
+	}
+}

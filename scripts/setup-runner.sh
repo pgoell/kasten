@@ -13,7 +13,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 RUNNER_DIR="$HOME/actions-runner-kasten"
-RUNNER_NAME="iuno-kasten"
+# Override to register a runner on another box, `RUNNER_NAME=mybox-kasten`.
+RUNNER_NAME="${RUNNER_NAME:-iuno-kasten}"
 UNIT_NAME="actions-runner-kasten"
 UNIT_PATH="$HOME/.config/systemd/user/${UNIT_NAME}.service"
 

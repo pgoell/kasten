@@ -1,0 +1,24 @@
+# Sign in with GitHub or any OIDC provider, through the oauth2-proxy service
+# (`COMPOSE_PROFILES=oauth2-proxy`). Who may sign in is `allowed-emails.txt`,
+# which oauth2-proxy reads; nothing here decides it.
+
+(site) {
+	# oauth2-proxy's own pages: the sign-in redirect and the callback.
+	handle /oauth2/* {
+		reverse_proxy oauth2-proxy:4180
+	}
+}
+
+(gate) {
+	forward_auth oauth2-proxy:4180 {
+		uri /oauth2/auth
+
+		# A caller with no session goes to the sign-in page and comes back to
+		# where it was headed. Anything else oauth2-proxy answers, and a 502
+		# when it is down, passes through unchanged: closed either way.
+		@unauthenticated status 401
+		handle_response @unauthenticated {
+			redir * /oauth2/sign_in?rd={scheme}://{host}{uri} 302
+		}
+	}
+}

@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Configuration
-description: Every backend setting, its default, where the values come from, and the two variables the shell container reads for its commit identity.
+description: Every backend setting, its default, where the values come from, the two variables the shell container reads for its commit identity, and the variables the compose files read.
 resource: backend/src/kasten_backend/config.py
 tags: [config, environment, backend]
 status: stable
@@ -40,6 +40,10 @@ postgresql+psycopg://kasten:kasten@localhost:5434/kasten_dev
 ```
 
 The SQLAlchemy URL for the derived index. It never holds note content.
+
+Only Alembic reads it today. No module the running backend imports opens a
+connection, which is why the [self-host stack](/how-to/self-host-kasten.md)
+ships no Postgres and leaves this at its default.
 
 Dev points at kasten's own compose Postgres, published on the host at 5434. It
 cannot use the shared `postgres` container on the VPS: that one publishes no
@@ -238,6 +242,28 @@ the container is never replaced. Unset or empty, it writes nothing. It then
 removes both from the environment the shell gets, because jj reads `JJ_USER`
 and `JJ_EMAIL` itself ahead of any config file, and left in place they would
 override what the volume holds.
+
+## Compose variables
+
+These are read by compose, not by the backend, so they take no part in
+`backend/.env`. Each defaults to what the original VPS runs with.
+
+| Variable | Default | Read by | What it sets |
+| --- | --- | --- | --- |
+| `KASTEN_IMAGE_REPO` | `ghcr.io/pgoell` | `deploy/compose.yaml`, `deploy/selfhost/compose.yaml` | where the images are pulled from |
+| `KASTEN_IMAGE_TAG` | `latest` | both | which release to run |
+| `KASTEN_UID`, `KASTEN_GID` | `1000` | both | who the backend and shell run as |
+| `KASTEN_DATA_DIR` | `/home/pascal/kasten-data`, and `./data` for self-host | both | the host directory holding `vault/` and `agent/` |
+| `JJ_USER`, `JJ_EMAIL` | unset | both | passed to the shell container, see [above](#the-shell-container) |
+| `KASTEN_NETWORK` | `web` | `deploy/compose.yaml`, `compose.dev.yml` | the external Docker network shared with Caddy |
+| `KASTEN_DEV_PUBLIC_HOST` | `kasten-dev.pgoell.com` | `compose.dev.yml` | the public name vite accepts and points hot reload at |
+| `KASTEN_DB_PORT` | `5434` | `compose.yaml` | the dev Postgres's port on loopback |
+
+The self-host stack reads more, for its domain, its gate and its ports.
+`deploy/selfhost/.env.example` lists them, and
+[Self-host kasten](/how-to/self-host-kasten.md) walks through them.
+[Deploy to the VPS](/how-to/deploy-to-the-vps.md#5-prod-env-file) says where
+the production ones go.
 
 ## Related
 

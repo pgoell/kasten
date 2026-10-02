@@ -1,0 +1,12 @@
+# deploy/selfhost/compose.tailscale.yaml
+#
+# Layered on compose.yaml for the tailscale gate, through
+# `COMPOSE_FILE=compose.yaml:compose.tailscale.yaml` in `.env`.
+#
+# Caddy asks the host's tailscaled for the certificate of a `*.ts.net` name
+# over this socket. The directory rather than the socket file: tailscaled
+# makes a new socket when it restarts, and a file mount would keep the old one.
+services:
+  caddy:
+    volumes:
+      - /var/run/tailscale:/var/run/tailscale

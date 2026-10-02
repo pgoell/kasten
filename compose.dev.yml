@@ -130,7 +130,7 @@ services:
       KASTEN_DEV_BIND: 0.0.0.0
       # Switches vite into hosted mode: accept the public Host header and point
       # the HMR websocket at wss://<host>:443 so hot reload survives Caddy.
-      KASTEN_DEV_PUBLIC_HOST: kasten-dev.pgoell.com
+      KASTEN_DEV_PUBLIC_HOST: ${KASTEN_DEV_PUBLIC_HOST:-kasten-dev.pgoell.com}
       KASTEN_DEV_BACKEND: http://backend-dev:8000
     # Loopback only. The real route in is Caddy on the `web` network; this is
     # for a local browser on the box, which cannot pass the OAuth gate. Never
@@ -156,4 +156,4 @@ volumes:
 networks:
   web:
     external: true
-    name: web
+    name: ${KASTEN_NETWORK:-web}

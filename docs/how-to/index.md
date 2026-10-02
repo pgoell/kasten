@@ -12,6 +12,7 @@ running; if you do not, start with [Getting started](/tutorials/getting-started.
 * [Recover an earlier version of a note](recover-an-earlier-version.md) - read back or restore a note as it was before a save overwrote it
 * [Regenerate the API types](regenerate-the-api-types.md) - rebuild the frontend's TypeScript types after changing a backend endpoint
 * [Run the checks](run-the-checks.md) - run the linters, tests and type checks, and get past the two ways the git hooks go wrong
+* [Self-host kasten](self-host-kasten.md): run kasten on one machine of your own, amd64 or arm64, behind basic auth, oauth2-proxy or Tailscale
 * [Write a practice exam](write-a-practice-exam.md) - put a set of questions in the vault so kasten can ask them one at a time and score the sitting
 
 Why the two environments are built in opposite ways is

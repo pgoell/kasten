@@ -244,7 +244,10 @@ jobs:
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEPLOY_DIR: /home/pascal/kasten-deploy
+          # Repository variables, so a fork can deploy to its own box without
+          # editing this file. Unset, they fall back to this VPS's paths.
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/home/pascal/kasten-deploy' }}
+          KASTEN_DATA_DIR: ${{ vars.KASTEN_DATA_DIR || '/home/pascal/kasten-data' }}
           KASTEN_IMAGE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
@@ -257,15 +260,20 @@ jobs:
           fi
           # Refuse to start if the vault mount is missing. Compose would happily
           # create an empty directory and the notebook would come up blank.
-          if [ ! -d /home/pascal/kasten-data/vault ]; then
-            echo "::error::Missing /home/pascal/kasten-data/vault. Follow the bootstrap in docs/how-to/deploy-to-the-vps.md."
+          # KASTEN_DATA_DIR is in the environment, so compose mounts the same
+          # directory this checks.
+          if [ ! -d "$KASTEN_DATA_DIR/vault" ]; then
+            echo "::error::Missing $KASTEN_DATA_DIR/vault. Follow the bootstrap in docs/how-to/deploy-to-the-vps.md."
             exit 1
           fi
 
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           cd "$DEPLOY_DIR"
-          docker compose pull
-          docker compose up -d
+          # `--env-file` so the compose-level settings in deploy/compose.yaml
+          # (image repo, uid, network) can sit in .env.prod beside the backend's,
+          # rather than in a second file. A variable set above still wins.
+          docker compose --env-file .env.prod pull
+          docker compose --env-file .env.prod up -d
           docker logout ghcr.io
 
       - name: Wait for the backend to report healthy

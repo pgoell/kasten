@@ -18,7 +18,7 @@ services:
     # Docker publishes ports with DNAT rules that ufw never sees, so it would
     # be reachable from the internet with these throwaway credentials.
     ports:
-      - "127.0.0.1:5434:5432"
+      - "127.0.0.1:${KASTEN_DB_PORT:-5434}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
