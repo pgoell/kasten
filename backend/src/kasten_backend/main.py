@@ -395,6 +395,16 @@ class TrashEntry(BaseModel):
         return cls(entry=found.entry, path=found.path, deleted=found.deleted)
 
 
+class Layout(BaseModel):
+    """The folders the editor files into or looks in, each a path from the vault root."""
+
+    inbox: str
+    periodic: str
+    archive: str
+    images: str
+    config: str
+
+
 class Restored(BaseModel):
     """Where a restored note or folder landed, which is where it was."""
 
@@ -415,6 +425,22 @@ async def read_build() -> Build:
     and which is documented as saying nothing but whether the process is up.
     """
     return Build(backend=build_id())
+
+
+@app.get("/api/layout")
+async def read_layout(settings: Annotated[Settings, Depends(get_settings)]) -> Layout:
+    """Name the folders this vault keeps things in, read off the `KASTEN_*_PATH` settings.
+
+    The editor makes notes and images on its own, so it has to know where they
+    go. Served rather than built in, so one frontend bundle fits any vault.
+    """
+    return Layout(
+        inbox=settings.inbox_path,
+        periodic=settings.periodic_path,
+        archive=settings.archive_path,
+        images=settings.images_path,
+        config=settings.config_path,
+    )
 
 
 @app.get("/api/files")

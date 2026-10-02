@@ -13,11 +13,16 @@ fails when one copy is edited and not the other.
 import re
 from datetime import date, timedelta
 
-DAILY = "01 Periodic/00 Daily"
-"""Where the day's notes live. `FOLDER.daily` in `periodic.ts` is the other copy."""
+from kasten_backend.config import DEFAULTS
 
-WEEKLY = "01 Periodic/01 Weekly"
-"""Where the week a day links up to lives."""
+DAILY = "00 Daily"
+"""Where the day's notes live, inside `KASTEN_PERIODIC_PATH`.
+
+`FOLDER.daily` in `periodic.ts` is the other copy.
+"""
+
+WEEKLY = "01 Weekly"
+"""Where the week a day links up to lives, beside the days."""
 
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 """Spelled out rather than read off `strftime("%A")`, which answers in the locale."""
@@ -32,17 +37,17 @@ Not every heading: a `###` written inside the dump is part of what was dumped.
 """
 
 
-def daily_path(day: date) -> str:
+def daily_path(day: date, periodic: str = DEFAULTS.periodic_path) -> str:
     """Where the note for `day` lives, relative to the vault root."""
-    return f"{DAILY}/{day.isoformat()}.md"
+    return f"{periodic}/{DAILY}/{day.isoformat()}.md"
 
 
-def daily_note(day: date) -> str:
+def daily_note(day: date, periodic: str = DEFAULTS.periodic_path) -> str:
     """The text `<leader>gd` gives a daily note it makes, frontmatter and all."""
     year, week, _ = day.isocalendar()
-    before = daily_path(day - timedelta(days=1)).removesuffix(".md")
-    after = daily_path(day + timedelta(days=1)).removesuffix(".md")
-    nav = f"[[{before}]] | [[{WEEKLY}/{year}-W{week:02d}]] | [[{after}]]"
+    before = daily_path(day - timedelta(days=1), periodic).removesuffix(".md")
+    after = daily_path(day + timedelta(days=1), periodic).removesuffix(".md")
+    nav = f"[[{before}]] | [[{periodic}/{WEEKLY}/{year}-W{week:02d}]] | [[{after}]]"
 
     return (
         f"---\ntype: Periodic Note\n---\n\n"

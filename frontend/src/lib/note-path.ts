@@ -5,6 +5,8 @@
  * cases answers to a unit test with no DOM in it.
  */
 
+import { INBOX } from "@/lib/layout";
+
 export type NotePathVerdict =
   | { kind: "empty" }
   | { kind: "blocked"; reason: string }
@@ -12,9 +14,6 @@ export type NotePathVerdict =
   | { kind: "create"; path: string; newFolder?: string };
 
 const SUFFIX = ".md";
-
-/** The one folder in the vault for things not yet filed. */
-const INBOX = "00 Inbox";
 
 /**
  * The formats the reader opens, and what the vault does with each.
@@ -27,11 +26,12 @@ const INBOX = "00 Inbox";
  * nothing else, while a pdf is as often a paper, a report or a deck, and both
  * `02 Books` and `type: Book` would file one of those under a word that is not
  * true. `Source` is the ontology's own name for something written elsewhere,
- * which is every one of them.
+ * which is every one of them. Each folder sits inside the inbox, which
+ * `layout.ts` names.
  */
 const FORMATS = [
-  { suffix: ".epub", folder: `${INBOX}/02 Books`, type: "Book" },
-  { suffix: ".pdf", folder: `${INBOX}/02 Documents`, type: "Source" },
+  { suffix: ".epub", folder: "02 Books", type: "Book" },
+  { suffix: ".pdf", folder: "02 Documents", type: "Source" },
 ] as const;
 
 /** What the reader opens, in the order the vault prefers them. */
@@ -114,10 +114,11 @@ export function bookNote(fileName: string): BookNote | null {
   const name = safeName(fileName.slice(0, -format.suffix.length));
   if (name === "") return null;
 
+  const folder = `${INBOX}/${format.folder}`;
   return {
     name,
-    book: `${format.folder}/${name}${format.suffix}`,
-    note: `${format.folder}/${name}${SUFFIX}`,
+    book: `${folder}/${name}${format.suffix}`,
+    note: `${folder}/${name}${SUFFIX}`,
   };
 }
 

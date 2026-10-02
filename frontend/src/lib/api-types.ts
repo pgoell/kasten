@@ -201,6 +201,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Layout
+         * @description Name the folders this vault keeps things in, read off the `KASTEN_*_PATH` settings.
+         *
+         *     The editor makes notes and images on its own, so it has to know where they
+         *     go. Served rather than built in, so one frontend bundle fits any vault.
+         */
+        get: operations["read_layout_api_layout_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/files": {
         parameters: {
             query?: never;
@@ -300,7 +323,8 @@ export interface paths {
          *
          *     http and https and nothing else. The scheme is the trust boundary: `file://`
          *     would read this container's disk and hand it to the browser, and the check
-         *     is made before anything is opened.
+         *     is made before anything is opened. The address is the other half of it, and
+         *     `_refuse_private` holds every hop to the public internet.
          *
          *     A page that could not be read is a 502 rather than the status the other end
          *     gave. The reader asked kasten for a note and kasten could not get one; a
@@ -1121,6 +1145,22 @@ export interface components {
             text: string;
         };
         /**
+         * Layout
+         * @description The folders the editor files into or looks in, each a path from the vault root.
+         */
+        Layout: {
+            /** Inbox */
+            inbox: string;
+            /** Periodic */
+            periodic: string;
+            /** Archive */
+            archive: string;
+            /** Images */
+            images: string;
+            /** Config */
+            config: string;
+        };
+        /**
          * Minted
          * @description One token as its owner sees it, once.
          */
@@ -1575,6 +1615,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Build"];
+                };
+            };
+        };
+    };
+    read_layout_api_layout_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
                 };
             };
         };

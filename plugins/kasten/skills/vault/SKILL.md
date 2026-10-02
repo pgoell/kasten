@@ -80,6 +80,14 @@ path you were given is the path to use. There is no delete, no move and no
 rename here, so a note written to the wrong place stays there until the user
 moves it in the app.
 
+The folder names on this page, `00 Inbox`, `01 Periodic` and
+`99 Misc/01 Config`, are kasten's defaults. A vault can be set up with its own,
+and this page cannot know them. When the reading guide is not at the path above,
+list the notes and find `reading-this-vault.md`: the folder holding it is the
+config folder, and every guide beside it names that vault's own folders. Find the
+inbox the same way, from a folder named like one, and ask the user when nothing
+fits rather than making a `00 Inbox` they do not use.
+
 ## Read
 
 ### List notes

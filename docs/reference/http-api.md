@@ -49,6 +49,26 @@ a browser has no repo to ask, so `vite.config.ts` stamps it in at build time.
 [Two environments](/explanation/environments.md#which-one-you-are-looking-at-and-what-it-is-running)
 says what the status bar does with the pair.
 
+## GET /api/layout
+
+Names the folders the vault keeps things in, each a path from the vault root,
+read off the [folder settings](/reference/configuration.md#the-vaults-folders).
+
+```json
+{
+  "inbox": "00 Inbox",
+  "periodic": "01 Periodic",
+  "archive": "98 Archive",
+  "images": "99 Misc/02 Assets/01 Images",
+  "config": "99 Misc/01 Config"
+}
+```
+
+The editor makes notes and images by itself, so it has to know where they go.
+It asks once when the page loads and keeps the answer. Until the answer
+arrives it uses the defaults above, so a vault on the defaults sees no change
+at all.
+
 ## GET /api/files
 
 Lists every note in the vault as a relative POSIX path, sorted.

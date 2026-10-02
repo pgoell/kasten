@@ -19,13 +19,14 @@
  * `gf` into the archive works whether the toggle is on or off, and only what
  * you go browsing through changes.
  *
- * The name is spelled here and in `Settings.archive_path` on the backend. Two
- * copies of a default, not two rules: the backend's is what its rg pass skips
- * and this one is what the tree hides, and a vault that renames the folder has
- * to say so in both.
+ * The name is `KASTEN_ARCHIVE_PATH` on the backend, which `GET /api/layout`
+ * hands to `layout.ts`. One setting, so the folder its rg pass skips and the
+ * folder the tree hides are the same folder.
  */
 
-export const ARCHIVE = "98 Archive";
+import { ARCHIVE } from "@/lib/layout";
+
+export { ARCHIVE };
 
 /**
  * Whether a note lives in the archive.

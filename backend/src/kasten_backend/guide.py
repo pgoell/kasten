@@ -17,27 +17,44 @@ trying to be both.
 from pathlib import Path
 
 from kasten_backend.change import vault_change, vault_write
+from kasten_backend.config import DEFAULTS, Settings, get_settings
 from kasten_backend.frontmatter import stamp
 from kasten_backend.vault import create_note, resolve_path
 
-GUIDE_PATH = "99 Misc/01 Config/01 Agents/How-To-TODO.md"
-"""Where the todo guide lives, beside the saved views the todo pane writes."""
+TODO_GUIDE = "01 Agents/How-To-TODO.md"
+"""Where the todo guide lives inside `KASTEN_CONFIG_PATH`, beside the saved views."""
 
-EXAM_GUIDE_PATH = "99 Misc/01 Config/01 Agents/How-To-Exam.md"
-"""Where the exam guide lives, beside the one above."""
+EXAM_GUIDE = "01 Agents/How-To-Exam.md"
+"""Where the exam guide lives inside `KASTEN_CONFIG_PATH`, beside the one above."""
+
+GUIDE_PATH = f"{DEFAULTS.config_path}/{TODO_GUIDE}"
+"""Where the todo guide lands in a vault on the default layout."""
+
+EXAM_GUIDE_PATH = f"{DEFAULTS.config_path}/{EXAM_GUIDE}"
+"""Where the exam guide lands in a vault on the default layout."""
 
 # Read off the package once rather than spelled in Python. Markdown in a Python
 # string is markdown nobody can read in a diff, and both of these are the length
 # of a documentation page.
 GUIDES = {
-    GUIDE_PATH: (Path(__file__).parent / "how-to-todo.md").read_text(encoding="utf-8"),
-    EXAM_GUIDE_PATH: (Path(__file__).parent / "how-to-exam.md").read_text(encoding="utf-8"),
+    TODO_GUIDE: (Path(__file__).parent / "how-to-todo.md").read_text(encoding="utf-8"),
+    EXAM_GUIDE: (Path(__file__).parent / "how-to-exam.md").read_text(encoding="utf-8"),
 }
+"""Each guide by its place inside the config folder, as a template `Settings.fill` reads."""
+
+
+def placed(settings: Settings, notes: dict[str, str]) -> dict[str, str]:
+    """`notes` moved under the config folder, each text naming this vault's folders."""
+    return {f"{settings.config_path}/{name}": settings.fill(text) for name, text in notes.items()}
 
 
 async def write_guide(root: Path) -> None:
-    """Write the guides into `root`, skipping each one the vault already holds."""
-    await write_missing(root, GUIDES)
+    """Write the guides into `root`, skipping each one the vault already holds.
+
+    The layout comes off the settings rather than an argument, the way the
+    lifespan that calls this reads its own: there is no request to inject from.
+    """
+    await write_missing(root, placed(get_settings(), GUIDES))
 
 
 async def write_missing(root: Path, notes: dict[str, str]) -> None:

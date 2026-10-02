@@ -12,28 +12,29 @@ today, which is the one thing a notebook must never do to your own history.
 from pathlib import Path
 
 from kasten_backend.change import vault_change, vault_write
+from kasten_backend.config import DEFAULTS, get_settings
 from kasten_backend.frontmatter import reserved, with_type
-from kasten_backend.guide import write_missing
+from kasten_backend.guide import placed, write_missing
 from kasten_backend.vault import list_markdown_files, write_note
 
 BACKFILL_LABEL = "type backfill"
 """What the pass calls its jj change, in the slot a note's path usually fills."""
 
-READER_PATH = "99 Misc/01 Config/reading-this-vault.md"
-"""Where the note that says how this vault's links resolve lives.
+READER = "reading-this-vault.md"
+"""Where the note that says how this vault's links resolve lives, in the config folder.
 
 Outside `01 Agents/`, because this one is for whoever opens the bundle, and an
 OKF consumer that has never heard of kasten is the reader it is written for.
 """
 
-ONTOLOGY_PATH = "99 Misc/01 Config/01 Agents/Ontology.md"
+ONTOLOGY = "01 Agents/Ontology.md"
 """Where the vault's own vocabulary lives, beside the guides an agent reads.
 
 A note rather than a config file, so nothing validates a relation and an unknown
 name works. The editor's completion reads this, and so does anyone with `cat`.
 """
 
-INDEX_GUIDE_PATH = "99 Misc/01 Config/01 Agents/How-To-Index.md"
+INDEX_GUIDE = "01 Agents/How-To-Index.md"
 """Where the shape of the two reserved files is written down, for whoever writes one.
 
 Beside the format guides, because that is what it is. `reading-this-vault.md`
@@ -41,10 +42,15 @@ says these two carry no block, which is what a reader needs; this says what to
 put in one, which is what a writer needs, and every agent in this vault is both.
 """
 
+# Where the three land on the default layout, `KASTEN_CONFIG_PATH` unset.
+READER_PATH = f"{DEFAULTS.config_path}/{READER}"
+ONTOLOGY_PATH = f"{DEFAULTS.config_path}/{ONTOLOGY}"
+INDEX_GUIDE_PATH = f"{DEFAULTS.config_path}/{INDEX_GUIDE}"
+
 STARTUP_NOTES = {
-    READER_PATH: (Path(__file__).parent / "reading-this-vault.md").read_text(encoding="utf-8"),
-    ONTOLOGY_PATH: (Path(__file__).parent / "ontology.md").read_text(encoding="utf-8"),
-    INDEX_GUIDE_PATH: (Path(__file__).parent / "how-to-index.md").read_text(encoding="utf-8"),
+    READER: (Path(__file__).parent / "reading-this-vault.md").read_text(encoding="utf-8"),
+    ONTOLOGY: (Path(__file__).parent / "ontology.md").read_text(encoding="utf-8"),
+    INDEX_GUIDE: (Path(__file__).parent / "how-to-index.md").read_text(encoding="utf-8"),
 }
 """The notes the bundle cannot be read or written without, and the text each arrives as.
 
@@ -110,9 +116,14 @@ async def prepare(root: Path) -> None:
     edited down to untyped text gets `type: Note` on the next boot, exactly as
     every other untyped note does. No list of paths the pass skips: that would be
     a rule about paths, and wrong the first time one moves.
+
+    `KASTEN_TYPE_BACKFILL=false` skips the pass, for a vault kept by another
+    tool whose notes should not all be rewritten on the first boot.
     """
-    await write_missing(root, STARTUP_NOTES)
-    await backfill(root)
+    settings = get_settings()
+    await write_missing(root, placed(settings, STARTUP_NOTES))
+    if settings.type_backfill:
+        await backfill(root)
 
 
 if __name__ == "__main__":

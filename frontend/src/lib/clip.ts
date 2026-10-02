@@ -21,10 +21,10 @@
 // starts to hurt.
 import Defuddle from "defuddle/full";
 import { createNote, fetchPage, type Note } from "@/lib/api";
+import { INBOX } from "@/lib/layout";
 import { safeName } from "@/lib/note-path";
 
-/** Where a clipping lands. The one folder in the vault for things not yet filed. */
-const INBOX = "00 Inbox";
+// A clipping lands in the inbox, the one folder for things not yet filed.
 
 /** What the note is called, off the page's title, with the site as the fallback. */
 function noteName(title: string, url: string): string {

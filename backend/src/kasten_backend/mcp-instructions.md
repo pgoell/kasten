@@ -3,7 +3,7 @@ There is no grep, no regex, no glob and no directory tree.
 
 The vault is an Open Knowledge Format bundle whose notes link to each other with
 [[wikilinks]], and it documents its own conventions. Read
-"99 Misc/01 Config/reading-this-vault.md" before writing anything: it holds the
+"{{config}}/reading-this-vault.md" before writing anything: it holds the
 five-step rule by which a [[wikilink]] resolves, which you cannot guess, and
 what the block at the top of a note carries.
 
@@ -20,7 +20,7 @@ written for you, so never hand-write id, created or modified.
 
 Either write creates the note when there is none at that path, and the folders
 above it are made on the way. File a note you were not told where to put in
-"00 Inbox/00 Agent/", and use the path you were given when you were given one.
+"{{inbox}}/00 Agent/", and use the path you were given when you were given one.
 There is no delete, no move and no rename here, so a note written to the wrong
 place stays there until someone moves it from the app.
 
@@ -28,6 +28,6 @@ dump adds a paragraph to "## Dump" in the user's daily note, read at day's end
 to plan tomorrow. A thought to jot or remember with no note named goes there,
 not into the inbox. Pass the user's local date.
 
-Four more guides sit in "99 Misc/01 Config/01 Agents/": Ontology.md for note
+Four more guides sit in "{{config}}/01 Agents/": Ontology.md for note
 types and relations, How-To-Index.md for index.md and log.md, and How-To-TODO.md
 and How-To-Exam.md for the todo line and the exam note.

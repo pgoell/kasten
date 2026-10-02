@@ -346,14 +346,18 @@ async def dump(settings: Settings, text: str, day: date) -> NoteRead | None:
     if capture == "":
         raise EmptyCaptureError(NOTHING)
 
-    note = resolve_path(settings.vault_path, daily_path(day))
+    note = resolve_path(settings.vault_path, daily_path(day, settings.periodic_path))
     if note is None:
         return None
 
     relative = relative_path(settings.vault_path, note)
     async with vault_write():
         previous = note.read_bytes() if note.is_file() else None
-        held = daily_note(day) if previous is None else previous.decode("utf-8")
+        held = (
+            daily_note(day, settings.periodic_path)
+            if previous is None
+            else previous.decode("utf-8")
+        )
         content = _bounded(_write(relative, append_dump(held, capture), previous))
 
         async with vault_change(settings.vault_path, relative):

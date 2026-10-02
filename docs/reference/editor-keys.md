@@ -1538,6 +1538,11 @@ Five keys open the note covering today, one per stretch of time. They finish the
 `g` group: `d` for the day, `w` for the week, `q` for the quarter and `y` for the
 year, and `m` for the month because `go` is spent on the panel above.
 
+The paths below are on the default layout. `KASTEN_PERIODIC_PATH` moves
+`01 Periodic`, and with it all five; see
+[the vault's folders](/reference/configuration.md#the-vaults-folders). The same
+holds for every inbox, image and config path on this page.
+
 | Key | Note | Path |
 | --- | --- | --- |
 | `<leader>gd` | Today | `01 Periodic/00 Daily/2026-08-06.md` |

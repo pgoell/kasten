@@ -30,9 +30,10 @@ and Obsidian, `mv` and a file browser all know how to put a note in one. Drop
 the schema and rebuild the index and the archive is exactly where you left it,
 because it was never in the schema.
 
-The number in front is a filing convention, not kasten's. Everything but the
-name lives in
-[KASTEN_ARCHIVE_PATH](/reference/configuration.md#kasten_archive_path).
+The number in front is a filing convention, not kasten's. The name lives in
+[KASTEN_ARCHIVE_PATH](/reference/configuration.md#kasten_archive_path), and the
+editor reads the same setting from `GET /api/layout`, so the folder the backend
+skips and the folder the tree hides cannot differ.
 
 ## The toggle is a mode, not a filter
 

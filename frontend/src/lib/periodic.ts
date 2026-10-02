@@ -13,19 +13,26 @@
  */
 
 import { isoWeek, readClock } from "@/lib/clock";
+import { PERIODIC } from "@/lib/layout";
 
 export type Period = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 
-const ROOT = "01 Periodic";
-
-/** Where each kind lives. The numbers order the folders the way the vault does. */
+/**
+ * Where each kind lives inside the periodic folder `layout.ts` names. The
+ * numbers order the folders the way the vault does.
+ */
 const FOLDER: Record<Period, string> = {
-  daily: `${ROOT}/00 Daily`,
-  weekly: `${ROOT}/01 Weekly`,
-  monthly: `${ROOT}/02 Monthly`,
-  quarterly: `${ROOT}/03 Quarterly`,
-  yearly: `${ROOT}/04 Yearly`,
+  daily: "00 Daily",
+  weekly: "01 Weekly",
+  monthly: "02 Monthly",
+  quarterly: "03 Quarterly",
+  yearly: "04 Yearly",
 };
+
+/** The folder holding one kind, read at call time so the served layout counts. */
+function folder(period: Period): string {
+  return `${PERIODIC}/${FOLDER[period]}`;
+}
 
 /**
  * The day a daily note is named for, or nothing where the path is not one.
@@ -35,7 +42,11 @@ const FOLDER: Record<Period, string> = {
  * for, and a note not named for a day cannot say which day that is.
  */
 export function dailyDate(path: string): string | null {
-  const found = new RegExp(`^${FOLDER.daily}/(\\d{4}-\\d{2}-\\d{2})\\.md$`).exec(path);
+  // The prefix is compared as text rather than put in the pattern: a folder is
+  // whatever the vault calls it, and a `.` or a `(` in one is not regex.
+  const prefix = `${folder("daily")}/`;
+  if (!path.startsWith(prefix)) return null;
+  const found = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(path.slice(prefix.length));
   return found?.[1] ?? null;
 }
 
@@ -105,7 +116,7 @@ function name(period: Period, date: Date): string {
 
 /** A `[[link]]` to one periodic note, spelled as the path it is. */
 function link(period: Period, date: Date): string {
-  return `[[${FOLDER[period]}/${name(period, date)}]]`;
+  return `[[${folder(period)}/${name(period, date)}]]`;
 }
 
 /** Where the note covering `now` lives, and the text it starts life with. */
@@ -135,7 +146,7 @@ export function periodicNote(period: Period, now: Date): { path: string; body: s
   // line, so a caller putting anything in front leaves `type` in the body as
   // prose and the note with no type at all.
   return {
-    path: `${FOLDER[period]}/${name(period, now)}.md`,
+    path: `${folder(period)}/${name(period, now)}.md`,
     body: `---\ntype: Periodic Note\n---\n\n# ${heading}\n\n${nav.join(" | ")}\n${todos}`,
   };
 }

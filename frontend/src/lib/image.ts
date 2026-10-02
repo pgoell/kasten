@@ -17,6 +17,7 @@ import { EditorSelection, type EditorState, Facet } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { uploadAsset } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { IMAGE_FOLDER } from "@/lib/layout";
 
 /**
  * Where a pasted image is written.
@@ -25,8 +26,9 @@ import { readClock } from "@/lib/clock";
  * referenced by path and moves with nothing, so a note that moves would leave a
  * broken reference behind if the two travelled together, and the sidecar
  * convention a book gets does not stretch to the several images one note holds.
+ * Which folder is `KASTEN_IMAGES_PATH`, held in `layout.ts`.
  */
-export const IMAGE_FOLDER = "99 Misc/02 Assets/01 Images";
+export { IMAGE_FOLDER };
 
 /** What a pasted image is called, minus the suffix its type names. */
 const NAMED = /^image\//;

@@ -1,5 +1,6 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "@/lib/api-types";
+import { applyLayout, type Layout } from "@/lib/layout";
 
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
@@ -61,6 +62,23 @@ export async function fetchVersion(): Promise<string> {
   }
 
   return data.backend;
+}
+
+/**
+ * The folders this vault files into, which from here on every reader uses.
+ *
+ * Applied in here rather than by whoever asked, so the layout is in place
+ * before the query hands the answer to anything that renders.
+ */
+export async function fetchLayout(): Promise<Layout> {
+  const { data, response } = await client.GET("/api/layout");
+
+  if (!data) {
+    throw new Error(`GET /api/layout failed with ${response.status}`);
+  }
+
+  applyLayout(data);
+  return data;
 }
 
 /** Vault-relative paths of every note, sorted by the backend. */

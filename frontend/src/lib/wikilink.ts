@@ -12,6 +12,7 @@ import { syntaxTree } from "@codemirror/language";
 import { type EditorState, Facet } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
 import type { MarkdownConfig } from "@lezer/markdown";
+import { INBOX } from "@/lib/layout";
 
 /** `[`, which the parser sees as a code point rather than a string. */
 const BRACKET = 91;
@@ -20,16 +21,6 @@ const BRACKET = 91;
 const MARK = 2;
 
 const SUFFIX = ".md";
-
-/**
- * Where a note made from a bare name is written.
- *
- * A name says which note, never where it belongs, so following a link to one
- * nobody has written has to put it somewhere. The inbox is the folder for a
- * note with nowhere to be yet, and a target spelling a path is still taken at
- * its word.
- */
-const INBOX = "00 Inbox";
 
 /**
  * `[[note]]`, which no markdown flavour we load parses.
@@ -128,6 +119,10 @@ export function wikiLinkPath(target: string, paths: string[]): string {
   const found = paths.find(
     (other) => other.slice(other.lastIndexOf("/") + 1).toLowerCase() === name,
   );
+  // A name says which note, never where it belongs, so following a link to one
+  // nobody has written has to put it somewhere. The inbox is the folder for a
+  // note with nowhere to be yet; a target spelling a path was taken at its word
+  // above.
   return found ?? `${INBOX}/${path}`;
 }
 
