@@ -19,14 +19,15 @@ permissions:
   packages: write
 
 jobs:
-  images:
-    name: Publish ${{ matrix.component }} image
+  # Decides once, for all three images, which to build and which to copy, so
+  # the build matrix below fans out over the changed ones alone.
+  plan:
+    name: Plan the images
     # A dispatch redeploys an existing tag, so there is nothing to build.
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        component: [backend, frontend, shell]
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -46,101 +47,194 @@ jobs:
             echo "::error::Release $tag, but backend/pyproject.toml says $version. Bump it on main, then retag."
             exit 1
           fi
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # `shell/` had not changed in three releases and was rebuilt for each of
       # them, at four minutes a time on the critical path. An image whose
-      # sources are untouched is the image already in the registry, so this
-      # decides which of the two steps below runs.
-      - name: Decide whether this image has to be built
+      # sources are untouched is the image already in the registry, so it is
+      # copied here and only the rest go on to be built.
+      #
+      # The copy happens inside the registry: no pull, no build, no cache
+      # export, and the digest the deploy gets is the one that was tested under
+      # the earlier tag rather than a fresh build of the same sources. `latest`
+      # moves too, because the build path tags both and the deploy has no way
+      # to tell which path produced the image it pulls.
+      - name: Decide which images to build, and copy the rest
         id: decide
         env:
           TAG: ${{ github.event.release.tag_name }}
-          IMAGE: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
-          COMPONENT: ${{ matrix.component }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-
-          # What goes into each image, as the Dockerfiles copy it. The backend
-          # takes the root lockfile and project file too, which is also what
-          # makes every release rebuild it: the version bump lands there.
-          case "$COMPONENT" in
-            backend) sources="backend pyproject.toml uv.lock" ;;
-            frontend) sources="frontend" ;;
-            shell) sources="shell" ;;
-            *) echo "::error::No sources listed for $COMPONENT"; exit 1 ;;
-          esac
 
           # The release before this one, which is what the tag's parent is
           # described by. Empty on the first release ever, and then everything
           # is built because there is nothing to compare against.
           previous=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
 
-          if [ -z "$previous" ]; then
-            reason="no earlier release to compare against"
-          elif ! git diff --quiet "$previous" "$TAG" -- $sources; then
-            reason="$sources changed since $previous"
-          elif ! docker buildx imagetools inspect "$IMAGE:$previous" >/dev/null 2>&1; then
-            # The retag has nothing to copy. Building is slower and always
-            # right, and a deploy pulling a tag that was never pushed is the
-            # failure this guard exists to prevent.
-            reason="no $IMAGE:$previous in the registry to copy"
-          else
-            echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "previous=$previous" >> "$GITHUB_OUTPUT"
-            echo "Unchanged since $previous. Copying that image rather than building."
-            exit 0
-          fi
+          build=()
+          for component in backend frontend shell; do
+            image="ghcr.io/$OWNER/kasten-$component"
 
-          echo "build=true" >> "$GITHUB_OUTPUT"
-          echo "Building: $reason."
+            # What goes into each image, as the Dockerfiles copy it. The
+            # backend takes the root lockfile and project file too, which is
+            # also what makes every release rebuild it: the version bump lands
+            # there.
+            case "$component" in
+              backend) sources="backend pyproject.toml uv.lock" ;;
+              frontend) sources="frontend" ;;
+              shell) sources="shell" ;;
+            esac
+
+            if [ -z "$previous" ]; then
+              reason="no earlier release to compare against"
+            elif ! git diff --quiet "$previous" "$TAG" -- $sources; then
+              reason="$sources changed since $previous"
+            elif ! manifest=$(docker buildx imagetools inspect --raw "$image:$previous" 2>/dev/null); then
+              # The copy has nothing to copy. Building is slower and always
+              # right, and a deploy pulling a tag that was never pushed is the
+              # failure this guard exists to prevent.
+              reason="no $image:$previous in the registry to copy"
+            elif ! jq -e '[.manifests[]?.platform.architecture] | contains(["amd64", "arm64"])' \
+                <<<"$manifest" >/dev/null; then
+              # Releases before arm64 was built carry amd64 alone, and copying
+              # one forward would leave an ARM host nothing to pull.
+              reason="$image:$previous lacks an amd64 or an arm64 image"
+            else
+              echo "$component: unchanged since $previous. Copying that image rather than building."
+              docker buildx imagetools create \
+                --tag "$image:$TAG" \
+                --tag "$image:latest" \
+                "$image:$previous"
+              continue
+            fi
+
+            echo "$component: building, $reason."
+            build+=("$component")
+          done
+
+          echo "build=$(jq -cn '$ARGS.positional' --args "${build[@]}")" >> "$GITHUB_OUTPUT"
+
+  # One leg per image and architecture, each on a runner of that architecture.
+  # The shell image compiles node-pty, which under QEMU runs many times slower
+  # than on a native arm64 runner, and public repos get those for free. Each
+  # leg pushes its image by digest alone; the job below tags the pair.
+  build:
+    name: Build ${{ matrix.component }} for ${{ matrix.arch }}
+    needs: [plan]
+    if: needs.plan.outputs.build != '[]'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        component: ${{ fromJSON(needs.plan.outputs.build) }}
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        if: steps.decide.outputs.build == 'true'
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.component }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }},push-by-digest=true,name-canonical=true,push=true
+          # The amd64 leg keeps the cache scope the single-arch build used, so
+          # the first release built this way starts warm.
+          cache-from: type=gha,scope=${{ matrix.arch == 'amd64' && matrix.component || format('{0}-{1}', matrix.component, matrix.arch) }}
+          cache-to: type=gha,scope=${{ matrix.arch == 'amd64' && matrix.component || format('{0}-{1}', matrix.component, matrix.arch) }},mode=max
+      - name: Write the digest down for the job that tags it
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ matrix.component }}-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  images:
+    name: Publish ${{ matrix.component }} image
+    needs: [plan, build]
+    if: needs.plan.outputs.build != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: ${{ fromJSON(needs.plan.outputs.build) }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: digest-${{ matrix.component }}-*
+          merge-multiple: true
+          path: /tmp/digests
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
           tags: |
             type=raw,value=${{ github.event.release.tag_name }}
             type=raw,value=latest
-      - uses: docker/build-push-action@v7
-        if: steps.decide.outputs.build == 'true'
-        with:
-          context: .
-          file: ${{ matrix.component }}/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.component }}
-          cache-to: type=gha,scope=${{ matrix.component }},mode=max
-
-      # A manifest copy inside the registry: no pull, no build, no cache
-      # export, and the digest the deploy gets is the one that was tested under
-      # the earlier tag rather than a fresh build of the same sources. `latest`
-      # moves too, because the build path above tags both and the deploy has no
-      # way to tell which path produced the image it pulls.
-      - name: Copy the unchanged image to this release's tag
-        if: steps.decide.outputs.build == 'false'
+      # One index over both digests, under the same two tags a single-arch
+      # build carried. A host pulls the tag and gets its own architecture, so
+      # the amd64 VPS pulls what it always did.
+      - name: Tag both architectures as one image
+        working-directory: /tmp/digests
         env:
-          TAG: ${{ github.event.release.tag_name }}
-          PREVIOUS: ${{ steps.decide.outputs.previous }}
           IMAGE: ghcr.io/${{ github.repository_owner }}/kasten-${{ matrix.component }}
+          TAG: ${{ github.event.release.tag_name }}
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           set -euo pipefail
-          docker buildx imagetools create \
-            --tag "$IMAGE:$TAG" \
-            --tag "$IMAGE:latest" \
-            "$IMAGE:$PREVIOUS"
+          tag_args=()
+          while read -r tag; do
+            if [ -n "$tag" ]; then tag_args+=(--tag "$tag"); fi
+          done <<<"$TAGS"
+          digests=()
+          for digest in *; do
+            digests+=("$IMAGE@sha256:$digest")
+          done
+          if [ "${#digests[@]}" -ne 2 ]; then
+            echo "::error::Expected an amd64 and an arm64 digest, found ${#digests[@]}."
+            exit 1
+          fi
+          docker buildx imagetools create "${tag_args[@]}" "${digests[@]}"
+          docker buildx imagetools inspect "$IMAGE:$TAG"
 
   deploy:
     name: Deploy to VPS
-    needs: [images]
-    # `always()` plus the explicit result check lets a workflow_dispatch
-    # redeploy run even though the skipped build job would otherwise block it.
-    if: always() && (needs.images.result == 'success' || needs.images.result == 'skipped')
+    needs: [plan, build, images]
+    # `always()` lets a workflow_dispatch redeploy run even though the skipped
+    # jobs above would otherwise block it. A failed or cancelled job above
+    # still stops the deploy. A skipped one does not, because `build` and
+    # `images` skip on a release whose every image was copied.
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v6

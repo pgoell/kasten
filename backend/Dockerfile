@@ -3,6 +3,17 @@
 # backend/Dockerfile
 #
 # Build context: repo root, so the uv workspace root manifests are reachable.
+#
+# Built for linux/amd64 and linux/arm64. BuildKit fills TARGETARCH with one of
+# the two, and the `FROM jj-${TARGETARCH}` lines below pick the stage that
+# fetches that architecture's binary, so a build only downloads its own.
+# TARGETARCH is not declared here on purpose: BuildKit already defines it in
+# the global scope, and an `ARG TARGETARCH` above the first FROM blanks it.
+
+# The versions sit here, above every stage, so each architecture's stage reads
+# the same one and only the checksum differs between them.
+ARG JJ_VERSION=0.37.0
+ARG RG_VERSION=14.1.1
 
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
 WORKDIR /app
@@ -21,25 +32,47 @@ RUN uv sync --frozen --no-dev --no-editable --package kasten-backend
 
 # jj records every vault write, so the backend needs the binary beside it. The
 # release build is static, which is why it can be lifted into another image.
-# Version and checksum are pinned together, and the version has to match the
-# one in mise.toml: host and container work on the same repo.
-FROM debian:bookworm-slim AS jj
-ARG JJ_VERSION=0.37.0
+# One stage per architecture, each with the checksum of its own asset, and the
+# version has to match the one in mise.toml: host and container work on the
+# same repo.
+FROM debian:bookworm-slim AS jj-amd64
+ARG JJ_VERSION
 ARG JJ_SHA256=7fd8e28d65106768054becbc1e0b929bed7c4c963d598f9f9a629bfa92eb7171
 ADD https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/jj.tar.gz
 RUN echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
 
+FROM debian:bookworm-slim AS jj-arm64
+ARG JJ_VERSION
+ARG JJ_SHA256=f42164567abbcc0b13354eeb1ecd11f4245d7dce4de849bf794a4d5e1b615c62
+ADD https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-aarch64-unknown-linux-musl.tar.gz /tmp/jj.tar.gz
+RUN echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
+
+FROM jj-${TARGETARCH} AS jj
+
 # rg answers `GET /api/search` by reading the vault on every query, so the
 # binary is as much a dependency as jj is. Pinned and checksummed the same way,
 # and the version has to match mise.toml for the same reason.
-FROM debian:bookworm-slim AS rg
-ARG RG_VERSION=14.1.1
+FROM debian:bookworm-slim AS rg-amd64
+ARG RG_VERSION
 ARG RG_SHA256=4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e
 ADD https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/rg.tar.gz
 RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/rg.tar.gz -C /usr/local/bin --strip-components=1 \
        ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl/rg
+
+# ripgrep publishes no musl build for aarch64, so this is the glibc one. It
+# links glibc dynamically, which the bookworm runtime carries.
+FROM debian:bookworm-slim AS rg-arm64
+ARG RG_VERSION
+ARG RG_SHA256=c827481c4ff4ea10c9dc7a4022c8de5db34a5737cb74484d62eb94a95841ab2f
+ADD https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz /tmp/rg.tar.gz
+RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/rg.tar.gz -C /usr/local/bin --strip-components=1 \
+       ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu/rg
+
+FROM rg-${TARGETARCH} AS rg
 
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS runtime
 WORKDIR /app

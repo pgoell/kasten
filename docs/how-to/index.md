@@ -7,7 +7,7 @@ running; if you do not, start with [Getting started](/tutorials/getting-started.
 * [Capture from your phone](capture-from-your-phone.md) - install the capture page on Android and share links and text into today's dump, or put it on an iPhone's home screen
 * [Connect an agent](connect-an-agent.md) - mint a token and point Claude Code, codex or curl at the vault from another machine, install the skill where MCP is off, or send claude.ai and chatgpt.com through the OAuth flow
 * [Cut a release](cut-a-release.md) - pick the next version from the commits, bump it, tag it and watch it deploy
-* [Deploy to the VPS](deploy-to-the-vps.md) - bootstrap dev and prod on the box, deploy day to day, and prove the shell is still behind its gate
+* [Deploy to the VPS](deploy-to-the-vps.md) - bootstrap dev and prod on the box, on amd64 or arm64, deploy day to day, and prove the shell is still behind its gate
 * [Import an Anki deck](import-an-anki-deck.md) - turn an .apkg export into markdown notes, and know what does not survive the trip
 * [Recover an earlier version of a note](recover-an-earlier-version.md) - read back or restore a note as it was before a save overwrote it
 * [Regenerate the API types](regenerate-the-api-types.md) - rebuild the frontend's TypeScript types after changing a backend endpoint

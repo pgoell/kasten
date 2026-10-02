@@ -74,10 +74,13 @@ gh run watch
 
 The workflow checks the tag against `backend/pyproject.toml` first and stops
 there if the two disagree, so a forgotten bump costs a retag rather than a
-release that lies about which version it is. Then it builds the three images on
-`ubuntu-latest`, pushes them to GHCR tagged with the version and `latest`, and
-the self-hosted runner pulls, migrates, restarts and waits for the backend
-healthcheck.
+release that lies about which version it is. Then it builds each image twice,
+for `linux/amd64` on `ubuntu-latest` and for `linux/arm64` on
+`ubuntu-24.04-arm`, side by side, and pushes the pair to GHCR as one image
+tagged with the version and `latest`. The self-hosted runner pulls,
+migrates, restarts and waits for the backend healthcheck. It is an amd64 box,
+so it pulls the amd64 half, built from the same Dockerfile lines and the same
+pinned binaries as before arm64 was added.
 
 An image whose sources have not changed since the last release is not rebuilt.
 The workflow diffs this tag against the one before it, and where nothing that
@@ -85,6 +88,11 @@ goes into an image has moved, it copies the earlier image to this release's tag
 inside the registry instead. The shell image is the one this usually catches:
 it is the slowest of the three and it changes least, and copying it takes
 seconds where building it takes four minutes.
+
+The copy also needs the earlier image to carry both architectures. Releases
+from before arm64 was built carry amd64 alone, so the first release after the
+change rebuilds all three images whatever its diff says, and copies resume
+from the one after.
 
 Two things follow. The version bump lands in `backend/pyproject.toml`,
 `uv.lock` and `frontend/openapi.json`, so the backend and the frontend are
