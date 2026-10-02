@@ -275,6 +275,15 @@ jj, rg, git, Claude Code, codex and `dsh`, DeepSeek's harness. Nothing of your
 own home directory is in there, and the vault is the only thing the container
 shares with the machine.
 
+Claude Code is not in the image. It is Anthropic's proprietary software, so
+the container installs it on its first start, with Anthropic's installer and
+under [Anthropic's terms](https://code.claude.com/docs/en/legal-and-compliance),
+into `~/.local/bin` in the home volume. That start needs network and takes
+longer, by as long as the download does. Later starts find it there and skip the install, and
+`claude update` updates it in place, so an update outlives a release. With no
+network the shell still starts, the log says Claude Code could not be
+installed, and the next start tries again.
+
 The first time, log the agents in from inside the container. Each keeps its
 credentials in the home volume (`~/.claude`, `~/.codex`, `~/.dsh`), so this
 happens once and survives rebuilds and releases:

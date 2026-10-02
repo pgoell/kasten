@@ -122,7 +122,7 @@ RUN echo "${STARSHIP_SHA256}  /tmp/starship.tar.gz" | sha256sum -c - \
 
 FROM starship-${TARGETARCH} AS starship
 
-# The three agents come from npm, and one of them may compile: dsh depends on
+# codex and dsh come from npm, and one of them may compile: dsh depends on
 # node-pty, whose install script falls back to node-gyp, which wants python3
 # and a compiler, when no prebuild fits. The pinned node-pty ships prebuilds
 # for linux-x64 and linux-arm64, so today the fallback does not run on either
@@ -130,6 +130,12 @@ FROM starship-${TARGETARCH} AS starship
 # runtime has no use for the toolchain afterwards, so it is installed here and
 # only the finished tree is copied over. The same node base is not a nicety: a
 # `pty.node` is built against one node ABI and one CPU.
+#
+# Claude Code is not here on purpose. It is Anthropic's proprietary software,
+# and this image is published, so shipping it inside would be handing it out.
+# The entrypoint installs it into the home volume on first start instead, with
+# Anthropic's own installer. The two that stay are open source: codex is
+# Apache-2.0 and dsh is MIT.
 #
 # Exact versions, not a range: an image rebuilt in six months should be the
 # image that was tested. An update lands in the container's writable layer and
@@ -146,8 +152,7 @@ ENV NPM_CONFIG_PREFIX=/opt/npm
 RUN apt-get update \
     && apt-get install --no-install-recommends -y python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
-RUN npm install -g @anthropic-ai/claude-code@2.1.231 @openai/codex@0.147.0 \
-       @deepseek-ai/dsh@0.1.0-rc.6
+RUN npm install -g @openai/codex@0.147.0 @deepseek-ai/dsh@0.1.0-rc.6
 
 FROM node:24-bookworm-slim AS runtime
 
@@ -157,10 +162,16 @@ FROM node:24-bookworm-slim AS runtime
 #
 # zsh is the shell this container hands you, with Debian's two completion
 # plugins beside it. They are packaged, so nothing here is cloned at build.
+#
+# libnss-wrapper gives a uid with no line in /etc/passwd a name and a home; the
+# entrypoint says when and why. Its path holds the architecture's triplet, so
+# a link gives the entrypoint one path to load it from on either image.
 RUN apt-get update \
     && apt-get install --no-install-recommends -y git ca-certificates less curl jq \
-       zsh zsh-autosuggestions zsh-syntax-highlighting \
-    && rm -rf /var/lib/apt/lists/*
+       zsh zsh-autosuggestions zsh-syntax-highlighting libnss-wrapper \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s "$(dpkg -L libnss-wrapper | grep '/libnss_wrapper\.so$')" \
+       /usr/local/lib/libnss_wrapper.so
 
 COPY --from=ttyd /usr/local/bin/ttyd /usr/local/bin/ttyd
 COPY --from=herdr /usr/local/bin/herdr /usr/local/bin/herdr
@@ -173,16 +184,31 @@ COPY --from=starship /usr/local/bin/starship /usr/local/bin/starship
 # holds that uid, so the user is renamed rather than added: a second passwd
 # entry on the same uid would leave `whoami` and `$HOME` answering for whichever
 # one comes first in the file.
+#
+# Compose may run the container as another uid, to match whoever owns the
+# vault on the host. The home is open to every uid for that case: docker seeds
+# a fresh named volume from this directory, mode included, and a home the
+# user cannot write is a shell that cannot start. Only a fresh volume takes
+# the mode; one that exists keeps its own. Nothing else runs in here, so there
+# is no second user to keep out.
 RUN usermod --login kasten --home /home/kasten --move-home --shell /usr/bin/zsh node \
-    && groupmod --new-name kasten node
+    && groupmod --new-name kasten node \
+    && chmod 0777 /home/kasten
 
 # The prefix is /opt/npm rather than npm's own /usr/local, so the tree can
-# belong to the user the shell runs as, which is what `claude update` needs to
-# write; under /usr/local it would have to hand that user ttyd and herdr as
-# well. The versions and the reason the install happens in its own stage are in
-# the `agents` stage above.
+# belong to the user the shell runs as, which is what updating codex or dsh
+# needs to write; under /usr/local it would have to hand that user ttyd and
+# herdr as well. The versions and the reason the install happens in its own
+# stage are in the `agents` stage above.
+#
+# HOME is set rather than left to docker, which reads it from /etc/passwd and
+# falls back to `/` for a uid with no line there. ~/.local/bin is where
+# Anthropic's installer puts `claude`, and it heads PATH here rather than in
+# the zshrc so herdr, every pane and anything else ttyd starts find it.
+# Spelled out because ENV cannot read $HOME.
+ENV HOME=/home/kasten
 ENV NPM_CONFIG_PREFIX=/opt/npm
-ENV PATH=/opt/npm/bin:$PATH
+ENV PATH=/home/kasten/.local/bin:/opt/npm/bin:$PATH
 COPY --from=agents --chown=kasten:kasten /opt/npm /opt/npm
 
 # The default config, not the live one. herdr rewrites its config whenever a

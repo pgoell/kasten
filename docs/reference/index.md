@@ -14,7 +14,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [Relation format](relation-format.md): the line a typed relation is written on, the nine rules of its grammar, how the backlinks panel groups by it, and the one thing it reads that it should not
 * [Graph query](graph-query.md): the language the graph pane, `GET /api/graph` and the agent's `query_graph` read, what a filter keeps, what a pattern answers, and what the graph holds
 * [Agent API](agent-api.md): the routes an agent outside the box reaches the vault with, the bearer rule in front of them, what a digest means, and the origin check on the consent step
-* [Configuration](configuration.md): every backend setting and compose variable with its default, the self-host stack's included, the folders a vault can name for itself, the startup type pass, and the `JJ_USER` and `JJ_EMAIL` the shell container reads
+* [Configuration](configuration.md): every backend setting and compose variable with its default, the self-host stack's included, the folders a vault can name for itself, the startup type pass, and the shell container: the `JJ_USER` and `JJ_EMAIL` it reads, the uid it runs as and the Claude Code it installs on first start
 * [Reverse-proxy routes](reverse-proxy-routes.md): every path the proxy in front of kasten routes, which carry the login gate, and the event stream and WebSocket rules
 * [Requirements](requirements.md): the machine, ports, memory and disk the self-host stack needs
 * [Editor keys](editor-keys.md): every keyboard binding kasten adds, the mode each one applies in, the prompt, finder and search they open, how a wikilink is followed, how a highlight reaches the book it came from, and what to do in a new terminal the first time

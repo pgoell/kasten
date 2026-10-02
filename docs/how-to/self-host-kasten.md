@@ -118,17 +118,18 @@ gate rules those out. Claude Code or codex on a machine in the tailnet works.
 ## 3. Make the data directory
 
 The vault and the agent token store are bind mounts under `KASTEN_DATA_DIR`,
-`./data` unless you change it. The backend and shell run as uid and gid 1000,
-so the directories must belong to that user or the containers cannot write a
-note:
+`./data` unless you change it. The backend and shell run as `KASTEN_UID` and
+`KASTEN_GID`, 1000 unless you change them, so the directories must belong to
+that user or the containers cannot write a note:
 
 ```sh
 mkdir -p data/vault data/agent
-sudo chown -R 1000:1000 data
+id -u; id -g       # set KASTEN_UID and KASTEN_GID to these if they are not 1000
 ```
 
-Leave `KASTEN_UID` and `KASTEN_GID` at 1000. The shell image's user is 1000,
-and the shell fails to start as any other.
+Set them before the first start. The shell's home volume belongs to the uid
+that first starts it, so changing `KASTEN_UID` later means giving that volume
+to the new uid as well.
 
 ## 4. Give the vault a history
 
@@ -161,6 +162,14 @@ docker compose ps
 ```
 
 Open `https://<KASTEN_DOMAIN>`, log in, and the notebook is there.
+
+The shell takes longer on its first start. The image does not carry Claude
+Code, which is Anthropic's proprietary software, so the shell installs it into
+its home volume with Anthropic's installer and under
+[Anthropic's terms](https://code.claude.com/docs/en/legal-and-compliance).
+That needs the machine to reach `claude.ai`. Without it the shell starts
+anyway, `docker compose logs shell` says Claude Code could not be installed,
+and the next start tries again.
 
 ## 6. Check the gate
 

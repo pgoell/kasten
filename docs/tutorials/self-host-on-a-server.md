@@ -86,13 +86,12 @@ The notes live in `data/vault` on the server, and the agent tokens in
 
 ```sh
 mkdir -p data/vault data/agent
-sudo chown -R 1000:1000 data
+id -u; id -g
 ```
 
-The containers run as uid 1000, so the directories must belong to it. If
-`id -u` prints `1000`, they are yours already and the `chown` changes nothing.
-If not, you can still read the notes on the server, but editing them there
-takes `sudo`.
+If those two numbers are not both `1000`, put them in `.env` as `KASTEN_UID`
+and `KASTEN_GID`. The containers run as that user, so they can write the files
+you own.
 
 ## 5. Give the vault a history
 
@@ -116,7 +115,10 @@ docker compose ps
 ```
 
 Wait until `backend` and `frontend` read `healthy`, about a minute. Caddy gets
-a certificate for your name in that time.
+a certificate for your name in that time. The shell installs Claude Code into
+its home on this first start, under
+[Anthropic's terms](https://code.claude.com/docs/en/legal-and-compliance),
+because the image does not carry it.
 
 Now open `https://notes.example.com` on your laptop. The browser asks for the
 user name and password from step 3, and then shows the notebook: a file tree

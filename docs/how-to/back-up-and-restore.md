@@ -100,12 +100,13 @@ mkdir -p data
 tar -C data -xzf /srv/backups/kasten/data-2026-10-02.tar.gz
 docker run --rm -v kasten-selfhost_shell-home:/home -v /srv/backups/kasten:/in \
   alpine tar -C /home -xzf /in/shell-home-2026-10-02.tar.gz
-sudo chown -R 1000:1000 data
+sudo chown -R "$(id -u):$(id -g)" data
 docker compose up -d
 ```
 
-The `chown` gives the files to uid 1000, the user the containers run as.
-`docker compose down` keeps volumes, so the shell's home survives it. On a
+The `chown` gives the files to the user the containers run as, `KASTEN_UID`
+and `KASTEN_GID`; skip it when that is you and the files already belong to
+you. `docker compose down` keeps volumes, so the shell's home survives it. On a
 fresh machine the `docker run` makes the volume, and compose then warns that
 it was not created by compose; the warning is harmless.
 

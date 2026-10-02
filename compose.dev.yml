@@ -93,8 +93,8 @@ services:
       KASTEN_API: http://backend-dev:8000
     volumes:
       - ./vault:/vault
-      # The agents' home, and nothing of the host's. Claude Code and codex are
-      # installed fresh in the image and sign themselves in here, so the host's
+      # The agents' home, and nothing of the host's. codex is in the image and
+      # Claude Code installs here on first start; both sign in here, so the host's
       # `~/.claude`, `~/.claude.json` and `~/.codex` are deliberately not
       # mounted: an agent in this container is its own install with its own
       # settings, not a second window onto yours. A named volume rather than
