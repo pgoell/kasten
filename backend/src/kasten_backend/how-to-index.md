@@ -40,9 +40,9 @@ then what the thing is.
 ```markdown
 # The vault
 
-* [Reading this vault](99%20Misc/01%20Config/reading-this-vault.md) - how the links here resolve
-* [Inbox](00%20Inbox/) - notes with nowhere to be yet
-* [Periodic](01%20Periodic/) - the day, week, month, quarter and year
+* [Reading this vault]({{config|url}}/reading-this-vault.md) - how the links here resolve
+* [Inbox]({{inbox|url}}/) - notes with nowhere to be yet
+* [Periodic]({{periodic|url}}/) - the day, week, month, quarter and year
 ```
 
 Four rules for the links:

@@ -41,7 +41,7 @@ def link_path(target: str, paths: list[str]) -> str:
     name at the vault root wins over one in a folder.
 
     A name nothing answers to comes back as it was written, where the editor's
-    copy answers `00 Inbox/<name>.md`. That is a rule about where a note is made
+    copy answers `<inbox>/<name>.md`. That is a rule about where a note is made
     and not about which note a link names: what this feeds is a mapping keyed by
     notes that exist, which a path nothing answers to is not in either way.
     """

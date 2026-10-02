@@ -23,6 +23,16 @@ The backend image changes two of them. It sets `KASTEN_VAULT_PATH=/vault` and
 `/app` inside the container and vanish with it. An env file still wins over
 both.
 
+> **Warning: an existing vault.** At every startup the backend writes
+> `type: Note` into the frontmatter of every note that has no `type`, in one jj
+> change. On a vault kasten made, that is what keeps it an
+> [OKF bundle](/explanation/okf-in-the-vault.md). On a vault you already keep in
+> Obsidian or another tool, it rewrites most of your notes on the first boot,
+> and a sync tool will carry that rewrite to every device. Set
+> [`KASTEN_TYPE_BACKFILL=false`](#kasten_type_backfill) before the first start
+> if you do not want that, and set the folder settings below to the folders
+> your vault already has.
+
 ## KASTEN_DATABASE_URL
 
 ```
@@ -42,7 +52,9 @@ host port, and the dev backend runs on the host rather than in a container.
 ```
 
 The folder holding what is finished, which `GET /api/search` and
-`GET /api/todos` walk past unless the request asks for it.
+`GET /api/todos` walk past unless the request asks for it. The editor reads it
+from [`GET /api/layout`](/reference/http-api.md#get-apilayout) and hides it from
+the tree and the todo list the same way.
 
 An ordinary folder in the vault, and this name is the only thing kasten knows
 about it. Nothing writes into it, nothing moves anything into it, and a note in
@@ -53,6 +65,47 @@ resolves a `[[wikilink]]`, and a link to an archived note reading as a dead one
 would make a second note in the inbox out of a note the vault already holds.
 
 Set it to a name no folder has and nothing is left out of anything.
+
+## The vault's folders
+
+Five settings name the folders kasten files into or looks in. Each is a path
+from the vault root, and each default is the folder one vault already used.
+[`GET /api/layout`](/reference/http-api.md#get-apilayout) serves them to the
+editor, and the startup notes and the agent instructions spell them as set.
+
+| Setting | Default | What goes there |
+| --- | --- | --- |
+| `KASTEN_INBOX_PATH` | `00 Inbox` | a note made from a `[[link]]` nothing answers to, a clipped page, an imported markdown file; books in `02 Books` and documents in `02 Documents` under it; an agent's notes in `00 Agent` under it |
+| `KASTEN_PERIODIC_PATH` | `01 Periodic` | the periodic notes, in `00 Daily`, `01 Weekly`, `02 Monthly`, `03 Quarterly` and `04 Yearly` under it, and the dump |
+| `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted or dropped into a note |
+| `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md` and `todo-views.md`, and the ontology and three agent guides in `01 Agents` under it |
+| `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
+
+Only the parent folders are settings. The subfolders under them keep their
+names, so one setting moves a whole group and the list stays short.
+
+The startup notes are written into `KASTEN_CONFIG_PATH` only when missing, so
+changing it on a running vault writes a fresh set in the new place and leaves
+the old ones where they are. Move them yourself if you want to keep your edits.
+
+Changing a folder setting moves nothing. Notes already in the old folder stay
+there, and the links to them keep working.
+
+## KASTEN_TYPE_BACKFILL
+
+Whether startup writes `type: Note` into every note that has no `type`.
+
+| | |
+| --- | --- |
+| Default | `true` |
+| Read by | startup |
+
+The pass writes in one jj change, keeps each note's line endings, and leaves
+`modified` alone. Off, a note without a type stays as it is; a note saved from
+the editor still gains one, because a save stamps the block.
+
+Turn it off before the first start on a vault another tool keeps. The warning
+at the top of this page says why.
 
 ## KASTEN_FLASHCARDS_PATH
 

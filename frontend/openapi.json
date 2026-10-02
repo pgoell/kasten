@@ -443,6 +443,25 @@
         }
       }
     },
+    "/api/layout": {
+      "get": {
+        "summary": "Read Layout",
+        "description": "Name the folders this vault keeps things in, read off the `KASTEN_*_PATH` settings.\n\nThe editor makes notes and images on its own, so it has to know where they\ngo. Served rather than built in, so one frontend bundle fits any vault.",
+        "operationId": "read_layout_api_layout_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Layout"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/files": {
       "get": {
         "summary": "List Files",
@@ -515,7 +534,7 @@
     "/api/fetch": {
       "get": {
         "summary": "Fetch Page",
-        "description": "Read one web page off the internet and hand it back unchanged.\n\nOne of two endpoints that read something other than the vault, the other\nbeing `/api/transcripts`, and it writes nothing: what comes back is markup,\nand turning it into a note happens in the browser, where defuddle runs.\nThat is where it has to run. defuddle is a DOM library, the browser has the\nDOM, and the alternative is a second extractor in Python that would read the\nsame pages differently.\n\nFetching cannot happen there, though: a page from another origin is one the\nbrowser will request and not let the script read, so the request comes from\nhere.\n\nhttp and https and nothing else. The scheme is the trust boundary: `file://`\nwould read this container's disk and hand it to the browser, and the check\nis made before anything is opened.\n\nA page that could not be read is a 502 rather than the status the other end\ngave. The reader asked kasten for a note and kasten could not get one; a\n404 here would say the endpoint is missing.",
+        "description": "Read one web page off the internet and hand it back unchanged.\n\nOne of two endpoints that read something other than the vault, the other\nbeing `/api/transcripts`, and it writes nothing: what comes back is markup,\nand turning it into a note happens in the browser, where defuddle runs.\nThat is where it has to run. defuddle is a DOM library, the browser has the\nDOM, and the alternative is a second extractor in Python that would read the\nsame pages differently.\n\nFetching cannot happen there, though: a page from another origin is one the\nbrowser will request and not let the script read, so the request comes from\nhere.\n\nhttp and https and nothing else. The scheme is the trust boundary: `file://`\nwould read this container's disk and hand it to the browser, and the check\nis made before anything is opened. The address is the other half of it, and\n`_refuse_private` holds every hop to the public internet.\n\nA page that could not be read is a 502 rather than the status the other end\ngave. The reader asked kasten for a note and kasten could not get one; a\n404 here would say the endpoint is missing.",
         "operationId": "fetch_page_api_fetch_get",
         "parameters": [
           {
@@ -1846,6 +1865,40 @@
         ],
         "title": "Hit",
         "description": "One matching line: where it lives, which line it is, and what it says.\n\nIts own model rather than `main.SearchHit`, because nothing here may import\nfrom `main.py`: that would point the dependency at the surface instead of\naway from it, and the MCP tools import this module too."
+      },
+      "Layout": {
+        "properties": {
+          "inbox": {
+            "type": "string",
+            "title": "Inbox"
+          },
+          "periodic": {
+            "type": "string",
+            "title": "Periodic"
+          },
+          "archive": {
+            "type": "string",
+            "title": "Archive"
+          },
+          "images": {
+            "type": "string",
+            "title": "Images"
+          },
+          "config": {
+            "type": "string",
+            "title": "Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "inbox",
+          "periodic",
+          "archive",
+          "images",
+          "config"
+        ],
+        "title": "Layout",
+        "description": "The folders the editor files into or looks in, each a path from the vault root."
       },
       "Minted": {
         "properties": {

@@ -78,6 +78,12 @@ is idempotent: the second run finds nothing and returns.
 `mise run okf:backfill` is the same code from a terminal, over any vault you
 name.
 
+On a vault another tool keeps, that first pass rewrites most of the notes in
+it, and whatever syncs that vault copies the rewrite everywhere.
+[`KASTEN_TYPE_BACKFILL=false`](/reference/configuration.md#kasten_type_backfill)
+turns the startup pass off for that case. The notes then carry a type only
+once you save them from the editor.
+
 ## The two reserved names
 
 `index.md` is a listing of the bundle and `log.md` is its history. Neither is a

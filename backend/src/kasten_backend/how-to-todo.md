@@ -42,7 +42,7 @@ From the vault root, with `rg` and `cat`, which is all a read needs:
 rg -n '^\s*- \[[ /xXb-]\] '            # every todo line, with note and line number
 rg -n '📅 2026-08-14'                  # everything due that day
 rg -n 'kt-3f9a2c'                      # the todo, its done log line, its sessions
-cat '01 Periodic/00 Daily/2026-08-10.md'
+cat '{{periodic}}/00 Daily/2026-08-10.md'
 ```
 
 `GET /api/todos` below answers the first of those over HTTP, if you would rather
@@ -57,7 +57,7 @@ yourself.
 ```sh
 curl -s "$KASTEN_API/api/todos"                     # every candidate todo line
 curl -s "$KASTEN_API/api/search?q=kt-3f9a2c"        # every line naming an id
-curl -s "$KASTEN_API/api/files/01%20Periodic/00%20Daily/2026-08-10.md"
+curl -s "$KASTEN_API/api/files/{{periodic|url}}/00%20Daily/2026-08-10.md"
 ```
 
 `GET /api/todos` answers with one object per line, `{"path", "line", "text"}`,
@@ -103,7 +103,7 @@ Today's date below is the day you are doing this, `YYYY-MM-DD`.
    with `GET /api/search?q=<id>`.
 6. `PUT` the note.
 7. Write the done log line under `## Done` in today's daily note,
-   `01 Periodic/00 Daily/<today>.md`:
+   `{{periodic}}/00 Daily/<today>.md`:
 
    ```markdown
    - ✅ 2026-08-10 wire up the pane [[projects/kasten]] kt-3f9a2c

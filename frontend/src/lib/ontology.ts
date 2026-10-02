@@ -9,8 +9,8 @@
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { Facet } from "@codemirror/state";
 
-/** Where the vocabulary lives, which the route reads and the completion offers. */
-export const ONTOLOGY_NOTE = "99 Misc/01 Config/01 Agents/Ontology.md";
+/** Where the vocabulary lives, inside `KASTEN_CONFIG_PATH`. */
+export { ONTOLOGY_NOTE } from "@/lib/layout";
 
 /** A section of the note. Only `Relations` is read; the types are offered nowhere. */
 const SECTION = /^## +(.+?)[ \t\r]*$/;

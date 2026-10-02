@@ -145,8 +145,8 @@ export function nextActionOf(node: Node, today: string): Node | null {
   );
 }
 
-/** Where the vault keeps its named filters. One note, not a setting. */
-export const VIEWS_NOTE = "99 Misc/01 Config/todo-views.md";
+/** Where the vault keeps its named filters, inside `KASTEN_CONFIG_PATH`. */
+export { VIEWS_NOTE } from "@/lib/layout";
 
 /**
  * What the first `v` writes into a vault holding no views note.

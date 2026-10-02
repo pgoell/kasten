@@ -48,7 +48,7 @@ from starlette.responses import JSONResponse
 from kasten_backend import agent, vcs
 from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
-from kasten_backend.config import get_settings
+from kasten_backend.config import DEFAULTS, get_settings
 from kasten_backend.graph import MOST_DEPTH, GraphError
 from kasten_backend.tokens import verify
 
@@ -63,8 +63,8 @@ PATH = "/mcp"
 # Read off the package rather than spelled in Python, the way `guide.py` and
 # `okf.py` read theirs: prose in a Python string is prose nobody can read in a
 # diff.
-INSTRUCTIONS = (Path(__file__).parent / "mcp-instructions.md").read_text(encoding="utf-8").strip()
-"""What a model is told about this vault before it calls anything.
+TEMPLATE = (Path(__file__).parent / "mcp-instructions.md").read_text(encoding="utf-8").strip()
+"""What a model is told about this vault before it calls anything, folders unnamed.
 
 Two channels carry it, because no one channel reaches every client. The
 `instructions` field below is dropped by claude.ai and Claude Desktop and read
@@ -79,6 +79,15 @@ and the limits of the tools, is in the opening lines.
 MCP client, spelled in routes rather than tool names. A change here belongs
 there too: nothing reads one off the other.
 """
+
+INSTRUCTIONS = DEFAULTS.fill(TEMPLATE)
+"""The instructions on the default layout. `instructions()` is what is served."""
+
+
+def instructions() -> str:
+    """The instructions naming the folders this vault is configured with."""
+    return get_settings().fill(TEMPLATE)
+
 
 REDUNDANT = (
     "\n\nYou have just read this, so `read_guide` would only repeat it back. "
@@ -180,7 +189,7 @@ async def read_guide() -> str:
     text is compiled into the server, which is what makes it the one capability
     here that touches no note.
     """
-    return INSTRUCTIONS
+    return instructions()
 
 
 TOOLS = (list_notes, read_note, search_notes, query_graph, save_note, append_note, dump, read_guide)
@@ -308,7 +317,7 @@ def build() -> tuple[ASGIApp, MCPServer]:
     server: MCPServer = MCPServer(
         name="kasten",
         version=version("kasten-backend"),
-        instructions=INSTRUCTIONS + REDUNDANT,
+        instructions=instructions() + REDUNDANT,
     )
     for tool in TOOLS:
         # The SDK's model is snake_case with a camelCase alias, so this is

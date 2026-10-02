@@ -49,6 +49,14 @@ mise run db:migrate
 value in `.env.example` is already the default, so the copy is optional, but
 having the file makes your own overrides easy to find later.
 
+> **Warning:** this tutorial starts from an empty vault. If you later point
+> `KASTEN_VAULT_PATH` at notes you already keep, in Obsidian or anywhere else,
+> read [Configuration](/reference/configuration.md) first. At every start the
+> backend writes `type: Note` into each note that has none, which on an
+> existing vault rewrites most of your files; `KASTEN_TYPE_BACKFILL=false`
+> turns that off. The folder settings there let kasten use your folders rather
+> than its own.
+
 ## 4. Run both servers
 
 Two terminals, because both stay in the foreground:
