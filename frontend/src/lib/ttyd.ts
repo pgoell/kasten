@@ -2,8 +2,9 @@
  * ttyd's wire protocol, encoded and decoded here and nowhere else.
  *
  * Pure: no socket, no xterm, no DOM beyond `location`. `terminal-pane.tsx`
- * owns the socket and the terminal, and this owns what goes over the wire, so
- * the format can be tested without mounting anything.
+ * owns the socket and the terminal, and this owns what goes over the wire and
+ * what the pane says when the wire goes, so both can be tested without
+ * mounting anything.
  *
  * Every frame is one command character followed by its payload. The command
  * characters are ttyd's own, out of `src/server.h`.
@@ -78,6 +79,32 @@ export function decodeServer(frame: ArrayBuffer): ServerMessage {
       // a working terminal.
       return { kind: "unknown", opcode };
   }
+}
+
+/**
+ * What the pane prints once the socket is gone, as bytes for `term.write`.
+ *
+ * Written into the terminal because the terminal is all the pane shows: without
+ * it a socket that never opened leaves a black rectangle with a cursor, which
+ * looks like a shell that is slow rather than one that is not there.
+ *
+ * `opened` splits the two cases. A socket that never opened met no ttyd: no
+ * shell container, no `/term` route, or the login gate answering the upgrade
+ * with a redirect, which the browser reports as a failed handshake and nothing
+ * more specific. One that opened and then closed had a shell, which has ended.
+ */
+export function closedMessage(opened: boolean, code: number): string {
+  const lines = opened
+    ? [`The shell closed the connection (code ${code}).`]
+    : [
+        "Could not reach the shell at /term/ws.",
+        "Check that the shell container is running, that the /term route is",
+        "in place, and that you are logged in.",
+      ];
+  lines.push("Reopen the terminal to try again.");
+  // Dim red, and a fresh line first so it never lands in the middle of a
+  // prompt the shell had half drawn.
+  return `\r\n\x1b[2;31m${lines.join("\r\n")}\x1b[0m\r\n`;
 }
 
 /**

@@ -183,7 +183,11 @@ in the `kasten-shell-home` named volume; no `~/.claude`, `~/.claude.json`,
 `~/.codex` or `~/.dsh` from the host is mounted. So the first of the two that
 log in asks you to do it, once, dsh reads a DeepSeek API key from the
 environment or `~/.dsh/.env`, and the volume keeps both across rebuilds and
-releases. That is the
+releases. dsh is optional; nothing starts it, so a host without a DeepSeek key
+loses only dsh. The steps are in
+[Editor keys](/reference/editor-keys.md#terminal). Those logins are also why
+the gate matters as much as it does: whoever reaches the shell can spend them,
+as well as write to the vault. That is the
 point: an agent in this container is its own install with its own settings, and
 the vault is the only thing it shares with you.
 

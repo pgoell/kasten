@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import "@xterm/xterm/css/xterm.css";
 import {
+  closedMessage,
   decodeServer,
   encodeAuth,
   encodeInput,
@@ -127,7 +128,15 @@ export function TerminalPane({
     const socket = new WebSocket(terminalUrl(session), [TTYD_SUBPROTOCOL]);
     socket.binaryType = "arraybuffer";
 
-    socket.onopen = () => socket.send(encodeAuth(term.cols, term.rows));
+    let opened = false;
+    socket.onopen = () => {
+      opened = true;
+      socket.send(encodeAuth(term.cols, term.rows));
+    };
+    // `close` and not `error`: a failed handshake fires both, and only `close`
+    // also fires when a shell that was running ends. There is no reconnect;
+    // reopening the pane is the retry, and the message says so.
+    socket.onclose = (event) => term.write(closedMessage(opened, event.code));
     socket.onmessage = (message) => {
       const decoded = decodeServer(message.data as ArrayBuffer);
       // Only output for now. A title or a preferences blob is ttyd telling the
@@ -150,6 +159,9 @@ export function TerminalPane({
       watching.disconnect();
       resizing.dispose();
       typing.dispose();
+      // Our own close is not news, and the terminal it would write to is
+      // disposed a line below.
+      socket.onclose = null;
       // StrictMode mounts, cleans up and mounts again in dev, and two live
       // sockets are two herdr clients on one session mirroring each other. A
       // socket still opening cannot be closed, so it is closed the moment it

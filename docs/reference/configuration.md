@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Configuration
-description: Every backend setting, its default, and where the values come from.
+description: Every backend setting, its default, where the values come from, and the two variables the shell container reads for its commit identity.
 resource: backend/src/kasten_backend/config.py
 tags: [config, environment, backend]
 status: stable
@@ -221,6 +221,23 @@ sets the same value in its env file.
 The backend logs a warning at startup when this directory holds no `.jj`, since
 saves there are not recorded in any history. See
 [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md).
+
+## The shell container
+
+The shell container is not the backend and reads no `KASTEN_` setting of its
+own beyond `KASTEN_API`. Two more variables set who a commit made in it is by.
+
+| Variable | Sets |
+| --- | --- |
+| `JJ_USER` | jj's `user.name` and git's `user.name` |
+| `JJ_EMAIL` | jj's `user.email` and git's `user.email` |
+
+The entrypoint reads them each time the container starts and writes a value
+into the home volume only where that key is empty, so a name set by hand inside
+the container is never replaced. Unset or empty, it writes nothing. It then
+removes both from the environment the shell gets, because jj reads `JJ_USER`
+and `JJ_EMAIL` itself ahead of any config file, and left in place they would
+override what the volume holds.
 
 ## Related
 
