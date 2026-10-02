@@ -1,0 +1,4 @@
+.env
+backend.env
+allowed-emails.txt
+data/

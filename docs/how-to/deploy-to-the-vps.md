@@ -113,6 +113,29 @@ The deploy job refuses to start if `.env.prod` or the vault directory is
 missing, rather than letting compose invent an empty vault and bring the
 notebook up blank.
 
+The job runs compose with `--env-file .env.prod`, so the same file can also
+carry the compose-level settings `deploy/compose.yaml` reads. Each defaults to
+this box's value, and this box sets none of them:
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `KASTEN_IMAGE_REPO` | `ghcr.io/pgoell` | where the three images are pulled from |
+| `KASTEN_UID`, `KASTEN_GID` | `1000` | who the backend and shell run as |
+| `KASTEN_NETWORK` | `web` | the external Docker network shared with Caddy |
+| `JJ_USER`, `JJ_EMAIL` | unset | who jj records for a change made in the shell |
+
+Two more are repository variables in GitHub rather than lines in the file,
+because the job needs them before it has read anything:
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `DEPLOY_DIR` | `/home/pascal/kasten-deploy` | where the job copies `compose.yaml` and finds `.env.prod` |
+| `KASTEN_DATA_DIR` | `/home/pascal/kasten-data` | the host directory holding `vault/` and `agent/`, checked by the job and mounted by compose |
+
+A fork deploying to a box of its own sets these under Settings, Secrets and
+variables, Actions, Variables. To run kasten on one machine without a shared
+Caddy at all, use [Self-host kasten](/how-to/self-host-kasten.md) instead.
+
 ### 6. Self-hosted runner
 
 Runners are per repository for a user account, so the Klassenzeit and website
@@ -122,7 +145,8 @@ runners on this box cannot serve kasten. Add a third:
 ./scripts/setup-runner.sh
 ```
 
-It unpacks the runner, registers it as `iuno-kasten`, installs a systemd user
+It unpacks the runner, registers it as `iuno-kasten` (or as `$RUNNER_NAME`
+when that is set), installs a systemd user
 unit, and waits for GitHub to report it online. No sudo: lingering is already
 enabled for pascal, so a user unit survives logout and reboot. Re-running it is
 safe, it skips whatever is already done.
@@ -318,11 +342,18 @@ public URL when you want working hot reload.
 
 Vite blocks unknown `Host` headers and its HMR client guesses the wrong
 websocket URL behind a TLS terminator. `KASTEN_DEV_PUBLIC_HOST` in the frontend
-unit fixes both. Unset it and vite goes back to plain localhost behaviour.
+unit fixes both. `compose.dev.yml` sets it to `kasten-dev.pgoell.com` unless the
+shell running compose sets another name. Unset it and vite goes back to plain
+localhost behaviour.
+
+The dev compose files take two more such overrides, both defaulting to this
+box: `KASTEN_NETWORK` (`web`) for the external network, and `KASTEN_DB_PORT`
+(`5434`) for the dev Postgres's host port.
 
 ## Related
 
 * [Two environments](/explanation/environments.md) - why dev and prod are built in opposite ways, and the constraints this box imposes
+* [Self-host kasten](/how-to/self-host-kasten.md): the whole stack on one machine, with its own Caddy and login
 * [Cut a release](cut-a-release.md) - the version, the tag and the workflow that deploys them
 * [Run the checks](run-the-checks.md) - the linters and tests, and clearing a stale `.container/node_modules`
 * [Configuration](/reference/configuration.md) - every `KASTEN_` setting the env files carry

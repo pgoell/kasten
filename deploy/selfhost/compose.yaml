@@ -1,0 +1,142 @@
+# deploy/selfhost/compose.yaml
+#
+# kasten on one machine of your own, amd64 or arm64, with Caddy in front doing
+# TLS and a login gate. The runbook is docs/how-to/self-host-kasten.md. Every
+# setting lives in `.env` beside this file; `.env.example` lists them all.
+#
+# Unlike deploy/compose.yaml, which leans on a Caddy, an oauth2-proxy and a
+# Postgres from another repo, this file holds the whole stack. There is no
+# Postgres in it: the backend reads and writes the vault and nothing else, and
+# no module it runs opens a database connection.
+
+name: kasten-selfhost
+
+services:
+  backend:
+    image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
+    # Run as the owner of the data directory, not root. The vault is a bind
+    # mount, and root-owned notes on the host would need sudo to edit.
+    user: "${KASTEN_UID:-1000}:${KASTEN_GID:-1000}"
+    environment:
+      # The host the MCP endpoint answers to and the OAuth issuer. Without it
+      # the SDK's rebinding guard answers 421 to every agent behind Caddy.
+      KASTEN_AGENT_HOST: ${KASTEN_DOMAIN:?set KASTEN_DOMAIN in .env}
+      # The mount points below. Newer images set these themselves; naming them
+      # here keeps a pinned older tag from writing notes inside the container.
+      KASTEN_VAULT_PATH: /vault
+      KASTEN_TOKENS_PATH: /agent-data/tokens.json
+    # Optional backend settings (KASTEN_TYPE_BACKFILL, the folder names). Kept
+    # out of `.env` so the gate's password hash and secrets never reach the
+    # backend's environment.
+    env_file:
+      - path: backend.env
+        required: false
+    volumes:
+      # Bind mounts, never named volumes: the vault is the one thing here you
+      # cannot rebuild, and a host directory survives every image change and
+      # stays readable by git, jj and your backups.
+      - ${KASTEN_DATA_DIR:-./data}/vault:/vault
+      # The token store's directory, never the file: `os.replace` over a
+      # bind-mounted file fails with EBUSY and every mint would break.
+      - ${KASTEN_DATA_DIR:-./data}/agent:/agent-data
+      # Read-only, so `/api/terminals` can list the shell's herdr sessions.
+      - shell-home:/herdr-home:ro
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c 'import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(\"http://127.0.0.1:8000/api/health\").status == 200 else 1)'"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # A shell beside the vault. No `ports`: the only way in is Caddy's
+  # `/term/*` route, which carries the gate. Publishing a port here would put
+  # a shell on the network with no login in front of it.
+  shell:
+    image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-shell:${KASTEN_IMAGE_TAG:-latest}
+    user: "${KASTEN_UID:-1000}:${KASTEN_GID:-1000}"
+    environment:
+      KASTEN_API: http://backend:8000
+      # Who a commit made in here is by. The entrypoint seeds jj's and git's
+      # config from these once, and only where nothing is set yet.
+      JJ_USER:
+      JJ_EMAIL:
+    volumes:
+      - ${KASTEN_DATA_DIR:-./data}/vault:/vault
+      # The agents' own home: logins and settings survive an upgrade. Not the
+      # docker socket, which would hand out root on the machine.
+      - shell-home:/home/kasten
+    restart: unless-stopped
+
+  frontend:
+    image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-frontend:${KASTEN_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    environment:
+      KASTEN_DOMAIN: ${KASTEN_DOMAIN:?set KASTEN_DOMAIN in .env}
+      # No default on purpose. The Caddyfile imports `gates/$KASTEN_GATE.caddy`,
+      # and a stack with no gate named is a stack that does not start.
+      KASTEN_GATE: ${KASTEN_GATE:?set KASTEN_GATE in .env to basicauth, oauth2-proxy or tailscale}
+      KASTEN_BASIC_AUTH_USER: ${KASTEN_BASIC_AUTH_USER:-}
+      KASTEN_BASIC_AUTH_HASH: ${KASTEN_BASIC_AUTH_HASH:-}
+    ports:
+      - "${KASTEN_BIND_ADDRESS:-0.0.0.0}:${KASTEN_HTTP_PORT:-80}:80"
+      - "${KASTEN_BIND_ADDRESS:-0.0.0.0}:${KASTEN_HTTPS_PORT:-443}:443"
+      - "${KASTEN_BIND_ADDRESS:-0.0.0.0}:${KASTEN_HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./gates:/etc/caddy/gates:ro
+      # Certificates and the ACME account. A volume so a restart does not ask
+      # Let's Encrypt again and run into its rate limit.
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+  # Started only with `COMPOSE_PROFILES=oauth2-proxy` in `.env`. Without it a
+  # stack set to that gate answers 502 on every gated route, which is closed.
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916
+    profiles: [oauth2-proxy]
+    environment:
+      OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
+      OAUTH2_PROXY_PROVIDER: ${OAUTH2_PROXY_PROVIDER:-github}
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${OAUTH2_PROXY_OIDC_ISSUER_URL:-}
+      OAUTH2_PROXY_CLIENT_ID: ${OAUTH2_PROXY_CLIENT_ID:-}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET:-}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:-}
+      OAUTH2_PROXY_REDIRECT_URL: https://${KASTEN_DOMAIN}/oauth2/callback
+      OAUTH2_PROXY_WHITELIST_DOMAINS: ${KASTEN_DOMAIN}
+      # Who may sign in: the addresses in this file and nobody else. No
+      # `EMAIL_DOMAINS=*`, which with GitHub would let every GitHub account in.
+      # A missing file stops oauth2-proxy from starting, which keeps the gate
+      # shut rather than open.
+      OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE: /etc/oauth2-proxy/allowed-emails.txt
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_HTTPONLY: "true"
+      OAUTH2_PROXY_COOKIE_SAMESITE: "lax"
+      OAUTH2_PROXY_COOKIE_EXPIRE: "168h"
+      OAUTH2_PROXY_COOKIE_REFRESH: "1h"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_UPSTREAMS: "static://202"
+      # Off, because nothing behind the gate reads the token and Caddy logs
+      # request headers when an upstream fails.
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "false"
+      OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "false"
+    volumes:
+      - ./allowed-emails.txt:/etc/oauth2-proxy/allowed-emails.txt:ro
+    restart: unless-stopped
+
+volumes:
+  shell-home:
+  caddy-data:
+  caddy-config:

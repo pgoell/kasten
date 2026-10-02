@@ -1,0 +1,17 @@
+# A username and a bcrypt hash, from `caddy hash-password`. The browser asks
+# once and sends the pair with every request after, the event stream and the
+# terminal's WebSocket included.
+#
+# A name with no hash is an error, and Caddy refuses the whole file rather
+# than serve an open notebook. The `unset` fallback is there for the case of
+# both missing: an empty block parses fine, so it gives the line a name and
+# makes the missing hash the error.
+
+(site) {
+}
+
+(gate) {
+	basic_auth {
+		{$KASTEN_BASIC_AUTH_USER:unset} {$KASTEN_BASIC_AUTH_HASH}
+	}
+}

@@ -35,12 +35,18 @@ mise run fe:dev  # frontend on :5173, proxying /api to the backend
 backend/    FastAPI service and Alembic migrations
 frontend/   Vite SPA
 docs/       documentation, arranged by Diátaxis
-deploy/     prod compose file and its env example
+deploy/     prod compose file, its env example, and selfhost/
 scripts/    OpenAPI type generation
 plugins/    Claude Code plugin for a machine with no MCP
 compose.yaml      dev Postgres
 compose.dev.yml   hosted dev environment
 ```
+
+## Self-hosting
+
+[Self-host kasten](docs/how-to/self-host-kasten.md) runs the whole stack on one
+machine of your own, with Caddy doing TLS and a login of basic auth,
+oauth2-proxy or Tailscale in front.
 
 ## Documentation
 

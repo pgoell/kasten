@@ -8,10 +8,14 @@
 # Nothing here is ever built on the server. Images come from GHCR, built by
 # .github/workflows/deploy-prod.yml. The dev environment does not use this
 # file at all; see docs/how-to/deploy-to-the-vps.md.
+#
+# Every `${KASTEN_*:-...}` below defaults to the value this VPS runs with, so
+# the deploy here sets none of them. They exist for a fork deploying its own
+# images to its own box; deploy/.env.prod.example lists them.
 
 services:
   kasten-migrate-prod:
-    image: ghcr.io/pgoell/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
+    image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
     container_name: kasten-migrate-prod
     command: ["alembic", "-c", "/app/backend/alembic.ini", "upgrade", "head"]
     env_file:
@@ -21,18 +25,18 @@ services:
       - web
 
   kasten-backend-prod:
-    image: ghcr.io/pgoell/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
+    image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-backend:${KASTEN_IMAGE_TAG:-latest}
     container_name: kasten-backend-prod
     # Run as pascal, not root. This container writes the vault through a bind
     # mount, and root-owned notes on the host would need sudo to edit or back up.
-    user: "1000:1000"
+    user: "${KASTEN_UID:-1000}:${KASTEN_GID:-1000}"
     env_file:
       - .env.prod
     volumes:
       # The vault is the only irreplaceable state in this system. A bind mount
       # to a host path, never a named volume, so it survives every container
       # and image change and stays readable over ssh and by git.
-      - /home/pascal/kasten-data/vault:/vault
+      - ${KASTEN_DATA_DIR:-/home/pascal/kasten-data}/vault:/vault
       # The shell container's home, read-only, so `/api/terminals` can name the
       # herdr sessions a terminal pane could attach to. A listing and nothing
       # more: this container has no herdr and cannot touch a session.
@@ -45,7 +49,7 @@ services:
       # mount point, and `os.replace` over one fails with EBUSY, so mounting the
       # file would break every mint and every revoke in production while passing
       # every test there is.
-      - /home/pascal/kasten-data/agent:/agent-data
+      - ${KASTEN_DATA_DIR:-/home/pascal/kasten-data}/agent:/agent-data
     depends_on:
       kasten-migrate-prod:
         condition: service_completed_successfully
@@ -68,20 +72,24 @@ services:
   # shell, and no healthcheck, because a shell nobody is attached to has
   # nothing to report.
   kasten-shell-prod:
-    image: ghcr.io/pgoell/kasten-shell:${KASTEN_IMAGE_TAG:-latest}
+    image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-shell:${KASTEN_IMAGE_TAG:-latest}
     container_name: kasten-shell-prod
     # Run as pascal, for the reason the backend does: this writes the vault
     # through a bind mount, and root-owned notes would need sudo to edit.
-    user: "1000:1000"
+    user: "${KASTEN_UID:-1000}:${KASTEN_GID:-1000}"
     environment:
       # Where an agent in here reaches the backend, which is what the vault's
       # agent note tells it to use to tick a todo. By name on the `web`
       # network, the same route Caddy takes.
       KASTEN_API: http://kasten-backend-prod:8000
+      # Who a commit made in here is by. The entrypoint seeds jj's and git's
+      # config from these once, and only where nothing is set yet. Named
+      # without a value, so nothing reaches the container unless set.
+      JJ_USER:
+      JJ_EMAIL:
     volumes:
-      # The same host directory the backend mounts. An absolute path rather
-      # than ${HOME}, matching how the vault mount above is written.
-      - /home/pascal/kasten-data/vault:/vault
+      # The same host directory the backend mounts, and the same variable.
+      - ${KASTEN_DATA_DIR:-/home/pascal/kasten-data}/vault:/vault
       # The agents' home, and nothing of the host's. Claude Code and codex are
       # installed fresh in the image and sign themselves in here, so no
       # `~/.claude`, `~/.claude.json` or `~/.codex` from the host is mounted:
@@ -94,7 +102,7 @@ services:
       - web
 
   kasten-frontend-prod:
-    image: ghcr.io/pgoell/kasten-frontend:${KASTEN_IMAGE_TAG:-latest}
+    image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-frontend:${KASTEN_IMAGE_TAG:-latest}
     container_name: kasten-frontend-prod
     restart: unless-stopped
     networks:
@@ -114,4 +122,4 @@ volumes:
 networks:
   web:
     external: true
-    name: web
+    name: ${KASTEN_NETWORK:-web}
