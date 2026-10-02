@@ -15,6 +15,7 @@ import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 import { backticks } from "@/lib/backticks";
+import { toHtml, toSlack } from "@/lib/copy-as";
 import { editorCommands } from "@/lib/editor-commands";
 import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
@@ -174,6 +175,79 @@ function edit(view: EditorView, params: { argString?: string }): boolean {
 Vim.defineEx("edit", "e", (cm: { cm6: EditorView }, params: { argString?: string }) =>
   edit(cm.cm6, params),
 );
+
+/**
+ * A yank lands on the system clipboard as well as in vim's register, the way
+ * `clipboard=unnamedplus` has it, so `y` in a note and ctrl+v somewhere else
+ * move the same text.
+ *
+ * Wrapped rather than registered: vim offers no hook on a yank, and every one
+ * of them, from `yy` to a visual `y`, goes through this method.
+ */
+const registers = Vim.getRegisterController();
+const pushText = registers.pushText.bind(registers);
+registers.pushText = (name, operator, text, linewise, blockwise) => {
+  pushText(name, operator, text, linewise, blockwise);
+  // `"+y` writes the clipboard already, and `"_y` writes nowhere.
+  if (operator !== "yank" || name === "+" || name === "_") return;
+  // Absent outside a secure context, which a test's document is.
+  void navigator.clipboard?.writeText(linewise && !text.endsWith("\n") ? `${text}\n` : text);
+};
+
+const COPY_FORMATS = { md: "markdown", slack: "Slack", teams: "Teams" } as const;
+
+/**
+ * What `:copy` takes: the visual selection it was typed from, to the
+ * character, the lines of a range typed by hand, or else the whole note.
+ */
+function copySource(
+  cm: CM5EditorInterface,
+  params: { input: string; line?: number; lineEnd?: number },
+) {
+  const doc = cm.cm6.state.doc;
+  if (params.line === undefined) return doc.toString();
+
+  const vim = cm.state.vim;
+  const from = vim?.marks["<"]?.find();
+  const to = vim?.marks[">"]?.find();
+  const charwise =
+    vim?.lastSelection && !vim.lastSelection.visualLine && !vim.lastSelection.visualBlock;
+  if (params.input.startsWith("'<,'>") && charwise && from && to) {
+    // `>` sits on the last selected character rather than after it.
+    const end = Math.min(cm.indexFromPos(to) + 1, doc.line(to.line + 1).to);
+    return doc.sliceString(cm.indexFromPos(from), end);
+  }
+  return doc.sliceString(
+    doc.line(params.line + 1).from,
+    doc.line((params.lineEnd ?? params.line) + 1).to,
+  );
+}
+
+Vim.defineEx("copy", "co", (cm, params) => {
+  const notice = cm.cm6.state.facet(noticeHandler);
+  const format = (params.argString.trim() || "md") as keyof typeof COPY_FORMATS;
+  if (!(format in COPY_FORMATS)) {
+    notice?.(`:copy takes ${Object.keys(COPY_FORMATS).join(", ")}`);
+    return;
+  }
+
+  const source = copySource(cm, params);
+  // Teams keeps the formatting of pasted HTML and reads no markup out of
+  // text, so it gets HTML, with the markdown for anywhere that takes text.
+  const written =
+    format === "teams"
+      ? navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([toHtml(source)], { type: "text/html" }),
+            "text/plain": new Blob([source], { type: "text/plain" }),
+          }),
+        ])
+      : navigator.clipboard.writeText(format === "slack" ? toSlack(source) : source);
+  written.then(
+    () => notice?.(`Copied for ${COPY_FORMATS[format]}`),
+    (error: DOMException) => notice?.(`Nothing copied: ${error.message}`),
+  );
+});
 
 /**
  * Ctrl+click, or cmd+click, follows a link the way every browser opens one.

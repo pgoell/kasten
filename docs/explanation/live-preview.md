@@ -73,6 +73,11 @@ CodeMirror lets the cursor rest on either edge of an atomic range because both
 edges paint in the same place. That is fine for moving and wrong for editing, so
 here only the far edge is a landing spot.
 
+The filter walks a cursor and leaves a selection where it is. Vim reads what a
+yank takes by selecting it, `yy` from column zero of the line, and a selection
+walked out of the hidden `## ` yanked the heading as `Notes`. A selection made
+in visual mode needs no walking either, because it reveals the marks it covers.
+
 The filter is also why the decorations live in a `StateField` rather than the
 `ViewPlugin` that CodeMirror's documentation reaches for first. A transaction
 filter runs at state level and can only read state. Decorations in a view plugin

@@ -1197,6 +1197,45 @@ quarter's note.
 opens only when a non-space follows it and closes only when a non-space
 precedes it, which keeps `a == b` out of it.
 
+## Copying
+
+Every yank also writes the system clipboard, the way vim's
+`clipboard=unnamedplus` does, so `yy`, `yiw` or a visual `y` in a note and
+Ctrl+V in another window move the same text. `"_y` still writes nowhere, and
+`"+y` writes the clipboard once rather than twice. A delete or a change stays in
+vim's registers. Ctrl+C copies the selection too. Both take the markdown as it
+sits in the file, marks included, whatever the screen shows.
+
+`:copy` rewrites the markdown for where it is going before it writes the
+clipboard.
+
+| Command | Writes |
+| --- | --- |
+| `:copy` or `:copy md` | the markdown as it is |
+| `:copy slack` | text in Slack's markup |
+| `:copy teams` | HTML, with the markdown beside it as plain text |
+
+Typed from visual mode, which fills in `'<,'>`, it takes the selection to the
+character; from visual line mode, the whole lines. A range typed by hand, such
+as `:3,9copy slack`, takes those lines. With no range it takes the whole note.
+The frontmatter is never part of it.
+
+Slack reads its markup out of text when the message is sent, so `:copy slack`
+writes `*bold*`, `_italic_`, `~struck~` and code in backticks. A heading becomes
+a bold line, a bullet becomes `•`, a todo's box becomes `☐` or `☑`, and a code
+fence loses its language, which Slack would print as the first line of the code.
+A link becomes its label with the address after it in brackets; Slack's
+`<url|label>` works only for messages sent through its API. A table goes in a
+code block, which keeps its columns lined up.
+
+Teams reads no markup out of text but keeps the formatting of pasted HTML, so
+`:copy teams` writes headings, lists, links, code and tables as HTML.
+
+In both, a wikilink becomes the name of the note and a highlight becomes its
+text. The status bar says `Copied for Slack`, or why nothing was copied.
+`frontend/src/lib/copy-as.ts` does the rewriting, walking the parse the editor
+renders from.
+
 ## Tables
 
 | Key | Does |
