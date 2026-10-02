@@ -35,13 +35,19 @@ mise run fe:dev  # frontend on :5173, proxying /api to the backend
 backend/    FastAPI service and Alembic migrations
 frontend/   Vite SPA
 docs/       documentation, arranged by Diátaxis
-deploy/     dev and prod compose files, and their runbook
+deploy/     prod compose file and its env example
 scripts/    OpenAPI type generation
 plugins/    Claude Code plugin for a machine with no MCP
-compose.yaml  dev Postgres
+compose.yaml      dev Postgres
+compose.dev.yml   hosted dev environment
 ```
 
 ## Documentation
 
 [`docs/`](docs/index.md) holds the tutorials, how-to guides, reference and
 explanation. Start with [Getting started](docs/tutorials/getting-started.md).
+
+## License
+
+[AGPL-3.0](LICENSE). You may run, change and share kasten. If you run a
+changed copy as a service for other people, you must offer them its source.

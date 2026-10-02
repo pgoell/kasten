@@ -4,5 +4,6 @@
   "author": {
     "name": "pgoell"
   },
+  "license": "AGPL-3.0-only",
   "keywords": ["kasten", "notes", "vault", "markdown"]
 }
