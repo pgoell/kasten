@@ -87,12 +87,16 @@ address `tailscale ip -4` prints.
 
 ## Notes do not save
 
-**`Permission denied` in the backend log.** The containers run as uid and
-gid 1000, and `data/` belongs to someone else. Give it to them:
+**`Permission denied` in the backend log.** The containers run as
+`KASTEN_UID`:`KASTEN_GID`, 1000 unless set, and `data/` belongs to someone
+else. Make them match:
 
 ```sh
-sudo chown -R 1000:1000 data
+id -u; id -g
+sudo chown -R "$(id -u):$(id -g)" data
 ```
+
+and set `KASTEN_UID` and `KASTEN_GID` in `.env` if they are not 1000.
 
 **The backend warns `has no .jj directory, so saves are not recorded in any
 history`.** Notes save, with no way back to an earlier version. Run step 4 of
@@ -122,10 +126,20 @@ sign in, and open the terminal again.
 terminal again.
 
 **The shell restarts again and again**, with
-`mkdir: cannot create directory '//.config': Permission denied` in
-`docker compose logs shell`. `KASTEN_UID` is not 1000, and the shell image has
-no user for any other uid. Remove `KASTEN_UID` and `KASTEN_GID` from `.env`,
-give `data/` to 1000 as above, and `docker compose up -d`.
+`the home volume is not writable by uid ...` in `docker compose logs shell`. The
+home volume was made under another `KASTEN_UID`. Give it to the one in `.env`,
+replacing `1001:1001` with your `KASTEN_UID` and `KASTEN_GID`:
+
+```sh
+docker compose run --rm --no-deps -u 0 --entrypoint chown shell -R 1001:1001 /home/kasten
+docker compose up -d
+```
+
+**The shell has no `claude`**, and `docker compose logs shell` says Claude
+Code could not be installed. The first start installs it with Anthropic's
+installer, which needs to reach `claude.ai`. Fix the network and
+`docker compose restart shell`; it tries again on every start until it has
+one.
 
 **Claude Code, codex or dsh asks you to log in.** That happens once per shell
 home. The `shell-home` volume keeps it across restarts and upgrades; if it asks

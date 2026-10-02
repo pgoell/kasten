@@ -173,8 +173,9 @@ todo through `PUT /api/files/{path}`, and that is where it sends it. Nothing is
 published to the host for it, and `curl` and `jq` are in the image for the same
 reason.
 
-It does not get your home directory either. Claude Code, codex and dsh are
-installed fresh in the image and keep what they are told inside the container,
+It does not get your home directory either. codex and dsh are installed in
+the image, and Claude Code in the home volume on the container's first start,
+and all three keep what they are told inside the container,
 in the `kasten-shell-home` named volume; no `~/.claude`, `~/.claude.json`,
 `~/.codex` or `~/.dsh` from the host is mounted. So the first of the two that
 log in asks you to do it, once, dsh reads a DeepSeek API key from the
@@ -192,12 +193,36 @@ are the host's. That setup is in the image, at `/etc/zsh/zshrc.kasten`, rather
 than in a dotfile, because the home is a named volume docker seeds once: a
 `~/.zshrc` shipped in an image would reach a fresh volume and never an existing
 one. `~/.zshrc` is seeded empty for your own aliases and is read after the
-shared file. All three are installed under `/opt/npm` rather than npm's
-`/usr/local`, and that tree belongs to the user the shell runs as, which is
-what `claude update` needs to write; putting it under `/usr/local` would hand
-that user ttyd and herdr as well. An update lands in the container's writable
-layer, so recreating the container returns to the version `shell/Dockerfile`
-pins, and bumping the pin is how a version sticks.
+shared file. codex and dsh are installed under `/opt/npm` rather than npm's
+`/usr/local`, and that tree belongs to uid 1000, which is what an update of
+either needs to write; putting it under `/usr/local` would hand that user ttyd
+and herdr as well. Their updates land in the container's writable layer, so
+recreating the container returns to the version `shell/Dockerfile` pins, and
+bumping the pin is how a version sticks.
+
+Claude Code is the exception, and for a reason that is not technical. It is
+Anthropic's proprietary software, and the image is published on ghcr.io, so
+carrying it in the image would be handing it out. The entrypoint installs it
+instead, on the first start, with Anthropic's own installer, into
+`~/.local/bin` in the home volume, and `PATH` puts that directory first. Since
+the binary lives in the volume, `claude update` replaces it there and the
+update outlives a release, which the npm install in the image never did. The
+cost is that first start: it needs network and takes longer. A failed install
+is logged and skipped, since a shell without Claude Code is still a shell. The
+other tools in the image are open source: codex, herdr and jj under
+Apache-2.0, dsh and ttyd under MIT, rg under MIT or the Unlicense, and
+starship under ISC.
+
+The shell runs as whatever uid compose gives it, `KASTEN_UID`, so it can match
+whoever owns the vault on the host. The image's user is 1000, and any other
+uid has no line in `/etc/passwd`, which leaves node's `os.userInfo()` throwing
+and docker setting `HOME` to `/`. The image sets `HOME` itself, and the
+entrypoint loads nss_wrapper with a passwd file naming that uid, rather than
+making `/etc/passwd` writable, which would let the shell add a uid 0 line and
+`su` to it. Starting as root and dropping to the uid would have needed the
+compose files to change and the home volume to be chowned on every start. A
+fresh home volume is open to every uid; one that already exists keeps its
+owner.
 
 ## Two architectures
 

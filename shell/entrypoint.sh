@@ -1,6 +1,7 @@
 #!/bin/sh
-# Seed herdr's config and the commit identity into the home volume, once, then
-# hand over to ttyd.
+# Give the uid a passwd line if it has none, seed herdr's config and the commit
+# identity into the home volume once, install Claude Code there if it is
+# missing, then hand over to ttyd.
 #
 # The config cannot live in the image. herdr rewrites that file whenever you
 # change a setting in its own UI, and an image path is root-owned and read-only
@@ -14,6 +15,32 @@
 # fresh volume. Edit the file in place inside the container to change a running
 # one.
 set -e
+
+# Compose runs this as KASTEN_UID, which need not be the image's own 1000. A
+# uid with no line in /etc/passwd has no name, and node's os.userInfo() throws
+# for it, which an agent built on node can trip over at any point. nss_wrapper
+# hands every process started from here a passwd file with that uid in it, in
+# place of the real one, so nothing in the image has to be writable for it.
+# Making /etc/passwd itself writable would let the user add a uid 0 line and
+# `su` to it. uid 1000 is in the real file and takes none of this.
+if ! getent passwd "$(id -u)" >/dev/null; then
+    export NSS_WRAPPER_PASSWD=/tmp/passwd
+    export NSS_WRAPPER_GROUP=/etc/group
+    grep -v '^kasten:' /etc/passwd > "${NSS_WRAPPER_PASSWD}"
+    echo "kasten:x:$(id -u):$(id -g)::${HOME}:/usr/bin/zsh" >> "${NSS_WRAPPER_PASSWD}"
+    export LD_PRELOAD=/usr/local/lib/libnss_wrapper.so
+fi
+
+# A volume made under one uid and then run under another is owned by the
+# first. Every step below writes to it, so say so here rather than fail on
+# whichever of them comes first. The top of a fresh volume is open to every
+# uid, so herdr's directory, which the first start makes and herdr writes its
+# sockets into, is what tells whose volume it is.
+herdr_dir="${HOME}/.config/herdr"
+if [ ! -w "${HOME}" ] || { [ -d "${herdr_dir}" ] && [ ! -w "${herdr_dir}" ]; }; then
+    echo "kasten-shell: the home volume is not writable by uid $(id -u). Give it to that uid, or run as the uid that owns it." >&2
+    exit 1
+fi
 
 config="${HOME}/.config/herdr/config.toml"
 if [ ! -f "${config}" ]; then
@@ -60,5 +87,29 @@ jj_email="${JJ_EMAIL:-}"
 unset JJ_USER JJ_EMAIL
 set_identity user.name "${jj_user}"
 set_identity user.email "${jj_email}"
+
+# Claude Code is Anthropic's proprietary software, so the published image does
+# not carry it. It is installed here instead, into the home volume, by
+# Anthropic's own installer and under Anthropic's terms, once: the binary lands
+# in ~/.local/bin, which the Dockerfile puts on PATH, and `claude update`
+# replaces it in place, so an update outlives a release. Only when no `claude`
+# is found, so a volume that has one is never touched.
+#
+# The script is fetched to a file rather than piped to bash: a failed curl
+# piped in hands bash nothing, and bash reports that as success. The timeout
+# keeps a stalled download from holding the shell back for good. A failure
+# here is printed and passed over, since a shell without Claude Code is still
+# a shell; the next start tries again.
+if ! command -v claude >/dev/null; then
+    echo "kasten-shell: installing Claude Code into ${HOME}/.local/bin (first start only)" >&2
+    installer="$(mktemp)"
+    if curl -fsSL --max-time 60 -o "${installer}" https://claude.ai/install.sh \
+        && timeout 600 bash "${installer}" >&2; then
+        echo "kasten-shell: Claude Code installed" >&2
+    else
+        echo "kasten-shell: Claude Code could not be installed (no network?). The shell starts without it; restart the container to try again." >&2
+    fi
+    rm -f "${installer}"
+fi
 
 exec "$@"

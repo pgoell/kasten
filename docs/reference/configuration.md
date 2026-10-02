@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Configuration
-description: Every backend setting, its default, where the values come from, the two variables the shell container reads for its commit identity, the variables the compose files read, and the self-host stack's own.
+description: Every backend setting, its default, where the values come from, what the shell container reads for its commit identity, the uid it runs as and its first-start install of Claude Code, the variables the compose files read, and the self-host stack's own.
 resource: backend/src/kasten_backend/config.py
 tags: [config, environment, backend]
 status: stable
@@ -248,6 +248,18 @@ removes both from the environment the shell gets, because jj reads `JJ_USER`
 and `JJ_EMAIL` itself ahead of any config file, and left in place they would
 override what the volume holds.
 
+The container runs as any uid and gid compose gives it. One with no line in
+the image's `/etc/passwd` gets one through nss_wrapper, named `kasten` with
+`/home/kasten` as its home. A fresh home volume is writable by every uid; one
+made under another uid is not, and the shell then stops with a line in its
+log saying so.
+
+On its first start the entrypoint installs Claude Code into `~/.local/bin` in
+the home volume, with Anthropic's installer and under Anthropic's terms,
+because the published image does not carry it. That start needs network to
+reach `claude.ai` and takes longer. It installs only when no `claude` is on
+`PATH`, and a failed install is logged and does not stop the shell.
+
 ## Compose variables
 
 These are read by compose, not by the backend, so they take no part in
@@ -257,7 +269,7 @@ These are read by compose, not by the backend, so they take no part in
 | --- | --- | --- | --- |
 | `KASTEN_IMAGE_REPO` | `ghcr.io/pgoell` | `deploy/compose.yaml`, `deploy/selfhost/compose.yaml` | where the images are pulled from |
 | `KASTEN_IMAGE_TAG` | `latest` | both | which release to run, a version such as `0.29.0` or `latest` |
-| `KASTEN_UID`, `KASTEN_GID` | `1000` | both | who the backend and shell run as. The shell image's user is 1000, and the shell fails to start as any other |
+| `KASTEN_UID`, `KASTEN_GID` | `1000` | both | who the backend and shell run as. Set them to the host user that owns `KASTEN_DATA_DIR` |
 | `KASTEN_DATA_DIR` | `/home/pascal/kasten-data`, and `./data` for self-host | both | the host directory holding `vault/` and `agent/` |
 | `JJ_USER`, `JJ_EMAIL` | unset | both | passed to the shell container, see [above](#the-shell-container) |
 | `KASTEN_NETWORK` | `web` | `deploy/compose.yaml`, `compose.dev.yml` | the external Docker network shared with Caddy |

@@ -90,8 +90,8 @@ services:
     volumes:
       # The same host directory the backend mounts, and the same variable.
       - ${KASTEN_DATA_DIR:-/home/pascal/kasten-data}/vault:/vault
-      # The agents' home, and nothing of the host's. Claude Code and codex are
-      # installed fresh in the image and sign themselves in here, so no
+      # The agents' home, and nothing of the host's. codex is in the image and
+      # Claude Code installs here on first start; both sign in here, so no
       # `~/.claude`, `~/.claude.json` or `~/.codex` from the host is mounted:
       # an agent in this container is its own install with its own settings.
       # A named volume, so a login survives the next release. Not the docker
