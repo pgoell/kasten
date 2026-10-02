@@ -125,6 +125,36 @@ def _permitted(redirect_uri: str) -> bool:
     return redirect_uri in REDIRECTS or PER_APP.fullmatch(redirect_uri) is not None
 
 
+def _same_origin(request: Request) -> bool:
+    """Whether the consent POST came from kasten's own page and not another site's.
+
+    `SameSite=Lax` on oauth2-proxy's cookie already turns a cross-site POST away
+    in front of this, but only behind oauth2-proxy. Behind basic auth the
+    browser resends the credentials to any site that posts here, so the check
+    has to live in kasten too.
+
+    `Sec-Fetch-Site` first, because the browser sets it and no page can. When it
+    is there it settles the question, and the `Origin` is not compared: a dev
+    proxy that rewrites `Host` would make that comparison fail on the real
+    consent page. A browser old enough to send no `Sec-Fetch-Site` still sends
+    `Origin` on a POST, and that is held to the `Host` it reached, or to
+    `KASTEN_AGENT_HOST`. A request with neither came from no browser, which is
+    not who this guards against.
+    """
+    site = request.headers.get("sec-fetch-site")
+    if site is not None:
+        return site == "same-origin"
+
+    sent = request.headers.get("origin")
+    if sent is None:
+        return True
+
+    named = get_settings().agent_host
+    return urlsplit(sent).netloc == request.headers.get("host") or (
+        bool(named) and sent == f"https://{named}"
+    )
+
+
 def _resource(request: Request) -> dict[str, Any]:
     """RFC 9728, which names the endpoint and points at whoever authorizes it."""
     return {
@@ -182,7 +212,8 @@ async def consent(
     top-level navigation. A GET that minted a code would therefore mint one for
     any page that links here, including an attacker's own pending connector flow
     waiting to spend it. A cross-site POST carries no cookie, so oauth2-proxy
-    turns it away before this is reached.
+    turns it away before this is reached, and `_same_origin` refuses it behind
+    a proxy that does not.
     """
     fields = "".join(
         f'<input type=hidden name="{name}" value="{escape(value, quote=True)}">'
@@ -218,6 +249,9 @@ async def authorize(
     is refusing, and the host in question carries a `.pgoell.com` session
     cookie.
     """
+    if not _same_origin(request):
+        raise HTTPException(status_code=403, detail="Connect from kasten's own consent page")
+
     if not _permitted(redirect_uri):
         raise HTTPException(status_code=400, detail="That is not an address kasten sends codes to")
 

@@ -72,7 +72,8 @@ class Settings(BaseSettings):
     `search_notes` call away from any agent reading notes.
 
     Relative by default, which resolves against the working directory the way
-    `vault_path` does. Production sets the absolute path of a file in a mounted
+    `vault_path` does. The backend image sets `/agent-data/tokens.json`, and
+    production sets the same path in its env file: a file in a mounted
     directory; the directory is what is mounted and never this file, because
     `os.replace` over a bind-mounted file fails with `EBUSY` and every mint would
     break.
@@ -91,8 +92,8 @@ class Settings(BaseSettings):
     """Directory of markdown files. This is the source of truth.
 
     Relative paths resolve against the working directory, so the app is always
-    started from the repo root. In production this is overridden with the
-    absolute container path /vault.
+    started from the repo root. The backend image sets `/vault`, its mount
+    point, so a container never falls back to a directory inside itself.
     """
 
 

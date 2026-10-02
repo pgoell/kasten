@@ -397,6 +397,18 @@ attaches to a top-level navigation, so a link here would otherwise mint a code
 into whatever connector flow the linking page has waiting. A cross-site `POST`
 carries no cookie, so oauth2-proxy turns it away before this route is reached.
 
+The `POST` also checks for itself that it came from the consent page, because
+basic auth in front of kasten resends its credentials to any site that posts
+here. It answers `403` and redirects nowhere when:
+
+* `Sec-Fetch-Site` is present and is anything but `same-origin`
+* `Sec-Fetch-Site` is absent, `Origin` is present, and its host matches neither
+  the request's `Host` nor [`KASTEN_AGENT_HOST`](/reference/configuration.md#kasten_agent_host)
+
+`Sec-Fetch-Site` wins when both are sent, so a dev proxy that rewrites `Host`
+does not break the real consent page. A request with neither header came from
+no browser and passes.
+
 `redirect_uri` is matched whole and never by prefix, against three addresses and
 one pattern:
 

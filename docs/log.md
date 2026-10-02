@@ -275,3 +275,6 @@
 
 * **Update**: a yank writes the system clipboard as well as vim's register, and `:copy`, `:copy slack` and `:copy teams` copy the selection or the note as markdown, as Slack's markup or as HTML for Teams. [Editor keys](/reference/editor-keys.md#copying).
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says the filter that keeps the cursor out of hidden marks now leaves a selection alone, after it was found to cut the `## ` off a heading taken with `yy`.
+* **Update**: `GET /api/fetch` refuses a host that resolves to a loopback, private, link-local, shared, multicast, reserved or unspecified address, and follows redirects itself so every hop is checked. [HTTP API](/reference/http-api.md#get-apifetch).
+* **Update**: `POST /api/oauth/authorize` refuses a cross-site request with a `403`, read off `Sec-Fetch-Site` or, without it, `Origin`. [Agent API](/reference/agent-api.md#get-and-post-apioauthauthorize), and the reason in [The agent boundary](/explanation/the-agent-boundary.md).
+* **Update**: [Configuration](/reference/configuration.md) says the backend image sets `KASTEN_VAULT_PATH` and `KASTEN_TOKENS_PATH` to its mount points, names the startup warnings for an empty `KASTEN_AGENT_HOST` and a vault with no `.jj`, and gained `KASTEN_HERDR_SESSIONS_PATH`.
