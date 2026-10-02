@@ -14,7 +14,7 @@ except the token endpoint of [the OAuth flow](#the-oauth-flow), which by
 definition meets a caller that has none. Nothing in front of the prefix asks for
 a session, so the token check in the backend is the entire trust boundary. Why
 the prefix exists at all, and why it carries seven capabilities rather than the
-twenty-four in [the HTTP API](/reference/http-api.md), is in
+thirty-one in [the HTTP API](/reference/http-api.md), is in
 [The agent boundary](/explanation/the-agent-boundary.md).
 
 Mint a token at `/tokens` in the notebook. Connecting a client to it is
@@ -71,14 +71,14 @@ rather than an MCP client.
 }
 ```
 
-It names the routes on this page and nothing else. `/openapi.json` at the root
+It names the routes on this page, itself included, and nothing else. `/openapi.json` at the root
 is a different document: it describes the browser's API, it is behind the
 login gate, and no token reaches it.
 
 Built from this router's own routes rather than by filtering the whole
 application's schema, so the models it defines are the ones these routes use and
 no others. That is deliberate rather than tidy. A token holder cannot reach
-anything under `/api/`, and handing one the map of those twenty-seven routes
+anything under `/api/`, and handing one the map of those thirty-one routes
 would give it away for nothing.
 
 An agent over MCP needs none of this: `tools/list` describes the same seven
@@ -317,7 +317,7 @@ registration endpoint, and a loopback redirect on your own machine is not on the
 list.
 
 What the flow issues is an ordinary row in the same store, named for the
-client's host, `claude.ai` or `chatgpt.com`. The gate above cannot tell an OAuth
+client's callback host: `claude.ai`, `claude.com` or `chatgpt.com`. The gate above cannot tell an OAuth
 grant from a token typed into a terminal, `/tokens` revokes both with the same
 button, and a note written through a connector reads
 `agent(claude.ai): index.md` in `jj log`. A second Connect from the same product
@@ -465,7 +465,7 @@ so that field stays empty.
 
 ## Related
 
-* [The agent boundary](/explanation/the-agent-boundary.md) - why this prefix exists and what a token does not grant
-* [Connect an agent](/how-to/connect-an-agent.md) - the client configuration for each of them
-* [HTTP API](/reference/http-api.md) - the routes the browser uses, which no token reaches
-* [Configuration](/reference/configuration.md) - `KASTEN_TOKENS_PATH` and `KASTEN_AGENT_HOST`
+* [The agent boundary](/explanation/the-agent-boundary.md): why this prefix exists and what a token does not grant
+* [Connect an agent](/how-to/connect-an-agent.md): the client configuration for each of them
+* [HTTP API](/reference/http-api.md): the routes the browser uses, which no token reaches
+* [Configuration](/reference/configuration.md): `KASTEN_TOKENS_PATH` and `KASTEN_AGENT_HOST`

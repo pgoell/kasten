@@ -84,4 +84,4 @@ hundred megabytes that nothing reads any more. Delete it whenever you notice.
 
 ## Related
 
-* [mise tasks](/reference/mise-tasks.md) - every command, including the narrower ones
+* [mise tasks](/reference/mise-tasks.md): every command, including the narrower ones

@@ -553,6 +553,6 @@ happens.
 
 ## Related
 
-* [Editor keys](/reference/editor-keys.md#todos) - the keys that make a todo, walk it and list it
-* [HTTP API](/reference/http-api.md#get-apitodos) - `GET /api/todos`, which finds the lines
-* [Note frontmatter](/reference/note-frontmatter.md) - the other block of a note kasten keeps in step
+* [Editor keys](/reference/editor-keys.md#todos): the keys that make a todo, walk it and list it
+* [HTTP API](/reference/http-api.md#get-apitodos): `GET /api/todos`, which finds the lines
+* [Note frontmatter](/reference/note-frontmatter.md): the other block of a note kasten keeps in step

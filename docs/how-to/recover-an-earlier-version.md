@@ -89,5 +89,5 @@ personal config out of.
 
 ## Related
 
-* [HTTP API](/reference/http-api.md) - the endpoint that writes, and what it records
-* [The vault and the derived index](/explanation/vault-and-derived-index.md) - why the history lives with the files
+* [HTTP API](/reference/http-api.md): the endpoint that writes, and what it records
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): why the history lives with the files

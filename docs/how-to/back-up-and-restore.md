@@ -88,8 +88,9 @@ be private: it holds every note and every version of it.
 
 ## Restore
 
-On the new machine, follow [Self-host kasten](/how-to/self-host-kasten.md) up
-to step 3, then put the data back before the first start.
+On the new machine, follow steps 1 to 3 of
+[Self-host kasten](/how-to/self-host-kasten.md), skip step 4, since the backup
+carries the vault's history, and put the data back before the first start.
 
 From the tar:
 
@@ -99,13 +100,14 @@ mkdir -p data
 tar -C data -xzf /srv/backups/kasten/data-2026-10-02.tar.gz
 docker run --rm -v kasten-selfhost_shell-home:/home -v /srv/backups/kasten:/in \
   alpine tar -C /home -xzf /in/shell-home-2026-10-02.tar.gz
-sudo chown -R "$(id -u):$(id -g)" data
+sudo chown -R 1000:1000 data
 docker compose up -d
 ```
 
-The `chown` gives the files to the user the containers run as, `KASTEN_UID`
-and `KASTEN_GID`; skip it when that is you and the files already belong to
-you. `docker compose down` keeps volumes, so the shell's home survives it.
+The `chown` gives the files to uid 1000, the user the containers run as.
+`docker compose down` keeps volumes, so the shell's home survives it. On a
+fresh machine the `docker run` makes the volume, and compose then warns that
+it was not created by compose; the warning is harmless.
 
 From the jj remote, in place of the vault from the tar:
 

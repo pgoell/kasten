@@ -1268,8 +1268,8 @@ A name the store has not got is a `404`.
 
 ## Related
 
-* [Deleting a note](/explanation/deleting-a-note.md) - why a delete keeps the note
-* [Regenerate the API types](/how-to/regenerate-the-api-types.md) - push a change here through to the frontend
-* [Configuration](/reference/configuration.md) - which directory `/api/files` reads
-* [Agent API](/reference/agent-api.md) - the seven routes a token reaches, and the ones it never does
-* [Capture from your phone](/how-to/capture-from-your-phone.md) - the page and the share sheet that post to `/api/dump`
+* [Deleting a note](/explanation/deleting-a-note.md): why a delete keeps the note
+* [Regenerate the API types](/how-to/regenerate-the-api-types.md): push a change here through to the frontend
+* [Configuration](/reference/configuration.md): which directory `/api/files` reads
+* [Agent API](/reference/agent-api.md): the seven routes a token reaches, and the ones it never does
+* [Capture from your phone](/how-to/capture-from-your-phone.md): the page and the share sheet that post to `/api/dump`

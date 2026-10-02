@@ -224,6 +224,6 @@ starts if you delete it.
 
 ## See also
 
-* [Editor keys](editor-keys.md) - every binding, including `<leader>ge`
-* [Todo format](todo-format.md) - the other format the vault holds
-* [HTTP API](http-api.md) - the endpoints a sitting reads and writes
+* [Editor keys](editor-keys.md): every binding, including `<leader>ge`
+* [Todo format](todo-format.md): the other format the vault holds
+* [HTTP API](http-api.md): the endpoints a sitting reads and writes

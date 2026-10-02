@@ -65,7 +65,9 @@ release changed the gate or the routes, run the curls in
 
 ## Roll back
 
-Go back to the tag you came from, for both the files and the images:
+Go back to the tag you came from, for both the files and the images. Tags up
+to 0.29.0 have no `deploy/selfhost/`, so go no further back than the first
+release that does.
 
 ```sh
 git checkout 0.30.0

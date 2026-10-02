@@ -100,6 +100,6 @@ because it was right and it is finished.
 
 ## Related
 
-* [The vault and the derived index](/explanation/vault-and-derived-index.md) - why a folder rather than a field
-* [Deleting a note](/explanation/deleting-a-note.md) - the other folder
-* [Configuration](/reference/configuration.md) - the setting that names it
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): why a folder rather than a field
+* [Deleting a note](/explanation/deleting-a-note.md): the other folder
+* [Configuration](/reference/configuration.md): the setting that names it

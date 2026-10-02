@@ -61,5 +61,5 @@ production.
 
 ## Related
 
-* [The vault and the derived index](/explanation/vault-and-derived-index.md) - why throwing the database away is a small thing
-* [Configuration](/reference/configuration.md) - which database the commands talk to
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): why throwing the database away is a small thing
+* [Configuration](/reference/configuration.md): which database the commands talk to

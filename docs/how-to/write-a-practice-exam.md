@@ -166,5 +166,5 @@ none of them was edited to be read.
 
 ## Related
 
-* [Exam format](/reference/exam-format.md) - every part in full
-* [Editor keys](/reference/editor-keys.md) - the keys a sitting uses
+* [Exam format](/reference/exam-format.md): every part in full
+* [Editor keys](/reference/editor-keys.md): the keys a sitting uses

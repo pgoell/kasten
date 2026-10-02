@@ -9,9 +9,11 @@ status: stable
 
 # Configuration
 
-Settings are read from the environment and from `backend/.env`, in that order
-of precedence. Every field takes the `KASTEN_` prefix. Unknown variables are
-ignored.
+Settings are read from the environment and from a `.env` file in the
+directory the process starts in, in that order of precedence. `mise run dev`
+starts at the repo root and reads `./.env`; the `db:` tasks start in
+`backend/` and read `backend/.env`. Every field takes the `KASTEN_` prefix.
+Unknown variables are ignored.
 
 Every value below is already the default, so a fresh clone runs without a
 `.env` file at all. `backend/.env.example` exists to give your own overrides an
@@ -255,7 +257,7 @@ These are read by compose, not by the backend, so they take no part in
 | --- | --- | --- | --- |
 | `KASTEN_IMAGE_REPO` | `ghcr.io/pgoell` | `deploy/compose.yaml`, `deploy/selfhost/compose.yaml` | where the images are pulled from |
 | `KASTEN_IMAGE_TAG` | `latest` | both | which release to run, a version such as `0.29.0` or `latest` |
-| `KASTEN_UID`, `KASTEN_GID` | `1000` | both | who the backend and shell run as |
+| `KASTEN_UID`, `KASTEN_GID` | `1000` | both | who the backend and shell run as. The shell image's user is 1000, and the shell fails to start as any other |
 | `KASTEN_DATA_DIR` | `/home/pascal/kasten-data`, and `./data` for self-host | both | the host directory holding `vault/` and `agent/` |
 | `JJ_USER`, `JJ_EMAIL` | unset | both | passed to the shell container, see [above](#the-shell-container) |
 | `KASTEN_NETWORK` | `web` | `deploy/compose.yaml`, `compose.dev.yml` | the external Docker network shared with Caddy |
@@ -301,7 +303,7 @@ Two files sit beside `.env`:
 
 ## Related
 
-* [The vault and the derived index](/explanation/vault-and-derived-index.md) - what these settings mean to each other
-* [Deleting a note](/explanation/deleting-a-note.md) - what the trash is for
-* [Two environments](/explanation/environments.md) - the values dev and prod actually run with
-* [The agent boundary](/explanation/the-agent-boundary.md) - what the token store is for
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): what these settings mean to each other
+* [Deleting a note](/explanation/deleting-a-note.md): what the trash is for
+* [Two environments](/explanation/environments.md): the values dev and prod actually run with
+* [The agent boundary](/explanation/the-agent-boundary.md): what the token store is for

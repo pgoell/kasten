@@ -9,8 +9,9 @@ status: stable
 # Self-host kasten
 
 `deploy/selfhost/` holds a whole kasten in one compose file: the backend, the
-frontend, the shell, and Caddy in front of them doing TLS and the login. There
-is no database to run; the backend reads and writes the vault and nothing else.
+frontend, the shell, and Caddy in front of them doing TLS and the login gate.
+There is no database to run; the backend reads and writes the vault and nothing
+else.
 
 You need a Linux machine with Docker and the compose plugin (2.24 or later), on
 amd64 or arm64. arm64 images exist from the first release after 0.29.0.
@@ -29,16 +30,23 @@ cp .env.example .env
 Everything from here on happens in `deploy/selfhost/`, and every setting is a
 line in `.env`. The example lists them all.
 
+The clone is `main`, and the images default to `latest`, the newest release.
+`main` can run ahead of that release; to keep the files and images in step,
+check out the release's tag, as [Upgrade kasten](/how-to/upgrade-kasten.md)
+does. Tags up to 0.29.0 have no `deploy/selfhost/`.
+
 ## 2. Pick a name and a gate
 
-Set `KASTEN_DOMAIN` to the name the notebook will answer on, and `KASTEN_GATE`
-to one of the three logins below. Compose refuses to start with either missing,
-and Caddy refuses a gate it has no file for, so a stack with no login does not
-come up at all.
+Set `KASTEN_DOMAIN` to the name the notebook will answer on, in place of the
+example's `kasten.example.com`, and `KASTEN_GATE`
+to one of the three login gates below. The login gate is what Caddy puts in
+front of the notebook; kasten has no login of its own. Compose refuses to start
+with either variable missing, and Caddy refuses a gate it has no file for, so a
+stack with no gate does not come up at all.
 
-Every route asks for the login except two. `/agent/*` checks a bearer token
-minted at `/tokens`, and `/.well-known/*` serves the documents an agent
-connector reads before it has one. [The agent boundary](/explanation/the-agent-boundary.md)
+The gate covers every route but two. `/agent/*` checks a token minted at
+`/tokens`, and `/.well-known/*` serves the documents an agent connector reads
+before it has one. [The agent boundary](/explanation/the-agent-boundary.md)
 says why those two can stand open, and
 [Reverse-proxy routes](/reference/reverse-proxy-routes.md) lists every route.
 
@@ -80,8 +88,9 @@ Sign in with GitHub, or with any OpenID Connect provider.
    echo you@example.com > allowed-emails.txt
    ```
 
-Only the addresses in that file get in. Without it oauth2-proxy does not start,
-and every gated route answers `502` rather than opening.
+Only the addresses in that file get in. Make it before the first start:
+without it oauth2-proxy does not start, every gated route answers `502`, and
+compose leaves an empty, root-owned directory of that name in its place.
 
 DNS and ports are as for basic auth.
 
@@ -109,14 +118,17 @@ gate rules those out. Claude Code or codex on a machine in the tailnet works.
 ## 3. Make the data directory
 
 The vault and the agent token store are bind mounts under `KASTEN_DATA_DIR`,
-`./data` unless you change it. The backend and shell run as `KASTEN_UID` and
-`KASTEN_GID`, 1000 unless you change them, so the directories must belong to
-that user or the containers cannot write a note:
+`./data` unless you change it. The backend and shell run as uid and gid 1000,
+so the directories must belong to that user or the containers cannot write a
+note:
 
 ```sh
 mkdir -p data/vault data/agent
-id -u; id -g       # set KASTEN_UID and KASTEN_GID to these if they are not 1000
+sudo chown -R 1000:1000 data
 ```
+
+Leave `KASTEN_UID` and `KASTEN_GID` at 1000. The shell image's user is 1000,
+and the shell fails to start as any other.
 
 ## 4. Give the vault a history
 
@@ -128,6 +140,9 @@ docker compose run --rm --no-deps backend jj git init --colocate /vault
 docker compose run --rm --no-deps backend jj -R /vault config set --repo user.name "Your Name"
 docker compose run --rm --no-deps backend jj -R /vault config set --repo user.email "you@example.com"
 ```
+
+Each `config set` warns that the working copy's author stays empty. That is
+the vault's first, empty change, and it does no harm.
 
 Skip this and kasten still saves notes, with a warning at startup and no way
 back to an earlier version.
@@ -174,13 +189,11 @@ Stop the stack** (`docker compose down`) and check that `KASTEN_GATE` and the
 * Back up `data/` before you trust it with notes: [Back up and restore](/how-to/back-up-and-restore.md).
 * Mint a token and connect an agent: [Connect an agent](/how-to/connect-an-agent.md).
 * Move to a new release: [Upgrade kasten](/how-to/upgrade-kasten.md).
-  `KASTEN_IMAGE_TAG=latest` follows every release; a version number stays on one.
 * Something refuses: [Troubleshoot a self-hosted kasten](/how-to/troubleshoot-self-hosting.md).
 
 ## Related
 
 * [Configuration](/reference/configuration.md): every backend setting, for `backend.env`, and every variable in `.env`
 * [Security model](/explanation/security-model.md): what the gate covers, and what the backend checks itself
-* [Connect an agent](/how-to/connect-an-agent.md): mint a token and point an agent at the vault
 * [Recover an earlier version of a note](/how-to/recover-an-earlier-version.md): what the jj history in step 4 is for
 * [Deploy to the VPS](/how-to/deploy-to-the-vps.md): the maintainer's own deployment, which shares a Caddy and an oauth2-proxy with other sites

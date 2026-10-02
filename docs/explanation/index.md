@@ -3,15 +3,15 @@
 Why kasten is built the way it is. These pages are for reading away from the
 keyboard; they answer "why" rather than "how".
 
-* [The vault and the derived index](vault-and-derived-index.md) - why the notes live on disk and Postgres is allowed to hold nothing that matters
+* [The vault and the derived index](vault-and-derived-index.md): why the notes live on disk and Postgres is allowed to hold nothing that matters
 * [Security model](security-model.md): why kasten has no login of its own, what the gate covers, the two prefixes left open, what the shell can reach, and the consent and page-fetch checks the backend makes itself
 * [Two environments](environments.md): why the maintainer's dev and prod are deployed in deliberately different ways, the constraints that box imposes on both, why the shell and the agent logins in it must sit behind the gate, and why prod images are built for amd64 and arm64
-* [Deleting a note](deleting-a-note.md) - why a delete moves the note into a hidden folder instead of removing it
-* [Live preview and the vim mode](live-preview.md) - why the editor renders markdown in normal mode and shows you the source in insert mode
-* [The archive](the-archive.md) - why finished work goes in a folder rather than a field, and why one key rather than a filter on every list
-* [The file beside a note](books-in-the-vault.md) - why what you read is its note's path with the suffix swapped, why the suffix is one of two, the two doors a file comes in by, why a highlight is found again by searching the page for its words, and why the vault's history never takes a copy
-* [OKF in the vault](okf-in-the-vault.md) - why the vault is an Open Knowledge Format bundle, what the one adopted field buys, why the backfill is not a save and when to turn it off, what a note renamed onto a reserved name costs, and why the vocabulary is a note nothing validates
-* [Spaced repetition](spaced-repetition.md) - why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, and why the review has two front ends
-* [People in the vault](people-in-the-vault.md) - why a person is a note with a type rather than a record, why their card counts links and never names, what that costs the vault as it stands, and why nothing was indexed to build it
-* [The graph](the-graph.md) - why the graph is read off the vault on every request, why its query is parsed on the backend when todos are parsed in the browser, why the graph reads aliases the editor does not yet, and why the language is two shapes rather than Cypher
-* [The agent boundary](the-agent-boundary.md) - why a token reaches seven capabilities under a prefix of their own rather than the routes the browser uses, what it cannot do, why the write is conditional in one direction only, why the consent step checks its own origin, and what one Caddy block is holding
+* [Deleting a note](deleting-a-note.md): why a delete moves the note into a hidden folder instead of removing it
+* [Live preview and the vim mode](live-preview.md): why the editor renders markdown in normal mode and shows you the source in insert mode
+* [The archive](the-archive.md): why finished work goes in a folder rather than a field, and why one key rather than a filter on every list
+* [The file beside a note](books-in-the-vault.md): why what you read is its note's path with the suffix swapped, why the suffix is one of two, the two doors a file comes in by, why a highlight is found again by searching the page for its words, and why the vault's history never takes a copy
+* [OKF in the vault](okf-in-the-vault.md): why the vault is an Open Knowledge Format bundle, what the one adopted field buys, why the backfill is not a save and when to turn it off, what a note renamed onto a reserved name costs, and why the vocabulary is a note nothing validates
+* [Spaced repetition](spaced-repetition.md): why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, and why the review has two front ends
+* [People in the vault](people-in-the-vault.md): why a person is a note with a type rather than a record, why their card counts links and never names, what that costs the vault as it stands, and why nothing was indexed to build it
+* [The graph](the-graph.md): why the graph is read off the vault on every request, why its query is parsed on the backend when todos are parsed in the browser, why the graph reads aliases the editor does not yet, and why the language is two shapes rather than Cypher
+* [The agent boundary](the-agent-boundary.md): why a token reaches seven capabilities under a prefix of their own rather than the routes the browser uses, what it cannot do, why the write is conditional in one direction only, why the consent step checks its own origin, and what one Caddy block is holding

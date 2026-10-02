@@ -100,6 +100,6 @@ Even then, jj has the note where the vault does not.
 
 ## Related
 
-* [The vault and the derived index](/explanation/vault-and-derived-index.md) - the rule this one falls out of
-* [HTTP API](/reference/http-api.md) - the four endpoints, and what each refuses
-* [Editor keys](/reference/editor-keys.md) - `<leader>df`, `<leader>du` and the tree's `d`
+* [The vault and the derived index](/explanation/vault-and-derived-index.md): the rule this one falls out of
+* [HTTP API](/reference/http-api.md): the four endpoints, and what each refuses
+* [Editor keys](/reference/editor-keys.md): `<leader>df`, `<leader>du` and the tree's `d`

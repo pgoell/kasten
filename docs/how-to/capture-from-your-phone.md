@@ -62,5 +62,5 @@ doing, described in [Editor keys](/reference/editor-keys.md#capturing-into-today
 
 ## Related
 
-* [HTTP API](/reference/http-api.md#post-apidump) - where in the note each capture lands
-* [Agent API](/reference/agent-api.md#post-agentdump) - the same capture for an agent, as a tool or a route
+* [HTTP API](/reference/http-api.md#post-apidump): where in the note each capture lands
+* [Agent API](/reference/agent-api.md#post-agentdump): the same capture for an agent, as a tool or a route

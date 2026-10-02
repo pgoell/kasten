@@ -246,7 +246,7 @@ async def authorize(
 
     Every refusal renders here as a 400 and is never sent on as an error
     redirect. Redirecting to an address this just judged untrusted is the hole it
-    is refusing, and the host in question carries a `.pgoell.com` session
+    is refusing, and the host in question may carry the gate's session
     cookie.
     """
     if not _same_origin(request):

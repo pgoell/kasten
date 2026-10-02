@@ -30,19 +30,21 @@ An agent that will not connect has its own table, in
 `KASTEN_GATE` names a gate with no file. It must be `basicauth`, `oauth2-proxy`
 or `tailscale`, spelled as the files in `gates/` are.
 
-**Caddy exits with `username and password cannot be empty or missing`.** The
-basic auth gate has no hash. Set `KASTEN_BASIC_AUTH_USER` and
-`KASTEN_BASIC_AUTH_HASH`.
+**Caddy exits with `username and password cannot be empty or missing`.**
+`KASTEN_BASIC_AUTH_USER` is set and `KASTEN_BASIC_AUTH_HASH` is empty. Set the
+hash.
 
-**Compose warns that a variable such as `a` is not set.** The bcrypt hash is
-not in single quotes, so compose read each `$` in it as a variable and broke the
-hash. Quote it: `KASTEN_BASIC_AUTH_HASH='$2a$14$...'`.
+**Compose warns that a variable is not set**, naming a run of letters from the
+bcrypt hash. The hash is not in single quotes, so compose read each `$` in it
+as a variable and broke the hash. Quote it:
+`KASTEN_BASIC_AUTH_HASH='$2a$14$...'`.
 
 ## No certificate
 
 Caddy's log says why. For basic auth and oauth2-proxy, Let's Encrypt must reach
 the machine at `KASTEN_DOMAIN` on port 80 or 443:
 
+* `KASTEN_DOMAIN` is your name, not the example's `kasten.example.com`.
 * `dig +short <your-host>` prints the machine's public address.
 * Ports 80 and 443 are open in every firewall on the way, the cloud provider's
   included.
@@ -58,10 +60,18 @@ Tailscale admin console, and `COMPOSE_FILE` must name
 
 ## You cannot get in
 
+**The browser asks for the password again and again.** Behind basic auth,
+the user name or hash is empty or wrong. With both empty, Caddy starts and
+refuses every login. A hash that compose broke without a warning, because the
+part after a `$` began with a digit, `.` or `/`, looks the same. Make a new
+hash and keep it in single quotes.
+
 **`502` on every page behind oauth2-proxy.** oauth2-proxy is not running.
 `COMPOSE_PROFILES=oauth2-proxy` is missing from `.env`, or
 `allowed-emails.txt` is missing and oauth2-proxy stopped at once. Read
-`docker compose logs oauth2-proxy`.
+`docker compose logs oauth2-proxy`. If `allowed-emails.txt` is a directory,
+compose made it when the file was missing: `sudo rmdir allowed-emails.txt`,
+write the file, and `docker compose up -d`.
 
 **oauth2-proxy signs you in and then refuses you.** Your address is not in
 `allowed-emails.txt`, or the provider gives a different one.
@@ -77,16 +87,12 @@ address `tailscale ip -4` prints.
 
 ## Notes do not save
 
-**`Permission denied` in the backend log.** The containers run as
-`KASTEN_UID`:`KASTEN_GID`, 1000 unless set, and `data/` belongs to someone
-else. Make them match:
+**`Permission denied` in the backend log.** The containers run as uid and
+gid 1000, and `data/` belongs to someone else. Give it to them:
 
 ```sh
-id -u; id -g
-sudo chown -R "$(id -u):$(id -g)" data
+sudo chown -R 1000:1000 data
 ```
-
-and set `KASTEN_UID` and `KASTEN_GID` in `.env` if they are not 1000.
 
 **The backend warns `has no .jj directory, so saves are not recorded in any
 history`.** Notes save, with no way back to an earlier version. Run step 4 of
@@ -114,6 +120,12 @@ sign in, and open the terminal again.
 
 **`The shell closed the connection`.** The shell was there and ended. Open the
 terminal again.
+
+**The shell restarts again and again**, with
+`mkdir: cannot create directory '//.config': Permission denied` in
+`docker compose logs shell`. `KASTEN_UID` is not 1000, and the shell image has
+no user for any other uid. Remove `KASTEN_UID` and `KASTEN_GID` from `.env`,
+give `data/` to 1000 as above, and `docker compose up -d`.
 
 **Claude Code, codex or dsh asks you to log in.** That happens once per shell
 home. The `shell-home` volume keeps it across restarts and upgrades; if it asks
