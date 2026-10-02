@@ -1,4 +1,4 @@
-import { decodeServer, encodeAuth, encodeInput, encodeResize } from "@/lib/ttyd";
+import { closedMessage, decodeServer, encodeAuth, encodeInput, encodeResize } from "@/lib/ttyd";
 
 /** The payload after the command byte, as text. */
 function payload(frame: Uint8Array): string {
@@ -89,5 +89,31 @@ describe("what the server sends", () => {
       ...(second as { bytes: Uint8Array }).bytes,
     ];
     expect(joined).toEqual([...character]);
+  });
+});
+
+describe("what the pane says when the socket goes", () => {
+  it("names the likely causes when the shell was never reached", () => {
+    const text = closedMessage(false, 1006);
+
+    expect(text).toContain("Could not reach the shell at /term/ws.");
+    expect(text).toContain("logged in");
+    expect(text).toContain("Reopen the terminal");
+    // A failed handshake always reads 1006, which tells a reader nothing.
+    expect(text).not.toContain("1006");
+  });
+
+  it("says the shell ended, with the code, when it had been open", () => {
+    const text = closedMessage(true, 1000);
+
+    expect(text).toContain("The shell closed the connection (code 1000).");
+    expect(text).not.toContain("Could not reach");
+  });
+
+  it("starts on a fresh line and resets the colour after itself", () => {
+    const text = closedMessage(false, 1006);
+
+    expect(text.startsWith("\r\n")).toBe(true);
+    expect(text.endsWith("\x1b[0m\r\n")).toBe(true);
   });
 });

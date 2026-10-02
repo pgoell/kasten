@@ -260,24 +260,51 @@ herdr session is called; letters, numbers, `-` and `_`, up to 64 characters. A
 name nothing answers to starts a fresh session, and a name that is already
 running attaches to it.
 
-The multiplexer is [herdr](https://herdr.dev) rather than tmux, running the
-config in `shell/herdr.toml`, which is the one on this VPS at
-`~/.config/herdr/config.toml`, itself migrated from `~/.tmux.conf`. So the
-prefix is `Ctrl+Space` and the keys inside the session are the ones you already
-press over ssh. That config is baked into the image and read through
-`HERDR_CONFIG_PATH`; herdr's own sockets and session history live in the
-container's home volume, which is what makes a session survive a restart.
+The multiplexer is [herdr](https://herdr.dev) rather than tmux, starting from
+`shell/herdr.toml`, a config migrated from tmux. So the prefix is `Ctrl+Space`,
+and `Ctrl+H`, `Ctrl+J`, `Ctrl+K` and `Ctrl+L` reach the shell as backspace,
+newline, kill-line and clear. The entrypoint copies that file to
+`~/.config/herdr/config.toml` in the container's home volume the first time
+the container starts, and never again, so a setting saved in herdr's UI
+survives a rebuild and a changed `shell/herdr.toml` reaches only a fresh
+volume. herdr's sockets and session history live in the same volume, which is
+what makes a session survive a restart.
 
 The shell runs in its own container with the vault mounted at `/vault`, beside
-jj, rg, git, Claude Code, codex and `dsh`, DeepSeek's harness. The three agents
-are fresh installs: Claude Code and codex sign themselves in inside the
-container, so the first one you start asks you to log in, and `dsh` reads a
-DeepSeek API key from the environment or `~/.dsh/.env` instead. Nothing of your
+jj, rg, git, Claude Code, codex and `dsh`, DeepSeek's harness. Nothing of your
 own home directory is in there, and the vault is the only thing the container
-shares with the machine. The session outlives the pane, the tab and
+shares with the machine.
+
+The first time, log the agents in from inside the container. Each keeps its
+credentials in the home volume (`~/.claude`, `~/.codex`, `~/.dsh`), so this
+happens once and survives rebuilds and releases:
+
+* `claude` asks you to log in when it first starts.
+* `codex` does the same.
+* `dsh` has no login. It reads a DeepSeek API key from the environment or
+  `~/.dsh/.env`. It is optional: nothing starts it, neither the container nor
+  the shell, so without a key everything else works and only `dsh` itself has
+  nothing to talk to.
+
+jj and git take their author from `JJ_USER` and `JJ_EMAIL`, which the
+container reads at start and writes into the home volume only where no name or
+email is set yet. See
+[the shell container](/reference/configuration.md#the-shell-container).
+
+This is a full shell with write access to the vault and every agent login you
+have made. It must only be reachable behind the login gate; see
+[Deploy to the VPS](/how-to/deploy-to-the-vps.md#prove-the-shell-is-not-exposed).
+
+The session outlives the pane, the tab and
 the browser, so closing the tab and coming back to the same name finds the same
 shell with its scrollback and whatever was still running in it. Closing the pane
 detaches a client; it does not kill the session.
+
+When the connection goes, the pane says so in red. "Could not reach the shell"
+means the WebSocket never opened: the shell container is down, the `/term`
+route is missing, or the login gate turned the request away. "The shell closed
+the connection" means it had opened and then ended. Neither retries on its
+own; open the terminal again with `<leader>cs`.
 
 The list under the input is the sessions that already exist, ranked against
 what has been typed, so a half-remembered name is one Tab away and a click on a
