@@ -2,15 +2,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { ASSET_LIMIT_BYTES, fetchBook, uploadAsset } from "@/lib/api";
 
-const MAIN = readFileSync(
-  path.join(import.meta.dirname, "../../backend/src/kasten_backend/main.py"),
+const FILES = readFileSync(
+  path.join(import.meta.dirname, "../../backend/src/kasten_backend/files.py"),
   "utf8",
 );
 
 /** The backend's own cap, read off the module that enforces it. */
 function backendCap(): number {
-  const found = MAIN.match(/^ASSET_LIMIT_BYTES = ([\d *]+)$/m)?.[1];
-  if (found === undefined) throw new Error("main.py carries no ASSET_LIMIT_BYTES");
+  const found = FILES.match(/^ASSET_LIMIT_BYTES = ([\d *]+)$/m)?.[1];
+  if (found === undefined) throw new Error("files.py carries no ASSET_LIMIT_BYTES");
   return found.split("*").reduce((total, factor) => total * Number(factor), 1);
 }
 

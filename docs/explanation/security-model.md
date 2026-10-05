@@ -42,7 +42,7 @@ pass the gate.
 bearer token against the token store before it runs, and the check hangs off
 the router, so a route added later cannot forget it. A proxy that is wrong
 there exposes routes that answer `401`, not the vault. What a token reaches,
-seven capabilities and no delete, is
+eight capabilities and no delete, is
 [The agent boundary](/explanation/the-agent-boundary.md).
 
 `/.well-known/*` serves the OAuth discovery documents. They are public by

@@ -158,6 +158,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/files/{path}/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch File
+         * @description Put the file at a public `url` into the vault at `path`, never over one there.
+         */
+        post: operations["fetch_file_agent_files__path__fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/files/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload File
+         * @description Put the raw body into the vault at `path` as a book or an image, never over one there.
+         *
+         *     Raw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl
+         *     --data-binary @paper.pdf` is the whole client. `openapi_extra` because the
+         *     body is read off the request, which FastAPI cannot see to describe.
+         */
+        post: operations["upload_file_agent_files__path__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1049,6 +1093,22 @@ export interface components {
             date: string;
         };
         /**
+         * Fetch
+         * @description Where to read a file from, for a caller holding a link rather than the bytes.
+         */
+        Fetch: {
+            /** Url */
+            url: string;
+        };
+        /**
+         * Filed
+         * @description The vault-relative path a file landed at.
+         */
+        Filed: {
+            /** Path */
+            path: string;
+        };
+        /**
          * Folder
          * @description One folder, as the vault spells it.
          *
@@ -1566,6 +1626,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NoteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_file_agent_files__path__fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Fetch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Filed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_file_agent_files__path__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Filed"];
                 };
             };
             /** @description Validation Error */

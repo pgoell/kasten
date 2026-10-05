@@ -405,6 +405,113 @@
         }
       }
     },
+    "/agent/files/{path}/fetch": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Fetch File",
+        "description": "Put the file at a public `url` into the vault at `path`, never over one there.",
+        "operationId": "fetch_file_agent_files__path__fetch_post",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Fetch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Filed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/files/{path}": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Upload File",
+        "description": "Put the raw body into the vault at `path` as a book or an image, never over one there.\n\nRaw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl\n--data-binary @paper.pdf` is the whole client. `openapi_extra` because the\nbody is read off the request, which FastAPI cannot see to describe.",
+        "operationId": "upload_file_agent_files__path__post",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Filed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -1657,6 +1764,34 @@
         ],
         "title": "Dump",
         "description": "One thought for a day's dump, and the day the sender is having."
+      },
+      "Fetch": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "Fetch",
+        "description": "Where to read a file from, for a caller holding a link rather than the bytes."
+      },
+      "Filed": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "Filed",
+        "description": "The vault-relative path a file landed at."
       },
       "Folder": {
         "properties": {

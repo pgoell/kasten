@@ -529,7 +529,7 @@ export async function fetchBook(note: string): Promise<BookBeside> {
  * The most this will send, checked before a byte goes out.
  *
  * The other copy is `ASSET_LIMIT_BYTES` in
- * `backend/src/kasten_backend/main.py`, and the direction is what matters:
+ * `backend/src/kasten_backend/files.py`, and the direction is what matters:
  * this one must never exceed that one, because a client that lets through what
  * the server refuses turns a readable 413 into a network error. `api.test.ts`
  * reads the backend's copy off disk and holds the two together.

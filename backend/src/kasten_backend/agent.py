@@ -10,7 +10,8 @@ copy of it. Each function takes a `Settings` rather than a bare path, because
 the archive folder is a setting and a capability that hardcoded `98 Archive`
 would break the moment a vault filed things differently.
 
-Deliberately seven things and not the twenty-four `/api/*` serves. There is no
+Deliberately few things and not the thirty-one `/api/*` serves. The eighth,
+filing a book or an image, lives in `files.py` beside the browser's upload. There is no
 delete, no move and no folder operation: a move rewrites wikilinks across the
 whole vault, and getting that wrong from outside the box is a vault-wide edit.
 The shell container keeps the knife.

@@ -14,8 +14,10 @@ from typing import TYPE_CHECKING, Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from starlette.requests import ClientDisconnect
 
-from kasten_backend import agent, vcs
+from kasten_backend import agent, files, vcs
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.tokens import verify
@@ -107,13 +109,13 @@ async def graph(
 async def schema(request: Request) -> dict[str, Any]:
     """This prefix, described as OpenAPI, for a caller with no MCP client.
 
-    An agent over MCP discovers the seven capabilities from `tools/list`. One
+    An agent over MCP discovers the eight capabilities from `tools/list`. One
     holding a token and a curl has nothing to read, because `/openapi.json` at
     the root is behind oauth2-proxy and describes the browser's API rather than
     this one.
 
     Built from this router's own routes rather than by filtering the whole
-    application's schema, so it names the seven and pulls in only the models they
+    application's schema, so it names the eight and pulls in only the models they
     reference. A token holder cannot reach anything under `/api/`, and handing
     one the map of those routes would give it away for nothing.
     """
@@ -148,6 +150,60 @@ async def dump(
     return _written(await agent.dump(settings, capture.text, capture.date))
 
 
+class Fetch(BaseModel):
+    """Where to read a file from, for a caller holding a link rather than the bytes."""
+
+    url: str
+
+
+class Filed(BaseModel):
+    """The vault-relative path a file landed at."""
+
+    path: str
+
+
+# Above the upload, whose `{path:path}` would otherwise take `a.pdf/fetch` whole
+# and refuse it as a path the vault will not take.
+@router.post("/files/{path:path}/fetch", status_code=201)
+async def fetch_file(
+    path: str, source: Fetch, settings: Annotated[Settings, Depends(get_settings)]
+) -> Filed:
+    """Put the file at a public `url` into the vault at `path`, never over one there."""
+    return Filed(path=await files.download(settings.vault_path, path, source.url))
+
+
+@router.post(
+    "/files/{path:path}",
+    status_code=201,
+    response_model=Filed,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+            },
+        }
+    },
+)
+async def upload_file(
+    path: str, request: Request, settings: Annotated[Settings, Depends(get_settings)]
+) -> Filed | JSONResponse:
+    """Put the raw body into the vault at `path` as a book or an image, never over one there.
+
+    Raw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl
+    --data-binary @paper.pdf` is the whole client. `openapi_extra` because the
+    body is read off the request, which FastAPI cannot see to describe.
+    """
+    try:
+        landed = await files.store(settings.vault_path, path, request.stream())
+    except ClientDisconnect:
+        # Nobody is left to read an answer. Caught so a hang-up is not a
+        # traceback; `store` has already taken the temp away.
+        return JSONResponse(status_code=499, content={})
+
+    return Filed(path=landed)
+
+
 def _written(landed: agent.NoteRead | None) -> agent.NoteRead:
     """What the write left on disk, or the refusal a path the vault will not take earns."""
     if landed is None:
@@ -173,6 +229,17 @@ async def note_changed(_request: Request, error: Exception) -> JSONResponse:
 async def too_large(_request: Request, error: Exception) -> JSONResponse:
     """Answer a write that would leave more than `MOST_CONTENT_BYTES` on disk."""
     return JSONResponse(status_code=413, content={"detail": str(error)})
+
+
+async def refused(_request: Request, error: Exception) -> JSONResponse:
+    """Answer a file or a page refused by `files.py`, with the status it earned.
+
+    Registered on the app, so `POST /api/assets` and `POST /agent/files` refuse
+    in the same words.
+    """
+    status = error.status if isinstance(error, files.RefusedError) else 500
+
+    return JSONResponse(status_code=status, content={"detail": str(error)})
 
 
 async def nothing_to_capture(_request: Request, error: Exception) -> JSONResponse:

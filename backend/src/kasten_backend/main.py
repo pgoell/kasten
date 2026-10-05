@@ -1,11 +1,7 @@
 """FastAPI application entrypoint."""
 
 import asyncio
-import ipaddress
 import logging
-import os
-import secrets
-import socket
 from contextlib import asynccontextmanager
 from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
 from importlib.metadata import version
@@ -30,7 +26,7 @@ from youtube_transcript_api import (
 from kasten_backend import agent, agent_mcp
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
-from kasten_backend.agent_routes import note_changed, nothing_to_capture, too_large
+from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
 from kasten_backend.agent_routes import router as agent_router
 from kasten_backend.anki import as_note, read_apkg
 from kasten_backend.build import build_id
@@ -38,6 +34,15 @@ from kasten_backend.cards import find_cards
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
+from kasten_backend.files import (
+    ASSET_LIMIT_BYTES,
+    PAGE_AGENT,
+    PAGE_FAILED,
+    PAGE_TIMEOUT_SECONDS,
+    RefusedError,
+    open_public,
+    store,
+)
 from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError, query_graph
 from kasten_backend.guide import write_guide
@@ -57,7 +62,6 @@ from kasten_backend.trash import (
     restore,
 )
 from kasten_backend.vault import (
-    ASSET_MAGIC,
     BOOK_SUFFIXES,
     create_note,
     list_images,
@@ -69,7 +73,6 @@ from kasten_backend.vault import (
     rename_folder,
     rename_note,
     resolve_asset,
-    resolve_asset_path,
     resolve_book,
     resolve_folder,
     resolve_folder_path,
@@ -154,6 +157,7 @@ app.include_router(agent_router)
 app.add_exception_handler(ConflictError, note_changed)
 app.add_exception_handler(TooLargeError, too_large)
 app.add_exception_handler(EmptyCaptureError, nothing_to_capture)
+app.add_exception_handler(RefusedError, refused)
 app.mount("/agent", agent_mcp.mounted)
 """The MCP endpoint, at exactly `/agent/mcp`.
 
@@ -194,54 +198,6 @@ An article is a few hundred kilobytes and this is twenty times that, so the
 number is not a limit anybody meets by reading. It is there because the other
 end of this request is a stranger, and `content-length` is a claim rather than
 a fact: the bytes are counted as they arrive.
-"""
-
-ASSET_LIMIT_BYTES = 100 * 1024 * 1024
-"""The most of one book or image this will take before giving up.
-
-One cap for both, because the cap is about what a request may cost and not about
-what a format usually weighs. Twenty times a fat epub, so it is not a number
-anybody meets by reading. It is counted off the bytes as they arrive rather than
-read off `content-length`, for the reason `PAGE_LIMIT_BYTES` is: a header is a
-claim. `api.ts` holds the client's copy, which is checked before a byte is sent
-and must never exceed this one.
-
-Cloudflare sits in front of production with a body limit of its own near this
-number, so a real oversize upload is usually refused before it arrives. This is
-the backstop for dev, for the LAN and for a client that did not check.
-"""
-
-HEAD_BYTES = max(len(magic) for magic in ASSET_MAGIC.values())
-"""How much of an upload the suffix check needs, which is the longest magic.
-
-Derived rather than typed, so a format whose magic is longer than every one
-before it widens this by arriving in the table.
-"""
-
-PAGE_FAILED = 400
-"""The status at which a page counts as not having been read.
-
-The line HTTP itself draws, and named because a bare 400 in a comparison says
-nothing about which of the two numbers on that line is which.
-"""
-
-PAGE_REDIRECTS = 20
-"""How many redirects a page may take before the reader is told it did not load.
-
-httpx's own cap, kept now that the redirects are followed here rather than by
-httpx, so a page that loaded before still loads.
-"""
-
-PAGE_TIMEOUT_SECONDS = 20.0
-"""How long a page has to answer before the reader is told it did not."""
-
-PAGE_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
-"""What this calls itself when it asks for a page.
-
-A browser's string rather than kasten's, because a great many sites answer an
-unfamiliar agent with a challenge page or a 403, and the page being asked for
-is one the reader is sitting in front of and could have opened in a tab. It is
-a request for one page, made by hand, not a crawl.
 """
 
 
@@ -482,44 +438,6 @@ async def list_terminals(settings: Annotated[Settings, Depends(get_settings)]) -
     return sorted(entry.name for entry in root.iterdir() if entry.is_dir())
 
 
-async def _addresses(host: str) -> list[str]:
-    """Every address the host resolves to, the way the fetch itself will resolve it."""
-    found = await asyncio.get_running_loop().getaddrinfo(host, None, type=socket.SOCK_STREAM)
-    return [str(entry[4][0]) for entry in found]
-
-
-async def _refuse_private(url: httpx.URL) -> None:
-    """Refuse an address that leads anywhere but the public internet.
-
-    The backend sits on the docker network beside Postgres, the shell and
-    whatever else the box runs, none of which expects a request from it. Every
-    address the name resolves to is checked, not the first: the fetch may pick
-    any of them. An IPv4 address hidden in an IPv6 one is checked as the IPv4
-    address it is. `is_global` leaves out loopback, private, link-local,
-    shared (CGNAT and Tailscale) and reserved space, and multicast is refused
-    on its own because some of it counts as global.
-
-    ponytail: httpx resolves the name again when it connects, so a name that
-    answers one address here and another there slips past. Closing that means
-    connecting to the address checked here, which costs the TLS name handling
-    httpx gives for free. Rebinding a name inside one request is a narrow gap.
-    """
-    if url.scheme not in ("http", "https") or not url.host:
-        raise HTTPException(status_code=400, detail="Only http and https addresses")
-
-    try:
-        found = await _addresses(url.host)
-    except OSError as error:
-        raise HTTPException(status_code=502, detail=f"Could not find {url.host}") from error
-
-    for address in found:
-        ip = ipaddress.ip_address(address.split("%", 1)[0])
-        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-            ip = ip.ipv4_mapped
-        if not ip.is_global or ip.is_multicast:
-            raise HTTPException(status_code=400, detail="That address is not on the internet")
-
-
 @app.get("/api/fetch")
 async def fetch_page(url: str) -> Page:
     """Read one web page off the internet and hand it back unchanged.
@@ -551,20 +469,7 @@ async def fetch_page(url: str) -> Page:
         async with httpx.AsyncClient(
             timeout=PAGE_TIMEOUT_SECONDS, headers={"user-agent": PAGE_AGENT}
         ) as reader:
-            # Followed here rather than by httpx, so every hop meets the address
-            # check: a public page that redirects to the box itself is the
-            # obvious way round a check made once.
-            request = reader.build_request("GET", url)
-            for _ in range(PAGE_REDIRECTS + 1):
-                await _refuse_private(request.url)
-                response = await reader.send(request, stream=True)
-                if response.next_request is None:
-                    break
-                await response.aclose()
-                request = response.next_request
-            else:
-                raise HTTPException(status_code=502, detail="That page redirects too many times")
-
+            response = await open_public(reader, url)
             try:
                 return await _read_page(response)
             finally:
@@ -960,92 +865,16 @@ async def write_asset(
     documents the 201 as JSON carrying an empty schema, and
     `openapi-typescript` turns that into a body for a response that has none.
     """
-    asset = resolve_asset_path(settings.vault_path, path)
-    if asset is None:
-        raise HTTPException(status_code=400, detail="The vault will not take that path")
-    relative = relative_path(settings.vault_path, asset)
-    # A courtesy in front of the guarantee, not the guarantee itself. It is
-    # here so you learn the path is taken before you send 30MB; the `os.link`
-    # below is what actually refuses an overwrite. Deleting this would cost the
-    # early answer, and trusting it would cost the promise.
-    if asset.exists():
-        raise HTTPException(status_code=409, detail="Something is already there")
-
-    # The way `create_note` makes them, and for the reason its docstring gives:
-    # a note's folder can vanish between picking the file and sending it, and
-    # opening a file under a missing parent raises rather than answers.
-    asset.parent.mkdir(parents=True, exist_ok=True)
-
-    # Eight random hex characters rather than a fixed name. Two uploads aimed
-    # at one path would otherwise interleave their bytes into one temp, and the
-    # winner's cleanup would unlink the name the loser is still writing behind.
-    # Opened `"xb"` rather than through `tempfile.mkstemp`: mkstemp creates the
-    # file 0600 and the hard link below publishes that mode, so every book
-    # would land readable by its owner alone in a vault whose whole point is
-    # being readable without kasten. Hidden and `.tmp`, so the listing, the
-    # watcher and jj all skip whatever a crash leaves behind.
-    temporary = asset.with_name(f".{asset.name}.{secrets.token_hex(4)}.tmp")
-    # Opened above the `try`, so the `finally` can only ever unlink a file this
-    # request made.
-    output = temporary.open("xb")
     try:
-        with output:
-            size = 0
-            head = b""
-            try:
-                async for chunk in request.stream():
-                    size += len(chunk)
-                    # Before the write, so an over-cap body is refused rather
-                    # than landing on the disk first.
-                    if size > ASSET_LIMIT_BYTES:
-                        raise HTTPException(status_code=413, detail="That book is too big")
-                    if len(head) < HEAD_BYTES:
-                        head = (head + chunk)[:HEAD_BYTES]
-                    output.write(chunk)
-            except ClientDisconnect:
-                # This answer reaches nothing: uvicorn's `send` returns at its
-                # disconnected guard before it writes bytes and before it
-                # writes the access log line. The catch is here for the other
-                # path, a propagated `ClientDisconnect` reaching `run_asgi` and
-                # printing a traceback, and a person closing a tab is not an
-                # exception. The `finally` below still takes the temp away.
-                return Response(status_code=499)
-
-        # A usability check and never a security one. The shell pane drops a
-        # file straight into the vault without coming near this endpoint, so
-        # nothing downstream can rely on this having run. It earns its place
-        # because there is no delete: a PDF or a half-copied file sent by
-        # mistake would squat on the sidecar path until you open a terminal.
-        # Compared after the stream rather than the moment the fourth byte
-        # arrives. Refusing early would save something real, a 90MB PDF renamed
-        # `.epub` streaming whole before the 400, and the flat check wins
-        # anyway because one user moves seconds of data. The suffix is what
-        # picks the bytes: `resolve_asset_path` above answers for the names in
-        # `ASSET_MAGIC` and no others, so the lookup cannot miss.
-        if not head.startswith(ASSET_MAGIC[asset.suffix]):
-            raise HTTPException(status_code=400, detail="That file is not what its name says")
-
-        # A link and not an `os.replace`, though `write_note` replaces twenty
-        # lines away. Replace overwrites, and no delete and no history means an
-        # overwritten book is gone for good. A link creates the target or
-        # raises, and the filesystem decides which, so no window exists in
-        # which two requests both believe the path is free.
-        try:
-            # The lock covers the link and nothing before it. Holding it across
-            # the stream above would serialise every browser save behind one
-            # slow upload.
-            async with vault_write(), vault_change(settings.vault_path, relative):
-                os.link(temporary, asset)
-        except FileExistsError as taken:
-            # Around the link alone, so it cannot swallow the temp's own
-            # `open("xb")` colliding, which means something else entirely and
-            # should stay a 500.
-            raise HTTPException(status_code=409, detail="Something is already there") from taken
-    finally:
-        # Every path out, the successful one included: after the link the temp
-        # is a second name for a file the target now also names, so unlinking
-        # it leaves the book whole.
-        temporary.unlink(missing_ok=True)
+        await store(settings.vault_path, path, request.stream())
+    except ClientDisconnect:
+        # This answer reaches nothing: uvicorn's `send` returns at its
+        # disconnected guard before it writes bytes and before it writes the
+        # access log line. The catch is here for the other path, a propagated
+        # `ClientDisconnect` reaching `run_asgi` and printing a traceback, and a
+        # person closing a tab is not an exception. `store` has already taken
+        # the temp away.
+        return Response(status_code=499)
 
     return Response(status_code=201)
 

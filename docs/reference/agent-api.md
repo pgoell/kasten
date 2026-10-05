@@ -13,7 +13,7 @@ Everything under `/agent/` is reached with a bearer token and nothing else,
 except the token endpoint of [the OAuth flow](#the-oauth-flow), which by
 definition meets a caller that has none. Nothing in front of the prefix asks for
 a session, so the token check in the backend is the entire trust boundary. Why
-the prefix exists at all, and why it carries seven capabilities rather than the
+the prefix exists at all, and why it carries eight capabilities rather than the
 thirty-one in [the HTTP API](/reference/http-api.md), is in
 [The agent boundary](/explanation/the-agent-boundary.md).
 
@@ -81,8 +81,9 @@ no others. That is deliberate rather than tidy. A token holder cannot reach
 anything under `/api/`, and handing one the map of those thirty-one routes
 would give it away for nothing.
 
-An agent over MCP needs none of this: `tools/list` describes the same seven
-capabilities with the same argument shapes.
+An agent over MCP needs none of this: `tools/list` describes the same eight
+capabilities with the same argument shapes, less the raw upload, which no tool
+call can carry.
 
 ## GET /agent/notes
 
@@ -272,6 +273,65 @@ digest. Text with nothing in it once trimmed is `422` with
 error. The write is recorded as `agent(<name>): 01 Periodic/00 Daily/<date>.md`
 like every other agent write.
 
+## POST /agent/files/{path}
+
+Puts one PDF, epub or image into the vault at `path`, and never over a file
+already there. The body is the file itself, raw, as
+[`POST /api/assets/{path}`](/reference/http-api.md#post-apiassetspath) takes
+it, and the two run the same function.
+
+```sh
+curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --data-binary @ddia.pdf "$KASTEN_AGENT/files/20%20Literature/DDIA.pdf"
+```
+
+```json
+{ "path": "20 Literature/DDIA.pdf" }
+```
+
+`path` ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp`, and
+the bytes must start the way that suffix says. A PDF or an epub filed at a
+note's path with the suffix swapped is the file the reader opens beside that
+note, which [The file beside a note](/explanation/books-in-the-vault.md)
+explains.
+
+| Status | Means |
+| --- | --- |
+| `201` | The file is at `path` |
+| `400` | `The vault will not take that path`, or `That file is not what its name says` |
+| `409` | `Something is already there` |
+| `413` | `That book is too big`, over 100MiB |
+
+There is no overwrite and no delete. A file sent to the wrong path stays there
+until someone removes it from the browser (an image) or the shell (a book).
+
+No MCP tool carries bytes. A tool call is JSON the model writes, so a file would
+have to travel as base64 the model types out, which fails long before a paper's
+size. An agent with a shell, Claude Code among them, sends the file with this
+route instead, and the bytes go from disk to the vault without passing through
+the model.
+
+## POST /agent/files/{path}/fetch
+
+Downloads the file at a public `url` into the vault at `path`, by way of the
+upload above. The MCP tool is `save_file`, taking `path` and `url`.
+
+```json
+{ "url": "https://arxiv.org/pdf/2404.16130" }
+```
+
+The answer, the cap, the suffix check and the refusals are the upload's. The
+address meets the checks [`GET /api/fetch`](/reference/http-api.md#get-apifetch)
+makes: `http` or `https`, every address the name resolves to on the public
+internet, every redirect checked again, at most twenty of them. A refused
+address is `400`; a name that does not resolve, a page that answers `400` or
+worse, and a transfer that breaks off are `502`. The path is checked before
+anything is opened.
+
+This is the way in for claude.ai and chatgpt.com, which have no shell. A file
+there with no public address, a PDF attached to the chat among them, has no way
+into the vault: the model sees its text and never its bytes.
+
 ## What a digest is of, and why it is never the digest of what you sent
 
 Every write stamps the note on the way through, the same stamp a browser save
@@ -361,10 +421,10 @@ The same document answers at
 path-inserted spelling off the `401` header and ChatGPT probes the bare one, and
 a `404` on whichever a client tries ends the flow there.
 
-`kasten:notes` is the one scope. It names the seven capabilities and there is
-nothing to narrow. `read_guide` is an eighth tool under it and not an eighth
+`kasten:notes` is the one scope. It names the eight capabilities and there is
+nothing to narrow. `read_guide` is a ninth tool under it and not a ninth
 capability: it answers with a string compiled into the image and reads no note,
-so the audit this prefix exists for is still a list of seven things.
+so the audit this prefix exists for is still a list of eight things.
 
 ### GET /.well-known/oauth-authorization-server
 
@@ -390,7 +450,7 @@ endpoint, which is both of them.
 
 ### GET and POST /api/oauth/authorize
 
-The `GET` renders one button, naming the host it would give the seven
+The `GET` renders one button, naming the host it would give the eight
 capabilities to. The `POST` behind that button mints a code and answers `302` to
 the address it was given, carrying `code`, `state` and `iss`.
 

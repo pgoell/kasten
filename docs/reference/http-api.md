@@ -13,7 +13,7 @@ The backend serves thirty-one endpoints under `/api/`. Seventeen read,
 thirteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
-Seven more sit under `/agent/`, and they are documented on their own page,
+The agent's routes sit under `/agent/`, and they are documented on their own page,
 [the Agent API](/reference/agent-api.md). Everything here is reached through
 the login gate in front of kasten and nothing else; everything there is reached
 with a bearer token and nothing else.
@@ -1271,5 +1271,5 @@ A name the store has not got is a `404`.
 * [Deleting a note](/explanation/deleting-a-note.md): why a delete keeps the note
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md): push a change here through to the frontend
 * [Configuration](/reference/configuration.md): which directory `/api/files` reads
-* [Agent API](/reference/agent-api.md): the seven routes a token reaches, and the ones it never does
+* [Agent API](/reference/agent-api.md): the routes a token reaches, and the ones it never does
 * [Capture from your phone](/how-to/capture-from-your-phone.md): the page and the share sheet that post to `/api/dump`

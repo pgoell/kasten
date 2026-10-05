@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches seven capabilities under /agent/ rather than the thirty-one routes the browser uses, and what it cannot do.
+description: Why a token reaches eight capabilities under /agent/ rather than the thirty-one routes the browser uses, and what it cannot do.
 tags: [agent, tokens, security, api]
 status: stable
 ---
@@ -45,25 +45,26 @@ It did not survive review, and the reasons are worth keeping written down:
 
 An allowlist has none of those properties, because the dangerous routes are
 never reachable rather than reachable-and-blocked. That is the whole argument
-for a separate prefix: the audit is a list of seven things, not a list of
+for a separate prefix: the audit is a list of eight things, not a list of
 twenty-four things with exceptions.
 
 ## What a token grants
 
-Seven capabilities and nothing else, listed in
+Eight capabilities and nothing else, listed in
 [the Agent API](/reference/agent-api.md): list, read, search, graph, save,
-append and dump.
+append, dump and file.
 
 There is no delete, no move, no rename and no folder operation. The shell
 container keeps the knife, and that makes the honest claim about this feature
 "search, read, create and edit" rather than "file and reorganise". If a real
 agent task turns out to be blocked on filing, that is the moment to revisit it.
 
-There is no Anki import, no asset upload, no page fetch, no trash and no
-terminal. Each is named individually above because each is a specific hazard
-rather than a route that happened to be left out.
+There is no Anki import, no trash and no terminal. Each is named individually
+above because each is a specific hazard rather than a route that happened to be
+left out. The asset upload and the page fetch were on that list too, until the
+eighth capability below took a narrow piece of each.
 
-Every token grants all seven. There are no scopes, no read-only tokens and no
+Every token grants all eight. There are no scopes, no read-only tokens and no
 expiry, which is a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke
@@ -105,6 +106,46 @@ turned up and parse the `name:: [[target]]` lines itself, one request per note
 and a rule to get wrong in every prompt. The server already holds that parser,
 because the browser's graph uses it, so the agent asks the one question and
 gets the answer the graph pane would draw.
+
+## Why an eighth capability is acceptable
+
+`file` puts one PDF, epub or image into the vault, from the bytes in the
+request or from a public URL the server downloads. It is the first capability
+that adds something a leaked token could not already do, and the list above
+named both of its halves as hazards, so it has to argue its way in.
+
+What it buys is the documents that belong beside the notes. A paper an agent
+found, a report it was handed, a scan it made: until now each had to go
+through the browser or a shell, so an agent that wrote a note about a paper
+could not file the paper beside it, and the reader had nothing to open.
+
+The hazard the upload carried was disk. Books are ignored by jj and no route
+deletes one, so a looping or leaked token can fill the disk with files only
+the shell can remove. That is still true, and the cap is the browser's 100MiB
+per file rather than the notes' 1MiB, by choice: a scanned book is bigger than
+any smaller number worth picking. What bounds it is the same as for notes,
+which is that a token is revoked in one click and every file it wrote sits at a
+path it named. Nothing is overwritten: a taken path is refused, decided by the
+filesystem rather than by a check in front of it, so a bad token can add and
+never replace.
+
+The fetch's hazard was the network. A server that downloads what it is told
+can be told to read the box itself. The download goes through the checks
+`GET /api/fetch` already makes: `http` or `https`, every address the name
+resolves to on the public internet, every redirect checked again. One gap is
+known and written down beside that check: httpx resolves the name a second
+time to connect, so a name that answers differently the second time slips
+past. Even then, what comes back has to start with the bytes its suffix
+promises, so an internal service lands nothing unless it answers with a PDF,
+an epub or an image.
+
+Why a URL at all, when the upload takes bytes: an MCP tool call is JSON the
+model writes, and a model cannot write out a PDF. Base64 grows the file by a
+third and a model types it a few characters per token, so the ceiling is tens
+of kilobytes. claude.ai and chatgpt.com have no shell to send bytes with, so a
+URL is the only form a document can reach them in. A file attached to a chat
+there has no URL and still cannot come in; the model sees its text, never its
+bytes.
 
 ## Why the write is conditional in one direction
 
@@ -162,11 +203,11 @@ What that server issues is an ordinary row in the same `tokens.json`, named for
 the product's host. The gate calls the same `verify`, `/tokens` revokes it with
 the same button, and a second Connect from the same product revokes the old row
 before minting the new one. So this is a second way to obtain a token and not a
-second thing a token reaches. The seven capabilities are still seven, there is one
+second thing a token reaches. The eight capabilities are still eight, there is one
 gate, one store and one verification path, and nothing in the gate can tell an
 OAuth grant from a string typed into a terminal. The protocol asks for two
 things the store does not keep: the metadata names one scope, `kasten:notes`,
-which covers all seven capabilities and narrows nothing, and the token response
+which covers all eight capabilities and narrows nothing, and the token response
 states ten years as the lifetime of a token that ends when it is revoked.
 
 Claude Code and codex still carry the header, and none of this touches them.
@@ -267,7 +308,9 @@ check.
 
 An agent can also grow the vault without bound. There is no delete, so a looping
 agent that creates notes cannot clean up after itself and you must use the
-browser or the shell. Each request is capped at 1MiB, and the aggregate is not.
+browser or the shell. A note write is capped at 1MiB and a file at 100MiB, and
+the aggregate is not. A book an agent files is outside jj's history and outside
+every delete route, so the shell is the only way to take one out.
 
 A leaked token is the whole vault. `list_notes` and `read_note` together are
 every note there is, and no revoke takes back a copy someone already holds. The
