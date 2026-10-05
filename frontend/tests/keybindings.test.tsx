@@ -15,6 +15,7 @@ function stubCommands() {
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
     showHelp: vi.fn(),
+    openPalette: vi.fn(),
     createNote: vi.fn(),
     renameNote: vi.fn(),
     deleteNote: vi.fn(),

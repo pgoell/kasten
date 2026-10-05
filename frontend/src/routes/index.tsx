@@ -1,8 +1,10 @@
+import { EditorView } from "@codemirror/view";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookPane } from "@/components/book-pane";
 import { ClipPrompt } from "@/components/clip-prompt";
+import { CommandPalette } from "@/components/command-palette";
 import { DumpPrompt } from "@/components/dump-prompt";
 import { Editor } from "@/components/editor";
 import { ExamPane } from "@/components/exam-pane";
@@ -52,6 +54,7 @@ import type { TreeCommands } from "@/lib/key-bindings";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookType, importedNote, noteName } from "@/lib/note-path";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
+import { paletteEntries } from "@/lib/palette";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -286,6 +289,9 @@ function Home() {
   // rendering off stays off until you turn it back on.
   const [preview, setPreview] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
+  // The editor the palette opened over, held so its edits and inserts have a
+  // buffer to write into. null inside means it opened over a pane with none.
+  const [palette, setPalette] = useState<{ view: EditorView | null } | null>(null);
   // What the prompt is doing and where it starts, and null while it is closed.
   // One piece of state for both, because a create opening on the vault root
   // starts at "" and that still has to read as open.
@@ -1369,6 +1375,12 @@ function Home() {
         if (await saveFirst()) moveTo(clearFocused);
       },
       showHelp: () => setHelpOpen(true),
+      openPalette: () => {
+        const focused = document.activeElement;
+        setPalette({
+          view: focused instanceof HTMLElement ? EditorView.findFromDOM(focused) : null,
+        });
+      },
       // No `saveFirst`: this opens nothing and moves no path, it only changes
       // what four lookups answer with.
       toggleArchive: () => setArchive((previous) => !previous),
@@ -1933,6 +1945,12 @@ function Home() {
         zoom={tab.zoom}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
+      {palette && (
+        <CommandPalette
+          entries={paletteEntries(commands, palette.view)}
+          onClose={() => setPalette(null)}
+        />
+      )}
       {clipPrompt && (
         <ClipPrompt
           onClip={clip}

@@ -14,10 +14,11 @@ import { writeTranscript } from "@/lib/transcript";
 /**
  * Every binding the app owns, in one table.
  *
- * Four things read this: the vim registrations in `editor-commands.ts`, the
- * file tree in `file-explorer.tsx`, the help panel behind `<leader>?`, and the
- * reference page in `docs/`. Keeping one table is what stops those four
- * drifting apart. The first two resolve the keys; the other two describe them.
+ * Five things read this: the vim registrations in `editor-commands.ts`, the
+ * file tree in `file-explorer.tsx`, the help panel behind `<leader>?`, the
+ * palette and `/` menu in `palette.ts`, and the reference page in `docs/`.
+ * Keeping one table is what stops them drifting apart. The first two resolve
+ * the keys, the palette runs them by name, and the other two describe them.
  */
 
 /** What the leader keys reach for. The route supplies these. */
@@ -26,6 +27,8 @@ export interface EditorCommands {
   togglePreview(): void;
   closeNote(): void;
   showHelp(): void;
+  /** Open the palette, which lists every command here by name. */
+  openPalette(): void;
   focusTree(): void;
   /**
    * Unfold the tree down to the note the focused pane holds, and put the tree's
@@ -339,7 +342,19 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "%", label: "Split the pane left and right", command: "splitRight" },
   { key: '"', label: "Split the pane top and bottom", command: "splitDown" },
   { key: "?", label: "Show the keys", command: "showHelp" },
+  // vim's own key for typing a command by name, one press from the leader.
+  // A bare `:` stays vim's ex prompt, which `:w` and `:e` live on.
+  { key: ":", label: "Run a command by name", command: "openPalette" },
 ];
+
+/**
+ * How a leader sequence reads on screen: `Space c f`, the presses spaced so
+ * that `cf` reads as two keys rather than one. The help panel and the palette
+ * both print it.
+ */
+export function spelled(key: string): string {
+  return `Space ${[...key].join(" ")}`;
+}
 
 export interface LeaderEdit {
   /** The keys pressed after the leader, as in `LEADER`. */
@@ -497,6 +512,8 @@ export const TERMINAL: readonly TerminalBinding[] = [
   { key: "K", label: "Move to the pane above", command: "paneUp" },
   { key: "L", label: "Move to the pane on the right", command: "paneRight" },
   { key: "O", label: "Move to the next pane", command: "nextPane" },
+  // The leader cannot reach the palette from here, so it gets a chord too.
+  { key: "P", label: "Run a command by name", command: "openPalette" },
   // `closeNote` rather than a command of its own: it takes what a pane holds
   // out of it and removes the pane once it holds nothing, so this is one step
   // in from `<leader>q` on a note. Emptying rather than removing is what gives
@@ -525,6 +542,15 @@ export interface FormatBinding {
  * from `KeyboardEvent.key` and that is the uppercase letter while shift is
  * held. `<C-S-h>` looks right and can never fire.
  */
+/** Vim's spelling of a key is for vim. This is the one on the keyboard. */
+export function readable(key: string) {
+  return key
+    .replace(/^<|>$/g, "")
+    .replace("C-", "Ctrl ")
+    .replace("S-", "Shift ")
+    .replace(/-/g, " ");
+}
+
 export const FORMAT: readonly FormatBinding[] = [
   { key: "<C-b>", label: "Bold", spec: BOLD },
   { key: "<C-i>", label: "Italic", spec: ITALIC },

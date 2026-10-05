@@ -86,6 +86,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>"` | Split the pane top and bottom |
 | `<leader>1` to `<leader>0` | Go to a tab by number |
 | `<leader>?` | Show every binding on this page, in the app |
+| `<leader>:` | Run a command by name, in [the command palette](#the-command-palette) |
 
 `<leader>cf` takes two keys after the leader, `c` then `f`, and is the first
 binding here to take more than one. The `<leader>?` panel spells it
@@ -352,6 +353,7 @@ a leader sequence. Every other key, the space bar included, goes to the shell.
 | `Ctrl+Shift+K` | Move to the pane above |
 | `Ctrl+Shift+L` | Move to the pane on the right |
 | `Ctrl+Shift+O` | Move to the next pane |
+| `Ctrl+Shift+P` | Open [the command palette](#the-command-palette) |
 | `Ctrl+Shift+Q` | Take the terminal out of the pane |
 
 They are `Ctrl+Shift` because a terminal cannot transmit most of those chords,
@@ -1188,6 +1190,48 @@ The line underneath says `no open todos` for a vault with nothing to do in it.
 
 The overlay and the pane share one answer, so opening one after the other reads
 the vault once.
+
+## The command palette
+
+`<leader>:` opens a box that lists every command by name. Type a few letters,
+and the list narrows by fuzzy match. Enter runs the highlighted row, Escape
+closes the box, and the arrows, Tab, Shift+Tab, Ctrl+N and Ctrl+P move the
+highlight. Each row prints the key that does the same thing.
+
+Opened over a note, the palette lists every leader command, every leader edit,
+the four formatting marks and the inserts below. Opened over a pane with no
+note, it lists the leader commands only, as the rest write into a note.
+
+`frontend/src/lib/palette.ts` builds both lists from the tables in
+`key-bindings.ts`, so a new leader binding appears in the palette and in the
+`/` menu with no further edit.
+
+### The `/` menu
+
+In insert mode, a `/` typed at the start of a line or after a space opens the
+same list as a completion menu. Letters after the slash narrow it. Enter or Tab
+takes the highlighted row, removes the `/` and what you typed after it, and
+then writes the insert or runs the command. A `/` inside a word, a path or a
+URL opens nothing.
+
+### Inserts
+
+| Insert | Writes |
+|---|---|
+| Heading 1, 2, 3 | `# `, `## `, `### ` |
+| Todo | `- [ ] ` |
+| Bullet list | `- ` |
+| Numbered list | `1. ` |
+| Quote | `> ` |
+| Code block | a fence, with the cursor on the language |
+| Table | two header cells, a divider and an empty row |
+| Divider | `---` |
+| Wikilink | `[[]]`, with the cursor between the brackets |
+
+Every insert but the wikilink starts a line of its own: chosen mid-line, it
+writes a line break first. Tab walks the fields an insert leaves, such as a
+table's two header cells. Chosen from the palette in normal mode, an insert
+puts vim in insert mode first.
 
 ## Formatting
 

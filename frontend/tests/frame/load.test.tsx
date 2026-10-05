@@ -51,6 +51,7 @@ const INERT: TreeCommands = {
   togglePreview: () => {},
   closeNote: () => {},
   showHelp: () => {},
+  openPalette: () => {},
   focusTree: () => {},
   revealTree: () => {},
   createNote: () => {},
