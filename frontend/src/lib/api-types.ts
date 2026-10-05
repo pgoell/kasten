@@ -99,13 +99,13 @@ export interface paths {
          * Schema
          * @description This prefix, described as OpenAPI, for a caller with no MCP client.
          *
-         *     An agent over MCP discovers the seven capabilities from `tools/list`. One
+         *     An agent over MCP discovers the eight capabilities from `tools/list`. One
          *     holding a token and a curl has nothing to read, because `/openapi.json` at
          *     the root is behind oauth2-proxy and describes the browser's API rather than
          *     this one.
          *
          *     Built from this router's own routes rather than by filtering the whole
-         *     application's schema, so it names the seven and pulls in only the models they
+         *     application's schema, so it names the eight and pulls in only the models they
          *     reference. A token holder cannot reach anything under `/api/`, and handing
          *     one the map of those routes would give it away for nothing.
          */
