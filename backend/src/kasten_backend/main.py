@@ -62,6 +62,7 @@ from kasten_backend.trash import (
 from kasten_backend.vault import (
     BOOK_SUFFIXES,
     create_note,
+    list_html,
     list_images,
     list_markdown_files,
     move_asset_beside,
@@ -74,6 +75,7 @@ from kasten_backend.vault import (
     resolve_book,
     resolve_folder,
     resolve_folder_path,
+    resolve_html,
     resolve_note,
     resolve_path,
     write_note,
@@ -415,6 +417,78 @@ async def list_vault_images(settings: Annotated[Settings, Depends(get_settings)]
     business in any of those. The editor reads this one to complete a `![](`.
     """
     return list_images(settings.vault_path)
+
+
+@app.get("/api/html")
+async def list_vault_html(settings: Annotated[Settings, Depends(get_settings)]) -> list[str]:
+    """List every HTML page in the vault as a relative POSIX path, sorted.
+
+    Its own listing for the reason the images have theirs: a page is a row of
+    the tree and nothing else the notes feed.
+    """
+    return list_html(settings.vault_path)
+
+
+HTML_POLICY = "; ".join(
+    [
+        # An origin of its own that is nobody's, so a script in the page reads no
+        # cookie and no storage of kasten's. In the header and not only on the
+        # `<iframe>`, so a page opened straight from its address in a tab of its
+        # own is held the same way.
+        "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox",
+        "default-src 'none'",
+        # A research page draws its charts and its slides with inline script, and
+        # a CDN library is the other way it gets one.
+        "script-src 'unsafe-inline' https:",
+        "style-src 'unsafe-inline' https:",
+        "img-src 'self' data: blob: https:",
+        "font-src data: https:",
+        "media-src data: https:",
+        # The sandbox stops the page reading kasten, and this stops it writing:
+        # a `no-cors` POST to `/api/assets` carries no answer back but lands all
+        # the same wherever the browser still sends the cookie.
+        "connect-src 'none'",
+        "form-action 'none'",
+        "base-uri 'none'",
+    ]
+)
+"""What one page of HTML out of the vault may do, which is draw itself."""
+
+LINKS_OUT = b"""
+<script>
+document.addEventListener("click", (event) => {
+  const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+  if (link !== null && link.host !== location.host) link.target = "_blank";
+}, true);
+</script>
+"""
+"""Sends a link to another site into a tab of its own.
+
+The app's `frame-src` holds the frame to kasten's own pages, so a link that
+leaves would load nothing. A `<base target>` would do the same with no script,
+and would also send every `#section` of a page's contents to a new tab.
+Appended rather than put in the head, because anything ahead of the doctype
+drops the page into quirks mode.
+"""
+
+
+@app.get("/api/html/{path:path}", response_class=Response)
+async def read_html(path: str, settings: Annotated[Settings, Depends(get_settings)]) -> Response:
+    """Read one HTML page out of the vault, to be drawn in a frame and not trusted.
+
+    The page is whatever a research run or a terminal left there, script
+    included, and this is kasten's origin. `HTML_POLICY` is what keeps the two
+    apart.
+    """
+    page = resolve_html(settings.vault_path, path)
+    if page is None:
+        raise HTTPException(status_code=404, detail="No such page")
+
+    return Response(
+        page.read_bytes() + LINKS_OUT,
+        media_type="text/html",
+        headers={"Content-Security-Policy": HTML_POLICY},
+    )
 
 
 @app.get("/api/terminals")

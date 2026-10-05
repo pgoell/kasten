@@ -314,6 +314,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Vault Html
+         * @description List every HTML page in the vault as a relative POSIX path, sorted.
+         *
+         *     Its own listing for the reason the images have theirs: a page is a row of
+         *     the tree and nothing else the notes feed.
+         */
+        get: operations["list_vault_html_api_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/html/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Html
+         * @description Read one HTML page out of the vault, to be drawn in a frame and not trusted.
+         *
+         *     The page is whatever a research run or a terminal left there, script
+         *     included, and this is kasten's origin. `HTML_POLICY` is what keeps the two
+         *     apart.
+         */
+        get: operations["read_html_api_html__path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/terminals": {
         parameters: {
             query?: never;
@@ -1806,6 +1853,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+        };
+    };
+    list_vault_html_api_html_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    read_html_api_html__path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

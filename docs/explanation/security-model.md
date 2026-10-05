@@ -117,6 +117,24 @@ logs a warning and starts anyway:
 Both are right for dev on a laptop and wrong on a server.
 [Configuration](/reference/configuration.md) has the settings.
 
+## A page of HTML runs as nobody
+
+A research run leaves HTML in the vault, and the HTML pane draws it. That page
+can carry script, and kasten serves it from its own origin, the one holding the
+login cookie. Run as written, the page could read every note and write
+anything.
+
+So `GET /api/html/{path}` sends the page with a sandbox in its
+`Content-Security-Policy` header, and the pane's `<iframe>` carries the same
+sandbox. The page runs in an opaque origin: no cookie, no storage, no reading
+the app around it. In the header and not only on the frame, so a page opened
+straight from its address is held the same way. `connect-src 'none'` closes
+the last gap, a blind `POST` that would land wherever the browser still sends
+the cookie. What is left is the page drawing itself, which is the point.
+
+The frame never gets `allow-same-origin`. With it beside `allow-scripts`, a
+page could reach into its own frame and lift the sandbox off.
+
 ## What none of this covers
 
 A leaked token reads the whole vault, and no revoke takes back a copy. The

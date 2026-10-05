@@ -73,6 +73,14 @@ export interface Pane {
    */
   image?: string;
   /**
+   * The HTML page this pane is showing, absent otherwise.
+   *
+   * The page's own path, for the reason `image` holds the image's: nothing
+   * pairs a page with a note. An eleventh optional field for the reason `book`
+   * is the fourth, written out above.
+   */
+  html?: string;
+  /**
    * The note whose video this pane is playing, absent otherwise.
    *
    * The note's path and not the address, which is where this follows `book` and
@@ -309,6 +317,15 @@ export function openImageInFocused(layout: Layout, path: string): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, image: path }),
+  });
+}
+
+/** Show an HTML page in the focused pane, the way `openImageInFocused` shows an image. */
+export function openHtmlInFocused(layout: Layout, path: string): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, html: path }),
   });
 }
 

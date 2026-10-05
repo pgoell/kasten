@@ -615,6 +615,62 @@
         }
       }
     },
+    "/api/html": {
+      "get": {
+        "summary": "List Vault Html",
+        "description": "List every HTML page in the vault as a relative POSIX path, sorted.\n\nIts own listing for the reason the images have theirs: a page is a row of\nthe tree and nothing else the notes feed.",
+        "operationId": "list_vault_html_api_html_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Vault Html Api Html Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/html/{path}": {
+      "get": {
+        "summary": "Read Html",
+        "description": "Read one HTML page out of the vault, to be drawn in a frame and not trusted.\n\nThe page is whatever a research run or a terminal left there, script\nincluded, and this is kasten's origin. `HTML_POLICY` is what keeps the two\napart.",
+        "operationId": "read_html_api_html__path__get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/terminals": {
       "get": {
         "summary": "List Terminals",

@@ -60,6 +60,7 @@ function Harness({
       paths={PATHS}
       onOpenFile={() => {}}
       onOpenImage={() => {}}
+      onOpenHtml={() => {}}
       {...props}
       open={props.open ?? open}
       onOpenChange={onOpenChange}
@@ -975,5 +976,33 @@ describe("images in the tree", () => {
       "aria-current",
       "page",
     );
+  });
+});
+
+describe("FileExplorer html pages", () => {
+  const HTML = ["report.html"];
+
+  it("shows a page rather than opening it as a note, on a click", () => {
+    const onOpenFile = vi.fn();
+    const onOpenHtml = vi.fn();
+    renderTree({ html: HTML, onOpenFile, onOpenHtml });
+
+    fireEvent.click(screen.getByText("report.html"));
+
+    expect(onOpenHtml).toHaveBeenCalledWith("report.html");
+    expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it("leaves a page alone on d", () => {
+    const onDeleteImage = vi.fn();
+    const onDeleteNote = vi.fn();
+    renderTree({ html: HTML, onDeleteImage, onDeleteNote });
+
+    // Folders sort first, so the page is the last row.
+    press("G");
+    press("d");
+
+    expect(onDeleteImage).not.toHaveBeenCalled();
+    expect(onDeleteNote).not.toHaveBeenCalled();
   });
 });

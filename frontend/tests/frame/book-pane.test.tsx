@@ -57,13 +57,14 @@ const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNo
 // stale at once under the default staleTime, so mounting refetches against the
 // dead proxy anyway and the rejection swaps the error panel in over a book that
 // already drew.
-// `fetchImages`, `uploadAsset` and `fetchTranscript` are here because the module is replaced whole:
+// `fetchImages`, `fetchHtml`, `uploadAsset` and `fetchTranscript` are here because the module is replaced whole:
 // the route and the editor import them, and a factory short of a name breaks the
 // import rather than the call.
 vi.mock("@/lib/api", () => ({
   fetchBook,
   fetchNote,
   fetchImages: () => Promise.resolve([]),
+  fetchHtml: () => Promise.resolve([]),
   uploadAsset: () => Promise.resolve(),
   fetchTranscript: () => Promise.resolve(),
 }));

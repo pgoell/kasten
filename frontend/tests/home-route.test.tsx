@@ -59,6 +59,7 @@ const {
   fetchBook,
   uploadAsset,
   fetchImages,
+  fetchHtml,
   deleteImage,
   fetchVersion,
   fetchTags,
@@ -104,6 +105,7 @@ const {
     // Every note the editor opens asks for these, for the completion inside a
     // `![](`. Nothing here is about images, so an empty list is the whole answer.
     fetchImages: vi.fn().mockResolvedValue([]),
+    fetchHtml: vi.fn().mockResolvedValue([]),
     // Asked once per mount, for the completion an open `#` offers. Nothing here
     // is about tags, so an empty vocabulary is the whole answer.
     fetchTags: vi.fn().mockResolvedValue([]),
@@ -130,6 +132,7 @@ vi.mock("@/lib/api", () => ({
   fetchBook,
   uploadAsset,
   fetchImages,
+  fetchHtml,
   deleteImage,
   fetchVersion,
   fetchTags,
@@ -387,6 +390,7 @@ describe("the route", () => {
     // Reset with the rest, for the reason `fetchTodos` is: a query function
     // answering undefined is an error rather than an empty list.
     fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
     resetFoliateFake();
   });
 
@@ -2015,6 +2019,7 @@ describe("putting a book in the vault", () => {
     fetchTodos.mockResolvedValue([]);
     fetchBook.mockImplementation(async (note: string) => beside(note));
     fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
     // Re-armed with the rest: `resetAllMocks` takes the answer off them, and a
     // call that hands back undefined instead of a promise throws on `await`.
     uploadAsset.mockResolvedValue(undefined);
@@ -2335,6 +2340,7 @@ describe("looking at an image", () => {
 
     fireEvent.keyDown(app.tree(), { key: "d" });
     fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
     await settle();
 
     expect(deleteImage).toHaveBeenCalledWith(SHOT);
@@ -2373,6 +2379,7 @@ describe("opening a highlight's book with gf", () => {
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
     fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
     fetchBook.mockImplementation(async (note: string) => beside(note));
     resetFoliateFake();
     // Without a section holding the words the walk finds nothing and calls
@@ -2580,6 +2587,7 @@ describe("the vault's own vocabulary", () => {
     fetchTodos.mockResolvedValue([]);
     fetchBook.mockImplementation(async (note: string) => beside(note));
     fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
     resetFoliateFake();
   });
 

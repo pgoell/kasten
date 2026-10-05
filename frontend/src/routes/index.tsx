@@ -10,6 +10,7 @@ import { Editor } from "@/components/editor";
 import { ExamPane } from "@/components/exam-pane";
 import { FileExplorer } from "@/components/file-explorer";
 import { GraphPane } from "@/components/graph-pane";
+import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { KeyHelp } from "@/components/key-help";
 import { NoteEditor } from "@/components/note-editor";
@@ -35,6 +36,7 @@ import {
   deleteImage,
   deleteNote,
   fetchFiles,
+  fetchHtml,
   fetchImages,
   fetchNote,
   fetchTags,
@@ -71,6 +73,7 @@ import {
   openExamInFocused,
   openGraphBeside,
   openGraphInFocused,
+  openHtmlInFocused,
   openImageInFocused,
   openInFocused,
   openPersonBeside,
@@ -177,6 +180,9 @@ function Home() {
   // event stream refetches it on a `listing`, which is the event a change to
   // anything that is not a note fires.
   const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });
+  // The pages of HTML a research run leaves, which are rows of the tree and
+  // nothing else. Refetched on a `listing` beside the images.
+  const { data: html } = useQuery({ queryKey: ["html"], queryFn: fetchHtml });
   // The vault's tag vocabulary, for the completion an open `#` offers. Not
   // filtered by the archive toggle: a tag written in an archived note is
   // still a tag, and spelling it the same way is the whole point.
@@ -568,6 +574,7 @@ function Home() {
       // not that return's business, though a `listing` never reaches it.
       if (event.change === "listing") {
         queryClient.invalidateQueries({ queryKey: ["images"] }, { cancelRefetch: false });
+        queryClient.invalidateQueries({ queryKey: ["html"] }, { cancelRefetch: false });
       }
 
       // A tag is a word inside a note, so any write can change the vocabulary,
@@ -809,6 +816,17 @@ function Home() {
       if (!(await saveFirst())) return;
 
       setLayout((previous) => openInFocused(previous, path, line));
+      setFocusSignal((previous) => previous + 1);
+    },
+    [saveFirst],
+  );
+
+  /** Show an HTML page in the focused pane, the way `openImageInPane` shows an image. */
+  const openHtmlInPane = useCallback(
+    async (path: string) => {
+      if (!(await saveFirst())) return;
+
+      setLayout((previous) => openHtmlInFocused(previous, path));
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst],
@@ -1363,6 +1381,7 @@ function Home() {
           pane.exam !== undefined ||
           pane.review === true ||
           pane.image !== undefined ||
+          pane.html !== undefined ||
           pane.video !== undefined
         ) {
           moveTo(clearFocused);
@@ -1657,6 +1676,7 @@ function Home() {
       pane.exam,
       pane.review,
       pane.image,
+      pane.html,
       pane.video,
       data,
       queryClient,
@@ -1709,12 +1729,14 @@ function Home() {
           // The same archive filter the notes answer to. An image in the
           // archive is archived like everything else under that folder.
           images={visible(images ?? [], archive)}
+          html={visible(html ?? [], archive)}
           // What the focused pane holds, whichever of the four fields carries
           // it. A reader and an exam name the note they were opened from, so
           // the tree marks that note and `<leader>E` reaches it from either.
-          openPath={pane.path ?? pane.book ?? pane.exam ?? pane.image}
+          openPath={pane.path ?? pane.book ?? pane.exam ?? pane.image ?? pane.html}
           onOpenFile={(path) => void openInPane(path)}
           onOpenImage={(path) => void openImageInPane(path)}
+          onOpenHtml={(path) => void openHtmlInPane(path)}
           open={treeOpen}
           onOpenChange={setTreeOpen}
           commands={commands}
@@ -1819,6 +1841,15 @@ function Home() {
                     // the reader's own callbacks are bound: the pane holds no
                     // path of its own.
                     onDelete={() => void discardImage(image)}
+                  />
+                ) : shown.html !== undefined ? (
+                  <HtmlPane
+                    path={shown.html}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
+                    // A click inside the frame reaches no ancestor, the way a
+                    // click inside a book does not.
+                    onFocus={() => setLayout((previous) => focusPane(previous, shown.id))}
                   />
                 ) : shown.video !== undefined ? (
                   <VideoPane

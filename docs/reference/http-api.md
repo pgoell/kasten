@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves thirty-one endpoints under `/api/`. Seventeen read,
+The backend serves thirty-three endpoints under `/api/`. Nineteen read,
 thirteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -109,6 +109,41 @@ Its own listing rather than rows in `/api/files`, which the tree, the finder,
 search and the link rewrite all read: an image is not a note and has no business
 in any of those. The editor reads this one to complete the path inside a `![](`,
 which is the only thing in the app that asks.
+
+## GET /api/html
+
+Lists every HTML page in the vault as a relative POSIX path, sorted.
+
+```json
+["00 Inbox/research/spec-driven-development/report.html"]
+```
+
+The same walk `/api/images` makes, filtered on `.html`, lowercase. `.htm` is not
+listed. The file tree reads this to draw a page as a row beside the notes.
+
+## GET /api/html/{path}
+
+Reads one HTML page out of the vault, as `text/html`, for the frame the HTML
+pane draws it in. `path` is a vault-relative POSIX path ending in `.html`.
+
+The page goes out with a policy of its own in `Content-Security-Policy`:
+
+| Directive | Why |
+| --- | --- |
+| `sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox` | The page runs in an origin that is nobody's, so its script reads no cookie and no storage of kasten's, even opened in a tab of its own |
+| `script-src 'unsafe-inline' https:` | A slide deck draws itself with inline script; a chart library comes off a CDN |
+| `style-src 'unsafe-inline' https:` | A report carries its own styles, and fonts off Google Fonts |
+| `img-src 'self' data: blob: https:` | Pictures, inline or linked |
+| `connect-src 'none'`, `form-action 'none'` | The page cannot send a request to kasten, a write included |
+
+A short script is added after the page, which sends a link to another site to
+a new tab: the app's own `frame-src` keeps the frame on kasten. Added after
+rather than before, so the doctype stays first and the page keeps its
+standards mode. The file itself is not changed.
+
+Anything that is not a readable `.html` file inside the vault is a `404`, on
+the rules the note read follows. There is no write: a page gets into the vault
+from a terminal or an agent with a shell.
 
 ## GET /api/terminals
 

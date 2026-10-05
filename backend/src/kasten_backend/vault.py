@@ -58,6 +58,14 @@ completion, which is the one thing the vault promises about a book: nothing
 lists it.
 """
 
+HTML_SUFFIX = ".html"
+"""What a page of HTML beside the notes ends in, which the vault shows and never takes.
+
+Not a row of `ASSET_MAGIC`, whose keys are what an upload accepts. A page is
+written by something with a shell, a research run above all, and the browser
+only reads it. `.htm` is left out the way `.markdown` is.
+"""
+
 _NAME_LIMIT_BYTES = 255
 """The longest one path segment may be, in UTF-8 bytes.
 
@@ -79,6 +87,11 @@ def list_images(root: Path) -> list[str]:
     image dropped in over the terminal completes too.
     """
     return _list_files(root, IMAGE_SUFFIXES)
+
+
+def list_html(root: Path) -> list[str]:
+    """Return every HTML page under `root`, as sorted relative POSIX paths."""
+    return _list_files(root, (HTML_SUFFIX,))
 
 
 def _list_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
@@ -219,6 +232,19 @@ def resolve_asset(root: Path, relative: str) -> Path | None:
     """
     path = resolve_asset_path(root, relative)
     if path is None or not path.is_file():
+        return None
+
+    return path
+
+
+def resolve_html(root: Path, relative: str) -> Path | None:
+    """Return the real path of one HTML page under `root`, or None when there is none.
+
+    `resolve_asset` for the one suffix that is not an asset, `is_file` included
+    for the reason it gives there.
+    """
+    path = _resolve_inside(root, relative)
+    if path is None or path.suffix != HTML_SUFFIX or not path.is_file():
         return None
 
     return path
