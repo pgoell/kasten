@@ -98,11 +98,11 @@ states the headers it reads.
 browser will not let a script read another site's page. A server that fetches
 any address it is given can be pointed at the docker network, the host or a
 router. So the backend resolves the name, refuses any address that is not on
-the public internet, and checks every redirect hop the same way. The route is
-behind the gate, so the person asking is you; the check stops a page you clip
-from sending the server somewhere else. One gap remains and is written down in
-the code: the fetch resolves the name a second time when it connects, so a name
-that changes its answer within one request gets past.
+the public internet, and opens the socket to the address it checked rather
+than looking the name up again. Every redirect hop connects the same way. The
+route is behind the gate, so the person asking is you; the check stops a page
+you clip from sending the server somewhere else. `POST /agent/files/{path}/fetch`
+and the MCP tool `save_file` download through the same connection.
 
 ## What the backend says at startup
 

@@ -132,12 +132,10 @@ never replace.
 The fetch's hazard was the network. A server that downloads what it is told
 can be told to read the box itself. The download goes through the checks
 `GET /api/fetch` already makes: `http` or `https`, every address the name
-resolves to on the public internet, every redirect checked again. One gap is
-known and written down beside that check: httpx resolves the name a second
-time to connect, so a name that answers differently the second time slips
-past. Even then, what comes back has to start with the bytes its suffix
-promises, so an internal service lands nothing unless it answers with a PDF,
-an epub or an image.
+resolves to on the public internet, every redirect checked again, and the
+socket opened to the address that passed rather than to a second lookup of the
+name. On top of that, what comes back has to start with the bytes its suffix
+promises.
 
 Why a URL at all, when the upload takes bytes: an MCP tool call is JSON the
 model writes, and a model cannot write out a PDF. Base64 grows the file by a

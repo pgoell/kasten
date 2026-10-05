@@ -15,6 +15,7 @@ dependencies = [
     "fastapi[standard]>=0.135",
     # Reached for directly by `/api/fetch`, and not only through the test
     # client fastapi's standard extra brings it in for.
+    "httpcore>=1.0",
     "httpx>=0.28",
     "markdown-it-py>=3.0",
     # Pinned exactly, not floored. There is no dependabot or renovate in

@@ -167,9 +167,14 @@ or IPv6, with an IPv4 address inside an IPv6 one checked as the IPv4 address.
 The backend shares a docker network with the database and the shell, and this
 is not a way to reach them.
 
-Redirects are followed one hop at a time, at most twenty, and every hop meets
-the same two checks before it is opened. A public page that redirects to the
-box itself is the obvious way round a check made once.
+The check runs inside the connection rather than in front of the request. The
+name is looked up once, and the socket opens to the address that passed, so a
+name that answers a public address and then `127.0.0.1` has no second lookup
+to answer. TLS still checks the certificate against the name.
+
+Redirects are followed, at most twenty, and every hop connects the same way. A
+public page that redirects to the box itself is the obvious way round a check
+made once. A redirect to anything but `http` or `https` is a `502`.
 
 The address that comes back is the one after redirects, because a page's
 relative links are relative to that and the client resolves them.
