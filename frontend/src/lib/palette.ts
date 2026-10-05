@@ -1,3 +1,4 @@
+// biome-ignore-all lint/suspicious/noTemplateCurlyInString: `${}` is CodeMirror snippet syntax, not a template placeholder.
 import { type CompletionContext, type CompletionResult, snippet } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
