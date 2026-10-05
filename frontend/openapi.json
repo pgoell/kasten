@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.32.0"
+    "version": "0.32.1"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -641,7 +641,7 @@
     "/api/fetch": {
       "get": {
         "summary": "Fetch Page",
-        "description": "Read one web page off the internet and hand it back unchanged.\n\nOne of two endpoints that read something other than the vault, the other\nbeing `/api/transcripts`, and it writes nothing: what comes back is markup,\nand turning it into a note happens in the browser, where defuddle runs.\nThat is where it has to run. defuddle is a DOM library, the browser has the\nDOM, and the alternative is a second extractor in Python that would read the\nsame pages differently.\n\nFetching cannot happen there, though: a page from another origin is one the\nbrowser will request and not let the script read, so the request comes from\nhere.\n\nhttp and https and nothing else. The scheme is the trust boundary: `file://`\nwould read this container's disk and hand it to the browser, and the check\nis made before anything is opened. The address is the other half of it, and\n`_refuse_private` holds every hop to the public internet.\n\nA page that could not be read is a 502 rather than the status the other end\ngave. The reader asked kasten for a note and kasten could not get one; a\n404 here would say the endpoint is missing.",
+        "description": "Read one web page off the internet and hand it back unchanged.\n\nOne of two endpoints that read something other than the vault, the other\nbeing `/api/transcripts`, and it writes nothing: what comes back is markup,\nand turning it into a note happens in the browser, where defuddle runs.\nThat is where it has to run. defuddle is a DOM library, the browser has the\nDOM, and the alternative is a second extractor in Python that would read the\nsame pages differently.\n\nFetching cannot happen there, though: a page from another origin is one the\nbrowser will request and not let the script read, so the request comes from\nhere.\n\nhttp and https and nothing else. The scheme is the trust boundary: `file://`\nwould read this container's disk and hand it to the browser, and the check\nis made before anything is opened. The address is the other half of it, and\n`files._PublicOnly` holds every connection, redirects included, to the\npublic internet.\n\nA page that could not be read is a 502 rather than the status the other end\ngave. The reader asked kasten for a note and kasten could not get one; a\n404 here would say the endpoint is missing.",
         "operationId": "fetch_page_api_fetch_get",
         "parameters": [
           {

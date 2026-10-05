@@ -368,7 +368,8 @@ export interface paths {
          *     http and https and nothing else. The scheme is the trust boundary: `file://`
          *     would read this container's disk and hand it to the browser, and the check
          *     is made before anything is opened. The address is the other half of it, and
-         *     `_refuse_private` holds every hop to the public internet.
+         *     `files._PublicOnly` holds every connection, redirects included, to the
+         *     public internet.
          *
          *     A page that could not be read is a 502 rather than the status the other end
          *     gave. The reader asked kasten for a note and kasten could not get one; a
