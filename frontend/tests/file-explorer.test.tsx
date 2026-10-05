@@ -69,6 +69,7 @@ function Harness({
         togglePreview: () => {},
         closeNote: () => {},
         showHelp: () => {},
+        openPalette: () => {},
         focusTree: () => {},
         revealTree: onRevealTree ?? (() => {}),
         createNote: onCreateNote ?? (() => {}),

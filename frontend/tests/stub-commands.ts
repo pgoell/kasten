@@ -13,6 +13,7 @@ export function stubCommands() {
     togglePreview: vi.fn(),
     closeNote: vi.fn(),
     showHelp: vi.fn(),
+    openPalette: vi.fn(),
     focusTree: vi.fn(),
     revealTree: vi.fn(),
     createNote: vi.fn(),

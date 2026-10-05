@@ -23,6 +23,7 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
+import { slashCompletions } from "@/lib/palette";
 import { moveCell } from "@/lib/table";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
@@ -654,6 +655,7 @@ export function Editor({
             togglePreview: () => commandsRef.current?.togglePreview(),
             closeNote: () => commandsRef.current?.closeNote(),
             showHelp: () => commandsRef.current?.showHelp(),
+            openPalette: () => commandsRef.current?.openPalette(),
             focusTree: () => commandsRef.current?.focusTree(),
             revealTree: () => commandsRef.current?.revealTree(),
             createNote: (startPath) => commandsRef.current?.createNote(startPath),
@@ -724,6 +726,7 @@ export function Editor({
           markdownLanguage.data.of({ autocomplete: imageCompletions }),
           markdownLanguage.data.of({ autocomplete: tagCompletions }),
           markdownLanguage.data.of({ autocomplete: relationCompletions }),
+          markdownLanguage.data.of({ autocomplete: slashCompletions }),
           // The clipboard's image goes into the vault and the note gets the
           // path. Ahead of nothing in particular: CodeMirror's own paste is a
           // handler on the same event and runs when this one declines, which is

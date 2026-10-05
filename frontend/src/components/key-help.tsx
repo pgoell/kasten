@@ -5,7 +5,9 @@ import {
   INDENT,
   LEADER,
   LEADER_EDITS,
+  readable,
   SCREENS,
+  spelled,
   TAB_KEYS,
   TERMINAL,
   TERMINAL_CHORD,
@@ -13,15 +15,6 @@ import {
   TREE,
 } from "@/lib/key-bindings";
 import { HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
-
-/** Vim's spelling of a key is for vim. This is the one on the keyboard. */
-function readable(key: string) {
-  return key
-    .replace(/^<|>$/g, "")
-    .replace("C-", "Ctrl ")
-    .replace("S-", "Shift ")
-    .replace(/-/g, " ");
-}
 
 /**
  * `Ctrl Shift H`, built from `TERMINAL_CHORD` so the panel follows a retune.
@@ -74,13 +67,8 @@ const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
 
 /** The leader groups above, filled from the two tables the keys live in. */
 function leaderGroups(): Group[] {
-  // A leader key can be more than one letter, and the letters are spaced so
-  // that `cf` reads as the two presses it is rather than as one key.
   const rows = new Map(
-    [...LEADER, ...LEADER_EDITS].map(({ key, label }) => [
-      key,
-      { key: `Space ${[...key].join(" ")}`, label },
-    ]),
+    [...LEADER, ...LEADER_EDITS].map(({ key, label }) => [key, { key: spelled(key), label }]),
   );
   rows.set(TAB_DIGITS, {
     key: `Space ${TAB_KEYS[0]} … ${TAB_KEYS[TAB_KEYS.length - 1]}`,
