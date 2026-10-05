@@ -82,11 +82,18 @@ claude mcp add --transport http kasten https://notes.example.com/agent/mcp \
   --header "Authorization: Bearer kasten_xxxxxxxx"
 ```
 
-Check it with `/mcp` inside Claude Code. The seven tools are `list_notes`,
-`read_note`, `search_notes`, `query_graph`, `save_note`, `append_note` and
-`dump`, and an eighth, `read_guide`, hands back how the vault is filed. Claude
+Check it with `/mcp` inside Claude Code. The eight tools are `list_notes`,
+`read_note`, `search_notes`, `query_graph`, `save_note`, `append_note`,
+`dump` and `save_file`, and a ninth, `read_guide`, hands back how the vault is
+filed. Claude
 Code reads a server's instructions at the handshake, so it holds that text
 already and those instructions tell it to skip the call.
+
+`save_file` takes a public URL, because a tool call cannot carry a file. To file
+a PDF, an epub or an image from your own disk, Claude Code sends the bytes with
+curl instead: install the plugin and set the two variables as in
+[Claude Code where MCP is off](#claude-code-where-mcp-is-off). The skill loads
+for an upload even with the MCP server connected.
 
 ## codex
 
@@ -139,7 +146,7 @@ a sign-in button fails there; give it a token instead.
 
 ## curl
 
-The REST routes are the same seven capabilities and need no MCP client at all.
+The REST routes are the same eight capabilities and need no MCP client at all.
 Every shape is in [the Agent API](/reference/agent-api.md). Write a space in
 a path as `%20`.
 
@@ -162,6 +169,9 @@ curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
   -H 'content-type: application/json' \
   -d "{\"text\": \"answer Jonas\", \"date\": \"$(date +%F)\"}" \
   "$KASTEN_AGENT/dump"
+
+curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
+  --data-binary @ddia.pdf "$KASTEN_AGENT/files/reading/ddia.pdf"
 ```
 
 The routes describe themselves, so an agent that lands with a token and no
@@ -182,7 +192,7 @@ says why those two differ.
 ## Claude Code where MCP is off
 
 Some machines run Claude Code with MCP servers turned off by policy. The
-`kasten` plugin in this repository gives it the same seven capabilities as a
+`kasten` plugin in this repository gives it the same eight capabilities as a
 skill that drives the curl routes above, so no MCP client is involved.
 
 Add this repository as a marketplace and install the plugin, inside Claude Code:
@@ -261,6 +271,11 @@ itself, in a plain tab.
 Connecting a second time replaces that token rather than adding one. The old one
 stops working on the next request.
 
+Either product files a PDF, an epub or an image with `save_file`, which takes a
+public URL and has the server download it. A file attached to the chat has no
+URL, and the model sees only its text, so it cannot be filed this way. Save it
+from the browser instead.
+
 ## When it does not work
 
 | What you see | What it means |
@@ -270,7 +285,8 @@ stops working on the next request.
 | `403` on `/agent/mcp` with a valid token | The client sent an `Origin` the SDK does not accept. Only your own host, claude.ai, claude.com and chatgpt.com pass |
 | `405` on `/agent/mcp` | Something sent a `GET` or `DELETE`. The endpoint takes `POST` |
 | `409` on a save | The note changed since you read it. Read it again and present the new `sha` |
-| `413` | The write would leave more than 1MiB on disk |
+| `413` | A note write would leave more than 1MiB on disk, or a file is over 100MiB |
+| `400` `That file is not what its name says` | The bytes are not the format the suffix names. A URL that answers with a login page does this |
 | A sign-in page or a `401` from the gate on `/agent/*` or `/.well-known/*` | The proxy gates a route it must leave open. See [Reverse-proxy routes](/reference/reverse-proxy-routes.md) |
 | A connector fails at once, with no consent page | The issuer does not match. Check that `curl https://notes.example.com/.well-known/oauth-authorization-server` names `https://notes.example.com` exactly |
 | `403` after pressing Connect | The consent `POST` looked cross-site. See above |

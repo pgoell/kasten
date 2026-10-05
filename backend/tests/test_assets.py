@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from kasten_backend import main
+from kasten_backend import files, main
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, MutableMapping
@@ -146,7 +146,7 @@ async def test_refuses_a_target_that_is_taken(client: AsyncClient, vault: Path) 
 async def test_refuses_a_body_over_the_cap(
     client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(main, "ASSET_LIMIT_BYTES", 32)
+    monkeypatch.setattr(files, "ASSET_LIMIT_BYTES", 32)
     # Sixteen bytes at a time crosses 32 on the third chunk, so three is the
     # exact number a handler that stops the moment the count passes the cap
     # pulls. "Fewer than twenty" would pass for one that read nineteen first.
@@ -361,9 +361,9 @@ async def test_the_next_upload_succeeds_after_a_refusal(
     # deliberately absent: a taken path stays taken and an illegal path stays
     # illegal, so a retry to either cannot succeed.
     body, cap, status = refusal
-    before = main.ASSET_LIMIT_BYTES
+    before = files.ASSET_LIMIT_BYTES
     if cap is not None:
-        monkeypatch.setattr(main, "ASSET_LIMIT_BYTES", cap)
+        monkeypatch.setattr(files, "ASSET_LIMIT_BYTES", cap)
 
     refused = await client.post("/api/assets/books/DDIA.epub", content=body)
 
@@ -371,7 +371,7 @@ async def test_the_next_upload_succeeds_after_a_refusal(
     assert not (vault / "books" / "DDIA.epub").exists()
     assert list((vault / "books").iterdir()) == []
 
-    monkeypatch.setattr(main, "ASSET_LIMIT_BYTES", before)
+    monkeypatch.setattr(files, "ASSET_LIMIT_BYTES", before)
     again = await client.post("/api/assets/books/DDIA.epub", content=BOOK)
 
     assert again.status_code == 201

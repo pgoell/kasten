@@ -45,7 +45,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.tokens import mint, revoke
 
 SCOPE = "kasten:notes"
-"""The one scope. It names the seven capabilities and there is nothing to narrow."""
+"""The one scope. It names the eight capabilities and there is nothing to narrow."""
 
 RESOURCE = "/agent/mcp"
 """The endpoint being protected, which the metadata names in full."""
@@ -228,8 +228,8 @@ async def consent(
     return (
         "<!doctype html><title>Connect to kasten</title>"
         f"<form method=post>{fields}"
-        f"<p>Give {escape(urlsplit(redirect_uri).netloc or 'this client')} the seven agent "
-        "capabilities: list, read, search, graph, save, append and dump.</p>"
+        f"<p>Give {escape(urlsplit(redirect_uri).netloc or 'this client')} the eight agent "
+        "capabilities: list, read, search, graph, save, append, dump and file.</p>"
         "<button>Connect</button></form>"
     )
 

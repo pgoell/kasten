@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import httpx
 import pytest
 
-from kasten_backend import main
+from kasten_backend import files, main
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -39,7 +39,7 @@ def resolve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, list[str]]],
     async def lookup(host: str) -> list[str]:
         return table.get(host, [PUBLIC])
 
-    monkeypatch.setattr(main, "_addresses", lookup)
+    monkeypatch.setattr(files, "_addresses", lookup)
 
     return table.update
 

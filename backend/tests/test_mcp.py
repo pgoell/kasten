@@ -1,4 +1,4 @@
-"""The MCP surface: the same seven capabilities, over JSON-RPC at one endpoint.
+"""The MCP surface: the same eight capabilities, over JSON-RPC at one endpoint.
 
 The tests here go through the whole application rather than calling the tools,
 because every hazard this slice has is in the wiring: where the endpoint answers,
@@ -253,6 +253,7 @@ async def test_the_reading_tools_say_so(
         "save_note": False,
         "append_note": False,
         "dump": False,
+        "save_file": False,
     }
 
 

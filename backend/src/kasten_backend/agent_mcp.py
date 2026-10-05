@@ -1,4 +1,4 @@
-"""The same seven capabilities, served as MCP tools at `/agent/mcp`.
+"""The same eight capabilities, served as MCP tools at `/agent/mcp`.
 
 Thin wrappers over `agent.py` and nothing else. The rules about what an agent
 may do live there, so the two surfaces cannot drift into disagreeing about them.
@@ -45,7 +45,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse
 
-from kasten_backend import agent, vcs
+from kasten_backend import agent, files, vcs
 from kasten_backend.agent_oauth import challenge
 from kasten_backend.agent_routes import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
@@ -157,6 +157,24 @@ async def dump(text: str, date: date) -> dict[str, Any]:
         raise ToolError(str(empty)) from empty
 
 
+async def save_file(path: str, url: str) -> dict[str, Any]:
+    """Download a PDF, an epub or an image from a public `url` into the vault at `path`.
+
+    `path` ends in .pdf, .epub, .png, .jpg, .jpeg, .gif or .webp, and the bytes
+    must be that format. A file filed beside a note is the note's path with the
+    suffix swapped, `20 Literature/DDIA.md` beside `20 Literature/DDIA.pdf`,
+    and the app opens it in the reader next to the note. Never overwrites: a
+    taken path is refused. Up to 100MiB. A file you hold only as an attachment
+    has no URL and cannot come in this way.
+    """
+    try:
+        landed = await files.download(get_settings().vault_path, path, url)
+    except files.RefusedError as refused:
+        raise ToolError(str(refused)) from refused
+
+    return {"path": landed}
+
+
 async def query_graph(
     query: str = "", around: str | None = None, depth: int = 1, archive: bool = False
 ) -> dict[str, Any]:
@@ -192,12 +210,22 @@ async def read_guide() -> str:
     return instructions()
 
 
-TOOLS = (list_notes, read_note, search_notes, query_graph, save_note, append_note, dump, read_guide)
-"""The seven, in the order the reference page lists them, and the guide behind them.
+TOOLS = (
+    list_notes,
+    read_note,
+    search_notes,
+    query_graph,
+    save_note,
+    append_note,
+    dump,
+    save_file,
+    read_guide,
+)
+"""The eight, in the order the reference page lists them, and the guide behind them.
 
-`read_guide` is an eighth tool and not an eighth capability. It reads a string
+`read_guide` is a ninth tool and not a ninth capability. It reads a string
 compiled into the image, never the vault, so the audit this prefix exists for is
-still a list of seven things.
+still a list of eight things.
 """
 
 READING = frozenset({"list_notes", "read_note", "search_notes", "query_graph", "read_guide"})
@@ -328,7 +356,7 @@ def build() -> tuple[ASGIApp, MCPServer]:
         streamable_http_path=PATH,
         # Stateless, so there is no session to keep and a POST carries the whole
         # exchange. JSON rather than a stream for the same reason: every one of
-        # these seven answers in one message.
+        # these answers in one message.
         stateless_http=True,
         json_response=True,
         transport_security=_security(get_settings().agent_host),
