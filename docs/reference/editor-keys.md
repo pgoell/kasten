@@ -1760,6 +1760,17 @@ and `<leader>q` hands the pane back to an editor. A folder holding nothing but
 images is a folder in the tree all the same, which is how you reach the ones
 pasting has filed.
 
+HTML pages are rows too, muted the way images are and keeping `.html`, which is
+what sets `report.html` apart from a `report` note beside it. Enter or a click
+draws the page in the focused pane, its styles and script included, the way a
+research run's report or slide deck was written to be read. `r` and `d` do
+nothing on a page's row: whatever wrote the page owns it, so it goes out
+through a terminal pane.
+
+Keys typed inside a page are the page's, so a deck's arrows turn its slides and
+a leader sequence does nothing there. Click the pane's header to take the keys
+back. A link to another site opens in a new tab.
+
 The pane is an image and the path above it, and nothing else: no zoom, no next
 image, and nothing to type into. What it is for is looking at a picture the
 vault holds without first writing a note that points at it. `d` there deletes

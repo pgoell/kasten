@@ -475,6 +475,17 @@ export async function fetchImages(): Promise<string[]> {
   return data;
 }
 
+/** Vault-relative paths of every HTML page, sorted by the backend. */
+export async function fetchHtml(): Promise<string[]> {
+  const { data, response } = await client.GET("/api/html");
+
+  if (!data) {
+    throw new Error(`GET /api/html failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /** What sits beside a note, and which of the two formats it turned out to be. */
 export interface BookBeside {
   /** The file's own path in the vault, which the note's does not spell. */

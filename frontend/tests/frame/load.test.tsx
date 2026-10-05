@@ -154,6 +154,7 @@ describe(`opening the app over ${NOTES} notes`, () => {
               paths={paths}
               onOpenFile={() => {}}
               onOpenImage={() => {}}
+              onOpenHtml={() => {}}
               open={true}
               onOpenChange={() => {}}
               commands={INERT}
