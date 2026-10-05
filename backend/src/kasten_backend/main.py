@@ -23,7 +23,7 @@ from youtube_transcript_api import (
     YouTubeRequestFailed,
 )
 
-from kasten_backend import agent, agent_mcp
+from kasten_backend import agent, agent_mcp, files
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
@@ -36,9 +36,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.files import (
     ASSET_LIMIT_BYTES,
-    PAGE_AGENT,
     PAGE_FAILED,
-    PAGE_TIMEOUT_SECONDS,
     RefusedError,
     open_public,
     store,
@@ -456,7 +454,8 @@ async def fetch_page(url: str) -> Page:
     http and https and nothing else. The scheme is the trust boundary: `file://`
     would read this container's disk and hand it to the browser, and the check
     is made before anything is opened. The address is the other half of it, and
-    `_refuse_private` holds every hop to the public internet.
+    `files._PublicOnly` holds every connection, redirects included, to the
+    public internet.
 
     A page that could not be read is a 502 rather than the status the other end
     gave. The reader asked kasten for a note and kasten could not get one; a
@@ -466,10 +465,8 @@ async def fetch_page(url: str) -> Page:
         raise HTTPException(status_code=400, detail="Only http and https addresses")
 
     try:
-        async with httpx.AsyncClient(
-            timeout=PAGE_TIMEOUT_SECONDS, headers={"user-agent": PAGE_AGENT}
-        ) as reader:
-            response = await open_public(reader, url)
+        async with files.reader() as client:
+            response = await open_public(client, url)
             try:
                 return await _read_page(response)
             finally:

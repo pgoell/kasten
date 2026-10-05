@@ -17,13 +17,19 @@ import secrets
 import socket
 from typing import TYPE_CHECKING
 
+import httpcore
 import httpx
+
+# From the module rather than off `httpcore`, which binds the name to a stub
+# when anyio is missing and so types it as a union of the two. anyio is a
+# FastAPI dependency and always here.
+from httpcore._backends.anyio import AnyIOBackend
 
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.vault import ASSET_MAGIC, relative_path, resolve_asset_path
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Iterable
     from pathlib import Path
 
 ASSET_LIMIT_BYTES = 100 * 1024 * 1024
@@ -59,8 +65,7 @@ nothing about which of the two numbers on that line is which.
 PAGE_REDIRECTS = 20
 """How many redirects a page may take before the reader is told it did not load.
 
-httpx's own cap, kept now that the redirects are followed here rather than by
-httpx, so a page that loaded before still loads.
+httpx's own default, spelled out because the refusal names it.
 """
 
 PAGE_TIMEOUT_SECONDS = 20.0
@@ -102,29 +107,22 @@ async def _addresses(host: str) -> list[str]:
     return [str(entry[4][0]) for entry in found]
 
 
-async def _refuse_private(url: httpx.URL) -> None:
-    """Refuse an address that leads anywhere but the public internet.
+async def _public_address(host: str) -> str:
+    """The address to open for `host`, once every address it has is on the internet.
 
     The backend sits on the docker network beside Postgres, the shell and
     whatever else the box runs, none of which expects a request from it. Every
-    address the name resolves to is checked, not the first: the fetch may pick
-    any of them. An IPv4 address hidden in an IPv6 one is checked as the IPv4
-    address it is. `is_global` leaves out loopback, private, link-local,
-    shared (CGNAT and Tailscale) and reserved space, and multicast is refused
-    on its own because some of it counts as global.
-
-    ponytail: httpx resolves the name again when it connects, so a name that
-    answers one address here and another there slips past. Closing that means
-    connecting to the address checked here, which costs the TLS name handling
-    httpx gives for free. Rebinding a name inside one request is a narrow gap.
+    address the name resolves to is checked, not only the one opened, so a name
+    with one private address among public ones is refused whole. An IPv4
+    address hidden in an IPv6 one is checked as the IPv4 address it is.
+    `is_global` leaves out loopback, private, link-local, shared (CGNAT and
+    Tailscale) and reserved space, and multicast is refused on its own because
+    some of it counts as global.
     """
-    if url.scheme not in ("http", "https") or not url.host:
-        raise RefusedError(400, "Only http and https addresses")
-
     try:
-        found = await _addresses(url.host)
+        found = await _addresses(host)
     except OSError as error:
-        raise RefusedError(502, f"Could not find {url.host}") from error
+        raise RefusedError(502, f"Could not find {host}") from error
 
     for address in found:
         ip = ipaddress.ip_address(address.split("%", 1)[0])
@@ -133,28 +131,97 @@ async def _refuse_private(url: httpx.URL) -> None:
         if not ip.is_global or ip.is_multicast:
             raise RefusedError(400, "That address is not on the internet")
 
+    return found[0]
 
-async def open_public(reader: httpx.AsyncClient, url: str) -> httpx.Response:
-    """Open `url` as a stream, holding every hop to the public internet.
 
-    Redirects are followed here rather than by httpx, so every hop meets the
-    address check: a public page that redirects to the box itself is the obvious
-    way round a check made once. The caller closes what comes back.
+class _PublicOnly(httpcore.AsyncNetworkBackend):
+    """Opens a socket to the address it checked, and to nothing else.
+
+    The check lives in the connect rather than in front of the request. Checked
+    in front, httpx resolved the name a second time to connect, and a name that
+    answered a public address the first time and `127.0.0.1` the second walked
+    past it. Here there is one lookup, and the socket opens on the address that
+    lookup checked. Every redirect hop connects through here too, so a public
+    page pointing back at the box meets the same refusal with no loop of its
+    own. TLS still verifies the certificate against the hostname: httpcore
+    hands `start_tls` the origin's name, never the address.
+    """
+
+    def __init__(self) -> None:
+        """Wrap the anyio backend httpcore picks by itself under asyncio."""
+        self._backend = AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,  # noqa: ASYNC109  httpcore's signature, not ours
+        local_address: str | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        """Connect to `host` by the one address checked for it."""
+        address = await _public_address(host)
+
+        return await self._backend.connect_tcp(
+            address, port, timeout, local_address, socket_options
+        )
+
+    async def sleep(self, seconds: float) -> None:
+        """Wait the way the wrapped backend waits, which a retry asks for."""
+        await self._backend.sleep(seconds)
+
+
+class _PublicTransport(httpx.AsyncHTTPTransport):
+    """httpx's own transport, connecting through `_PublicOnly`.
+
+    The pool is replaced after `super().__init__` because httpx builds it there
+    and takes no network backend of its own. Passing a transport also turns off
+    the proxies httpx would read off the environment, which is wanted: through a
+    proxy the address checked would be the proxy's and never the page's.
+    """
+
+    def __init__(self) -> None:
+        """Build the default transport and swap in a pool that only connects out."""
+        super().__init__()
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=httpx.create_ssl_context(), network_backend=_PublicOnly()
+        )
+
+
+def reader() -> httpx.AsyncClient:
+    """The client every fetch out of the box goes through, `/api/fetch` and `download`.
+
+    A function rather than a client built at each call site, so there is one
+    place that decides how kasten reaches the internet, and one seam a test
+    replaces to answer for the internet.
+    """
+    return httpx.AsyncClient(
+        timeout=PAGE_TIMEOUT_SECONDS,
+        headers={"user-agent": PAGE_AGENT},
+        follow_redirects=True,
+        max_redirects=PAGE_REDIRECTS,
+        transport=_PublicTransport(),
+    )
+
+
+async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
+    """Open `url` as a stream. The caller closes what comes back.
+
+    http and https and nothing else, checked before anything is opened:
+    `file://` would read this container's disk. The address is `_PublicOnly`'s
+    to check, on every hop.
     """
     try:
-        request = reader.build_request("GET", url)
+        request = client.build_request("GET", url)
     except httpx.InvalidURL as error:
         raise RefusedError(400, "Only http and https addresses") from error
+    if request.url.scheme not in ("http", "https") or not request.url.host:
+        raise RefusedError(400, "Only http and https addresses")
 
-    for _ in range(PAGE_REDIRECTS + 1):
-        await _refuse_private(request.url)
-        response = await reader.send(request, stream=True)
-        if response.next_request is None:
-            return response
-        await response.aclose()
-        request = response.next_request
-
-    raise RefusedError(502, "That page redirects too many times")
+    try:
+        return await client.send(request, stream=True)
+    except httpx.TooManyRedirects as error:
+        raise RefusedError(502, "That page redirects too many times") from error
 
 
 async def store(root: Path, path: str, chunks: AsyncIterator[bytes]) -> str:
@@ -262,10 +329,8 @@ async def download(root: Path, path: str, url: str) -> str:
         raise RefusedError(400, "The vault will not take that path")
 
     try:
-        async with httpx.AsyncClient(
-            timeout=PAGE_TIMEOUT_SECONDS, headers={"user-agent": PAGE_AGENT}
-        ) as reader:
-            response = await open_public(reader, url)
+        async with reader() as client:
+            response = await open_public(client, url)
             try:
                 if response.status_code >= PAGE_FAILED:
                     raise RefusedError(502, f"That address answered {response.status_code}")

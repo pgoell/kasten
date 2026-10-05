@@ -6,7 +6,6 @@ These cover what is new here: the bearer in front, the download and its address
 check, and the MCP tool's refusals arriving as tool errors.
 """
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 import httpx
@@ -48,13 +47,28 @@ def answer(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> Callable[[Ca
     """Say what the internet replies with. Takes `client` so the test's own is built first."""
 
     def use(handler: Callable) -> None:
-        monkeypatch.setattr(
-            files.httpx,
-            "AsyncClient",
-            partial(httpx.AsyncClient, transport=httpx.MockTransport(handler)),
-        )
+        monkeypatch.setattr(files, "_PublicTransport", lambda: httpx.MockTransport(handler))
 
     return use
+
+
+@pytest.fixture
+def redirect_into_box(monkeypatch: pytest.MonkeyPatch, resolve: dict[str, list[str]]) -> None:
+    """example.com answers with a redirect to the box, and every other host is real.
+
+    The second hop has to reach the real transport, because that is where the
+    check that must catch it lives.
+    """
+    real = files._PublicTransport
+
+    class Redirecting(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            if request.url.host == "example.com":
+                return httpx.Response(302, headers={"location": "http://localhost/secret.pdf"})
+            return await real().handle_async_request(request)
+
+    monkeypatch.setattr(files, "_PublicTransport", Redirecting)
+    resolve["localhost"] = ["127.0.0.1"]
 
 
 async def test_an_upload_lands(
@@ -124,11 +138,9 @@ async def test_a_fetch_refuses_a_private_address(
     client: AsyncClient,
     agent_vault: Path,
     bearer: dict[str, str],
-    answer: Callable,
+    sockets: list[str],
     resolve: dict[str, list[str]],
 ) -> None:
-    opened: list[str] = []
-    answer(lambda request: opened.append(str(request.url)) or httpx.Response(200, content=PDF))
     resolve["db"] = ["172.18.0.2"]
 
     response = await client.post(
@@ -137,7 +149,7 @@ async def test_a_fetch_refuses_a_private_address(
 
     assert response.status_code == 400
     assert response.json()["detail"] == "That address is not on the internet"
-    assert opened == []
+    assert sockets == []
     assert empty(agent_vault)
 
 
@@ -145,21 +157,15 @@ async def test_a_fetch_refuses_a_redirect_into_the_box(
     client: AsyncClient,
     agent_vault: Path,
     bearer: dict[str, str],
-    answer: Callable,
-    resolve: dict[str, list[str]],
+    sockets: list[str],
+    redirect_into_box: None,
 ) -> None:
-    resolve["localhost"] = ["127.0.0.1"]
-    answer(
-        lambda request: httpx.Response(
-            302, headers={"location": "http://localhost/secret.pdf"}, request=request
-        )
-    )
-
     response = await client.post(
         "/agent/files/edge.pdf/fetch", json={"url": "https://example.com/a"}, headers=bearer
     )
 
     assert response.status_code == 400
+    assert sockets == []
     assert empty(agent_vault)
 
 

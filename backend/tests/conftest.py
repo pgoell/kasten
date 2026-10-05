@@ -2,8 +2,10 @@ import shutil
 import subprocess
 from typing import TYPE_CHECKING
 
+import httpcore
 import pytest
 from asgi_lifespan import LifespanManager
+from httpcore._backends.anyio import AnyIOBackend
 from httpx import ASGITransport, AsyncClient
 
 from kasten_backend.config import Settings, get_settings
@@ -187,3 +189,22 @@ def versioned_vault(vault: Path) -> Iterator[Path]:
         check=True,
     )
     yield vault
+
+
+@pytest.fixture
+def sockets(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Every address the real transport went to open a socket to, none of them opened.
+
+    For the tests of the address check, which has to run in the real transport
+    because that is where it lives. A connect that got this far was allowed, so
+    it fails here rather than reaching the network.
+    """
+    opened: list[str] = []
+
+    async def connect(_backend: AnyIOBackend, host: str, *_args: object, **_kwargs: object) -> None:
+        opened.append(host)
+        raise httpcore.ConnectError("Tests open no sockets")
+
+    monkeypatch.setattr(AnyIOBackend, "connect_tcp", connect)
+
+    return opened

@@ -5,11 +5,11 @@ vault. It answers with the page's HTML and the address it finally came from, and
 nothing else with it: the extraction runs in the browser, where defuddle lives.
 
 The requests here never leave the process. `httpx.MockTransport` answers them,
-mounted by swapping the client the endpoint builds, so what is tested is the
-handling rather than somebody else's website.
+mounted in place of the transport the endpoint builds, so what is tested is the
+handling rather than somebody else's website. The address check lives in that
+transport, so its tests keep the real one and stop it at the socket instead.
 """
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 import httpx
@@ -48,17 +48,12 @@ def resolve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, list[str]]],
 def answer(monkeypatch: pytest.MonkeyPatch) -> Callable[[Callable], None]:
     """Hand back a way to say what the internet replies with.
 
-    The class the endpoint builds is replaced rather than a seam being left in
-    the code for this: the fixture the request itself rides on was built before
-    the swap, so nothing but the fetch under test picks up the transport.
+    The transport `files.reader` builds is replaced, and the client around it
+    kept, so the redirect cap and the headers under test are the real ones.
     """
 
     def use(handler: Callable) -> None:
-        monkeypatch.setattr(
-            main.httpx,
-            "AsyncClient",
-            partial(httpx.AsyncClient, transport=httpx.MockTransport(handler)),
-        )
+        monkeypatch.setattr(files, "_PublicTransport", lambda: httpx.MockTransport(handler))
 
     return use
 
@@ -164,68 +159,82 @@ async def test_says_when_the_page_could_not_be_read(client: AsyncClient, answer:
     ],
 )
 async def test_refuses_an_address_off_the_internet(
-    client: AsyncClient, answer: Callable, resolve: Callable, address: str
+    client: AsyncClient, sockets: list[str], resolve: Callable, address: str
 ) -> None:
     """The backend shares a network with the database and the shell, and the
-    clipper is not a way to reach them. Nothing is sent to such an address."""
-    sent: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        sent.append(request)
-        return httpx.Response(200, html="<html></html>")
-
-    answer(handler)
+    clipper is not a way to reach them. No socket opens to such an address."""
     resolve({"inside.example": [address]})
 
     response = await client.get("/api/fetch", params={"url": "http://inside.example/"})
 
     assert response.status_code == 400
-    assert sent == []
+    assert sockets == []
 
 
 async def test_refuses_a_name_with_one_private_address_among_public_ones(
-    client: AsyncClient, answer: Callable, resolve: Callable
+    client: AsyncClient, sockets: list[str], resolve: Callable
 ) -> None:
-    """The connection may land on any address the name has, so all are checked."""
-    answer(lambda request: httpx.Response(200, html="<html></html>"))
+    """A name with one address inside the box is refused whole."""
     resolve({"mixed.example": [PUBLIC, "127.0.0.1"]})
 
     response = await client.get("/api/fetch", params={"url": "https://mixed.example/"})
 
     assert response.status_code == 400
+    assert sockets == []
+
+
+async def test_opens_the_address_it_checked(
+    client: AsyncClient, sockets: list[str], resolve: Callable
+) -> None:
+    """The socket goes to the address the check passed, never the name, so a
+    name that answers differently a second time has no second time to answer.
+    This is the gap a check made in front of the request left open."""
+    resolve({"example.com": [PUBLIC]})
+
+    response = await client.get("/api/fetch", params={"url": "https://example.com/"})
+
+    assert response.status_code == 502
+    assert sockets == [PUBLIC]
 
 
 async def test_refuses_an_address_literal(
-    client: AsyncClient, answer: Callable, resolve: Callable
+    client: AsyncClient, sockets: list[str], resolve: Callable
 ) -> None:
     """An IP in the address resolves to itself, so it meets the same check."""
-    answer(lambda request: httpx.Response(200, html="<html></html>"))
     resolve({"::1": ["::1"]})
 
     response = await client.get("/api/fetch", params={"url": "http://[::1]:8000/api/health"})
 
     assert response.status_code == 400
+    assert sockets == []
 
 
 async def test_refuses_a_redirect_off_the_internet(
-    client: AsyncClient, answer: Callable, resolve: Callable
+    client: AsyncClient,
+    sockets: list[str],
+    resolve: Callable,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A public page that points back at the box is the way round a single check."""
-    sent: list[str] = []
+    """A public page that points back at the box is the way round a single check.
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        sent.append(request.url.host)
-        if request.url.host == "example.com":
-            return httpx.Response(302, headers={"location": "http://postgres:5432/"})
-        return httpx.Response(200, html="<html></html>")
+    The first hop is answered by hand and the second goes to the real transport,
+    which is where the check that has to catch it lives.
+    """
+    real = files._PublicTransport
 
-    answer(handler)
+    class Redirecting(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            if request.url.host == "example.com":
+                return httpx.Response(302, headers={"location": "http://postgres:5432/"})
+            return await real().handle_async_request(request)
+
+    monkeypatch.setattr(files, "_PublicTransport", Redirecting)
     resolve({"postgres": ["172.18.0.2"]})
 
     response = await client.get("/api/fetch", params={"url": "https://example.com/post"})
 
     assert response.status_code == 400
-    assert sent == ["example.com"]
+    assert sockets == []
 
 
 async def test_gives_up_on_a_page_that_redirects_forever(
