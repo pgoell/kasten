@@ -29,6 +29,7 @@ import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
 import { todoCompletions } from "@/lib/todo-suggest";
 import { setWatched } from "@/lib/video";
+import { weatherCard } from "@/lib/weather-card";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
@@ -737,7 +738,7 @@ export function Editor({
           vault.of(
             listings(pathsRef.current, imagesRef.current, tagsRef.current, relationsRef.current),
           ),
-          preview.of(renderedRef.current ? livePreview() : []),
+          preview.of(renderedRef.current ? [livePreview(), weatherCard] : []),
           oneDark,
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {
@@ -863,7 +864,7 @@ export function Editor({
   // pieces come back by identity, so nothing below them is rebuilt.
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: preview.reconfigure(rendered ? livePreview() : []),
+      effects: preview.reconfigure(rendered ? [livePreview(), weatherCard] : []),
     });
   }, [rendered]);
 

@@ -1668,6 +1668,25 @@ month for the same reason: `2026-W53` links up to `2026-12`, not to `2027-01`.
 A capture into [today's dump](#capturing-into-todays-dump) makes the daily note
 the same way when the vault has none, on the server rather than in the browser.
 
+### The weather card
+
+A daily note draws the day's weather under its line of links, one strip per
+town in [`KASTEN_WEATHER_PLACES`](/reference/configuration.md#kasten_weather_places).
+Each strip carries:
+
+- the town, the day's low and high, the rain in mm and the highest chance of
+  rain, and sunrise, sunset and hours of daylight
+- a sky icon every three hours
+- the temperature as a line, its low and high labelled
+- the chance of rain as bars below it, darker the more rain falls
+- night shaded from sunset to sunrise, and a `now` line on today's note
+
+Hover a strip to read one hour. The card is drawn, not written: the note's
+text holds nothing for it, so an agent reading the note does not see it. It
+shows in the rendered view only, and not on a day the forecast does not reach,
+which is more than 92 days back or 15 ahead. See
+[`GET /api/weather`](/reference/http-api.md#get-apiweather).
+
 ## Backticks
 
 A backtick closes itself, the way a bracket and a quote already did. Markdown

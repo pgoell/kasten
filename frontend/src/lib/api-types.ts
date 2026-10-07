@@ -462,6 +462,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/weather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Day Weather
+         * @description The weather on one day, hour by hour, for each place the settings name.
+         *
+         *     The third endpoint that reaches the internet, and the narrowest: a date
+         *     goes out and nothing else, to one fixed host. A day Open-Meteo cannot
+         *     answer for is a 404, the card's cue to draw nothing; Open-Meteo failing to
+         *     answer is a 502, the line the other two draw.
+         */
+        get: operations["read_day_weather_api_weather_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -1205,6 +1230,20 @@ export interface components {
             path: string;
         };
         /**
+         * Forecast
+         * @description One place's day.
+         */
+        Forecast: {
+            /** Place */
+            place: string;
+            /** Sunrise */
+            sunrise: string;
+            /** Sunset */
+            sunset: string;
+            /** Hours */
+            hours: components["schemas"]["Hour"][];
+        };
+        /**
          * Graph
          * @description What a query drew, and for a pattern the rows it matched.
          */
@@ -1280,6 +1319,22 @@ export interface components {
             line: number;
             /** Text */
             text: string;
+        };
+        /**
+         * Hour
+         * @description One hour of one place's day, local time.
+         */
+        Hour: {
+            /** Time */
+            time: string;
+            /** Temperature */
+            temperature: number;
+            /** Rain Chance */
+            rain_chance: number;
+            /** Rain */
+            rain: number;
+            /** Code */
+            code: number;
         };
         /**
          * Layout
@@ -2012,6 +2067,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Transcript"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_day_weather_api_weather_get: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Forecast"][];
                 };
             };
             /** @description Validation Error */

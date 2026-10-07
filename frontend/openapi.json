@@ -775,6 +775,51 @@
         }
       }
     },
+    "/api/weather": {
+      "get": {
+        "summary": "Read Day Weather",
+        "description": "The weather on one day, hour by hour, for each place the settings name.\n\nThe third endpoint that reaches the internet, and the narrowest: a date\ngoes out and nothing else, to one fixed host. A day Open-Meteo cannot\nanswer for is a 404, the card's cue to draw nothing; Open-Meteo failing to\nanswer is a 502, the line the other two draw.",
+        "operationId": "read_day_weather_api_weather_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Forecast"
+                  },
+                  "title": "Response Read Day Weather Api Weather Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/search": {
       "get": {
         "summary": "Search Files",
@@ -1926,6 +1971,38 @@
         "title": "FolderMove",
         "description": "Where a folder should live from now on, and every note under it with it."
       },
+      "Forecast": {
+        "properties": {
+          "place": {
+            "type": "string",
+            "title": "Place"
+          },
+          "sunrise": {
+            "type": "string",
+            "title": "Sunrise"
+          },
+          "sunset": {
+            "type": "string",
+            "title": "Sunset"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/Hour"
+            },
+            "type": "array",
+            "title": "Hours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "place",
+          "sunrise",
+          "sunset",
+          "hours"
+        ],
+        "title": "Forecast",
+        "description": "One place's day."
+      },
       "Graph": {
         "properties": {
           "nodes": {
@@ -2105,6 +2182,40 @@
         ],
         "title": "Hit",
         "description": "One matching line: where it lives, which line it is, and what it says.\n\nIts own model rather than `main.SearchHit`, because nothing here may import\nfrom `main.py`: that would point the dependency at the surface instead of\naway from it, and the MCP tools import this module too."
+      },
+      "Hour": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "temperature": {
+            "type": "number",
+            "title": "Temperature"
+          },
+          "rain_chance": {
+            "type": "integer",
+            "title": "Rain Chance"
+          },
+          "rain": {
+            "type": "number",
+            "title": "Rain"
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "temperature",
+          "rain_chance",
+          "rain",
+          "code"
+        ],
+        "title": "Hour",
+        "description": "One hour of one place's day, local time."
       },
       "Layout": {
         "properties": {
