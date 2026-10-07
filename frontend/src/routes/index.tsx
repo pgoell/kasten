@@ -13,6 +13,7 @@ import { GraphPane } from "@/components/graph-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { KeyHelp } from "@/components/key-help";
+import { MoveConfirm } from "@/components/move-confirm";
 import { NoteEditor } from "@/components/note-editor";
 import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
@@ -53,6 +54,7 @@ import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
+import type { MoveMode } from "@/lib/move";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookType, importedNote, noteName } from "@/lib/note-path";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
@@ -302,6 +304,12 @@ function Home() {
   // One piece of state for both, because a create opening on the vault root
   // starts at "" and that still has to read as open.
   const [prompt, setPrompt] = useState<{ mode: PromptMode; startPath: string } | null>(null);
+  // A drop in the tree waiting for the reader to say yes.
+  const [moving, setMoving] = useState<{
+    mode: MoveMode;
+    startPath: string;
+    target: string;
+  } | null>(null);
   // A flag and not a path, unlike the prompt: the finder ranks the whole vault
   // and has nothing to start from.
   const [finderOpen, setFinderOpen] = useState(false);
@@ -1054,6 +1062,37 @@ function Home() {
   );
 
   /**
+   * Point every pane at where a move put the note it was showing.
+   *
+   * A rename is read across every pane of every tab, not just the one in front
+   * of you: one note can be open in several panes at once, and all of them are
+   * looking at the file that just moved. `noteAfterPrompt` answers undefined
+   * for a pane holding something the move did not touch. The prompt and a drop
+   * in the tree both land here.
+   */
+  const followMove = useCallback((mode: MoveMode, startPath: string, path: string) => {
+    setLayout((previous) =>
+      mapPanes(previous, (shown) => {
+        const next = noteAfterPrompt(mode, startPath, path, shown.path);
+        // A reader follows both now. A folder move carries everything under
+        // it, and a note's move carries the book beside it, so a reader left
+        // on the old note would be holding a pair that has been broken.
+        // `pane.book` is the note's path rather than the epub's, the pane
+        // swapping the suffix itself, which is why this is the same question
+        // `next` asks one line up.
+        //
+        // The vault leaves the book behind in one case, a target whose own
+        // sidecar path is taken, and the reader then draws "No book at ..."
+        // over a book still at the old path. Not worth a field on the answer
+        // to tell apart.
+        const book = noteAfterPrompt(mode, startPath, path, shown.book) ?? shown.book;
+        const moved = next === undefined ? shown : { ...shown, path: next };
+        return book === shown.book ? moved : { ...moved, book };
+      }),
+    );
+  }, []);
+
+  /**
    * The same for a folder, which goes in one piece and comes back in one.
    *
    * Saved first for the reason a folder's rename is: the note in the focused
@@ -1443,6 +1482,16 @@ function Home() {
         const holdsOpenNote = pane.path?.startsWith(`${startPath}/`) ?? false;
         if (!(await saveFirst()) && holdsOpenNote) return;
         setPrompt({ mode: "folder", startPath });
+      },
+      // Saved first for the reason both renames are, and narrowed the way
+      // each of them is.
+      moveRow: async (startPath, mode, target) => {
+        const holdsOpenNote =
+          mode === "folder"
+            ? (pane.path?.startsWith(`${startPath}/`) ?? false)
+            : pane.path === startPath;
+        if (!(await saveFirst()) && holdsOpenNote) return;
+        setMoving({ mode, startPath, target });
       },
       // No save first: opening the panel moves no path. Picking a note out of
       // it does, and `openInPane` is where that is asked.
@@ -2042,35 +2091,22 @@ function Home() {
           onOpen={(path) => {
             const { mode, startPath } = prompt;
             setPrompt(null);
-            setLayout((previous) =>
-              mode === "create"
-                ? openInFocused(previous, path)
-                : // A rename is read across every pane of every tab, not just
-                  // the one in front of you: one note can be open in several
-                  // panes at once, and all of them are looking at the file that
-                  // just moved. `noteAfterPrompt` answers undefined for a pane
-                  // holding something the move did not touch.
-                  mapPanes(previous, (shown) => {
-                    const next = noteAfterPrompt(mode, startPath, path, shown.path);
-                    // A reader follows both now. A folder move carries
-                    // everything under it, and a note's move carries the book
-                    // beside it, so a reader left on the old note would be
-                    // holding a pair that has been broken. `pane.book` is the
-                    // note's path rather than the epub's, the pane swapping
-                    // the suffix itself, which is why this is the same
-                    // question `next` asks one line up.
-                    //
-                    // The vault leaves the book behind in one case, a target
-                    // whose own sidecar path is taken, and the reader then
-                    // draws "No book at ..." over a book still at the old
-                    // path. Not worth a field on the answer to tell apart.
-                    const book = noteAfterPrompt(mode, startPath, path, shown.book) ?? shown.book;
-                    const moved = next === undefined ? shown : { ...shown, path: next };
-                    return book === shown.book ? moved : { ...moved, book };
-                  }),
-            );
+            if (mode === "create") setLayout((previous) => openInFocused(previous, path));
+            else followMove(mode, startPath, path);
           }}
           onClose={() => setPrompt(null)}
+        />
+      )}
+      {moving !== null && (
+        <MoveConfirm
+          mode={moving.mode}
+          startPath={moving.startPath}
+          target={moving.target}
+          onMoved={(path) => {
+            setMoving(null);
+            followMove(moving.mode, moving.startPath, path);
+          }}
+          onClose={() => setMoving(null)}
         />
       )}
       {/* One panel for both, because the notes one note links to are a list of

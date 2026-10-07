@@ -114,8 +114,11 @@ the prompt opens, so a rename never strands a keystroke at the old path.
 A rename also moves the links. Every `[[link]]` in the vault that named the note
 is rewritten to name it at its new path, and it keeps the spelling it had: a
 path stays a path and a bare name stays a bare name, so `[[borges]]` is left
-alone by a move between folders and follows a change of name. Renaming a folder
-does the same for every note it carries. [The link panels](#the-link-panels)
+alone by a move between folders and follows a change of name. Relative markdown
+links follow as well, and an entry in the old folder's `index.md` moves to the
+new one's. Renaming a folder does the same for every note it carries.
+[What a move does to the links](/reference/http-api.md#what-a-move-does-to-the-links)
+has the rules. [The link panels](#the-link-panels)
 cover the two ways to read those links.
 
 `<leader>df` takes the note out of the vault, and `<leader>du` puts the last
@@ -1818,6 +1821,30 @@ there is no state where half of it moved. It cannot land on a folder the vault a
 has, on a note, or inside itself, and the line under the list says which of
 those it is. The note you are writing follows into the URL when it was one of
 the notes that moved, and stays where it is when it was not.
+
+### Dragging a row
+
+The mouse moves a row too. Drag a note or a folder onto a folder row and it
+lands inside that folder, onto a note row and it lands in that note's folder,
+or onto the empty space below the rows and it lands at the vault root. A folder
+the pointer rests on for 600ms unfolds, so a drop can reach inside it. Images
+and HTML pages do not drag. A drop where the row already sits, or a folder
+dropped on itself or inside itself, does nothing.
+
+A drop asks first. A dialog lists every file whose text the move would
+rewrite, read from
+[`GET /api/move-preview`](/reference/http-api.md#get-apimove-preview), and
+moves nothing until you answer.
+
+| Key | Does |
+| --- | --- |
+| Enter | Move, the same as the `Move` button |
+| Escape | Cancel, the same as `Cancel` or a click outside |
+
+Text waiting to be written is saved before the dialog opens, as with the prompt,
+and every pane holding a note that moved follows it.
+[Moving a note](/explanation/moving-notes.md#why-a-drop-asks-and-the-prompt-does-not)
+says why a drop asks when a rename does not.
 
 ## The note prompt
 

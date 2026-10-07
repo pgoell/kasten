@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { createNote, moveFolder, renameNote } from "@/lib/api";
+import { createNote } from "@/lib/api";
 import { folderCandidates, rankCandidates } from "@/lib/fuzzy";
+import { moveAndCache } from "@/lib/move";
 import { describeFolderPath, describeNotePath, type NotePathVerdict } from "@/lib/note-path";
 import {
   BACKDROP,
@@ -261,34 +262,18 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
       onOpen(path);
     }
 
-    if (mode === "folder") {
-      void moveFolder(startPath, target).then((folder) => {
-        // Every note under the folder is at a new path, and the answer carries
-        // no text to move with them. They are dropped rather than remapped: the
-        // vault is the only thing that knows what is in a note, and a copy left
-        // stale by a write outside kasten must not survive the move.
-        const moved = `${startPath}/`;
-        queryClient.removeQueries({
-          queryKey: ["note"],
-          predicate: ({ queryKey }) =>
-            typeof queryKey[1] === "string" && queryKey[1].startsWith(moved),
-        });
-        landed(folder.path);
+    if (mode === "create") {
+      void createNote(target).then((note) => {
+        // The vault's spelling of the path, not the typed one, from here on.
+        // The text comes from the answer rather than from the cache, so a
+        // create saves the editor a read of a file it already knows.
+        queryClient.setQueryData(["note", note.path], note.content);
+        landed(note.path);
       }, refused);
       return;
     }
 
-    void (mode === "rename" ? renameNote(startPath, target) : createNote(target)).then((note) => {
-      // The vault's spelling of the path, not the typed one, from here on. The
-      // text comes from the answer rather than from the cache, so a create
-      // saves the editor a read of a file it already knows and a rename carries
-      // the note across without trusting a copy that may be stale.
-      queryClient.setQueryData(["note", note.path], note.content);
-      // The note is not at the old path any more, so a cache entry there would
-      // answer for a note the vault no longer has.
-      if (mode === "rename") queryClient.removeQueries({ queryKey: ["note", startPath] });
-      landed(note.path);
-    }, refused);
+    void moveAndCache(queryClient, mode, startPath, target).then(landed, refused);
   }
 
   /** Fold a folder into the input, which is what Tab and a click on a row do. */

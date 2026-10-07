@@ -119,7 +119,8 @@ async def test_keeps_each_created_note_out_of_the_change_before_it(
     await client.post("/api/files/index.md")
     await client.post("/api/files/daily/2026-08-05.md")
 
-    assert changed_paths(versioned_vault, "@") == ["daily/2026-08-05.md"]
+    # The listing of the folder the note made is part of making it.
+    assert changed_paths(versioned_vault, "@") == ["daily/2026-08-05.md", "daily/index.md"]
     assert changed_paths(versioned_vault, "@-") == ["index.md"]
 
 
@@ -158,6 +159,9 @@ async def test_records_a_move_as_one_rename(client: AsyncClient, versioned_vault
     # lose that the note is the note it was.
     (versioned_vault / "inbox").mkdir()
     (versioned_vault / "inbox" / "borges.md").write_text("# borges")
+    # Already there, so the move makes no folder and with it no listing, which
+    # would be a second entry in the change.
+    (versioned_vault / "reading").mkdir()
     # The note has to be in a change of its own to have moved out of one.
     await client.put("/api/files/inbox/borges.md", json={"content": "# borges"})
 

@@ -79,6 +79,7 @@ The thresholds are assertions in the test files instead. See
 | Task | What it does |
 |---|---|
 | `okf:backfill` | Write `type` into every note in the vault that has none |
+| `index:backfill` | Write an `index.md` into every folder in the vault that has none |
 
 `okf:backfill` runs the same pass the backend runs at startup, from a terminal.
 It takes the vault as a path so the one command reaches any vault, `../vault` by
@@ -86,6 +87,20 @@ default because the task sets its own directory to `backend/`. It writes the one
 field and nothing else, prints a line per note it changed, and changes nothing on
 a second run. See
 [OKF in the vault](/explanation/okf-in-the-vault.md#the-pass-over-the-notes-already-there).
+
+`index:backfill` gives every folder below the vault root that has no `index.md`
+the listing kasten writes into a folder it makes: the folder's name as a
+heading and a bullet per thing in it, with no descriptions. It takes the vault
+as a path the way `okf:backfill` does, prints the path of each index it wrote,
+and writes the lot as one jj change, `vault: index backfill`. Hidden folders are
+not walked into, and the vault root is left alone, because OKF makes its index
+optional. A second run writes nothing. The backend never runs it at startup, so
+an index you deleted stays deleted. See
+[Moving a note](/explanation/moving-notes.md#why-the-backfill-waits-to-be-asked).
+
+The task is `python -m kasten_backend.indexes <vault>` under uv. The backend
+container has no mise, so run that line there instead, as
+`python -m kasten_backend.indexes /vault`.
 
 ## Lint, format and types
 

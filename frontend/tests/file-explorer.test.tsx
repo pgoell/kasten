@@ -30,6 +30,7 @@ type TreeProps = Partial<ComponentProps<typeof FileExplorer>> & {
   onDeleteNote?: (startPath?: string) => void;
   onDeleteFolder?: (startPath: string) => void;
   onDeleteImage?: (startPath: string) => void;
+  onMoveRow?: (startPath: string, mode: "rename" | "folder", target: string) => void;
   onFindNote?: () => void;
   onSearchNotes?: () => void;
   onRevealTree?: () => void;
@@ -44,6 +45,7 @@ function Harness({
   onDeleteNote,
   onDeleteFolder,
   onDeleteImage,
+  onMoveRow,
   onFindNote,
   onSearchNotes,
   onRevealTree,
@@ -79,6 +81,7 @@ function Harness({
         deleteNote: onDeleteNote ?? (() => {}),
         deleteFolder: onDeleteFolder ?? (() => {}),
         deleteImage: onDeleteImage ?? (() => {}),
+        moveRow: onMoveRow ?? (() => {}),
         restoreDeleted: () => {},
         findNote: onFindNote ?? (() => {}),
         searchNotes: onSearchNotes ?? (() => {}),
@@ -1004,5 +1007,70 @@ describe("FileExplorer html pages", () => {
 
     expect(onDeleteImage).not.toHaveBeenCalled();
     expect(onDeleteNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("FileExplorer drag and drop", () => {
+  /** What jsdom leaves out of a drag event, and the handlers write to. */
+  function transfer() {
+    return { setData: vi.fn(), effectAllowed: "", dropEffect: "" };
+  }
+
+  function dragOnto(from: string, onto: HTMLElement) {
+    const dataTransfer = transfer();
+    fireEvent.dragStart(screen.getByText(from), { dataTransfer });
+    fireEvent.dragOver(onto, { dataTransfer });
+    fireEvent.drop(onto, { dataTransfer });
+  }
+
+  it("moves a note into the folder it is dropped on", () => {
+    const onMoveRow = vi.fn();
+    renderTree({ onMoveRow });
+
+    dragOnto("index", screen.getByText("daily"));
+
+    expect(onMoveRow).toHaveBeenCalledWith("index.md", "rename", "daily/index.md");
+  });
+
+  it("moves a folder into another folder", () => {
+    const onMoveRow = vi.fn();
+    renderTree({ onMoveRow });
+
+    dragOnto("daily", screen.getByText("projects"));
+
+    expect(onMoveRow).toHaveBeenCalledWith("daily", "folder", "projects/daily");
+  });
+
+  it("moves a note to the vault root when dropped beside the rows", () => {
+    const onMoveRow = vi.fn();
+    renderTree({ onMoveRow });
+
+    dragOnto("2026-08-04", screen.getByRole("navigation", { name: "Vault" }));
+
+    expect(onMoveRow).toHaveBeenCalledWith("daily/2026-08-04.md", "rename", "2026-08-04.md");
+  });
+
+  it("does nothing for a drop where the note already is", () => {
+    const onMoveRow = vi.fn();
+    renderTree({ onMoveRow });
+
+    dragOnto("index", screen.getByRole("navigation", { name: "Vault" }));
+
+    expect(onMoveRow).not.toHaveBeenCalled();
+  });
+
+  it("does nothing for a folder dropped on itself", () => {
+    const onMoveRow = vi.fn();
+    renderTree({ onMoveRow });
+
+    dragOnto("daily", screen.getByText("daily"));
+
+    expect(onMoveRow).not.toHaveBeenCalled();
+  });
+
+  it("does not drag a page", () => {
+    renderTree({ html: ["report.html"] });
+
+    expect(screen.getByText("report.html").closest("button")).toHaveAttribute("draggable", "false");
   });
 });

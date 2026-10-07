@@ -119,7 +119,9 @@ ls vault/reading
 ```
 
 `borges.md` is there and it is empty. The folder was made because the note
-needed one, and neither of them went near Postgres.
+needed one, and neither of them went near Postgres. Beside it is `index.md`, a
+list of what the folder holds, which kasten writes into every folder it makes.
+You can edit it like a note, and the tree shows it as `index`.
 
 ## 7. Open a note and edit it
 
@@ -165,7 +167,10 @@ happened on disk:
 ls -R vault/reading
 ```
 
-`2026/borges.md` is there. Anything you had typed and not yet saved went to the
+`2026/borges.md` is there, with an `index.md` of its own. The line for `borges`
+left `reading/index.md` and went into `reading/2026/index.md`, its link
+rewritten to point from there, and `reading/index.md` now lists `2026/`
+instead. Anything you had typed and not yet saved went to the
 old path before the note moved, so nothing was stranded.
 
 Now try to rename it onto a name that is taken. Press space, `r`, `f` again,
@@ -196,7 +201,8 @@ ls -R vault/archive
 ```
 
 `2026/borges.md` is there, under its new parent, and `vault/reading` is gone: a
-folder the move emptied is one nothing would ever show again. If the note you
+folder the move emptied is one nothing would ever show again. The index came
+too, and its heading now reads `# archive`. If the note you
 had open was one of the notes that moved, the URL followed it; if it was not,
 the editor stayed where it was.
 

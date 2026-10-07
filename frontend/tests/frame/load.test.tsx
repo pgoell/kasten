@@ -60,6 +60,7 @@ const INERT: TreeCommands = {
   restoreDeleted: () => {},
   deleteFolder: () => {},
   deleteImage: () => {},
+  moveRow: () => {},
   findNote: vi.fn(),
   searchNotes: vi.fn(),
   findTodos: vi.fn(),

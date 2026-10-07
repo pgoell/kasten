@@ -118,6 +118,8 @@ async def test_an_imported_deck_is_one_change_in_the_log(
     assert changed_paths(versioned_vault, "@") == [
         "03 Flashcards/French.md",
         "03 Flashcards/Geography.md",
+        # The folder the import made, listed in the same change.
+        "03 Flashcards/index.md",
     ]
 
 

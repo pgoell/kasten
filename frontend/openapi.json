@@ -1650,6 +1650,55 @@
         }
       }
     },
+    "/api/move-preview": {
+      "get": {
+        "summary": "Preview Move",
+        "description": "Which files moving `source` to `target` would rewrite, and nothing written.\n\nA `GET` beside the two `PATCH` routes rather than a flag on them, because\nit changes nothing and answers with something neither of them does. The\ntree asks it before a drop, so the confirm can say how far a move reaches.\n\n`source` is a note or a folder, whichever the vault holds there. Nothing\nthere is a 404 and a target the vault will not take is a 400, the refusals\nthe move itself would give. A target already taken is not refused: the\nmove will say so, and the question here is only about links.",
+        "operationId": "preview_move_api_move_preview_get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "target",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/trash": {
       "get": {
         "summary": "Read Trash",
@@ -2115,6 +2164,23 @@
         ],
         "title": "Minted",
         "description": "One token as its owner sees it, once."
+      },
+      "MovePreview": {
+        "properties": {
+          "rewrites": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rewrites"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rewrites"
+        ],
+        "title": "MovePreview",
+        "description": "What a move would rewrite, asked before it is made."
       },
       "Note": {
         "properties": {

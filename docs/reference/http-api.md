@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves thirty-three endpoints under `/api/`. Nineteen read,
+The backend serves thirty-four endpoints under `/api/`. Twenty read,
 thirteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -866,6 +866,22 @@ The folders on the way are made, the vault directory included, so a note names
 its folders into being and a fresh checkout takes its first note with no
 `mkdir` first.
 
+Each folder made here gets an `index.md` as it is made, listing what it holds:
+the folder's name as a `#` heading, then a bullet per thing in it, folders
+first with a trailing slash, notes without their `.md`, any other file by its
+full name, and hidden files, `index.md` and `log.md` left out. No bullet has a
+description, because only a person can write one. A folder that was already
+there keeps whatever it had, an index or none, and its index does not gain the
+new note.
+
+The outermost folder made is added to the index of the folder above it, as
+`* [name](name/)` at the end, but only when that index already reads as a
+listing, holding a bullet with a markdown link. An index written as prose, or
+with wikilinks alone, is left as it is. The folders an image upload or a
+restore from the trash makes get no index.
+[Moving a note](/explanation/moving-notes.md#why-a-folder-kasten-makes-gets-an-index)
+says why.
+
 ### What a create refuses
 
 It answers `409` or `400` where the read and the write answer `404` to
@@ -996,7 +1012,8 @@ client. The move does not need the read; the answer does. Both the URL and the
 client's cache key change here, and filling the new one from disk is what stops
 a note edited outside kasten arriving stale on the other side.
 
-The folders on the way to the new path are made, the way a create makes them.
+The folders on the way to the new path are made, the way a create makes them,
+each with [its listing](#post-apifilespath).
 
 ### What a move does to the links
 
@@ -1029,6 +1046,25 @@ escape. rg names the notes holding it and only those are read and reparsed. It
 matches far more than it rewrites, every mention in prose included, which costs
 nothing: the parse decides.
 
+Relative markdown links follow too, `[text](href)` and `![alt](href)` alike,
+in every note and not only the one moving. A markdown link is read from the
+folder of the file holding it, so two things break one: its target moving, and
+the file holding it moving to another folder. Either one rewrites it. A link
+between two files that moved together is left alone, which is what keeps a
+moved folder's own `index.md` working.
+
+A link that changes is written the short way from the folder of the file
+holding it, keeping a trailing slash and a leading `./` where it had them, and
+keeping a `#fragment` or `?query`. `%`, a space, `(` and `)` are escaped as
+`%25`, `%20`, `%28` and `%29`, and nothing else, so an accented name reads as
+itself in the raw file. A link that still lands where it did keeps its
+spelling. Skipped: an href with a scheme, `https:` or `mailto:`, one starting
+with `/`, `#` or `{`, and one that climbs out of the vault.
+
+The name narrows the read for these too. A markdown link to a note holds its
+name, raw or with its spaces escaped, and rg is asked for both. The note moving
+is read whatever it holds, because its own links break by its moving.
+
 At 10,000 notes a move costs 29ms, against 315ms for the walk over every note it
 replaced. 9ms of that is the directory listing, which resolving a bare name
 needs and which `GET /api/files` pays on every page load anyway. A folder's move
@@ -1040,6 +1076,22 @@ than an empty answer, and the move fails with nothing written. A search that
 came up short shows fewer rows; a rewrite that comes up short leaves a link
 pointing at nothing.
 
+### What a move does to the indexes
+
+When the note moves to another folder and the old folder's `index.md` has an
+entry for it, the entry goes with it. An entry is a bullet line holding a
+markdown link to the note. The line is cut from the old index, description and
+all, its link respelled from the new folder, and added at the end of the new
+folder's `index.md`. A new folder with no index gets one made as
+[a create makes it](#post-apifilespath), and the plain line that listing wrote
+for the note is replaced by the one carried, so the note is listed once.
+
+An old index that never listed the note adds nothing anywhere: an index is
+curated, and an entry nobody wrote is not one to invent at the other end. A
+note that stays in its folder, and an `index.md` or `log.md` that moves, carry
+nothing. [Moving a note](/explanation/moving-notes.md#why-an-entry-moves-only-when-it-was-listed)
+says why.
+
 ### What a move leaves behind
 
 Nothing, where it can. The folders the note came out of are removed as far up
@@ -1047,6 +1099,11 @@ as they are empty, stopping at the vault root and at the first folder that
 still holds anything, a hidden file included. Folders exist here only as the
 prefix of a note, so a folder the move emptied is one nothing would ever show
 again.
+
+A folder holding its `index.md` and nothing else counts as empty, and the index
+goes with it. Its text is in jj, in the change before the move. The entry for
+each folder removed this way is taken out of the index of the folder above it,
+where there is one.
 
 ### What a move refuses
 
@@ -1101,7 +1158,11 @@ answers.
 
 The folders on the way to the new path are made, and the ones the move emptied
 are taken away, both exactly as [a note's move](#what-a-move-leaves-behind) does
-them.
+them. The folder's entry in its old parent's `index.md` moves to the new
+parent's, by [the rule a note's entry](#what-a-move-does-to-the-indexes) moves
+by. The folder's own `index.md` travels inside it. When its first line is
+`# <old name>`, the heading becomes `# <new name>`; a heading written any other
+way stays as it was.
 
 ### What a folder move refuses
 
@@ -1131,16 +1192,62 @@ links are rewritten with the rest: a `[[reading/kafka]]` inside
 `reading/borges.md` becomes `[[archive/kafka]]` when the folder lands at
 `archive/`.
 
-That same segment is the rg query that picks the notes to read, and here it
-misses nothing rather than merely matching too much. The only link a folder move
-changes is one that spelled the path out, and one that spelled it out holds the
-old folder's path in full.
+Markdown links follow by [the note's rules](#what-a-move-does-to-the-links):
+a link from outside into the folder is rewritten, a link from inside the folder
+to outside it is rewritten, and a link between two files inside it is left
+alone.
+
+The folder's name is the rg query that picks the notes to read, raw and with
+its spaces escaped. A path into the folder runs through its name, so a link
+that spelled the path out, wikilink or markdown, holds it. The notes inside the
+folder are read whatever they hold.
 
 A move that lands is recorded the way a save is, named `vault: <new path>/`.
 The trailing slash is what tells it from the change a note's move leaves, which
 would otherwise read the same. jj matches the content across each note, so the
 change reads as the renames it is rather than one subtree deleted and another
 added.
+
+## GET /api/move-preview
+
+Says which files a move would rewrite, and writes nothing. Both paths go in the
+query:
+
+```
+GET /api/move-preview?source=reading/borges.md&target=reading/2026/borges.md
+```
+
+```json
+{ "rewrites": ["reading/2026/index.md", "reading/index.md", "today.md"] }
+```
+
+`rewrites` is every file whose links the move would change, by the path it has
+today, sorted. That is every note holding a link [the move](#what-a-move-does-to-the-links)
+rewrites, plus the new folder's `index.md` when
+[an entry will be carried](#what-a-move-does-to-the-indexes) there, which may
+not exist yet. It leaves out the smaller writes that follow the move: a listing
+for a folder the move makes, the line naming that folder in the index above it,
+and a folder's index heading taking its new name.
+
+`source` is a note or a folder, whichever the vault holds there, and the answer
+is the one `PATCH /api/files/{path}` or `PATCH /api/folders/{path}` would act
+on. A `GET` beside the two rather than a flag on them, because it changes
+nothing and answers with something neither of them does. The file tree asks it
+before a drop, so [the confirm](/reference/editor-keys.md#the-file-tree) can
+list how far the move reaches.
+
+It works out the plan the move itself writes, from the same function, so the
+list and the move cannot disagree.
+
+### What a preview refuses
+
+* `404` when nothing is at `source`.
+* `400` when the vault will not take `target`, by
+  [the create's list](#what-a-create-refuses), or when a folder would land
+  inside itself.
+
+A target already taken is not refused here. The move will say so, and the
+question here is only about links.
 
 ## DELETE /api/files/{path}
 
@@ -1169,7 +1276,9 @@ it went, so the name is the whole record: where it came from, when, and no way
 to collide with a note deleted from the same path later.
 
 The folders the note came out of go with it, exactly as
-[a move](#what-a-move-leaves-behind) takes them.
+[a move](#what-a-move-leaves-behind) takes them, a folder left holding its
+`index.md` alone included. Unlike a move, a delete leaves the entries in the
+index above alone.
 
 Links pointing at the note are left alone. A `[[link]]` names a note rather than
 a place, the editor already draws one nothing answers to as missing, and
@@ -1309,6 +1418,7 @@ A name the store has not got is a `404`.
 ## Related
 
 * [Deleting a note](/explanation/deleting-a-note.md): why a delete keeps the note
+* [Moving a note](/explanation/moving-notes.md): why a move rewrites links and carries index entries
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md): push a change here through to the frontend
 * [Configuration](/reference/configuration.md): which directory `/api/files` reads
 * [Agent API](/reference/agent-api.md): the routes a token reaches, and the ones it never does
