@@ -85,6 +85,13 @@ async def test_reads_aliases_headings_and_skips_embeds(client: AsyncClient, vaul
     assert edges(answer) == {("a.md", "Louise Nong.md", None), ("a.md", "plan.md", None)}
 
 
+async def test_draws_no_note_for_a_link_to_a_page(client: AsyncClient, vault: Path) -> None:
+    # The page is a file, opened in its own pane, and not a note nobody wrote.
+    write(vault, "a.md", "[[news/2026-10-07.html]] [[report.html]]\n")
+
+    assert paths(await graph(client)) == {"a.md"}
+
+
 async def test_a_type_in_the_body_is_prose(client: AsyncClient, vault: Path) -> None:
     write(vault, "a.md", "# Title\n\ntype: Concept\n")
 

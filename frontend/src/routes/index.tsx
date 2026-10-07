@@ -185,6 +185,9 @@ function Home() {
   // The pages of HTML a research run leaves, which are rows of the tree and
   // nothing else. Refetched on a `listing` beside the images.
   const { data: html } = useQuery({ queryKey: ["html"], queryFn: fetchHtml });
+  // What a `[[link]]` can land on: the notes, and the pages beside them. Absent
+  // while the notes load, so the editor calls no link dead before it knows.
+  const linkable = useMemo(() => data && [...data, ...(html ?? [])], [data, html]);
   // The vault's tag vocabulary, for the completion an open `#` offers. Not
   // filtered by the archive toggle: a tag written in an archived note is
   // still a tag, and spelling it the same way is the whole point.
@@ -874,11 +877,18 @@ function Home() {
   const follow = useCallback(
     (target: string, body = "") => {
       const paths = data ?? [];
-      const path = wikiLinkPath(target, paths);
+      const path = wikiLinkPath(target, linkable ?? []);
+      if (html?.includes(path)) {
+        void openHtmlInPane(path);
+        return;
+      }
       if (paths.includes(path)) {
         void openInPane(path);
         return;
       }
+      // The vault has no write for a page, so a link to one nobody made stays
+      // a dead link rather than turning into a note named `.html`.
+      if (path.endsWith(".html")) return;
 
       // One write, and the body goes over as it stands. `periodic.ts` owns the
       // block and the blank line after it, because the fence has to be the
@@ -899,7 +909,7 @@ function Home() {
         },
       );
     },
-    [data, queryClient, openInPane],
+    [data, html, linkable, queryClient, openInPane, openHtmlInPane],
   );
 
   /**
@@ -1956,7 +1966,7 @@ function Home() {
                     initialDoc=""
                     commands={commands}
                     preview={preview}
-                    paths={data}
+                    paths={linkable}
                     tags={tags}
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}
@@ -1973,7 +1983,7 @@ function Home() {
                         path={shown.path}
                         commands={commands}
                         preview={preview}
-                        paths={data}
+                        paths={linkable}
                         images={images}
                         tags={tags}
                         relations={relations}

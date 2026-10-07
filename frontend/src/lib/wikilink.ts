@@ -22,6 +22,9 @@ const MARK = 2;
 
 const SUFFIX = ".md";
 
+/** A page of HTML in the vault, which a link names by its full file name. */
+const PAGE = ".html";
+
 /**
  * `[[note]]`, which no markdown flavour we load parses.
  *
@@ -112,7 +115,7 @@ export function wikiLinkAt(state: EditorState, pos: number): string | null {
  */
 export function wikiLinkPath(target: string, paths: string[]): string {
   const typed = target.trim();
-  const path = typed.endsWith(SUFFIX) ? typed : `${typed}${SUFFIX}`;
+  const path = typed.endsWith(SUFFIX) || typed.endsWith(PAGE) ? typed : `${typed}${SUFFIX}`;
   if (paths.includes(path) || path.includes("/")) return path;
 
   const name = path.toLowerCase();
@@ -211,7 +214,9 @@ export function wikiLinkCompletions(context: CompletionContext): CompletionResul
     // completion replaces is only the name.
     from: open.from + MARK,
     options: paths.map((path) => {
-      const name = path.slice(0, -SUFFIX.length);
+      // A page keeps its `.html`: that is what tells `[[report.html]]` from
+      // the `report` note beside it.
+      const name = path.endsWith(SUFFIX) ? path.slice(0, -SUFFIX.length) : path;
       return { label: name, apply: closed ? name : `${name}]]`, type: "text" };
     }),
     validFor: /^[^[\]\n]*$/,
