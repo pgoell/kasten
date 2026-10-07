@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
+from datetime import date, datetime
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Annotated
 from urllib.parse import quote, urlsplit
@@ -82,6 +82,7 @@ from kasten_backend.vault import (
     write_note,
 )
 from kasten_backend.vcs import is_versioned, write_ignores
+from kasten_backend.weather import Forecast, in_reach, read_weather
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -621,6 +622,25 @@ async def fetch_transcript(
         generated=fetched.is_generated,
         lines=[CaptionLine(start=line.start, text=line.text) for line in fetched],
     )
+
+
+@app.get("/api/weather")
+async def read_day_weather(
+    day: Annotated[date, Query(alias="date")], settings: Annotated[Settings, Depends(get_settings)]
+) -> list[Forecast]:
+    """The weather on one day, hour by hour, for each place the settings name.
+
+    The third endpoint that reaches the internet, and the narrowest: a date
+    goes out and nothing else, to one fixed host. A day Open-Meteo cannot
+    answer for is a 404, the card's cue to draw nothing; Open-Meteo failing to
+    answer is a 502, the line the other two draw.
+    """
+    if not in_reach(day, date.today()):
+        raise HTTPException(status_code=404, detail="No weather for that day")
+    try:
+        return await read_weather(day, settings.weather_places)
+    except httpx.HTTPError as error:
+        raise HTTPException(status_code=502, detail="Open-Meteo did not answer") from error
 
 
 @app.get("/api/search")

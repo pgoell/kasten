@@ -20,6 +20,7 @@
      tell one inline construct from another. */
   --color-one-orange: #d19a66;
   --color-one-purple: #c678dd;
+  --color-one-cyan: #56b6c2;
   /* The red the vim block cursor is painted in, borrowed from
      @replit/codemirror-vim so the file tree's cursor reads as the same idea. */
   --color-one-cursor: #ff9696;
@@ -301,6 +302,95 @@ body {
   aspect-ratio: 16 / 9;
   border: 0;
   border-radius: 3px;
+}
+
+/* The day's weather under a daily note's title. The svg scales to the column,
+   so the strip is as wide as the text; the tooltip sits over it rather than in
+   the flow, or hovering would push the note down. */
+.cm-weather {
+  display: grid;
+  gap: 14px;
+  padding: 6px 24px 14px 0;
+  font-family: var(--font-mono);
+  cursor: default;
+}
+
+.cm-weather-town {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+
+.cm-weather-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-weather-place {
+  color: var(--color-one-fg);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 1.1em;
+}
+
+.cm-weather-range {
+  color: var(--color-one-fg);
+}
+
+.cm-weather-meta {
+  color: var(--color-one-muted);
+}
+
+.cm-weather svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.cm-weather text {
+  font-size: 10px;
+  fill: var(--color-one-muted);
+  text-anchor: middle;
+}
+
+.cm-weather .wx-start { text-anchor: start; }
+.cm-weather .wx-end { text-anchor: end; }
+.cm-weather .wx-value { fill: var(--color-one-fg); }
+.cm-weather .wx-night { fill: rgb(0 0 0 / 22%); }
+.cm-weather .wx-temp { fill: none; stroke: var(--color-one-orange); stroke-width: 2; stroke-linejoin: round; }
+.cm-weather .wx-temp-area { fill: var(--color-one-orange); fill-opacity: 0.12; }
+.cm-weather .wx-rain { fill: var(--color-one-cyan); }
+.cm-weather .wx-rule { stroke: var(--color-one-selection); }
+.cm-weather .wx-now { stroke: var(--color-one-yellow); stroke-width: 1.5; }
+.cm-weather .wx-now-label { fill: var(--color-one-yellow); text-anchor: start; }
+.cm-weather .wx-cross { stroke: var(--color-one-muted); stroke-dasharray: 2 2; }
+.cm-weather .wx-hit { fill: transparent; }
+.cm-weather .wx-sun { fill: var(--color-one-yellow); }
+.cm-weather .wx-rays { fill: none; stroke: var(--color-one-yellow); stroke-width: 1.6; stroke-linecap: round; }
+.cm-weather .wx-moon { fill: var(--color-one-muted); }
+.cm-weather .wx-cloud { fill: var(--color-one-muted); }
+.cm-weather .wx-cloud-light { fill: var(--color-one-fg); }
+.cm-weather .wx-drops { fill: none; stroke: var(--color-one-cyan); stroke-width: 1.8; stroke-linecap: round; }
+.cm-weather .wx-flake { fill: var(--color-one-fg); }
+.cm-weather .wx-bolt { fill: none; stroke: var(--color-one-yellow); stroke-width: 1.8; stroke-linejoin: round; }
+
+.cm-weather-tip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  padding: 6px 8px;
+  border: 1px solid var(--color-one-selection);
+  border-radius: 4px;
+  background: var(--color-one-panel);
+  color: var(--color-one-fg);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 /* A link to a note nobody has written yet. Muted and dotted rather than

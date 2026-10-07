@@ -23,6 +23,9 @@ export type TrashEntry = components["schemas"]["TrashEntry"];
 /** The notes as a graph, and for a pattern the rows it matched. */
 export type Graph = components["schemas"]["Graph"];
 
+/** One town's day of weather, hour by hour, as Open-Meteo forecast it. */
+export type Forecast = components["schemas"]["Forecast"];
+
 /** One agent token as the store may be read: a name and when it was made. */
 export type Token = components["schemas"]["Token"];
 
@@ -387,6 +390,23 @@ export async function fetchTranscript(id: string): Promise<Transcript> {
   if (!data) {
     throw new Error(reason(error) ?? `GET /api/transcripts/${id} failed with ${response.status}`);
   }
+
+  return data;
+}
+
+/**
+ * The weather on one day for every town the backend names.
+ *
+ * Empty for a day Open-Meteo has nothing for, which the backend answers with a
+ * 404: a daily note that old draws no card, and that is not a failure.
+ */
+export async function fetchWeather(date: string): Promise<Forecast[]> {
+  const { data, response } = await client.GET("/api/weather", {
+    params: { query: { date } },
+  });
+
+  if (response.status === 404) return [];
+  if (!data) throw new Error(`GET /api/weather failed with ${response.status}`);
 
   return data;
 }

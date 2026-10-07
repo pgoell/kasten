@@ -214,6 +214,24 @@ The default is the container path rather than something relative, because
 production sets no variable for it. A backend without the mount answers `[]`
 and the notebook works as before.
 
+## KASTEN_WEATHER_PLACES
+
+The towns a daily note draws the weather for, in the order drawn.
+
+| | |
+| --- | --- |
+| Default | Gelnhausen and Frankfurt |
+| Read by | `GET /api/weather` |
+
+JSON, a list of objects with a `name`, a `latitude` and a `longitude`:
+
+```sh
+KASTEN_WEATHER_PLACES='[{"name": "Gelnhausen", "latitude": 50.2017, "longitude": 9.1886}]'
+```
+
+`[]` turns the card off. The coordinates go to Open-Meteo every time a daily
+note opens a day the backend has not asked about in the last 30 minutes.
+
 ## KASTEN_VAULT_PATH
 
 The directory of markdown files that is the source of truth.

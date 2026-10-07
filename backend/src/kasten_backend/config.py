@@ -6,6 +6,8 @@ from urllib.parse import quote
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from kasten_backend.weather import Place
+
 
 class Settings(BaseSettings):
     """Runtime configuration. Every field is overridable via a KASTEN_* env var."""
@@ -124,6 +126,16 @@ class Settings(BaseSettings):
     is localhost only, which answers 421 to everything arriving through a proxy.
     Empty is what dev on loopback and the test client need; production names the
     hostname Caddy serves.
+    """
+
+    weather_places: list[Place] = [
+        Place(name="Gelnhausen", latitude=50.2017, longitude=9.1886),
+        Place(name="Frankfurt", latitude=50.1109, longitude=8.6821),
+    ]
+    """The towns a daily note draws the weather for, in the order drawn.
+
+    JSON in the environment: `[{"name": "Gelnhausen", "latitude": 50.2017,
+    "longitude": 9.1886}]`. An empty list draws no card.
     """
 
     vault_path: Path = Path("vault")

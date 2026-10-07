@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves thirty-four endpoints under `/api/`. Twenty read,
+The backend serves thirty-five endpoints under `/api/`. Twenty-one read,
 thirteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -179,9 +179,9 @@ finally came from.
 { "url": "https://example.com/2025/post", "html": "<!doctype html>…" }
 ```
 
-One of the endpoints that touch nothing of the vault, and one of the two that
-go outside the machine; `GET /api/transcripts/{video_id}` below is the other,
-and asks YouTube alone. It writes nothing: turning the markup into a note is
+One of the endpoints that touch nothing of the vault, and one of the three that
+go outside the machine; `GET /api/transcripts/{video_id}` below asks YouTube
+alone, and `GET /api/weather` asks Open-Meteo alone. It writes nothing: turning the markup into a note is
 [defuddle](https://github.com/kepano/defuddle) running in the browser, and the
 note is made through `POST /api/files/{path}` like any other.
 
@@ -272,6 +272,44 @@ Two refusals, each with one sentence in `detail`:
   available, or is age-restricted or unplayable
 * `502` when YouTube refuses the request, which is what it does to an address
   it takes for a bot, or the request to YouTube fails
+
+## GET /api/weather
+
+The weather on one day, hour by hour, for each town in
+[`KASTEN_WEATHER_PLACES`](/reference/configuration.md#kasten_weather_places).
+Takes one query parameter, `date`, as `YYYY-MM-DD`. The daily note draws it
+under its title; see [the weather card](/reference/editor-keys.md#the-weather-card).
+
+```json
+[
+  {
+    "place": "Gelnhausen",
+    "sunrise": "07:32",
+    "sunset": "18:48",
+    "hours": [
+      { "time": "00:00", "temperature": 12.5, "rain_chance": 0, "rain": 0.0, "code": 0 }
+    ]
+  }
+]
+```
+
+Times are local to the town. `rain_chance` is a percentage, `rain` is
+millimetres in the hour, and `code` is the
+[WMO weather code](https://open-meteo.com/en/docs#weather_variable_documentation).
+An hour Open-Meteo has no temperature for is left out, so a day can hold fewer
+than 24.
+
+The answer comes from the [Open-Meteo](https://open-meteo.com) forecast API,
+which needs no key. The browser cannot ask it directly, because the app's
+`connect-src 'self'` refuses every other origin. Only the date and the towns'
+coordinates leave the machine. The backend keeps a day's answer for 30 minutes.
+
+| Status | When |
+| --- | --- |
+| `404` | the day is more than 92 days back or 15 days ahead, which Open-Meteo's forecast does not reach |
+| `502` | Open-Meteo did not answer, or answered with an error |
+
+An empty `KASTEN_WEATHER_PLACES` answers `[]` and asks nobody.
 
 ## GET /api/search
 

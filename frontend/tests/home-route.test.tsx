@@ -137,6 +137,8 @@ vi.mock("@/lib/api", () => ({
   fetchVersion,
   fetchTags,
   captureDump,
+  // A daily note draws the weather card, which asks for the day's forecast.
+  fetchWeather: async () => [],
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.
