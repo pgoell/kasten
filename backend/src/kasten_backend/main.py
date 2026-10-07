@@ -44,7 +44,8 @@ from kasten_backend.files import (
 from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError, query_graph
 from kasten_backend.guide import write_guide
-from kasten_backend.links import relink_folder_move, relink_note_move
+from kasten_backend.indexes import carries, drop_entries, rehome_entry
+from kasten_backend.links import plan_move, relink_move
 from kasten_backend.okf import prepare
 from kasten_backend.search import search_vault
 from kasten_backend.tags import find_tags
@@ -766,7 +767,6 @@ async def import_anki(
         # backfill takes one for its pass.
         async with vault_change(settings.vault_path, settings.flashcards_path):
             for note, text in targets:
-                note.parent.mkdir(parents=True, exist_ok=True)
                 relative = relative_path(settings.vault_path, note)
                 create_note(note, text if reserved(relative) else stamp(text))
                 written.append(relative)
@@ -1212,7 +1212,7 @@ async def move_file(
             # while the note is still where the links were written to find it.
             # Inside the jj bracket, because the rewritten links are part of the
             # move rather than an edit that happened to follow it.
-            await relink_note_move(settings.vault_path, source, relative)
+            await relink_move(settings.vault_path, source, relative, folder=False)
             rename_note(note, target)
             # A file exempt from the block because of what it was called is a
             # note again under any other name, so it is stamped where it lands.
@@ -1231,7 +1231,12 @@ async def move_file(
             # After the note and before the prune, so a folder the pair has both
             # left is one the prune can take.
             move_asset_beside(note, target)
-            prune_empty_folders(settings.vault_path, note.parent)
+            # After the links, which is what points the old index's entry at
+            # the new path, and before the prune, which would take an index
+            # left holding nothing along with its folder.
+            rehome_entry(settings.vault_path, source, relative)
+            # A folder the move emptied is gone, and so is the line naming it.
+            drop_entries(settings.vault_path, prune_empty_folders(settings.vault_path, note.parent))
 
     return Note(path=relative, content=target.read_text(encoding="utf-8"))
 
@@ -1281,13 +1286,57 @@ async def move_folder(
             # more: the notes holding these links are often the ones inside the
             # folder, and after the rename none of them is at the path the
             # rewrite would write to.
-            await relink_folder_move(
-                settings.vault_path, relative_path(settings.vault_path, folder), relative
-            )
+            source = relative_path(settings.vault_path, folder)
+            await relink_move(settings.vault_path, source, relative, folder=True)
             rename_folder(folder, target)
-            prune_empty_folders(settings.vault_path, folder.parent)
+            # Where a note's move does it, and for the same reasons.
+            rehome_entry(settings.vault_path, source, relative)
+            drop_entries(
+                settings.vault_path, prune_empty_folders(settings.vault_path, folder.parent)
+            )
 
     return Folder(path=relative)
+
+
+class MovePreview(BaseModel):
+    """What a move would rewrite, asked before it is made."""
+
+    rewrites: list[str]
+    """Every file whose text the move changes, by the path it has today, sorted."""
+
+
+@app.get("/api/move-preview")
+async def preview_move(
+    source: str, target: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> MovePreview:
+    """Which files moving `source` to `target` would rewrite, and nothing written.
+
+    A `GET` beside the two `PATCH` routes rather than a flag on them, because
+    it changes nothing and answers with something neither of them does. The
+    tree asks it before a drop, so the confirm can say how far a move reaches.
+
+    `source` is a note or a folder, whichever the vault holds there. Nothing
+    there is a 404 and a target the vault will not take is a 400, the refusals
+    the move itself would give. A target already taken is not refused: the
+    move will say so, and the question here is only about links.
+    """
+    async with vault_write():
+        note = resolve_note(settings.vault_path, source)
+        found = note or resolve_folder(settings.vault_path, source)
+        if found is None:
+            raise HTTPException(status_code=404, detail="Nothing is there")
+
+        resolve = resolve_path if note else resolve_folder_path
+        landing = resolve(settings.vault_path, target)
+        if landing is None or (note is None and landing.is_relative_to(found)):
+            raise HTTPException(status_code=400, detail="The vault will not take that path")
+
+        old = relative_path(settings.vault_path, found)
+        new = relative_path(settings.vault_path, landing)
+        rewrites = set(await plan_move(settings.vault_path, old, new, folder=note is None))
+        index = carries(settings.vault_path, old, new)
+
+    return MovePreview(rewrites=sorted(rewrites | ({index} if index else set())))
 
 
 @app.delete("/api/files/{path:path}")

@@ -1033,6 +1033,35 @@ export interface paths {
         patch: operations["move_folder_api_folders__path__patch"];
         trace?: never;
     };
+    "/api/move-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Move
+         * @description Which files moving `source` to `target` would rewrite, and nothing written.
+         *
+         *     A `GET` beside the two `PATCH` routes rather than a flag on them, because
+         *     it changes nothing and answers with something neither of them does. The
+         *     tree asks it before a drop, so the confirm can say how far a move reaches.
+         *
+         *     `source` is a note or a folder, whichever the vault holds there. Nothing
+         *     there is a 404 and a target the vault will not take is a 400, the refusals
+         *     the move itself would give. A target already taken is not refused: the
+         *     move will say so, and the question here is only about links.
+         */
+        get: operations["preview_move_api_move_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trash": {
         parameters: {
             query?: never;
@@ -1282,6 +1311,14 @@ export interface components {
             created: string;
             /** Secret */
             secret: string;
+        };
+        /**
+         * MovePreview
+         * @description What a move would rewrite, asked before it is made.
+         */
+        MovePreview: {
+            /** Rewrites */
+            rewrites: string[];
         };
         /**
          * Note
@@ -2631,6 +2668,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Folder"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_move_api_move_preview_get: {
+        parameters: {
+            query: {
+                source: string;
+                target: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovePreview"];
                 };
             };
             /** @description Validation Error */

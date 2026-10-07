@@ -59,15 +59,38 @@ Four rules for the links:
 Group entries under `##` sections when there are enough of them to want
 grouping. An index of six lines does not need sections.
 
+## What kasten keeps up for you
+
+A move made in kasten, from the app, keeps these links working. When a note or
+a folder moves, kasten rewrites every relative markdown link in the vault that
+pointed at it, and every one inside it that the move would break, the way it
+rewrites `[[wikilinks]]`. If the old folder's index has an entry for what moved,
+the line goes to the new folder's index, description and all, and is gone from
+the old one. A folder emptied by the move goes, its index with it, and so does
+the entry naming it in the index above.
+
+Every folder kasten makes, for a note written by you, by the app or by an agent,
+gets an `index.md` the moment it is made: the folder's name as a heading and a
+bullet per thing in it, with no descriptions. The outermost new folder is also
+added to the index of the folder above it, as a bare `* [name](name/)` at the
+end, when that index is already a list of markdown links; an index written as
+prose is left alone. A folder that already existed keeps whatever it had, and
+its index does not grow when a note is added to it. A moved folder's index
+takes the folder's new name as its heading, if its heading was the old name.
+So an index kasten wrote is a start, not a finished listing. Write the
+descriptions in, and add an entry for each note you put in a folder that has
+one.
+
 ## Prefer folders to notes
 
-Nothing maintains these links. Kasten rewrites `[[wikilinks]]` when a note
-moves, and it does not touch markdown links, so every link written here is one
-you have promised to fix by hand.
+What kasten cannot see, it cannot fix. A note moved with `mv` in a shell, or
+with any tool other than kasten, leaves every markdown link to it pointing at
+nothing, and the entry in the old index stays where it was. If you move files
+yourself, the links are yours to fix by hand.
 
 Top-level folders are renamed almost never, and a note is renamed often. So list
-folders, and list a note only when it is worth the risk of the link going stale.
-Renaming a folder means editing every index that named it.
+folders, and list a note when it is worth the entry: one moved outside kasten
+is one more link to fix.
 
 ## A log is dated sections, newest last
 

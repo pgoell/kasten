@@ -163,6 +163,9 @@ will not: that would delete an id and a creation date you own, and it would not
 be enough anyway, because the body has to become a listing or a log for the file
 to mean what its name says.
 
-A fresh vault gets no `index.md` at all. A consumer may not reject a bundle for
-missing one, `okf_version` is optional, and generating a listing would mean
-kasten owning a file you are meant to edit.
+A fresh vault gets no `index.md` at its root. A consumer may not reject a bundle
+for missing one, and `okf_version` is optional. A folder kasten makes does get
+one, a bare listing written once and yours from then on, and
+`mise run index:backfill` gives one to each folder below the root that has none.
+[Moving a note](/explanation/moving-notes.md) says why kasten writes those and
+still does not own them.

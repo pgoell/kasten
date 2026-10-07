@@ -294,6 +294,24 @@ export async function moveFolder(from: string, to: string): Promise<Folder> {
 }
 
 /**
+ * Every file moving `source` to `target` would rewrite, asked before the move.
+ *
+ * `source` is a note or a folder, whichever the vault holds. Nothing is
+ * written: this is what the tree's confirm counts before a drop lands.
+ */
+export async function previewMove(source: string, target: string): Promise<string[]> {
+  const { data, response } = await client.GET("/api/move-preview", {
+    params: { query: { source, target } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/move-preview failed with ${response.status}`);
+  }
+
+  return data.rewrites;
+}
+
+/**
  * Write one note back to the vault, over the note that is already there.
  *
  * The note that comes back is what landed on disk, not what was sent: `PUT`

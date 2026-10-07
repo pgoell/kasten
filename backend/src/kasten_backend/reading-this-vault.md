@@ -42,5 +42,7 @@ kind of thing the note is. Everything else in the block comes through a save
 unread.
 
 Two filenames carry no block at all: `index.md`, which lists the bundle, and
-`log.md`, which is its history. Kasten writes nothing into either, at any level
-of the vault, so a file named that way never gets an `id`.
+`log.md`, which is its history. Kasten writes no block into either, at any level
+of the vault, so a file named that way never gets an `id`. It does write an
+`index.md` into each folder it makes, and moves an index's entries when what they
+name moves; [[How-To-Index]] says what goes in one.

@@ -8,6 +8,7 @@ import {
   STRIKE,
 } from "@/lib/format-commands";
 import { toggleImageAtCursor } from "@/lib/image";
+import type { MoveMode } from "@/lib/move";
 import { cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
 import { writeTranscript } from "@/lib/transcript";
 
@@ -168,6 +169,13 @@ export interface TreeCommands extends EditorCommands {
    * pane deletes the one it is showing through a callback of its own.
    */
   deleteImage(startPath: string): void;
+  /**
+   * Move a note or a folder to `target`, once the reader has confirmed it.
+   *
+   * What a drop in the tree reaches for. Out here for the reason the three
+   * above are: only the tree can name both ends of it.
+   */
+  moveRow(startPath: string, mode: MoveMode, target: string): void;
 }
 
 /**

@@ -14,7 +14,7 @@ except the token endpoint of [the OAuth flow](#the-oauth-flow), which by
 definition meets a caller that has none. Nothing in front of the prefix asks for
 a session, so the token check in the backend is the entire trust boundary. Why
 the prefix exists at all, and why it carries eight capabilities rather than the
-thirty-one in [the HTTP API](/reference/http-api.md), is in
+thirty-four in [the HTTP API](/reference/http-api.md), is in
 [The agent boundary](/explanation/the-agent-boundary.md).
 
 Mint a token at `/tokens` in the notebook. Connecting a client to it is
@@ -78,7 +78,7 @@ login gate, and no token reaches it.
 Built from this router's own routes rather than by filtering the whole
 application's schema, so the models it defines are the ones these routes use and
 no others. That is deliberate rather than tidy. A token holder cannot reach
-anything under `/api/`, and handing one the map of those thirty-one routes
+anything under `/api/`, and handing one the map of those thirty-four routes
 would give it away for nothing.
 
 An agent over MCP needs none of this: `tools/list` describes the same eight
@@ -227,6 +227,11 @@ between them. What that closes, and what it deliberately does not, is in
 
 The answer is the same shape a read gives: the path, the content that landed and
 its digest.
+
+A note created here makes the folders on the way, and each folder it makes gets
+an `index.md` listing what it holds, the way
+[a create in the browser](/reference/http-api.md#post-apifilespath) does. The
+append below does the same when it creates.
 
 ## POST /agent/notes/{path}/append
 

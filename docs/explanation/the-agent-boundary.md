@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The agent boundary
-description: Why a token reaches eight capabilities under /agent/ rather than the thirty-one routes the browser uses, and what it cannot do.
+description: Why a token reaches eight capabilities under /agent/ rather than the thirty-four routes the browser uses, and what it cannot do.
 tags: [agent, tokens, security, api]
 status: stable
 ---

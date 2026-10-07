@@ -139,6 +139,13 @@ description = "Write `type` into every note in the vault that has none"
 dir = "{{config_root}}/backend"
 run = "uv run python -m kasten_backend.okf ../vault"
 
+[tasks."index:backfill"]
+description = "Write an index.md into every folder in the vault that has none"
+# Never run at startup, unlike the type pass: a folder whose index you deleted
+# would get it back on every boot.
+dir = "{{config_root}}/backend"
+run = "uv run python -m kasten_backend.indexes ../vault"
+
 # ─── GitHub repo config ─────────────────────────────────────────────────────
 
 [tasks."repo:apply-settings"]

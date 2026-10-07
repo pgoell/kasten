@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { heldModifier, leaderAction, leaderPrefix, type TreeCommands } from "@/lib/key-bindings";
+import { dropTarget, type MoveMode } from "@/lib/move";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -248,7 +249,32 @@ interface NodeListProps {
   onOpenFile: (path: string) => void;
   onOpenImage: (path: string) => void;
   onOpenHtml: (path: string) => void;
+  drag: DragHandlers;
 }
+
+/**
+ * What a row needs to take part in a drag, handed down the tree as one prop.
+ *
+ * A row names the folder it would drop into: a folder its own path, a note the
+ * folder it sits in, so a drop on any row lands somewhere a reader can see.
+ */
+interface DragHandlers {
+  start: (event: React.DragEvent, node: TreeNode) => void;
+  over: (event: React.DragEvent, folder: string) => void;
+  drop: (event: React.DragEvent, folder: string) => void;
+  end: () => void;
+  /** The folder the pointer would drop into, `""` for the vault root, or null. */
+  target: string | null;
+}
+
+/** The folder a note sits in, `""` at the vault root. */
+function parentOf(path: string): string {
+  const cut = path.lastIndexOf("/");
+  return cut === -1 ? "" : path.slice(0, cut);
+}
+
+/** How a row draws the folder it would drop into. */
+const DROP = "bg-one-accent/20 outline-1 -outline-offset-1 outline-one-accent";
 
 function NodeList({
   nodes,
@@ -260,6 +286,7 @@ function NodeList({
   onOpenFile,
   onOpenImage,
   onOpenHtml,
+  drag,
 }: NodeListProps) {
   return (
     <ul>
@@ -279,6 +306,13 @@ function NodeList({
                 data-row={key}
                 tabIndex={tabIndex}
                 onClick={() => opener(node, onOpenFile, onOpenImage, onOpenHtml)(node.path)}
+                // Notes only. An image or a page has no route that moves it on
+                // its own; the folder it sits in carries it.
+                draggable={node.shows === undefined}
+                onDragStart={(event) => drag.start(event, node)}
+                onDragOver={(event) => drag.over(event, parentOf(node.path))}
+                onDrop={(event) => drag.drop(event, parentOf(node.path))}
+                onDragEnd={drag.end}
                 aria-current={current ? "page" : undefined}
                 style={indent(depth)}
                 title={node.path}
@@ -310,10 +344,15 @@ function NodeList({
               tabIndex={tabIndex}
               onClick={() => onToggleFolder(node.path)}
               aria-expanded={open}
+              draggable
+              onDragStart={(event) => drag.start(event, node)}
+              onDragOver={(event) => drag.over(event, node.path)}
+              onDrop={(event) => drag.drop(event, node.path)}
+              onDragEnd={drag.end}
               style={indent(depth)}
               className={`${ROW} cursor-pointer text-one-muted hover:bg-one-hover hover:text-one-fg ${
                 tabIndex === 0 ? CURSOR : ""
-              }`}
+              } ${drag.target === node.path ? DROP : ""}`}
             >
               <Chevron open={open} />
               <span className="truncate">{node.name}</span>
@@ -329,6 +368,7 @@ function NodeList({
                 onOpenFile={onOpenFile}
                 onOpenImage={onOpenImage}
                 onOpenHtml={onOpenHtml}
+                drag={drag}
               />
             )}
           </li>
@@ -441,6 +481,14 @@ export function FileExplorer({
   const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
   /** Which row the vim keys act on. */
   const [active, setActive] = useState(0);
+  /** The row being dragged, held here because a drag's own data cannot be
+   * read until the drop, and every row it passes has to know whether it would
+   * take it. */
+  const [dragged, setDragged] = useState<{ path: string; mode: MoveMode } | null>(null);
+  /** The folder under the pointer that would take the drop. */
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  /** Unfolds the folder a drag rests on, so a drop can reach inside it. */
+  const unfoldTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** The keys of an unfinished sequence, `g` or the leader and what follows it. */
   const [pending, setPending] = useState("");
   const nav = useRef<HTMLElement>(null);
@@ -543,6 +591,49 @@ export function FileExplorer({
       document.body.style.userSelect = userSelect;
     };
   }, [drag]);
+
+  const rowDrag: DragHandlers = {
+    start(event, node) {
+      // Set so Firefox starts the drag at all; nothing reads it back.
+      event.dataTransfer.setData("text/plain", node.path);
+      event.dataTransfer.effectAllowed = "move";
+      setDragged({ path: node.path, mode: node.kind === "folder" ? "folder" : "rename" });
+    },
+    over(event, folder) {
+      // Handled here, so the panel behind the row does not take it as a drop
+      // on the vault root.
+      event.stopPropagation();
+      if (!dragged || dropTarget(dragged.path, dragged.mode, folder) === undefined) {
+        setDropOn(null);
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      if (folder === dropOn) return;
+      setDropOn(folder);
+      clearTimeout(unfoldTimer.current);
+      // Long enough that sweeping past a folder leaves it shut.
+      if (folder && !expanded.has(folder)) {
+        unfoldTimer.current = setTimeout(
+          () => setExpanded((previous) => new Set([...previous, folder])),
+          600,
+        );
+      }
+    },
+    drop(event, folder) {
+      event.preventDefault();
+      event.stopPropagation();
+      const target = dragged && dropTarget(dragged.path, dragged.mode, folder);
+      if (dragged && target) commands.moveRow(dragged.path, dragged.mode, target);
+      rowDrag.end();
+    },
+    end() {
+      clearTimeout(unfoldTimer.current);
+      setDragged(null);
+      setDropOn(null);
+    },
+    target: dropOn,
+  };
 
   /** The prompt opens on the folder the cursor is on, not the focused row: a
    * click puts the focus on the button itself. */
@@ -746,7 +837,15 @@ export function FileExplorer({
 
       {/* The handler sits on the panel, not the rows: the keys act on the row
           the cursor is on, which is not always the one holding focus. */}
-      <nav ref={nav} aria-label="Vault" onKeyDown={onKeyDown} className="flex-1 overflow-auto p-1">
+      {/* The space around the rows is the vault root, as a place to drop on. */}
+      <nav
+        ref={nav}
+        aria-label="Vault"
+        onKeyDown={onKeyDown}
+        onDragOver={(event) => rowDrag.over(event, "")}
+        onDrop={(event) => rowDrag.drop(event, "")}
+        className={`flex-1 overflow-auto p-1 ${dropOn === "" ? DROP : ""}`}
+      >
         {tree.length === 0 ? (
           <p className="px-2 py-1 text-[13px] text-one-muted">No notes yet</p>
         ) : (
@@ -760,6 +859,7 @@ export function FileExplorer({
             onOpenFile={onOpenFile}
             onOpenImage={onOpenImage}
             onOpenHtml={onOpenHtml}
+            drag={rowDrag}
           />
         )}
       </nav>
