@@ -27,7 +27,7 @@ from pydantic import BaseModel
 
 from kasten_backend.search import scan_vault
 from kasten_backend.tags import TAG
-from kasten_backend.vault import ASSET_MAGIC, SUFFIX, list_markdown_files
+from kasten_backend.vault import ASSET_MAGIC, HTML_SUFFIX, SUFFIX, list_markdown_files
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -85,8 +85,8 @@ ANY_RELATION = "*"
 ANY_LINK = "links"
 """The predicate, and the `rel:` value, matching every edge, typed or not."""
 
-ASSET_SUFFIXES = frozenset(ASSET_MAGIC)
-"""What an embed names when it names a file rather than a note: `![[plan.pdf]]`."""
+ASSET_SUFFIXES = frozenset((*ASSET_MAGIC, HTML_SUFFIX))
+"""What a link names when it names a file rather than a note: `![[plan.pdf]]`, `[[report.html]]`."""
 
 
 class GraphError(ValueError):

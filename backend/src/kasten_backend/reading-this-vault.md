@@ -19,7 +19,9 @@ Given `[[target]]`, in this order:
 
 1. Trim the spaces around the target, then add `.md` unless it already ends in
    exactly that, lowercase. `[[Borges.MD]]` is a target named `Borges.MD` and
-   becomes `Borges.MD.md`.
+   becomes `Borges.MD.md`. A target ending in `.html` keeps it: that link
+   names a page of HTML, which the app opens in its own pane, and nothing is
+   made for one nobody wrote.
 2. If that exact spelling, case and all, is a file in the bundle, that is the
    note. Nothing below runs.
 3. If the target holds a slash, it is a path from the bundle root, and that is

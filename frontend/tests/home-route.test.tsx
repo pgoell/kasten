@@ -2365,6 +2365,56 @@ describe("looking at an image", () => {
   });
 });
 
+describe("following a link to a page of HTML", () => {
+  const NOTE = "index.md";
+  const PAGE = "01 Periodic/05 Newspaper/2026-10-07.html";
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue([NOTE]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([PAGE]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  /** Open the note holding `link`, the cursor on it, and press `gf`. */
+  async function follow(link: string) {
+    fetchNote.mockResolvedValue(`[[${link}]]\n`);
+    const app = await renderApp();
+    await settle();
+    app.click(NOTE);
+    await settle();
+    app.press("g");
+    app.press("f");
+    await settle();
+    return app;
+  }
+
+  it("opens the page by its bare file name in the HTML pane", async () => {
+    await follow("2026-10-07.html");
+
+    expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("title")).toBe(PAGE);
+  });
+
+  it("makes no note for a page nobody wrote", async () => {
+    await follow("missing.html");
+
+    expect(createNote).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-html-pane]")).toBeNull();
+  });
+});
+
 describe("opening a highlight's book with gf", () => {
   const LIT = "20 Literature/DDIA.md";
   const PASSAGE = "Systems that tolerate faults are called fault-tolerant.";

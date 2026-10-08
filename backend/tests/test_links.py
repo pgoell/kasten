@@ -148,6 +148,19 @@ async def test_follows_a_link_between_two_notes_that_moved_together(
     assert (vault / "archive" / "borges.md").read_text() == "# borges\n\nsee [[archive/kafka]]\n"
 
 
+async def test_follows_a_page_in_a_folder_that_moved(client: AsyncClient, vault: Path) -> None:
+    (vault / "news").mkdir()
+    (vault / "news" / "2026-10-07.html").write_text("<p>news</p>")
+    (vault / "index.md").write_text("see [[news/2026-10-07.html]] and [[2026-10-07.html]]\n")
+
+    await client.patch("/api/folders/news", json={"path": "archive/news"})
+
+    assert (vault / "index.md").read_text() == (
+        "see [[archive/news/2026-10-07.html]] and [[2026-10-07.html]]\n"
+    )
+    assert (vault / "archive" / "news" / "2026-10-07.html").read_text() == "<p>news</p>"
+
+
 async def test_leaves_a_bare_name_alone_when_a_folder_moves(
     client: AsyncClient, vault: Path
 ) -> None:

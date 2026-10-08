@@ -1222,7 +1222,8 @@ no folder, no half-moved subtree and no jj change behind.
 Links follow, the way [a note's move](#what-a-move-does-to-the-links) makes them
 follow, and by the same rules read over every note the folder carries at once. A
 link that spelled the old folder out gets the new one, and a bare `[[borges]]`
-is left alone, the note's name being unchanged.
+is left alone, the note's name being unchanged. A page of HTML in the folder
+moves with it, and a `[[reading/report.html]]` follows the same way.
 
 The folder is matched as a whole path segment, so moving `reading/` takes
 `reading/borges.md` and leaves `readings.md` where it is. The subtree's own

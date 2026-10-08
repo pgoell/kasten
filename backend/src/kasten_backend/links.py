@@ -22,7 +22,13 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
 from kasten_backend.search import notes_holding
-from kasten_backend.vault import encode_href, list_markdown_files, write_note
+from kasten_backend.vault import (
+    HTML_SUFFIX,
+    encode_href,
+    list_html,
+    list_markdown_files,
+    write_note,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -63,7 +69,9 @@ def link_path(target: str, paths: list[str]) -> str:
     notes that exist, which a path nothing answers to is not in either way.
     """
     typed = target.strip()
-    path = typed if typed.endswith(SUFFIX) else f"{typed}{SUFFIX}"
+    # A page of HTML is named by its whole file name, so `[[report.html]]` and
+    # `[[report]]` are two files.
+    path = typed if typed.endswith((SUFFIX, HTML_SUFFIX)) else f"{typed}{SUFFIX}"
     if path in paths or "/" in path:
         return path
 
@@ -81,9 +89,10 @@ def _respell(target: str, new: str) -> str:
 
     A path stays a path and a name stays a name, which is what leaves
     `[[borges]]` alone when only the folder changed. The `.md` goes either way:
-    a link is read the same with or without it, and one spelling is enough.
+    a link is read the same with or without it, and one spelling is enough. A
+    page keeps its `.html`, which is the only thing telling it from a note.
     """
-    stem = new[: -len(SUFFIX)]
+    stem = new.removesuffix(SUFFIX)
     return stem if "/" in target.strip() else stem.rsplit("/", 1)[-1]
 
 
@@ -226,7 +235,14 @@ async def plan_move(root: Path, old: str, new: str, *, folder: bool) -> dict[str
     for needle in {name, encode_href(name)}:
         candidates.update(await notes_holding(root, needle))
 
-    return _plan(root, sorted(candidates), moves, paths, (old, new))
+    # The pages in a moving folder move with it, and a `[[link]]` that spelled
+    # one's path follows. Added after the candidates: a page is read by the
+    # browser, never rewritten here.
+    pages = list_html(root)
+    if folder:
+        moves |= {page: moved(page, old, new) for page in pages if page.startswith(f"{old}/")}
+
+    return _plan(root, sorted(candidates), moves, paths + pages, (old, new))
 
 
 def _plan(

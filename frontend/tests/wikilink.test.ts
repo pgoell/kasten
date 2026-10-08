@@ -111,6 +111,18 @@ describe("wikiLinkPath", () => {
   it("still opens the note a path with a slash lands on", () => {
     expect(wikiLinkPath("reading/borges", PATHS)).toBe("reading/borges.md");
   });
+
+  it("takes a page of HTML by its full file name, wherever it sits", () => {
+    const paths = [...PATHS, "news/2026-10-07.html"];
+    expect(wikiLinkPath("2026-10-07.html", paths)).toBe("news/2026-10-07.html");
+    expect(wikiLinkPath("news/2026-10-07.html", paths)).toBe("news/2026-10-07.html");
+  });
+
+  it("keeps a note and the page of the same name apart", () => {
+    const paths = ["report.md", "report.html"];
+    expect(wikiLinkPath("report", paths)).toBe("report.md");
+    expect(wikiLinkPath("report.html", paths)).toBe("report.html");
+  });
 });
 
 /** What the editor offers with the caret at the end of `doc`, or at `pos`. */
@@ -127,6 +139,12 @@ function complete(doc: string, paths?: string[], pos = doc.length) {
 }
 
 describe("wikiLinkCompletions", () => {
+  it("offers a page of HTML with its suffix on", () => {
+    const result = complete("see [[", ["index.md", "news/2026-10-07.html"]);
+
+    expect(result?.options.map(({ label }) => label)).toEqual(["index", "news/2026-10-07.html"]);
+  });
+
   it("offers every note in the vault once a link is opened", () => {
     const result = complete("see [[", PATHS);
 

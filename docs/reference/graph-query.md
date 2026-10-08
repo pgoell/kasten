@@ -41,6 +41,8 @@ to the other.
   `[[Plan#Risks]]` are edges to `Louise Nong` and `Plan`. `[[#Risks]]` names no
   other note and is no edge.
 * **An embed of a file is no edge.** `![[plan.pdf]]` names a file, not a note.
+  Nor is a link to a page of HTML, `[[report.html]]`, which opens in its own
+  pane rather than standing in the graph.
 * **A link to itself is no edge.**
 * **A note nobody has written** is a node marked `missing` when a link names
   it. Its path is the name as written, with `.md`.

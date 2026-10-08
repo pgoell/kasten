@@ -1374,13 +1374,14 @@ into a list item is drawn as source throughout.
 
 ## Wikilinks
 
-`[[reading/borges]]` is a link to another note. The editor renders it as the
+`[[reading/borges]]` is a link to another note, and `[[report.html]]` a link to
+a page of HTML. The editor renders it as the
 name alone, in the link colour, with the brackets off the screen the way every
 other mark is hidden, and `i` on that line hands them back.
 
 | Key | Does | Mode |
 | --- | --- | --- |
-| `gf` | Open the note the wikilink names, or the book a highlight came from | normal |
+| `gf` | Open the note or page the wikilink names, or the book a highlight came from | normal |
 | Enter | The same, one key | normal |
 | Ctrl+click | The same, with the mouse | any |
 
@@ -1423,13 +1424,19 @@ What the target names is decided against the vault's own listing:
 * A target with no slash is a name, and is looked for anywhere in the vault,
   ignoring case, so `[[borges]]` opens `reading/borges.md` from any note. A
   note of that name at the vault root wins over one in a folder.
+* A target ending in `.html` names a page of HTML, by its whole file name, by
+  the same two rules: `[[2026-10-07.html]]` finds the page in any folder, and
+  `[[news/2026-10-07.html]]` is a path. Following one draws the page in the
+  focused pane, the way a click on its row in the tree does. `[[report]]` and
+  `[[report.html]]` are two files.
 * A target nothing answers to is a note that is not there yet. Following it
   makes an empty note there, folders on the way included, and opens it. A name
   says which note and never where it belongs, so a bare one lands in
   the inbox; a target that spelled a path out is made at the path it spelled.
 
 That last one is the point of writing a link before the note: `gf` is where the
-note begins. It uses [POST /api/files/{path}](/reference/http-api.md), so a path
+note begins. A page is the exception: the vault has no write for one, so a
+link to a page nobody made stays a dead link and following it does nothing. It uses [POST /api/files/{path}](/reference/http-api.md), so a path
 the vault refuses, a hidden name or a note standing where the link wanted a
 folder, leaves you where you are with the link still on screen to be fixed.
 
@@ -1443,8 +1450,8 @@ search's preview panes draw every link as one that lands.
 
 ## Completing a link
 
-Type `[[` and the vault's notes are offered, filtered as you go. The rows are
-paths without the `.md`, so `[[kast` reaches `projects/kasten` and typing a
+Type `[[` and the vault's notes and pages are offered, filtered as you go. A
+note's row is its path without the `.md`, a page's keeps its `.html`, so `[[kast` reaches `projects/kasten` and typing a
 folder narrows the same way it does in the finder.
 
 | Key | Does |
