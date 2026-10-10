@@ -25,14 +25,17 @@ export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean
       const { bottom } = element.getBoundingClientRect();
       // Unzoomed, what shows is the layout from `offsetTop` down, iOS panning
       // the page under an open keyboard. Zoomed, `offsetTop` is where the
-      // reader has panned to and says nothing about a keyboard, so the height
-      // is scaled back up to the layout's own pixels instead: a zoom alone
-      // then covers nothing, and a keyboard under a zoom still does. Safari
-      // zooms by itself on the focus of a small input and stays zoomed, so
-      // reading a zoom as "no keyboard" would turn this off until a pinch.
+      // reader has panned to and says nothing about a keyboard. What does is
+      // how much shorter the visual viewport is than a zoom alone would make
+      // it, `clientHeight / scale`. That difference is what the keyboard
+      // covers in the layout's own pixels: a keyboard K tall on the glass
+      // hides K divided by the scale of them. The frame is the page, so its
+      // foot is the layout's. Safari zooms by itself on the focus of a small
+      // input and stays zoomed, so reading a zoom as "no keyboard" would turn
+      // this off until a pinch.
       const zoomed = Math.abs(viewport.scale - 1) > 0.01;
       const covered = zoomed
-        ? bottom - viewport.height * viewport.scale
+        ? document.documentElement.clientHeight / viewport.scale - viewport.height
         : bottom - (viewport.offsetTop + viewport.height);
       const inset = `${Math.max(0, Math.round(covered))}px`;
       element.style.paddingBottom = inset;

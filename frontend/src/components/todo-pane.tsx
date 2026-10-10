@@ -287,7 +287,11 @@ export function TodoPane({
   // button: the add, the state, the views and what `⋯` opens under a row.
   const { coarse } = useViewport();
   /**
-   * The row whose state button has been tapped once, by its key.
+   * The row whose state button has been tapped once, by its key and its text.
+   *
+   * The text as well, because the key is a path and a line: a write from
+   * elsewhere can put another todo on that line while the question stands, and
+   * the second tap would then cycle a todo nobody asked about.
    *
    * A finger slips where a key does not, and a cycle writes to the vault with
    * no way back, so the first tap asks and the second is the one that writes.
@@ -303,7 +307,11 @@ export function TodoPane({
     return () => clearTimeout(timer);
   }, [armed]);
 
-  /** The row whose `⋯` is open, or null: one strip at a time, by its key. */
+  /**
+   * The row whose `⋯` is open, or null: one strip at a time. By its key and
+   * its text, as `armed` is and for its reason: the strip's states write on
+   * one tap, and must not write to a todo that has since taken the line.
+   */
   const [more, setMore] = useState<string | null>(null);
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
@@ -1001,7 +1009,12 @@ export function TodoPane({
                 // a button cannot hold another. Out of the tab order, so the
                 // row is still the pane's one stop. `⋯` trails it for the
                 // same reason, and holds every key that has no button yet.
-                const asking = armed === key;
+                // One key for the question and for the strip: the row's own
+                // and its text, so neither is carried onto another todo that a
+                // write from elsewhere has put on this line.
+                const arming = `${key}\n${hit.text}`;
+                const asking = armed === arming;
+                const opened = more === arming;
                 // What the second tap would leave, drawn so the question says
                 // what it is asking. Nothing where the cycle leaves no todo.
                 const next = asking ? parseTodo(cycleLine(hit.text, today, ""))?.state : undefined;
@@ -1023,7 +1036,11 @@ export function TodoPane({
                         type="button"
                         tabIndex={-1}
                         onClick={() => {
-                          setArmed(asking ? null : key);
+                          setArmed(asking ? null : arming);
+                          // Two ways to change a state do not both stand
+                          // open: the question shuts a strip, as a strip
+                          // takes the question back.
+                          setMore(null);
                           if (asking) onCycle(hit);
                         }}
                         aria-label={`cycle ${todo.text}`}
@@ -1047,14 +1064,13 @@ export function TodoPane({
                         type="button"
                         tabIndex={-1}
                         // The question on a state button, this row's or
-                        // another's, is taken back as the strip opens: two
-                        // ways to change a state should not both stand open.
+                        // another's, is taken back as the strip opens.
                         onClick={() => {
                           setArmed(null);
-                          setMore(more === key ? null : key);
+                          setMore(opened ? null : arming);
                         }}
                         aria-label={`more for ${todo.text}`}
-                        aria-expanded={more === key}
+                        aria-expanded={opened}
                         className="min-h-11 min-w-11 shrink-0 text-one-muted"
                       >
                         ⋯
@@ -1064,7 +1080,7 @@ export function TodoPane({
                         phone. Each named with its todo, so `done` here and
                         `done` above the list are two different buttons to a
                         screen reader. */}
-                    {more === key && (
+                    {opened && (
                       <div className="flex flex-wrap px-1 text-[11px] text-one-muted">
                         {actions.map(([label, run]) => (
                           <button
@@ -1072,7 +1088,6 @@ export function TodoPane({
                             type="button"
                             tabIndex={-1}
                             onClick={() => {
-                              setArmed(null);
                               setMore(null);
                               run();
                             }}

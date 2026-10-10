@@ -1050,6 +1050,28 @@ describe("the todo pane by touch", () => {
     expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
+  it("does not carry the question onto another todo that lands on the line", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    // A write from elsewhere put a line above, so line 20 is another todo now.
+    pane.answer(
+      TODOS.map((hit) =>
+        hit.line === 20 ? { ...hit, text: "- [ ] feed the cat 📅 2026-08-14 🔽" } : hit,
+      ),
+    );
+    const state = await screen.findByLabelText("cycle feed the cat");
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    expect(state.textContent).toBe("☐");
+
+    // A first tap for this todo, which asks and writes nothing.
+    fireEvent.click(state);
+    expect(state.getAttribute("aria-pressed")).toBe("true");
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
   it("takes the question back when the list scrolls", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
@@ -1244,21 +1266,39 @@ describe("the todo pane by touch", () => {
     expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
-  it("leaves no state button armed after a tap inside a strip", async () => {
+  it("does not carry an open strip onto another todo that lands on the line", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
     await waitFor(() => expect(row("buy milk")).toBeDefined());
 
-    // Armed with the strip already open, which opening it would have undone.
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    expect(screen.getByLabelText("done buy milk")).toBeInTheDocument();
+    // A write from elsewhere put a line above, so line 20 is another todo now.
+    pane.answer(
+      TODOS.map((hit) =>
+        hit.line === 20 ? { ...hit, text: "- [ ] feed the cat 📅 2026-08-14 🔽" } : hit,
+      ),
+    );
+    const more = await screen.findByLabelText("more for feed the cat");
+
+    // No strip under the todo nobody opened one for, so no `done` to tap.
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("done feed the cat")).toBeNull();
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("shuts an open strip when a state button is tapped, so only one of the two shows", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
     fireEvent.click(screen.getByLabelText("more for buy milk"));
     fireEvent.click(screen.getByLabelText("cycle ship it #kasten"));
+
     expect(screen.getByLabelText("cycle ship it #kasten")).toHaveAttribute("aria-pressed", "true");
-
-    fireEvent.click(screen.getByLabelText("blocked buy milk"));
-
-    expect(document.querySelector("[data-armed]")).toBeNull();
-    // The one write is the state picked, and no cycle rode along with it.
-    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(TODOS[3], "blocked");
+    expect(screen.getByLabelText("more for buy milk")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("done buy milk")).toBeNull();
+    expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
   it("leaves a row being edited alone when edit is tapped on another", async () => {

@@ -118,7 +118,9 @@ after a tap as it does after a click.
 Every panel over the page closes on a tap or a click outside it: the palette,
 the finder, the search, the prompts and the keys panel. It closes on the
 release, so nothing under it is pressed by the same tap. A press inside the
-panel closes nothing, and neither does a selection dragged out of the input.
+panel closes nothing, and neither does a press that starts on one side of the
+panel's edge and ends on the other, a selection dragged out of the input being
+the usual one.
 A prompt holding something typed stays open too: the note, todo, dump and clip
 prompts close only on Escape once their input has changed.
 
@@ -1188,7 +1190,7 @@ takes two taps, because a cycle writes to the vault and a finger slips: the
 first turns the symbol into the state the todo would move to with a `?` after
 it, and the second is the one that cycles. The question is taken back after
 four seconds, on a tap anywhere else, when the list scrolls, and when another
-row's button is tapped. The keys ask nothing. So does opening a strip.
+row's button is tapped. The keys ask nothing. So does opening a strip, and a tap on a state button shuts an open strip.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks

@@ -22,6 +22,8 @@ function stubViewport() {
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
     bottom: 800,
   } as DOMRect);
+  // The layout viewport's height, which jsdom reports as nothing.
+  vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
   return { viewport, listeners };
 }
 
@@ -57,10 +59,12 @@ describe("useKeyboardInset", () => {
     expect(frame.style.paddingBottom).toBe("0px");
 
     // A keyboard under a zoom still covers. Safari zooms on the focus of a
-    // small input and stays zoomed, so this is a phone's ordinary state.
+    // small input and stays zoomed, so this is a phone's ordinary state. The
+    // keyboard is 300px of glass, which at twice the size hides 150 of the
+    // layout's pixels: 400 would show, and 250 do.
     viewport.height = 250;
     listeners.get("resize")?.();
-    expect(frame.style.paddingBottom).toBe("300px");
+    expect(frame.style.paddingBottom).toBe("150px");
 
     viewport.scale = 1;
     viewport.offsetTop = 0;

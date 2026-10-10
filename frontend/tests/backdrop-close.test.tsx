@@ -80,6 +80,7 @@ describe.each(OVERLAYS)("%s", (_name, draw) => {
     // The browser's own step of the press, which moves the focus, is left to
     // run, the sheet being what should hold it until the click.
     expect(fireEvent.mouseDown(sheet)).toBe(true);
+    fireEvent.mouseUp(sheet);
     fireEvent.click(sheet);
 
     expect(onClose).toHaveBeenCalledOnce();
@@ -102,6 +103,17 @@ describe.each(OVERLAYS)("%s", (_name, draw) => {
 
     // The click of a drag lands on what its two ends have in common.
     fireEvent.mouseDown(panel);
+    fireEvent.mouseUp(sheet);
+    fireEvent.click(sheet);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("stays open when a press on the sheet is let go inside the panel", () => {
+    const { onClose, sheet, panel } = open(draw);
+
+    fireEvent.mouseDown(sheet);
+    fireEvent.mouseUp(panel);
     fireEvent.click(sheet);
 
     expect(onClose).not.toHaveBeenCalled();
@@ -115,6 +127,7 @@ describe.each(DRAFTS)("%s", (_name, draw) => {
 
     fireEvent.change(field, { target: { value: "half a thought" } });
     fireEvent.mouseDown(sheet);
+    fireEvent.mouseUp(sheet);
     fireEvent.click(sheet);
     expect(onClose).not.toHaveBeenCalled();
 
@@ -129,6 +142,7 @@ it("closes a rename nobody has typed into, the path it opens on being no draft",
   ));
 
   fireEvent.mouseDown(sheet);
+  fireEvent.mouseUp(sheet);
   fireEvent.click(sheet);
 
   expect(onClose).toHaveBeenCalledOnce();

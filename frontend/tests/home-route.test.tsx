@@ -1345,6 +1345,7 @@ describe("the route", () => {
     /** A press and release on the sheet around a panel, which is its way out. */
     const tapSheet = (sheet: HTMLElement) => {
       fireEvent.mouseDown(sheet);
+      fireEvent.mouseUp(sheet);
       fireEvent.click(sheet);
     };
 

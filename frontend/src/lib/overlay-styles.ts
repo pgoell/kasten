@@ -29,6 +29,8 @@ export const BACKDROP =
 
 /** The sheet the press now under way began on, if it began on one. */
 let pressed: EventTarget | null = null;
+/** Whether that press was let go on the same sheet. */
+let released = false;
 
 /**
  * The way out by touch: a press and release on the sheet itself, and not on
@@ -39,9 +41,10 @@ let pressed: EventTarget | null = null;
  * one such thing, and the browser's own step of the press would take the
  * focus off the opener the unmount had just handed it back to.
  *
- * The press is still what is remembered, so a selection dragged out of the
- * input and let go over the sheet closes nothing: that click lands on the
- * sheet too, the sheet being what the two ends have in common.
+ * Both ends of the press have to be on the sheet. A selection dragged out of
+ * the input and let go over the sheet, and a press on the sheet let go inside
+ * the panel, each end in a click on the sheet as well, the sheet being what
+ * the two ends have in common, and neither is a tap outside.
  *
  * `holding` is a draft the panel would lose. A stray tap in the gutter beside
  * a prompt, 19px of it on a phone, then closes nothing; Escape still does.
@@ -52,11 +55,15 @@ export function closeOnBackdrop(onClose: () => void, holding = false) {
     onMouseDown: (event: Press) => {
       pressed = event.target === event.currentTarget ? event.currentTarget : null;
     },
+    onMouseUp: (event: Press) => {
+      released = event.target === event.currentTarget;
+    },
     onClick: (event: Press) => {
-      const began = pressed;
+      const outside = pressed === event.currentTarget && released;
       pressed = null;
+      released = false;
       if (holding || event.target !== event.currentTarget) return;
-      if (began === event.currentTarget) onClose();
+      if (outside) onClose();
     },
   };
 }
