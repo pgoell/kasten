@@ -217,6 +217,32 @@ describe("the clock in the bar", () => {
     expect(screen.queryByTestId("status-detail")).toBeNull();
   });
 
+  it("shuts with the notice it showed, so the next one arrives closed", () => {
+    const { rerender } = render(<StatusBar notice="A book is already there" />);
+    fireEvent.click(screen.getByTestId("notice"));
+    expect(screen.getByTestId("status-detail")).toBeInTheDocument();
+
+    rerender(<StatusBar />);
+    rerender(<StatusBar notice="The upload was too large" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+
+    // One notice replacing another shuts it as well, nobody having asked for
+    // the second in full.
+    fireEvent.click(screen.getByTestId("notice"));
+    rerender(<StatusBar notice="A book is already there" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("shuts with the failure it showed, so the next one arrives closed", () => {
+    const { rerender } = render(<StatusBar status="error" reason="507" />);
+    fireEvent.click(screen.getByTestId("save-status"));
+    expect(screen.getByTestId("status-detail")).toBeInTheDocument();
+
+    rerender(<StatusBar status="saved" />);
+    rerender(<StatusBar status="error" reason="507" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
   it("opens out why a write failed and what to do about it, on a tap", () => {
     render(<StatusBar status="error" reason="507 the disk is full" />);
 
