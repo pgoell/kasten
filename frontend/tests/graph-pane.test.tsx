@@ -127,6 +127,55 @@ describe("GraphPane", () => {
     expect(onFollow).toHaveBeenCalledWith("Ghost");
   });
 
+  it("asks before a tap makes a note nobody wrote, and makes it on Create", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    const { onOpen, onFollow } = renderPane();
+    await waitFor(() => expect(canvas.handlers?.coarse()).toBe(true));
+
+    act(() => canvas.handlers?.onOpen({ ...GHOST, degree: 1 }));
+
+    expect(onFollow).not.toHaveBeenCalled();
+    expect(screen.getByText("Create Ghost?")).toBeInTheDocument();
+    const create = screen.getByRole("button", { name: "Create" });
+    expect(create).toHaveClass("min-h-11");
+
+    fireEvent.click(create);
+
+    expect(onFollow).toHaveBeenCalledWith("Ghost");
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+  });
+
+  it("drops the question on Cancel, a tap elsewhere or another query", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    const { onOpen, onFollow } = renderPane();
+    await waitFor(() => expect(canvas.handlers?.coarse()).toBe(true));
+    const tapGhost = () => act(() => canvas.handlers?.onOpen({ ...GHOST, degree: 1 }));
+
+    tapGhost();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+
+    tapGhost();
+    act(() => canvas.handlers?.onBlank());
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+
+    tapGhost();
+    fireEvent.change(screen.getByRole("textbox", { name: "graph query" }), {
+      target: { value: "type:Concept" },
+    });
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+
+    // A note that is there opens at once, question or no question.
+    tapGhost();
+    act(() => canvas.handlers?.onOpen({ ...RAG, degree: 1 }));
+    expect(onOpen).toHaveBeenCalledWith("rag.md");
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
   it("tells the canvas a finger is pointing on a touch screen, and not on a desktop", async () => {
     vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
     renderPane();

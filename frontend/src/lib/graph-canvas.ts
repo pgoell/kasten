@@ -29,6 +29,8 @@ import {
 export interface GraphCanvasHandlers {
   /** A note was clicked, or tapped. */
   onOpen: (node: DrawnNode) => void;
+  /** The background was clicked, or tapped: no note at all. */
+  onBlank: () => void;
   /** Whether a finger is doing the pointing, asked on every paint of the hit areas. */
   coarse: () => boolean;
 }
@@ -188,7 +190,8 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       lit = node ? neighbourhood(drawing.links, node.path) : null;
       element.style.cursor = node ? "pointer" : "";
     })
-    .onNodeClick((node) => handlers.onOpen(node));
+    .onNodeClick((node) => handlers.onOpen(node))
+    .onBackgroundClick(() => handlers.onBlank());
 
   return {
     update(nodes, edges, around) {

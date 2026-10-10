@@ -61,6 +61,8 @@ export function GraphPane({
   const [depth, setDepth] = useState(DEPTH);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
+  /** The unwritten note a finger tapped, waiting to hear whether it is wanted. */
+  const [asked, setAsked] = useState<string | null>(null);
 
   // The handlers the canvas calls, read through a ref so the canvas is made
   // once and still calls what this render was handed.
@@ -89,11 +91,19 @@ export function GraphPane({
 
     const made = drawGraph(element, {
       onOpen: (node) => {
+        const name = node.path.replace(/\.md$/, "");
+        // A finger's hit area is wider than the ring, so a tap meant for the
+        // background can land on one, and what it would write has no undo.
+        // The tap asks, and a mouse, which has to be on the ring, does not.
+        const ask = node.missing && opening.current.coarse;
+        setAsked(ask ? name : null);
+        if (ask) return;
         // A note nobody has written is made the way following its link makes
         // it, which is what clicking a link to it in a note would do.
-        if (node.missing) opening.current.onFollow(node.path.replace(/\.md$/, ""));
+        if (node.missing) opening.current.onFollow(name);
         else opening.current.onOpen(node.path);
       },
+      onBlank: () => setAsked(null),
       coarse: () => opening.current.coarse,
     });
     canvas.current = made;
@@ -196,7 +206,11 @@ export function GraphPane({
         <input
           ref={filter}
           value={typed}
-          onChange={(event) => setTyped(event.target.value)}
+          onChange={(event) => {
+            setTyped(event.target.value);
+            // Another query is another drawing, and the ring may not be in it.
+            setAsked(null);
+          }}
           // Both ways out of the input, and both leave the query applied.
           // Enter asks at once rather than after the pause.
           onKeyDown={(event) => {
@@ -221,6 +235,29 @@ export function GraphPane({
       {error !== null && (
         <p role="alert" className="border-b border-one-line px-3 py-1 text-[12px] text-one-warn">
           {error}
+        </p>
+      )}
+
+      {asked !== null && (
+        <p className="flex items-center gap-3 border-b border-one-line px-3 text-[12px] text-one-fg">
+          <span className="min-w-0 flex-1 truncate">Create {asked}?</span>
+          <button
+            type="button"
+            onClick={() => {
+              setAsked(null);
+              onFollow(asked);
+            }}
+            className="min-h-11 shrink-0 px-2 text-one-accent"
+          >
+            Create
+          </button>
+          <button
+            type="button"
+            onClick={() => setAsked(null)}
+            className="min-h-11 shrink-0 px-2 text-one-muted"
+          >
+            Cancel
+          </button>
         </p>
       )}
 
@@ -255,7 +292,10 @@ export function GraphPane({
                         {isNotePath(value) ? (
                           <button
                             type="button"
-                            onClick={() => onOpen(value)}
+                            onClick={() => {
+                              setAsked(null);
+                              onOpen(value);
+                            }}
                             title={value}
                             className="text-one-accent hover:underline"
                           >
