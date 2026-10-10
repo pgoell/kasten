@@ -1113,6 +1113,16 @@ describe("FileExplorer in a narrow window", () => {
 
     expect(screen.queryByRole("navigation", { name: "Vault" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
+    // No rail on a phone: the route's toolbar is the way back in.
+    expect(screen.queryByRole("button", { name: "Show file tree" })).toBeNull();
+  });
+
+  it("keeps the rail in a narrow window under a mouse, which has no toolbar", () => {
+    stubMatchMedia({ [NARROW]: true });
+    renderTree();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close file tree" }));
+
     expect(screen.getByRole("button", { name: "Show file tree" })).toBeInTheDocument();
   });
 
@@ -1146,6 +1156,7 @@ describe("FileExplorer in a narrow window", () => {
   });
 
   it("takes the rail under the drawer out of reach", () => {
+    stubMatchMedia({ [NARROW]: true });
     renderTree();
 
     expect(

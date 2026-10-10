@@ -142,8 +142,10 @@ pick back. On a touch screen a row above the foot of the pane carries the rest:
 `prev`, `next`, `reveal`, `timer`, `finish` and `close`, and `open result` once
 the sitting is graded. `finish` asks once, and `close` does while a sitting is
 under way: the button reads `finish?` and the second tap is the one that acts,
-while any other move takes the question back. `timer` starts the two hour countdown; another length
-needs the keyboard.
+while any other move takes the question back. `timer` swaps the row for five
+lengths, 30, 60, 90, 120 and 180 minutes, and `back`; a tap on a length starts
+the countdown, and a tap on `timer` while one runs takes it away. Any other
+length needs the keyboard.
 
 ## Where the results go
 

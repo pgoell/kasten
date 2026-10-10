@@ -6,6 +6,7 @@ import { moveAndCache } from "@/lib/move";
 import { describeFolderPath, describeNotePath, type NotePathVerdict } from "@/lib/note-path";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -339,6 +340,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
       aria-label={TITLE[mode]}
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose, input !== startPath)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

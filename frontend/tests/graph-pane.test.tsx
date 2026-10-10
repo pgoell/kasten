@@ -17,12 +17,13 @@ import { stubCommands } from "./stub-commands";
 const canvas = vi.hoisted(() => ({
   handlers: null as GraphCanvasHandlers | null,
   update: vi.fn(),
+  fit: vi.fn(),
 }));
 
 vi.mock("@/lib/graph-canvas", () => ({
   drawGraph: (_element: HTMLElement, handlers: GraphCanvasHandlers) => {
     canvas.handlers = handlers;
-    return { update: canvas.update, resize: vi.fn(), fit: vi.fn(), destroy: vi.fn() };
+    return { update: canvas.update, resize: vi.fn(), fit: canvas.fit, destroy: vi.fn() };
   },
 }));
 
@@ -199,5 +200,37 @@ describe("GraphPane", () => {
     await waitFor(() =>
       expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ around: "rag.md", depth: 2 })),
     );
+  });
+
+  it("fits and reaches by tap, where a finger has no f, + or -", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    renderPane({ around: "rag.md" });
+    await waitFor(() => expect(ask).toHaveBeenCalledWith(expect.objectContaining({ depth: 1 })));
+
+    canvas.fit.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "fit" }));
+    expect(canvas.fit).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "one link further" }));
+    await waitFor(() =>
+      expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 2 })),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "one link nearer" }));
+    await waitFor(() =>
+      expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 1 })),
+    );
+  });
+
+  it("offers no depth on the whole vault, and no row at all under a mouse", async () => {
+    const media = stubMatchMedia({ [COARSE]: true });
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    renderPane();
+
+    expect(screen.getByRole("button", { name: "fit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "one link further" })).toBeNull();
+
+    media.set(COARSE, false);
+    expect(screen.queryByRole("button", { name: "fit" })).toBeNull();
   });
 });

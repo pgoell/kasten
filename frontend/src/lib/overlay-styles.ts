@@ -17,9 +17,56 @@
  * replaced.
  */
 
-/** The dark sheet over the whole window, for a panel that belongs over all of it. */
+/**
+ * The dark sheet over the whole window, for a panel that belongs over all of it.
+ *
+ * Padded at the foot by what an on-screen keyboard covers, which the route's
+ * frame measures and hands down as `--keyboard`. The panel is capped at the
+ * room left, so its input and its first rows stay in sight above the keys.
+ */
 export const BACKDROP =
-  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none";
+  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] pb-[var(--keyboard,0px)] focus:outline-none";
+
+/** The sheet the press now under way began on, if it began on one. */
+let pressed: EventTarget | null = null;
+/** Whether that press was let go on the same sheet. */
+let released = false;
+
+/**
+ * The way out by touch: a press and release on the sheet itself, and not on
+ * the panel over it, closes what the sheet is under. Spread onto the sheet.
+ *
+ * The click closes and not the press. A sheet gone on the press leaves the
+ * release and the click to whatever lay under it, a todo's state button being
+ * one such thing, and the browser's own step of the press would take the
+ * focus off the opener the unmount had just handed it back to.
+ *
+ * Both ends of the press have to be on the sheet. A selection dragged out of
+ * the input and let go over the sheet, and a press on the sheet let go inside
+ * the panel, each end in a click on the sheet as well, the sheet being what
+ * the two ends have in common, and neither is a tap outside.
+ *
+ * `holding` is a draft the panel would lose. A stray tap in the gutter beside
+ * a prompt, 19px of it on a phone, then closes nothing; Escape still does.
+ */
+export function closeOnBackdrop(onClose: () => void, holding = false) {
+  type Press = { target: EventTarget; currentTarget: EventTarget };
+  return {
+    onMouseDown: (event: Press) => {
+      pressed = event.target === event.currentTarget ? event.currentTarget : null;
+    },
+    onMouseUp: (event: Press) => {
+      released = event.target === event.currentTarget;
+    },
+    onClick: (event: Press) => {
+      const outside = pressed === event.currentTarget && released;
+      pressed = null;
+      released = false;
+      if (holding || event.target !== event.currentTarget) return;
+      if (outside) onClose();
+    },
+  };
+}
 
 /** The panel itself, bar its width. Pair with one of the two below. */
 export const PANEL =
@@ -31,7 +78,7 @@ export const PANEL =
  * Its height is the content's, capped, because a prompt with three folders
  * under it should not draw a box with nothing in the bottom half.
  */
-export const PANEL_NARROW = "max-h-[70vh] w-[min(36rem,90vw)]";
+export const PANEL_NARROW = "max-h-[min(70vh,100%)] w-[min(36rem,90vw)]";
 
 /**
  * The finder's and the search's width: a list and a preview pane side by side.
@@ -40,7 +87,7 @@ export const PANEL_NARROW = "max-h-[70vh] w-[min(36rem,90vw)]";
  * and the line itself, and the finder is no worse for the room now that its
  * pane renders the note rather than printing it.
  */
-export const PANEL_WIDE = "w-[min(72rem,94vw)]";
+export const PANEL_WIDE = "max-h-full w-[min(72rem,94vw)]";
 
 /** The row holding the label and the input, 44px under a finger like any other target. */
 export const HEADER_ROW =
@@ -62,9 +109,10 @@ export const INPUT =
  * The body of a two-column overlay.
  *
  * A fixed height rather than one the content sets, so the panel does not jump
- * about as the list narrows under it.
+ * about as the list narrows under it. It gives way only where the sheet has
+ * less room than that, which is a phone with its keyboard up.
  */
-export const BODY = "flex h-[min(26rem,55vh)]";
+export const BODY = "flex h-[min(26rem,55vh)] min-h-0";
 
 /**
  * The list side of a two-column overlay.

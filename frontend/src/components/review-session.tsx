@@ -361,7 +361,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             value={jotting}
             onChange={(event) => setJotting(event.target.value)}
             placeholder="A question to answer later"
-            className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] text-one-fg outline-none focus:border-one-accent"
+            className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] text-one-fg outline-none focus:border-one-accent pointer-coarse:text-base"
           />
           <button type="submit" className={BUTTON}>
             Jot it
@@ -448,7 +448,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
                 aria-label="your answer"
                 value={typed}
                 onChange={(event) => setTyped(event.target.value)}
-                className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[15px] text-one-fg outline-none focus:border-one-accent"
+                className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[15px] text-one-fg outline-none focus:border-one-accent pointer-coarse:text-base"
               />
               {/* Submitting the form is what the phone keyboard's Go key does. */}
               <button type="submit" className={BUTTON}>

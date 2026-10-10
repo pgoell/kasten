@@ -67,7 +67,6 @@ export function TerminalPane({
   focusSignal,
   focused = true,
 }: TerminalPaneProps) {
-  const frame = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   // Read through a ref, the way `editor.tsx` reads the same prop. The terminal
@@ -227,37 +226,6 @@ export function TerminalPane({
     return () => window.removeEventListener("focus", onWindowFocus);
   }, [focused]);
 
-  // An on-screen keyboard that covers the page rather than shrinking it, which
-  // is every iOS one: the layout keeps its height, and only the visual viewport
-  // says how much of it is still in sight. Whatever of the pane lies under the
-  // keyboard is padded away, the host shrinks, and its `ResizeObserver` refits
-  // the terminal. Where the keyboard does shrink the layout, as the viewport
-  // meta asks of Android, nothing is covered and this pads nothing.
-  useEffect(() => {
-    const element = frame.current;
-    const viewport = window.visualViewport;
-    if (!coarse || element === null || !viewport) return;
-
-    const clear = () => {
-      // A pinch zoom shrinks the visual viewport too, and is not a keyboard.
-      const covered =
-        viewport.scale === 1
-          ? element.getBoundingClientRect().bottom - (viewport.offsetTop + viewport.height)
-          : 0;
-      element.style.paddingBottom = `${Math.max(0, Math.round(covered))}px`;
-    };
-
-    clear();
-    // `scroll` as well: iOS pans the visual viewport after the keyboard is up.
-    viewport.addEventListener("resize", clear);
-    viewport.addEventListener("scroll", clear);
-    return () => {
-      viewport.removeEventListener("resize", clear);
-      viewport.removeEventListener("scroll", clear);
-      element.style.paddingBottom = "";
-    };
-  }, [coarse]);
-
   // The row is gone with the finger, and Ctrl with nothing showing it armed
   // would turn the next letter into a surprise.
   useEffect(() => {
@@ -283,9 +251,11 @@ export function TerminalPane({
     term.input(bytes);
   }
 
-  // No border of its own: `pane-layout.tsx` draws that already.
+  // No border of its own: `pane-layout.tsx` draws that already. No room made
+  // for an on-screen keyboard either: the route's frame shrinks above one, the
+  // host with it, and the `ResizeObserver` refits.
   return (
-    <div ref={frame} className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full flex-col">
       <div ref={host} className="min-h-0 w-full flex-1" />
       {coarse && <TerminalKeys ctrl={ctrl} onKey={onKey} />}
     </div>

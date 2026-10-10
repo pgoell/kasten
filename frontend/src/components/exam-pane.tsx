@@ -30,6 +30,9 @@ function countdown(seconds: number): string {
 /** One button of the touch row: a thumb high, and as wide as its share of the row. */
 const TAP = "min-h-11 min-w-0 flex-1 uppercase";
 
+/** The lengths the touch row offers, in minutes, where a keyboard types a count before `t`. */
+const LENGTHS = [30, 60, 90, DEFAULT_MINUTES, 180];
+
 interface ExamPaneProps {
   /** The note holding the exam. The pane reads it and never writes to it. */
   note: string;
@@ -71,6 +74,8 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
    * `g` by landing beside `t`.
    */
   const [armed, setArmed] = useState<"finish" | "close" | null>(null);
+  /** Whether the touch row is showing the timer's lengths in place of its moves. */
+  const [lengths, setLengths] = useState(false);
   /** Where the sitting was written, set once it has been graded. */
   const [wrote, setWrote] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -438,7 +443,29 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
         aria-label="exam moves"
         className={`hidden border-one-line border-t px-1 pointer-coarse:flex ${LABEL}`}
       >
-        {graded === null && exam !== null && (
+        {graded === null && exam !== null && lengths && (
+          <>
+            {LENGTHS.map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                tabIndex={-1}
+                aria-label={`${minutes} minute timer`}
+                onClick={() => {
+                  setLengths(false);
+                  setDeadline(Date.now() + minutes * 60_000);
+                }}
+                className={TAP}
+              >
+                {minutes}m
+              </button>
+            ))}
+            <button type="button" tabIndex={-1} onClick={() => setLengths(false)} className={TAP}>
+              back
+            </button>
+          </>
+        )}
+        {graded === null && exam !== null && !lengths && (
           <>
             <button type="button" tabIndex={-1} onClick={() => move(-1)} className={TAP}>
               prev
@@ -459,7 +486,13 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
               type="button"
               tabIndex={-1}
               aria-pressed={deadline !== null}
-              onClick={timer}
+              // A running timer is taken away, as `t` takes it. Starting one
+              // asks how long first: a finger has no count to type before it.
+              onClick={() => {
+                if (deadline !== null) return timer();
+                setArmed(null);
+                setLengths(true);
+              }}
               className={TAP}
             >
               timer

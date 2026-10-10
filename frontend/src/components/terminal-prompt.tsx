@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -140,6 +141,7 @@ export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProp
       aria-label="Open terminal"
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose, input.trim() !== "")}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

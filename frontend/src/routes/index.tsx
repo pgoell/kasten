@@ -27,6 +27,7 @@ import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
+import { Toolbar } from "@/components/toolbar";
 import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
@@ -104,6 +105,7 @@ import {
 import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useNoteWrites } from "@/lib/use-note-writes";
 import { useViewport } from "@/lib/use-viewport";
 import { parseVaultEvent } from "@/lib/vault-events";
@@ -300,7 +302,14 @@ function Home() {
   //
   // Shut to begin with below `md`, where it is a drawer over the page and not a
   // panel beside it.
-  const { narrow } = useViewport();
+  const { narrow, coarse } = useViewport();
+  // A phone: the one place the toolbar is drawn, and the rail is not.
+  const phone = narrow && coarse;
+  // The whole frame makes room for a keyboard that covers the page, so the
+  // cursor's line, the bar and the toolbar all stay above it. A finger alone
+  // decides it and not the width: a tablet has the same keyboard.
+  const frame = useRef<HTMLElement>(null);
+  useKeyboardInset(frame, coarse);
   const [treeOpen, setTreeOpen] = useState(!narrow);
   // The drawer covers the pane, so it shuts whenever the focus is handed to
   // one, which every way of opening something ends with. It shuts as well when
@@ -1796,7 +1805,7 @@ function Home() {
   );
 
   return (
-    <main className="flex h-dvh flex-col bg-one-bg">
+    <main ref={frame} className="flex h-dvh flex-col bg-one-bg">
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer
@@ -2071,6 +2080,7 @@ function Home() {
         }
         inert={narrow && treeOpen}
       />
+      {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {palette && (
         <CommandPalette

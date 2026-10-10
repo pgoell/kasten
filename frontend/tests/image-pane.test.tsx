@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { gesture, ImagePane } from "@/components/image-pane";
 import { stubCommands } from "./stub-commands";
 
@@ -319,5 +319,41 @@ describe("the image pane", () => {
     fireEvent.keyDown(pane, { key: "d" });
 
     expect(commands.openDaily).toHaveBeenCalledTimes(1);
+  });
+
+  // jsdom applies no media query, so the button is in the tree either way and
+  // the class is what keeps it off a screen with a mouse.
+  it("deletes on the second tap of its button, which only a finger is shown", () => {
+    const { onDelete } = open();
+    const button = screen.getByRole("button", { name: "delete" });
+    expect(button).toHaveClass("hidden", "pointer-coarse:block", "min-h-11");
+
+    fireEvent.click(button);
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "delete?" }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops asking once the tap goes somewhere else", () => {
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "delete" }));
+
+    fireEvent.pointerDown(surface());
+
+    expect(screen.getByRole("button", { name: "delete" })).toBeInTheDocument();
+  });
+
+  it("stops asking after five seconds, so a later tap does not delete unasked", () => {
+    vi.useFakeTimers();
+    const { onDelete } = open();
+    fireEvent.click(screen.getByRole("button", { name: "delete" }));
+
+    act(() => vi.advanceTimersByTime(5000));
+    fireEvent.click(screen.getByRole("button", { name: "delete" }));
+
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "delete?" })).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

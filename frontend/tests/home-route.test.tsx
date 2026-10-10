@@ -1212,8 +1212,10 @@ describe("the route", () => {
       await settle();
 
       expect(app.tree()).toBeNull();
+      // No rail on a phone, the toolbar being the way to the drawer.
+      expect(screen.queryByRole("button", { name: "Show file tree" })).toBeNull();
 
-      fireEvent.click(screen.getByRole("button", { name: "Show file tree" }));
+      fireEvent.click(screen.getByRole("button", { name: "File tree" }));
       app.click("index.md");
       await settle();
 
@@ -1224,8 +1226,8 @@ describe("the route", () => {
     /** The column holding the panes, which an open drawer puts out of reach. */
     const page = () =>
       document.querySelector("[role='tablist'], [data-pane]")?.closest("[inert]") ?? null;
-    const openDrawer = () =>
-      fireEvent.click(screen.getByRole("button", { name: "Show file tree" }));
+    // The toolbar's button on a phone, and the rail's where a mouse keeps one.
+    const openDrawer = () => fireEvent.click(screen.getByRole("button", { name: /File tree$/i }));
 
     it("closes the drawer on Escape and puts the focus in the pane on screen", async () => {
       // Narrow and no more, the split below being asked for with a leader key.
@@ -1307,7 +1309,6 @@ describe("the route", () => {
       expect(drawn()).toHaveLength(1);
       const first = drawn()[0];
 
-      // The command the toolbar's button will call, reached here by its key.
       app.leader("o");
       await settle();
 
@@ -1317,6 +1318,86 @@ describe("the route", () => {
       media.set(NARROW, false);
 
       expect(drawn()).toHaveLength(2);
+    });
+
+    it("draws the toolbar on a phone and nowhere else", async () => {
+      const toolbar = () => screen.queryByRole("toolbar", { name: "Commands" });
+      const media = stubMatchMedia();
+      await renderApp();
+      await settle();
+      expect(toolbar()).toBeNull();
+
+      // A narrow window under a mouse keeps its keys, and its rail.
+      media.set(NARROW, true);
+      expect(toolbar()).toBeNull();
+      expect(screen.getByRole("button", { name: "Show file tree" })).toBeInTheDocument();
+
+      media.set(COARSE, true);
+      expect(toolbar()).not.toBeNull();
+      // One pane, so nowhere to move to.
+      expect(screen.queryByRole("button", { name: "Move to the next pane" })).toBeNull();
+
+      // A tablet: a finger, and room for the panel beside the note.
+      media.set(NARROW, false);
+      expect(toolbar()).toBeNull();
+    });
+
+    /** A press and release on the sheet around a panel, which is its way out. */
+    const tapSheet = (sheet: HTMLElement) => {
+      fireEvent.mouseDown(sheet);
+      fireEvent.mouseUp(sheet);
+      fireEvent.click(sheet);
+    };
+
+    it("opens the palette, the finder and the search from the toolbar", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+      const palette = screen.getByRole("dialog", { name: "Run a command" });
+      // The way to vim's keys on a phone, which no key reaches with vim off.
+      expect(screen.getByRole("option", { name: "Toggle vim keys" })).toBeInTheDocument();
+      tapSheet(palette);
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Find a note" }));
+      tapSheet(screen.getByRole("dialog", { name: "Find note" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Search note content" }));
+      tapSheet(screen.getByRole("dialog"));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("makes room in the frame for a keyboard that covers the page", async () => {
+      const listeners = new Map<string, () => void>();
+      const viewport = {
+        scale: 1,
+        offsetTop: 0,
+        height: 800,
+        addEventListener: (type: string, listener: () => void) => listeners.set(type, listener),
+        removeEventListener: (type: string) => listeners.delete(type),
+      };
+      vi.stubGlobal("visualViewport", viewport);
+      const box = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockReturnValue({ bottom: 800 } as DOMRect);
+      const layout = vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+      const frame = screen.getByRole("main");
+
+      viewport.height = 500;
+      listeners.get("resize")?.();
+
+      // The bar and the toolbar sit inside the frame, so both rise with it.
+      expect(frame.style.paddingBottom).toBe("300px");
+      expect(frame).toContainElement(screen.getByRole("contentinfo"));
+      expect(frame).toContainElement(screen.getByRole("toolbar", { name: "Commands" }));
+      box.mockRestore();
+      layout.mockRestore();
     });
 
     it("counts the panes in the bar, which is the only sign of a split", async () => {

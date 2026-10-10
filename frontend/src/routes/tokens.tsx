@@ -97,7 +97,7 @@ function Tokens() {
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="laptop"
-              className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] outline-none focus:border-one-accent"
+              className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] outline-none focus:border-one-accent pointer-coarse:text-base"
             />
           </label>
           <button

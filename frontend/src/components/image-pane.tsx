@@ -20,6 +20,9 @@ interface ImagePaneProps {
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
 
+/** How long `delete?` waits for its second tap. */
+const ARMED_MS = 5000;
+
 interface Point {
   x: number;
   y: number;
@@ -132,6 +135,15 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
    * actually asks, and no effect has to reset anything.
    */
   const [failed, setFailed] = useState<string>();
+  /** The image whose delete button was tapped once, so another image starts unasked. */
+  const [armed, setArmed] = useState<string>();
+  // The question lapses, so a `delete?` left standing is not what the next
+  // tap minutes later lands on. The timer goes with the pane on the way out.
+  useEffect(() => {
+    if (armed === undefined) return;
+    const lapse = setTimeout(() => setArmed(undefined), ARMED_MS);
+    return () => clearTimeout(lapse);
+  }, [armed]);
   /**
    * The zoom, and the path it was made on, for the reason `failed` is a path:
    * a zoom left on the last picture is not one the next picture was given.
@@ -193,6 +205,7 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   }
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    setArmed(undefined);
     // A mouse cannot pinch, so on a fitted picture it has nothing to do, and
     // holding it would draw the pane again on every move of a drag.
     if (event.pointerType === "mouse" && zoom.scale === 1) return;
@@ -240,6 +253,22 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={path}>
           {path}
         </span>
+        {/* `d` for a finger. It asks once, a thumb landing wide of where it
+            aimed, where the key does not: nobody presses `d` by accident. Any
+            press on the picture takes the question back, and so do five
+            seconds. Not on blur: Safari on a phone gives a tapped button no
+            focus to lose. */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-pressed={armed === path}
+          onClick={() => (armed === path ? onDelete() : setArmed(path))}
+          className={`hidden min-h-11 shrink-0 px-2 text-[11px] tracking-wide uppercase pointer-coarse:block ${
+            armed === path ? "text-one-warn" : "text-one-muted"
+          }`}
+        >
+          {armed === path ? "delete?" : "delete"}
+        </button>
       </header>
 
       <div

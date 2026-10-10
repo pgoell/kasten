@@ -6,6 +6,7 @@ import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 import {
   BACKDROP,
   BODY,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -222,6 +223,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
       aria-label={outgoing ? "Outgoing links" : "Find note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_WIDE}`}>

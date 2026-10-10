@@ -280,50 +280,6 @@ describe("TerminalPane", () => {
       expect(fireEvent.mouseDown(screen.getByRole("button", { name: "Esc" }))).toBe(false);
       expect(fireEvent.pointerDown(screen.getByRole("button", { name: "Esc" }))).toBe(false);
     });
-
-    it("pads away what an on-screen keyboard covers, and gives it back", () => {
-      const listeners = new Map<string, () => void>();
-      const viewport = {
-        scale: 1,
-        offsetTop: 0,
-        height: 800,
-        addEventListener: (type: string, listener: () => void) => listeners.set(type, listener),
-        removeEventListener: (type: string) => listeners.delete(type),
-      };
-      vi.stubGlobal("visualViewport", viewport);
-      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-        bottom: 800,
-      } as DOMRect);
-      const { unmount } = phone();
-      const frame = screen.getByRole("toolbar").parentElement as HTMLElement;
-      expect(frame.style.paddingBottom).toBe("0px");
-
-      viewport.height = 500;
-      listeners.get("resize")?.();
-      expect(frame.style.paddingBottom).toBe("300px");
-
-      // The page panned up under the keyboard: less of the pane is covered.
-      viewport.offsetTop = 100;
-      listeners.get("scroll")?.();
-      expect(frame.style.paddingBottom).toBe("200px");
-
-      // A pinch zoom is not a keyboard.
-      viewport.scale = 2;
-      listeners.get("resize")?.();
-      expect(frame.style.paddingBottom).toBe("0px");
-
-      viewport.scale = 1;
-      viewport.offsetTop = 0;
-      viewport.height = 800;
-      listeners.get("resize")?.();
-      expect(frame.style.paddingBottom).toBe("0px");
-
-      viewport.height = 500;
-      listeners.get("resize")?.();
-      unmount();
-      expect(frame.style.paddingBottom).toBe("");
-      expect(listeners.size).toBe(0);
-    });
   });
 });
 

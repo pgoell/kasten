@@ -305,9 +305,23 @@ describe("ExamPane", () => {
     expect(screen.getByTestId("exam-rationale").textContent).toContain("Correct: B");
     tap("reveal");
     expect(screen.queryByTestId("exam-rationale")).toBeNull();
+    // A finger has no count to type before `t`, so the row asks how long.
     tap("timer");
-    expect(screen.getByTestId("exam-timer").textContent).toBe("120:00");
+    expect(screen.queryByTestId("exam-timer")).toBeNull();
+    tap("90 minute timer");
+    expect(screen.getByTestId("exam-timer").textContent).toBe("90:00");
+    // The moves are back, and a tap on a running timer takes it away.
     tap("timer");
+    expect(screen.queryByTestId("exam-timer")).toBeNull();
+  });
+
+  it("backs out of the timer's lengths without starting one", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap("timer");
+    expect(screen.queryByRole("button", { name: "next" })).toBeNull();
+    tap("back");
+    expect(screen.getByRole("button", { name: "next" })).toBeTruthy();
     expect(screen.queryByTestId("exam-timer")).toBeNull();
   });
 
@@ -346,7 +360,18 @@ describe("ExamPane", () => {
     expect(createNote).toHaveBeenCalledTimes(1);
   });
 
-  it.each([["next"], ["prev"], ["reveal"], ["timer"], ["close"], [/list to set/]])(
+  it("stops asking about finish after a tap on timer", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap("finish");
+    tap("timer");
+    tap("back");
+    expect(screen.queryByRole("button", { name: "finish?" })).toBeNull();
+    expect(screen.getByRole("button", { name: "finish" })).toBeTruthy();
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it.each([["next"], ["prev"], ["reveal"], ["close"], [/list to set/]])(
     "stops asking about finish after a tap on %s",
     async (other) => {
       open();
