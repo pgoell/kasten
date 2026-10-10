@@ -67,6 +67,24 @@ describe("the note finder", () => {
     fetchNote.mockReset();
   });
 
+  it("opens the row that is tapped", () => {
+    const finder = renderFinder();
+
+    const row = screen.getByRole("option", { name: "index.md" });
+    fireEvent.click(row);
+
+    expect(finder.onOpen).toHaveBeenCalledWith("index.md");
+    // jsdom applies no media query, so the height is read off the class.
+    expect(row).toHaveClass("pointer-coarse:min-h-11");
+  });
+
+  it("gives the list the whole panel below md, and the preview none of it", () => {
+    renderFinder();
+
+    expect(screen.getByRole("listbox")).toHaveClass("w-full", "md:w-1/2");
+    expect(screen.getByTestId("preview")).toHaveClass("hidden", "md:block");
+  });
+
   it("opens on the whole vault, with the caret in the input", () => {
     const finder = renderFinder();
 

@@ -99,6 +99,20 @@ describe("the palette", () => {
     expect(commands.openGraph).toHaveBeenCalledTimes(1);
   });
 
+  it("runs the row that is tapped", () => {
+    const commands = stubCommands();
+    const onClose = vi.fn();
+    render(<CommandPalette entries={paletteEntries(commands, null)} onClose={onClose} />);
+
+    const row = screen.getByRole("option", { name: /Find a note/ });
+    fireEvent.click(row);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(commands.findNote).toHaveBeenCalledTimes(1);
+    // jsdom applies no media query, so the height is read off the class.
+    expect(row).toHaveClass("pointer-coarse:min-h-11");
+  });
+
   it("prints the key beside the command", () => {
     render(<CommandPalette entries={paletteEntries(stubCommands(), null)} onClose={vi.fn()} />);
     expect(screen.getByRole("option", { name: /Find a note/ }).textContent).toContain("Space f f");

@@ -175,7 +175,7 @@ export function TabStrip({ layout, onSelect }: TabStripProps) {
             // The digit that jumps here, which is the key rather than the
             // position: the tenth tab is reached with `0`.
             onClick={() => onSelect(index)}
-            className={`shrink-0 px-3 py-1 whitespace-nowrap ${
+            className={`shrink-0 px-3 py-1 whitespace-nowrap pointer-coarse:min-h-11 ${
               selected ? "bg-one-bg text-one-fg" : "bg-one-panel text-one-muted hover:bg-one-hover"
             }`}
           >

@@ -1083,6 +1083,20 @@ describe("FileExplorer in a narrow window", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  // jsdom applies no media query, so this reads the class that carries one.
+  it("makes its rows and its buttons 44px under a finger", () => {
+    renderTree();
+
+    const rows = document.querySelectorAll("[data-row]");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row).toHaveClass("pointer-coarse:min-h-11");
+    // 16px of icon inside 14px of padding.
+    expect(screen.getByRole("button", { name: "New note" })).toHaveClass("pointer-coarse:p-3.5");
+    for (const toggle of screen.getAllByRole("button", { name: "Hide file tree" })) {
+      expect(toggle).toHaveClass("pointer-coarse:p-3.5");
+    }
+  });
+
   it("is a drawer with no grip, at a width of its own", () => {
     renderTree();
 

@@ -163,6 +163,47 @@ describe("the clock in the bar", () => {
     expect(screen.getByTestId("zoom-shown")).toHaveTextContent("zoom");
   });
 
+  it("says which pane of how many is drawn, and nothing where it was not told", () => {
+    // A narrow window draws one pane of a split, which looks like a single note.
+    const { rerender } = render(<StatusBar />);
+    expect(screen.queryByTestId("pane-shown")).toBeNull();
+
+    rerender(<StatusBar pane="1/2" />);
+    expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 1/2");
+  });
+
+  it("goes out of reach under an open drawer", () => {
+    const { rerender } = render(<StatusBar />);
+    expect(screen.getByRole("contentinfo")).not.toHaveAttribute("inert");
+
+    rerender(<StatusBar inert />);
+    expect(screen.getByRole("contentinfo")).toHaveAttribute("inert");
+  });
+
+  // jsdom applies no media query, so the three below can only read the class
+  // that carries one. What it draws is checked in a browser.
+  it("is 44px tall under a finger and 24px under a mouse", () => {
+    render(<StatusBar />);
+
+    expect(screen.getByRole("contentinfo")).toHaveClass("h-6", "pointer-coarse:h-11");
+  });
+
+  it("drops the weekday, the week and the version below md", () => {
+    BUILD.value = "abc1234";
+    render(<StatusBar version="0.36.0" />);
+
+    expect(screen.getByText(/^CW \d+$/)).toHaveClass("max-md:hidden");
+    expect(screen.getByTestId("version")).toHaveClass("max-md:hidden");
+  });
+
+  it("cuts a long notice short rather than widen the bar", () => {
+    render(<StatusBar notice="A book is already there" />);
+
+    const notice = screen.getByTestId("notice");
+    expect(notice).toHaveClass("truncate");
+    expect(notice).toHaveAttribute("title", "A book is already there");
+  });
+
   it("draws the notice before the archive tag", () => {
     render(<StatusBar notice="A book is already there" archive />);
 

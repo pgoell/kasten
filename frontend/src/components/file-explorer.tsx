@@ -213,7 +213,13 @@ function indent(depth: number) {
   return { paddingLeft: `${0.5 + depth * 0.75}rem` };
 }
 
-const ROW = "flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px]";
+// 44px under a finger, which is the folder toggle as well: the row is the toggle.
+const ROW =
+  "flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px] pointer-coarse:min-h-11";
+
+// 16px of icon and 14px around it is the same 44px.
+const ICON_BUTTON =
+  "cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent pointer-coarse:p-3.5";
 
 /**
  * The keyboard cursor, drawn the way vim draws its own.
@@ -814,7 +820,7 @@ export function FileExplorer({
       onClick={() => onOpenChange(!open)}
       aria-label={open ? "Hide file tree" : "Show file tree"}
       title={`${open ? "Hide" : "Show"} file tree (Space B)`}
-      className="cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent"
+      className={ICON_BUTTON}
     >
       <PanelIcon />
     </button>
@@ -825,7 +831,7 @@ export function FileExplorer({
     // file tree" that Tab reaches behind the backdrop.
     <div
       inert={open}
-      className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1"
+      className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1 pointer-coarse:p-0"
     >
       {toggle}
     </div>
@@ -844,7 +850,7 @@ export function FileExplorer({
         narrow ? "fixed inset-y-0 left-0 z-15 w-72 max-w-[85vw]" : "relative shrink-0"
       }`}
     >
-      <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3">
+      <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3 pointer-coarse:py-0 pointer-coarse:pr-0">
         <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
         <div className="flex items-center">
           <button
@@ -852,7 +858,7 @@ export function FileExplorer({
             onClick={newNote}
             aria-label="New note"
             title="New note (Space C F)"
-            className="cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent"
+            className={ICON_BUTTON}
           >
             <PlusIcon />
           </button>

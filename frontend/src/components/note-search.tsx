@@ -17,6 +17,7 @@ import {
   PANEL_WIDE,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 import { readRelation } from "@/lib/relation";
 import { isOpen, parseTodo, STATE_SYMBOL } from "@/lib/todo";
@@ -394,10 +395,12 @@ export function NoteSearch({
         // is how the list says what Enter would open.
         tabIndex={-1}
         onClick={() => accept(index)}
-        className={`${ROW} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
+        className={`${ROW} ${TAP} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
       >
         <span
-          className={`shrink-0 truncate ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
+          // Capped below `md`, where a long path alone is wider than the list
+          // and would push the line it found off the side.
+          className={`shrink-0 truncate max-md:max-w-[45%] ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
         >
           {hit.path}:{hit.line}
         </span>

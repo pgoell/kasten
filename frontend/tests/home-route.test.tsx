@@ -1315,6 +1315,36 @@ describe("the route", () => {
 
       expect(drawn()).toHaveLength(2);
     });
+
+    it("counts the panes in the bar, which is the only sign of a split", async () => {
+      const media = stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+      expect(screen.queryByTestId("pane-shown")).toBeNull();
+
+      app.leader("%");
+      await settle();
+      expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 2/2");
+
+      app.leader("o");
+      await settle();
+      expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 1/2");
+
+      // Both are on screen in a wide window, and count themselves.
+      media.set(NARROW, false);
+      expect(screen.queryByTestId("pane-shown")).toBeNull();
+    });
+
+    it("takes the status bar out of reach under the drawer", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+      expect(screen.getByRole("contentinfo")).not.toHaveAttribute("inert");
+
+      openDrawer();
+
+      expect(screen.getByRole("contentinfo")).toHaveAttribute("inert");
+    });
   });
 });
 

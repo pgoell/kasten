@@ -38,10 +38,12 @@ function Clock() {
   return (
     // Spaced apart rather than punctuated: the gap separates the four readings
     // without spending characters on a bar the eye has to step over.
-    <div className="flex items-center gap-3 text-[11px] text-one-muted tabular-nums">
-      <span>{now.weekday}</span>
+    <div className="flex items-center gap-3 text-[11px] whitespace-nowrap text-one-muted tabular-nums">
+      {/* The weekday and the week go below `md`: a phone has room for the date
+          and the time, and its own lock screen says the rest. */}
+      <span className="max-md:hidden">{now.weekday}</span>
       <time dateTime={now.date}>{now.date}</time>
-      <span>CW {now.week}</span>
+      <span className="max-md:hidden">CW {now.week}</span>
       <time dateTime={`${now.date}T${now.time}`}>{now.time}</time>
     </div>
   );
@@ -130,7 +132,12 @@ function Warning() {
  */
 function Version({ backend }: { backend: string }) {
   return (
-    <span data-testid="version" className="text-[11px] text-one-muted tabular-nums">
+    // Gone below `md`. Development's two readings alone are wider than a third
+    // of a phone, and of everything in the bar this is the last thing wanted there.
+    <span
+      data-testid="version"
+      className="shrink-0 text-[11px] text-one-muted tabular-nums max-md:hidden"
+    >
       {BUILD === "" ? backend : `be ${backend} fe ${BUILD}`}
     </span>
   );
@@ -185,6 +192,21 @@ interface StatusBarProps {
    * direction keys would read as broken rather than as having nowhere to go.
    */
   zoom?: boolean;
+  /**
+   * Which pane of how many is drawn, as "1/2", where only one of them is.
+   *
+   * A narrow window draws a tab's focused pane alone, and unlike a zoom nobody
+   * asked for that, so a split looks exactly like a single note. Absent
+   * wherever every pane is on screen to be counted.
+   */
+  pane?: string;
+  /**
+   * Whether the explorer drawer is open over the page.
+   *
+   * The bar is under the backdrop then, and Tab from the drawer's last button
+   * would otherwise land on it, behind the sheet.
+   */
+  inert?: boolean;
 }
 
 /**
@@ -201,6 +223,8 @@ export function StatusBar({
   notice,
   version,
   zoom,
+  pane,
+  inert,
 }: StatusBarProps) {
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
@@ -220,11 +244,22 @@ export function StatusBar({
     // Three columns rather than two: the outer pair share what the clock does
     // not take, so the reading sits on the middle of the window and does not
     // shift sideways when the save ring appears beside it.
-    <footer className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center bg-one-panel px-3">
-      <div className="flex items-center gap-2">
+    //
+    // `minmax(0, 1fr)` and not `1fr`, whose floor is the content: a long notice
+    // would push the bar wider than a phone instead of being cut short.
+    <footer
+      inert={inert}
+      className="grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center bg-one-panel px-3 pointer-coarse:h-11"
+    >
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
         {version !== undefined && <Version backend={version} />}
         {notice !== undefined && (
-          <span data-testid="notice" className="text-[11px] text-one-warn">
+          <span
+            data-testid="notice"
+            // The whole sentence, for when the bar had room for half of it.
+            title={notice}
+            className="min-w-0 truncate text-[11px] text-one-warn"
+          >
             {notice}
           </span>
         )}
@@ -234,13 +269,20 @@ export function StatusBar({
           </span>
         )}
         {zoom === true && (
-          <span data-testid="zoom-shown" className="text-[11px] text-one-muted">
+          // Gone below `md`, where every tab is drawn as one pane, zoomed or
+          // not, and the count beside it is what says so.
+          <span data-testid="zoom-shown" className="text-[11px] text-one-muted max-md:hidden">
             zoom
+          </span>
+        )}
+        {pane !== undefined && (
+          <span data-testid="pane-shown" className="text-[11px] text-one-muted tabular-nums">
+            pane {pane}
           </span>
         )}
       </div>
       <Clock />
-      <div className="justify-self-end">
+      <div className="min-w-0 justify-self-end whitespace-nowrap">
         {status && (
           <span
             key={flash}

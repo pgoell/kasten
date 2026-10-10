@@ -16,6 +16,7 @@ import {
   PANEL_WIDE,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 
 interface NoteFinderProps {
@@ -261,7 +262,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
                   // open. A click still lands here, and opens the same note.
                   tabIndex={-1}
                   onClick={() => accept(path)}
-                  className={`${ROW} truncate ${
+                  className={`${ROW} ${TAP} truncate ${
                     index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                   }`}
                 >

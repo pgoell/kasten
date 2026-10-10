@@ -59,17 +59,32 @@ export const INPUT = "min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outl
  */
 export const BODY = "flex h-[min(26rem,55vh)]";
 
-/** The list side of a two-column overlay. */
-export const LIST = "w-1/2 shrink-0 overflow-auto py-1";
+/**
+ * The list side of a two-column overlay.
+ *
+ * The whole of it below `md`: half of a phone is 183px, which shows neither a
+ * path nor a note.
+ */
+export const LIST = "w-full shrink-0 overflow-auto py-1 md:w-1/2";
 
-/** The pane beside it, which holds a rendered note and scrolls itself. */
-export const PANE = "min-w-0 flex-1 border-l border-one-line text-[12px]";
+/** The pane beside it, which holds a rendered note and scrolls itself. Gone below `md`. */
+export const PANE = "hidden min-w-0 flex-1 border-l border-one-line text-[12px] md:block";
 
 /** What the pane says when it has no note to show, only a reason. */
 export const PANE_MESSAGE = "px-3 py-2 text-one-muted";
 
 /** One row of a list, bar the colours that say whether it is highlighted. */
 export const ROW = "w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
+
+/**
+ * The height a finger needs, for a row or a button that is pressed.
+ *
+ * Apart from `ROW` so a list picks it up one at a time: a row that only the
+ * keyboard moves through gains nothing from being 44px tall. `items-center`
+ * does nothing to a row that is not a flex box and centres the one that is,
+ * a button centring its own text either way.
+ */
+export const TAP = "pointer-coarse:min-h-11 pointer-coarse:items-center";
 
 /** The line under the list, which is empty whenever the list speaks for itself. */
 export const STATUS = "border-t border-one-line px-3 py-1 text-[11px] text-one-muted";

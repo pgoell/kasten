@@ -88,6 +88,19 @@ it("shows the note, the line number and the line", async () => {
   expect(search.rows()[0]).toContain("Postgres holds a derived index.");
 });
 
+it("opens the hit that is tapped", async () => {
+  const search = renderSearch();
+
+  search.type("postgres");
+  await waitFor(() => expect(search.rows()).toHaveLength(2));
+  const row = screen.getAllByRole("option")[1] as HTMLElement;
+  fireEvent.click(row);
+
+  expect(search.onOpen).toHaveBeenCalledWith("reference/deploy.md", 88);
+  // jsdom applies no media query, so the height is read off the class.
+  expect(row).toHaveClass("pointer-coarse:min-h-11");
+});
+
 it("opens the note on the line the match is on", async () => {
   const search = renderSearch();
 

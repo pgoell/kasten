@@ -225,7 +225,12 @@ on, one pane being all there is on screen.
 A window narrower than 768px draws every tab that way, zoomed or not: the
 focused pane alone, the rest hidden and still holding what they held. The
 splits are kept, so they are back when the window widens. `<leader>o` is the
-way to the next pane there, and the footer does not say `zoom` for it.
+way to the next pane there, and the footer does not say `zoom` for it. It
+says `pane 1/2` instead, the pane drawn and how many the tab holds, whenever
+the tab holds more than one.
+
+That window's footer carries the date and the time and leaves out the weekday,
+the week and the version. A notice too long for it is cut short.
 
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
@@ -1954,6 +1959,10 @@ into the finder has to name a path, and the finder never writes.
 | Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the highlighted note |
 | Escape | Close, and hand the focus back |
+
+A click or a tap on a row opens it, as Enter on it would. In a window narrower
+than 768px the list takes the whole panel and the preview is not drawn; the
+same holds for [the note search](#the-note-search).
 
 Tab walks the list rather than completing anything, the way it does in a
 terminal fuzzy finder. There is nothing here to complete: Enter opens the row
