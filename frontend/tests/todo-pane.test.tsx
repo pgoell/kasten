@@ -4,6 +4,7 @@ import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { PRIORITY_SYMBOL } from "@/lib/todo";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 // Standing in for the module rather than for `fetch`, the way the search
 // panel's tests do: what the pane owns is what it asks the vault for, not the
@@ -956,5 +957,65 @@ describe("the todo pane", () => {
 
     await waitFor(() => expect(pane.view()).toBe("no views"));
     expect(pane.rows()).toHaveLength(6);
+  });
+});
+
+describe("the todo pane by touch", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const row = (text: string) =>
+    screen
+      .getAllByRole("button")
+      .find((button) => button.title !== "" && button.textContent?.includes(text));
+
+  it("draws no button a mouse does not need", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    expect(screen.queryByLabelText("add todo")).toBeNull();
+    expect(screen.queryByLabelText(/^cycle /)).toBeNull();
+  });
+
+  it("opens the source line on a tap of the row", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(row("buy milk") as HTMLElement);
+
+    expect(pane.onOpen).toHaveBeenCalledWith("projects/kasten.md", 20);
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("cycles the state on a tap of the state, and opens nothing", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("cycle buy milk"));
+
+    // The hit and no state, which is what `x` sends.
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[3]);
+    expect(pane.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("keeps the row the only tab stop", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    const stops = screen.getAllByRole("button").filter((button) => button.tabIndex === 0);
+    expect(stops.filter((button) => button.title !== "")).toHaveLength(1);
+    expect(screen.getByLabelText("cycle buy milk").tabIndex).toBe(-1);
+  });
+
+  it("opens the add prompt from a button", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("add todo"));
+
+    expect(pane.onAdd).toHaveBeenCalledTimes(1);
   });
 });

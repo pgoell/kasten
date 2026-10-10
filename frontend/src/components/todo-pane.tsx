@@ -35,6 +35,7 @@ import {
   VIEWS_NOTE,
   waiting,
 } from "@/lib/todo-view";
+import { useViewport } from "@/lib/use-viewport";
 
 /** One line the vault answered with, read once. A line is one or the other. */
 interface Read {
@@ -278,6 +279,8 @@ export function TodoPane({
   /** Set as a create goes out, so a second press does not send another. */
   const making = useRef(false);
   const queryClient = useQueryClient();
+  // A finger has no `x` and no `a`, so a touch screen draws the two as buttons.
+  const { coarse } = useViewport();
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
 
@@ -770,6 +773,16 @@ export function TodoPane({
             {named}
           </span>
         )}
+        {coarse && (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label="add todo"
+            className="min-h-11 min-w-11 shrink-0 text-one-muted"
+          >
+            +
+          </button>
+        )}
       </header>
 
       <div className="flex-1 overflow-auto py-1">
@@ -844,7 +857,7 @@ export function TodoPane({
                   );
                 }
 
-                return (
+                const row = (
                   <button
                     key={key}
                     type="button"
@@ -852,15 +865,16 @@ export function TodoPane({
                     tabIndex={tabIndex}
                     onClick={() => onOpen(hit.path, hit.line)}
                     title={key}
-                    style={indent}
+                    // The state button in front carries the indent on touch.
+                    style={coarse ? { paddingLeft: 0 } : indent}
                     // A blocked row is drawn muted rather than gathered under a
                     // heading of its own: its state is written on the line, and
                     // the date group is still where the work belongs.
                     className={`${ROW} flex gap-2 ${
                       todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
-                    } ${tabIndex === 0 ? CURSOR : ""}`}
+                    } ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
                   >
-                    <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>
+                    {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
                     {/* Leftmost of what a row carries beyond its state, so
                         scanning the list finds what is going. */}
                     {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
@@ -899,6 +913,29 @@ export function TodoPane({
                       </span>
                     )}
                   </button>
+                );
+                if (!coarse) return row;
+
+                // The state drawn as a button of its own, beside the row
+                // rather than inside it: a tap on the row opens the note, and
+                // a button cannot hold another. Out of the tab order, so the
+                // row is still the pane's one stop.
+                return (
+                  <div key={key} className="flex">
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => onCycle(hit)}
+                      aria-label={`cycle ${todo.text}`}
+                      style={indent}
+                      className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
+                        todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
+                      }`}
+                    >
+                      {STATE_SYMBOL[todo.state]}
+                    </button>
+                    {row}
+                  </div>
                 );
               })}
             </div>
