@@ -254,8 +254,10 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
           // A button because a phone has no `n`: a tap is the next video, and
           // the wrap is what reaches the ones behind. The cursor goes back to
           // the pane, or the leader's space would press the button again.
+          // Out of the tab order for the same reason: the keyboard has `n`.
           <button
             type="button"
+            tabIndex={-1}
             aria-label="next video"
             onClick={() => {
               step(1);

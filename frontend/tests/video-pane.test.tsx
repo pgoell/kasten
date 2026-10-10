@@ -170,6 +170,7 @@ describe("the video pane", () => {
 
     const next = await screen.findByRole("button", { name: "next video" });
     expect(next).toHaveClass("pointer-coarse:min-h-11");
+    expect(next).toHaveAttribute("tabindex", "-1");
     fireEvent.click(next);
 
     expect(await screen.findByTitle("video")).toHaveAttribute(
