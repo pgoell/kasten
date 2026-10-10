@@ -5,11 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <title>kasten</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#282c34" />
     <!-- use-credentials, because the whole site sits behind oauth2-proxy and a
          manifest is fetched without cookies by default: it would get the
          sign-in redirect instead of the JSON. -->
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
-    <link rel="apple-touch-icon" href="/icons/capture-192.png" />
+    <!-- Safari reads the manifest for how the app opens, and these tags for
+         the home screen icon, which it takes from no manifest, and for the
+         status bar. The capable tag has two names: the first is the one Chrome
+         asks for, the second the one an older Safari needs. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="kasten" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <link rel="apple-touch-icon" href="/icons/app-maskable-512.png" />
   </head>
   <body>
     <div id="root"></div>
