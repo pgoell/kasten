@@ -320,3 +320,4 @@
 ## 2026-10-10
 
 * **Update**: the page's viewport meta gained `interactive-widget=resizes-content`, so the layout shrinks when an on-screen keyboard opens and nothing sits under the keyboard. A new hook, `useViewport` in `frontend/src/lib/use-viewport.ts`, answers whether the window is narrower than 768px and whether the primary pointer is coarse. No component reads the hook yet, so no page of these docs changes.
+* **Update**: a window narrower than 768px draws the file tree as a drawer over the page, closed to begin with, and draws the focused pane of a tab alone, the splits coming back when the window widens. The tab strip scrolls sideways at any width and keeps the tab on screen in view. [The file tree](/reference/editor-keys.md#the-file-tree) and [Panes and tabs](/reference/editor-keys.md#panes-and-tabs) say so.

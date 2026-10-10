@@ -222,6 +222,11 @@ turns it off, which is what tmux does, so `<leader>o` moves to the next pane
 and unzooms in one press. The four directions have nowhere to go while it is
 on, one pane being all there is on screen.
 
+A window narrower than 768px draws every tab that way, zoomed or not: the
+focused pane alone, the rest hidden and still holding what they held. The
+splits are kept, so they are back when the window widens. `<leader>o` is the
+way to the next pane there, and the footer does not say `zoom` for it.
+
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
 nothing to tell it apart from.
@@ -239,7 +244,8 @@ tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
 left focused, for the herdr session when that pane holds a terminal, and
-`todos` when it holds the todo list.
+`todos` when it holds the todo list. More tabs than the window is wide scroll
+sideways, and the strip keeps the tab on screen in view.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
 holding a note it writes the note and empties the pane, and it takes a terminal
@@ -1779,6 +1785,11 @@ fills the screen and says nothing about which note in the vault opened it.
 | `d` | Delete the note, image or folder under the cursor |
 | `q` | Close the file tree |
 | Escape | Back to the editor |
+
+In a window narrower than 768px the tree is a drawer over the page rather than
+a panel beside it. It starts closed, the button on the rail at the left edge
+and `<leader>b` open it, and it has no grip to resize it by. A tap outside it
+closes it, and so does opening a note, an image or a page from it.
 
 The tree draws the vault's images beside its notes, muted, keeping the suffix a
 note's row drops: the vault holds one kind of note and five kinds of image. They

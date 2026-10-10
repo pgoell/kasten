@@ -16,6 +16,7 @@ import {
   sectionsOf,
   selectIn,
 } from "./foliate-fake";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
 
@@ -1196,6 +1197,53 @@ describe("the route", () => {
     });
 
     expect(app.focusedPane()).toBe(1);
+  });
+
+  describe("in a narrow window", () => {
+    /** The panes the tab is drawing, as opposed to the ones it only holds. */
+    const drawn = () =>
+      [...document.querySelectorAll("[data-pane]")].filter(
+        (pane) => !pane.classList.contains("hidden"),
+      );
+
+    it("starts with the tree shut, and shuts it again on the note a tap opens", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+
+      expect(app.tree()).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Show file tree" }));
+      app.click("index.md");
+      await settle();
+
+      expect(app.text()).toBe("the index note");
+      expect(app.tree()).toBeNull();
+    });
+
+    it("draws the focused pane alone, and gives the split back when the window widens", async () => {
+      const media = stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+
+      app.leader("%");
+      await settle();
+
+      expect(app.panes()).toBe(2);
+      expect(drawn()).toHaveLength(1);
+      const first = drawn()[0];
+
+      // The command the toolbar's button will call, reached here by its key.
+      app.leader("o");
+      await settle();
+
+      expect(drawn()).toHaveLength(1);
+      expect(drawn()[0]).not.toBe(first);
+
+      media.set(NARROW, false);
+
+      expect(drawn()).toHaveLength(2);
+    });
   });
 });
 

@@ -105,6 +105,7 @@ import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useNoteWrites } from "@/lib/use-note-writes";
+import { useViewport } from "@/lib/use-viewport";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { setWatched } from "@/lib/video";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
@@ -295,7 +296,11 @@ function Home() {
   });
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
-  const [treeOpen, setTreeOpen] = useState(true);
+  //
+  // Shut to begin with below `md`, where it is a drawer over the page and not a
+  // panel beside it. Read once: a window dragged narrow keeps what it had.
+  const { narrow } = useViewport();
+  const [treeOpen, setTreeOpen] = useState(!narrow);
   // Above the remount that opening another note causes, so turning the
   // rendering off stays off until you turn it back on.
   const [preview, setPreview] = useState(true);
@@ -1817,7 +1822,11 @@ function Home() {
               divided={tabPanes(layout).length > 1}
               // The focused pane is the one drawn alone, always: every key
               // that moves the focus turns the zoom off on its way past.
-              zoomed={tab.zoom === true ? tab.focus : null}
+              //
+              // Below `md` every tab is drawn that way, a split of 390px being
+              // strips nobody can read. The tree is left as it is and so is
+              // `tab.zoom`, so the splits are back when the window widens.
+              zoomed={narrow || tab.zoom === true ? tab.focus : null}
               // The one way to another pane that `moveTo` does not stand in
               // front of, and it stays that way on purpose. This is reported
               // after the browser has moved the focus, so declining it would

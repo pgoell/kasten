@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type ComponentProps, useState } from "react";
 import { FileExplorer } from "@/components/file-explorer";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 // Sorted the way the backend serves it. `projects/kasten.md` and the folder
 // `projects/kasten/` share a name on purpose: the vault allows both.
@@ -1072,5 +1073,78 @@ describe("FileExplorer drag and drop", () => {
     renderTree({ html: ["report.html"] });
 
     expect(screen.getByText("report.html").closest("button")).toHaveAttribute("draggable", "false");
+  });
+});
+
+describe("FileExplorer in a narrow window", () => {
+  beforeEach(() => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is a drawer with no grip, at a width of its own", () => {
+    renderTree();
+
+    expect(screen.queryByRole("separator")).toBeNull();
+    const drawer = screen.getByRole("navigation", { name: "Vault" }).closest("aside");
+    expect(drawer).toHaveClass("fixed");
+    expect(drawer?.style.width).toBe("");
+  });
+
+  it("closes on a tap outside it", () => {
+    renderTree();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close file tree" }));
+
+    expect(screen.queryByRole("navigation", { name: "Vault" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show file tree" })).toBeInTheDocument();
+  });
+
+  it("closes on the note a tap opens", () => {
+    const onOpenFile = vi.fn();
+    renderTree({ onOpenFile });
+
+    fireEvent.click(screen.getByTitle("index.md"));
+
+    expect(onOpenFile).toHaveBeenCalledWith("index.md");
+    expect(screen.queryByRole("navigation", { name: "Vault" })).toBeNull();
+  });
+
+  it("closes on the image and the page a tap opens, and on Enter", () => {
+    const onOpenImage = vi.fn();
+    const onOpenHtml = vi.fn();
+    const onOpenChange = vi.fn();
+    renderTree({
+      images: ["cat.png"],
+      html: ["page.html"],
+      onOpenImage,
+      onOpenHtml,
+      onOpenChange,
+    });
+
+    fireEvent.click(screen.getByTitle("cat.png"));
+    fireEvent.click(screen.getByTitle("page.html"));
+
+    expect(onOpenImage).toHaveBeenCalledWith("cat.png");
+    expect(onOpenHtml).toHaveBeenCalledWith("page.html");
+    expect(onOpenChange.mock.calls).toEqual([[false], [false]]);
+
+    // Down off the folder the cursor starts on, onto the first note in it.
+    press("j");
+    press("Enter");
+
+    expect(onOpenChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("stays open on a note opened in a wide window", () => {
+    vi.unstubAllGlobals();
+    renderTree();
+
+    fireEvent.click(screen.getByTitle("index.md"));
+
+    expect(screen.getByRole("navigation", { name: "Vault" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
   });
 });

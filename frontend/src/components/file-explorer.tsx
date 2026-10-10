@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { heldModifier, leaderAction, leaderPrefix, type TreeCommands } from "@/lib/key-bindings";
 import { dropTarget, type MoveMode } from "@/lib/move";
+import { useViewport } from "@/lib/use-viewport";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -450,6 +451,10 @@ function PanelIcon() {
 /**
  * The vault's file tree, in a panel that folds away to a narrow rail.
  *
+ * Below `md` the panel is a drawer over the page instead: 256px beside a note
+ * leaves 134px of a phone for the note. The rail stays in the row either way,
+ * so the page under the drawer does not move when it opens.
+ *
  * Clicking a note reports its path and nothing more. Which note is open is the
  * caller's business, and it keeps that in the URL.
  */
@@ -476,6 +481,7 @@ export function FileExplorer({
   // named in the URL has to be visible, or a reload lands on a tree that has
   // hidden what it is showing you.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => ancestors(openPath));
+  const { narrow } = useViewport();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   /** Where the pointer went down, and how wide the panel was then. */
   const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
@@ -776,7 +782,7 @@ export function FileExplorer({
         else if (folder) setActive(Math.min(cursor + 1, rows.length - 1));
         else if (row) {
           const file = row.node.kind === "file" ? row.node : null;
-          if (file) opener(file, onOpenFile, onOpenImage, onOpenHtml)(file.path);
+          if (file) opener(file, openFile, openImage, openHtml)(file.path);
         }
         break;
       default:
@@ -784,6 +790,16 @@ export function FileExplorer({
     }
     event.preventDefault();
   }
+
+  // A drawer covers the pane the row opens into, so it gets out of the way.
+  // Here rather than in the route, so a click and `l` close it alike.
+  const closing = (report: (path: string) => void) => (path: string) => {
+    report(path);
+    if (narrow) onOpenChange(false);
+  };
+  const openFile = closing(onOpenFile);
+  const openImage = closing(onOpenImage);
+  const openHtml = closing(onOpenHtml);
 
   function toggleFolder(path: string) {
     setExpanded((previous) => {
@@ -806,18 +822,24 @@ export function FileExplorer({
     </button>
   );
 
-  if (!open) {
-    return (
-      <div className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1">
-        {toggle}
-      </div>
-    );
-  }
+  const rail = (
+    <div className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1">
+      {toggle}
+    </div>
+  );
 
-  return (
+  if (!open) return rail;
+
+  const panel = (
     <aside
-      style={{ width }}
-      className="relative flex shrink-0 flex-col border-r border-one-line bg-one-panel font-mono"
+      // No dragged width in a drawer: it has no grip to have set one, and a
+      // width carried over from a wide window could cover the whole phone.
+      style={narrow ? undefined : { width }}
+      // z-15 puts the drawer over what a pane draws at z-10 and under the
+      // prompts at z-20, so a prompt opened from the tree is not behind it.
+      className={`flex flex-col border-r border-one-line bg-one-panel font-mono ${
+        narrow ? "fixed inset-y-0 left-0 z-15 w-72 max-w-[85vw]" : "relative shrink-0"
+      }`}
     >
       <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3">
         <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
@@ -856,21 +878,40 @@ export function FileExplorer({
             openPath={openPath}
             cursorKey={cursorKey}
             onToggleFolder={toggleFolder}
-            onOpenFile={onOpenFile}
-            onOpenImage={onOpenImage}
-            onOpenHtml={onOpenHtml}
+            onOpenFile={openFile}
+            onOpenImage={openImage}
+            onOpenHtml={openHtml}
             drag={rowDrag}
           />
         )}
       </nav>
 
-      <Grip
-        width={width}
-        dragging={drag !== null}
-        onResizeStart={(x) => setDrag({ x, width })}
-        onResizeBy={(delta) => setWidth(clampWidth(width + delta))}
-        onReset={() => setWidth(DEFAULT_WIDTH)}
-      />
+      {!narrow && (
+        <Grip
+          width={width}
+          dragging={drag !== null}
+          onResizeStart={(x) => setDrag({ x, width })}
+          onResizeBy={(delta) => setWidth(clampWidth(width + delta))}
+          onReset={() => setWidth(DEFAULT_WIDTH)}
+        />
+      )}
     </aside>
+  );
+
+  if (!narrow) return panel;
+
+  return (
+    <>
+      {rail}
+      {/* A button rather than a div with a click handler, so the way out has a
+          name and a key. */}
+      <button
+        type="button"
+        aria-label="Close file tree"
+        onClick={() => onOpenChange(false)}
+        className="fixed inset-0 z-15 bg-black/50"
+      />
+      {panel}
+    </>
   );
 }
