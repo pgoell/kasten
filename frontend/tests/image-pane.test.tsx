@@ -32,6 +32,7 @@ function pinchOut() {
 
 describe("gesture", () => {
   const centre = { x: 100, y: 100 };
+  const size = { x: 200, y: 200 };
   const fitted = { scale: 1, x: 0, y: 0 };
 
   it("scales by the ratio of the distances and keeps the midpoint where it was", () => {
@@ -48,6 +49,7 @@ describe("gesture", () => {
         { x: 180, y: 100 },
       ],
       centre,
+      size,
     );
 
     expect(next).toEqual({ scale: 2, x: -40, y: 0 });
@@ -65,6 +67,7 @@ describe("gesture", () => {
         { x: 120, y: 130 },
       ],
       centre,
+      size,
     );
 
     expect(next).toEqual({ scale: 2, x: 10, y: 30 });
@@ -80,26 +83,54 @@ describe("gesture", () => {
       { x: 55, y: 0 },
     ];
 
-    expect(gesture({ scale: 2, x: 30, y: 30 }, apart, close, centre)).toEqual(fitted);
-    expect(gesture({ scale: 4, x: 0, y: 0 }, close, apart, centre).scale).toBe(8);
+    expect(gesture({ scale: 2, x: 30, y: 30 }, apart, close, centre, size)).toEqual(fitted);
+    expect(gesture({ scale: 4, x: 0, y: 0 }, close, apart, centre, size).scale).toBe(8);
   });
 
   it("drags a zoomed picture with one pointer and leaves a fitted one alone", () => {
     const before = [{ x: 10, y: 10 }];
     const after = [{ x: 25, y: 5 }];
 
-    expect(gesture({ scale: 2, x: 1, y: 1 }, before, after, centre)).toEqual({
+    expect(gesture({ scale: 2, x: 1, y: 1 }, before, after, centre, size)).toEqual({
       scale: 2,
       x: 16,
       y: -4,
     });
-    expect(gesture(fitted, before, after, centre)).toBe(fitted);
+    expect(gesture(fitted, before, after, centre, size)).toBe(fitted);
+  });
+
+  it("stops a drag where the picture's edge meets the box's", () => {
+    // Twice the box hangs half the box over each side: 100 of 200, 50 of 100.
+    const far = gesture({ scale: 2, x: 0, y: 0 }, [{ x: 0, y: 0 }], [{ x: 900, y: -900 }], centre, {
+      x: 200,
+      y: 100,
+    });
+
+    expect(far).toEqual({ scale: 2, x: 100, y: -50 });
+  });
+
+  it("stops a pinch that moves there too", () => {
+    const next = gesture(
+      { scale: 2, x: 0, y: 0 },
+      [
+        { x: 90, y: 100 },
+        { x: 110, y: 100 },
+      ],
+      [
+        { x: 590, y: 100 },
+        { x: 610, y: 100 },
+      ],
+      centre,
+      size,
+    );
+
+    expect(next).toEqual({ scale: 2, x: 100, y: 0 });
   });
 
   it("ignores two pointers on one spot", () => {
     const spot = { x: 5, y: 5 };
 
-    expect(gesture(fitted, [spot, spot], [{ x: 0, y: 0 }, spot], centre)).toBe(fitted);
+    expect(gesture(fitted, [spot, spot], [{ x: 0, y: 0 }, spot], centre, size)).toBe(fitted);
   });
 });
 
@@ -107,7 +138,17 @@ describe("the image pane by touch", () => {
   beforeEach(() => {
     // jsdom has no pointer capture.
     HTMLElement.prototype.setPointerCapture = vi.fn();
+    // Nor a layout: every box measures nothing, which would hold the picture
+    // at the middle. 400 square around the origin, so the centre stays there.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: -200,
+      top: -200,
+      width: 400,
+      height: 400,
+    } as DOMRect);
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it("starts fitted, on a surface the browser does not scroll or zoom", () => {
     open();
@@ -145,6 +186,36 @@ describe("the image pane by touch", () => {
     fireEvent.pointerUp(surface(), { pointerId: 2 });
     fireEvent.pointerMove(surface(), { pointerId: 1, clientX: -140, clientY: 20 });
 
+    expect(transform()).toBe("translate(-40px, 20px) scale(2)");
+  });
+
+  it("keeps a zoomed picture's edge in the box however far the finger goes", () => {
+    open();
+    pinchOut();
+
+    fireEvent.pointerUp(surface(), { pointerId: 2 });
+    fireEvent.pointerMove(surface(), { pointerId: 1, clientX: 5000, clientY: -5000 });
+
+    expect(transform()).toBe("translate(200px, -200px) scale(2)");
+  });
+
+  it("leaves a mouse alone on a fitted picture, and lets it drag a zoomed one", () => {
+    open();
+    const mouse = { pointerId: 9, pointerType: "mouse" };
+
+    fireEvent.pointerDown(surface(), { ...mouse, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(surface(), { ...mouse, clientX: 40, clientY: 40 });
+    fireEvent.pointerUp(surface(), mouse);
+
+    expect(HTMLElement.prototype.setPointerCapture).not.toHaveBeenCalled();
+
+    pinchOut();
+    fireEvent.pointerUp(surface(), { pointerId: 1 });
+    fireEvent.pointerUp(surface(), { pointerId: 2 });
+    fireEvent.pointerDown(surface(), { ...mouse, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(surface(), { ...mouse, clientX: 10, clientY: 20 });
+
+    expect(HTMLElement.prototype.setPointerCapture).toHaveBeenCalledWith(9);
     expect(transform()).toBe("translate(-40px, 20px) scale(2)");
   });
 

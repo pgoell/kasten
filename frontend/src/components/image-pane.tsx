@@ -39,16 +39,40 @@ const FITTED: Zoom = { scale: 1, x: 0, y: 0 };
 const MAX_SCALE = 8;
 
 /**
+ * The zoom with its offset held inside the box, `size` being the box's width
+ * and height.
+ *
+ * A picture `scale` times the box hangs over each side by half of what it
+ * grew, and that is as far as it may move: any further and the box shows
+ * empty space, and far enough further it shows nothing to drag back.
+ */
+function bounded({ scale, x, y }: Zoom, size: Point): Zoom {
+  const most = { x: ((scale - 1) * size.x) / 2, y: ((scale - 1) * size.y) / 2 };
+  return {
+    scale,
+    x: Math.min(most.x, Math.max(-most.x, x)),
+    y: Math.min(most.y, Math.max(-most.y, y)),
+  };
+}
+
+/**
  * Where one move of the pointers on the picture leaves it.
  *
  * `before` and `after` are the same pointers either side of the move, and
  * `centre` is the middle of the box, which is where the fitted picture's own
- * middle sits and so what its transform is measured from. One pointer drags a
+ * middle sits and so what its transform is measured from. `size` is the box's
+ * width and height, which the offset is kept within. One pointer drags a
  * picture that has been zoomed into. Two pinch it: the scale follows the
  * distance between them and the point under their midpoint stays under it,
  * which makes a pinch that moves a pan as well.
  */
-export function gesture(zoom: Zoom, before: Point[], after: Point[], centre: Point): Zoom {
+export function gesture(
+  zoom: Zoom,
+  before: Point[],
+  after: Point[],
+  centre: Point,
+  size: Point,
+): Zoom {
   const [wasA, wasB] = before;
   const [isA, isB] = after;
   // No pointer down is no move at all.
@@ -57,7 +81,10 @@ export function gesture(zoom: Zoom, before: Point[], after: Point[], centre: Poi
   if (!wasB || !isB) {
     // A fitted picture has nowhere to go, and dragging it would only lose it.
     if (zoom.scale === 1) return zoom;
-    return { scale: zoom.scale, x: zoom.x + isA.x - wasA.x, y: zoom.y + isA.y - wasA.y };
+    return bounded(
+      { scale: zoom.scale, x: zoom.x + isA.x - wasA.x, y: zoom.y + isA.y - wasA.y },
+      size,
+    );
   }
 
   const spread = Math.hypot(wasA.x - wasB.x, wasA.y - wasB.y);
@@ -73,11 +100,10 @@ export function gesture(zoom: Zoom, before: Point[], after: Point[], centre: Poi
   const ratio = scale / zoom.scale;
   const from = { x: (wasA.x + wasB.x) / 2 - centre.x, y: (wasA.y + wasB.y) / 2 - centre.y };
   const to = { x: (isA.x + isB.x) / 2 - centre.x, y: (isA.y + isB.y) / 2 - centre.y };
-  return {
-    scale,
-    x: to.x + (zoom.x - from.x) * ratio,
-    y: to.y + (zoom.y - from.y) * ratio,
-  };
+  return bounded(
+    { scale, x: to.x + (zoom.x - from.x) * ratio, y: to.y + (zoom.y - from.y) * ratio },
+    size,
+  );
 }
 
 /**
@@ -167,6 +193,9 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   }
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    // A mouse cannot pinch, so on a fitted picture it has nothing to do, and
+    // holding it would draw the pane again on every move of a drag.
+    if (event.pointerType === "mouse" && zoom.scale === 1) return;
     // Captured so a drag that leaves the box still ends here, and the pointer
     // is not left in the map as a finger that never lifted.
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -183,10 +212,11 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
     const after = [...held.values()];
     const box = event.currentTarget.getBoundingClientRect();
     const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    const size = { x: box.width, y: box.height };
 
     setZoomed((last) => ({
       path,
-      zoom: gesture(last.path === path ? last.zoom : FITTED, before, after, centre),
+      zoom: gesture(last.path === path ? last.zoom : FITTED, before, after, centre, size),
     }));
   }
 
