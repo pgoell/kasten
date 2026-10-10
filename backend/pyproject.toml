@@ -3,7 +3,7 @@ name = "kasten-backend"
 # The number the next release carries, and the only place it is written. The
 # deploy workflow refuses a release whose tag says something else. See
 # docs/how-to/cut-a-release.md.
-version = "0.36.0"
+version = "0.37.0"
 description = "kasten HTTP backend (FastAPI) over a markdown vault"
 license = "AGPL-3.0-only"
 authors = [
