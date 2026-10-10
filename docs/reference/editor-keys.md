@@ -95,19 +95,32 @@ With the keyboard up, the cursor's line, the status bar and the toolbar all
 stay above it. Chrome on Android shrinks the page for the keyboard. Safari on
 iOS covers the page instead, so there the frame reads `window.visualViewport`
 and pads away the covered part. A prompt, the palette, the finder and the
-search stop at the top of the keyboard the same way, input first.
+search stop at the top of the keyboard the same way, input first. A zoomed
+page is padded too: Safari zooms by itself when an input drawn under 16px
+takes the focus, and stays zoomed. Under a coarse pointer every input is 16px
+for that reason: the prompts, the todo pane's filter and edit line, the
+graph's query, the review's two fields and the token name.
 
-A tap does not raise the keyboard by itself. The editor takes the focus after
-a key moves to its pane or opens its note, and not after a tap does: a tap on
-`pane`, on a row of the tree or on a row of the finder shows the note, and a
-tap on its text is what starts typing. An editor that holds the focus keeps
-it. This goes by the last input and not by the device, so a tablet with a
-keyboard attached gets the focus after its keys. Before any input a touch
-screen counts as tapped, so a page that has just loaded focuses nothing there.
+On a phone a tap does not raise the keyboard by itself. The editor takes the
+focus after a key moves to its pane or opens its note, and not after a tap
+does: a tap on `pane`, on a row of the tree or on a row of the finder shows the
+note, and a tap on its text is what starts typing. An editor that holds the
+focus keeps it, and coming back to the tab hands it none. This goes by the
+last input, so a phone with a keyboard attached gets the focus after its keys.
+Before any input a touch screen counts as tapped, so a page that has just
+loaded focuses nothing there.
+
+The rule holds below 768px only. A wide touch screen keeps the tree open
+beside the note, and a tapped row would keep the focus: the next keys typed
+would be the tree's, where `d` deletes. So there the editor takes the focus
+after a tap as it does after a click.
 
 Every panel over the page closes on a tap or a click outside it: the palette,
-the finder, the search, the prompts and the keys panel. A press inside the
-panel closes nothing.
+the finder, the search, the prompts and the keys panel. It closes on the
+release, so nothing under it is pressed by the same tap. A press inside the
+panel closes nothing, and neither does a selection dragged out of the input.
+A prompt holding something typed stays open too: the note, todo, dump and clip
+prompts close only on Escape once their input has changed.
 
 Still keys only on a touch screen: renaming or deleting a folder, renaming or
 deleting a note or an image from its row in the tree without opening it, moving
@@ -1167,7 +1180,8 @@ does, and the header carries a `+` that adds one as `a` does. Under the header
 `done`, `next` and `view` do what `d`, `n` and `v` do. Each row ends in a `⋯`
 that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
 `blocked` and `rejected` set the state as `O`, `P`, `X`, `B` and `R` do,
-`timer` is `t`, `part` is `s` and `edit` is `i`. For five seconds
+`timer` is `t`, `part` is `s` and `edit` is `i`. `edit` does nothing while
+another row is being edited. For five seconds
 after such a tap the foot of the pane carries an `Undo`, which puts the todo
 back in the state the first tap found it in, so two taps too many cost one.
 It is not offered where it could not make the line whole: when the tap
@@ -2011,7 +2025,9 @@ again. No key zooms. What it is for is looking at a picture the
 vault holds without first writing a note that points at it. `d` there deletes
 the image in front of you, the same key the tree spends on a row, and the pane
 empties. On a touch screen the header carries a `delete` button that does the
-same on its second tap, the first turning it to `delete?`. `<leader>w` downloads the picture under its own name, so
+same on its second tap, the first turning it to `delete?`. A press on the
+picture or five seconds takes the question back. `<leader>w` downloads the
+picture under its own name, so
 `99 Misc/shot.png` arrives in your downloads as `shot.png`.
 
 An image goes into the trash the way a note does, and `<leader>du` puts the last
