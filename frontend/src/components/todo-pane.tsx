@@ -286,7 +286,11 @@ export function TodoPane({
   // A finger has no `x` and no `a`, so a touch screen draws the two as buttons.
   const { coarse } = useViewport();
   /**
-   * The row whose state button has been tapped once, by its key.
+   * The row whose state button has been tapped once, by its key and its text.
+   *
+   * The text as well, because the key is a path and a line: a write from
+   * elsewhere can put another todo on that line while the question stands, and
+   * the second tap would then cycle a todo nobody asked about.
    *
    * A finger slips where a key does not, and a cycle writes to the vault with
    * no way back, so the first tap asks and the second is the one that writes.
@@ -946,7 +950,8 @@ export function TodoPane({
                 // rather than inside it: a tap on the row opens the note, and
                 // a button cannot hold another. Out of the tab order, so the
                 // row is still the pane's one stop.
-                const asking = armed === key;
+                const arming = `${key}\n${hit.text}`;
+                const asking = armed === arming;
                 // What the second tap would leave, drawn so the question says
                 // what it is asking. Nothing where the cycle leaves no todo.
                 const next = asking ? parseTodo(cycleLine(hit.text, today, ""))?.state : undefined;
@@ -956,7 +961,7 @@ export function TodoPane({
                       type="button"
                       tabIndex={-1}
                       onClick={() => {
-                        setArmed(asking ? null : key);
+                        setArmed(asking ? null : arming);
                         if (asking) onCycle(hit);
                       }}
                       aria-label={`cycle ${todo.text}`}
