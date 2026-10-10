@@ -14,6 +14,7 @@ import {
   sectionsOf,
   selectIn,
 } from "./foliate-fake";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
 const { fetchBook, fetchNote, uploadAsset } = vi.hoisted(() => ({
@@ -1450,5 +1451,153 @@ describe("drawing the note's highlights", () => {
 
     expect(FakeView.made).toHaveLength(1);
     expect(lastView().closes).toBe(0);
+  });
+});
+
+describe("a book under a finger", () => {
+  beforeEach(() => {
+    resetFoliateFake();
+    fetchBook.mockResolvedValue({ path: BOOK, blob: new Blob(["a book"]) });
+    fetchNote.mockResolvedValue("");
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.resetAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  /** A box 400 wide at the window's left edge, which is the pane and the frame both. */
+  const BOX = { left: 0, top: 0, width: 400, height: 600 } as DOMRect;
+
+  /**
+   * Draw a book whose section sits in a frame, which no jsdom document does.
+   *
+   * The fake's section comes from `createHTMLDocument` and has no
+   * `defaultView`, so the frame is arranged here: an iframe the size of the
+   * pane, and a rectangle for every range, jsdom laying nothing out.
+   */
+  async function opened(phone = true) {
+    if (phone) stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = draw();
+    await waitFor(() => expect(lastView().started).toBe(true));
+
+    const frame = document.createElement("iframe");
+    frame.getBoundingClientRect = () => BOX;
+    Object.defineProperty(frame, "offsetWidth", { value: BOX.width });
+    (pane.wrapper() as HTMLElement).getBoundingClientRect = () => BOX;
+    const doc = lastView().section;
+    Object.defineProperty(doc, "defaultView", { value: { frameElement: frame } });
+    doc.createRange = () => {
+      const range = Document.prototype.createRange.call(doc);
+      range.getClientRects = () => [BOX] as unknown as DOMRectList;
+      return range;
+    };
+
+    act(() => lastView().emitLoad());
+    return pane;
+  }
+
+  /** Tap the page `x` pixels from the pane's left edge, on `target` or on the body. */
+  function tap(x: number, target: Element = lastView().section.body) {
+    act(() => {
+      target.dispatchEvent(
+        new MouseEvent("click", { clientX: x, bubbles: true, cancelable: true }),
+      );
+    });
+  }
+
+  it("turns the page forward on a tap near the right edge", async () => {
+    await opened();
+
+    tap(350);
+
+    expect(lastView().nexts).toBe(1);
+    expect(lastView().prevs).toBe(0);
+  });
+
+  it("turns the page back on a tap near the left edge", async () => {
+    await opened();
+
+    tap(50);
+
+    expect(lastView().prevs).toBe(1);
+    expect(lastView().nexts).toBe(0);
+  });
+
+  it("turns nothing on a tap in the middle of the page", async () => {
+    await opened();
+
+    tap(200);
+
+    expect(lastView().nexts + lastView().prevs).toBe(0);
+  });
+
+  it("leaves a tap on a link to the link", async () => {
+    await opened();
+    const doc = lastView().section;
+    const link = doc.createElement("a");
+    link.href = "ch2.xhtml";
+    doc.body.append(link);
+
+    tap(350, link);
+
+    expect(lastView().nexts).toBe(0);
+  });
+
+  it("turns nothing while words are selected", async () => {
+    await opened();
+    selects("A sentence worth keeping.");
+
+    tap(350);
+
+    expect(lastView().nexts).toBe(0);
+  });
+
+  it("leaves a click at the edge alone under a mouse", async () => {
+    await opened(false);
+
+    tap(350);
+
+    expect(lastView().nexts).toBe(0);
+  });
+
+  it("opens the contents from the footer, the way t does", async () => {
+    FakeView.toc = CHAPTERS;
+    await opened();
+
+    act(() => screen.getByRole("button", { name: "Contents" }).click());
+
+    expect(rows()).toEqual(["One", "Two"]);
+  });
+
+  it("takes a selection from the footer, the way y does", async () => {
+    const pane = await opened();
+    lastView().lastLocation = { cfi: CFI, tocItem: CHAPTERS[0] };
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+
+    selects("A sentence worth keeping.");
+    // In the footer and not floating over the words, where the phone draws its
+    // own copy menu.
+    const button = pane.container.querySelector("footer [data-take]") as HTMLElement;
+    await act(async () => button.click());
+
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "A sentence worth keeping.",
+      chapter: "One",
+      image: undefined,
+    });
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+  });
+
+  it("draws neither button in the footer under a mouse", async () => {
+    const pane = await opened(false);
+
+    selects("A sentence worth keeping.");
+
+    expect(screen.queryByRole("button", { name: "Contents" })).toBeNull();
+    expect(pane.container.querySelector("footer [data-take]")).toBeNull();
+    // The mouse's own button, over the words, is still the one that is drawn.
+    expect(pane.container.querySelector("[data-take]")).not.toBeNull();
   });
 });

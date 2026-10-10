@@ -213,6 +213,24 @@ describe("the contents over a book", () => {
     expect(contents.onGo).toHaveBeenCalledWith("Three.xhtml");
   });
 
+  it("closes on a tap on the dark around the panel", () => {
+    // The only way out a touch screen has, there being no Escape on one.
+    const contents = drawContents(CHAPTERS);
+
+    fireEvent.click(contents.dialog);
+
+    expect(contents.onClose).toHaveBeenCalledTimes(1);
+    expect(contents.onGo).not.toHaveBeenCalled();
+  });
+
+  it("stays open on a tap inside the panel", () => {
+    const contents = drawContents(CHAPTERS);
+
+    fireEvent.click(screen.getByText("contents"));
+
+    expect(contents.onClose).not.toHaveBeenCalled();
+  });
+
   it("closes on Escape and goes nowhere", () => {
     const contents = drawContents(CHAPTERS);
 
