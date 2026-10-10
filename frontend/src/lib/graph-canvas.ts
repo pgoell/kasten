@@ -2,7 +2,8 @@
  * The graph drawn on a canvas, force-directed, the way Obsidian's is.
  *
  * A thin layer over `force-graph`, which owns the simulation, the zoom, the
- * drag and the hit testing. What is here is the look: each note a dot sized by
+ * drag and the hit testing, by finger as by mouse: one finger pans or drags a
+ * note, two pinch, a tap opens. What is here is the look: each note a dot sized by
  * its links and coloured by its type, a typed relation drawn in colour with an
  * arrow and a plain link as a faint line, names that fade in as you zoom, and
  * a hover that lights up one note's neighbourhood and dims the rest.
@@ -26,8 +27,10 @@ import {
 } from "@/lib/graph";
 
 export interface GraphCanvasHandlers {
-  /** A note was clicked. */
+  /** A note was clicked, or tapped. */
   onOpen: (node: DrawnNode) => void;
+  /** Whether a finger is doing the pointing, asked on every paint of the hit areas. */
+  coarse: () => boolean;
 }
 
 export interface GraphCanvas {
@@ -46,6 +49,27 @@ const NAMES_FULL = 1.8;
 
 /** How much a note outside the lit neighbourhood keeps of its colour. */
 const DIMMED = 0.15;
+
+/**
+ * The least a note's hit area measures across on a touch screen, in CSS pixels.
+ *
+ * The smallest target WCAG 2.2 allows, and no more: a touch that lands in a
+ * hit area drags that note, so every pixel given to tapping is taken from
+ * panning and pinching, and a zoomed-out vault is mostly notes.
+ */
+const FINGER = 24;
+
+/**
+ * How far from a note's middle a press still counts as on it, in graph units.
+ *
+ * The dot and a little more for a mouse. A dot is a few pixels wide however
+ * far out the zoom is, which a finger cannot hit, so for one the area never
+ * shrinks below `FINGER` on screen.
+ */
+export function hitRadius(degree: number, scale: number, coarse: boolean): number {
+  const drawn = radiusOf(degree) + 2;
+  return coarse ? Math.max(drawn, FINGER / 2 / scale) : drawn;
+}
 
 /** A theme variable's value, read once when the canvas is made. */
 function themed(variable: string): string {
@@ -118,10 +142,16 @@ export function drawGraph(element: HTMLElement, handlers: GraphCanvasHandlers): 
       }
       ctx.globalAlpha = 1;
     })
-    .nodePointerAreaPaint((node, paint, ctx) => {
+    .nodePointerAreaPaint((node, paint, ctx, scale) => {
       ctx.fillStyle = paint;
       ctx.beginPath();
-      ctx.arc(node.x ?? 0, node.y ?? 0, radiusOf(node.degree) + 2, 0, 2 * Math.PI);
+      ctx.arc(
+        node.x ?? 0,
+        node.y ?? 0,
+        hitRadius(node.degree, scale, handlers.coarse()),
+        0,
+        2 * Math.PI,
+      );
       ctx.fill();
     })
     .linkColor((link) => {

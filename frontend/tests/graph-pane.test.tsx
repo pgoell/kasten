@@ -7,10 +7,11 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GraphPane } from "@/components/graph-pane";
 import * as api from "@/lib/api";
 import type { GraphCanvasHandlers } from "@/lib/graph-canvas";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
 const canvas = vi.hoisted(() => ({
@@ -60,6 +61,8 @@ describe("GraphPane", () => {
       },
     );
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("draws the whole vault when nothing is typed", async () => {
     const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
@@ -122,6 +125,19 @@ describe("GraphPane", () => {
 
     expect(onOpen).toHaveBeenCalledWith("rag.md");
     expect(onFollow).toHaveBeenCalledWith("Ghost");
+  });
+
+  it("tells the canvas a finger is pointing on a touch screen, and not on a desktop", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    renderPane();
+    await waitFor(() => expect(canvas.update).toHaveBeenCalled());
+    expect(canvas.handlers?.coarse()).toBe(false);
+    cleanup();
+
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane();
+    await waitFor(() => expect(canvas.handlers?.coarse()).toBe(true));
+    expect(screen.getByTestId("graph-canvas")).toHaveClass("touch-none");
   });
 
   it("reaches further out around a note with +", async () => {

@@ -6,6 +6,7 @@ import { drawGraph, type GraphCanvas } from "@/lib/graph-canvas";
 import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
 import { INPUT, LABEL } from "@/lib/overlay-styles";
+import { useViewport } from "@/lib/use-viewport";
 
 interface GraphPaneProps {
   /** The note a local graph is drawn around, absent for the whole vault. */
@@ -63,8 +64,9 @@ export function GraphPane({
 
   // The handlers the canvas calls, read through a ref so the canvas is made
   // once and still calls what this render was handed.
-  const opening = useRef({ onOpen, onFollow });
-  opening.current = { onOpen, onFollow };
+  const { coarse } = useViewport();
+  const opening = useRef({ onOpen, onFollow, coarse });
+  opening.current = { onOpen, onFollow, coarse };
 
   useEffect(() => {
     const wait = setTimeout(() => setQuery(typed), SETTLE);
@@ -92,6 +94,7 @@ export function GraphPane({
         if (node.missing) opening.current.onFollow(node.path.replace(/\.md$/, ""));
         else opening.current.onOpen(node.path);
       },
+      coarse: () => opening.current.coarse,
     });
     canvas.current = made;
 
@@ -221,7 +224,14 @@ export function GraphPane({
         </p>
       )}
 
-      <div ref={box} data-testid="graph-canvas" className="relative min-h-0 flex-1" />
+      <div
+        ref={box}
+        data-testid="graph-canvas"
+        // The canvas takes every gesture. force-graph sets this on the canvas
+        // itself, but only where the browser reported a touch screen when the
+        // pane was made.
+        className="relative min-h-0 flex-1 touch-none"
+      />
 
       {columns.length > 0 && (
         <div className="max-h-[40%] overflow-auto border-t border-one-line">
