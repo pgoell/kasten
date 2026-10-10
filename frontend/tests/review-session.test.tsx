@@ -405,4 +405,31 @@ describe("ReviewSession jotting a new question", () => {
 
     expect(screen.queryByLabelText("a new question")).not.toBeInTheDocument();
   });
+
+  it("shuts the field on a second tap, writing nothing", async () => {
+    const saved = renderJot();
+    await shownCard();
+
+    const button = screen.getByRole("button", { name: "Jot" });
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q" } });
+    fireEvent.click(button);
+
+    expect(screen.queryByLabelText("a new question")).not.toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(saved).not.toHaveBeenCalled();
+  });
+
+  // jsdom lays nothing out, so the class is the nearest thing to a width there
+  // is to assert. "Jot" and "Type" are the two labels narrower than 44px.
+  it("gives its narrow header buttons a thumb's width on a touch screen", async () => {
+    renderJot();
+    await shownCard();
+
+    for (const name of ["Jot", "Type"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("min-h-11", "pointer-coarse:min-w-11");
+    }
+  });
 });

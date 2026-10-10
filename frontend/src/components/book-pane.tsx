@@ -9,6 +9,7 @@ import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-binding
 import { readField } from "@/lib/note-frontmatter";
 import { BOOK_SUFFIXES } from "@/lib/note-path";
 import { STATUS } from "@/lib/overlay-styles";
+import { useViewport } from "@/lib/use-viewport";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
 // `document.createElement("foliate-view")` makes an unknown element, `open` is
@@ -40,6 +41,9 @@ interface FoliateView extends HTMLElement {
   close(): void;
   next(): void;
   prev(): void;
+  /** `prev` and `next` by the side of the page, which the book's direction decides (`view.js:519-524`). */
+  goLeft(): void;
+  goRight(): void;
   /**
    * Built by `open`, and a fixed-layout book's renderer has no `setStyles`.
    *
@@ -431,6 +435,23 @@ const TAKE =
  */
 const INSET = 32;
 
+/**
+ * How much of the pane's width, at each side, a tap turns the page from.
+ *
+ * A quarter leaves the middle half for what a tap in the text already means:
+ * putting a selection away, or nothing.
+ */
+const EDGE = 0.25;
+
+/**
+ * A button in the footer, which is where a finger finds what a key does.
+ *
+ * `min-h-11` is the 44px a fingertip needs. The footer and not the page for
+ * `Take` as well: the phone draws its own copy menu over a selection and its
+ * handles under it, which is where the mouse's button floats.
+ */
+const TOUCH = "min-h-11 rounded border border-one-muted px-3 font-mono text-one-fg text-xs";
+
 interface BookPaneProps {
   /** The note this reads beside. The vault answers which file sits with it. */
   note: string;
@@ -503,6 +524,10 @@ export function BookPane({
 }: BookPaneProps) {
   const wrapper = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
+  // A finger has no `t`, no `y` and no `l`, so a touch screen gets each of them
+  // as something to tap. A mouse gets none of it.
+  const { coarse } = useViewport();
+  const coarseRef = useRef(coarse);
   const viewRef = useRef<FoliateView | null>(null);
   /** Whether foliate could not read what the vault handed it. */
   const [broken, setBroken] = useState(false);
@@ -538,6 +563,25 @@ export function BookPane({
     range: Range;
     backward: boolean;
   } | null>(null);
+  /**
+   * Whether a finger is down on the footer's `Take`, between its press and its click.
+   *
+   * The book's words live in foliate's iframe and the button does not, so a
+   * phone may put the selection away for a tap that lands outside the frame.
+   * That `selectionchange` arrives before the `click`, and answering it would
+   * forget the passage and take the button out from under the finger, the
+   * click then landing on `Contents`, which slides into its place. So a
+   * collapse during a press is not answered at all.
+   *
+   * A ref because `onSelectionChange` is built once with the view.
+   *
+   * ponytail: a press that ends in no click and no `pointercancel`, a finger
+   * slid off the button, leaves this set. If the selection collapsed under
+   * that press the button stays, holding the passage it showed, until it is
+   * tapped or something else is selected. There is no event to clear it on:
+   * `pointerup` and `pointerleave` both come before the `click`.
+   */
+  const pressing = useRef(false);
 
   // Read through refs, the way `terminal-pane.tsx` reads the same prop. The
   // view is built in one effect keyed on the bytes, and naming these in its
@@ -561,6 +605,7 @@ export function BookPane({
     onTakeRef.current = onTake;
     onNoticeRef.current = onNotice;
     besideRef.current = beside;
+    coarseRef.current = coarse;
   });
 
   /**
@@ -573,6 +618,7 @@ export function BookPane({
    * range rather than out of a fourth field on the ref.
    */
   const take = useCallback(async () => {
+    pressing.current = false;
     const held = taking.current;
     if (held === null) return;
     taking.current = null;
@@ -611,6 +657,28 @@ export function BookPane({
     }
 
     onTakeRef.current({ ...held.passage, image });
+  }, []);
+
+  /**
+   * Draw the book's contents over the page, for `t` and for the footer's button.
+   *
+   * No dependencies, for the reason `take` has none: `onKeyDown` names it.
+   */
+  const openContents = useCallback(() => {
+    const book = viewRef.current?.book;
+    // On the book and not on its toc. The view is in the ref from the moment
+    // the element is built, which is a long way before `open` has unzipped a
+    // 30MB epub, and an empty list drawn in that window would report a book
+    // still loading as a book with no contents.
+    if (book === undefined) return;
+    contentsOpen.current = true;
+    const rows = tocRows(book.toc);
+    // foliate's own id, stamped on the toc items by `assignIDs` and handed
+    // back on `lastLocation.tocItem`, so this is one number against another
+    // rather than kasten matching labels. No match answers -1, which the
+    // contents clamp to the first row.
+    const current = viewRef.current?.lastLocation?.tocItem?.id;
+    setContents({ rows, start: rows.findIndex((row) => row.id === current) });
   }, []);
 
   /**
@@ -658,30 +726,16 @@ export function BookPane({
       // Nothing selected is nothing to take, the way `t` on a book still opening
       // is nothing to draw.
       else if (event.key === "y") void take();
-      else if (event.key === "t") {
-        const book = viewRef.current?.book;
-        // On the book and not on its toc. The view is in the ref from the moment
-        // the element is built, which is a long way before `open` has unzipped a
-        // 30MB epub, and an empty list drawn in that window would report a book
-        // still loading as a book with no contents.
-        if (book === undefined) return;
-        contentsOpen.current = true;
-        const rows = tocRows(book.toc);
-        // foliate's own id, stamped on the toc items by `assignIDs` and handed
-        // back on `lastLocation.tocItem`, so this is one number against another
-        // rather than kasten matching labels. No match answers -1, which the
-        // contents clamp to the first row.
-        const current = viewRef.current?.lastLocation?.tocItem?.id;
-        setContents({ rows, start: rows.findIndex((row) => row.id === current) });
-      } else return;
+      else if (event.key === "t") openContents();
+      else return;
 
       event.preventDefault();
-      // `take` is the only name here that is not a ref, and it is a `useCallback`
-      // with no dependencies of its own, so this handler's identity is still
-      // fixed for the life of the pane and the view effect naming it rebuilds
-      // nothing.
+      // `take` and `openContents` are the only names here that are not refs,
+      // and each is a `useCallback` with no dependencies of its own, so this
+      // handler's identity is still fixed for the life of the pane and the view
+      // effect naming it rebuilds nothing.
     },
-    [take],
+    [take, openContents],
   );
 
   /** That a click or a Tab landed in the book, which no ancestor is told. */
@@ -948,6 +1002,7 @@ export function BookPane({
       doc.addEventListener("pointerdown", report);
       doc.addEventListener("focusin", report);
       doc.addEventListener("selectionchange", onSelectionChange);
+      doc.addEventListener("click", onTap);
       // Another section is on the page, so a held range points into a document
       // that has been removed from the tree (`paginator.js:666-676`). The
       // chapter travels with the passage, so this is no longer about the
@@ -957,6 +1012,45 @@ export function BookPane({
       sections.push({ doc, index, watcher: watchPage(doc) });
     }
     view.addEventListener("load", onLoad);
+
+    /**
+     * Turn the page for a tap near either edge, on a touch screen alone.
+     *
+     * A swipe already turns a flowing book, the paginator following the finger
+     * and snapping to a page (`paginator.js:568-574, :831-865`). The renderer a
+     * pdf and a pre-paginated epub get listens for no touch at all
+     * (`fixed-layout.js`), so there this is the only way to turn one.
+     *
+     * By side and not by the `prev` and `next` that `h` and `l` call: the
+     * swipe follows the finger, so in a book read right to left the left edge
+     * is the way forward, and `goLeft` and `goRight` ask the book which it is
+     * (`view.js:519-524`).
+     *
+     * `click` and not `pointerdown`: a swipe and a long press end in no click,
+     * so neither turns a page on its way to doing something else.
+     *
+     * Measured against the pane and not the document. The paginator widens its
+     * iframe to the whole columnised chapter, so the document's own width says
+     * nothing about where on the page a tap fell. The ratio undoes the css
+     * scale a pre-paginated epub's frame carries (`fixed-layout.js:143`), which
+     * the event's coordinates are inside of; it is 1 everywhere else.
+     */
+    function onTap(event: MouseEvent) {
+      if (!coarseRef.current || event.defaultPrevented) return;
+      // A tap with words held belongs to the selection, and one on a link to
+      // the link.
+      if (taking.current !== null || (event.target as Element).closest("a[href]")) return;
+
+      const frame = (event.currentTarget as Document).defaultView?.frameElement;
+      const pane = wrapper.current;
+      if (!(frame instanceof HTMLElement) || pane === null) return;
+
+      const outer = frame.getBoundingClientRect();
+      const box = pane.getBoundingClientRect();
+      const x = outer.left + (event.clientX * outer.width) / frame.offsetWidth - box.left;
+      if (x < box.width * EDGE) void view.goLeft();
+      else if (x > box.width * (1 - EDGE)) void view.goRight();
+    }
 
     /**
      * Drop the pages that have gone, which nothing else here would.
@@ -1110,6 +1204,9 @@ export function BookPane({
       // A figure is a passage with no words in it: a drag over a plate gives an
       // empty string, so the text alone cannot say whether anything is selected.
       if (selection === null || range === null || (text.trim() === "" && figure === null)) {
+        // The press on `Take` is what put the selection away, so the passage
+        // is still the one being taken. See `pressing`.
+        if (pressing.current) return;
         taking.current = null;
         setAt(null);
         return;
@@ -1119,6 +1216,8 @@ export function BookPane({
       // A chapter can change with no document loading, one spine file often
       // holding several, so a drag that runs past a boundary would otherwise
       // be named for wherever it came to rest.
+      // Something new is selected, so a press that never ended is over.
+      pressing.current = false;
       const chapter = taking.current?.passage.chapter ?? chapterNow(doc);
       const backward = runsBackward(doc, selection);
       taking.current = { passage: { text, chapter }, figure, range, backward };
@@ -1287,6 +1386,7 @@ export function BookPane({
         doc.removeEventListener("pointerdown", report);
         doc.removeEventListener("focusin", report);
         doc.removeEventListener("selectionchange", onSelectionChange);
+        doc.removeEventListener("click", onTap);
       }
       viewRef.current = null;
       // The next view opens a book of its own, so a passage the last one was
@@ -1339,10 +1439,37 @@ export function BookPane({
           in, and a flex child that will not shrink draws its page off the
           bottom of the pane. */}
       <div ref={host} className="min-h-0 w-full flex-1" />
-      <footer className={STATUS}>
+      <footer className={coarse ? `${STATUS} flex items-center` : STATUS}>
         {progress === null ? "" : `${Math.round(progress * 100)}%`}
+        {coarse && (
+          <span className="ml-auto flex gap-2">
+            {at && (
+              <button
+                type="button"
+                data-take
+                // Refused so the press moves neither the focus nor the
+                // selection, where the browser asks. Where it does not ask,
+                // `pressing` holds the passage through the collapse.
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  pressing.current = true;
+                }}
+                onPointerCancel={() => {
+                  pressing.current = false;
+                }}
+                onClick={() => void take()}
+                className={TOUCH}
+              >
+                Take
+              </button>
+            )}
+            <button type="button" onClick={openContents} className={TOUCH}>
+              Contents
+            </button>
+          </span>
+        )}
       </footer>
-      {at && (
+      {at && !coarse && (
         // No z-index, so the contents overlay at `z-10` covers it and takes the
         // clicks while it is open, which is the answer the key handler gives by
         // returning early.

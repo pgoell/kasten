@@ -135,6 +135,16 @@ Type the minutes first for another length, so `45t` sits the exam in 45 and
 pressing `t` again takes it away, and when it reaches zero the sitting is
 graded where it stands, the questions you never reached counted with the rest.
 
+## Sit it by touch
+
+An option is a button, so a click or a tap picks it and a second one takes the
+pick back. On a touch screen a row above the foot of the pane carries the rest:
+`prev`, `next`, `reveal`, `timer`, `finish` and `close`, and `open result` once
+the sitting is graded. `finish` asks once, and `close` does while a sitting is
+under way: the button reads `finish?` and the second tap is the one that acts,
+while any other move takes the question back. `timer` starts the two hour countdown; another length
+needs the keyboard.
+
 ## Where the results go
 
 Sitting `02 Projects/Terraform/associate-drills.md` writes

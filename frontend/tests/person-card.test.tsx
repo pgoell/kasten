@@ -65,6 +65,14 @@ describe("PersonCard", () => {
     expect(onOpen).toHaveBeenCalledWith(MEETING, 7);
   });
 
+  it("gives a finger a row tall enough to land on", async () => {
+    renderCard();
+
+    for (const row of await screen.findAllByRole("button")) {
+      expect(row).toHaveClass("pointer-coarse:min-h-11");
+    }
+  });
+
   it("says how the card fills when nothing links the person", async () => {
     renderCard([], []);
 

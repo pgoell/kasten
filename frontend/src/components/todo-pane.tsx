@@ -8,6 +8,7 @@ import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { dailyDate } from "@/lib/periodic";
 import {
+  cycleLine,
   isOpen,
   PRIORITY_SYMBOL,
   parseTodo,
@@ -35,6 +36,7 @@ import {
   VIEWS_NOTE,
   waiting,
 } from "@/lib/todo-view";
+import { useViewport } from "@/lib/use-viewport";
 
 /** One line the vault answered with, read once. A line is one or the other. */
 interface Read {
@@ -226,6 +228,9 @@ interface TodoPaneProps {
  */
 const DONE_DAYS = 7;
 
+/** How long the way back from a tap stays on the footer, in milliseconds. */
+const UNDO_MS = 5000;
+
 /**
  * Every open todo the vault holds, grouped by when it is due.
  *
@@ -270,6 +275,17 @@ export function TodoPane({
    * press, and holding the text here is what lets the input be the row itself.
    */
   const [editing, setEditing] = useState<{ key: string; line: string } | null>(null);
+  /**
+   * The last tap on a state, while it can still be taken back: the row it was
+   * on, the state that row was in before the first tap of the streak, and the
+   * line as the taps have left it.
+   *
+   * The hit rather than the key, because a row ticked done has left the list by
+   * the time the way back is wanted. The line rather than the row's own state,
+   * because a second tap can land before the vault has answered the first, and
+   * the row is then a tap behind what the note holds.
+   */
+  const [undo, setUndo] = useState<{ hit: SearchHit; was: TodoState; line: string } | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
@@ -278,6 +294,8 @@ export function TodoPane({
   /** Set as a create goes out, so a second press does not send another. */
   const making = useRef(false);
   const queryClient = useQueryClient();
+  // A finger has no `x` and no `a`, so a touch screen draws the two as buttons.
+  const { coarse } = useViewport();
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
 
@@ -581,6 +599,80 @@ export function TodoPane({
     (element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`) ?? element).focus();
   }, [cursorKey, rows]);
 
+  // A finger slips where a key does not, so the way back is offered and then
+  // taken away again. Each tap is a new object, which is what starts the wait
+  // over, and the cleanup is what stops a pane that has closed being set.
+  useEffect(() => {
+    if (undo === null) return;
+    const timer = setTimeout(() => setUndo(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [undo]);
+
+  /**
+   * `x` by finger, and the one cycle that offers a way back.
+   *
+   * Offered only where naming the earlier state puts the note back: the id a
+   * tick stamps is all that stays behind. A tick that took the parts with it
+   * would leave them ticked, a recurring one has written its next copy onto
+   * this very line and moved down one, and a line walked out of the cycle is
+   * prose, which no state key reads.
+   */
+  function tap(hit: SearchHit, todo: Todo) {
+    const key = rowKey(hit);
+    const streak = undo !== null && rowKey(undo.hit) === key ? undo : null;
+    // No id: this line is read for its state and never written, the vault
+    // minting its own inside `onCycle`.
+    const line = cycleLine(streak?.line ?? hit.text, today, "");
+    const now = parseTodo(line);
+    const whole =
+      now !== null &&
+      (now.state !== "done" || (todo.recurrence === undefined && !progress.has(key)));
+
+    setUndo(whole ? { hit, was: streak?.was ?? todo.state, line } : null);
+    onCycle(hit);
+  }
+
+  /**
+   * The way back, which finds its line again before it writes to it.
+   *
+   * The row's line number is as old as the tap. Finishing a todo writes a line
+   * into today's `## Done`, so a todo below that heading has since moved down
+   * one, and the state key would land on whatever stands there now. The note is
+   * read and searched for the one line that is this todo as the tap left it:
+   * the same state, and the same id where it had one before the tap or the same
+   * words where it had none. Exactly one, or nothing is written: two lines
+   * alike cannot be told apart, and none means the note has moved on.
+   */
+  function back(held: { hit: SearchHit; was: TodoState; line: string }) {
+    setUndo(null);
+    // The state off the line the tap is read to have left, and the name off
+    // the row: that line was cycled with no id to stamp, so it has none to give.
+    const left = parseTodo(held.line);
+    const row = parseTodo(held.hit.text);
+    if (left === null || row === null) return;
+
+    fetchNote(held.hit.path).then(
+      (text) => {
+        const lines = text.split("\n");
+        const found = lines.flatMap((line, index) => {
+          const todo = parseTodo(line);
+          const same =
+            todo !== null &&
+            todo.state === left.state &&
+            (row.id !== undefined ? todo.id === row.id : todo.text === row.text);
+          return same ? [{ line: index + 1, text: line }] : [];
+        });
+        const [only] = found;
+        if (only === undefined || found.length > 1) return;
+        onCycle({ ...held.hit, ...only }, held.was);
+      },
+      () => {
+        // The note cannot be read, so there is no line to confirm and nothing
+        // is written. The todo stays as the tap left it.
+      },
+    );
+  }
+
   // The row that has become an input, or nothing while every row is a row. Its
   // own name because the effect below turns on which row it is: typing is not a
   // reason to move the cursor inside it again.
@@ -770,6 +862,16 @@ export function TodoPane({
             {named}
           </span>
         )}
+        {coarse && (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label="add todo"
+            className="min-h-11 min-w-11 shrink-0 text-one-muted"
+          >
+            +
+          </button>
+        )}
       </header>
 
       <div className="flex-1 overflow-auto py-1">
@@ -844,7 +946,7 @@ export function TodoPane({
                   );
                 }
 
-                return (
+                const row = (
                   <button
                     key={key}
                     type="button"
@@ -852,15 +954,16 @@ export function TodoPane({
                     tabIndex={tabIndex}
                     onClick={() => onOpen(hit.path, hit.line)}
                     title={key}
-                    style={indent}
+                    // The state button in front carries the indent on touch.
+                    style={coarse ? { paddingLeft: 0 } : indent}
                     // A blocked row is drawn muted rather than gathered under a
                     // heading of its own: its state is written on the line, and
                     // the date group is still where the work belongs.
                     className={`${ROW} flex gap-2 ${
                       todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
-                    } ${tabIndex === 0 ? CURSOR : ""}`}
+                    } ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
                   >
-                    <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>
+                    {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
                     {/* Leftmost of what a row carries beyond its state, so
                         scanning the list finds what is going. */}
                     {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
@@ -900,6 +1003,29 @@ export function TodoPane({
                     )}
                   </button>
                 );
+                if (!coarse) return row;
+
+                // The state drawn as a button of its own, beside the row
+                // rather than inside it: a tap on the row opens the note, and
+                // a button cannot hold another. Out of the tab order, so the
+                // row is still the pane's one stop.
+                return (
+                  <div key={key} className="flex">
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => tap(hit, todo)}
+                      aria-label={`cycle ${todo.text}`}
+                      style={indent}
+                      className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
+                        todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
+                      }`}
+                    >
+                      {STATE_SYMBOL[todo.state]}
+                    </button>
+                    {row}
+                  </div>
+                );
               })}
             </div>
           ))
@@ -922,11 +1048,29 @@ export function TodoPane({
             </>
           )}
         </span>
-        <span>
-          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
-          edit&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/
-          filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
-        </span>
+        {undo === null ? (
+          <span>
+            x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
+            edit&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v
+            view&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+          </span>
+        ) : (
+          // In place of the keys, which a finger has no use for. The state the
+          // shifted keys set is the way back, so a tap adds no write of its own.
+          // The words go with it, because a row ticked done is no longer on the
+          // list to say what the button would bring back.
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate">{parseTodo(undo.line)?.text}</span>
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => back(undo)}
+              className="min-h-11 min-w-11 shrink-0 text-one-fg"
+            >
+              Undo
+            </button>
+          </span>
+        )}
       </footer>
     </section>
   );
