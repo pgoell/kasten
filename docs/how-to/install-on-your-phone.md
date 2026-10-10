@@ -50,9 +50,14 @@ home screen if you want an icon that opens the capture page directly.
 ## On an iPhone
 
 Open `https://<your-host>/` in Safari, tap the share button and choose **Add to
-Home Screen**. The icon is named **kasten** and opens the page you added it
-from, so add it from `/capture` if the capture page is what you want on the
-home screen. iOS offers no long-press entry and no share target.
+Home Screen**. The icon is named **kasten**. iOS offers no long-press entry and
+no share target.
+
+Expect the icon to open the notebook whichever page you added it from: the
+manifest names `/` as the start page, and Safari is reported to follow that
+over the page on screen. This has not been tried on an iPhone, and Apple
+documents neither answer. If you want the capture page, open the icon and go to
+`/capture`, or keep `/capture` as a Safari bookmark.
 
 ## Related
 

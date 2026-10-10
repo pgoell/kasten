@@ -44,9 +44,10 @@ clipped twice opens as one note, not two.
 ## On an iPhone
 
 iOS has no share target for a web page, so kasten does not appear in the share
-sheet. You can still put the capture page on the home screen: open `/capture`
-in Safari, tap the share button and choose **Add to Home Screen**. To send
-something from another app, copy it, open the icon and paste.
+sheet, and its home screen icon has no long-press entry. An icon added from
+`/capture` is likely to open the notebook, not this page:
+[Install kasten on your phone](/how-to/install-on-your-phone.md#on-an-iphone)
+says why. To send something from another app, copy it, open `/capture` and paste.
 
 ## At the desk
 
