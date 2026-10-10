@@ -221,12 +221,10 @@ export async function cycleTodoInVault(
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  const held = text.split("\n")[hit.line - 1] ?? "";
-  const todo = parseTodo(held);
-  // The line moved, or somebody edited it. Cycling whatever is there now is not
-  // what was asked for, and another todo standing on that line would take the
-  // press: the row's own text is the only thing that says which todo it meant.
-  if (todo === null || held !== hit.text) return;
+  const todo = parseTodo(text.split("\n")[hit.line - 1] ?? "");
+  // The line moved, or somebody edited it into prose. Cycling whatever is there
+  // now is not what was asked for.
+  if (todo === null) return;
 
   // Only a press that enters or leaves done touches the log, and only a todo
   // that already carries an id can be named by a line already written. A todo
