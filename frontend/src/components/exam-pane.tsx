@@ -27,6 +27,9 @@ function countdown(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+/** One button of the touch row: a thumb high, and as wide as its share of the row. */
+const TAP = "min-h-11 min-w-0 flex-1 uppercase";
+
 interface ExamPaneProps {
   /** The note holding the exam. The pane reads it and never writes to it. */
   note: string;
@@ -149,6 +152,13 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     [exam],
   );
 
+  // `r` and `t`, named because a tap on the touch row asks for the same two.
+  const reveal = () => setShown((previous) => !previous);
+  const timer = () =>
+    setDeadline((previous) =>
+      previous === null ? Date.now() + (Number(count) || DEFAULT_MINUTES) * 60_000 : null,
+    );
+
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
 
@@ -229,14 +239,12 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       // rationale is beside the question in the note, and reading it at the
       // moment you got it wrong is worth more than reading it at the end.
       case "r":
-        setShown((previous) => !previous);
+        reveal();
         break;
       // `t` for timer. Pressed while one runs it takes it away, which is the
       // way out of a length typed wrong.
       case "t":
-        setDeadline((previous) =>
-          previous === null ? Date.now() + (Number(count) || DEFAULT_MINUTES) * 60_000 : null,
-        );
+        timer();
         break;
       case "g":
         void finish(exam);
@@ -291,6 +299,10 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       // pane take the cursor.
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      // A tapped button takes the focus, and Space on a focused button presses
+      // it again on the way up, so the leader would also undo the pick. Handing
+      // the focus back to the pane keeps every key meaning what it meant.
+      onClick={() => panel.current?.focus()}
       aria-label="practice exam"
       className="flex h-full flex-col bg-one-bg font-mono outline-none"
     >
@@ -371,11 +383,18 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
                     data-picked={held || undefined}
                     className={held ? "text-one-fg" : "text-one-muted"}
                   >
-                    <span className={held ? "text-one-accent" : ""}>
-                      {held ? "●" : "○"} {option.letter}.
-                    </span>{" "}
-                    {option.text}
-                    {shown && right && <span className="text-one-accent"> ✓</span>}
+                    <button
+                      type="button"
+                      aria-pressed={held}
+                      onClick={() => pick(option.letter)}
+                      className="block w-full text-left pointer-coarse:min-h-11"
+                    >
+                      <span className={held ? "text-one-accent" : ""}>
+                        {held ? "●" : "○"} {option.letter}.
+                      </span>{" "}
+                      {option.text}
+                      {shown && right && <span className="text-one-accent"> ✓</span>}
+                    </button>
                   </li>
                 );
               })}
@@ -391,6 +410,41 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
           </div>
         )}
       </div>
+
+      {/* The keys the footer names, for a screen with no keyboard under it. A
+          mouse has the keys, so this stays out of the way of one. */}
+      <nav
+        aria-label="exam moves"
+        className={`hidden border-one-line border-t px-1 pointer-coarse:flex ${LABEL}`}
+      >
+        {graded === null && exam !== null && (
+          <>
+            <button type="button" onClick={() => move(-1)} className={TAP}>
+              prev
+            </button>
+            <button type="button" onClick={() => move(1)} className={TAP}>
+              next
+            </button>
+            <button type="button" aria-pressed={shown} onClick={reveal} className={TAP}>
+              reveal
+            </button>
+            <button type="button" aria-pressed={deadline !== null} onClick={timer} className={TAP}>
+              timer
+            </button>
+            <button type="button" onClick={() => void finish(exam)} className={TAP}>
+              finish
+            </button>
+          </>
+        )}
+        {graded !== null && wrote !== null && (
+          <button type="button" onClick={() => onOpen(wrote)} className={TAP}>
+            open result
+          </button>
+        )}
+        <button type="button" onClick={commands.closeNote} className={TAP}>
+          close
+        </button>
+      </nav>
 
       <footer className={STATUS}>
         {graded !== null

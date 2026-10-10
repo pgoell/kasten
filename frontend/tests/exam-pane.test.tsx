@@ -71,6 +71,10 @@ function press(key: string) {
   fireEvent.keyDown(pane(), { key });
 }
 
+function tap(name: string | RegExp) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
 describe("ExamPane", () => {
   it("asks the first question of the note it was given", async () => {
     open();
@@ -267,6 +271,72 @@ describe("ExamPane", () => {
     expect(screen.getByTestId("exam-timer").textContent).toBe("0:00");
     expect(screen.getByTestId("exam-score").textContent).toContain("1/2");
     expect(createNote).toHaveBeenCalledTimes(1);
+  });
+
+  // jsdom reads no stylesheet, so the row a mouse never sees is there to tap.
+  it("picks an option by a tap on it, and unpicks it by a second", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap(/list to set/);
+    expect(document.querySelector("[data-picked]")?.textContent).toContain("list to set");
+    tap(/string to number/);
+    expect(document.querySelectorAll("[data-picked]")).toHaveLength(1);
+    tap(/string to number/);
+    expect(document.querySelectorAll("[data-picked]")).toHaveLength(0);
+  });
+
+  it("hands the focus back to the pane after a tap, so the keys still land", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    const option = screen.getByRole("button", { name: /list to set/ });
+    option.focus();
+    fireEvent.click(option);
+    expect(document.activeElement).toBe(pane());
+  });
+
+  it("walks, reveals and sets the timer by tap", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap("next");
+    expect(screen.getByText(/valid for_each collections/)).toBeTruthy();
+    tap("prev");
+    expect(screen.getByText(/Which cast does Terraform refuse/)).toBeTruthy();
+    tap("reveal");
+    expect(screen.getByTestId("exam-rationale").textContent).toContain("Correct: B");
+    tap("reveal");
+    expect(screen.queryByTestId("exam-rationale")).toBeNull();
+    tap("timer");
+    expect(screen.getByTestId("exam-timer").textContent).toBe("120:00");
+    tap("timer");
+    expect(screen.queryByTestId("exam-timer")).toBeNull();
+  });
+
+  it("sits an exam from the first tap to the result note", async () => {
+    const { onOpen, commands } = open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap(/list to set/);
+    tap("next");
+    tap(/a set/);
+    tap(/a map/);
+    tap("finish");
+
+    expect((await screen.findByTestId("exam-score")).textContent).toContain("2/2");
+    expect(createNote).toHaveBeenCalledTimes(1);
+    // Nothing left to answer, so the moves are gone and the way out is not.
+    expect(screen.queryByRole("button", { name: "next" })).toBeNull();
+    tap("open result");
+    expect(onOpen).toHaveBeenCalledWith(expect.stringContaining("drills/terraform results/"));
+    tap("close");
+    expect(commands.closeNote).toHaveBeenCalled();
+  });
+
+  it("can be left by tap when the note holds no exam", async () => {
+    fetchNote.mockResolvedValue("# Just a note\n\nSome prose.\n");
+    const { commands } = open();
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("button", { name: "finish" })).toBeNull();
+    tap("close");
+    expect(commands.closeNote).toHaveBeenCalled();
   });
 
   it("says so, rather than showing an empty exam, when the note holds none", async () => {
