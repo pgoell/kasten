@@ -35,6 +35,10 @@ const DONE = 5;
 
 const HEADING = `${LABEL} px-3 pt-2 pb-1`;
 
+/** A row of the card. A finger needs 44px to land on, and a row that tall
+ * centres its one line rather than hanging it from the top. */
+const CARD_ROW = `${ROW} flex items-center gap-3 hover:bg-one-hover pointer-coarse:min-h-11`;
+
 /**
  * What the vault knows about one person, gathered onto a card.
  *
@@ -89,7 +93,7 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
         key={`${hit.path}:${hit.line}`}
         type="button"
         onClick={() => onOpen(hit.path, hit.line)}
-        className={`${ROW} flex gap-3 hover:bg-one-hover`}
+        className={CARD_ROW}
       >
         <span className="shrink-0 text-one-muted">{STATE_SYMBOL[todo.state]}</span>
         <span className="min-w-0 flex-1 truncate text-one-fg">{plainLinks(todo.text)}</span>
@@ -109,7 +113,7 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
         key={meeting.path}
         type="button"
         onClick={() => onOpen(meeting.path, meeting.line)}
-        className={`${ROW} flex gap-3 hover:bg-one-hover`}
+        className={CARD_ROW}
       >
         <span className="shrink-0 text-one-muted">{meeting.date}</span>
         <span className="min-w-0 flex-1 truncate text-one-fg">
@@ -126,7 +130,7 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
         key={`${hit.path}:${hit.line}`}
         type="button"
         onClick={() => onOpen(hit.path, hit.line)}
-        className={`${ROW} flex gap-3 hover:bg-one-hover`}
+        className={CARD_ROW}
       >
         <span className="shrink-0 text-one-muted">{date}</span>
         <span className="min-w-0 flex-1 truncate text-one-fg">{plainLinks(text)}</span>

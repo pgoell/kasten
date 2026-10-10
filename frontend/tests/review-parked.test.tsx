@@ -52,6 +52,15 @@ describe("ReviewParked", () => {
     expect(await screen.findByText("What is a VPC?")).toBeInTheDocument();
   });
 
+  // jsdom lays nothing out, so the classes stand in for the width: without
+  // them a long deck name pushes through the side of the row at 390px.
+  it("cuts a long deck name short on a narrow screen", async () => {
+    renderParked();
+    await screen.findByText("What is a VPC?");
+
+    expect(screen.getByText("aws")).toHaveClass("max-md:max-w-[40%]", "max-md:truncate");
+  });
+
   it("lists a question with no answer", async () => {
     renderParked();
 

@@ -8,6 +8,7 @@ import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { dailyDate } from "@/lib/periodic";
 import {
+  cycleLine,
   isOpen,
   PRIORITY_SYMBOL,
   parseTodo,
@@ -35,6 +36,7 @@ import {
   VIEWS_NOTE,
   waiting,
 } from "@/lib/todo-view";
+import { useViewport } from "@/lib/use-viewport";
 
 /** One line the vault answered with, read once. A line is one or the other. */
 interface Read {
@@ -226,6 +228,9 @@ interface TodoPaneProps {
  */
 const DONE_DAYS = 7;
 
+/** How long a tapped state button keeps asking before it takes the question back. */
+const ARMED_MS = 4000;
+
 /**
  * Every open todo the vault holds, grouped by when it is due.
  *
@@ -278,6 +283,28 @@ export function TodoPane({
   /** Set as a create goes out, so a second press does not send another. */
   const making = useRef(false);
   const queryClient = useQueryClient();
+  // A finger has no `x` and no `a`, so a touch screen draws the two as buttons.
+  const { coarse } = useViewport();
+  /**
+   * The row whose state button has been tapped once, by its key and its text.
+   *
+   * The text as well, because the key is a path and a line: a write from
+   * elsewhere can put another todo on that line while the question stands, and
+   * the second tap would then cycle a todo nobody asked about.
+   *
+   * A finger slips where a key does not, and a cycle writes to the vault with
+   * no way back, so the first tap asks and the second is the one that writes.
+   * One row at a time: arming another takes the question off this one.
+   */
+  const [armed, setArmed] = useState<string | null>(null);
+
+  // A question nobody answers is taken back, or a tap minutes later would land
+  // as the second of a pair. The cleanup covers a pane that has closed.
+  useEffect(() => {
+    if (armed === null) return;
+    const timer = setTimeout(() => setArmed(null), ARMED_MS);
+    return () => clearTimeout(timer);
+  }, [armed]);
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
 
@@ -739,6 +766,11 @@ export function TodoPane({
       // and this is where the focus rests before a row exists to hold it.
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      // A tap anywhere but on the armed button itself takes the question back,
+      // before the tap does whatever it was for.
+      onPointerDown={(event) => {
+        if (armed !== null && !(event.target as Element).closest("[data-armed]")) setArmed(null);
+      }}
       className="flex h-full flex-col bg-one-bg font-mono"
     >
       <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
@@ -770,9 +802,20 @@ export function TodoPane({
             {named}
           </span>
         )}
+        {coarse && (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label="add todo"
+            className="min-h-11 min-w-11 shrink-0 text-one-muted"
+          >
+            +
+          </button>
+        )}
       </header>
 
-      <div className="flex-1 overflow-auto py-1">
+      {/* A list that moves under the finger has moved the armed row with it. */}
+      <div className="flex-1 overflow-auto py-1" onScroll={() => setArmed(null)}>
         {rows.length === 0 ? (
           <p className="px-3 py-1 text-[13px] text-one-muted">
             {mode === "done" ? "nothing finished" : "nothing to do"}
@@ -844,7 +887,7 @@ export function TodoPane({
                   );
                 }
 
-                return (
+                const row = (
                   <button
                     key={key}
                     type="button"
@@ -852,15 +895,16 @@ export function TodoPane({
                     tabIndex={tabIndex}
                     onClick={() => onOpen(hit.path, hit.line)}
                     title={key}
-                    style={indent}
+                    // The state button in front carries the indent on touch.
+                    style={coarse ? { paddingLeft: 0 } : indent}
                     // A blocked row is drawn muted rather than gathered under a
                     // heading of its own: its state is written on the line, and
                     // the date group is still where the work belongs.
                     className={`${ROW} flex gap-2 ${
                       todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
-                    } ${tabIndex === 0 ? CURSOR : ""}`}
+                    } ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
                   >
-                    <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>
+                    {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
                     {/* Leftmost of what a row carries beyond its state, so
                         scanning the list finds what is going. */}
                     {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
@@ -899,6 +943,45 @@ export function TodoPane({
                       </span>
                     )}
                   </button>
+                );
+                if (!coarse) return row;
+
+                // The state drawn as a button of its own, beside the row
+                // rather than inside it: a tap on the row opens the note, and
+                // a button cannot hold another. Out of the tab order, so the
+                // row is still the pane's one stop.
+                const arming = `${key}\n${hit.text}`;
+                const asking = armed === arming;
+                // What the second tap would leave, drawn so the question says
+                // what it is asking. Nothing where the cycle leaves no todo.
+                const next = asking ? parseTodo(cycleLine(hit.text, today, ""))?.state : undefined;
+                return (
+                  <div key={key} className="flex">
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => {
+                        setArmed(asking ? null : arming);
+                        if (asking) onCycle(hit);
+                      }}
+                      aria-label={`cycle ${todo.text}`}
+                      aria-pressed={asking}
+                      data-armed={asking ? "" : undefined}
+                      style={indent}
+                      className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
+                        asking
+                          ? "text-one-accent"
+                          : todo.state === "blocked"
+                            ? "text-one-muted"
+                            : "text-one-fg"
+                      }`}
+                    >
+                      {asking
+                        ? `${next === undefined ? "" : STATE_SYMBOL[next]}?`
+                        : STATE_SYMBOL[todo.state]}
+                    </button>
+                    {row}
+                  </div>
                 );
               })}
             </div>

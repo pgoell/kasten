@@ -142,7 +142,12 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
                 className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-one-line px-3 py-2 text-left hover:border-one-accent"
               >
                 <span className="min-w-0 flex-1 truncate text-[13px]">{row.front}</span>
-                <span className="text-[12px] text-one-muted">{row.deck}</span>
+                {/* A deck under two others is a name longer than a phone has
+                    room for beside the question, and it would push through
+                    the side of the row rather than shrink. */}
+                <span className="text-[12px] text-one-muted max-md:max-w-[40%] max-md:truncate">
+                  {row.deck}
+                </span>
                 <span className="text-[12px] text-one-muted opacity-60">{row.reason}</span>
               </button>
               {/* Only where there is a token to take off. A question with no
