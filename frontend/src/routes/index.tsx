@@ -267,6 +267,7 @@ function Home() {
   const [mark, setMark] = useState<{ note: string; id: string; seconds: number }>();
   const pane = focusedPane(layout);
   const tab = activeTab(layout);
+  const panes = tabPanes(layout);
   // One autosave, following the focused pane, because the focused pane is the
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
@@ -2061,6 +2062,14 @@ function Home() {
         notice={notice}
         version={version}
         zoom={tab.zoom}
+        // Only where one pane of several is drawn, which is a narrow window:
+        // anywhere else the panes are on screen and count themselves.
+        pane={
+          narrow && panes.length > 1
+            ? `${panes.findIndex((each) => each.id === pane.id) + 1}/${panes.length}`
+            : undefined
+        }
+        inert={narrow && treeOpen}
       />
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {palette && (

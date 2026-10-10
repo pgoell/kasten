@@ -137,6 +137,15 @@ describe("TabStrip", () => {
     expect(screen.getByRole("tab", { name: /empty/ })).toBeInTheDocument();
   });
 
+  // jsdom applies no media query, so this reads the class that carries one.
+  it("makes a tab 44px tall under a finger", () => {
+    render(<TabStrip layout={addTab(emptyLayout())} onSelect={() => {}} />);
+
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab).toHaveClass("pointer-coarse:min-h-11");
+    }
+  });
+
   it("marks the tab on screen and no other", () => {
     render(<TabStrip layout={addTab(emptyLayout("a.md"))} onSelect={() => {}} />);
 

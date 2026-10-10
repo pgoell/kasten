@@ -1228,7 +1228,8 @@ describe("the route", () => {
       fireEvent.click(screen.getByRole("button", { name: "Show file tree" }));
 
     it("closes the drawer on Escape and puts the focus in the pane on screen", async () => {
-      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      // Narrow and no more, the split below being asked for with a leader key.
+      stubMatchMedia({ [NARROW]: true });
       const app = await renderApp();
       await settle();
       // Two panes with the second focused, so the first editor in the document
@@ -1293,7 +1294,9 @@ describe("the route", () => {
     });
 
     it("draws the focused pane alone, and gives the split back when the window widens", async () => {
-      const media = stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      // Narrow and no more: the split is asked for with a leader key, which a
+      // touch screen may not have, and one pane to a tab is about the width.
+      const media = stubMatchMedia({ [NARROW]: true });
       const app = await renderApp();
       await settle();
 
@@ -1314,6 +1317,38 @@ describe("the route", () => {
       media.set(NARROW, false);
 
       expect(drawn()).toHaveLength(2);
+    });
+
+    it("counts the panes in the bar, which is the only sign of a split", async () => {
+      // Narrow and no more: the split is asked for with a leader key, which a
+      // touch screen may not have, and one pane to a tab is about the width.
+      const media = stubMatchMedia({ [NARROW]: true });
+      const app = await renderApp();
+      await settle();
+      expect(screen.queryByTestId("pane-shown")).toBeNull();
+
+      app.leader("%");
+      await settle();
+      expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 2/2");
+
+      app.leader("o");
+      await settle();
+      expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 1/2");
+
+      // Both are on screen in a wide window, and count themselves.
+      media.set(NARROW, false);
+      expect(screen.queryByTestId("pane-shown")).toBeNull();
+    });
+
+    it("takes the status bar out of reach under the drawer", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+      expect(screen.getByRole("contentinfo")).not.toHaveAttribute("inert");
+
+      openDrawer();
+
+      expect(screen.getByRole("contentinfo")).toHaveAttribute("inert");
     });
   });
 });
