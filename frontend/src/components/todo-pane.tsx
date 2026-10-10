@@ -632,6 +632,47 @@ export function TodoPane({
     onCycle(hit);
   }
 
+  /**
+   * The way back, which finds its line again before it writes to it.
+   *
+   * The row's line number is as old as the tap. Finishing a todo writes a line
+   * into today's `## Done`, so a todo below that heading has since moved down
+   * one, and the state key would land on whatever stands there now. The note is
+   * read and searched for the one line that is this todo as the tap left it:
+   * the same state, and the same id where it had one before the tap or the same
+   * words where it had none. Exactly one, or nothing is written: two lines
+   * alike cannot be told apart, and none means the note has moved on.
+   */
+  function back(held: { hit: SearchHit; was: TodoState; line: string }) {
+    setUndo(null);
+    // The state off the line the tap is read to have left, and the name off
+    // the row: that line was cycled with no id to stamp, so it has none to give.
+    const left = parseTodo(held.line);
+    const row = parseTodo(held.hit.text);
+    if (left === null || row === null) return;
+
+    fetchNote(held.hit.path).then(
+      (text) => {
+        const lines = text.split("\n");
+        const found = lines.flatMap((line, index) => {
+          const todo = parseTodo(line);
+          const same =
+            todo !== null &&
+            todo.state === left.state &&
+            (row.id !== undefined ? todo.id === row.id : todo.text === row.text);
+          return same ? [{ line: index + 1, text: line }] : [];
+        });
+        const [only] = found;
+        if (only === undefined || found.length > 1) return;
+        onCycle({ ...held.hit, ...only }, held.was);
+      },
+      () => {
+        // The note cannot be read, so there is no line to confirm and nothing
+        // is written. The todo stays as the tap left it.
+      },
+    );
+  }
+
   // The row that has become an input, or nothing while every row is a row. Its
   // own name because the effect below turns on which row it is: typing is not a
   // reason to move the cursor inside it again.
@@ -1023,10 +1064,7 @@ export function TodoPane({
             <button
               type="button"
               tabIndex={-1}
-              onClick={() => {
-                onCycle(undo.hit, undo.was);
-                setUndo(null);
-              }}
+              onClick={() => back(undo)}
               className="min-h-11 min-w-11 shrink-0 text-one-fg"
             >
               Undo

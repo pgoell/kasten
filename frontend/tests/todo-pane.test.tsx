@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { PRIORITY_SYMBOL } from "@/lib/todo";
+import { cycleLine, PRIORITY_SYMBOL } from "@/lib/todo";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
@@ -1007,6 +1007,10 @@ describe("the todo pane by touch", () => {
     expect(pane.onOpen).not.toHaveBeenCalled();
   });
 
+  /** The note a way back reads before it writes, every other read being the views. */
+  const holds = (path: string, text: string) =>
+    fetchNote.mockImplementation(async (asked: string) => (asked === path ? text : DEFAULT_VIEWS));
+
   it("offers the way back after a tap on the state", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
@@ -1014,11 +1018,79 @@ describe("the todo pane by touch", () => {
     expect(screen.queryByText("Undo")).toBeNull();
 
     fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    holds("projects/kasten.md", `${"\n".repeat(19)}- [/] buy milk 📅 2026-08-14 🔽\n`);
+    fireEvent.click(screen.getByText("Undo"));
+    expect(screen.queryByText("Undo")).toBeNull();
+
+    // The state the row was in, by the path `O` takes, on the line as it reads now.
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
+    expect(pane.onCycle).toHaveBeenLastCalledWith(
+      { path: "projects/kasten.md", line: 20, text: "- [/] buy milk 📅 2026-08-14 🔽" },
+      "open",
+    );
+  });
+
+  it("finds a todo that finishing moved down a line, below today's Done", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane([{ path: "daily/2026-08-11.md", line: 5, text: "- [/] call home" }]);
+    await waitFor(() => expect(row("call home")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("cycle call home"));
+    // The tick wrote its line under `## Done`, above the todo, so line 5 is now
+    // somebody else's todo and the one tapped stands on line 6.
+    holds(
+      "daily/2026-08-11.md",
+      [
+        "# 2026-08-11",
+        "",
+        "## Done",
+        "- ✅ call home 🆔 kt-0a0a0a",
+        "- [/] water the plants",
+        "- [x] call home ✅ 2026-08-11 🆔 kt-0a0a0a",
+      ].join("\n"),
+    );
     fireEvent.click(screen.getByText("Undo"));
 
-    // The state the row was in, by the path `O` takes.
-    expect(pane.onCycle).toHaveBeenLastCalledWith(TODOS[3], "open");
-    expect(screen.queryByText("Undo")).toBeNull();
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
+    expect(pane.onCycle).toHaveBeenLastCalledWith(
+      {
+        path: "daily/2026-08-11.md",
+        line: 6,
+        text: "- [x] call home ✅ 2026-08-11 🆔 kt-0a0a0a",
+      },
+      "doing",
+    );
+  });
+
+  it.each([
+    ["the todo is no longer in the note", "# 2026-08-11\n\n- [/] water the plants\n"],
+    ["two lines could be it", "- [x] call home ✅ 2026-08-11\n- [x] call home ✅ 2026-08-11\n"],
+    ["the write has not landed yet", "\n\n\n\n- [/] call home\n"],
+  ])("writes nothing on the way back when %s", async (_why, text) => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane([{ path: "daily/2026-08-11.md", line: 5, text: "- [/] call home" }]);
+    await waitFor(() => expect(row("call home")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("cycle call home"));
+    holds("daily/2026-08-11.md", text);
+    fireEvent.click(screen.getByText("Undo"));
+
+    await waitFor(() => expect(fetchNote).toHaveBeenCalledWith("daily/2026-08-11.md"));
+    await act(async () => {});
+    expect(pane.onCycle).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes nothing on the way back when the note cannot be read", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane([{ path: "a.md", line: 1, text: "- [ ] call home" }]);
+    await waitFor(() => expect(row("call home")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("cycle call home"));
+    fetchNote.mockRejectedValue(new Error("GET /api/files/a.md failed with 404"));
+    fireEvent.click(screen.getByText("Undo"));
+
+    await act(async () => {});
+    expect(pane.onCycle).toHaveBeenCalledTimes(1);
   });
 
   it("goes back past two taps on one row to where the first found it", async () => {
@@ -1035,9 +1107,13 @@ describe("the todo pane by touch", () => {
       ),
     );
     fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    holds(
+      "projects/kasten.md",
+      `${"\n".repeat(19)}- [x] buy milk 📅 2026-08-14 🔽 ✅ 2026-08-11 🆔 kt-0b0b0b\n`,
+    );
     fireEvent.click(screen.getByText("Undo"));
 
-    expect(pane.onCycle).toHaveBeenCalledTimes(3);
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(3));
     expect(pane.onCycle.mock.lastCall?.[1]).toBe("open");
   });
 
@@ -1048,9 +1124,14 @@ describe("the todo pane by touch", () => {
 
     fireEvent.click(screen.getByLabelText("cycle buy milk"));
     fireEvent.click(screen.getByLabelText("cycle ship it #kasten"));
+    const ship = TODOS[2] as (typeof TODOS)[number];
+    const after = cycleLine(ship.text, "2026-08-11", "");
+    holds("projects/kasten.md", `${"\n".repeat(ship.line - 1)}${after}\n`);
     fireEvent.click(screen.getByText("Undo"));
 
-    expect(pane.onCycle).toHaveBeenLastCalledWith(TODOS[2], "blocked");
+    await waitFor(() =>
+      expect(pane.onCycle).toHaveBeenLastCalledWith({ ...ship, text: after }, "blocked"),
+    );
   });
 
   it("takes the way back away after five seconds", async () => {

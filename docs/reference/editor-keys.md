@@ -1027,8 +1027,15 @@ does, and the header carries a `+` that adds one as `a` does. For five seconds
 after such a tap the foot of the pane carries an `Undo`, which puts the todo
 back in the state the first tap found it in, so two taps too many cost one.
 It is not offered where it could not make the line whole: when the tap
-finishes a recurring todo or one with parts, and in the done list. The id a
-finished todo was given stays on the line.
+finishes a recurring todo or one with parts, and in the done list.
+
+`Undo` reads the note again before it writes, and looks for the one line that
+is the todo as the tap left it, by its id where it had one and by its words
+where it had none. A todo that finishing moved down a line is found where it
+now stands. Where no line or more than one fits, nothing is written. Three
+things stay behind after a finished todo is put back: the id the tick gave the
+line, a `## Done` heading the tick had to write, and a daily note it had to
+make.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks
