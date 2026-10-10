@@ -461,7 +461,9 @@ function PanelIcon() {
  *
  * Below `md` the panel is a drawer over the page instead: 256px beside a note
  * leaves 134px of a phone for the note. The rail stays in the row either way,
- * so the page under the drawer does not move when it opens.
+ * so the page under the drawer does not move when it opens. A phone draws no
+ * rail at all: the toolbar along its bottom edge opens the drawer, and 45px
+ * of rail is an eighth of the note's width.
  *
  * Clicking a note reports its path and nothing more. Which note is open is the
  * caller's business, and it keeps that in the URL.
@@ -490,7 +492,7 @@ export function FileExplorer({
   // named in the URL has to be visible, or a reload lands on a tree that has
   // hidden what it is showing you.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => ancestors(openPath));
-  const { narrow } = useViewport();
+  const { narrow, coarse } = useViewport();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   /** Where the pointer went down, and how wide the panel was then. */
   const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
@@ -826,16 +828,19 @@ export function FileExplorer({
     </button>
   );
 
-  const rail = (
-    // Inert under an open drawer, where its button would be a second "Hide
-    // file tree" that Tab reaches behind the backdrop.
-    <div
-      inert={open}
-      className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1 pointer-coarse:p-0"
-    >
-      {toggle}
-    </div>
-  );
+  // Narrow and a finger, which is when the route draws its toolbar. A narrow
+  // window under a mouse has no toolbar and keeps the rail to click on.
+  const rail =
+    narrow && coarse ? null : (
+      // Inert under an open drawer, where its button would be a second "Hide
+      // file tree" that Tab reaches behind the backdrop.
+      <div
+        inert={open}
+        className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1 pointer-coarse:p-0"
+      >
+        {toggle}
+      </div>
+    );
 
   if (!open) return rail;
 

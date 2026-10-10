@@ -1206,14 +1206,18 @@ describe("the route", () => {
         (pane) => !pane.classList.contains("hidden"),
       );
 
+    afterEach(() => localStorage.clear());
+
     it("starts with the tree shut, and shuts it again on the note a tap opens", async () => {
       stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       const app = await renderApp();
       await settle();
 
       expect(app.tree()).toBeNull();
+      // No rail on a phone, the toolbar being the way to the drawer.
+      expect(screen.queryByRole("button", { name: "Show file tree" })).toBeNull();
 
-      fireEvent.click(screen.getByRole("button", { name: "Show file tree" }));
+      fireEvent.click(screen.getByRole("button", { name: "File tree" }));
       app.click("index.md");
       await settle();
 
@@ -1224,8 +1228,7 @@ describe("the route", () => {
     /** The column holding the panes, which an open drawer puts out of reach. */
     const page = () =>
       document.querySelector("[role='tablist'], [data-pane]")?.closest("[inert]") ?? null;
-    const openDrawer = () =>
-      fireEvent.click(screen.getByRole("button", { name: "Show file tree" }));
+    const openDrawer = () => fireEvent.click(screen.getByRole("button", { name: "File tree" }));
 
     it("closes the drawer on Escape and puts the focus in the pane on screen", async () => {
       stubMatchMedia({ [NARROW]: true, [COARSE]: true });
@@ -1293,6 +1296,9 @@ describe("the route", () => {
     });
 
     it("draws the focused pane alone, and gives the split back when the window widens", async () => {
+      // Vim is off under a finger, and the leader with it. Turned on by hand
+      // here, the split having no other key.
+      localStorage.setItem("kasten.vim", "on");
       const media = stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       const app = await renderApp();
       await settle();
@@ -1304,8 +1310,7 @@ describe("the route", () => {
       expect(drawn()).toHaveLength(1);
       const first = drawn()[0];
 
-      // The command the toolbar's button will call, reached here by its key.
-      app.leader("o");
+      fireEvent.click(screen.getByRole("button", { name: "Move to the next pane" }));
       await settle();
 
       expect(drawn()).toHaveLength(1);
@@ -1316,7 +1321,79 @@ describe("the route", () => {
       expect(drawn()).toHaveLength(2);
     });
 
+    it("draws the toolbar on a phone and nowhere else", async () => {
+      const toolbar = () => screen.queryByRole("toolbar", { name: "Commands" });
+      const media = stubMatchMedia();
+      await renderApp();
+      await settle();
+      expect(toolbar()).toBeNull();
+
+      // A narrow window under a mouse keeps its keys, and its rail.
+      media.set(NARROW, true);
+      expect(toolbar()).toBeNull();
+      expect(screen.getByRole("button", { name: "Show file tree" })).toBeInTheDocument();
+
+      media.set(COARSE, true);
+      expect(toolbar()).not.toBeNull();
+      // One pane, so nowhere to move to.
+      expect(screen.queryByRole("button", { name: "Move to the next pane" })).toBeNull();
+
+      // A tablet: a finger, and room for the panel beside the note.
+      media.set(NARROW, false);
+      expect(toolbar()).toBeNull();
+    });
+
+    it("opens the palette, the finder and the search from the toolbar", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+      const palette = screen.getByRole("dialog", { name: "Run a command" });
+      // The way to vim's keys on a phone, which no key reaches with vim off.
+      expect(screen.getByRole("option", { name: "Toggle vim keys" })).toBeInTheDocument();
+      fireEvent.mouseDown(palette);
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Find a note" }));
+      fireEvent.mouseDown(screen.getByRole("dialog", { name: "Find note" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Search note content" }));
+      fireEvent.mouseDown(screen.getByRole("dialog"));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("makes room in the frame for a keyboard that covers the page", async () => {
+      const listeners = new Map<string, () => void>();
+      const viewport = {
+        scale: 1,
+        offsetTop: 0,
+        height: 800,
+        addEventListener: (type: string, listener: () => void) => listeners.set(type, listener),
+        removeEventListener: (type: string) => listeners.delete(type),
+      };
+      vi.stubGlobal("visualViewport", viewport);
+      const box = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockReturnValue({ bottom: 800 } as DOMRect);
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+      const frame = screen.getByRole("main");
+
+      viewport.height = 500;
+      listeners.get("resize")?.();
+
+      // The bar and the toolbar sit inside the frame, so both rise with it.
+      expect(frame.style.paddingBottom).toBe("300px");
+      expect(frame).toContainElement(screen.getByRole("contentinfo"));
+      expect(frame).toContainElement(screen.getByRole("toolbar", { name: "Commands" }));
+      box.mockRestore();
+    });
+
     it("counts the panes in the bar, which is the only sign of a split", async () => {
+      localStorage.setItem("kasten.vim", "on");
       const media = stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       const app = await renderApp();
       await settle();
