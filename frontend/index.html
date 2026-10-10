@@ -6,14 +6,10 @@
     <title>kasten</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#282c34" />
-    <!-- Two apps install from this origin, the notebook and the capture page.
-         These tags name the notebook, and src/lib/install.ts points them at
-         capture on /capture.
-
-         use-credentials, because the whole site sits behind oauth2-proxy and a
+    <!-- use-credentials, because the whole site sits behind oauth2-proxy and a
          manifest is fetched without cookies by default: it would get the
          sign-in redirect instead of the JSON. -->
-    <link rel="manifest" href="/app.webmanifest" crossorigin="use-credentials" />
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <!-- iOS reads no manifest for any of this. The first name is the one
          Chrome asks for, the second the one Safari still reads. -->
     <meta name="mobile-web-app-capable" content="yes" />
