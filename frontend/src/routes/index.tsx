@@ -27,6 +27,7 @@ import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
+import { Toolbar } from "@/components/toolbar";
 import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
@@ -104,7 +105,9 @@ import {
 import type { TodoCycle } from "@/lib/todo-commands";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useNoteWrites } from "@/lib/use-note-writes";
+import { useViewport } from "@/lib/use-viewport";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { setWatched } from "@/lib/video";
 import { outgoingLinks, wikiLinkPath } from "@/lib/wikilink";
@@ -266,6 +269,7 @@ function Home() {
   const [mark, setMark] = useState<{ note: string; id: string; seconds: number }>();
   const pane = focusedPane(layout);
   const tab = activeTab(layout);
+  const panes = tabPanes(layout);
   // One autosave, following the focused pane, because the focused pane is the
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
@@ -295,7 +299,31 @@ function Home() {
   });
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
-  const [treeOpen, setTreeOpen] = useState(true);
+  //
+  // Shut to begin with below `md`, where it is a drawer over the page and not a
+  // panel beside it.
+  const { narrow, coarse } = useViewport();
+  // A phone: the one place the toolbar is drawn, and the rail is not.
+  const phone = narrow && coarse;
+  // The whole frame makes room for a keyboard that covers the page, so the
+  // cursor's line, the bar and the toolbar all stay above it. A finger alone
+  // decides it and not the width: a tablet has the same keyboard.
+  const frame = useRef<HTMLElement>(null);
+  useKeyboardInset(frame, coarse);
+  const [treeOpen, setTreeOpen] = useState(!narrow);
+  // The drawer covers the pane, so it shuts whenever the focus is handed to
+  // one, which every way of opening something ends with. It shuts as well when
+  // the window turns narrow under an open panel, a phone turned upright being
+  // the case: a panel beside the note would become a drawer over it.
+  //
+  // Set during the render rather than in an effect. The page under the drawer
+  // is inert while it is open, and the pane's own effect focuses it on the
+  // commit the signal rises in, so the drawer has to be gone by that commit.
+  const [shutFor, setShutFor] = useState({ narrow, focusSignal });
+  if (shutFor.narrow !== narrow || shutFor.focusSignal !== focusSignal) {
+    setShutFor({ narrow, focusSignal });
+    if (narrow) setTreeOpen(false);
+  }
   // Above the remount that opening another note causes, so turning the
   // rendering off stays off until you turn it back on.
   const [preview, setPreview] = useState(true);
@@ -1777,7 +1805,7 @@ function Home() {
   );
 
   return (
-    <main className="flex h-dvh flex-col bg-one-bg">
+    <main ref={frame} className="flex h-dvh flex-col bg-one-bg">
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer
@@ -1801,11 +1829,17 @@ function Home() {
           commands={commands}
           focusSignal={treeFocus}
           revealSignal={treeReveal}
+          onLeave={refocusPane}
         />
         {/* min-w-0 lets the panes shrink instead of pushing the tree off-screen.
             The strip sits inside this column rather than over the whole window,
             so the tabs line up with the panes they divide. */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          // Out of reach under an open drawer, so Tab stays in the drawer and
+          // nothing is typed into a note behind the backdrop.
+          inert={narrow && treeOpen}
+          className="flex min-w-0 flex-1 flex-col"
+        >
           <TabStrip
             layout={layout}
             onSelect={(index) => moveTo((previous) => goToTab(previous, index))}
@@ -1817,7 +1851,11 @@ function Home() {
               divided={tabPanes(layout).length > 1}
               // The focused pane is the one drawn alone, always: every key
               // that moves the focus turns the zoom off on its way past.
-              zoomed={tab.zoom === true ? tab.focus : null}
+              //
+              // Below `md` every tab is drawn that way, a split of 390px being
+              // strips nobody can read. The tree is left as it is and so is
+              // `tab.zoom`, so the splits are back when the window widens.
+              zoomed={narrow || tab.zoom === true ? tab.focus : null}
               // The one way to another pane that `moveTo` does not stand in
               // front of, and it stays that way on purpose. This is reported
               // after the browser has moved the focus, so declining it would
@@ -2033,7 +2071,16 @@ function Home() {
         notice={notice}
         version={version}
         zoom={tab.zoom}
+        // Only where one pane of several is drawn, which is a narrow window:
+        // anywhere else the panes are on screen and count themselves.
+        pane={
+          narrow && panes.length > 1
+            ? `${panes.findIndex((each) => each.id === pane.id) + 1}/${panes.length}`
+            : undefined
+        }
+        inert={narrow && treeOpen}
       />
+      {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       {palette && (
         <CommandPalette
@@ -2101,8 +2148,12 @@ function Home() {
           onOpen={(path) => {
             const { mode, startPath } = prompt;
             setPrompt(null);
-            if (mode === "create") setLayout((previous) => openInFocused(previous, path));
-            else followMove(mode, startPath, path);
+            if (mode === "create") {
+              setLayout((previous) => openInFocused(previous, path));
+              // The prompt hands the focus back to the tree it was opened
+              // from, which on a narrow window is a drawer over the new note.
+              if (narrow) refocusPane();
+            } else followMove(mode, startPath, path);
           }}
           onClose={() => setPrompt(null)}
         />

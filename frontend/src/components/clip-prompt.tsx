@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -97,6 +98,7 @@ export function ClipPrompt({ onClip, onClose }: ClipPromptProps) {
       aria-label="Import a web page"
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose, input.trim() !== "")}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

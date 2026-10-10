@@ -6,6 +6,7 @@ import { moveAndCache } from "@/lib/move";
 import { describeFolderPath, describeNotePath, type NotePathVerdict } from "@/lib/note-path";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -13,6 +14,7 @@ import {
   PANEL_NARROW,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 
 /**
@@ -338,6 +340,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
       aria-label={TITLE[mode]}
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose, input !== startPath)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>
@@ -380,7 +383,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
                 // click still lands here, and takes the folder Tab would take.
                 tabIndex={-1}
                 onClick={() => pick(folder)}
-                className={`${ROW} ${
+                className={`${ROW} ${TAP} ${
                   index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                 }`}
               >

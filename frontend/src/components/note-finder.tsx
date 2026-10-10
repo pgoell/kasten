@@ -6,6 +6,7 @@ import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 import {
   BACKDROP,
   BODY,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -16,7 +17,9 @@ import {
   PANEL_WIDE,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
+import { useViewport } from "@/lib/use-viewport";
 
 interface NoteFinderProps {
   /** The notes to rank against what has been typed. Usually the whole vault. */
@@ -119,14 +122,17 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
   // walking the list cost one read instead of one per row.
   const [reading, setReading] = useState<string>();
 
+  // Nothing is read in a narrow window, which has no pane to show it in.
+  const { narrow } = useViewport();
+
   useEffect(() => {
-    if (highlighted === undefined) {
+    if (narrow || highlighted === undefined) {
       setReading(undefined);
       return;
     }
     const timer = setTimeout(() => setReading(highlighted), PREVIEW_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [highlighted]);
+  }, [highlighted, narrow]);
 
   // The key `NoteEditor` reads, on purpose: a note that is open is already here
   // and costs nothing to show, and a note read here is one the editor will not
@@ -217,6 +223,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
       aria-label={outgoing ? "Outgoing links" : "Find note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_WIDE}`}>
@@ -261,7 +268,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
                   // open. A click still lands here, and opens the same note.
                   tabIndex={-1}
                   onClick={() => accept(path)}
-                  className={`${ROW} truncate ${
+                  className={`${ROW} ${TAP} truncate ${
                     index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                   }`}
                 >
@@ -271,7 +278,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
             </div>
           )}
 
-          {highlighted !== undefined && (
+          {!narrow && highlighted !== undefined && (
             // Rendered the way the editor renders it, so the pane shows the
             // note as opening it will. It used to be plain text, on the
             // grounds that this pane is for telling two notes apart rather

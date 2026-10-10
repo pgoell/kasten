@@ -1,23 +1,36 @@
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { keyBytes, withCtrl } from "@/components/terminal-keys";
 import { TerminalPane } from "@/components/terminal-pane";
+import { encodeInput } from "@/lib/ttyd";
+import { COARSE, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
 // xterm draws into a canvas and measures fonts, neither of which jsdom has.
 // What the pane does with a socket is the question here, and the only part of
 // the terminal that answers it is what got written.
-const { written } = vi.hoisted(() => ({ written: [] as unknown[] }));
+const { written, term } = vi.hoisted(() => ({
+  written: [] as unknown[],
+  /** What the keyboard under the row would do: type, and switch DECCKM. */
+  term: { type: (_data: string) => {}, modes: { applicationCursorKeysMode: false } },
+}));
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     cols = 80;
     rows = 24;
+    modes = term.modes;
     open() {}
     attachCustomKeyEventHandler() {}
     loadAddon() {}
     write(data: unknown) {
       written.push(data);
     }
-    onData() {
+    onData(listener: (data: string) => void) {
+      term.type = listener;
       return { dispose() {} };
+    }
+    // As xterm's own does: input is handed to whoever listens on `onData`.
+    input(data: string) {
+      term.type(data);
     }
     onResize() {
       return { dispose() {} };
@@ -77,6 +90,7 @@ function screenText(): string {
 describe("TerminalPane", () => {
   beforeEach(() => {
     written.length = 0;
+    term.modes.applicationCursorKeysMode = false;
     FakeSocket.last = null;
     vi.stubGlobal("WebSocket", FakeSocket);
     vi.stubGlobal(
@@ -91,6 +105,7 @@ describe("TerminalPane", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("says the shell could not be reached when the socket never opens", () => {
@@ -121,5 +136,174 @@ describe("TerminalPane", () => {
     open.onclose?.({ code: 1005 });
 
     expect(screenText()).toBe("");
+  });
+
+  describe("key row", () => {
+    /** A phone, with the socket open so a key has somewhere to go. */
+    function phone() {
+      const media = stubMatchMedia({ [COARSE]: true });
+      const view = render(<TerminalPane session="notes" commands={stubCommands()} />);
+      act(() => socket().accept());
+      // The auth frame is not a key.
+      socket().sent.length = 0;
+      return { media, ...view };
+    }
+
+    function tap(name: string) {
+      fireEvent.click(screen.getByRole("button", { name }));
+    }
+
+    it("is not drawn for a mouse", () => {
+      render(<TerminalPane session="notes" commands={stubCommands()} />);
+
+      expect(screen.queryByRole("toolbar")).toBeNull();
+    });
+
+    it("sends what the hardware key sends", () => {
+      phone();
+
+      for (const name of ["Esc", "Tab", "Left", "Down", "Up", "Right", "|", "/", "-"]) tap(name);
+
+      expect(socket().sent).toEqual(
+        ["\x1b", "\t", "\x1b[D", "\x1b[B", "\x1b[A", "\x1b[C", "|", "/", "-"].map(encodeInput),
+      );
+    });
+
+    it("sends the application arrows once a program has asked for them", () => {
+      phone();
+      term.modes.applicationCursorKeysMode = true;
+
+      tap("Up");
+
+      expect(socket().sent).toEqual([encodeInput("\x1bOA")]);
+    });
+
+    it("holds Ctrl for the next typed key and no longer", () => {
+      phone();
+
+      tap("Ctrl");
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+      expect(socket().sent).toEqual([]);
+
+      act(() => term.type("c"));
+      act(() => term.type("c"));
+
+      expect(socket().sent).toEqual([encodeInput("\x03"), encodeInput("c")]);
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+    });
+
+    it("spends Ctrl on a key of the row", () => {
+      phone();
+
+      tap("Ctrl");
+      tap("Left");
+      tap("Left");
+
+      expect(socket().sent).toEqual([encodeInput("\x1b[1;5D"), encodeInput("\x1b[D")]);
+    });
+
+    it("keeps Ctrl through what the terminal reports on its own", () => {
+      phone();
+
+      tap("Ctrl");
+      // Focus in, a mouse press and a device attributes reply, as xterm sends
+      // them for the tap that raises the keyboard.
+      for (const report of ["\x1b[I", "\x1b[<0;10;5M", "\x1b[?1;2c"]) act(() => term.type(report));
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+
+      act(() => term.type("d"));
+
+      expect(socket().sent.at(-1)).toEqual(encodeInput("\x04"));
+      expect(socket().sent).toHaveLength(4);
+    });
+
+    it("spends Ctrl on a typed run it cannot apply to", () => {
+      phone();
+
+      tap("Ctrl");
+      act(() => term.type("ls"));
+      act(() => term.type("c"));
+
+      expect(socket().sent).toEqual([encodeInput("ls"), encodeInput("c")]);
+    });
+
+    it("does not carry Ctrl over to another session in the same pane", () => {
+      const { rerender } = phone();
+
+      tap("Ctrl");
+      rerender(<TerminalPane session="other" commands={stubCommands()} />);
+      act(() => socket().accept());
+      socket().sent.length = 0;
+
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+      act(() => term.type("c"));
+      expect(socket().sent).toEqual([encodeInput("c")]);
+    });
+
+    it("lets go of Ctrl when the row goes away", async () => {
+      const { media } = phone();
+
+      tap("Ctrl");
+      await media.set(COARSE, false);
+      expect(screen.queryByRole("toolbar")).toBeNull();
+      act(() => term.type("c"));
+      expect(socket().sent).toEqual([encodeInput("c")]);
+
+      await media.set(COARSE, true);
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+    });
+
+    it("lets go of Ctrl on a second tap", () => {
+      phone();
+
+      tap("Ctrl");
+      tap("Ctrl");
+      act(() => term.type("c"));
+
+      expect(socket().sent).toEqual([encodeInput("c")]);
+    });
+
+    it("keeps the focus where it was when a key is pressed", () => {
+      phone();
+
+      // An unhandled press is what moves the focus onto a button.
+      expect(fireEvent.mouseDown(screen.getByRole("button", { name: "Esc" }))).toBe(false);
+      expect(fireEvent.pointerDown(screen.getByRole("button", { name: "Esc" }))).toBe(false);
+    });
+  });
+});
+
+describe("keyBytes", () => {
+  it("sends the control character a keyboard sends for the punctuation", () => {
+    expect(keyBytes("/", true, false)).toBe("\x1f");
+    expect(keyBytes("-", true, false)).toBe("\x1f");
+    expect(keyBytes("|", true, false)).toBe("\x1c");
+  });
+
+  it("sends a Ctrl arrow the same in either cursor mode", () => {
+    expect(keyBytes("Right", true, true)).toBe("\x1b[1;5C");
+  });
+});
+
+describe("withCtrl", () => {
+  it("turns a letter of either case into its control character", () => {
+    expect(withCtrl("d")).toBe("\x04");
+    expect(withCtrl("D")).toBe("\x04");
+  });
+
+  it("leaves everything else as it came", () => {
+    expect(withCtrl("1")).toBe("1");
+    expect(withCtrl("ls")).toBe("ls");
+    expect(withCtrl("\x1b[A")).toBe("\x1b[A");
   });
 });

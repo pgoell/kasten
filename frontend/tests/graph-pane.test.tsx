@@ -7,21 +7,23 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GraphPane } from "@/components/graph-pane";
 import * as api from "@/lib/api";
 import type { GraphCanvasHandlers } from "@/lib/graph-canvas";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
 const canvas = vi.hoisted(() => ({
   handlers: null as GraphCanvasHandlers | null,
   update: vi.fn(),
+  fit: vi.fn(),
 }));
 
 vi.mock("@/lib/graph-canvas", () => ({
   drawGraph: (_element: HTMLElement, handlers: GraphCanvasHandlers) => {
     canvas.handlers = handlers;
-    return { update: canvas.update, resize: vi.fn(), fit: vi.fn(), destroy: vi.fn() };
+    return { update: canvas.update, resize: vi.fn(), fit: canvas.fit, destroy: vi.fn() };
   },
 }));
 
@@ -60,6 +62,8 @@ describe("GraphPane", () => {
       },
     );
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("draws the whole vault when nothing is typed", async () => {
     const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
@@ -124,6 +128,68 @@ describe("GraphPane", () => {
     expect(onFollow).toHaveBeenCalledWith("Ghost");
   });
 
+  it("asks before a tap makes a note nobody wrote, and makes it on Create", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    const { onOpen, onFollow } = renderPane();
+    await waitFor(() => expect(canvas.handlers?.coarse()).toBe(true));
+
+    act(() => canvas.handlers?.onOpen({ ...GHOST, degree: 1 }));
+
+    expect(onFollow).not.toHaveBeenCalled();
+    expect(screen.getByText("Create Ghost?")).toBeInTheDocument();
+    const create = screen.getByRole("button", { name: "Create" });
+    expect(create).toHaveClass("min-h-11");
+
+    fireEvent.click(create);
+
+    expect(onFollow).toHaveBeenCalledWith("Ghost");
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+  });
+
+  it("drops the question on Cancel, a tap elsewhere or another query", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    const { onOpen, onFollow } = renderPane();
+    await waitFor(() => expect(canvas.handlers?.coarse()).toBe(true));
+    const tapGhost = () => act(() => canvas.handlers?.onOpen({ ...GHOST, degree: 1 }));
+
+    tapGhost();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+
+    tapGhost();
+    act(() => canvas.handlers?.onBlank());
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+
+    tapGhost();
+    fireEvent.change(screen.getByRole("textbox", { name: "graph query" }), {
+      target: { value: "type:Concept" },
+    });
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+
+    // A note that is there opens at once, question or no question.
+    tapGhost();
+    act(() => canvas.handlers?.onOpen({ ...RAG, degree: 1 }));
+    expect(onOpen).toHaveBeenCalledWith("rag.md");
+    expect(screen.queryByText("Create Ghost?")).toBeNull();
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
+  it("tells the canvas a finger is pointing on a touch screen, and not on a desktop", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    renderPane();
+    await waitFor(() => expect(canvas.update).toHaveBeenCalled());
+    expect(canvas.handlers?.coarse()).toBe(false);
+    cleanup();
+
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane();
+    await waitFor(() => expect(canvas.handlers?.coarse()).toBe(true));
+    expect(screen.getByTestId("graph-canvas")).toHaveClass("touch-none");
+  });
+
   it("reaches further out around a note with +", async () => {
     const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
     renderPane({ around: "rag.md" });
@@ -134,5 +200,37 @@ describe("GraphPane", () => {
     await waitFor(() =>
       expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ around: "rag.md", depth: 2 })),
     );
+  });
+
+  it("fits and reaches by tap, where a finger has no f, + or -", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    renderPane({ around: "rag.md" });
+    await waitFor(() => expect(ask).toHaveBeenCalledWith(expect.objectContaining({ depth: 1 })));
+
+    canvas.fit.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "fit" }));
+    expect(canvas.fit).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "one link further" }));
+    await waitFor(() =>
+      expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 2 })),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "one link nearer" }));
+    await waitFor(() =>
+      expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 1 })),
+    );
+  });
+
+  it("offers no depth on the whole vault, and no row at all under a mouse", async () => {
+    const media = stubMatchMedia({ [COARSE]: true });
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    renderPane();
+
+    expect(screen.getByRole("button", { name: "fit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "one link further" })).toBeNull();
+
+    media.set(COARSE, false);
+    expect(screen.queryByRole("button", { name: "fit" })).toBeNull();
   });
 });

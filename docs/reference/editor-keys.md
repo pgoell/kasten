@@ -9,12 +9,126 @@ status: stable
 
 # Editor keys
 
-The editor runs vim. Everything on this page is what kasten adds on top of it;
-every vim binding not listed here still does what vim does.
+The editor runs vim, unless the device is a touch screen or you turned vim off.
+Everything on this page is what kasten adds on top of vim; every vim binding not
+listed here still does what vim does. [Vim on or off](#vim-on-or-off) says what
+the editor does without it.
 
 `frontend/src/lib/key-bindings.ts` holds these bindings as one table, and both
 the registrations and the `<leader>?` panel are built from it. A test fails if
 that table names a command the app does not provide.
+
+## Vim on or off
+
+Where the primary pointer is a finger, the editor starts without vim: an
+on-screen keyboard has no Escape, and normal mode takes the first tap of every
+edit. Where it is a mouse, the editor starts with vim.
+
+`Toggle vim keys` in [the command palette](#the-command-palette) changes that by
+hand. The browser stores the choice in `localStorage` under `kasten.vim`, as
+`on` or `off`, and from then on the choice wins over the pointer. Every open
+pane follows at once, and the text, the cursor and the undo history stay. Every
+other tab holding kasten follows at the same moment, not at its next keystroke.
+A browser that blocks site data cannot store the choice: the editor then goes
+by the pointer, and a toggle holds until the page is closed.
+
+Without vim the editor is a plain one. Every line can be typed into, live
+preview shows the source of the line the cursor is on and of the mark the
+cursor is in, and the line numbers count from the top.
+
+Every key on this page that vim resolves stops working: the leader, `gf`,
+Enter on a link, the ex prompt and the yank to the clipboard. Ctrl+S, Tab,
+Ctrl+click, the `/` menu, the completions and the four
+[formatting](#formatting) chords stay, the chords working wherever the cursor
+is, there being no mode to ask about. The palette runs the rest by name:
+
+| Lost key | Palette row |
+| --- | --- |
+| `<leader>` and a letter | the row with the same label |
+| `<leader>1` to `<leader>0` | `Go to tab 1` to `Go to tab 10` |
+| `:w` | `Write the note` |
+| `:e` | `Read the note off the vault again` |
+| `:e!` | `Read the note off the vault again, throwing away unsaved text` |
+| `gf`, Enter | `Open what the wikilink or highlight under the cursor names` |
+| `:copy md`, `:copy slack`, `:copy teams` | `Copy as markdown`, `Copy for Slack`, `Copy for Teams` |
+
+The three copy rows take the selection, or the whole note where nothing is
+selected. `:copy` with a line range typed by hand has no row.
+
+Ctrl+Shift+P opens the palette from a note with or without vim. The key is Ctrl
+on a Mac too, as it is in [a terminal](#terminal). Firefox on Windows and Linux
+keeps that chord for a private window and does not hand it to the page, so it
+opens nothing there. Without vim, and on a device with no keyboard, the other
+ways in are the `run` button of [the toolbar](#on-a-phone), and typing `/` at
+the start of a line or after a space and choosing `Run a command by name`.
+
+## On a phone
+
+Where the window is narrower than 768px and the primary pointer is a finger, a
+toolbar runs along the bottom edge, under the status bar. A mouse never sees
+it, and neither does a wide touch screen.
+
+| Button | Does | Key |
+| --- | --- | --- |
+| `files` | Open or close the file tree | `<leader>b` |
+| `find` | Open the note finder | `<leader>ff` |
+| `search` | Open search over note content | `<leader>fg` |
+| `run` | Open the command palette | `<leader>:` |
+| `today` | Open today's note | `<leader>gd` |
+| `todos` | Open the todo pane | `<leader>gt` |
+| `pane` | Move to the next pane. Drawn only while the tab holds more than one | `<leader>o` |
+
+Each button runs the command its key runs and nothing more. Every other leader
+command is a row of [the command palette](#the-command-palette), which `run`
+opens.
+
+A tap on a button leaves the focus where it was. So `run` tapped while you type
+in a note opens the palette over that note, with its inserts and edits listed,
+and the on-screen keyboard stays up. Tapped with nothing focused, it lists the
+leader commands only: tap into the note first.
+
+The toolbar stays on screen while the keyboard is up, at the cost of 44px of
+the note. Hidden, there would be no way to the palette from a note being typed
+in, which is when the palette lists the most.
+
+With the keyboard up, the cursor's line, the status bar and the toolbar all
+stay above it. Chrome on Android shrinks the page for the keyboard. Safari on
+iOS covers the page instead, so there the frame reads `window.visualViewport`
+and pads away the covered part. A prompt, the palette, the finder and the
+search stop at the top of the keyboard the same way, input first. A zoomed
+page is padded too: Safari zooms by itself when an input drawn under 16px
+takes the focus, and stays zoomed. Under a coarse pointer every input is 16px
+for that reason: the prompts, the todo pane's filter and edit line, the
+graph's query, the review's two fields and the token name.
+
+On a phone a tap does not raise the keyboard by itself. The editor takes the
+focus after a key moves to its pane or opens its note, and not after a tap
+does: a tap on `pane`, on a row of the tree or on a row of the finder shows the
+note, and a tap on its text is what starts typing. An editor that holds the
+focus keeps it, and coming back to the tab hands it none. This goes by the
+last input, so a phone with a keyboard attached gets the focus after its keys.
+Before any input a touch screen counts as tapped, so a page that has just
+loaded focuses nothing there.
+
+The rule holds below 768px only. A wide touch screen keeps the tree open
+beside the note, and a tapped row would keep the focus: the next keys typed
+would be the tree's, where `d` deletes. So there the editor takes the focus
+after a tap as it does after a click.
+
+Every panel over the page closes on a tap or a click outside it: the palette,
+the finder, the search, the prompts and the keys panel. It closes on the
+release, so nothing under it is pressed by the same tap. A press inside the
+panel closes nothing, and neither does a press that starts on one side of the
+panel's edge and ends on the other, a selection dragged out of the input being
+the usual one.
+A prompt holding something typed stays open too: the note, todo, dump, clip
+and terminal prompts close only on Escape once their input has changed.
+
+Still keys only on a touch screen: renaming or deleting a folder, renaming or
+deleting a note or an image from its row in the tree without opening it, moving
+a row by dragging it, and `:copy` with a line range. A note is renamed and
+deleted from the palette once it is open, and the rename prompt takes a new
+folder, which moves it. An open image has a `delete` button.
 
 ## Leader
 
@@ -222,6 +336,20 @@ turns it off, which is what tmux does, so `<leader>o` moves to the next pane
 and unzooms in one press. The four directions have nowhere to go while it is
 on, one pane being all there is on screen.
 
+A window narrower than 768px draws every tab that way, zoomed or not: the
+focused pane alone, the rest hidden and still holding what they held. The
+splits are kept, so they are back when the window widens. `<leader>o` is the
+way to the next pane there, and the footer does not say `zoom` for it. It
+says `pane 1/2` instead, the pane drawn and how many the tab holds, whenever
+the tab holds more than one.
+
+That window's footer carries the date and the time and leaves out the weekday,
+the week and the version. A notice takes the clock's place while it shows. A
+click or a tap on a notice opens it out in full above the footer, and one on
+the save sign of a write that failed or a note that changed on disk does the
+same with the reason and the way out; a second one shuts it. Under a mouse the
+same text is on hover.
+
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
 nothing to tell it apart from.
@@ -239,7 +367,8 @@ tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
 left focused, for the herdr session when that pane holds a terminal, and
-`todos` when it holds the todo list.
+`todos` when it holds the todo list. More tabs than the window is wide scroll
+sideways, and the strip keeps the tab on screen in view.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
 holding a note it writes the note and empties the pane, and it takes a terminal
@@ -366,6 +495,31 @@ work, not evidence that they are comfortable, and they are expected to change.
 place to change them; the component, the `<leader>?` panel and its test all
 derive from those two. This table does not, and has to be edited by hand.
 
+On a touch screen, which is a coarse primary pointer, a row of keys sits under
+the terminal, for what an on-screen keyboard lacks. A mouse never sees it.
+
+| Key | Sends |
+| --- | --- |
+| `Esc` | Escape |
+| `Tab` | Tab |
+| `Ctrl` | Nothing by itself. It holds Ctrl for the next key and lets go after it; a second tap lets go at once |
+| `←` `↓` `↑` `→` | The arrow, in the cursor mode the running program asked for, so they work in vim and less as well as at a prompt |
+| `\|` `/` `-` | The character |
+
+`Ctrl` applies to the next key from either keyboard. A letter typed after it
+becomes the control character, so `Ctrl` then `c` is `Ctrl+C`. An arrow becomes
+the Ctrl arrow, `/` and `-` become `Ctrl+_` and `|` becomes `Ctrl+\`, as on a
+keyboard. Anything else typed goes through unchanged and still lets go of
+Ctrl. What starts with an escape keeps Ctrl held: what the terminal reports by
+itself (focus, the mouse, an answer to the program), a bracketed paste, and an
+arrow from a hardware keyboard.
+
+A tap on a key leaves the focus in the terminal, so the on-screen keyboard
+stays up. A tap on the terminal focuses it and raises the keyboard. The
+terminal refits when the keyboard opens and closes: the whole frame makes room
+for the keyboard, as [On a phone](#on-a-phone) says, and the pane shrinks with
+it.
+
 `Ctrl+Shift+Q` empties the pane rather than removing it, which is what
 `<leader>q` does to a note. That is also the way out of a window that holds
 nothing but a terminal: there is no chord that splits, so with one terminal
@@ -478,7 +632,17 @@ chapter one is `k` held down rather than a hunt. The list is the publisher's
 own, so a nested chapter is drawn indented, and a part heading the book gave no
 link to is a row Enter does nothing on. A pdf's list is its own outline, walked
 and nested the same way. A book whose publisher wrote no contents, or a pdf
-whose author wrote none, says so instead of drawing an empty box.
+whose author wrote none, says so instead of drawing an empty box. A click or a
+tap on the dimmed page around the list puts it away as Escape does.
+
+On a touch screen a swipe turns the page of a flowing epub, and a tap in the
+left or the right quarter of any page turns it the way a swipe from that side
+would, back and forward in a left-to-right book and the reverse in a
+right-to-left one, which is the one way to turn a pdf's or a fixed-layout
+epub's page by finger. A tap on a
+link, or one made while a passage is selected, turns nothing. The foot of the
+pane carries a `Contents` button for `t` and, while a passage is selected, a
+`Take` button for `y`.
 
 Selecting a passage draws a button over it, and clicking that button and
 pressing `y` are the same thing: the passage lands under `## Highlights` in the
@@ -560,8 +724,9 @@ own. A note linking no video draws one sentence saying so rather than an empty
 player.
 
 A note may link as many as you like. `n` and `p` in the player step through
-them in the note's order, and the header counts, `2/5`. A video linked twice is
-one video, so stepping cannot land on the same player twice.
+them in the note's order, and the header counts, `2/5`. A click or a tap on the
+count goes to the next one, as `n` does. A video linked twice is one video, so
+stepping cannot land on the same player twice.
 
 A timestamp in the link is dropped. `?t=90` is one more video to open at the
 start, because the position the note remembers is where you actually got to.
@@ -759,6 +924,14 @@ drag the background to pan, and scroll to zoom. A click opens the note in the
 pane, and a click on a hollow ring makes the note the way following its link
 would.
 
+A finger does the same: one finger on the background pans, one on a note drags
+it, two pinch to zoom, and a tap opens the note. A tap on a hollow ring asks
+before it makes the note, because a finger lands on a ring it did not mean far
+more easily than a mouse does. On a touch screen a note
+answers a tap within 12 pixels of its middle however far out the zoom is, where
+a mouse has to be on the dot. A row under the header carries `fit`, which is
+`f`, and around a note `depth -` and `depth +`, which are `-` and `+`.
+
 The line at the top takes a query in the language
 [Graph query](/reference/graph-query.md) states: a filter such as
 `type:Concept -tag:#draft`, or a pattern such as `?paper supports ?idea`. It is
@@ -951,7 +1124,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `s` | Park the card on screen, before or after the answer |
-| `n` | Jot a new question into the note the card came from |
+| `n` | Jot a new question into the note the card came from, or put the open jot line away unwritten |
 | `u` | Put the parked row under the cursor back |
 | `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
@@ -1002,6 +1175,22 @@ by when it is due, under Overdue, Today, This week, Later and No date. An empty
 group draws no heading. A row is the state's symbol, the mark where a timer is
 running on it, the priority where there is one, the words, the count of its parts
 where it has any, the two clocks and the day of the due date.
+
+A click or a tap on a row opens the line the todo is written on. On a touch
+screen the state's symbol is a button of its own that cycles the todo as `x`
+does, and the header carries a `+` that adds one as `a` does. Under the header
+`done`, `next` and `view` do what `d`, `n` and `v` do. Each row ends in a `⋯`
+that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
+`blocked` and `rejected` set the state as `O`, `P`, `X`, `B` and `R` do,
+`timer` is `t`, `part` is `s` and `edit` is `i`. `edit` does nothing while
+another row is being edited. A state picked from the strip is set on one tap.
+
+The state button
+takes two taps, because a cycle writes to the vault and a finger slips: the
+first turns the symbol into the state the todo would move to with a `?` after
+it, and the second is the one that cycles. The question is taken back after
+four seconds, on a tap anywhere else, when the list scrolls, and when another
+row's button is tapped. The keys ask nothing. So does opening a strip, and a tap on a state button shuts an open strip.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks
@@ -1196,14 +1385,19 @@ the vault once.
 
 ## The command palette
 
-`<leader>:` opens a box that lists every command by name. Type a few letters,
+`<leader>:` opens a box that lists every command by name, and so does
+Ctrl+Shift+P, which also works with [vim off](#vim-on-or-off), and `run` on
+[the toolbar](#on-a-phone). Type a few letters,
 and the list narrows by fuzzy match. Enter runs the highlighted row, Escape
-closes the box, and the arrows, Tab, Shift+Tab, Ctrl+N and Ctrl+P move the
+or a press outside the box closes it, and the arrows, Tab, Shift+Tab, Ctrl+N and Ctrl+P move the
 highlight. Each row prints the key that does the same thing.
 
 Opened over a note, the palette lists every leader command, every leader edit,
-the four formatting marks and the inserts below. Opened over a pane with no
-note, it lists the leader commands only, as the rest write into a note.
+the four formatting marks, the inserts below, and the commands vim spells at
+its prompt: the write, the two rereads, the three copies and `gf`. Opened over
+a pane with no note, it lists the leader commands only, as the rest act on a
+note. Both lists end with `Go to tab 1` to `Go to tab 10` and `Toggle vim keys`,
+which has no key.
 
 `frontend/src/lib/palette.ts` builds both lists from the tables in
 `key-bindings.ts`, so a new leader binding appears in the palette and in the
@@ -1211,8 +1405,9 @@ note, it lists the leader commands only, as the rest write into a note.
 
 ### The `/` menu
 
-In insert mode, a `/` typed at the start of a line or after a space opens the
-same list as a completion menu. Letters after the slash narrow it. Enter or Tab
+In insert mode, or anywhere with vim off, a `/` typed at the start of a line or
+after a space opens a completion menu of the inserts, the leader edits, the
+formatting marks and the leader commands. Letters after the slash narrow it. Enter or Tab
 takes the highlighted row, removes the `/` and what you typed after it, and
 then writes the insert or runs the command. A `/` inside a word, a path or a
 URL opens nothing.
@@ -1238,7 +1433,8 @@ puts vim in insert mode first.
 
 ## Formatting
 
-These apply in insert and visual mode. Vim owns all four in normal mode, where
+These apply in insert and visual mode, and everywhere with
+[vim off](#vim-on-or-off). Vim owns all four in normal mode, where
 they page up, walk the jump list, and decrement a number, and they keep doing
 that. The bindings carry a mode and vim's own do not, which is what leaves
 normal mode alone.
@@ -1284,7 +1480,7 @@ precedes it, which keeps `a == b` out of it.
 
 ## Copying
 
-Every yank also writes the system clipboard, the way vim's
+With vim on, every yank also writes the system clipboard, the way vim's
 `clipboard=unnamedplus` does, so `yy`, `yiw` or a visual `y` in a note and
 Ctrl+V in another window move the same text. `"_y` still writes nowhere, and
 `"+y` writes the clipboard once rather than twice. A delete or a change stays in
@@ -1384,6 +1580,7 @@ other mark is hidden, and `i` on that line hands them back.
 | `gf` | Open the note or page the wikilink names, or the book a highlight came from | normal |
 | Enter | The same, one key | normal |
 | Ctrl+click | The same, with the mouse | any |
+| Tap | The same, with a finger | any |
 
 `gf` is vim's own go-to-file, and it reads the link under the cursor. Anywhere
 in the name will do, the last letter included: the closing `]]` is hidden, so
@@ -1416,6 +1613,12 @@ click has to land on the link's own text; it reads the element under the
 pointer rather than the nearest position to it, so the space after the line is
 not the link. With live preview off there is no rendered link to click, and
 `gf` is the way.
+
+A tap on a touch screen follows the link with no modifier, a finger having none
+to hold. A finger that lands on a link and drags scrolls the note and follows
+nothing. A tap on the link the cursor is already in moves the cursor, so to
+edit a link, put the cursor beside it and move in with the arrow keys or
+Backspace.
 
 What the target names is decided against the vault's own listing:
 
@@ -1780,6 +1983,17 @@ fills the screen and says nothing about which note in the vault opened it.
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 
+In a window narrower than 768px the tree is a drawer over the page rather than
+a panel beside it. It starts closed, the button on the rail at the left edge
+and `<leader>b` open it, and it has no grip to resize it by. A phone draws no
+rail, which took 45px of the note's width: `files` on
+[the toolbar](#on-a-phone) opens the drawer there. A tap outside it
+closes it, and so does anything that hands the focus to a pane: opening a note,
+an image or a page from it, a note made with `c` or picked in the finder or the
+search, and Escape, which lands in the pane on screen. The page under an open
+drawer takes no focus and no keys. A panel open in a wide window closes when
+the window turns narrow.
+
 The tree draws the vault's images beside its notes, muted, keeping the suffix a
 note's row drops: the vault holds one kind of note and five kinds of image. They
 are the only rows here that are not notes, and nothing else in the app treats
@@ -1800,11 +2014,17 @@ Keys typed inside a page are the page's, so a deck's arrows turn its slides and
 a leader sequence does nothing there. Click the pane's header to take the keys
 back. A link to another site opens in a new tab.
 
-The pane is an image and the path above it, and nothing else: no zoom, no next
-image, and nothing to type into. What it is for is looking at a picture the
+The pane is an image and the path above it, and nothing else: no next image,
+and nothing to type into. It opens fitted to the pane. Two fingers pinch it
+larger, up to eight times, and one finger moves it while it is
+zoomed, as far as its edge and no further; pinching back to fitted centres it
+again. No key zooms. What it is for is looking at a picture the
 vault holds without first writing a note that points at it. `d` there deletes
 the image in front of you, the same key the tree spends on a row, and the pane
-empties. `<leader>w` downloads the picture under its own name, so
+empties. On a touch screen the header carries a `delete` button that does the
+same on its second tap, the first turning it to `delete?`. A press on the
+picture or five seconds takes the question back. `<leader>w` downloads the
+picture under its own name, so
 `99 Misc/shot.png` arrives in your downloads as `shot.png`.
 
 An image goes into the trash the way a note does, and `<leader>du` puts the last
@@ -1940,6 +2160,10 @@ into the finder has to name a path, and the finder never writes.
 | Enter | Open the highlighted note |
 | Escape | Close, and hand the focus back |
 
+A click or a tap on a row opens it, as Enter on it would. In a window narrower
+than 768px the list takes the whole panel, and the preview is neither read nor
+drawn; the same holds for [the note search](#the-note-search).
+
 Tab walks the list rather than completing anything, the way it does in a
 terminal fuzzy finder. There is nothing here to complete: Enter opens the row
 under the highlight whatever the input says. It is answered even with an empty
@@ -2032,7 +2256,9 @@ what the backend does and does not look at.
 | `:e!` | The same, throwing away unsaved text | normal |
 
 `:w` and Ctrl+S are not new to this page. Writing also happens on its own,
-about a second after you stop typing.
+about a second after you stop typing. With [vim off](#vim-on-or-off) the
+palette rows `Write the note` and `Read the note off the vault again` stand in
+for `:w`, `:e` and `:e!` everywhere this section names them.
 
 Something outside kasten writing the note is answered while it is open. A note
 you are not typing into simply takes the new text, with the cursor where you

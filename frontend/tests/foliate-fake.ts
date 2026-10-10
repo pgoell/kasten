@@ -167,6 +167,9 @@ export class FakeView extends HTMLElement {
   closes = 0;
   nexts = 0;
   prevs = 0;
+  /** Counted apart from the two above, so a case can tell a turn by side from one by order. */
+  lefts = 0;
+  rights = 0;
   styles: string | null = null;
   /**
    * The options of every `init` call, in order.
@@ -320,6 +323,14 @@ export class FakeView extends HTMLElement {
 
   prev(): void {
     this.prevs += 1;
+  }
+
+  goLeft(): void {
+    this.lefts += 1;
+  }
+
+  goRight(): void {
+    this.rights += 1;
   }
 
   /**

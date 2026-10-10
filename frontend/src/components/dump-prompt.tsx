@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -74,6 +75,7 @@ export function DumpPrompt({ onCapture, onClose, today }: DumpPromptProps) {
       aria-label="Capture a thought"
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose, input.trim() !== "")}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

@@ -16,6 +16,7 @@ import {
   sectionsOf,
   selectIn,
 } from "./foliate-fake";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
 
@@ -1196,6 +1197,240 @@ describe("the route", () => {
     });
 
     expect(app.focusedPane()).toBe(1);
+  });
+
+  describe("in a narrow window", () => {
+    /** The panes the tab is drawing, as opposed to the ones it only holds. */
+    const drawn = () =>
+      [...document.querySelectorAll("[data-pane]")].filter(
+        (pane) => !pane.classList.contains("hidden"),
+      );
+
+    it("starts with the tree shut, and shuts it again on the note a tap opens", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+
+      expect(app.tree()).toBeNull();
+      // No rail on a phone, the toolbar being the way to the drawer.
+      expect(screen.queryByRole("button", { name: "Show file tree" })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+      app.click("index.md");
+      await settle();
+
+      expect(app.text()).toBe("the index note");
+      expect(app.tree()).toBeNull();
+    });
+
+    /** The column holding the panes, which an open drawer puts out of reach. */
+    const page = () =>
+      document.querySelector("[role='tablist'], [data-pane]")?.closest("[inert]") ?? null;
+    // The toolbar's button on a phone, and the rail's where a mouse keeps one.
+    const openDrawer = () => fireEvent.click(screen.getByRole("button", { name: /File tree$/i }));
+
+    it("closes the drawer on Escape and puts the focus in the pane on screen", async () => {
+      // Narrow and no more, the split below being asked for with a leader key.
+      stubMatchMedia({ [NARROW]: true });
+      const app = await renderApp();
+      await settle();
+      // Two panes with the second focused, so the first editor in the document
+      // is one that is not drawn.
+      app.leader("%");
+      await settle();
+
+      openDrawer();
+      expect(page()).not.toBeNull();
+      app.treeCursor()?.focus();
+      fireEvent.keyDown(app.tree(), { key: "Escape" });
+      await settle();
+
+      expect(app.tree()).toBeNull();
+      expect(page()).toBeNull();
+      expect(drawn()[0]?.contains(document.activeElement)).toBe(true);
+    });
+
+    it("closes the drawer on the note its New note button makes", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      createNote.mockResolvedValue({ path: "fresh.md", content: "" });
+      const app = await renderApp();
+      await settle();
+
+      openDrawer();
+      fireEvent.click(screen.getByRole("button", { name: "New note" }));
+      await settle();
+      app.fill("fresh");
+      await settle();
+
+      expect(createNote).toHaveBeenCalled();
+      expect(app.tree()).toBeNull();
+    });
+
+    it("closes the drawer on the note the finder opens from the tree", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+
+      openDrawer();
+      fireEvent.keyDown(app.tree(), { key: "f" });
+      await settle();
+      // Still open under the finder, so Escape there lands back in the tree.
+      expect(app.tree()).not.toBeNull();
+      fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+      await settle();
+
+      expect(screen.queryByRole("dialog", { name: "Find note" })).toBeNull();
+      expect(app.tree()).toBeNull();
+    });
+
+    it("closes the tree when the window turns narrow under it", async () => {
+      const media = stubMatchMedia();
+      const app = await renderApp();
+      await settle();
+      expect(app.tree()).not.toBeNull();
+
+      media.set(NARROW, true);
+
+      expect(app.tree()).toBeNull();
+      expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
+    });
+
+    it("draws the focused pane alone, and gives the split back when the window widens", async () => {
+      // Narrow and no more: the split is asked for with a leader key, which a
+      // touch screen may not have, and one pane to a tab is about the width.
+      const media = stubMatchMedia({ [NARROW]: true });
+      const app = await renderApp();
+      await settle();
+
+      app.leader("%");
+      await settle();
+
+      expect(app.panes()).toBe(2);
+      expect(drawn()).toHaveLength(1);
+      const first = drawn()[0];
+
+      app.leader("o");
+      await settle();
+
+      expect(drawn()).toHaveLength(1);
+      expect(drawn()[0]).not.toBe(first);
+
+      media.set(NARROW, false);
+
+      expect(drawn()).toHaveLength(2);
+    });
+
+    it("draws the toolbar on a phone and nowhere else", async () => {
+      const toolbar = () => screen.queryByRole("toolbar", { name: "Commands" });
+      const media = stubMatchMedia();
+      await renderApp();
+      await settle();
+      expect(toolbar()).toBeNull();
+
+      // A narrow window under a mouse keeps its keys, and its rail.
+      media.set(NARROW, true);
+      expect(toolbar()).toBeNull();
+      expect(screen.getByRole("button", { name: "Show file tree" })).toBeInTheDocument();
+
+      media.set(COARSE, true);
+      expect(toolbar()).not.toBeNull();
+      // One pane, so nowhere to move to.
+      expect(screen.queryByRole("button", { name: "Move to the next pane" })).toBeNull();
+
+      // A tablet: a finger, and room for the panel beside the note.
+      media.set(NARROW, false);
+      expect(toolbar()).toBeNull();
+    });
+
+    /** A press and release on the sheet around a panel, which is its way out. */
+    const tapSheet = (sheet: HTMLElement) => {
+      fireEvent.mouseDown(sheet);
+      fireEvent.mouseUp(sheet);
+      fireEvent.click(sheet);
+    };
+
+    it("opens the palette, the finder and the search from the toolbar", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+      const palette = screen.getByRole("dialog", { name: "Run a command" });
+      // The way to vim's keys on a phone, which no key reaches with vim off.
+      expect(screen.getByRole("option", { name: "Toggle vim keys" })).toBeInTheDocument();
+      tapSheet(palette);
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Find a note" }));
+      tapSheet(screen.getByRole("dialog", { name: "Find note" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Search note content" }));
+      tapSheet(screen.getByRole("dialog"));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("makes room in the frame for a keyboard that covers the page", async () => {
+      const listeners = new Map<string, () => void>();
+      const viewport = {
+        scale: 1,
+        offsetTop: 0,
+        height: 800,
+        addEventListener: (type: string, listener: () => void) => listeners.set(type, listener),
+        removeEventListener: (type: string) => listeners.delete(type),
+      };
+      vi.stubGlobal("visualViewport", viewport);
+      const box = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockReturnValue({ bottom: 800 } as DOMRect);
+      const layout = vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+      const frame = screen.getByRole("main");
+
+      viewport.height = 500;
+      listeners.get("resize")?.();
+
+      // The bar and the toolbar sit inside the frame, so both rise with it.
+      expect(frame.style.paddingBottom).toBe("300px");
+      expect(frame).toContainElement(screen.getByRole("contentinfo"));
+      expect(frame).toContainElement(screen.getByRole("toolbar", { name: "Commands" }));
+      box.mockRestore();
+      layout.mockRestore();
+    });
+
+    it("counts the panes in the bar, which is the only sign of a split", async () => {
+      // Narrow and no more: the split is asked for with a leader key, which a
+      // touch screen may not have, and one pane to a tab is about the width.
+      const media = stubMatchMedia({ [NARROW]: true });
+      const app = await renderApp();
+      await settle();
+      expect(screen.queryByTestId("pane-shown")).toBeNull();
+
+      app.leader("%");
+      await settle();
+      expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 2/2");
+
+      app.leader("o");
+      await settle();
+      expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 1/2");
+
+      // Both are on screen in a wide window, and count themselves.
+      media.set(NARROW, false);
+      expect(screen.queryByTestId("pane-shown")).toBeNull();
+    });
+
+    it("takes the status bar out of reach under the drawer", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+      expect(screen.getByRole("contentinfo")).not.toHaveAttribute("inert");
+
+      openDrawer();
+
+      expect(screen.getByRole("contentinfo")).toHaveAttribute("inert");
+    });
   });
 });
 

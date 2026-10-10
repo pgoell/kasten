@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -9,6 +10,7 @@ import {
   PANEL_NARROW,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 
 /**
@@ -139,6 +141,7 @@ export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProp
       aria-label="Open terminal"
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose, input.trim() !== "")}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>
@@ -182,7 +185,7 @@ export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProp
                   opening.current = true;
                   onOpen(name);
                 }}
-                className={`${ROW} ${
+                className={`${ROW} ${TAP} ${
                   index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                 }`}
               >

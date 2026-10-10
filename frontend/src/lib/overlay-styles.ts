@@ -17,9 +17,56 @@
  * replaced.
  */
 
-/** The dark sheet over the whole window, for a panel that belongs over all of it. */
+/**
+ * The dark sheet over the whole window, for a panel that belongs over all of it.
+ *
+ * Padded at the foot by what an on-screen keyboard covers, which the route's
+ * frame measures and hands down as `--keyboard`. The panel is capped at the
+ * room left, so its input and its first rows stay in sight above the keys.
+ */
 export const BACKDROP =
-  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none";
+  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] pb-[var(--keyboard,0px)] focus:outline-none";
+
+/** The sheet the press now under way began on, if it began on one. */
+let pressed: EventTarget | null = null;
+/** Whether that press was let go on the same sheet. */
+let released = false;
+
+/**
+ * The way out by touch: a press and release on the sheet itself, and not on
+ * the panel over it, closes what the sheet is under. Spread onto the sheet.
+ *
+ * The click closes and not the press. A sheet gone on the press leaves the
+ * release and the click to whatever lay under it, a todo's state button being
+ * one such thing, and the browser's own step of the press would take the
+ * focus off the opener the unmount had just handed it back to.
+ *
+ * Both ends of the press have to be on the sheet. A selection dragged out of
+ * the input and let go over the sheet, and a press on the sheet let go inside
+ * the panel, each end in a click on the sheet as well, the sheet being what
+ * the two ends have in common, and neither is a tap outside.
+ *
+ * `holding` is a draft the panel would lose. A stray tap in the gutter beside
+ * a prompt, 19px of it on a phone, then closes nothing; Escape still does.
+ */
+export function closeOnBackdrop(onClose: () => void, holding = false) {
+  type Press = { target: EventTarget; currentTarget: EventTarget };
+  return {
+    onMouseDown: (event: Press) => {
+      pressed = event.target === event.currentTarget ? event.currentTarget : null;
+    },
+    onMouseUp: (event: Press) => {
+      released = event.target === event.currentTarget;
+    },
+    onClick: (event: Press) => {
+      const outside = pressed === event.currentTarget && released;
+      pressed = null;
+      released = false;
+      if (holding || event.target !== event.currentTarget) return;
+      if (outside) onClose();
+    },
+  };
+}
 
 /** The panel itself, bar its width. Pair with one of the two below. */
 export const PANEL =
@@ -31,7 +78,7 @@ export const PANEL =
  * Its height is the content's, capped, because a prompt with three folders
  * under it should not draw a box with nothing in the bottom half.
  */
-export const PANEL_NARROW = "max-h-[70vh] w-[min(36rem,90vw)]";
+export const PANEL_NARROW = "max-h-[min(70vh,100%)] w-[min(36rem,90vw)]";
 
 /**
  * The finder's and the search's width: a list and a preview pane side by side.
@@ -40,29 +87,47 @@ export const PANEL_NARROW = "max-h-[70vh] w-[min(36rem,90vw)]";
  * and the line itself, and the finder is no worse for the room now that its
  * pane renders the note rather than printing it.
  */
-export const PANEL_WIDE = "w-[min(72rem,94vw)]";
+export const PANEL_WIDE = "max-h-full w-[min(72rem,94vw)]";
 
-/** The row holding the label and the input. */
-export const HEADER_ROW = "flex items-center gap-3 border-b border-one-line px-3 py-2";
+/** The row holding the label and the input, 44px under a finger like any other target. */
+export const HEADER_ROW =
+  "flex items-center gap-3 border-b border-one-line px-3 py-2 pointer-coarse:min-h-11";
 
 /** The word in the corner saying which overlay this is. */
 export const LABEL = "text-[11px] tracking-wider text-one-muted uppercase";
 
-/** The input, which carries no border of its own: the header's is the line. */
-export const INPUT = "min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none";
+/**
+ * The input, which carries no border of its own: the header's is the line.
+ *
+ * 16px under a finger. Safari on a phone zooms the whole page in when an input
+ * drawn any smaller takes the focus, and does not zoom back out.
+ */
+export const INPUT =
+  "min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none pointer-coarse:text-base";
 
 /**
  * The body of a two-column overlay.
  *
  * A fixed height rather than one the content sets, so the panel does not jump
- * about as the list narrows under it.
+ * about as the list narrows under it. It gives way only where the sheet has
+ * less room than that, which is a phone with its keyboard up.
  */
-export const BODY = "flex h-[min(26rem,55vh)]";
+export const BODY = "flex h-[min(26rem,55vh)] min-h-0";
 
-/** The list side of a two-column overlay. */
-export const LIST = "w-1/2 shrink-0 overflow-auto py-1";
+/**
+ * The list side of a two-column overlay.
+ *
+ * The whole of it below `md`: half of a phone is 183px, which shows neither a
+ * path nor a note.
+ */
+export const LIST = "w-full shrink-0 overflow-auto py-1 md:w-1/2";
 
-/** The pane beside it, which holds a rendered note and scrolls itself. */
+/**
+ * The pane beside it, which holds a rendered note and scrolls itself.
+ *
+ * Not drawn below `md`, and by its two readers rather than by a class here: a
+ * hidden pane would still mount an editor for every row the highlight stops on.
+ */
 export const PANE = "min-w-0 flex-1 border-l border-one-line text-[12px]";
 
 /** What the pane says when it has no note to show, only a reason. */
@@ -70,6 +135,16 @@ export const PANE_MESSAGE = "px-3 py-2 text-one-muted";
 
 /** One row of a list, bar the colours that say whether it is highlighted. */
 export const ROW = "w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
+
+/**
+ * The height a finger needs, for a row or a button that is pressed.
+ *
+ * Apart from `ROW` so a list picks it up one at a time: a row that only the
+ * keyboard moves through gains nothing from being 44px tall. `items-center`
+ * does nothing to a row that is not a flex box and centres the one that is,
+ * a button centring its own text either way.
+ */
+export const TAP = "pointer-coarse:min-h-11 pointer-coarse:items-center";
 
 /** The line under the list, which is empty whenever the list speaks for itself. */
 export const STATUS = "border-t border-one-line px-3 py-1 text-[11px] text-one-muted";

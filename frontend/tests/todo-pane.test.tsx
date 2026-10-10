@@ -4,6 +4,7 @@ import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { PRIORITY_SYMBOL } from "@/lib/todo";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 // Standing in for the module rather than for `fetch`, the way the search
 // panel's tests do: what the pane owns is what it asks the vault for, not the
@@ -956,5 +957,418 @@ describe("the todo pane", () => {
 
     await waitFor(() => expect(pane.view()).toBe("no views"));
     expect(pane.rows()).toHaveLength(6);
+  });
+});
+
+describe("the todo pane by touch", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  const row = (text: string) =>
+    screen
+      .getAllByRole("button")
+      .find((button) => button.title !== "" && button.textContent?.includes(text));
+
+  it("draws no button a mouse does not need", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    expect(screen.queryByLabelText("add todo")).toBeNull();
+    expect(screen.queryByLabelText(/^cycle /)).toBeNull();
+    expect(screen.queryByLabelText(/^more for /)).toBeNull();
+    for (const name of ["done", "next", "view"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+  });
+
+  it("opens the source line on a tap of the row", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(row("buy milk") as HTMLElement);
+
+    expect(pane.onOpen).toHaveBeenCalledWith("projects/kasten.md", 20);
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("asks on the first tap of the state and cycles on the second, opening nothing", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const state = screen.getByLabelText("cycle buy milk");
+
+    fireEvent.click(state);
+    // The state the second tap would leave, and a question mark.
+    expect(state.textContent).toBe("◐?");
+    expect(state.getAttribute("aria-pressed")).toBe("true");
+    expect(pane.onCycle).not.toHaveBeenCalled();
+
+    fireEvent.click(state);
+    // The hit and no state, which is what `x` sends.
+    expect(pane.onCycle).toHaveBeenCalledTimes(1);
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[3]);
+    expect(state.textContent).toBe("☐");
+    expect(pane.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("asks about one row at a time", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    fireEvent.click(screen.getByLabelText("cycle renew the passport"));
+
+    expect(screen.getByLabelText("cycle buy milk").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByLabelText("cycle renew the passport").getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("takes the question back on a tap elsewhere, which then does what it was for", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const state = screen.getByLabelText("cycle buy milk");
+
+    fireEvent.click(state);
+    // A tap is a press and then a click, and the press is what disarms.
+    fireEvent.pointerDown(row("buy milk") as HTMLElement);
+    fireEvent.click(row("buy milk") as HTMLElement);
+
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    expect(pane.onOpen).toHaveBeenCalledWith("projects/kasten.md", 20);
+
+    // The press of the second tap on the armed button itself leaves it armed.
+    fireEvent.click(state);
+    fireEvent.pointerDown(state);
+    expect(state.getAttribute("aria-pressed")).toBe("true");
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("does not carry the question onto another todo that lands on the line", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    // A write from elsewhere put a line above, so line 20 is another todo now.
+    pane.answer(
+      TODOS.map((hit) =>
+        hit.line === 20 ? { ...hit, text: "- [ ] feed the cat 📅 2026-08-14 🔽" } : hit,
+      ),
+    );
+    const state = await screen.findByLabelText("cycle feed the cat");
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    expect(state.textContent).toBe("☐");
+
+    // A first tap for this todo, which asks and writes nothing.
+    fireEvent.click(state);
+    expect(state.getAttribute("aria-pressed")).toBe("true");
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("takes the question back when the list scrolls", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const state = screen.getByLabelText("cycle buy milk");
+
+    fireEvent.click(state);
+    fireEvent.scroll(state.closest(".overflow-auto") as HTMLElement);
+
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(state);
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("takes the question back after four seconds", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    // Only now: `waitFor` polls on a timer, and a faked one never fires.
+    vi.useFakeTimers();
+    const state = screen.getByLabelText("cycle buy milk");
+
+    fireEvent.click(state);
+    act(() => vi.advanceTimersByTime(3999));
+    expect(state.getAttribute("aria-pressed")).toBe("true");
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    // A tap now is a first tap again.
+    fireEvent.click(state);
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("sends every press of x, however fast, and asks nothing", async () => {
+    // A mouse and a keyboard, where a key has never slipped.
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("x");
+    pane.press("x");
+
+    expect(pane.onCycle).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/\?$/)).toBeNull();
+  });
+
+  it("keeps the row the only tab stop", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    const stops = screen.getAllByRole("button").filter((button) => button.tabIndex === 0);
+    expect(stops.filter((button) => button.title !== "")).toHaveLength(1);
+    expect(screen.getByLabelText("cycle buy milk").tabIndex).toBe(-1);
+  });
+
+  it("opens the add prompt from a button", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("add todo"));
+
+    expect(pane.onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  const button = (name: string) => screen.getByRole("button", { name });
+
+  it("swaps the list for the finished work from a button, as d does", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    expect(button("done")).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(button("done"));
+
+    await waitFor(() => expect(pane.headings()).toEqual(["2026-08-10", "2026-08-08"]));
+    expect(button("done")).toHaveAttribute("aria-pressed", "true");
+    expect(row("buy milk")).toBeUndefined();
+
+    // And back, the button being the toggle the key is.
+    fireEvent.click(button("done"));
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    expect(button("done")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("shows one next action per todo from a button, as n does", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane([
+      { path: "a.md", line: 1, text: "- [ ] pack" },
+      { path: "a.md", line: 2, text: "  - [ ] socks" },
+      { path: "a.md", line: 3, text: "  - [ ] shirts" },
+    ]);
+    await waitFor(() => expect(row("shirts")).toBeDefined());
+
+    fireEvent.click(button("next"));
+
+    // The first open part, named under what it is a part of, and not the rest.
+    await waitFor(() => expect(row("shirts")).toBeUndefined());
+    expect(row("socks")?.textContent).toContain("pack");
+    expect(button("next")).toHaveAttribute("aria-pressed", "true");
+    // One list at a time, so the other button reads as off.
+    expect(button("done")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("walks the views from a button, as v does", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(button("view"));
+    await waitFor(() => expect(pane.view()).toBe("today"));
+    expect(pane.filter().value).toBe("due:today");
+    expect(row("call the dentist")).toBeUndefined();
+
+    fireEvent.click(button("view"));
+    await waitFor(() => expect(pane.view()).toBe("doing"));
+  });
+
+  it("writes the views note from the button in a vault with none", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    fetchFiles.mockResolvedValue(["projects/kasten.md"]);
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(button("view"));
+
+    await waitFor(() => expect(pane.view()).toBe("today"));
+    expect(createNote).toHaveBeenCalledExactlyOnceWith(VIEWS_NOTE, DEFAULT_VIEWS);
+  });
+
+  it("opens one row's actions at a time, and closes them on a second tap", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const milk = screen.getByLabelText("more for buy milk");
+    const ship = screen.getByLabelText("more for ship it #kasten");
+    expect(milk).toHaveAttribute("aria-expanded", "false");
+    expect(milk.tabIndex).toBe(-1);
+    expect(screen.queryByLabelText("timer buy milk")).toBeNull();
+
+    fireEvent.click(milk);
+    expect(milk).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("timer buy milk").tabIndex).toBe(-1);
+
+    fireEvent.click(ship);
+    expect(milk).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("timer buy milk")).toBeNull();
+    expect(screen.getByLabelText("timer ship it #kasten")).toBeDefined();
+
+    fireEvent.click(ship);
+    expect(ship).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("timer ship it #kasten")).toBeNull();
+  });
+
+  it.each([
+    ["open", "open"],
+    ["doing", "doing"],
+    ["done", "done"],
+    ["blocked", "blocked"],
+    ["rejected", "rejected"],
+  ])("sets the state on a tap of %s, and closes the actions", async (label, state) => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText(`${label} buy milk`));
+
+    // The row tapped and not the cursor's, with the state a shifted key sends,
+    // and on the one tap: a state picked out of an open strip is meant.
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(TODOS[3], state);
+    expect(screen.queryByLabelText(`${label} buy milk`)).toBeNull();
+  });
+
+  it("takes the question off a state button when a strip opens, this row's or another's", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const state = () => screen.getByLabelText("cycle buy milk");
+
+    for (const other of ["more for buy milk", "more for ship it #kasten"]) {
+      fireEvent.click(state());
+      expect(state()).toHaveAttribute("aria-pressed", "true");
+
+      fireEvent.click(screen.getByLabelText(other));
+
+      expect(state()).toHaveAttribute("aria-pressed", "false");
+      expect(state().textContent).not.toContain("?");
+    }
+    // So the next tap on the state asks again, and writes nothing.
+    fireEvent.click(state());
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("does not carry an open strip onto another todo that lands on the line", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    expect(screen.getByLabelText("done buy milk")).toBeInTheDocument();
+    // A write from elsewhere put a line above, so line 20 is another todo now.
+    pane.answer(
+      TODOS.map((hit) =>
+        hit.line === 20 ? { ...hit, text: "- [ ] feed the cat 📅 2026-08-14 🔽" } : hit,
+      ),
+    );
+    const more = await screen.findByLabelText("more for feed the cat");
+
+    // No strip under the todo nobody opened one for, so no `done` to tap.
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("done feed the cat")).toBeNull();
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("shuts an open strip when a state button is tapped, so only one of the two shows", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("cycle ship it #kasten"));
+
+    expect(screen.getByLabelText("cycle ship it #kasten")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("more for buy milk")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("done buy milk")).toBeNull();
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("leaves a row being edited alone when edit is tapped on another", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("edit buy milk"));
+    pane.write("- [ ] buy oat milk");
+    fireEvent.click(screen.getByLabelText("more for ship it #kasten"));
+    fireEvent.click(screen.getByLabelText("edit ship it #kasten"));
+
+    // The draft a key could not have dropped, a tap does not drop either.
+    expect(pane.draft()).toHaveValue("- [ ] buy oat milk");
+  });
+
+  // jsdom applies no media query, so this reads the class that carries one.
+  it("draws the line being edited at 16px under a finger, so Safari does not zoom", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("edit buy milk"));
+
+    expect(pane.draft()).toHaveClass("pointer-coarse:text-base");
+    expect(screen.getByLabelText("filter todos")).toHaveClass("pointer-coarse:text-base");
+  });
+
+  it("starts or stops the timer of the row whose actions are open", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("timer buy milk"));
+
+    expect(pane.onTimer).toHaveBeenCalledExactlyOnceWith(TODOS[3]);
+    expect(screen.queryByLabelText("timer buy milk")).toBeNull();
+  });
+
+  it("opens the part prompt for the row whose actions are open", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("part buy milk"));
+
+    expect(pane.onSubtask).toHaveBeenCalledExactlyOnceWith(TODOS[3]);
+    expect(pane.onAdd).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("part buy milk")).toBeNull();
+  });
+
+  it("turns the row tapped into its line, wherever the cursor is", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("edit buy milk"));
+
+    // The cursor is still on the first row. The line is the fourth's.
+    expect(pane.draft()).toHaveValue(TODOS[3]?.text);
+    expect(pane.draft()).toHaveFocus();
+
+    pane.write("- [ ] buy oat milk");
+    pane.send("Enter");
+    expect(pane.onEdit).toHaveBeenCalledExactlyOnceWith(TODOS[3], "- [ ] buy oat milk");
+    expect(pane.draft()).toBeNull();
   });
 });

@@ -159,6 +159,11 @@ export function BookContents({ rows, start, onGo, onClose }: BookContentsProps) 
       aria-label="Contents"
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      // A tap on the dark around the panel, which is the only Escape a touch
+      // screen has. `move-confirm.tsx` closes the same way.
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       className={SHEET}
     >
       <div className={CONTENTS_PANEL}>
@@ -187,7 +192,8 @@ export function BookContents({ rows, start, onGo, onClose }: BookContentsProps) 
               // and disagree with it. Inline, because it replaces the `px-3`
               // `ROW` carries rather than adding to it.
               style={{ paddingLeft: `${0.75 + row.depth * 0.75}rem` }}
-              className={`${ROW} truncate ${
+              // 44px under a finger. A mouse keeps the row it had.
+              className={`${ROW} truncate pointer-coarse:min-h-11 ${
                 index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
               }`}
             >

@@ -2,7 +2,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { previewMove } from "@/lib/api";
 import { type MoveMode, moveAndCache } from "@/lib/move";
-import { BACKDROP, HEADER_ROW, LABEL, PANEL, PANEL_NARROW, STATUS } from "@/lib/overlay-styles";
+import {
+  BACKDROP,
+  closeOnBackdrop,
+  HEADER_ROW,
+  LABEL,
+  PANEL,
+  PANEL_NARROW,
+  STATUS,
+  TAP,
+} from "@/lib/overlay-styles";
 
 interface MoveConfirmProps {
   mode: MoveMode;
@@ -89,9 +98,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
       aria-label={mode === "folder" ? "Move folder" : "Move note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>
@@ -119,7 +126,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer rounded-sm px-2 py-1 text-[12px] text-one-muted hover:bg-one-hover"
+            className={`${TAP} cursor-pointer rounded-sm px-2 py-1 text-[12px] text-one-muted hover:bg-one-hover pointer-coarse:px-4`}
           >
             Cancel
           </button>
@@ -127,7 +134,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
             type="button"
             onClick={accept}
             disabled={blocked}
-            className="cursor-pointer rounded-sm px-2 py-1 text-[12px] text-one-accent hover:bg-one-hover disabled:cursor-default disabled:opacity-50"
+            className={`${TAP} cursor-pointer rounded-sm px-2 py-1 text-[12px] text-one-accent hover:bg-one-hover disabled:cursor-default disabled:opacity-50 pointer-coarse:px-4`}
           >
             Move
           </button>
