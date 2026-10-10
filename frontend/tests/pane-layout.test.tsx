@@ -5,6 +5,7 @@ import {
   addTab,
   emptyLayout,
   focusPane,
+  goToTab,
   type Layout,
   openBookBeside,
   openInFocused,
@@ -136,6 +137,15 @@ describe("TabStrip", () => {
     expect(screen.getByRole("tab", { name: /empty/ })).toBeInTheDocument();
   });
 
+  // jsdom applies no media query, so this reads the class that carries one.
+  it("makes a tab 44px tall under a finger", () => {
+    render(<TabStrip layout={addTab(emptyLayout())} onSelect={() => {}} />);
+
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab).toHaveClass("pointer-coarse:min-h-11");
+    }
+  });
+
   it("marks the tab on screen and no other", () => {
     render(<TabStrip layout={addTab(emptyLayout("a.md"))} onSelect={() => {}} />);
 
@@ -172,5 +182,26 @@ describe("TabStrip", () => {
     render(<TabStrip layout={layout} onSelect={() => {}} />);
 
     expect(screen.getByRole("tab", { name: /DDIA/ })).toBeInTheDocument();
+  });
+
+  it("scrolls the tab on screen into view, and again when another is chosen", () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    const layout = addTab(addTab(emptyLayout("a.md")));
+
+    const { rerender } = render(<TabStrip layout={layout} onSelect={() => {}} />);
+
+    expect(scrolled.mock.contexts.at(-1)).toHaveTextContent("3 empty");
+
+    rerender(<TabStrip layout={goToTab(layout, 0)} onSelect={() => {}} />);
+
+    expect(scrolled.mock.contexts.at(-1)).toHaveTextContent("1 a");
+    scrolled.mockRestore();
+  });
+
+  it("lets the tabs run off the edge rather than squeeze", () => {
+    render(<TabStrip layout={addTab(emptyLayout("a.md"))} onSelect={() => {}} />);
+
+    expect(screen.getByRole("tablist")).toHaveClass("overflow-x-auto");
+    for (const tab of screen.getAllByRole("tab")) expect(tab).toHaveClass("shrink-0");
   });
 });

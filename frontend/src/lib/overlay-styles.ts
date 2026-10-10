@@ -42,14 +42,21 @@ export const PANEL_NARROW = "max-h-[70vh] w-[min(36rem,90vw)]";
  */
 export const PANEL_WIDE = "w-[min(72rem,94vw)]";
 
-/** The row holding the label and the input. */
-export const HEADER_ROW = "flex items-center gap-3 border-b border-one-line px-3 py-2";
+/** The row holding the label and the input, 44px under a finger like any other target. */
+export const HEADER_ROW =
+  "flex items-center gap-3 border-b border-one-line px-3 py-2 pointer-coarse:min-h-11";
 
 /** The word in the corner saying which overlay this is. */
 export const LABEL = "text-[11px] tracking-wider text-one-muted uppercase";
 
-/** The input, which carries no border of its own: the header's is the line. */
-export const INPUT = "min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none";
+/**
+ * The input, which carries no border of its own: the header's is the line.
+ *
+ * 16px under a finger. Safari on a phone zooms the whole page in when an input
+ * drawn any smaller takes the focus, and does not zoom back out.
+ */
+export const INPUT =
+  "min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outline-none pointer-coarse:text-base";
 
 /**
  * The body of a two-column overlay.
@@ -59,10 +66,20 @@ export const INPUT = "min-w-0 flex-1 bg-transparent text-[13px] text-one-fg outl
  */
 export const BODY = "flex h-[min(26rem,55vh)]";
 
-/** The list side of a two-column overlay. */
-export const LIST = "w-1/2 shrink-0 overflow-auto py-1";
+/**
+ * The list side of a two-column overlay.
+ *
+ * The whole of it below `md`: half of a phone is 183px, which shows neither a
+ * path nor a note.
+ */
+export const LIST = "w-full shrink-0 overflow-auto py-1 md:w-1/2";
 
-/** The pane beside it, which holds a rendered note and scrolls itself. */
+/**
+ * The pane beside it, which holds a rendered note and scrolls itself.
+ *
+ * Not drawn below `md`, and by its two readers rather than by a class here: a
+ * hidden pane would still mount an editor for every row the highlight stops on.
+ */
 export const PANE = "min-w-0 flex-1 border-l border-one-line text-[12px]";
 
 /** What the pane says when it has no note to show, only a reason. */
@@ -70,6 +87,16 @@ export const PANE_MESSAGE = "px-3 py-2 text-one-muted";
 
 /** One row of a list, bar the colours that say whether it is highlighted. */
 export const ROW = "w-full cursor-pointer px-3 py-[3px] text-left text-[13px]";
+
+/**
+ * The height a finger needs, for a row or a button that is pressed.
+ *
+ * Apart from `ROW` so a list picks it up one at a time: a row that only the
+ * keyboard moves through gains nothing from being 44px tall. `items-center`
+ * does nothing to a row that is not a flex box and centres the one that is,
+ * a button centring its own text either way.
+ */
+export const TAP = "pointer-coarse:min-h-11 pointer-coarse:items-center";
 
 /** The line under the list, which is empty whenever the list speaks for itself. */
 export const STATUS = "border-t border-one-line px-3 py-1 text-[11px] text-one-muted";

@@ -17,9 +17,11 @@ import {
   PANEL_WIDE,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 import { readRelation } from "@/lib/relation";
 import { isOpen, parseTodo, STATE_SYMBOL } from "@/lib/todo";
+import { useViewport } from "@/lib/use-viewport";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 interface NoteSearchProps {
@@ -289,14 +291,18 @@ export function NoteSearch({
   // renumbers the list and a position would then point at another line.
   const [reading, setReading] = useState<SearchHit>();
 
+  // Nothing is read in a narrow window, which has no pane to show it in, and
+  // with nothing read the pane below is not mounted either.
+  const { narrow } = useViewport();
+
   useEffect(() => {
-    if (highlightedHit === undefined) {
+    if (narrow || highlightedHit === undefined) {
       setReading(undefined);
       return;
     }
     const timer = setTimeout(() => setReading(highlightedHit), PREVIEW_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [highlightedHit]);
+  }, [highlightedHit, narrow]);
 
   // The key `NoteEditor` reads, on purpose: a note read here is one the editor
   // will not have to fetch when Enter opens it. Keyed on the path alone, so
@@ -394,10 +400,12 @@ export function NoteSearch({
         // is how the list says what Enter would open.
         tabIndex={-1}
         onClick={() => accept(index)}
-        className={`${ROW} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
+        className={`${ROW} ${TAP} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
       >
         <span
-          className={`shrink-0 truncate ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
+          // Capped below `md`, where a long path alone is wider than the list
+          // and would push the line it found off the side.
+          className={`shrink-0 truncate max-md:max-w-[45%] ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
         >
           {hit.path}:{hit.line}
         </span>

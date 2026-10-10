@@ -252,8 +252,10 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     );
   }
 
+  // A toggle, because the second press is the only way to shut the line
+  // without writing a card: `Escape` is not bound here and a phone has none.
   const capture = useCallback(() => {
-    setJotting("");
+    setJotting((was) => (was === null ? "" : null));
   }, []);
 
   const jotOpen = jotting !== null;
@@ -288,7 +290,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
-      <header className="flex items-center gap-3 border-one-line border-b px-3 py-2">
+      {/* Six things share this row, and at a phone's width the gaps between
+          them are what the deck's name is squeezed out by. */}
+      <header className="flex items-center gap-3 border-one-line border-b px-3 py-2 max-md:gap-1">
         <button
           type="button"
           onClick={onLeave}
@@ -315,7 +319,10 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={capture}
-            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent"
+            aria-expanded={jotOpen}
+            // Three letters are narrower than a thumb, which the height alone
+            // does not make up for.
+            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent pointer-coarse:min-w-11"
           >
             Jot
           </button>
@@ -324,7 +331,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           type="button"
           onClick={toggleTyping}
           aria-pressed={typing}
-          className={`min-h-11 px-2 text-[11px] uppercase tracking-wider ${
+          className={`min-h-11 px-2 text-[11px] uppercase tracking-wider pointer-coarse:min-w-11 ${
             typing ? "text-one-accent" : "text-one-muted"
           }`}
         >
