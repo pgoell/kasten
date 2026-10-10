@@ -320,4 +320,27 @@ describe("the image pane", () => {
 
     expect(commands.openDaily).toHaveBeenCalledTimes(1);
   });
+
+  // jsdom applies no media query, so the button is in the tree either way and
+  // the class is what keeps it off a screen with a mouse.
+  it("deletes on the second tap of its button, which only a finger is shown", () => {
+    const { onDelete } = open();
+    const button = screen.getByRole("button", { name: "delete" });
+    expect(button).toHaveClass("hidden", "pointer-coarse:block", "min-h-11");
+
+    fireEvent.click(button);
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "delete?" }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops asking once the tap goes somewhere else", () => {
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "delete" }));
+
+    fireEvent.blur(screen.getByRole("button", { name: "delete?" }));
+
+    expect(screen.getByRole("button", { name: "delete" })).toBeInTheDocument();
+  });
 });

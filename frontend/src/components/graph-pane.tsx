@@ -130,6 +130,10 @@ export function GraphPane({
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
 
+  /** `+` and `-`, named because a tap on the touch row asks for the same two. */
+  const deeper = (by: 1 | -1) =>
+    setDepth((previous) => Math.min(Math.max(previous + by, 0), MOST_DEPTH));
+
   function onKeyDown(event: React.KeyboardEvent) {
     // Typing into the filter is not the pane's keys: `q` in it is a letter.
     if (event.target instanceof HTMLInputElement) return;
@@ -164,10 +168,10 @@ export function GraphPane({
       // whole vault has no centre to reach out from, so the keys do nothing.
       case "+":
       case "=":
-        if (around !== undefined) setDepth((previous) => Math.min(previous + 1, MOST_DEPTH));
+        if (around !== undefined) deeper(1);
         break;
       case "-":
-        if (around !== undefined) setDepth((previous) => Math.max(previous - 1, 0));
+        if (around !== undefined) deeper(-1);
         break;
       case "f":
         canvas.current?.fit();
@@ -231,6 +235,43 @@ export function GraphPane({
           </span>
         )}
       </header>
+
+      {/* The three keys that are not the filter, for a screen with no keys. */}
+      {coarse && (
+        <nav aria-label="graph moves" className={`flex border-b border-one-line px-1 ${LABEL}`}>
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => canvas.current?.fit()}
+            className="min-h-11 flex-1 uppercase"
+          >
+            fit
+          </button>
+          {/* A graph of the whole vault has no centre to reach out from. */}
+          {around !== undefined && (
+            <>
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="one link nearer"
+                onClick={() => deeper(-1)}
+                className="min-h-11 flex-1 uppercase"
+              >
+                depth -
+              </button>
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="one link further"
+                onClick={() => deeper(1)}
+                className="min-h-11 flex-1 uppercase"
+              >
+                depth +
+              </button>
+            </>
+          )}
+        </nav>
+      )}
 
       {error !== null && (
         <p role="alert" className="border-b border-one-line px-3 py-1 text-[12px] text-one-warn">

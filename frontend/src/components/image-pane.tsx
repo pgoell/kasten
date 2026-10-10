@@ -132,6 +132,8 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
    * actually asks, and no effect has to reset anything.
    */
   const [failed, setFailed] = useState<string>();
+  /** The image whose delete button was tapped once, so another image starts unasked. */
+  const [armed, setArmed] = useState<string>();
   /**
    * The zoom, and the path it was made on, for the reason `failed` is a path:
    * a zoom left on the last picture is not one the next picture was given.
@@ -240,6 +242,20 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg" title={path}>
           {path}
         </span>
+        {/* `d` for a finger. It asks once, a thumb landing wide of where it
+            aimed, where the key does not: nobody presses `d` by accident. */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-pressed={armed === path}
+          onClick={() => (armed === path ? onDelete() : setArmed(path))}
+          onBlur={() => setArmed(undefined)}
+          className={`hidden min-h-11 shrink-0 px-2 text-[11px] tracking-wide uppercase pointer-coarse:block ${
+            armed === path ? "text-one-warn" : "text-one-muted"
+          }`}
+        >
+          {armed === path ? "delete?" : "delete"}
+        </button>
       </header>
 
       <div
