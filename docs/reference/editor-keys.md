@@ -1181,19 +1181,14 @@ does, and the header carries a `+` that adds one as `a` does. Under the header
 that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
 `blocked` and `rejected` set the state as `O`, `P`, `X`, `B` and `R` do,
 `timer` is `t`, `part` is `s` and `edit` is `i`. `edit` does nothing while
-another row is being edited. For five seconds
-after such a tap the foot of the pane carries an `Undo`, which puts the todo
-back in the state the first tap found it in, so two taps too many cost one.
-It is not offered where it could not make the line whole: when the tap
-finishes a recurring todo or one with parts, and in the done list.
+another row is being edited. A state picked from the strip is set on one tap.
 
-`Undo` reads the note again before it writes, and looks for the one line that
-is the todo as the tap left it, by its id where it had one and by its words
-where it had none. A todo that finishing moved down a line is found where it
-now stands. Where no line or more than one fits, nothing is written. Three
-things stay behind after a finished todo is put back: the id the tick gave the
-line, a `## Done` heading the tick had to write, and a daily note it had to
-make.
+The state button
+takes two taps, because a cycle writes to the vault and a finger slips: the
+first turns the symbol into the state the todo would move to with a `?` after
+it, and the second is the one that cycles. The question is taken back after
+four seconds, on a tap anywhere else, when the list scrolls, and when another
+row's button is tapped. The keys ask nothing. So does opening a strip.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks

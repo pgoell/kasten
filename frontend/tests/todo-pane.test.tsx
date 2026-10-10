@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { cycleLine, PRIORITY_SYMBOL } from "@/lib/todo";
+import { PRIORITY_SYMBOL } from "@/lib/todo";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
@@ -981,11 +981,6 @@ describe("the todo pane by touch", () => {
     for (const name of ["done", "next", "view"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
-
-    // Nor a way back: `x` is a key, and a key does not slip.
-    pane.press("x");
-    expect(pane.onCycle).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Undo")).toBeNull();
   });
 
   it("opens the source line on a tap of the row", async () => {
@@ -999,246 +994,105 @@ describe("the todo pane by touch", () => {
     expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
-  it("cycles the state on a tap of the state, and opens nothing", async () => {
+  it("asks on the first tap of the state and cycles on the second, opening nothing", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
     await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const state = screen.getByLabelText("cycle buy milk");
 
-    fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    fireEvent.click(state);
+    // The state the second tap would leave, and a question mark.
+    expect(state.textContent).toBe("◐?");
+    expect(state.getAttribute("aria-pressed")).toBe("true");
+    expect(pane.onCycle).not.toHaveBeenCalled();
 
+    fireEvent.click(state);
     // The hit and no state, which is what `x` sends.
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledWith(TODOS[3]));
+    expect(pane.onCycle).toHaveBeenCalledTimes(1);
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[3]);
+    expect(state.textContent).toBe("☐");
     expect(pane.onOpen).not.toHaveBeenCalled();
   });
 
-  /** The note a way back reads before it writes, every other read being the views. */
-  const holds = (path: string, text: string) =>
-    fetchNote.mockImplementation(async (asked: string) => (asked === path ? text : DEFAULT_VIEWS));
-
-  it("offers the way back after a tap on the state", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = renderPane();
-    await waitFor(() => expect(row("buy milk")).toBeDefined());
-    expect(screen.queryByText("Undo")).toBeNull();
-
-    fireEvent.click(screen.getByLabelText("cycle buy milk"));
-    holds("projects/kasten.md", `${"\n".repeat(19)}- [/] buy milk 📅 2026-08-14 🔽\n`);
-    fireEvent.click(screen.getByText("Undo"));
-    expect(screen.queryByText("Undo")).toBeNull();
-
-    // The state the row was in, by the path `O` takes, on the line as it reads now.
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
-    expect(pane.onCycle).toHaveBeenLastCalledWith(
-      { path: "projects/kasten.md", line: 20, text: "- [/] buy milk 📅 2026-08-14 🔽" },
-      "open",
-    );
-  });
-
-  it("finds a todo that finishing moved down a line, below today's Done", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = renderPane([{ path: "daily/2026-08-11.md", line: 5, text: "- [/] call home" }]);
-    await waitFor(() => expect(row("call home")).toBeDefined());
-
-    fireEvent.click(screen.getByLabelText("cycle call home"));
-    // The row's own words beside the button, and no stray field of the tick's.
-    expect(screen.getByText("Undo").previousElementSibling?.textContent).toBe("call home");
-    // The tick wrote its line under `## Done`, above the todo, so line 5 is now
-    // somebody else's todo and the one tapped stands on line 6.
-    holds(
-      "daily/2026-08-11.md",
-      [
-        "# 2026-08-11",
-        "",
-        "## Done",
-        "- ✅ call home 🆔 kt-0a0a0a",
-        "- [/] water the plants",
-        "- [x] call home ✅ 2026-08-10 🆔 kt-0a0a0a",
-      ].join("\n"),
-    );
-    fireEvent.click(screen.getByText("Undo"));
-
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
-    expect(pane.onCycle).toHaveBeenLastCalledWith(
-      {
-        path: "daily/2026-08-11.md",
-        line: 6,
-        text: "- [x] call home ✅ 2026-08-10 🆔 kt-0a0a0a",
-      },
-      "doing",
-    );
-  });
-
-  it.each([
-    ["the todo is no longer in the note", "# 2026-08-11\n\n- [/] water the plants\n"],
-    ["two lines could be it", "- [x] call home ✅ 2026-08-10\n- [x] call home ✅ 2026-08-10\n"],
-    ["the write has not landed yet", "\n\n\n\n- [/] call home\n"],
-  ])("writes nothing on the way back when %s", async (_why, text) => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = renderPane([{ path: "daily/2026-08-11.md", line: 5, text: "- [/] call home" }]);
-    await waitFor(() => expect(row("call home")).toBeDefined());
-
-    fireEvent.click(screen.getByLabelText("cycle call home"));
-    holds("daily/2026-08-11.md", text);
-    fireEvent.click(screen.getByText("Undo"));
-
-    await waitFor(() => expect(fetchNote).toHaveBeenCalledWith("daily/2026-08-11.md"));
-    await act(async () => {});
-    expect(pane.onCycle).toHaveBeenCalledTimes(1);
-  });
-
-  it("waits for the tap's own write, and passes over a line of the same words", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = renderPane([{ path: "a.md", line: 2, text: "- [/] review the pr" }]);
-    await waitFor(() => expect(row("review the pr")).toBeDefined());
-    // The write a tap starts, held open until the test lets it land.
-    let land = () => {};
-    pane.onCycle.mockImplementationOnce(() => new Promise<void>((done) => (land = done)));
-    const read: string[] = [];
-    // Before the write lands the older todo is the only finished line of these
-    // words, which is the line a read made now would send the state key to.
-    let note = "- [x] review the pr ✅ 2026-08-01 🆔 kt-0c0c0c\n- [/] review the pr\n";
-    fetchNote.mockImplementation(async (asked: string) => {
-      read.push(asked);
-      return asked === "a.md" ? note : DEFAULT_VIEWS;
-    });
-
-    fireEvent.click(screen.getByLabelText("cycle review the pr"));
-    fireEvent.click(screen.getByText("Undo"));
-    await act(async () => {});
-    expect(read).not.toContain("a.md");
-    expect(pane.onCycle).toHaveBeenCalledTimes(1);
-
-    note =
-      "- [x] review the pr ✅ 2026-08-01 🆔 kt-0c0c0c\n- [x] review the pr ✅ 2026-08-10 🆔 kt-0d0d0d\n";
-    await act(async () => land());
-
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
-    expect(pane.onCycle).toHaveBeenLastCalledWith(
-      { path: "a.md", line: 2, text: "- [x] review the pr ✅ 2026-08-10 🆔 kt-0d0d0d" },
-      "doing",
-    );
-  });
-
-  it("sends a second tap only after the first has landed, with the line that one left", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = renderPane([{ path: "a.md", line: 1, text: "- [ ] call home" }]);
-    await waitFor(() => expect(row("call home")).toBeDefined());
-    let land = () => {};
-    pane.onCycle.mockImplementationOnce(() => new Promise<void>((done) => (land = done)));
-
-    fireEvent.click(screen.getByLabelText("cycle call home"));
-    fireEvent.click(screen.getByLabelText("cycle call home"));
-    await act(async () => {});
-    expect(pane.onCycle).toHaveBeenCalledTimes(1);
-
-    await act(async () => land());
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
-    // The list has not redrawn, so the row still says open, and the write
-    // would refuse a line it was not told about.
-    expect(pane.onCycle).toHaveBeenLastCalledWith({
-      path: "a.md",
-      line: 1,
-      text: "- [/] call home",
-    });
-  });
-
-  it("writes nothing on the way back when the note cannot be read", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = renderPane([{ path: "a.md", line: 1, text: "- [ ] call home" }]);
-    await waitFor(() => expect(row("call home")).toBeDefined());
-
-    fireEvent.click(screen.getByLabelText("cycle call home"));
-    fetchNote.mockRejectedValue(new Error("GET /api/files/a.md failed with 404"));
-    fireEvent.click(screen.getByText("Undo"));
-
-    await act(async () => {});
-    expect(pane.onCycle).toHaveBeenCalledTimes(1);
-  });
-
-  it("goes back past two taps on one row to where the first found it", async () => {
+  it("asks about one row at a time", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
     await waitFor(() => expect(row("buy milk")).toBeDefined());
 
     fireEvent.click(screen.getByLabelText("cycle buy milk"));
-    // The vault answers between the two, so the second tap finds a row in
-    // progress and still has to remember the open one.
-    pane.answer(
-      TODOS.map((hit) =>
-        hit.line === 20 ? { ...hit, text: "- [/] buy milk 📅 2026-08-14 🔽" } : hit,
-      ),
-    );
-    fireEvent.click(screen.getByLabelText("cycle buy milk"));
-    holds(
-      "projects/kasten.md",
-      `${"\n".repeat(19)}- [x] buy milk 📅 2026-08-14 🔽 ✅ 2026-08-10 🆔 kt-0b0b0b\n`,
-    );
-    fireEvent.click(screen.getByText("Undo"));
+    fireEvent.click(screen.getByLabelText("cycle renew the passport"));
 
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(3));
-    expect(pane.onCycle.mock.lastCall?.[1]).toBe("open");
+    expect(screen.getByLabelText("cycle buy milk").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByLabelText("cycle renew the passport").getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
-  it("goes back to the last row tapped, not the one before it", async () => {
+  it("takes the question back on a tap elsewhere, which then does what it was for", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
     await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const state = screen.getByLabelText("cycle buy milk");
 
-    fireEvent.click(screen.getByLabelText("cycle buy milk"));
-    fireEvent.click(screen.getByLabelText("cycle ship it #kasten"));
-    const ship = TODOS[2] as (typeof TODOS)[number];
-    const after = cycleLine(ship.text, "2026-08-10", "");
-    holds("projects/kasten.md", `${"\n".repeat(ship.line - 1)}${after}\n`);
-    fireEvent.click(screen.getByText("Undo"));
+    fireEvent.click(state);
+    // A tap is a press and then a click, and the press is what disarms.
+    fireEvent.pointerDown(row("buy milk") as HTMLElement);
+    fireEvent.click(row("buy milk") as HTMLElement);
 
-    await waitFor(() =>
-      expect(pane.onCycle).toHaveBeenLastCalledWith({ ...ship, text: after }, "blocked"),
-    );
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    expect(pane.onOpen).toHaveBeenCalledWith("projects/kasten.md", 20);
+
+    // The press of the second tap on the armed button itself leaves it armed.
+    fireEvent.click(state);
+    fireEvent.pointerDown(state);
+    expect(state.getAttribute("aria-pressed")).toBe("true");
+    expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
-  it("takes the way back away after five seconds", async () => {
+  it("takes the question back when the list scrolls", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    renderPane();
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    const state = screen.getByLabelText("cycle buy milk");
+
+    fireEvent.click(state);
+    fireEvent.scroll(state.closest(".overflow-auto") as HTMLElement);
+
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(state);
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("takes the question back after four seconds", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
     await waitFor(() => expect(row("buy milk")).toBeDefined());
     // Only now: `waitFor` polls on a timer, and a faked one never fires.
     vi.useFakeTimers();
+    const state = screen.getByLabelText("cycle buy milk");
 
-    fireEvent.click(screen.getByLabelText("cycle buy milk"));
-    act(() => vi.advanceTimersByTime(4999));
-    expect(screen.queryByText("Undo")).not.toBeNull();
+    fireEvent.click(state);
+    act(() => vi.advanceTimersByTime(3999));
+    expect(state.getAttribute("aria-pressed")).toBe("true");
 
     act(() => vi.advanceTimersByTime(1));
-    expect(screen.queryByText("Undo")).toBeNull();
+    expect(state.getAttribute("aria-pressed")).toBe("false");
+    // A tap now is a first tap again.
+    fireEvent.click(state);
+    expect(pane.onCycle).not.toHaveBeenCalled();
   });
 
-  it("offers no way back it cannot make good", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = renderPane([
-      { path: "a.md", line: 1, text: "- [/] water the plants 🔁 every week 📅 2026-08-10" },
-      { path: "a.md", line: 2, text: "- [/] pack" },
-      { path: "a.md", line: 3, text: "  - [ ] socks" },
-    ]);
-    await waitFor(() => expect(row("pack")).toBeDefined());
-
-    // Ticked, a recurring todo writes its next copy onto the line the row names.
-    fireEvent.click(screen.getByLabelText("cycle water the plants"));
-    expect(screen.queryByText("Undo")).toBeNull();
-
-    // Ticked, a todo takes its open parts with it, and no state key reopens them.
-    fireEvent.click(screen.getByLabelText("cycle pack"));
-    expect(screen.queryByText("Undo")).toBeNull();
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
-  });
-
-  it("offers none after a key", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+  it("sends every press of x, however fast, and asks nothing", async () => {
+    // A mouse and a keyboard, where a key has never slipped.
     const pane = renderPane();
-    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
 
     pane.press("x");
+    pane.press("x");
 
-    expect(pane.onCycle).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Undo")).toBeNull();
+    expect(pane.onCycle).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/\?$/)).toBeNull();
   });
 
   it("keeps the row the only tab stop", async () => {
@@ -1364,36 +1218,47 @@ describe("the todo pane by touch", () => {
     fireEvent.click(screen.getByLabelText("more for buy milk"));
     fireEvent.click(screen.getByLabelText(`${label} buy milk`));
 
-    // The row tapped and not the cursor's, with the state a shifted key sends.
-    // In the chain the taps run in, so the write is a turn later.
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(TODOS[3], state));
+    // The row tapped and not the cursor's, with the state a shifted key sends,
+    // and on the one tap: a state picked out of an open strip is meant.
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(TODOS[3], state);
     expect(screen.queryByLabelText(`${label} buy milk`)).toBeNull();
-    // A state named is not a slip of the finger, so no way back is offered.
-    expect(screen.queryByText("Undo")).toBeNull();
   });
 
-  it("waits for a tap's write, and sets the state against the line that write left", async () => {
+  it("takes the question off a state button when a strip opens, this row's or another's", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
     await waitFor(() => expect(row("buy milk")).toBeDefined());
-    let land = () => {};
-    pane.onCycle.mockReturnValueOnce(new Promise<void>((done) => (land = done)));
+    const state = () => screen.getByLabelText("cycle buy milk");
 
-    fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    for (const other of ["more for buy milk", "more for ship it #kasten"]) {
+      fireEvent.click(state());
+      expect(state()).toHaveAttribute("aria-pressed", "true");
+
+      fireEvent.click(screen.getByLabelText(other));
+
+      expect(state()).toHaveAttribute("aria-pressed", "false");
+      expect(state().textContent).not.toContain("?");
+    }
+    // So the next tap on the state asks again, and writes nothing.
+    fireEvent.click(state());
+    expect(pane.onCycle).not.toHaveBeenCalled();
+  });
+
+  it("leaves no state button armed after a tap inside a strip", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    // Armed with the strip already open, which opening it would have undone.
     fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("cycle ship it #kasten"));
+    expect(screen.getByLabelText("cycle ship it #kasten")).toHaveAttribute("aria-pressed", "true");
+
     fireEvent.click(screen.getByLabelText("blocked buy milk"));
 
-    // The Undo the tap left names a state this has replaced.
-    expect(screen.queryByText("Undo")).toBeNull();
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(1));
-    land();
-    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
-    // The list has not redrawn the row, so the note holds what the tap wrote,
-    // and the write checks its line against the text it is handed.
-    const [hit, state] = pane.onCycle.mock.calls[1] ?? [];
-    expect(state).toBe("blocked");
-    expect(hit?.text).not.toBe(TODOS[3]?.text);
-    expect(hit?.text).toContain("buy milk");
+    expect(document.querySelector("[data-armed]")).toBeNull();
+    // The one write is the state picked, and no cycle rode along with it.
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(TODOS[3], "blocked");
   });
 
   it("leaves a row being edited alone when edit is tapped on another", async () => {
