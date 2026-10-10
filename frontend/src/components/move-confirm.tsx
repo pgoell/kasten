@@ -98,7 +98,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
       aria-label={mode === "folder" ? "Move folder" : "Move note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

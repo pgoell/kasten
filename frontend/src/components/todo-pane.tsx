@@ -750,9 +750,30 @@ export function TodoPane({
     if (missing && !making.current) makeViews();
   }
 
-  /** `i`: the row becomes its line. By the row's own key, so a tap need not move the cursor. */
+  /**
+   * `i`: the row becomes its line. By the row's own key, so a tap need not move the cursor.
+   *
+   * Not while another row is being edited. The keys are off then, and a tap
+   * that got through would drop that row's draft unwritten.
+   */
   function edit(hit: SearchHit) {
+    if (editing !== null) return;
     setEditing({ key: rowKey(hit), line: hit.text });
+  }
+
+  /**
+   * A state set by tap, from the strip under a row.
+   *
+   * In the chain the taps on the state button run in, so it waits for a write
+   * still out, and against the line that write left where the list has not
+   * redrawn the row since. No `Undo` after it, as the shifted keys leave none,
+   * and the one a tap left is taken away: it names a state this has replaced.
+   */
+  function setState(hit: SearchHit, state: TodoState) {
+    const streak = undo !== null && rowKey(undo.hit) === rowKey(hit) ? undo : null;
+    const text = streak !== null && streak.seen === hit.text ? streak.line : hit.text;
+    setUndo(null);
+    landing.current = landing.current.then(() => onCycle({ ...hit, text }, state));
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -1007,7 +1028,7 @@ export function TodoPane({
                         // row of the list, at the list's size, wearing the
                         // keyboard cursor's own outline, because this row is
                         // where the keys are going.
-                        className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor"
+                        className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor pointer-coarse:text-base"
                       />
                       <TodoHints
                         found={lineSuggestions(editing.line, today, true)}
@@ -1090,7 +1111,7 @@ export function TodoPane({
                 const actions: [string, () => void][] = [
                   ...Object.values(SET).map((state): [string, () => void] => [
                     state,
-                    () => onCycle(hit, state),
+                    () => setState(hit, state),
                   ]),
                   ["timer", () => onTimer(hit)],
                   ["part", () => onSubtask(hit)],

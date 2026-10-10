@@ -22,11 +22,18 @@ export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean
     if (!on || element === null || !viewport) return;
 
     const clear = () => {
-      // A pinch zoom shrinks the visual viewport too, and is not a keyboard.
-      const covered =
-        viewport.scale === 1
-          ? element.getBoundingClientRect().bottom - (viewport.offsetTop + viewport.height)
-          : 0;
+      const { bottom } = element.getBoundingClientRect();
+      // Unzoomed, what shows is the layout from `offsetTop` down, iOS panning
+      // the page under an open keyboard. Zoomed, `offsetTop` is where the
+      // reader has panned to and says nothing about a keyboard, so the height
+      // is scaled back up to the layout's own pixels instead: a zoom alone
+      // then covers nothing, and a keyboard under a zoom still does. Safari
+      // zooms by itself on the focus of a small input and stays zoomed, so
+      // reading a zoom as "no keyboard" would turn this off until a pinch.
+      const zoomed = Math.abs(viewport.scale - 1) > 0.01;
+      const covered = zoomed
+        ? bottom - viewport.height * viewport.scale
+        : bottom - (viewport.offsetTop + viewport.height);
       const inset = `${Math.max(0, Math.round(covered))}px`;
       element.style.paddingBottom = inset;
       element.style.setProperty("--keyboard", inset);

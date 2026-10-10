@@ -96,7 +96,7 @@ export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
       aria-label={`Add ${what}`}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose, input.trim() !== "")}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

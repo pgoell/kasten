@@ -168,7 +168,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
         event.preventDefault();
         onClose();
       }}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose)}
       className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 focus:outline-none"
     >
       {/* The finder's panel, wider: this is the fourth thing the app draws over

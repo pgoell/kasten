@@ -1342,6 +1342,12 @@ describe("the route", () => {
       expect(toolbar()).toBeNull();
     });
 
+    /** A press and release on the sheet around a panel, which is its way out. */
+    const tapSheet = (sheet: HTMLElement) => {
+      fireEvent.mouseDown(sheet);
+      fireEvent.click(sheet);
+    };
+
     it("opens the palette, the finder and the search from the toolbar", async () => {
       stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       await renderApp();
@@ -1351,15 +1357,15 @@ describe("the route", () => {
       const palette = screen.getByRole("dialog", { name: "Run a command" });
       // The way to vim's keys on a phone, which no key reaches with vim off.
       expect(screen.getByRole("option", { name: "Toggle vim keys" })).toBeInTheDocument();
-      fireEvent.mouseDown(palette);
+      tapSheet(palette);
       expect(screen.queryByRole("dialog")).toBeNull();
 
       fireEvent.click(screen.getByRole("button", { name: "Find a note" }));
-      fireEvent.mouseDown(screen.getByRole("dialog", { name: "Find note" }));
+      tapSheet(screen.getByRole("dialog", { name: "Find note" }));
       expect(screen.queryByRole("dialog")).toBeNull();
 
       fireEvent.click(screen.getByRole("button", { name: "Search note content" }));
-      fireEvent.mouseDown(screen.getByRole("dialog"));
+      tapSheet(screen.getByRole("dialog"));
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 

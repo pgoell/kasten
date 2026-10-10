@@ -141,7 +141,7 @@ export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProp
       aria-label="Open terminal"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

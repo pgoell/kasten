@@ -223,7 +223,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
       aria-label={outgoing ? "Outgoing links" : "Find note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_WIDE}`}>

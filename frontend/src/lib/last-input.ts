@@ -1,3 +1,5 @@
+import { NARROW } from "@/lib/use-viewport";
+
 /**
  * Whether the last thing the reader did was put a finger on the screen.
  *
@@ -32,6 +34,16 @@ window.addEventListener(
   true,
 );
 
-export function lastInputWasTouch(): boolean {
-  return touched;
+/**
+ * Whether handing an editor the focus now would raise a keyboard nobody asked for.
+ *
+ * A tap, and a narrow window. The width matters because of where the focus
+ * rests otherwise. On a phone the tree is a drawer that shuts as the note
+ * opens, so the focus falls to the body and a stray key does nothing. On a
+ * wide touch screen the tree stays open beside the note with the focus on the
+ * row just tapped, and the next keys typed would be the tree's: `d` there
+ * trashes the row. A wide screen also has the room a keyboard takes.
+ */
+export function keyboardUnasked(): boolean {
+  return touched && window.matchMedia(NARROW).matches;
 }

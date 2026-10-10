@@ -75,7 +75,7 @@ export function DumpPrompt({ onCapture, onClose, today }: DumpPromptProps) {
       aria-label="Capture a thought"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose, input.trim() !== "")}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

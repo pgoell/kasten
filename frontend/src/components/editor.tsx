@@ -21,7 +21,7 @@ import { toggleMark } from "@/lib/format-commands";
 import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
-import { lastInputWasTouch } from "@/lib/last-input";
+import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
@@ -881,8 +881,8 @@ export function Editor({
     viewRef.current = view;
     // A freshly loaded page focuses nothing, and the first thing typed at it
     // goes nowhere. The editor is what the page is for, so it takes the focus.
-    // Not after a tap, for the reason the signal below gives.
-    if (!lastInputWasTouch() && nothingFocused()) view.focus();
+    // Not after a tap on a phone, for the reason the signal below gives.
+    if (!keyboardUnasked() && nothingFocused()) view.focus();
 
     return () => {
       viewRef.current = null;
@@ -943,12 +943,13 @@ export function Editor({
   // needs: it is created focused, and its first render is the only chance it
   // gets to say so. A pane that is not the focused one is handed 0 and stays put.
   //
-  // Not after a tap, where the focus is what raises the on-screen keyboard:
-  // a tap that moved to a pane or opened a note did not ask to type in it, and
-  // half the screen would go to keys nobody reached for. A tap on the text
-  // does ask. An editor that already holds the focus keeps it either way.
+  // Not after a tap on a phone, where the focus is what raises the on-screen
+  // keyboard: a tap that moved to a pane or opened a note did not ask to type
+  // in it, and half the screen would go to keys nobody reached for. A tap on
+  // the text does ask. An editor that already holds the focus keeps it either
+  // way. `keyboardUnasked` says why a wide touch screen is left out.
   useEffect(() => {
-    if (focusSignal && !lastInputWasTouch()) viewRef.current?.focus();
+    if (focusSignal && !keyboardUnasked()) viewRef.current?.focus();
   }, [focusSignal]);
 
   // A position, written where the note keeps them. `mark` is a new object per
@@ -992,7 +993,9 @@ export function Editor({
   // the shell then drops every key until you click back into it.
   useEffect(() => {
     function onWindowFocus() {
-      if (focused && nothingFocused()) viewRef.current?.focus();
+      // Nor on a phone that was last tapped: coming back to the tab is not
+      // asking to type either.
+      if (focused && !keyboardUnasked() && nothingFocused()) viewRef.current?.focus();
     }
 
     window.addEventListener("focus", onWindowFocus);

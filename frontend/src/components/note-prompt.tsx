@@ -340,7 +340,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
       aria-label={TITLE[mode]}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose, input !== startPath)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

@@ -20,6 +20,9 @@ interface ImagePaneProps {
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
 
+/** How long `delete?` waits for its second tap. */
+const ARMED_MS = 5000;
+
 interface Point {
   x: number;
   y: number;
@@ -134,6 +137,13 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   const [failed, setFailed] = useState<string>();
   /** The image whose delete button was tapped once, so another image starts unasked. */
   const [armed, setArmed] = useState<string>();
+  // The question lapses, so a `delete?` left standing is not what the next
+  // tap minutes later lands on. The timer goes with the pane on the way out.
+  useEffect(() => {
+    if (armed === undefined) return;
+    const lapse = setTimeout(() => setArmed(undefined), ARMED_MS);
+    return () => clearTimeout(lapse);
+  }, [armed]);
   /**
    * The zoom, and the path it was made on, for the reason `failed` is a path:
    * a zoom left on the last picture is not one the next picture was given.
@@ -245,8 +255,9 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         </span>
         {/* `d` for a finger. It asks once, a thumb landing wide of where it
             aimed, where the key does not: nobody presses `d` by accident. Any
-            press on the picture takes the question back. Not on blur: Safari
-            on a phone gives a tapped button no focus to lose. */}
+            press on the picture takes the question back, and so do five
+            seconds. Not on blur: Safari on a phone gives a tapped button no
+            focus to lose. */}
         <button
           type="button"
           tabIndex={-1}

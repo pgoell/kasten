@@ -48,10 +48,19 @@ describe("useKeyboardInset", () => {
     listeners.get("scroll")?.();
     expect(frame.style.paddingBottom).toBe("200px");
 
-    // A pinch zoom is not a keyboard.
+    // A pinch zoom is not a keyboard: the whole layout still shows, at half
+    // the height in its own pixels, wherever the reader has panned to.
     viewport.scale = 2;
-    listeners.get("resize")?.();
+    viewport.height = 400;
+    viewport.offsetTop = 250;
+    listeners.get("scroll")?.();
     expect(frame.style.paddingBottom).toBe("0px");
+
+    // A keyboard under a zoom still covers. Safari zooms on the focus of a
+    // small input and stays zoomed, so this is a phone's ordinary state.
+    viewport.height = 250;
+    listeners.get("resize")?.();
+    expect(frame.style.paddingBottom).toBe("300px");
 
     viewport.scale = 1;
     viewport.offsetTop = 0;

@@ -431,7 +431,7 @@ export function NoteSearch({
       aria-label={LABEL_OF[mode].dialog}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       {/* Wider than the finder's, because a row here carries the path, the

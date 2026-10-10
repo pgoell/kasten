@@ -5,7 +5,7 @@ import { useCallback, useSyncExternalStore } from "react";
  * this and an `md:` class cannot disagree at a fractional width or a root font
  * size that is not 16px. 48rem is 768px at the default.
  */
-const NARROW = "(width < 48rem)";
+export const NARROW = "(width < 48rem)";
 
 /** A finger rather than a mouse. The primary pointer only: a laptop with a touch screen stays fine. */
 export const COARSE = "(pointer: coarse)";

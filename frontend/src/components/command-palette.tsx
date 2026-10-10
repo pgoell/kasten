@@ -84,7 +84,7 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
       aria-label="Run a command"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={closeOnBackdrop(onClose)}
+      {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

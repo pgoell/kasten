@@ -1365,10 +1365,63 @@ describe("the todo pane by touch", () => {
     fireEvent.click(screen.getByLabelText(`${label} buy milk`));
 
     // The row tapped and not the cursor's, with the state a shifted key sends.
-    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(TODOS[3], state);
+    // In the chain the taps run in, so the write is a turn later.
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(TODOS[3], state));
     expect(screen.queryByLabelText(`${label} buy milk`)).toBeNull();
     // A state named is not a slip of the finger, so no way back is offered.
     expect(screen.queryByText("Undo")).toBeNull();
+  });
+
+  it("waits for a tap's write, and sets the state against the line that write left", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    let land = () => {};
+    pane.onCycle.mockReturnValueOnce(new Promise<void>((done) => (land = done)));
+
+    fireEvent.click(screen.getByLabelText("cycle buy milk"));
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("blocked buy milk"));
+
+    // The Undo the tap left names a state this has replaced.
+    expect(screen.queryByText("Undo")).toBeNull();
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(1));
+    land();
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
+    // The list has not redrawn the row, so the note holds what the tap wrote,
+    // and the write checks its line against the text it is handed.
+    const [hit, state] = pane.onCycle.mock.calls[1] ?? [];
+    expect(state).toBe("blocked");
+    expect(hit?.text).not.toBe(TODOS[3]?.text);
+    expect(hit?.text).toContain("buy milk");
+  });
+
+  it("leaves a row being edited alone when edit is tapped on another", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("edit buy milk"));
+    pane.write("- [ ] buy oat milk");
+    fireEvent.click(screen.getByLabelText("more for ship it #kasten"));
+    fireEvent.click(screen.getByLabelText("edit ship it #kasten"));
+
+    // The draft a key could not have dropped, a tap does not drop either.
+    expect(pane.draft()).toHaveValue("- [ ] buy oat milk");
+  });
+
+  // jsdom applies no media query, so this reads the class that carries one.
+  it("draws the line being edited at 16px under a finger, so Safari does not zoom", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("edit buy milk"));
+
+    expect(pane.draft()).toHaveClass("pointer-coarse:text-base");
+    expect(screen.getByLabelText("filter todos")).toHaveClass("pointer-coarse:text-base");
   });
 
   it("starts or stops the timer of the row whose actions are open", async () => {

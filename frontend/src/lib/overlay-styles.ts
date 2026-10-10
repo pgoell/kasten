@@ -27,16 +27,37 @@
 export const BACKDROP =
   "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] pb-[var(--keyboard,0px)] focus:outline-none";
 
+/** The sheet the press now under way began on, if it began on one. */
+let pressed: EventTarget | null = null;
+
 /**
- * The way out by touch: a press on the sheet itself, and not on the panel
- * over it, closes what the sheet is under.
+ * The way out by touch: a press and release on the sheet itself, and not on
+ * the panel over it, closes what the sheet is under. Spread onto the sheet.
  *
- * The press and not the click, so a selection dragged out of the input and let
- * go over the sheet closes nothing.
+ * The click closes and not the press. A sheet gone on the press leaves the
+ * release and the click to whatever lay under it, a todo's state button being
+ * one such thing, and the browser's own step of the press would take the
+ * focus off the opener the unmount had just handed it back to.
+ *
+ * The press is still what is remembered, so a selection dragged out of the
+ * input and let go over the sheet closes nothing: that click lands on the
+ * sheet too, the sheet being what the two ends have in common.
+ *
+ * `holding` is a draft the panel would lose. A stray tap in the gutter beside
+ * a prompt, 19px of it on a phone, then closes nothing; Escape still does.
  */
-export function closeOnBackdrop(onClose: () => void) {
-  return (event: { target: EventTarget; currentTarget: EventTarget }) => {
-    if (event.target === event.currentTarget) onClose();
+export function closeOnBackdrop(onClose: () => void, holding = false) {
+  type Press = { target: EventTarget; currentTarget: EventTarget };
+  return {
+    onMouseDown: (event: Press) => {
+      pressed = event.target === event.currentTarget ? event.currentTarget : null;
+    },
+    onClick: (event: Press) => {
+      const began = pressed;
+      pressed = null;
+      if (holding || event.target !== event.currentTarget) return;
+      if (began === event.currentTarget) onClose();
+    },
   };
 }
 
