@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { heldModifier, leaderAction, leaderPrefix, type TreeCommands } from "@/lib/key-bindings";
 import { dropTarget, type MoveMode } from "@/lib/move";
+import { useViewport } from "@/lib/use-viewport";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */
@@ -35,6 +36,8 @@ interface FileExplorerProps {
   /** Raised by the route to ask the panel to unfold down to `openPath` and put
    * its cursor on that row. A change is the request, the way `focusSignal` is. */
   revealSignal?: number;
+  /** Escape in the drawer: close it and hand the focus to the pane on screen. */
+  onLeave?: () => void;
 }
 
 interface FolderNode {
@@ -450,6 +453,10 @@ function PanelIcon() {
 /**
  * The vault's file tree, in a panel that folds away to a narrow rail.
  *
+ * Below `md` the panel is a drawer over the page instead: 256px beside a note
+ * leaves 134px of a phone for the note. The rail stays in the row either way,
+ * so the page under the drawer does not move when it opens.
+ *
  * Clicking a note reports its path and nothing more. Which note is open is the
  * caller's business, and it keeps that in the URL.
  */
@@ -466,6 +473,7 @@ export function FileExplorer({
   commands,
   focusSignal = 0,
   revealSignal = 0,
+  onLeave,
 }: FileExplorerProps) {
   // What is unfolded, rather than what is folded away, which is what makes an
   // unopened folder cost nothing. A folder's children are not rendered until it
@@ -476,6 +484,7 @@ export function FileExplorer({
   // named in the URL has to be visible, or a reload lands on a tree that has
   // hidden what it is showing you.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => ancestors(openPath));
+  const { narrow } = useViewport();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   /** Where the pointer went down, and how wide the panel was then. */
   const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
@@ -764,7 +773,12 @@ export function FileExplorer({
       case "Escape":
         // The editor is the only other place focus belongs, and it owns no
         // React handle here, so the panel finds it the way the user sees it.
-        document.querySelector<HTMLElement>(".cm-content")?.focus();
+        //
+        // A drawer asks the route instead. The page under it is inert until
+        // it has closed, so nothing there can take the focus yet, and the
+        // first editor in the document may be in a pane that is not drawn.
+        if (narrow) onLeave?.();
+        else document.querySelector<HTMLElement>(".cm-content")?.focus();
         break;
       case "h":
         if (unfolded) toggleFolder(folder.path);
@@ -806,18 +820,29 @@ export function FileExplorer({
     </button>
   );
 
-  if (!open) {
-    return (
-      <div className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1">
-        {toggle}
-      </div>
-    );
-  }
+  const rail = (
+    // Inert under an open drawer, where its button would be a second "Hide
+    // file tree" that Tab reaches behind the backdrop.
+    <div
+      inert={open}
+      className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1"
+    >
+      {toggle}
+    </div>
+  );
 
-  return (
+  if (!open) return rail;
+
+  const panel = (
     <aside
-      style={{ width }}
-      className="relative flex shrink-0 flex-col border-r border-one-line bg-one-panel font-mono"
+      // No dragged width in a drawer: it has no grip to have set one, and a
+      // width carried over from a wide window could cover the whole phone.
+      style={narrow ? undefined : { width }}
+      // z-15 puts the drawer over what a pane draws at z-10 and under the
+      // prompts at z-20, so a prompt opened from the tree is not behind it.
+      className={`flex flex-col border-r border-one-line bg-one-panel font-mono ${
+        narrow ? "fixed inset-y-0 left-0 z-15 w-72 max-w-[85vw]" : "relative shrink-0"
+      }`}
     >
       <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3">
         <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
@@ -864,13 +889,32 @@ export function FileExplorer({
         )}
       </nav>
 
-      <Grip
-        width={width}
-        dragging={drag !== null}
-        onResizeStart={(x) => setDrag({ x, width })}
-        onResizeBy={(delta) => setWidth(clampWidth(width + delta))}
-        onReset={() => setWidth(DEFAULT_WIDTH)}
-      />
+      {!narrow && (
+        <Grip
+          width={width}
+          dragging={drag !== null}
+          onResizeStart={(x) => setDrag({ x, width })}
+          onResizeBy={(delta) => setWidth(clampWidth(width + delta))}
+          onReset={() => setWidth(DEFAULT_WIDTH)}
+        />
+      )}
     </aside>
+  );
+
+  if (!narrow) return panel;
+
+  return (
+    <>
+      {rail}
+      {/* A button rather than a div with a click handler, so the way out has a
+          name and a key. */}
+      <button
+        type="button"
+        aria-label="Close file tree"
+        onClick={() => onOpenChange(false)}
+        className="fixed inset-0 z-15 bg-black/50"
+      />
+      {panel}
+    </>
   );
 }

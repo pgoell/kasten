@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { noteName } from "@/lib/note-path";
 import type { PaneRect } from "@/lib/pane-direction";
 import { isSplit, type Layout, type Pane, type PaneNode, panesOf, type Tab } from "@/lib/panes";
@@ -136,25 +136,47 @@ interface TabStripProps {
  * One tab is the ordinary way to work, and a bar that spends a row of the
  * window saying "1" is chrome that earns nothing. It appears when it starts
  * carrying something worth reading and not before.
+ *
+ * More tabs than the window is wide scroll sideways rather than squeeze, which
+ * on a phone is the third tab, and the active one is kept on screen.
  */
 export function TabStrip({ layout, onSelect }: TabStripProps) {
-  if (layout.tabs.length < 2) return null;
+  const strip = useRef<HTMLDivElement>(null);
+  const { active } = layout;
+  const count = layout.tabs.length;
+
+  // The count as well as the index: closing a tab to the left of the active one
+  // moves it without changing which tab it is.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: both are the trigger, and neither is read.
+  useEffect(() => {
+    strip.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [active, count]);
+
+  if (count < 2) return null;
 
   return (
-    <div role="tablist" className="flex shrink-0 gap-px bg-one-line font-mono text-[11px]">
+    <div
+      ref={strip}
+      role="tablist"
+      // The scrollbar is left out: it would take a row of its own on a desktop
+      // to say what the cut-off tab at the edge already says.
+      className="flex shrink-0 gap-px overflow-x-auto bg-one-line font-mono text-[11px] [scrollbar-width:none]"
+    >
       {layout.tabs.map((tab, index) => {
-        const active = index === layout.active;
+        const selected = index === active;
         return (
           <button
             key={tab.id}
             type="button"
             role="tab"
-            aria-selected={active}
+            aria-selected={selected}
             // The digit that jumps here, which is the key rather than the
             // position: the tenth tab is reached with `0`.
             onClick={() => onSelect(index)}
-            className={`px-3 py-1 ${
-              active ? "bg-one-bg text-one-fg" : "bg-one-panel text-one-muted hover:bg-one-hover"
+            className={`shrink-0 px-3 py-1 whitespace-nowrap ${
+              selected ? "bg-one-bg text-one-fg" : "bg-one-panel text-one-muted hover:bg-one-hover"
             }`}
           >
             <span className="text-one-accent">{(index + 1) % 10}</span> {tabLabel(tab)}

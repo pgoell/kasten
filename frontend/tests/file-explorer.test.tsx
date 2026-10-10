@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type ComponentProps, useState } from "react";
 import { FileExplorer } from "@/components/file-explorer";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 // Sorted the way the backend serves it. `projects/kasten.md` and the folder
 // `projects/kasten/` share a name on purpose: the vault allows both.
@@ -1072,5 +1073,69 @@ describe("FileExplorer drag and drop", () => {
     renderTree({ html: ["report.html"] });
 
     expect(screen.getByText("report.html").closest("button")).toHaveAttribute("draggable", "false");
+  });
+});
+
+describe("FileExplorer in a narrow window", () => {
+  beforeEach(() => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is a drawer with no grip, at a width of its own", () => {
+    renderTree();
+
+    expect(screen.queryByRole("separator")).toBeNull();
+    const drawer = screen.getByRole("navigation", { name: "Vault" }).closest("aside");
+    expect(drawer).toHaveClass("fixed");
+    expect(drawer?.style.width).toBe("");
+  });
+
+  it("closes on a tap outside it", () => {
+    renderTree();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close file tree" }));
+
+    expect(screen.queryByRole("navigation", { name: "Vault" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show file tree" })).toBeInTheDocument();
+  });
+
+  it("leaves a row's tap to the route, which closes the drawer once the pane has the focus", () => {
+    const onOpenFile = vi.fn();
+    const onOpenChange = vi.fn();
+    renderTree({ onOpenFile, onOpenChange });
+
+    fireEvent.click(screen.getByTitle("index.md"));
+
+    expect(onOpenFile).toHaveBeenCalledWith("index.md");
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("asks the route to take the focus on Escape, rather than finding an editor itself", () => {
+    // The first editor in the document, which is where a wide window sends
+    // the focus, and which may be in a pane a narrow one is not drawing.
+    const editor = document.createElement("div");
+    editor.className = "cm-content";
+    editor.tabIndex = 0;
+    document.body.append(editor);
+    const onLeave = vi.fn();
+    renderTree({ onLeave });
+
+    tree().focus();
+    press("Escape");
+
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(editor).not.toHaveFocus();
+    editor.remove();
+  });
+
+  it("takes the rail under the drawer out of reach", () => {
+    renderTree();
+
+    expect(
+      screen.getAllByRole("button", { name: "Hide file tree" })[0]?.parentElement,
+    ).toHaveAttribute("inert");
   });
 });
