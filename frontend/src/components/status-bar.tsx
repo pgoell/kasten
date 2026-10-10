@@ -251,6 +251,11 @@ export function StatusBar({
   // and a finger has no way to hover: the reason a write failed and the way
   // out of it were unreadable on a phone, and so was the end of a long notice.
   const [opened, setOpened] = useState<"notice" | "save" | null>(null);
+  // Shut again when what it showed changes. Left open, it would show the next
+  // notice unasked, over the last line of the note, to someone who opened
+  // the one before it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the three are the trigger, and none is read.
+  useEffect(() => setOpened(null), [notice, status, reason]);
   const saveLines = status ? [SAVE_LABEL[status], reason, SAVE_FIX[status]].filter(Boolean) : [];
   // The label alone is on screen already, or is "Saved".
   const saveOpens = saveLines.length > 1;
