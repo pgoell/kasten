@@ -1,5 +1,6 @@
 // biome-ignore-all lint/suspicious/noTemplateCurlyInString: `${}` is CodeMirror snippet syntax, not a template placeholder.
 import { type CompletionContext, type CompletionResult, snippet } from "@codemirror/autocomplete";
+import { Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
 import { editorCommands } from "@/lib/editor-commands";
@@ -11,15 +12,18 @@ import {
   LEADER_EDITS,
   readable,
   spelled,
+  TAB_KEYS,
 } from "@/lib/key-bindings";
+import { toggleVim } from "@/lib/vim-setting";
 
 /**
  * The commands you reach by name rather than by key: the palette behind
  * `<leader>:`, and the `/` menu while writing.
  *
  * Nothing here is a second list of commands. Every row is read from the tables
- * in `key-bindings.ts`, plus `INSERTS` below, which no key reaches, so a new
- * leader binding shows up in both places with no edit here.
+ * in `key-bindings.ts`, plus `INSERTS` below, which no key reaches, and `EX`
+ * and the vim toggle, which no leader key does, so a new leader binding shows
+ * up in both places with no edit here.
  */
 
 export interface Insert {
@@ -59,6 +63,72 @@ export function writeInsert(view: EditorView, insert: Insert, from: number, to: 
   snippet(lead + insert.template)(view, null, from, to);
 }
 
+export type CopyFormat = "md" | "slack" | "teams";
+
+/**
+ * What vim's own keys reach on a view: the ex prompt's commands and `gf`.
+ *
+ * `editor.tsx` holds the handlers these run and provides this, because it
+ * reads this module for the `/` menu and an import back would be a circle.
+ * Absent on a view that is not a note's editor, which lists none of them.
+ */
+export interface ViewCommands {
+  write(view: EditorView): void;
+  /** `force` is the bang: throw away unsaved text. */
+  reload(view: EditorView, force: boolean): void;
+  follow(view: EditorView): void;
+  /** The selection when there is one, or else the whole note. */
+  copy(view: EditorView, format: CopyFormat): void;
+}
+
+export const viewCommands = Facet.define<ViewCommands, ViewCommands | undefined>({
+  combine: (handlers) => handlers[0],
+});
+
+/**
+ * The commands vim spells at its prompt or with a key of its own, by name.
+ *
+ * With vim off there is no prompt and no normal mode, and the palette is the
+ * one way left to each of these.
+ */
+const EX: readonly {
+  keys: string;
+  label: string;
+  run: (commands: ViewCommands, view: EditorView) => void;
+}[] = [
+  { keys: ":w", label: "Write the note", run: (commands, view) => commands.write(view) },
+  {
+    keys: ":e",
+    label: "Read the note off the vault again",
+    run: (commands, view) => commands.reload(view, false),
+  },
+  {
+    keys: ":e!",
+    label: "Read the note off the vault again, throwing away unsaved text",
+    run: (commands, view) => commands.reload(view, true),
+  },
+  {
+    keys: "gf",
+    label: "Open what the wikilink or highlight under the cursor names",
+    run: (commands, view) => commands.follow(view),
+  },
+  {
+    keys: ":copy md",
+    label: "Copy as markdown",
+    run: (commands, view) => commands.copy(view, "md"),
+  },
+  {
+    keys: ":copy slack",
+    label: "Copy for Slack",
+    run: (commands, view) => commands.copy(view, "slack"),
+  },
+  {
+    keys: ":copy teams",
+    label: "Copy for Teams",
+    run: (commands, view) => commands.copy(view, "teams"),
+  },
+];
+
 export interface PaletteEntry {
   label: string;
   /** The key that does the same, so the palette teaches it. */
@@ -74,10 +144,24 @@ export interface PaletteEntry {
  * the rest write into a note and there is none to write into.
  */
 export function paletteEntries(commands: EditorCommands, view: EditorView | null): PaletteEntry[] {
-  const routed = LEADER.filter(({ command }) => command !== "openPalette").map(
-    ({ key, label, command }) => ({ label, keys: spelled(key), run: () => commands[command]() }),
-  );
+  const routed: PaletteEntry[] = [
+    ...LEADER.filter(({ command }) => command !== "openPalette").map(({ key, label, command }) => ({
+      label,
+      keys: spelled(key),
+      run: () => commands[command](),
+    })),
+    ...TAB_KEYS.map((key, index) => ({
+      label: `Go to tab ${index + 1}`,
+      keys: spelled(key),
+      run: () => commands.goToTab(index),
+    })),
+    // No key: a leader sequence is a vim mapping, and one that turned vim off
+    // could not turn it back on.
+    { label: "Toggle vim keys", run: toggleVim },
+  ];
   if (view === null) return routed;
+
+  const onView = view.state.facet(viewCommands);
 
   return [
     ...INSERTS.map((insert) => ({
@@ -101,6 +185,9 @@ export function paletteEntries(commands: EditorCommands, view: EditorView | null
       keys: readable(key),
       run: () => toggleMark(view, spec),
     })),
+    ...(onView === undefined
+      ? []
+      : EX.map(({ keys, label, run }) => ({ label, keys, run: () => run(onView, view) }))),
     ...routed,
   ];
 }
