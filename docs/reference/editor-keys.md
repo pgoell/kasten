@@ -482,8 +482,10 @@ whose author wrote none, says so instead of drawing an empty box. A click or a
 tap on the dimmed page around the list puts it away as Escape does.
 
 On a touch screen a swipe turns the page of a flowing epub, and a tap in the
-left or the right quarter of any page turns it back or forward, which is the
-one way to turn a pdf's or a fixed-layout epub's page by finger. A tap on a
+left or the right quarter of any page turns it the way a swipe from that side
+would, back and forward in a left-to-right book and the reverse in a
+right-to-left one, which is the one way to turn a pdf's or a fixed-layout
+epub's page by finger. A tap on a
 link, or one made while a passage is selected, turns nothing. The foot of the
 pane carries a `Contents` button for `t` and, while a passage is selected, a
 `Take` button for `y`.
@@ -769,7 +771,9 @@ pane, and a click on a hollow ring makes the note the way following its link
 would.
 
 A finger does the same: one finger on the background pans, one on a note drags
-it, two pinch to zoom, and a tap opens the note. On a touch screen a note
+it, two pinch to zoom, and a tap opens the note. A tap on a hollow ring asks
+before it makes the note, because a finger lands on a ring it did not mean far
+more easily than a mouse does. On a touch screen a note
 answers a tap within 12 pixels of its middle however far out the zoom is, where
 a mouse has to be on the dot.
 
@@ -1019,7 +1023,12 @@ where it has any, the two clocks and the day of the due date.
 
 A click or a tap on a row opens the line the todo is written on. On a touch
 screen the state's symbol is a button of its own that cycles the todo as `x`
-does, and the header carries a `+` that adds one as `a` does.
+does, and the header carries a `+` that adds one as `a` does. For five seconds
+after such a tap the foot of the pane carries an `Undo`, which puts the todo
+back in the state the first tap found it in, so two taps too many cost one.
+It is not offered where it could not make the line whole: when the tap
+finishes a recurring todo or one with parts, and in the done list. The id a
+finished todo was given stays on the line.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks
@@ -1821,7 +1830,8 @@ back. A link to another site opens in a new tab.
 The pane is an image and the path above it, and nothing else: no next image,
 and nothing to type into. It opens fitted to the pane. Two fingers pinch it
 larger, up to eight times, and one finger moves it while it is
-zoomed; pinching back to fitted centres it again. No key zooms. What it is for is looking at a picture the
+zoomed, as far as its edge and no further; pinching back to fitted centres it
+again. No key zooms. What it is for is looking at a picture the
 vault holds without first writing a note that points at it. `d` there deletes
 the image in front of you, the same key the tree spends on a row, and the pane
 empties. `<leader>w` downloads the picture under its own name, so
