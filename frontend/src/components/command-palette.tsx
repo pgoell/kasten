@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -83,6 +84,7 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
       aria-label="Run a command"
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      onMouseDown={closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

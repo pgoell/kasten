@@ -4,6 +4,7 @@ import { previewMove } from "@/lib/api";
 import { type MoveMode, moveAndCache } from "@/lib/move";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   LABEL,
   PANEL,
@@ -97,9 +98,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
       aria-label={mode === "folder" ? "Move folder" : "Move note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      onMouseDown={closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>

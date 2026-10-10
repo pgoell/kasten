@@ -14,7 +14,7 @@ import {
   TODO_PANE,
   TREE,
 } from "@/lib/key-bindings";
-import { HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
+import { closeOnBackdrop, HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 
 /**
  * `Ctrl Shift H`, built from `TERMINAL_CHORD` so the panel follows a retune.
@@ -168,6 +168,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
         event.preventDefault();
         onClose();
       }}
+      onMouseDown={closeOnBackdrop(onClose)}
       className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 focus:outline-none"
     >
       {/* The finder's panel, wider: this is the fourth thing the app draws over
@@ -182,7 +183,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
             <Table key={group.title} {...group} />
           ))}
         </div>
-        <p className={STATUS}>Escape or q to close</p>
+        <p className={STATUS}>Escape or q to close, or a tap outside</p>
       </div>
     </div>
   );

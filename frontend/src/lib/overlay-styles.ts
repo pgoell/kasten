@@ -17,9 +17,28 @@
  * replaced.
  */
 
-/** The dark sheet over the whole window, for a panel that belongs over all of it. */
+/**
+ * The dark sheet over the whole window, for a panel that belongs over all of it.
+ *
+ * Padded at the foot by what an on-screen keyboard covers, which the route's
+ * frame measures and hands down as `--keyboard`. The panel is capped at the
+ * room left, so its input and its first rows stay in sight above the keys.
+ */
 export const BACKDROP =
-  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] focus:outline-none";
+  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] pb-[var(--keyboard,0px)] focus:outline-none";
+
+/**
+ * The way out by touch: a press on the sheet itself, and not on the panel
+ * over it, closes what the sheet is under.
+ *
+ * The press and not the click, so a selection dragged out of the input and let
+ * go over the sheet closes nothing.
+ */
+export function closeOnBackdrop(onClose: () => void) {
+  return (event: { target: EventTarget; currentTarget: EventTarget }) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+}
 
 /** The panel itself, bar its width. Pair with one of the two below. */
 export const PANEL =
@@ -31,7 +50,7 @@ export const PANEL =
  * Its height is the content's, capped, because a prompt with three folders
  * under it should not draw a box with nothing in the bottom half.
  */
-export const PANEL_NARROW = "max-h-[70vh] w-[min(36rem,90vw)]";
+export const PANEL_NARROW = "max-h-[min(70vh,100%)] w-[min(36rem,90vw)]";
 
 /**
  * The finder's and the search's width: a list and a preview pane side by side.
@@ -40,7 +59,7 @@ export const PANEL_NARROW = "max-h-[70vh] w-[min(36rem,90vw)]";
  * and the line itself, and the finder is no worse for the room now that its
  * pane renders the note rather than printing it.
  */
-export const PANEL_WIDE = "w-[min(72rem,94vw)]";
+export const PANEL_WIDE = "max-h-full w-[min(72rem,94vw)]";
 
 /** The row holding the label and the input, 44px under a finger like any other target. */
 export const HEADER_ROW =
@@ -62,9 +81,10 @@ export const INPUT =
  * The body of a two-column overlay.
  *
  * A fixed height rather than one the content sets, so the panel does not jump
- * about as the list narrows under it.
+ * about as the list narrows under it. It gives way only where the sheet has
+ * less room than that, which is a phone with its keyboard up.
  */
-export const BODY = "flex h-[min(26rem,55vh)]";
+export const BODY = "flex h-[min(26rem,55vh)] min-h-0";
 
 /**
  * The list side of a two-column overlay.

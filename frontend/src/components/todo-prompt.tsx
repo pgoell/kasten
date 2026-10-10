@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { TodoHints } from "@/components/todo-hints";
 import {
   BACKDROP,
+  closeOnBackdrop,
   HEADER_ROW,
   INPUT,
   LABEL,
@@ -95,6 +96,7 @@ export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
       aria-label={`Add ${what}`}
       tabIndex={-1}
       onKeyDown={onKeyDown}
+      onMouseDown={closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
       <div className={`${PANEL} ${PANEL_NARROW}`}>
