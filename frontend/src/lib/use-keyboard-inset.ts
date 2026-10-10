@@ -23,20 +23,17 @@ export function useKeyboardInset(box: RefObject<HTMLElement | null>, on: boolean
 
     const clear = () => {
       const { bottom } = element.getBoundingClientRect();
-      // Unzoomed, what shows is the layout from `offsetTop` down, iOS panning
-      // the page under an open keyboard. Zoomed, `offsetTop` is where the
-      // reader has panned to and says nothing about a keyboard. What does is
-      // how much shorter the visual viewport is than a zoom alone would make
-      // it, `clientHeight / scale`. That difference is what the keyboard
-      // covers in the layout's own pixels: a keyboard K tall on the glass
-      // hides K divided by the scale of them. The frame is the page, so its
-      // foot is the layout's. Safari zooms by itself on the focus of a small
-      // input and stays zoomed, so reading a zoom as "no keyboard" would turn
-      // this off until a pinch.
-      const zoomed = Math.abs(viewport.scale - 1) > 0.01;
-      const covered = zoomed
-        ? document.documentElement.clientHeight / viewport.scale - viewport.height
-        : bottom - (viewport.offsetTop + viewport.height);
+      // The visual viewport shows the layout from `offsetTop` down for
+      // `height` of its pixels. With no keyboard it would show
+      // `clientHeight / scale` of them, less under a zoom and all of them
+      // without one. What lies between the two feet is what the keyboard
+      // hides, as far as the box reaches: panned to its foot, the box has
+      // nothing left under the keys. So a zoom alone covers nothing wherever
+      // the reader pans, and a keyboard under a zoom covers what it does
+      // there. Safari zooms by itself on the focus of a small input, stays
+      // zoomed and pans to the input, so both are a phone's ordinary state.
+      const shown = document.documentElement.clientHeight / viewport.scale;
+      const covered = Math.min(shown, bottom - viewport.offsetTop) - viewport.height;
       const inset = `${Math.max(0, Math.round(covered))}px`;
       element.style.paddingBottom = inset;
       element.style.setProperty("--keyboard", inset);

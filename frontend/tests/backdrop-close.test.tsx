@@ -39,6 +39,10 @@ const DRAFTS: [string, Draw][] = [
     (onClose) => <DumpPrompt onCapture={vi.fn()} onClose={onClose} today="2026-10-10" />,
   ],
   ["the clip prompt", (onClose) => <ClipPrompt onClip={vi.fn()} onClose={onClose} />],
+  [
+    "the terminal prompt",
+    (onClose) => <TerminalPrompt sessions={[]} onOpen={vi.fn()} onClose={onClose} />,
+  ],
 ];
 
 /**
@@ -55,10 +59,6 @@ const OVERLAYS: [string, Draw][] = [
   ["the finder", (onClose) => <NoteFinder paths={["a.md"]} onOpen={vi.fn()} onClose={onClose} />],
   ["the search", (onClose) => <NoteSearch onOpen={vi.fn()} onClose={onClose} />],
   ...DRAFTS,
-  [
-    "the terminal prompt",
-    (onClose) => <TerminalPrompt sessions={[]} onOpen={vi.fn()} onClose={onClose} />,
-  ],
   ["the key help", (onClose) => <KeyHelp onClose={onClose} />],
 ];
 

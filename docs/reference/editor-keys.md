@@ -121,8 +121,8 @@ release, so nothing under it is pressed by the same tap. A press inside the
 panel closes nothing, and neither does a press that starts on one side of the
 panel's edge and ends on the other, a selection dragged out of the input being
 the usual one.
-A prompt holding something typed stays open too: the note, todo, dump and clip
-prompts close only on Escape once their input has changed.
+A prompt holding something typed stays open too: the note, todo, dump, clip
+and terminal prompts close only on Escape once their input has changed.
 
 Still keys only on a touch screen: renaming or deleting a folder, renaming or
 deleting a note or an image from its row in the tree without opening it, moving
