@@ -1,9 +1,9 @@
 ---
 type: Reference
 title: Editor keys
-description: Every keyboard binding kasten adds, and the mode each one applies in.
+description: Every keyboard binding kasten adds, the mode each one applies in, and what a touch screen reaches without one.
 resource: frontend/src/lib/key-bindings.ts
-tags: [editor, keyboard, vim, frontend]
+tags: [editor, keyboard, vim, touch, frontend]
 status: stable
 ---
 
@@ -20,9 +20,10 @@ that table names a command the app does not provide.
 
 ## Vim on or off
 
-Where the primary pointer is a finger, the editor starts without vim: an
-on-screen keyboard has no Escape, and normal mode takes the first tap of every
-edit. Where it is a mouse, the editor starts with vim.
+Where the primary pointer is a finger, the editor starts without vim. Where it
+is a mouse, the editor starts with vim.
+[kasten on a phone](/explanation/kasten-on-a-phone.md#vim-is-off-under-a-finger)
+says why.
 
 `Toggle vim keys` in [the command palette](#the-command-palette) changes that by
 hand. The browser stores the choice in `localStorage` under `kasten.vim`, as
@@ -59,76 +60,140 @@ Ctrl+Shift+P opens the palette from a note with or without vim. The key is Ctrl
 on a Mac too, as it is in [a terminal](#terminal). Firefox on Windows and Linux
 keeps that chord for a private window and does not hand it to the page, so it
 opens nothing there. Without vim, and on a device with no keyboard, the other
-ways in are the `run` button of [the toolbar](#on-a-phone), and typing `/` at
+ways in are the `run` button of [the toolbar](#the-toolbar), and typing `/` at
 the start of a line or after a space and choosing `Run a command by name`.
 
-## On a phone
+## Touch
 
-Where the window is narrower than 768px and the primary pointer is a finger, a
-toolbar runs along the bottom edge, under the status bar. A mouse never sees
-it, and neither does a wide touch screen.
+What kasten draws for a finger, and what a finger can reach. The steps are in
+[Use kasten on a phone](/how-to/use-kasten-on-a-phone.md), and the reasons in
+[kasten on a phone](/explanation/kasten-on-a-phone.md).
 
-| Button | Does | Key |
-| --- | --- | --- |
-| `files` | Open or close the file tree | `<leader>b` |
-| `find` | Open the note finder | `<leader>ff` |
-| `search` | Open search over note content | `<leader>fg` |
-| `run` | Open the command palette | `<leader>:` |
-| `today` | Open today's note | `<leader>gd` |
-| `todos` | Open the todo pane | `<leader>gt` |
-| `pane` | Move to the next pane. Drawn only while the tab holds more than one | `<leader>o` |
+### What counts as a phone
+
+The app asks the browser two questions and keeps the answers apart.
+
+* **Narrow**: the window is under 768px wide. The query is `(width < 48rem)`,
+  which is 768px at the default font size.
+* **Coarse**: the primary pointer is a finger. The query is `(pointer: coarse)`.
+
+A phone answers yes to both. A tablet is coarse and wide. A desktop window
+dragged thin is narrow and not coarse. Both answers follow the window live, so
+a phone turned on its side can stop being narrow.
+
+| Needs | What it brings |
+| --- | --- |
+| Narrow | [The file tree](#the-file-tree) as a drawer over the page, closed to begin with. A tab draws its focused pane alone, and the status bar says `pane 1/2` and drops the weekday, the week, the version and `zoom`, as [Panes and tabs](#panes-and-tabs) says. [The note finder](#the-note-finder) and [the note search](#the-note-search) draw no preview |
+| Coarse | The editor starts [without vim](#vim-on-or-off). Rows and buttons are 44px tall. Inputs are 16px. The frame makes room for [the on-screen keyboard](#the-on-screen-keyboard). A terminal draws [a row of keys](#terminal). Each pane draws [its own buttons](#what-each-pane-answers) |
+| Narrow and coarse | [The toolbar](#the-toolbar). No rail beside the file tree |
+| Narrow, and the last input was a touch | The editor takes [no focus it was not asked for](#focus) |
+| A touch, whatever the window | A tap on a wikilink [follows it](#wikilinks) |
+| Neither | A tap or a click [outside a panel](#closing-a-panel) closes it. A tap or a click on a notice in the status bar opens it out in full |
+
+The 44px rows and buttons are: tree rows and the tree's two buttons, tabs, the
+status bar, the rows of the palette, the finder, the search, the note prompt and
+the terminal prompt, the two buttons of the move prompt, the rows of a person
+card and of a book's contents, and every button named on this page as drawn on
+a touch screen.
+
+### The toolbar
+
+A row along the bottom edge, under the status bar.
+
+| Button | Does | Command | Key |
+| --- | --- | --- | --- |
+| `files` | Open or close the file tree | `toggleTree` | `<leader>b` |
+| `find` | Open the note finder | `findNote` | `<leader>ff` |
+| `search` | Open search over note content | `searchNotes` | `<leader>fg` |
+| `run` | Open the command palette | `openPalette` | `<leader>:` |
+| `today` | Open today's note | `openDaily` | `<leader>gd` |
+| `todos` | Open the todo pane | `openTodos` | `<leader>gt` |
+| `pane` | Move to the next pane. Drawn only while the tab holds more than one | `nextPane` | `<leader>o` |
 
 Each button runs the command its key runs and nothing more. Every other leader
 command is a row of [the command palette](#the-command-palette), which `run`
 opens.
 
-A tap on a button leaves the focus where it was. So `run` tapped while you type
-in a note opens the palette over that note, with its inserts and edits listed,
-and the on-screen keyboard stays up. Tapped with nothing focused, it lists the
-leader commands only: tap into the note first.
+A tap on a button leaves the focus where it was. `run` tapped while you type in
+a note opens the palette over that note, with its inserts and edits listed, and
+the on-screen keyboard stays up. Tapped with nothing focused, it lists the
+leader commands only.
 
-The toolbar stays on screen while the keyboard is up, at the cost of 44px of
-the note. Hidden, there would be no way to the palette from a note being typed
-in, which is when the palette lists the most.
+The toolbar stays on screen while the keyboard is up. Under an open drawer it
+answers nothing.
+
+### The on-screen keyboard
 
 With the keyboard up, the cursor's line, the status bar and the toolbar all
-stay above it. Chrome on Android shrinks the page for the keyboard. Safari on
-iOS covers the page instead, so there the frame reads `window.visualViewport`
-and pads away the covered part. A prompt, the palette, the finder and the
-search stop at the top of the keyboard the same way, input first. A zoomed
-page is padded too: Safari zooms by itself when an input drawn under 16px
-takes the focus, and stays zoomed. Under a coarse pointer every input is 16px
-for that reason: the prompts, the todo pane's filter and edit line, the
-graph's query, the review's two fields and the token name.
+stay above it. Chrome on Android shrinks the page for the keyboard. Safari on iOS
+covers the page, so there the frame reads `window.visualViewport` and pads away
+the covered part. A prompt, the palette, the finder and the search stop at the
+top of the keyboard the same way, input first. A zoomed page is padded too.
 
-On a phone a tap does not raise the keyboard by itself. The editor takes the
-focus after a key moves to its pane or opens its note, and not after a tap
-does: a tap on `pane`, on a row of the tree or on a row of the finder shows the
-note, and a tap on its text is what starts typing. An editor that holds the
-focus keeps it, and coming back to the tab hands it none. This goes by the
-last input, so a phone with a keyboard attached gets the focus after its keys.
-Before any input a touch screen counts as tapped, so a page that has just
-loaded focuses nothing there.
+Under a coarse pointer these inputs are 16px: the prompts, the todo pane's
+filter and edit line, the graph's query, the review's two fields and the token
+name. The editor's own text keeps its size.
 
-The rule holds below 768px only. A wide touch screen keeps the tree open
-beside the note, and a tapped row would keep the focus: the next keys typed
-would be the tree's, where `d` deletes. So there the editor takes the focus
-after a tap as it does after a click.
+### Focus
+
+In a narrow window the editor takes the focus after a key moves to its pane or
+opens its note, and not after a tap does. A tap on `pane`, on a row of the tree
+or on a row of the finder shows the note, and a tap on its text focuses the
+editor. An editor that holds the focus keeps it, and coming back to the browser
+tab hands it none.
+
+This goes by the last input, so a phone with a keyboard attached gets the focus
+after its keys. Before any input a coarse pointer counts as a touch, so a page
+that has just loaded there focuses nothing.
+
+A wide touch screen gives the editor the focus after a tap, as after a click. A
+terminal pane takes the focus at any width.
+
+### Closing a panel
 
 Every panel over the page closes on a tap or a click outside it: the palette,
 the finder, the search, the prompts and the keys panel. It closes on the
-release, so nothing under it is pressed by the same tap. A press inside the
-panel closes nothing, and neither does a press that starts on one side of the
-panel's edge and ends on the other, a selection dragged out of the input being
-the usual one.
-A prompt holding something typed stays open too: the note, todo, dump, clip
-and terminal prompts close only on Escape once their input has changed.
+release. A press inside the panel closes nothing, and neither does a press that
+starts on one side of the panel's edge and ends on the other, a selection
+dragged out of the input being the usual one.
 
-Still keys only on a touch screen: renaming or deleting a folder, renaming or
-deleting a note or an image from its row in the tree without opening it, moving
-a row by dragging it, and `:copy` with a line range. A note is renamed and
-deleted from the palette once it is open, and the rename prompt takes a new
-folder, which moves it. An open image has a `delete` button.
+A prompt holding something typed stays open: the note, todo, dump, clip and
+terminal prompts close only on Escape, or on their own Enter, once their input
+has changed.
+
+The drawer closes on a tap outside it. A book's contents close on a tap on the
+dimmed page around them.
+
+### What each pane answers
+
+| Pane | By touch | Stated in |
+| --- | --- | --- |
+| A note | A tap on the text focuses the editor and puts the cursor there. A tap on a wikilink follows it | [Wikilinks](#wikilinks) |
+| The file tree | A tap on a note, an image or a page opens it. A tap on a folder folds or unfolds it. Two buttons in the header: new note, and hide the tree | [The file tree](#the-file-tree) |
+| An image | Two fingers zoom, one finger moves the zoomed picture. `delete` in the header, on its second tap | [The file tree](#the-file-tree) |
+| The todo pane | A tap on a row opens its line. The state symbol cycles the todo, on its second tap. `+` adds one. `done`, `next` and `view` change the list. `⋯` opens a strip of states, `timer`, `part` and `edit` | [The todo pane](#the-todo-pane) |
+| The graph | One finger pans or drags a note, two zoom, a tap opens a note. A tap on a hollow ring asks before it makes the note. `fit`, `depth -` and `depth +` | [The graph pane](#the-graph-pane) |
+| A book | A swipe or a tap in the left or right quarter turns the page. `Contents` and `Take` at the foot | [The book pane](#the-book-pane) |
+| A video | A tap on the count goes to the next video. The player's controls are YouTube's own | [The video pane](#the-video-pane) |
+| A person card | A tap on a row opens the line it names | [The person card](#the-person-card) |
+| The review | Every move is a button | [The review pane](#the-review-pane) |
+| A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
+| A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
+| An HTML page | The page's own links and buttons | [The file tree](#the-file-tree) |
+| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full | [Panes and tabs](#panes-and-tabs) |
+| The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](#the-command-palette) |
+
+### Still keys only
+
+* Renaming or deleting a folder.
+* Renaming or deleting a note or an image from its row in the tree, without
+  opening it. An open note is renamed and deleted from the palette, with
+  `Rename the note` and `Delete the note`. An open image has `delete`.
+* Moving a row of the tree by dragging it. The rename prompt takes a new
+  folder, which moves an open note.
+* `:copy` with a line range. The three copy rows of the palette take the
+  selection.
+* An exam timer of another length than 30, 60, 90, 120 or 180 minutes.
 
 ## Leader
 
@@ -515,10 +580,10 @@ itself (focus, the mouse, an answer to the program), a bracketed paste, and an
 arrow from a hardware keyboard.
 
 A tap on a key leaves the focus in the terminal, so the on-screen keyboard
-stays up. A tap on the terminal focuses it and raises the keyboard. The
-terminal refits when the keyboard opens and closes: the whole frame makes room
-for the keyboard, as [On a phone](#on-a-phone) says, and the pane shrinks with
-it.
+stays up. A tap on the terminal focuses it. The terminal refits when the
+keyboard opens and closes: the whole frame makes room for the keyboard, as
+[The on-screen keyboard](#the-on-screen-keyboard) says, and the pane shrinks
+with it.
 
 `Ctrl+Shift+Q` empties the pane rather than removing it, which is what
 `<leader>q` does to a note. That is also the way out of a window that holds
@@ -926,8 +991,7 @@ would.
 
 A finger does the same: one finger on the background pans, one on a note drags
 it, two pinch to zoom, and a tap opens the note. A tap on a hollow ring asks
-before it makes the note, because a finger lands on a ring it did not mean far
-more easily than a mouse does. On a touch screen a note
+before it makes the note. On a touch screen a note
 answers a tap within 12 pixels of its middle however far out the zoom is, where
 a mouse has to be on the dot. A row under the header carries `fit`, which is
 `f`, and around a note `depth -` and `depth +`, which are `-` and `+`.
@@ -1185,12 +1249,13 @@ that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
 `timer` is `t`, `part` is `s` and `edit` is `i`. `edit` does nothing while
 another row is being edited. A state picked from the strip is set on one tap.
 
-The state button
-takes two taps, because a cycle writes to the vault and a finger slips: the
-first turns the symbol into the state the todo would move to with a `?` after
-it, and the second is the one that cycles. The question is taken back after
-four seconds, on a tap anywhere else, when the list scrolls, and when another
-row's button is tapped. The keys ask nothing. So does opening a strip, and a tap on a state button shuts an open strip.
+The state button takes two taps: the first turns the symbol into the state the
+todo would move to with a `?` after it, and the second is the one that cycles.
+The question is taken back after four seconds, on a tap anywhere else, when the
+list scrolls, and when another row's button is tapped. Opening a strip takes it
+back too, and a tap on a state button shuts an open strip. The keys ask
+nothing. [kasten on a phone](/explanation/kasten-on-a-phone.md#a-write-asks-first)
+says why the button asks and why there is no Undo.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks
@@ -1387,7 +1452,7 @@ the vault once.
 
 `<leader>:` opens a box that lists every command by name, and so does
 Ctrl+Shift+P, which also works with [vim off](#vim-on-or-off), and `run` on
-[the toolbar](#on-a-phone). Type a few letters,
+[the toolbar](#the-toolbar). Type a few letters,
 and the list narrows by fuzzy match. Enter runs the highlighted row, Escape
 or a press outside the box closes it, and the arrows, Tab, Shift+Tab, Ctrl+N and Ctrl+P move the
 highlight. Each row prints the key that does the same thing.
@@ -1614,8 +1679,7 @@ pointer rather than the nearest position to it, so the space after the line is
 not the link. With live preview off there is no rendered link to click, and
 `gf` is the way.
 
-A tap on a touch screen follows the link with no modifier, a finger having none
-to hold. A finger that lands on a link and drags scrolls the note and follows
+A tap on a touch screen follows the link with no modifier. A finger that lands on a link and drags scrolls the note and follows
 nothing. A tap on the link the cursor is already in moves the cursor, so to
 edit a link, put the cursor beside it and move in with the arrow keys or
 Backspace.
@@ -1985,9 +2049,9 @@ fills the screen and says nothing about which note in the vault opened it.
 
 In a window narrower than 768px the tree is a drawer over the page rather than
 a panel beside it. It starts closed, the button on the rail at the left edge
-and `<leader>b` open it, and it has no grip to resize it by. A phone draws no
-rail, which took 45px of the note's width: `files` on
-[the toolbar](#on-a-phone) opens the drawer there. A tap outside it
+and `<leader>b` open it, and it has no grip to resize it by. A narrow window
+under a coarse pointer draws no rail: `files` on
+[the toolbar](#the-toolbar) opens the drawer there. A tap outside it
 closes it, and so does anything that hands the focus to a pane: opening a note,
 an image or a page from it, a note made with `c` or picked in the finder or the
 search, and Escape, which lands in the pane on screen. The page under an open
