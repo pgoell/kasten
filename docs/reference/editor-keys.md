@@ -478,7 +478,15 @@ chapter one is `k` held down rather than a hunt. The list is the publisher's
 own, so a nested chapter is drawn indented, and a part heading the book gave no
 link to is a row Enter does nothing on. A pdf's list is its own outline, walked
 and nested the same way. A book whose publisher wrote no contents, or a pdf
-whose author wrote none, says so instead of drawing an empty box.
+whose author wrote none, says so instead of drawing an empty box. A click or a
+tap on the dimmed page around the list puts it away as Escape does.
+
+On a touch screen a swipe turns the page of a flowing epub, and a tap in the
+left or the right quarter of any page turns it back or forward, which is the
+one way to turn a pdf's or a fixed-layout epub's page by finger. A tap on a
+link, or one made while a passage is selected, turns nothing. The foot of the
+pane carries a `Contents` button for `t` and, while a passage is selected, a
+`Take` button for `y`.
 
 Selecting a passage draws a button over it, and clicking that button and
 pressing `y` are the same thing: the passage lands under `## Highlights` in the
@@ -560,8 +568,9 @@ own. A note linking no video draws one sentence saying so rather than an empty
 player.
 
 A note may link as many as you like. `n` and `p` in the player step through
-them in the note's order, and the header counts, `2/5`. A video linked twice is
-one video, so stepping cannot land on the same player twice.
+them in the note's order, and the header counts, `2/5`. A click or a tap on the
+count goes to the next one, as `n` does. A video linked twice is one video, so
+stepping cannot land on the same player twice.
 
 A timestamp in the link is dropped. `?t=90` is one more video to open at the
 start, because the position the note remembers is where you actually got to.
@@ -759,6 +768,11 @@ drag the background to pan, and scroll to zoom. A click opens the note in the
 pane, and a click on a hollow ring makes the note the way following its link
 would.
 
+A finger does the same: one finger on the background pans, one on a note drags
+it, two pinch to zoom, and a tap opens the note. On a touch screen a note
+answers a tap within 12 pixels of its middle however far out the zoom is, where
+a mouse has to be on the dot.
+
 The line at the top takes a query in the language
 [Graph query](/reference/graph-query.md) states: a filter such as
 `type:Concept -tag:#draft`, or a pattern such as `?paper supports ?idea`. It is
@@ -951,7 +965,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `Space`, `Enter` | Show the answer |
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `s` | Park the card on screen, before or after the answer |
-| `n` | Jot a new question into the note the card came from |
+| `n` | Jot a new question into the note the card came from, or put the open jot line away unwritten |
 | `u` | Put the parked row under the cursor back |
 | `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
@@ -1002,6 +1016,10 @@ by when it is due, under Overdue, Today, This week, Later and No date. An empty
 group draws no heading. A row is the state's symbol, the mark where a timer is
 running on it, the priority where there is one, the words, the count of its parts
 where it has any, the two clocks and the day of the due date.
+
+A click or a tap on a row opens the line the todo is written on. On a touch
+screen the state's symbol is a button of its own that cycles the todo as `x`
+does, and the header carries a `+` that adds one as `a` does.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks
@@ -1800,8 +1818,10 @@ Keys typed inside a page are the page's, so a deck's arrows turn its slides and
 a leader sequence does nothing there. Click the pane's header to take the keys
 back. A link to another site opens in a new tab.
 
-The pane is an image and the path above it, and nothing else: no zoom, no next
-image, and nothing to type into. What it is for is looking at a picture the
+The pane is an image and the path above it, and nothing else: no next image,
+and nothing to type into. It opens fitted to the pane. Two fingers pinch it
+larger, up to eight times, and one finger moves it while it is
+zoomed; pinching back to fitted centres it again. No key zooms. What it is for is looking at a picture the
 vault holds without first writing a note that points at it. `d` there deletes
 the image in front of you, the same key the tree spends on a row, and the pane
 empties. `<leader>w` downloads the picture under its own name, so
