@@ -294,8 +294,11 @@ export function TodoPane({
   /** Set as a create goes out, so a second press does not send another. */
   const making = useRef(false);
   const queryClient = useQueryClient();
-  // A finger has no `x` and no `a`, so a touch screen draws the two as buttons.
+  // A finger has no keys at all, so a touch screen draws each of them as a
+  // button: the add, the state, the views and what `⋯` opens under a row.
   const { coarse } = useViewport();
+  /** The row whose `⋯` is open, or null: one strip at a time, by its key. */
+  const [more, setMore] = useState<string | null>(null);
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
 
@@ -701,6 +704,27 @@ export function TodoPane({
     draft.current?.setSelectionRange(at, at);
   }, [editingKey, focusList]);
 
+  // The three below are what a key and a button both do, so each is said once.
+
+  /** `d` and `n`: swap the list for the one named, or give the open one back. */
+  function show(list: Mode) {
+    setMode((previous) => (previous === list ? "open" : list));
+    setActive(0);
+  }
+
+  /** `v`: the next view, writing the note first where the vault has none. */
+  function nextView() {
+    setAsked(true);
+    setPicked(picked + 1);
+    setActive(0);
+    if (missing && !making.current) makeViews();
+  }
+
+  /** `i`: the row becomes its line. By the row's own key, so a tap need not move the cursor. */
+  function edit(hit: SearchHit) {
+    setEditing({ key: rowKey(hit), line: hit.text });
+  }
+
   function onKeyDown(event: React.KeyboardEvent) {
     // Typing into an input is not the list's keys: `j` in one is a letter. The
     // filter is one, the row being edited is the other, and the pane holds no
@@ -774,25 +798,20 @@ export function TodoPane({
       // vim's own key for starting to type where the cursor is. The line is
       // the whole record, so the row becomes that line and you edit it there.
       case "i":
-        if (at !== undefined) setEditing({ key: cursorKey, line: at.hit.text });
+        if (at !== undefined) edit(at.hit);
         break;
       // One field rather than a boolean each: `d` and `n` swap the same list,
       // and two flags could both be on.
       case "d":
-        setMode((previous) => (previous === "done" ? "open" : "done"));
-        setActive(0);
+        show("done");
         break;
       case "n":
-        setMode((previous) => (previous === "next" ? "open" : "next"));
-        setActive(0);
+        show("next");
         break;
       // ponytail: walking is the whole of the picker. An overlay is what to
       // write the day a vault holds more views than are comfortable to walk.
       case "v":
-        setAsked(true);
-        setPicked(picked + 1);
-        setActive(0);
-        if (missing && !making.current) makeViews();
+        nextView();
         break;
       // What vim spells a narrowing. `j` and `k` have to go on moving the
       // cursor, so the input cannot hold the focus by default.
@@ -873,6 +892,34 @@ export function TodoPane({
           </button>
         )}
       </header>
+
+      {/* `d`, `n` and `v` by finger. Outside the list, so they stay put while
+          it scrolls, and out of the tab order like every button but the row. */}
+      {coarse && (
+        <div className="flex border-b border-one-line px-1 text-[11px] text-one-muted">
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => show("done")}
+            aria-pressed={mode === "done"}
+            className={`min-h-11 px-3 ${mode === "done" ? "text-one-fg" : ""}`}
+          >
+            done
+          </button>
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => show("next")}
+            aria-pressed={mode === "next"}
+            className={`min-h-11 px-3 ${mode === "next" ? "text-one-fg" : ""}`}
+          >
+            next
+          </button>
+          <button type="button" tabIndex={-1} onClick={nextView} className="min-h-11 px-3">
+            view
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto py-1">
         {rows.length === 0 ? (
@@ -1008,22 +1055,67 @@ export function TodoPane({
                 // The state drawn as a button of its own, beside the row
                 // rather than inside it: a tap on the row opens the note, and
                 // a button cannot hold another. Out of the tab order, so the
-                // row is still the pane's one stop.
+                // row is still the pane's one stop. `⋯` trails it for the
+                // same reason, and holds every key that has no button yet.
+                const actions: [string, () => void][] = [
+                  ...Object.values(SET).map((state): [string, () => void] => [
+                    state,
+                    () => onCycle(hit, state),
+                  ]),
+                  ["timer", () => onTimer(hit)],
+                  ["part", () => onSubtask(hit)],
+                  ["edit", () => edit(hit)],
+                ];
                 return (
-                  <div key={key} className="flex">
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => tap(hit, todo)}
-                      aria-label={`cycle ${todo.text}`}
-                      style={indent}
-                      className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
-                        todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
-                      }`}
-                    >
-                      {STATE_SYMBOL[todo.state]}
-                    </button>
-                    {row}
+                  <div key={key}>
+                    <div className="flex">
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => tap(hit, todo)}
+                        aria-label={`cycle ${todo.text}`}
+                        style={indent}
+                        className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
+                          todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
+                        }`}
+                      >
+                        {STATE_SYMBOL[todo.state]}
+                      </button>
+                      {row}
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setMore(more === key ? null : key)}
+                        aria-label={`more for ${todo.text}`}
+                        aria-expanded={more === key}
+                        className="min-h-11 min-w-11 shrink-0 text-one-muted"
+                      >
+                        ⋯
+                      </button>
+                    </div>
+                    {/* Wrapping, because eight words do not fit one line of a
+                        phone. Each named with its todo, so `done` here and
+                        `done` above the list are two different buttons to a
+                        screen reader. */}
+                    {more === key && (
+                      <div className="flex flex-wrap px-1 text-[11px] text-one-muted">
+                        {actions.map(([label, run]) => (
+                          <button
+                            key={label}
+                            type="button"
+                            tabIndex={-1}
+                            onClick={() => {
+                              setMore(null);
+                              run();
+                            }}
+                            aria-label={`${label} ${todo.text}`}
+                            className="min-h-11 px-3"
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
