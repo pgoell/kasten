@@ -14,3 +14,17 @@ Range.prototype.getBoundingClientRect = () => new DOMRect();
 // asserted on. Here rather than a `?.()` at the call site, which would swallow
 // the day a real browser stops having it too.
 Element.prototype.scrollIntoView = () => {};
+
+// No layout means no media queries either, and jsdom leaves `matchMedia` out
+// altogether, so anything that reads `useViewport` throws on render. Every
+// query answers no, which is a wide window and a mouse: the desktop every test
+// here was written against. `stubMatchMedia` in `tests/match-media.ts` is for
+// the test that wants a phone. Assigned rather than `vi.stubGlobal`, so a
+// test's `vi.unstubAllGlobals()` falls back to this and not to nothing.
+window.matchMedia = (query: string) =>
+  ({
+    media: query,
+    matches: false,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }) as unknown as MediaQueryList;
