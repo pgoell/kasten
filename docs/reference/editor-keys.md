@@ -1789,7 +1789,11 @@ fills the screen and says nothing about which note in the vault opened it.
 In a window narrower than 768px the tree is a drawer over the page rather than
 a panel beside it. It starts closed, the button on the rail at the left edge
 and `<leader>b` open it, and it has no grip to resize it by. A tap outside it
-closes it, and so does opening a note, an image or a page from it.
+closes it, and so does anything that hands the focus to a pane: opening a note,
+an image or a page from it, a note made with `c` or picked in the finder or the
+search, and Escape, which lands in the pane on screen. The page under an open
+drawer takes no focus and no keys. A panel open in a wide window closes when
+the window turns narrow.
 
 The tree draws the vault's images beside its notes, muted, keeping the suffix a
 note's row drops: the vault holds one kind of note and five kinds of image. They

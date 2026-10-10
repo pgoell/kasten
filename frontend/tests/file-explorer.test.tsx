@@ -1102,49 +1102,40 @@ describe("FileExplorer in a narrow window", () => {
     expect(screen.getByRole("button", { name: "Show file tree" })).toBeInTheDocument();
   });
 
-  it("closes on the note a tap opens", () => {
+  it("leaves a row's tap to the route, which closes the drawer once the pane has the focus", () => {
     const onOpenFile = vi.fn();
-    renderTree({ onOpenFile });
+    const onOpenChange = vi.fn();
+    renderTree({ onOpenFile, onOpenChange });
 
     fireEvent.click(screen.getByTitle("index.md"));
 
     expect(onOpenFile).toHaveBeenCalledWith("index.md");
-    expect(screen.queryByRole("navigation", { name: "Vault" })).toBeNull();
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it("closes on the image and the page a tap opens, and on Enter", () => {
-    const onOpenImage = vi.fn();
-    const onOpenHtml = vi.fn();
-    const onOpenChange = vi.fn();
-    renderTree({
-      images: ["cat.png"],
-      html: ["page.html"],
-      onOpenImage,
-      onOpenHtml,
-      onOpenChange,
-    });
+  it("asks the route to take the focus on Escape, rather than finding an editor itself", () => {
+    // The first editor in the document, which is where a wide window sends
+    // the focus, and which may be in a pane a narrow one is not drawing.
+    const editor = document.createElement("div");
+    editor.className = "cm-content";
+    editor.tabIndex = 0;
+    document.body.append(editor);
+    const onLeave = vi.fn();
+    renderTree({ onLeave });
 
-    fireEvent.click(screen.getByTitle("cat.png"));
-    fireEvent.click(screen.getByTitle("page.html"));
+    tree().focus();
+    press("Escape");
 
-    expect(onOpenImage).toHaveBeenCalledWith("cat.png");
-    expect(onOpenHtml).toHaveBeenCalledWith("page.html");
-    expect(onOpenChange.mock.calls).toEqual([[false], [false]]);
-
-    // Down off the folder the cursor starts on, onto the first note in it.
-    press("j");
-    press("Enter");
-
-    expect(onOpenChange).toHaveBeenCalledTimes(3);
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(editor).not.toHaveFocus();
+    editor.remove();
   });
 
-  it("stays open on a note opened in a wide window", () => {
-    vi.unstubAllGlobals();
+  it("takes the rail under the drawer out of reach", () => {
     renderTree();
 
-    fireEvent.click(screen.getByTitle("index.md"));
-
-    expect(screen.getByRole("navigation", { name: "Vault" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
+    expect(
+      screen.getAllByRole("button", { name: "Hide file tree" })[0]?.parentElement,
+    ).toHaveAttribute("inert");
   });
 });

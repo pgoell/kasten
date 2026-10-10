@@ -36,6 +36,8 @@ interface FileExplorerProps {
   /** Raised by the route to ask the panel to unfold down to `openPath` and put
    * its cursor on that row. A change is the request, the way `focusSignal` is. */
   revealSignal?: number;
+  /** Escape in the drawer: close it and hand the focus to the pane on screen. */
+  onLeave?: () => void;
 }
 
 interface FolderNode {
@@ -471,6 +473,7 @@ export function FileExplorer({
   commands,
   focusSignal = 0,
   revealSignal = 0,
+  onLeave,
 }: FileExplorerProps) {
   // What is unfolded, rather than what is folded away, which is what makes an
   // unopened folder cost nothing. A folder's children are not rendered until it
@@ -770,7 +773,12 @@ export function FileExplorer({
       case "Escape":
         // The editor is the only other place focus belongs, and it owns no
         // React handle here, so the panel finds it the way the user sees it.
-        document.querySelector<HTMLElement>(".cm-content")?.focus();
+        //
+        // A drawer asks the route instead. The page under it is inert until
+        // it has closed, so nothing there can take the focus yet, and the
+        // first editor in the document may be in a pane that is not drawn.
+        if (narrow) onLeave?.();
+        else document.querySelector<HTMLElement>(".cm-content")?.focus();
         break;
       case "h":
         if (unfolded) toggleFolder(folder.path);
@@ -782,7 +790,7 @@ export function FileExplorer({
         else if (folder) setActive(Math.min(cursor + 1, rows.length - 1));
         else if (row) {
           const file = row.node.kind === "file" ? row.node : null;
-          if (file) opener(file, openFile, openImage, openHtml)(file.path);
+          if (file) opener(file, onOpenFile, onOpenImage, onOpenHtml)(file.path);
         }
         break;
       default:
@@ -790,16 +798,6 @@ export function FileExplorer({
     }
     event.preventDefault();
   }
-
-  // A drawer covers the pane the row opens into, so it gets out of the way.
-  // Here rather than in the route, so a click and `l` close it alike.
-  const closing = (report: (path: string) => void) => (path: string) => {
-    report(path);
-    if (narrow) onOpenChange(false);
-  };
-  const openFile = closing(onOpenFile);
-  const openImage = closing(onOpenImage);
-  const openHtml = closing(onOpenHtml);
 
   function toggleFolder(path: string) {
     setExpanded((previous) => {
@@ -823,7 +821,12 @@ export function FileExplorer({
   );
 
   const rail = (
-    <div className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1">
+    // Inert under an open drawer, where its button would be a second "Hide
+    // file tree" that Tab reaches behind the backdrop.
+    <div
+      inert={open}
+      className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1"
+    >
       {toggle}
     </div>
   );
@@ -878,9 +881,9 @@ export function FileExplorer({
             openPath={openPath}
             cursorKey={cursorKey}
             onToggleFolder={toggleFolder}
-            onOpenFile={openFile}
-            onOpenImage={openImage}
-            onOpenHtml={openHtml}
+            onOpenFile={onOpenFile}
+            onOpenImage={onOpenImage}
+            onOpenHtml={onOpenHtml}
             drag={rowDrag}
           />
         )}

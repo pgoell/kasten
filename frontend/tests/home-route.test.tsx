@@ -1221,6 +1221,77 @@ describe("the route", () => {
       expect(app.tree()).toBeNull();
     });
 
+    /** The column holding the panes, which an open drawer puts out of reach. */
+    const page = () =>
+      document.querySelector("[role='tablist'], [data-pane]")?.closest("[inert]") ?? null;
+    const openDrawer = () =>
+      fireEvent.click(screen.getByRole("button", { name: "Show file tree" }));
+
+    it("closes the drawer on Escape and puts the focus in the pane on screen", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+      // Two panes with the second focused, so the first editor in the document
+      // is one that is not drawn.
+      app.leader("%");
+      await settle();
+
+      openDrawer();
+      expect(page()).not.toBeNull();
+      app.treeCursor()?.focus();
+      fireEvent.keyDown(app.tree(), { key: "Escape" });
+      await settle();
+
+      expect(app.tree()).toBeNull();
+      expect(page()).toBeNull();
+      expect(drawn()[0]?.contains(document.activeElement)).toBe(true);
+    });
+
+    it("closes the drawer on the note its New note button makes", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      createNote.mockResolvedValue({ path: "fresh.md", content: "" });
+      const app = await renderApp();
+      await settle();
+
+      openDrawer();
+      fireEvent.click(screen.getByRole("button", { name: "New note" }));
+      await settle();
+      app.fill("fresh");
+      await settle();
+
+      expect(createNote).toHaveBeenCalled();
+      expect(app.tree()).toBeNull();
+    });
+
+    it("closes the drawer on the note the finder opens from the tree", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+
+      openDrawer();
+      fireEvent.keyDown(app.tree(), { key: "f" });
+      await settle();
+      // Still open under the finder, so Escape there lands back in the tree.
+      expect(app.tree()).not.toBeNull();
+      fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+      await settle();
+
+      expect(screen.queryByRole("dialog", { name: "Find note" })).toBeNull();
+      expect(app.tree()).toBeNull();
+    });
+
+    it("closes the tree when the window turns narrow under it", async () => {
+      const media = stubMatchMedia();
+      const app = await renderApp();
+      await settle();
+      expect(app.tree()).not.toBeNull();
+
+      media.set(NARROW, true);
+
+      expect(app.tree()).toBeNull();
+      expect(screen.queryByRole("button", { name: "Close file tree" })).toBeNull();
+    });
+
     it("draws the focused pane alone, and gives the split back when the window widens", async () => {
       const media = stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       const app = await renderApp();
