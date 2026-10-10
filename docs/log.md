@@ -324,3 +324,4 @@
 * **Update**: [Write a practice exam](/how-to/write-a-practice-exam.md) gained "Sit it by touch", now that an option is a button and a touch screen draws a row of moves.
 * **Update**: [Editor keys](/reference/editor-keys.md) says a tap on a hollow ring in the graph asks before it makes the note, that a book's edge taps turn the way a swipe from that side would in a right-to-left book, that a zoomed image stops at its edge, and that a tap on a todo's state leaves an `Undo` for five seconds. [Write a practice exam](/how-to/write-a-practice-exam.md) says `finish` and `close` take a second tap.
 * **Update**: [Editor keys](/reference/editor-keys.md) says the todo pane's `Undo` finds its line again in the note before it writes and writes nothing where it cannot, and names what it leaves behind.
+* **Update**: [Editor keys](/reference/editor-keys.md) says the todo pane's state button takes two taps on a touch screen, and no longer describes an `Undo`, which is gone.
