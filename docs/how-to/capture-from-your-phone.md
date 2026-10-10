@@ -26,7 +26,11 @@ close it; the dump itself is in the daily note.
 2. Open Chrome's menu and choose **Add to home screen**, then **Install**.
 
 The icon opens the page on its own, without the browser's address bar. Install
-from `/capture` itself, the page the manifest names as the app.
+from `/capture` itself: any other page installs the whole notebook instead.
+
+Install this before the notebook if you want both. With the notebook installed,
+Chrome no longer offers an install on `/capture`; the reason and the way back
+are in [Install kasten on your phone](/how-to/install-on-your-phone.md#why-capture-goes-first).
 
 If Chrome offers only a shortcut rather than an install, the manifest did not
 load. The site is behind a login gate, and the page asks for the manifest with
@@ -62,5 +66,6 @@ doing, described in [Editor keys](/reference/editor-keys.md#capturing-into-today
 
 ## Related
 
+* [Install kasten on your phone](/how-to/install-on-your-phone.md): the whole notebook on the home screen, and the two apps side by side
 * [HTTP API](/reference/http-api.md#post-apidump): where in the note each capture lands
 * [Agent API](/reference/agent-api.md#post-agentdump): the same capture for an agent, as a tool or a route

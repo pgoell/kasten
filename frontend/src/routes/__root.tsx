@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { fetchLayout } from "@/lib/api";
+import { applyInstall } from "@/lib/install";
 
 export const Route = createRootRoute({
   component: Root,
@@ -21,5 +23,11 @@ function Root() {
     queryFn: () => fetchLayout(),
     staleTime: Number.POSITIVE_INFINITY,
   });
+
+  // Here rather than in the capture route, so leaving `/capture` without a
+  // reload hands the tags back to the notebook.
+  const pathname = useLocation({ select: (location) => location.pathname });
+  useEffect(() => applyInstall(pathname), [pathname]);
+
   return <Outlet />;
 }
