@@ -9,12 +9,52 @@ status: stable
 
 # Editor keys
 
-The editor runs vim. Everything on this page is what kasten adds on top of it;
-every vim binding not listed here still does what vim does.
+The editor runs vim, unless the device is a touch screen or you turned vim off.
+Everything on this page is what kasten adds on top of vim; every vim binding not
+listed here still does what vim does. [Vim on or off](#vim-on-or-off) says what
+the editor does without it.
 
 `frontend/src/lib/key-bindings.ts` holds these bindings as one table, and both
 the registrations and the `<leader>?` panel are built from it. A test fails if
 that table names a command the app does not provide.
+
+## Vim on or off
+
+Where the primary pointer is a finger, the editor starts without vim: an
+on-screen keyboard has no Escape, and normal mode takes the first tap of every
+edit. Where it is a mouse, the editor starts with vim.
+
+`Toggle vim keys` in [the command palette](#the-command-palette) changes that by
+hand. The browser stores the choice in `localStorage` under `kasten.vim`, as
+`on` or `off`, and from then on the choice wins over the pointer. Every open
+pane follows at once, and the text, the cursor and the undo history stay.
+
+Without vim the editor is a plain one. Every line can be typed into, live
+preview shows the source of the line the cursor is on and of the mark the
+cursor is in, and the line numbers count from the top.
+
+Every key on this page that vim resolves stops working: the leader, the
+formatting chords, `gf`, Enter on a link, the ex prompt and the yank to the
+clipboard. Ctrl+S, Tab, Ctrl+click, the `/` menu and the completions stay. The
+palette runs the rest by name:
+
+| Lost key | Palette row |
+| --- | --- |
+| `<leader>` and a letter | the row with the same label |
+| `<leader>1` to `<leader>0` | `Go to tab 1` to `Go to tab 10` |
+| Ctrl+B, Ctrl+I, Ctrl+Shift+H, Ctrl+Shift+X | `Bold`, `Italic`, `Highlight`, `Strikethrough` |
+| `:w` | `Write the note` |
+| `:e` | `Read the note off the vault again` |
+| `:e!` | `Read the note off the vault again, throwing away unsaved text` |
+| `gf`, Enter | `Open what the wikilink or highlight under the cursor names` |
+| `:copy md`, `:copy slack`, `:copy teams` | `Copy as markdown`, `Copy for Slack`, `Copy for Teams` |
+
+The three copy rows take the selection, or the whole note where nothing is
+selected. `:copy` with a line range typed by hand has no row.
+
+Ctrl+Shift+P opens the palette from a note with or without vim. A device with
+no keyboard has no chord: there, type `/` at the start of a line or after a
+space and choose `Run a command by name`.
 
 ## Leader
 
@@ -1196,14 +1236,18 @@ the vault once.
 
 ## The command palette
 
-`<leader>:` opens a box that lists every command by name. Type a few letters,
+`<leader>:` opens a box that lists every command by name, and so does
+Ctrl+Shift+P, which also works with [vim off](#vim-on-or-off). Type a few letters,
 and the list narrows by fuzzy match. Enter runs the highlighted row, Escape
 closes the box, and the arrows, Tab, Shift+Tab, Ctrl+N and Ctrl+P move the
 highlight. Each row prints the key that does the same thing.
 
 Opened over a note, the palette lists every leader command, every leader edit,
-the four formatting marks and the inserts below. Opened over a pane with no
-note, it lists the leader commands only, as the rest write into a note.
+the four formatting marks, the inserts below, and the commands vim spells at
+its prompt: the write, the two rereads, the three copies and `gf`. Opened over
+a pane with no note, it lists the leader commands only, as the rest act on a
+note. Both lists end with `Go to tab 1` to `Go to tab 10` and `Toggle vim keys`,
+which has no key.
 
 `frontend/src/lib/palette.ts` builds both lists from the tables in
 `key-bindings.ts`, so a new leader binding appears in the palette and in the
@@ -1211,8 +1255,9 @@ note, it lists the leader commands only, as the rest write into a note.
 
 ### The `/` menu
 
-In insert mode, a `/` typed at the start of a line or after a space opens the
-same list as a completion menu. Letters after the slash narrow it. Enter or Tab
+In insert mode, or anywhere with vim off, a `/` typed at the start of a line or
+after a space opens a completion menu of the inserts, the leader edits, the
+formatting marks and the leader commands. Letters after the slash narrow it. Enter or Tab
 takes the highlighted row, removes the `/` and what you typed after it, and
 then writes the insert or runs the command. A `/` inside a word, a path or a
 URL opens nothing.
@@ -1284,7 +1329,7 @@ precedes it, which keeps `a == b` out of it.
 
 ## Copying
 
-Every yank also writes the system clipboard, the way vim's
+With vim on, every yank also writes the system clipboard, the way vim's
 `clipboard=unnamedplus` does, so `yy`, `yiw` or a visual `y` in a note and
 Ctrl+V in another window move the same text. `"_y` still writes nowhere, and
 `"+y` writes the clipboard once rather than twice. A delete or a change stays in
@@ -1384,6 +1429,7 @@ other mark is hidden, and `i` on that line hands them back.
 | `gf` | Open the note or page the wikilink names, or the book a highlight came from | normal |
 | Enter | The same, one key | normal |
 | Ctrl+click | The same, with the mouse | any |
+| Tap | The same, with a finger | any |
 
 `gf` is vim's own go-to-file, and it reads the link under the cursor. Anywhere
 in the name will do, the last letter included: the closing `]]` is hidden, so
@@ -1416,6 +1462,12 @@ click has to land on the link's own text; it reads the element under the
 pointer rather than the nearest position to it, so the space after the line is
 not the link. With live preview off there is no rendered link to click, and
 `gf` is the way.
+
+A tap on a touch screen follows the link with no modifier, a finger having none
+to hold. A finger that lands on a link and drags scrolls the note and follows
+nothing. A tap on the link the cursor is already in moves the cursor, so to
+edit a link, put the cursor beside it and move in with the arrow keys or
+Backspace.
 
 What the target names is decided against the vault's own listing:
 
@@ -2032,7 +2084,9 @@ what the backend does and does not look at.
 | `:e!` | The same, throwing away unsaved text | normal |
 
 `:w` and Ctrl+S are not new to this page. Writing also happens on its own,
-about a second after you stop typing.
+about a second after you stop typing. With [vim off](#vim-on-or-off) the
+palette rows `Write the note` and `Read the note off the vault again` stand in
+for `:w`, `:e` and `:e!` everywhere this section names them.
 
 Something outside kasten writing the note is answered while it is open. A note
 you are not typing into simply takes the new text, with the cursor where you

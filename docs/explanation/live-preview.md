@@ -49,6 +49,13 @@ would copy asterisks that were never on the screen.
 A mode the code does not recognise renders. If vim grows a submode nobody here
 thought about, it hides its marks rather than leaking them.
 
+With vim off there is no mode to go by, and the editor reads as insert mode
+throughout. Typing is all a plain editor does, so the line under the cursor
+always shows its source and every other line renders. The reading state is
+lost, and that is the price of an editor a finger can use: an on-screen
+keyboard has no Escape to get back to it. The gutter counts from the top there,
+a distance from the cursor being a number only a counted motion wants.
+
 A table is the exception to the whole of this section: it flips on the cursor
 being in it and on no mode at all, and it flips as a block rather than a line.
 [The three blocks](#the-three-blocks) says why it had to.

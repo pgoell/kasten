@@ -23,12 +23,14 @@ import type { EditorCommands } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
-import { slashCompletions } from "@/lib/palette";
+import { type CopyFormat, slashCompletions, viewCommands } from "@/lib/palette";
 import { moveCell } from "@/lib/table";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
 import { todoCompletions } from "@/lib/todo-suggest";
 import { setWatched } from "@/lib/video";
+import { vimKeys } from "@/lib/vim-mode";
+import { useVim } from "@/lib/vim-setting";
 import { weatherCard } from "@/lib/weather-card";
 import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
@@ -196,7 +198,7 @@ registers.pushText = (name, operator, text, linewise, blockwise) => {
   void navigator.clipboard?.writeText(linewise && !text.endsWith("\n") ? `${text}\n` : text);
 };
 
-const COPY_FORMATS = { md: "markdown", slack: "Slack", teams: "Teams" } as const;
+const COPY_FORMATS: Record<CopyFormat, string> = { md: "markdown", slack: "Slack", teams: "Teams" };
 
 /**
  * What `:copy` takes: the visual selection it was typed from, to the
@@ -225,15 +227,9 @@ function copySource(
   );
 }
 
-Vim.defineEx("copy", "co", (cm, params) => {
-  const notice = cm.cm6.state.facet(noticeHandler);
-  const format = (params.argString.trim() || "md") as keyof typeof COPY_FORMATS;
-  if (!(format in COPY_FORMATS)) {
-    notice?.(`:copy takes ${Object.keys(COPY_FORMATS).join(", ")}`);
-    return;
-  }
-
-  const source = copySource(cm, params);
+/** Put `source` on the clipboard, rewritten for where it is going. */
+function copyAs(view: EditorView, format: CopyFormat, source: string): void {
+  const notice = view.state.facet(noticeHandler);
   // Teams keeps the formatting of pasted HTML and reads no markup out of
   // text, so it gets HTML, with the markdown for anywhere that takes text.
   const written =
@@ -249,6 +245,32 @@ Vim.defineEx("copy", "co", (cm, params) => {
     () => notice?.(`Copied for ${COPY_FORMATS[format]}`),
     (error: DOMException) => notice?.(`Nothing copied: ${error.message}`),
   );
+}
+
+Vim.defineEx("copy", "co", (cm, params) => {
+  const format = (params.argString.trim() || "md") as CopyFormat;
+  if (!(format in COPY_FORMATS)) {
+    cm.cm6.state.facet(noticeHandler)?.(`:copy takes ${Object.keys(COPY_FORMATS).join(", ")}`);
+    return;
+  }
+  copyAs(cm.cm6, format, copySource(cm, params));
+});
+
+/**
+ * The ex prompt's commands and `gf`, for the palette to run by name.
+ *
+ * With vim off this is the only way to any of them but the write. The copy
+ * takes the selection where vim takes a range: without visual mode a selection
+ * is the one way left to say which part.
+ */
+const byName = viewCommands.of({
+  write: save,
+  reload: (view, force) => edit(view, { argString: force ? "!" : "" }),
+  follow,
+  copy: (view, format) => {
+    const { from, to } = view.state.selection.main;
+    copyAs(view, format, from === to ? view.state.doc.toString() : view.state.sliceDoc(from, to));
+  },
 });
 
 /**
@@ -263,17 +285,52 @@ Vim.defineEx("copy", "co", (cm, params) => {
 const followOnClick = EditorView.domEventHandlers({
   mousedown(event, view) {
     if (!event.ctrlKey && !event.metaKey) return false;
-    const element = event.target;
-    if (!(element instanceof HTMLElement) || !element.classList.contains("cm-wikilink")) {
-      return false;
-    }
-
-    const target = wikiLinkAt(view.state, view.posAtDOM(element));
+    const target = linkUnder(event, view);
     if (target === null) return false;
     view.state.facet(followHandler)?.(target);
     return true;
   },
 });
+
+/** The note the rendered link under the pointer names, or null off one. */
+function linkUnder(event: Event, view: EditorView): string | null {
+  const element = event.target;
+  if (!(element instanceof HTMLElement) || !element.classList.contains("cm-wikilink")) {
+    return null;
+  }
+  return wikiLinkAt(view.state, view.posAtDOM(element));
+}
+
+/**
+ * A tap follows a link, a finger having no ctrl to hold.
+ *
+ * Read on the way down and acted on at the click, because the two halves are
+ * known at different moments. A finger that lands on a link and drags is
+ * scrolling, and only the click says it did not. By the click the browser has
+ * put the cursor in the link, which shows its brackets and redraws it, so what
+ * the finger landed on has to be read before that.
+ *
+ * A link the cursor is already in is one being edited, and a tap in it moves
+ * the cursor as a tap anywhere else does. The way into a link is from beside
+ * it.
+ */
+function followOnTap(): Extension {
+  let landed: string | null = null;
+  return EditorView.domEventHandlers({
+    pointerdown(event, view) {
+      const target = event.pointerType === "touch" ? linkUnder(event, view) : null;
+      const editing = wikiLinkAt(view.state, view.state.selection.main.head) === target;
+      landed = editing ? null : target;
+      return false;
+    },
+    click(_event, view) {
+      if (landed === null) return false;
+      view.state.facet(followHandler)?.(landed);
+      landed = null;
+      return true;
+    },
+  });
+}
 
 /**
  * Holds live preview so `<leader>p` can swap it out.
@@ -284,6 +341,38 @@ const followOnClick = EditorView.domEventHandlers({
  * an identity, and each state configures it separately.
  */
 const preview = new Compartment();
+
+/**
+ * Holds vim, so the setting can take it out and put it back.
+ *
+ * A compartment for the reason the one above is, and one more: a remount reads
+ * the note out of the query cache, which the autosave is a second behind, so
+ * rebuilding the view on a toggle would drop what was typed in that second.
+ */
+const modal = new Compartment();
+
+/**
+ * vim's `number relativenumber`: the line the cursor sits on names itself and
+ * the rest count the distance to it, which is the number `10j` and `d5k` are
+ * reached for with. basicSetup's own `lineNumbers()` carries no config, so
+ * this adds a formatter to the gutter already there rather than a second one
+ * beside it. It redraws when the cursor changes line because
+ * `highlightActiveLineGutter`, also basicSetup's, moves its marker then.
+ */
+const relativeNumbers = lineNumbers({
+  formatNumber: (line, state) => {
+    const cursor = state.doc.lineAt(state.selection.main.head).number;
+    return `${line === cursor ? line : Math.abs(line - cursor)}`;
+  },
+});
+
+/**
+ * What the compartment holds: vim and the gutter that counts for it, or the
+ * word that there is none, which live preview reads as always typing.
+ */
+function modalKeys(on: boolean): Extension {
+  return on ? [vim(), relativeNumbers] : vimKeys.of(false);
+}
 
 /**
  * Holds the vault listing, which the route refreshes as notes come and go.
@@ -561,6 +650,10 @@ export function Editor({
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const vimOn = useVim();
+  // What the view was last configured with, which the mount reads and the
+  // toggle below compares against.
+  const vimOnRef = useRef(vimOn);
   // Every prop lives in a ref so the mount effect depends on nothing. Rebuilding
   // the view throws away undo history and cursor position, so it must happen
   // exactly once: to open a different note, remount with a `key`.
@@ -613,10 +706,22 @@ export function Editor({
         extensions: [
           // Must come first: whichever keymap is registered earliest wins, and
           // vim's bindings have to beat the ones basicSetup installs.
-          vim(),
+          modal.of(modalKeys(vimOnRef.current)),
           // Ahead of basicSetup for the same reason: ctrl+s must reach us
           // rather than open the browser's save dialog.
-          keymap.of([{ key: "Mod-s", run: save, preventDefault: true }]),
+          keymap.of([
+            { key: "Mod-s", run: save, preventDefault: true },
+            // The terminal's chord for the palette, here as well: `<leader>:`
+            // is a vim mapping, and with vim off no other key opens it.
+            {
+              key: "Mod-Shift-p",
+              run: (view) => {
+                view.state.facet(editorCommands)?.openPalette();
+                return true;
+              },
+              preventDefault: true,
+            },
+          ]),
           // basicSetup leaves tab unbound so the key can move the focus out of
           // the editor. A note needs it to nest a list item, and `<leader>e`
           // is the way to the file tree now, so the trade is worth taking.
@@ -708,19 +813,6 @@ export function Editor({
             goToTab: (index) => commandsRef.current?.goToTab(index),
           }),
           basicSetup,
-          // vim's `number relativenumber`: the line the cursor sits on names
-          // itself and the rest count the distance to it, which is the number
-          // `10j` and `d5k` are reached for with. basicSetup's own
-          // `lineNumbers()` carries no config, so this adds a formatter to the
-          // gutter already there rather than a second one beside it. It
-          // redraws when the cursor changes line because `highlightActiveLineGutter`,
-          // also basicSetup's, moves its marker then.
-          lineNumbers({
-            formatNumber: (line, state) => {
-              const cursor = state.doc.lineAt(state.selection.main.head).number;
-              return `${line === cursor ? line : Math.abs(line - cursor)}`;
-            },
-          }),
           noteLanguage(),
           markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
           markdownLanguage.data.of({ autocomplete: todoCompletions }),
@@ -735,6 +827,8 @@ export function Editor({
           imagePaste(),
           noticeHandler.of((message) => onNoticeRef.current?.(message)),
           followOnClick,
+          followOnTap(),
+          byName,
           vault.of(
             listings(pathsRef.current, imagesRef.current, tagsRef.current, relationsRef.current),
           ),
@@ -766,6 +860,14 @@ export function Editor({
     // this is the one that carries one. It never fires twice: `note-editor.tsx`
     // keys this component on the path, so a second note is a second view.
   }, [path]);
+
+  // The setting moved, in this pane or another. The cursor, the text and the
+  // undo history all stay.
+  useEffect(() => {
+    if (vimOnRef.current === vimOn) return;
+    vimOnRef.current = vimOn;
+    viewRef.current?.dispatch({ effects: modal.reconfigure(modalKeys(vimOn)) });
+  }, [vimOn]);
 
   // Declared after the mount effect so the view exists by the time this runs,
   // which is what lets one effect serve both cases: opening a note on a line,
