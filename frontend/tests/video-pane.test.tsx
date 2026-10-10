@@ -162,6 +162,24 @@ describe("the video pane", () => {
     expect(screen.getByText("1/2")).toBeInTheDocument();
   });
 
+  it("steps to the next video on a tap of the count, which is a phone's `n`", async () => {
+    fetchNote.mockResolvedValue(
+      "[one](https://youtu.be/dQw4w9WgXcQ)\n[two](https://youtu.be/iDulhoQ2pro)\n",
+    );
+    const { pane } = open();
+
+    const next = await screen.findByRole("button", { name: "next video" });
+    expect(next).toHaveClass("pointer-coarse:min-h-11");
+    fireEvent.click(next);
+
+    expect(await screen.findByTitle("video")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/iDulhoQ2pro?enablejsapi=1",
+    );
+    expect(screen.getByText("2/2")).toBeInTheDocument();
+    expect(pane).toHaveFocus();
+  });
+
   it("says nothing about which video on a note holding one", async () => {
     open();
 

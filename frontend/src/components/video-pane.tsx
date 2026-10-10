@@ -184,6 +184,12 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
     );
   }, [playSignal]);
 
+  /** Move to another of the note's videos, wrapping at either end. */
+  function step(by: number) {
+    report();
+    setAt((was) => (was + by) % Math.max(videos.length, 1));
+  }
+
   // The leader block the image pane, the exam pane and the todo pane each carry
   // their own copy of. Nothing else is bound: there is nothing here to operate,
   // the player owning every key that reaches it.
@@ -222,8 +228,7 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
     // steps its list with.
     if (key === "n" || key === "p") {
       event.preventDefault();
-      report();
-      setAt((was) => (was + (key === "n" ? 1 : videos.length - 1)) % Math.max(videos.length, 1));
+      step(key === "n" ? 1 : videos.length - 1);
     }
   }
 
@@ -246,9 +251,20 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
         {videos.length > 1 && (
           // Only once there is something to step through. A note with one video
           // saying "1/1" is a number that answers a question nobody asked.
-          <span className={`shrink-0 ${LABEL}`}>
+          // A button because a phone has no `n`: a tap is the next video, and
+          // the wrap is what reaches the ones behind. The cursor goes back to
+          // the pane, or the leader's space would press the button again.
+          <button
+            type="button"
+            aria-label="next video"
+            onClick={() => {
+              step(1);
+              panel.current?.focus();
+            }}
+            className={`shrink-0 cursor-pointer pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${LABEL}`}
+          >
             {Math.min(at, videos.length - 1) + 1}/{videos.length}
-          </span>
+          </button>
         )}
       </header>
 
