@@ -8,6 +8,7 @@ import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { dailyDate } from "@/lib/periodic";
 import {
+  cycleLine,
   isOpen,
   PRIORITY_SYMBOL,
   parseTodo,
@@ -227,6 +228,9 @@ interface TodoPaneProps {
  */
 const DONE_DAYS = 7;
 
+/** How long the way back from a tap stays on the footer, in milliseconds. */
+const UNDO_MS = 5000;
+
 /**
  * Every open todo the vault holds, grouped by when it is due.
  *
@@ -271,6 +275,17 @@ export function TodoPane({
    * press, and holding the text here is what lets the input be the row itself.
    */
   const [editing, setEditing] = useState<{ key: string; line: string } | null>(null);
+  /**
+   * The last tap on a state, while it can still be taken back: the row it was
+   * on, the state that row was in before the first tap of the streak, and the
+   * line as the taps have left it.
+   *
+   * The hit rather than the key, because a row ticked done has left the list by
+   * the time the way back is wanted. The line rather than the row's own state,
+   * because a second tap can land before the vault has answered the first, and
+   * the row is then a tap behind what the note holds.
+   */
+  const [undo, setUndo] = useState<{ hit: SearchHit; was: TodoState; line: string } | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
@@ -583,6 +598,39 @@ export function TodoPane({
     if (document.activeElement === draft.current) return;
     (element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`) ?? element).focus();
   }, [cursorKey, rows]);
+
+  // A finger slips where a key does not, so the way back is offered and then
+  // taken away again. Each tap is a new object, which is what starts the wait
+  // over, and the cleanup is what stops a pane that has closed being set.
+  useEffect(() => {
+    if (undo === null) return;
+    const timer = setTimeout(() => setUndo(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [undo]);
+
+  /**
+   * `x` by finger, and the one cycle that offers a way back.
+   *
+   * Offered only where naming the earlier state puts the note back: the id a
+   * tick stamps is all that stays behind. A tick that took the parts with it
+   * would leave them ticked, a recurring one has written its next copy onto
+   * this very line and moved down one, and a line walked out of the cycle is
+   * prose, which no state key reads.
+   */
+  function tap(hit: SearchHit, todo: Todo) {
+    const key = rowKey(hit);
+    const streak = undo !== null && rowKey(undo.hit) === key ? undo : null;
+    // No id: this line is read for its state and never written, the vault
+    // minting its own inside `onCycle`.
+    const line = cycleLine(streak?.line ?? hit.text, today, "");
+    const now = parseTodo(line);
+    const whole =
+      now !== null &&
+      (now.state !== "done" || (todo.recurrence === undefined && !progress.has(key)));
+
+    setUndo(whole ? { hit, was: streak?.was ?? todo.state, line } : null);
+    onCycle(hit);
+  }
 
   // The row that has become an input, or nothing while every row is a row. Its
   // own name because the effect below turns on which row it is: typing is not a
@@ -925,7 +973,7 @@ export function TodoPane({
                     <button
                       type="button"
                       tabIndex={-1}
-                      onClick={() => onCycle(hit)}
+                      onClick={() => tap(hit, todo)}
                       aria-label={`cycle ${todo.text}`}
                       style={indent}
                       className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
@@ -959,11 +1007,32 @@ export function TodoPane({
             </>
           )}
         </span>
-        <span>
-          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
-          edit&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/
-          filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
-        </span>
+        {undo === null ? (
+          <span>
+            x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
+            edit&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v
+            view&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+          </span>
+        ) : (
+          // In place of the keys, which a finger has no use for. The state the
+          // shifted keys set is the way back, so a tap adds no write of its own.
+          // The words go with it, because a row ticked done is no longer on the
+          // list to say what the button would bring back.
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate">{parseTodo(undo.line)?.text}</span>
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => {
+                onCycle(undo.hit, undo.was);
+                setUndo(null);
+              }}
+              className="min-h-11 min-w-11 shrink-0 text-one-fg"
+            >
+              Undo
+            </button>
+          </span>
+        )}
       </footer>
     </section>
   );
