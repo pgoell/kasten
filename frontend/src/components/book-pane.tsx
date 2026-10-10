@@ -575,11 +575,9 @@ export function BookPane({
    *
    * A ref because `onSelectionChange` is built once with the view.
    *
-   * ponytail: a press that ends in no click and no `pointercancel`, a finger
-   * slid off the button, leaves this set. If the selection collapsed under
-   * that press the button stays, holding the passage it showed, until it is
-   * tapped or something else is selected. There is no event to clear it on:
-   * `pointerup` and `pointerleave` both come before the `click`.
+   * A finger slid off the button ends in no click and no `pointercancel`, so
+   * the button's `pointerup` clears this when it lands outside the button, and
+   * lets go of a passage the press had already put away.
    */
   const pressing = useRef(false);
 
@@ -1456,6 +1454,26 @@ export function BookPane({
                 }}
                 onPointerCancel={() => {
                   pressing.current = false;
+                }}
+                // The pointer is the button's for the whole press, so a lift
+                // anywhere arrives here, and one outside is a press taken
+                // back. Left set, the flag would hold a passage nothing
+                // selects and keep the edges of the page from turning it.
+                onPointerUp={(event) => {
+                  const box = event.currentTarget.getBoundingClientRect();
+                  const inside =
+                    event.clientX >= box.left &&
+                    event.clientX <= box.right &&
+                    event.clientY >= box.top &&
+                    event.clientY <= box.bottom;
+                  if (inside) return;
+                  pressing.current = false;
+                  // Asked again of the document the words are in, now that the
+                  // flag no longer answers for it: what `onSelectionChange`
+                  // skipped under the press it reads here.
+                  taking.current?.range.startContainer.ownerDocument?.dispatchEvent(
+                    new Event("selectionchange"),
+                  );
                 }}
                 onClick={() => void take()}
                 className={TOUCH}

@@ -1223,7 +1223,8 @@ function Home() {
   /** Walk one todo on, in the vault, from the pane's `x`, or set the state a key named. */
   const cycleTodo = useCallback(
     (hit: SearchHit, state?: TodoState) => {
-      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state).then(
+      // Handed back so the pane can wait for the write before it reads the note.
+      return cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state).then(
         todosWritten,
         () => {
           // The vault refused the write, or the note moved out from under the

@@ -1,4 +1,9 @@
-import { addSubtaskInVault, addTodoInVault, editTodoInVault } from "@/lib/todo-api";
+import {
+  addSubtaskInVault,
+  addTodoInVault,
+  cycleTodoInVault,
+  editTodoInVault,
+} from "@/lib/todo-api";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
 // do: what this half owns is which notes it reads and what it sends back.
@@ -43,6 +48,18 @@ describe("editTodoInVault", () => {
     fetchNote.mockResolvedValue(NOTE.replace("- [ ] call the dentist", "- [ ] buy milk"));
 
     await editTodoInVault(HIT, "- [ ] call the dentist 📅 2026-08-15");
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("cycleTodoInVault", () => {
+  it("writes nothing where another todo now stands on the row's line", async () => {
+    // A cycle rewrites whatever todo it finds, so a line that parses is not
+    // enough: a stale row would tick the milk for the dentist.
+    fetchNote.mockResolvedValue(NOTE.replace("- [ ] call the dentist", "- [ ] buy milk"));
+
+    await cycleTodoInVault(HIT, "2026-08-10", []);
 
     expect(saveNote).not.toHaveBeenCalled();
   });

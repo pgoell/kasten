@@ -178,8 +178,11 @@ interface TodoPaneProps {
    *
    * The hit rather than the todo: the write reads the note off disk again, and
    * the path and the line are how it finds the line to cycle.
+   *
+   * The promise settles when the write has landed or been refused, and never
+   * rejects. A tap waits on it, because the next write reads the note first.
    */
-  onCycle: (hit: SearchHit, state?: TodoState) => void;
+  onCycle: (hit: SearchHit, state?: TodoState) => void | Promise<void>;
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
   /**
@@ -285,7 +288,23 @@ export function TodoPane({
    * because a second tap can land before the vault has answered the first, and
    * the row is then a tap behind what the note holds.
    */
-  const [undo, setUndo] = useState<{ hit: SearchHit; was: TodoState; line: string } | null>(null);
+  const [undo, setUndo] = useState<{
+    hit: SearchHit;
+    was: TodoState;
+    line: string;
+    /** The row's text at that tap, which says whether the list has caught up since. */
+    seen: string;
+  } | null>(null);
+  /**
+   * Every write a tap has started, in a row, settled when the last has landed.
+   *
+   * A write reads the note before it writes. One started while another is
+   * still out reads the note as it was, and the way back then looks for its
+   * todo in a note that does not hold it yet, where a line with the same words
+   * can stand in for it. So a tap's write waits for the one before, and the
+   * way back for them all.
+   */
+  const landing = useRef<Promise<void>>(Promise.resolve());
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
@@ -625,14 +644,18 @@ export function TodoPane({
     const streak = undo !== null && rowKey(undo.hit) === key ? undo : null;
     // No id: this line is read for its state and never written, the vault
     // minting its own inside `onCycle`.
-    const line = cycleLine(streak?.line ?? hit.text, today, "");
+    // A row unchanged since the last tap is a row the list has not redrawn,
+    // and the note holds the line that tap left rather than the one drawn.
+    const text = streak !== null && streak.seen === hit.text ? streak.line : hit.text;
+    const line = cycleLine(text, today, "");
     const now = parseTodo(line);
     const whole =
       now !== null &&
       (now.state !== "done" || (todo.recurrence === undefined && !progress.has(key)));
 
-    setUndo(whole ? { hit, was: streak?.was ?? todo.state, line } : null);
-    onCycle(hit);
+    setUndo(whole ? { hit, was: streak?.was ?? todo.state, line, seen: hit.text } : null);
+    // The text goes with it because the write checks the line against it.
+    landing.current = landing.current.then(() => onCycle({ ...hit, text }));
   }
 
   /**
@@ -642,8 +665,8 @@ export function TodoPane({
    * into today's `## Done`, so a todo below that heading has since moved down
    * one, and the state key would land on whatever stands there now. The note is
    * read and searched for the one line that is this todo as the tap left it:
-   * the same state, and the same id where it had one before the tap or the same
-   * words where it had none. Exactly one, or nothing is written: two lines
+   * the same state and done date, and the same id where it had one before the
+   * tap or the same words where it had none. Exactly one, or nothing is written: two lines
    * alike cannot be told apart, and none means the note has moved on.
    */
   function back(held: { hit: SearchHit; was: TodoState; line: string }) {
@@ -654,26 +677,33 @@ export function TodoPane({
     const row = parseTodo(held.hit.text);
     if (left === null || row === null) return;
 
-    fetchNote(held.hit.path).then(
-      (text) => {
-        const lines = text.split("\n");
-        const found = lines.flatMap((line, index) => {
-          const todo = parseTodo(line);
-          const same =
-            todo !== null &&
-            todo.state === left.state &&
-            (row.id !== undefined ? todo.id === row.id : todo.text === row.text);
-          return same ? [{ line: index + 1, text: line }] : [];
-        });
-        const [only] = found;
-        if (only === undefined || found.length > 1) return;
-        onCycle({ ...held.hit, ...only }, held.was);
-      },
-      () => {
-        // The note cannot be read, so there is no line to confirm and nothing
-        // is written. The todo stays as the tap left it.
-      },
-    );
+    // After the taps' own writes, or the note read here is the one from before
+    // them. In the chain, so a tap made while this is out waits for it too.
+    landing.current = landing.current
+      .then(() => fetchNote(held.hit.path))
+      .then(
+        (text) => {
+          const lines = text.split("\n");
+          const found = lines.flatMap((line, index) => {
+            const todo = parseTodo(line);
+            const same =
+              todo !== null &&
+              todo.state === left.state &&
+              // The day it was finished too, which is what tells a todo ticked
+              // just now from one of the same words ticked last week.
+              todo.done === left.done &&
+              (row.id !== undefined ? todo.id === row.id : todo.text === row.text);
+            return same ? [{ line: index + 1, text: line }] : [];
+          });
+          const [only] = found;
+          if (only === undefined || found.length > 1) return;
+          return onCycle({ ...held.hit, ...only }, held.was);
+        },
+        () => {
+          // The note cannot be read, so there is no line to confirm and nothing
+          // is written. The todo stays as the tap left it.
+        },
+      );
   }
 
   // The row that has become an input, or nothing while every row is a row. Its
@@ -1152,7 +1182,7 @@ export function TodoPane({
           // The words go with it, because a row ticked done is no longer on the
           // list to say what the button would bring back.
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate">{parseTodo(undo.line)?.text}</span>
+            <span className="truncate">{parseTodo(undo.hit.text)?.text}</span>
             <button
               type="button"
               tabIndex={-1}

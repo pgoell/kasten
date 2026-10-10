@@ -1622,6 +1622,39 @@ describe("a book under a finger", () => {
     expect(pane.container.querySelector("[data-take]")).toBeNull();
   });
 
+  it("lets go of a press that slid off Take before it was lifted", async () => {
+    const pane = await opened();
+    selects("A sentence worth keeping.");
+    const button = pane.container.querySelector("footer [data-take]") as HTMLElement;
+    act(() => {
+      button.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
+    });
+    // Off the button with the words still selected: the press is over, and
+    // the next collapse is an ordinary one again. jsdom lays nothing out, so
+    // the button is a point at the origin and anywhere else is off it.
+    act(() => {
+      button.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: 200 }));
+    });
+    expect(pane.container.querySelector("footer [data-take]")).toBe(button);
+    selectsNothing();
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+
+    // And off the button after the press itself put the words away: nothing
+    // is selected, so nothing is left to take and no click is coming.
+    selects("A sentence worth keeping.");
+    const again = pane.container.querySelector("footer [data-take]") as HTMLElement;
+    act(() => {
+      again.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
+    });
+    selectsNothing();
+    expect(pane.container.querySelector("footer [data-take]")).toBe(again);
+    act(() => {
+      again.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: 200 }));
+    });
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+    expect(pane.onTake).not.toHaveBeenCalled();
+  });
+
   it("forgets the passage for a collapse no press made", async () => {
     const pane = await opened();
     selects("A sentence worth keeping.");

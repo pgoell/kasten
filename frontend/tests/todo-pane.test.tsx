@@ -1007,7 +1007,7 @@ describe("the todo pane by touch", () => {
     fireEvent.click(screen.getByLabelText("cycle buy milk"));
 
     // The hit and no state, which is what `x` sends.
-    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[3]);
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledWith(TODOS[3]));
     expect(pane.onOpen).not.toHaveBeenCalled();
   });
 
@@ -1040,6 +1040,8 @@ describe("the todo pane by touch", () => {
     await waitFor(() => expect(row("call home")).toBeDefined());
 
     fireEvent.click(screen.getByLabelText("cycle call home"));
+    // The row's own words beside the button, and no stray field of the tick's.
+    expect(screen.getByText("Undo").previousElementSibling?.textContent).toBe("call home");
     // The tick wrote its line under `## Done`, above the todo, so line 5 is now
     // somebody else's todo and the one tapped stands on line 6.
     holds(
@@ -1050,7 +1052,7 @@ describe("the todo pane by touch", () => {
         "## Done",
         "- ✅ call home 🆔 kt-0a0a0a",
         "- [/] water the plants",
-        "- [x] call home ✅ 2026-08-11 🆔 kt-0a0a0a",
+        "- [x] call home ✅ 2026-08-10 🆔 kt-0a0a0a",
       ].join("\n"),
     );
     fireEvent.click(screen.getByText("Undo"));
@@ -1060,7 +1062,7 @@ describe("the todo pane by touch", () => {
       {
         path: "daily/2026-08-11.md",
         line: 6,
-        text: "- [x] call home ✅ 2026-08-11 🆔 kt-0a0a0a",
+        text: "- [x] call home ✅ 2026-08-10 🆔 kt-0a0a0a",
       },
       "doing",
     );
@@ -1068,7 +1070,7 @@ describe("the todo pane by touch", () => {
 
   it.each([
     ["the todo is no longer in the note", "# 2026-08-11\n\n- [/] water the plants\n"],
-    ["two lines could be it", "- [x] call home ✅ 2026-08-11\n- [x] call home ✅ 2026-08-11\n"],
+    ["two lines could be it", "- [x] call home ✅ 2026-08-10\n- [x] call home ✅ 2026-08-10\n"],
     ["the write has not landed yet", "\n\n\n\n- [/] call home\n"],
   ])("writes nothing on the way back when %s", async (_why, text) => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
@@ -1082,6 +1084,62 @@ describe("the todo pane by touch", () => {
     await waitFor(() => expect(fetchNote).toHaveBeenCalledWith("daily/2026-08-11.md"));
     await act(async () => {});
     expect(pane.onCycle).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for the tap's own write, and passes over a line of the same words", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane([{ path: "a.md", line: 2, text: "- [/] review the pr" }]);
+    await waitFor(() => expect(row("review the pr")).toBeDefined());
+    // The write a tap starts, held open until the test lets it land.
+    let land = () => {};
+    pane.onCycle.mockImplementationOnce(() => new Promise<void>((done) => (land = done)));
+    const read: string[] = [];
+    // Before the write lands the older todo is the only finished line of these
+    // words, which is the line a read made now would send the state key to.
+    let note = "- [x] review the pr ✅ 2026-08-01 🆔 kt-0c0c0c\n- [/] review the pr\n";
+    fetchNote.mockImplementation(async (asked: string) => {
+      read.push(asked);
+      return asked === "a.md" ? note : DEFAULT_VIEWS;
+    });
+
+    fireEvent.click(screen.getByLabelText("cycle review the pr"));
+    fireEvent.click(screen.getByText("Undo"));
+    await act(async () => {});
+    expect(read).not.toContain("a.md");
+    expect(pane.onCycle).toHaveBeenCalledTimes(1);
+
+    note =
+      "- [x] review the pr ✅ 2026-08-01 🆔 kt-0c0c0c\n- [x] review the pr ✅ 2026-08-10 🆔 kt-0d0d0d\n";
+    await act(async () => land());
+
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
+    expect(pane.onCycle).toHaveBeenLastCalledWith(
+      { path: "a.md", line: 2, text: "- [x] review the pr ✅ 2026-08-10 🆔 kt-0d0d0d" },
+      "doing",
+    );
+  });
+
+  it("sends a second tap only after the first has landed, with the line that one left", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane([{ path: "a.md", line: 1, text: "- [ ] call home" }]);
+    await waitFor(() => expect(row("call home")).toBeDefined());
+    let land = () => {};
+    pane.onCycle.mockImplementationOnce(() => new Promise<void>((done) => (land = done)));
+
+    fireEvent.click(screen.getByLabelText("cycle call home"));
+    fireEvent.click(screen.getByLabelText("cycle call home"));
+    await act(async () => {});
+    expect(pane.onCycle).toHaveBeenCalledTimes(1);
+
+    await act(async () => land());
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
+    // The list has not redrawn, so the row still says open, and the write
+    // would refuse a line it was not told about.
+    expect(pane.onCycle).toHaveBeenLastCalledWith({
+      path: "a.md",
+      line: 1,
+      text: "- [/] call home",
+    });
   });
 
   it("writes nothing on the way back when the note cannot be read", async () => {
@@ -1113,7 +1171,7 @@ describe("the todo pane by touch", () => {
     fireEvent.click(screen.getByLabelText("cycle buy milk"));
     holds(
       "projects/kasten.md",
-      `${"\n".repeat(19)}- [x] buy milk 📅 2026-08-14 🔽 ✅ 2026-08-11 🆔 kt-0b0b0b\n`,
+      `${"\n".repeat(19)}- [x] buy milk 📅 2026-08-14 🔽 ✅ 2026-08-10 🆔 kt-0b0b0b\n`,
     );
     fireEvent.click(screen.getByText("Undo"));
 
@@ -1129,7 +1187,7 @@ describe("the todo pane by touch", () => {
     fireEvent.click(screen.getByLabelText("cycle buy milk"));
     fireEvent.click(screen.getByLabelText("cycle ship it #kasten"));
     const ship = TODOS[2] as (typeof TODOS)[number];
-    const after = cycleLine(ship.text, "2026-08-11", "");
+    const after = cycleLine(ship.text, "2026-08-10", "");
     holds("projects/kasten.md", `${"\n".repeat(ship.line - 1)}${after}\n`);
     fireEvent.click(screen.getByText("Undo"));
 
@@ -1169,7 +1227,7 @@ describe("the todo pane by touch", () => {
     // Ticked, a todo takes its open parts with it, and no state key reopens them.
     fireEvent.click(screen.getByLabelText("cycle pack"));
     expect(screen.queryByText("Undo")).toBeNull();
-    expect(pane.onCycle).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(pane.onCycle).toHaveBeenCalledTimes(2));
   });
 
   it("offers none after a key", async () => {
