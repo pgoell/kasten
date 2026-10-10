@@ -1090,7 +1090,7 @@ export function TodoPane({
           // The words go with it, because a row ticked done is no longer on the
           // list to say what the button would bring back.
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate">{parseTodo(undo.line)?.text}</span>
+            <span className="truncate">{parseTodo(undo.hit.text)?.text}</span>
             <button
               type="button"
               tabIndex={-1}

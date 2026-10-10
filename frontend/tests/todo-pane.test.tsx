@@ -1036,6 +1036,8 @@ describe("the todo pane by touch", () => {
     await waitFor(() => expect(row("call home")).toBeDefined());
 
     fireEvent.click(screen.getByLabelText("cycle call home"));
+    // The row's own words beside the button, and no stray field of the tick's.
+    expect(screen.getByText("Undo").previousElementSibling?.textContent).toBe("call home");
     // The tick wrote its line under `## Done`, above the todo, so line 5 is now
     // somebody else's todo and the one tapped stands on line 6.
     holds(
