@@ -104,7 +104,7 @@ again to let go without sending anything.
 ## Close a panel
 
 Tap the dimmed page outside it. That closes the palette, the finder, the
-search, the keys panel and an empty prompt.
+search, the keys panel and a prompt you have not typed into.
 
 A prompt you have typed into stays open on a tap outside. Send it with the
 keyboard's Enter, or clear the input and then tap outside.
