@@ -230,7 +230,11 @@ says `pane 1/2` instead, the pane drawn and how many the tab holds, whenever
 the tab holds more than one.
 
 That window's footer carries the date and the time and leaves out the weekday,
-the week and the version. A notice too long for it is cut short.
+the week and the version. A notice takes the clock's place while it shows. A
+click or a tap on a notice opens it out in full above the footer, and one on
+the save sign of a write that failed or a note that changed on disk does the
+same with the reason and the way out; a second one shuts it. Under a mouse the
+same text is on hover.
 
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
@@ -1961,8 +1965,8 @@ into the finder has to name a path, and the finder never writes.
 | Escape | Close, and hand the focus back |
 
 A click or a tap on a row opens it, as Enter on it would. In a window narrower
-than 768px the list takes the whole panel and the preview is not drawn; the
-same holds for [the note search](#the-note-search).
+than 768px the list takes the whole panel, and the preview is neither read nor
+drawn; the same holds for [the note search](#the-note-search).
 
 Tab walks the list rather than completing anything, the way it does in a
 terminal fuzzy finder. There is nothing here to complete: Enter opens the row

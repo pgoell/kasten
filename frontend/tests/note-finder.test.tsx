@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NoteFinder } from "@/components/note-finder";
+import { NARROW, stubMatchMedia } from "./match-media";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
@@ -78,11 +79,23 @@ describe("the note finder", () => {
     expect(row).toHaveClass("pointer-coarse:min-h-11");
   });
 
-  it("gives the list the whole panel below md, and the preview none of it", () => {
+  it("gives the list the whole panel below md", () => {
     renderFinder();
 
     expect(screen.getByRole("listbox")).toHaveClass("w-full", "md:w-1/2");
-    expect(screen.getByTestId("preview")).toHaveClass("hidden", "md:block");
+  });
+
+  it("reads and draws no preview in a narrow window", async () => {
+    stubMatchMedia({ [NARROW]: true });
+    const finder = renderFinder();
+    expect(finder.highlighted()).toBe(PATHS[0]);
+
+    // Past the delay the pane waits before it reads.
+    await new Promise((done) => setTimeout(done, 300));
+
+    expect(screen.queryByTestId("preview")).toBeNull();
+    expect(fetchNote).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it("opens on the whole vault, with the caret in the input", () => {

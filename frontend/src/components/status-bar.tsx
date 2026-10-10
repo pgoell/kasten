@@ -15,7 +15,7 @@ const FLASH_MS = 400;
  * time from mount, so the minute changes on screen when it changes on the
  * clock instead of up to a minute later. One re-render a minute, not sixty.
  */
-function Clock() {
+function Clock({ crowded }: { crowded: boolean }) {
   const [now, setNow] = useState<ClockReading>(() => readClock(new Date()));
 
   useEffect(() => {
@@ -38,7 +38,13 @@ function Clock() {
   return (
     // Spaced apart rather than punctuated: the gap separates the four readings
     // without spending characters on a bar the eye has to step over.
-    <div className="flex items-center gap-3 text-[11px] whitespace-nowrap text-one-muted tabular-nums">
+    <div
+      // Gone below `md` while there is a notice: a phone's bar holds one
+      // sentence or the time, and the sentence is the one that will not keep.
+      className={`flex items-center gap-3 text-[11px] whitespace-nowrap text-one-muted tabular-nums ${
+        crowded ? "max-md:hidden" : ""
+      }`}
+    >
       {/* The weekday and the week go below `md`: a phone has room for the date
           and the time, and its own lock screen says the rest. */}
       <span className="max-md:hidden">{now.weekday}</span>
@@ -203,8 +209,9 @@ interface StatusBarProps {
   /**
    * Whether the explorer drawer is open over the page.
    *
-   * The bar is under the backdrop then, and Tab from the drawer's last button
-   * would otherwise land on it, behind the sheet.
+   * The bar is under the backdrop then. Tab never landed here, nothing in
+   * the bar being in the tab order; this takes it away from a screen reader,
+   * which would otherwise read out a page the sheet has covered.
    */
   inert?: boolean;
 }
@@ -240,6 +247,56 @@ export function StatusBar({
     return () => clearTimeout(timer);
   }, [flash]);
 
+  // Which of the two is opened out above the bar. A `title` is all either had,
+  // and a finger has no way to hover: the reason a write failed and the way
+  // out of it were unreadable on a phone, and so was the end of a long notice.
+  const [opened, setOpened] = useState<"notice" | "save" | null>(null);
+  const saveLines = status ? [SAVE_LABEL[status], reason, SAVE_FIX[status]].filter(Boolean) : [];
+  // The label alone is on screen already, or is "Saved".
+  const saveOpens = saveLines.length > 1;
+  const detail =
+    opened === "notice"
+      ? notice
+      : opened === "save" && saveOpens
+        ? saveLines.join("\n")
+        : undefined;
+  const open = (which: "notice" | "save") => setOpened(opened === which ? null : which);
+
+  const save = status && (
+    <span
+      key={flash}
+      data-testid="save-status"
+      // Still one image to a screen reader, text beside the sign or not:
+      // the label below says the reading once, and the role keeps the
+      // visible copy of it from being read out a second time.
+      role="img"
+      aria-label={SAVE_LABEL[status]}
+      // Three lines on hover, the last of them the way out. A `title` and
+      // not a tooltip of our own: this is one string a browser already
+      // knows how to show, and it costs nothing to carry.
+      title={saveLines.join("\n")}
+      // Inline by default, and a transform does nothing to an inline box.
+      className={`inline-flex items-center gap-1.5 ${flashing ? "animate-flash" : ""}`}
+    >
+      {/* The conflict wears the warning rather than the ring for the
+          reason the failure does: nothing is on its way to the vault,
+          and a ring spinning at the reader would say the opposite. */}
+      {status === "error" || status === "conflict" ? (
+        <Warning />
+      ) : (
+        <Spinner spinning={status !== "saved"} />
+      )}
+      {/* Only the two that want the reader. A 16px sign in the corner is
+          easy to type straight past, and typing past this one loses the
+          text. `aria-hidden`, the label above already saying it. */}
+      {SAVE_FIX[status] && (
+        <span aria-hidden="true" className="text-[11px] text-one-warn">
+          {SAVE_LABEL[status]}
+        </span>
+      )}
+    </span>
+  );
+
   return (
     // Three columns rather than two: the outer pair share what the clock does
     // not take, so the reading sits on the middle of the window and does not
@@ -249,19 +306,40 @@ export function StatusBar({
     // would push the bar wider than a phone instead of being cut short.
     <footer
       inert={inert}
-      className="grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center bg-one-panel px-3 pointer-coarse:h-11"
+      className={`relative grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center bg-one-panel px-3 pointer-coarse:h-11 ${
+        // With the clock gone the notice takes what the save sign leaves,
+        // rather than the half of the bar an even split would give it.
+        notice !== undefined ? "max-md:grid-cols-[minmax(0,1fr)_auto_auto]" : ""
+      }`}
     >
+      {detail !== undefined && (
+        // Over the page and not inside the bar, whose height is fixed. Out of
+        // the tab order like the two that open it: a keyboard has the `title`.
+        <button
+          type="button"
+          tabIndex={-1}
+          data-testid="status-detail"
+          onClick={() => setOpened(null)}
+          className="absolute inset-x-0 bottom-full z-10 border-t border-one-line bg-one-panel px-3 py-2 text-left text-[11px] whitespace-pre-line text-one-warn"
+        >
+          {detail}
+        </button>
+      )}
       <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
         {version !== undefined && <Version backend={version} />}
         {notice !== undefined && (
-          <span
+          <button
+            type="button"
+            tabIndex={-1}
             data-testid="notice"
-            // The whole sentence, for when the bar had room for half of it.
+            // The whole sentence, for when the bar had room for half of it:
+            // on hover under a mouse, and opened out above the bar on a tap.
             title={notice}
-            className="min-w-0 truncate text-[11px] text-one-warn"
+            onClick={() => open("notice")}
+            className="min-w-0 truncate text-[11px] text-one-warn pointer-coarse:h-11"
           >
             {notice}
-          </span>
+          </button>
         )}
         {archive === true && (
           <span data-testid="archive-shown" className="text-[11px] text-one-muted">
@@ -281,41 +359,19 @@ export function StatusBar({
           </span>
         )}
       </div>
-      <Clock />
+      <Clock crowded={notice !== undefined} />
       <div className="min-w-0 justify-self-end whitespace-nowrap">
-        {status && (
-          <span
-            key={flash}
-            data-testid="save-status"
-            // Still one image to a screen reader, text beside the sign or not:
-            // the label below says the reading once, and the role keeps the
-            // visible copy of it from being read out a second time.
-            role="img"
-            aria-label={SAVE_LABEL[status]}
-            // Three lines on hover, the last of them the way out. A `title` and
-            // not a tooltip of our own: this is one string a browser already
-            // knows how to show, and it costs nothing to carry.
-            title={[SAVE_LABEL[status], reason, SAVE_FIX[status]].filter(Boolean).join("\n")}
-            // Inline by default, and a transform does nothing to an inline box.
-            className={`inline-flex items-center gap-1.5 ${flashing ? "animate-flash" : ""}`}
+        {saveOpens ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => open("save")}
+            className="pointer-coarse:h-11"
           >
-            {/* The conflict wears the warning rather than the ring for the
-                reason the failure does: nothing is on its way to the vault,
-                and a ring spinning at the reader would say the opposite. */}
-            {status === "error" || status === "conflict" ? (
-              <Warning />
-            ) : (
-              <Spinner spinning={status !== "saved"} />
-            )}
-            {/* Only the two that want the reader. A 16px sign in the corner is
-                easy to type straight past, and typing past this one loses the
-                text. `aria-hidden`, the label above already saying it. */}
-            {SAVE_FIX[status] && (
-              <span aria-hidden="true" className="text-[11px] text-one-warn">
-                {SAVE_LABEL[status]}
-              </span>
-            )}
-          </span>
+            {save}
+          </button>
+        ) : (
+          save
         )}
       </div>
     </footer>

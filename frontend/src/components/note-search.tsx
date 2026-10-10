@@ -21,6 +21,7 @@ import {
 } from "@/lib/overlay-styles";
 import { readRelation } from "@/lib/relation";
 import { isOpen, parseTodo, STATE_SYMBOL } from "@/lib/todo";
+import { useViewport } from "@/lib/use-viewport";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 interface NoteSearchProps {
@@ -290,14 +291,18 @@ export function NoteSearch({
   // renumbers the list and a position would then point at another line.
   const [reading, setReading] = useState<SearchHit>();
 
+  // Nothing is read in a narrow window, which has no pane to show it in, and
+  // with nothing read the pane below is not mounted either.
+  const { narrow } = useViewport();
+
   useEffect(() => {
-    if (highlightedHit === undefined) {
+    if (narrow || highlightedHit === undefined) {
       setReading(undefined);
       return;
     }
     const timer = setTimeout(() => setReading(highlightedHit), PREVIEW_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [highlightedHit]);
+  }, [highlightedHit, narrow]);
 
   // The key `NoteEditor` reads, on purpose: a note read here is one the editor
   // will not have to fetch when Enter opens it. Keyed on the path alone, so

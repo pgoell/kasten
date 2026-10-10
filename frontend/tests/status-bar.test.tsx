@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { StatusBar } from "@/components/status-bar";
 
 // The frontend's own half of the reading is stamped in at build time, so it is
@@ -194,6 +194,54 @@ describe("the clock in the bar", () => {
 
     expect(screen.getByText(/^CW \d+$/)).toHaveClass("max-md:hidden");
     expect(screen.getByTestId("version")).toHaveClass("max-md:hidden");
+  });
+
+  it("gives a notice the clock's room below md", () => {
+    const { rerender } = render(<StatusBar />);
+    const clock = () => screen.getByText(/^CW \d+$/).parentElement;
+    expect(clock()).not.toHaveClass("max-md:hidden");
+
+    rerender(<StatusBar notice="A book is already there" />);
+    expect(clock()).toHaveClass("max-md:hidden");
+  });
+
+  it("opens a notice out in full on a tap, and shuts it on the next", () => {
+    // A finger cannot hover, so the `title` that carries the rest is no use.
+    render(<StatusBar notice="A book is already there" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("notice"));
+    expect(screen.getByTestId("status-detail")).toHaveTextContent("A book is already there");
+
+    fireEvent.click(screen.getByTestId("status-detail"));
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("opens out why a write failed and what to do about it, on a tap", () => {
+    render(<StatusBar status="error" reason="507 the disk is full" />);
+
+    fireEvent.click(screen.getByTestId("save-status"));
+
+    const detail = screen.getByTestId("status-detail");
+    expect(detail).toHaveTextContent("Could not save");
+    expect(detail).toHaveTextContent("507 the disk is full");
+    expect(detail).toHaveTextContent(":w or ctrl+s writes it again");
+  });
+
+  it("opens nothing out of a save that went fine", () => {
+    render(<StatusBar status="saved" />);
+
+    fireEvent.click(screen.getByTestId("save-status"));
+
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("keeps the bar out of the tab order, a keyboard having the hover", () => {
+    render(<StatusBar status="error" notice="A book is already there" />);
+
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveAttribute("tabindex", "-1");
+    }
   });
 
   it("cuts a long notice short rather than widen the bar", () => {
