@@ -10,8 +10,10 @@
          manifest is fetched without cookies by default: it would get the
          sign-in redirect instead of the JSON. -->
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
-    <!-- iOS reads no manifest for any of this. The first name is the one
-         Chrome asks for, the second the one Safari still reads. -->
+    <!-- Safari reads the manifest for how the app opens, and these tags for
+         the home screen icon, which it takes from no manifest, and for the
+         status bar. The capable tag has two names: the first is the one Chrome
+         asks for, the second the one an older Safari needs. -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="kasten" />
