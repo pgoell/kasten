@@ -102,7 +102,8 @@ a key moves to its pane or opens its note, and not after a tap does: a tap on
 `pane`, on a row of the tree or on a row of the finder shows the note, and a
 tap on its text is what starts typing. An editor that holds the focus keeps
 it. This goes by the last input and not by the device, so a tablet with a
-keyboard attached gets the focus after its keys.
+keyboard attached gets the focus after its keys. Before any input a touch
+screen counts as tapped, so a page that has just loaded focuses nothing there.
 
 Every panel over the page closes on a tap or a click outside it: the palette,
 the finder, the search, the prompts and the keys panel. A press inside the

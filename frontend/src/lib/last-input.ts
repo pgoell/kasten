@@ -10,8 +10,12 @@
  *
  * One pair of listeners for the page, in the capture phase so a handler that
  * stops the event further down cannot hide it from here.
+ *
+ * Before any input the pointer answers for it. A phone that has just loaded
+ * the page has been neither tapped nor typed at, and an editor focused then
+ * would be the opener every overlay hands the focus back to, keyboard and all.
  */
-let touched = false;
+let touched = window.matchMedia("(pointer: coarse)").matches;
 
 window.addEventListener(
   "pointerdown",

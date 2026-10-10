@@ -339,7 +339,7 @@ describe("the image pane", () => {
     open();
     fireEvent.click(screen.getByRole("button", { name: "delete" }));
 
-    fireEvent.blur(screen.getByRole("button", { name: "delete?" }));
+    fireEvent.pointerDown(surface());
 
     expect(screen.getByRole("button", { name: "delete" })).toBeInTheDocument();
   });

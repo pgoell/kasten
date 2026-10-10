@@ -195,6 +195,7 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   }
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    setArmed(undefined);
     // A mouse cannot pinch, so on a fitted picture it has nothing to do, and
     // holding it would draw the pane again on every move of a drag.
     if (event.pointerType === "mouse" && zoom.scale === 1) return;
@@ -243,13 +244,14 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
           {path}
         </span>
         {/* `d` for a finger. It asks once, a thumb landing wide of where it
-            aimed, where the key does not: nobody presses `d` by accident. */}
+            aimed, where the key does not: nobody presses `d` by accident. Any
+            press on the picture takes the question back. Not on blur: Safari
+            on a phone gives a tapped button no focus to lose. */}
         <button
           type="button"
           tabIndex={-1}
           aria-pressed={armed === path}
           onClick={() => (armed === path ? onDelete() : setArmed(path))}
-          onBlur={() => setArmed(undefined)}
           className={`hidden min-h-11 shrink-0 px-2 text-[11px] tracking-wide uppercase pointer-coarse:block ${
             armed === path ? "text-one-warn" : "text-one-muted"
           }`}
