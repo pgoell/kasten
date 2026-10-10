@@ -62,6 +62,15 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
   const [answers, setAnswers] = useState<Answers>({});
   /** Whether `r` has been pressed on the question showing, cleared by moving off it. */
   const [shown, setShown] = useState(false);
+  /**
+   * Which button of the touch row has been tapped once and waits for a second.
+   *
+   * A thumb lands a button wide of where it aimed, `finish` writes a result
+   * note and `close` drops the sitting, so those two ask before they act. Any
+   * other move takes the question back. The keys do not ask: nobody presses
+   * `g` by landing beside `t`.
+   */
+  const [armed, setArmed] = useState<"finish" | "close" | null>(null);
   /** Where the sitting was written, set once it has been graded. */
   const [wrote, setWrote] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -98,6 +107,8 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     async (open: Exam) => {
       if (writing.current) return;
       writing.current = true;
+      // Also for a sitting the timer or `g` ended while `close` was asking.
+      setArmed(null);
 
       const grade = gradeExam(open, answers);
       const clock = readClock(new Date());
@@ -123,6 +134,7 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
   const pick = useCallback(
     (letter: string) => {
       if (question === undefined) return;
+      setArmed(null);
       setAnswers((previous) => {
         const held = previous[question.id] ?? [];
         if (held.includes(letter)) {
@@ -148,16 +160,22 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       if (exam === null) return;
       setAt((previous) => Math.min(Math.max(previous + by, 0), exam.questions.length - 1));
       setShown(false);
+      setArmed(null);
     },
     [exam],
   );
 
   // `r` and `t`, named because a tap on the touch row asks for the same two.
-  const reveal = () => setShown((previous) => !previous);
-  const timer = () =>
+  const reveal = () => {
+    setArmed(null);
+    setShown((previous) => !previous);
+  };
+  const timer = () => {
+    setArmed(null);
     setDeadline((previous) =>
       previous === null ? Date.now() + (Number(count) || DEFAULT_MINUTES) * 60_000 : null,
     );
+  };
 
   function onKeyDown(event: React.KeyboardEvent) {
     const { key } = event;
@@ -301,7 +319,9 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       onKeyDown={onKeyDown}
       // A tapped button takes the focus, and Space on a focused button presses
       // it again on the way up, so the leader would also undo the pick. Handing
-      // the focus back to the pane keeps every key meaning what it meant.
+      // the focus back to the pane keeps every key meaning what it meant. The
+      // buttons are out of the tab order for the same reason, which leaves no
+      // other way for one to hold the focus while a key is pressed.
       onClick={() => panel.current?.focus()}
       aria-label="practice exam"
       className="flex h-full flex-col bg-one-bg font-mono outline-none"
@@ -385,6 +405,7 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
                   >
                     <button
                       type="button"
+                      tabIndex={-1}
                       aria-pressed={held}
                       onClick={() => pick(option.letter)}
                       className="block w-full text-left pointer-coarse:min-h-11"
@@ -419,30 +440,63 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
       >
         {graded === null && exam !== null && (
           <>
-            <button type="button" onClick={() => move(-1)} className={TAP}>
+            <button type="button" tabIndex={-1} onClick={() => move(-1)} className={TAP}>
               prev
             </button>
-            <button type="button" onClick={() => move(1)} className={TAP}>
+            <button type="button" tabIndex={-1} onClick={() => move(1)} className={TAP}>
               next
             </button>
-            <button type="button" aria-pressed={shown} onClick={reveal} className={TAP}>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-pressed={shown}
+              onClick={reveal}
+              className={TAP}
+            >
               reveal
             </button>
-            <button type="button" aria-pressed={deadline !== null} onClick={timer} className={TAP}>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-pressed={deadline !== null}
+              onClick={timer}
+              className={TAP}
+            >
               timer
             </button>
-            <button type="button" onClick={() => void finish(exam)} className={TAP}>
-              finish
+            {/* The two that cannot be taken back sit behind a line, apart from
+                the four a thumb reaches for on every question. */}
+            <span aria-hidden="true" className="mx-1 my-2 border-one-line border-l" />
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-pressed={armed === "finish"}
+              onClick={() => (armed === "finish" ? void finish(exam) : setArmed("finish"))}
+              className={`${TAP} ${armed === "finish" ? "text-one-accent" : ""}`}
+            >
+              {armed === "finish" ? "finish?" : "finish"}
             </button>
           </>
         )}
         {graded !== null && wrote !== null && (
-          <button type="button" onClick={() => onOpen(wrote)} className={TAP}>
+          <button type="button" tabIndex={-1} onClick={() => onOpen(wrote)} className={TAP}>
             open result
           </button>
         )}
-        <button type="button" onClick={commands.closeNote} className={TAP}>
-          close
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-pressed={armed === "close"}
+          // Only a sitting in progress is something to lose, so the score
+          // screen and a note with no exam close on the first tap.
+          onClick={() =>
+            exam === null || graded !== null || armed === "close"
+              ? commands.closeNote()
+              : setArmed("close")
+          }
+          className={`${TAP} ${armed === "close" ? "text-one-accent" : ""}`}
+        >
+          {armed === "close" ? "close?" : "close"}
         </button>
       </nav>
 

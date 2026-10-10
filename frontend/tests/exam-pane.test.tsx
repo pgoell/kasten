@@ -319,6 +319,7 @@ describe("ExamPane", () => {
     tap(/a set/);
     tap(/a map/);
     tap("finish");
+    tap("finish?");
 
     expect((await screen.findByTestId("exam-score")).textContent).toContain("2/2");
     expect(createNote).toHaveBeenCalledTimes(1);
@@ -326,8 +327,92 @@ describe("ExamPane", () => {
     expect(screen.queryByRole("button", { name: "next" })).toBeNull();
     tap("open result");
     expect(onOpen).toHaveBeenCalledWith(expect.stringContaining("drills/terraform results/"));
+    // The sitting is written, so there is nothing left for close to ask about.
     tap("close");
-    expect(commands.closeNote).toHaveBeenCalled();
+    expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks once before a tap on finish grades the sitting", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap("finish");
+    expect(screen.getByRole("button", { name: "finish?" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(screen.queryByTestId("exam-score")).toBeNull();
+    expect(createNote).not.toHaveBeenCalled();
+    tap("finish?");
+    expect(await screen.findByTestId("exam-score")).toBeTruthy();
+    expect(createNote).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([["next"], ["prev"], ["reveal"], ["timer"], ["close"], [/list to set/]])(
+    "stops asking about finish after a tap on %s",
+    async (other) => {
+      open();
+      await screen.findByText(/Which cast does Terraform refuse/);
+      tap("finish");
+      tap(other);
+      expect(screen.queryByRole("button", { name: "finish?" })).toBeNull();
+      // The next tap on finish asks again rather than grading.
+      tap("finish");
+      expect(screen.getByRole("button", { name: "finish?" })).toBeTruthy();
+      expect(createNote).not.toHaveBeenCalled();
+    },
+  );
+
+  it("stops asking when a key moves to another question", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap("close");
+    press("l");
+    expect(screen.queryByRole("button", { name: "close?" })).toBeNull();
+  });
+
+  it("asks once before a tap on close drops a sitting in progress", async () => {
+    const { commands } = open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap("close");
+    expect(commands.closeNote).not.toHaveBeenCalled();
+    tap("finish");
+    expect(screen.queryByRole("button", { name: "close?" })).toBeNull();
+    tap("close");
+    expect(commands.closeNote).not.toHaveBeenCalled();
+    tap("close?");
+    expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes on q without asking, a key being harder to hit by mistake", async () => {
+    const { commands } = open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    press("q");
+    expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not carry a close asked mid-sitting onto the score screen", async () => {
+    const { commands } = open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    tap("close");
+    press("g");
+    await screen.findByTestId("exam-score");
+    expect(screen.queryByRole("button", { name: "close?" })).toBeNull();
+    tap("close");
+    expect(commands.closeNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps every button out of the tab order, so Space and Enter stay the pane's", async () => {
+    open();
+    await screen.findByText(/Which cast does Terraform refuse/);
+    const sitting = screen.getAllByRole("button");
+    // Two options and the six moves.
+    expect(sitting).toHaveLength(8);
+    for (const button of sitting) expect(button.getAttribute("tabindex")).toBe("-1");
+
+    press("g");
+    await screen.findByTestId("exam-score");
+    const scored = screen.getAllByRole("button");
+    expect(scored.map((button) => button.textContent)).toEqual(["open result", "close"]);
+    for (const button of scored) expect(button.getAttribute("tabindex")).toBe("-1");
   });
 
   it("can be left by tap when the note holds no exam", async () => {
@@ -336,7 +421,7 @@ describe("ExamPane", () => {
     await screen.findByRole("alert");
     expect(screen.queryByRole("button", { name: "finish" })).toBeNull();
     tap("close");
-    expect(commands.closeNote).toHaveBeenCalled();
+    expect(commands.closeNote).toHaveBeenCalledTimes(1);
   });
 
   it("says so, rather than showing an empty exam, when the note holds none", async () => {
