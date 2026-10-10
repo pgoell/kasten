@@ -1383,6 +1383,7 @@ describe("the route", () => {
       const box = vi
         .spyOn(HTMLElement.prototype, "getBoundingClientRect")
         .mockReturnValue({ bottom: 800 } as DOMRect);
+      const layout = vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
       stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       await renderApp();
       await settle();
@@ -1396,6 +1397,7 @@ describe("the route", () => {
       expect(frame).toContainElement(screen.getByRole("contentinfo"));
       expect(frame).toContainElement(screen.getByRole("toolbar", { name: "Commands" }));
       box.mockRestore();
+      layout.mockRestore();
     });
 
     it("counts the panes in the bar, which is the only sign of a split", async () => {

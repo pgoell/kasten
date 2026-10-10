@@ -14,9 +14,9 @@ to do by touch what the keys do at a desk. A row of buttons runs along the
 bottom edge: `files`, `find`, `search`, `run`, `today` and `todos`. Every
 recipe below starts there.
 
-The row shows where the window is under 768px wide and the device's main
-pointer is a finger. On a tablet, use `Ctrl+Shift+P` on its keyboard or type
-`/` at the start of a line where a recipe says `run`.
+[Editor keys](/reference/editor-keys.md#what-counts-as-a-phone) says which
+devices draw the row. Where there is none, use `Ctrl+Shift+P` on a keyboard, or
+type `/` at the start of a line, where a recipe says `run`.
 
 ## Open a note from the file tree
 
@@ -66,8 +66,8 @@ time per browser. The same row turns vim off again.
 
 ## Move between the panes of a split
 
-A phone draws one pane of a split at a time. The foot of the window says which,
-as `pane 1/2`.
+A phone draws one pane of a split at a time. The status bar says which, as
+`pane 1/2`.
 
 1. Tap `pane`. The next pane takes the screen.
 2. Tap `pane` again to go on, round to the first.

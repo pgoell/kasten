@@ -83,22 +83,22 @@ a phone turned on its side can stop being narrow.
 
 | Needs | What it brings |
 | --- | --- |
-| Narrow | [The file tree](#the-file-tree) as a drawer over the page, closed to begin with. A tab draws its focused pane alone, and the footer says `pane 1/2` and drops the weekday, the week, the version and `zoom`, as [Panes and tabs](#panes-and-tabs) says. [The note finder](#the-note-finder) and [the note search](#the-note-search) draw no preview |
+| Narrow | [The file tree](#the-file-tree) as a drawer over the page, closed to begin with. A tab draws its focused pane alone, and the status bar says `pane 1/2` and drops the weekday, the week, the version and `zoom`, as [Panes and tabs](#panes-and-tabs) says. [The note finder](#the-note-finder) and [the note search](#the-note-search) draw no preview |
 | Coarse | The editor starts [without vim](#vim-on-or-off). Rows and buttons are 44px tall. Inputs are 16px. The frame makes room for [the on-screen keyboard](#the-on-screen-keyboard). A terminal draws [a row of keys](#terminal). Each pane draws [its own buttons](#what-each-pane-answers) |
 | Narrow and coarse | [The toolbar](#the-toolbar). No rail beside the file tree |
 | Narrow, and the last input was a touch | The editor takes [no focus it was not asked for](#focus) |
 | A touch, whatever the window | A tap on a wikilink [follows it](#wikilinks) |
-| Neither | A tap or a click [outside a panel](#closing-a-panel) closes it. A tap or a click on a notice in the footer opens it out in full |
+| Neither | A tap or a click [outside a panel](#closing-a-panel) closes it. A tap or a click on a notice in the status bar opens it out in full |
 
 The 44px rows and buttons are: tree rows and the tree's two buttons, tabs, the
-footer, the rows of the palette, the finder, the search, the note prompt and
+status bar, the rows of the palette, the finder, the search, the note prompt and
 the terminal prompt, the two buttons of the move prompt, the rows of a person
 card and of a book's contents, and every button named on this page as drawn on
 a touch screen.
 
 ### The toolbar
 
-A row along the bottom edge, under the footer.
+A row along the bottom edge, under the status bar.
 
 | Button | Does | Command | Key |
 | --- | --- | --- | --- |
@@ -124,8 +124,8 @@ answers nothing.
 
 ### The on-screen keyboard
 
-With the keyboard up, the cursor's line, the footer and the toolbar all stay
-above it. Chrome on Android shrinks the page for the keyboard. Safari on iOS
+With the keyboard up, the cursor's line, the status bar and the toolbar all
+stay above it. Chrome on Android shrinks the page for the keyboard. Safari on iOS
 covers the page, so there the frame reads `window.visualViewport` and pads away
 the covered part. A prompt, the palette, the finder and the search stop at the
 top of the keyboard the same way, input first. A zoomed page is padded too.
@@ -157,9 +157,9 @@ release. A press inside the panel closes nothing, and neither does a press that
 starts on one side of the panel's edge and ends on the other, a selection
 dragged out of the input being the usual one.
 
-A prompt holding something typed stays open: the note, todo, dump and clip
-prompts close only on Escape, or on their own Enter, once their input has
-changed.
+A prompt holding something typed stays open: the note, todo, dump, clip and
+terminal prompts close only on Escape, or on their own Enter, once their input
+has changed.
 
 The drawer closes on a tap outside it. A book's contents close on a tap on the
 dimmed page around them.
@@ -177,10 +177,10 @@ dimmed page around them.
 | A video | A tap on the count goes to the next video. The player's controls are YouTube's own | [The video pane](#the-video-pane) |
 | A person card | A tap on a row opens the line it names | [The person card](#the-person-card) |
 | The review | Every move is a button | [The review pane](#the-review-pane) |
-| A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` and `close` act on the second tap | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
+| A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
 | An HTML page | The page's own links and buttons | [The file tree](#the-file-tree) |
-| The footer | A tap on a notice, or on the save sign of a failed write, opens it out in full | [Panes and tabs](#panes-and-tabs) |
+| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full | [Panes and tabs](#panes-and-tabs) |
 | The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](#the-command-palette) |
 
 ### Still keys only

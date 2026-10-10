@@ -9,21 +9,21 @@ function Frame({ on }: { on: boolean }) {
 }
 
 /** A visual viewport a test moves by hand, the way a keyboard moves a real one. */
-function stubViewport() {
+function stubViewport(layout = 800) {
   const listeners = new Map<string, () => void>();
   const viewport = {
     scale: 1,
     offsetTop: 0,
-    height: 800,
+    height: layout,
     addEventListener: (type: string, listener: () => void) => listeners.set(type, listener),
     removeEventListener: (type: string) => listeners.delete(type),
   };
   vi.stubGlobal("visualViewport", viewport);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-    bottom: 800,
+    bottom: layout,
   } as DOMRect);
   // The layout viewport's height, which jsdom reports as nothing.
-  vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+  vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(layout);
   return { viewport, listeners };
 }
 
@@ -78,6 +78,29 @@ describe("useKeyboardInset", () => {
     expect(frame.style.paddingBottom).toBe("");
     expect(frame.style.getPropertyValue("--keyboard")).toBe("");
     expect(listeners.size).toBe(0);
+  });
+
+  // An iPhone 844 tall with a 336px keyboard. `shows` is the visual
+  // viewport's height in layout pixels, which is the glass left over the keys
+  // divided by the zoom.
+  it.each([
+    { name: "no zoom and no keyboard", scale: 1, shows: 844, offsetTop: 0, pads: 0 },
+    { name: "no zoom, keyboard up", scale: 1, shows: 508, offsetTop: 0, pads: 336 },
+    { name: "no zoom, keyboard up, panned", scale: 1, shows: 508, offsetTop: 100, pads: 236 },
+    { name: "a pinch and no keyboard, at the top", scale: 2, shows: 422, offsetTop: 0, pads: 0 },
+    { name: "a pinch and no keyboard, at the foot", scale: 2, shows: 422, offsetTop: 422, pads: 0 },
+    // Safari's own zoom on the focus of a small input, and where it pans to.
+    { name: "zoomed, keyboard up, at the top", scale: 1.23, shows: 413, offsetTop: 0, pads: 273 },
+    { name: "zoomed, keyboard up, part way", scale: 1.23, shows: 413, offsetTop: 300, pads: 131 },
+    { name: "zoomed, keyboard up, at the foot", scale: 1.23, shows: 413, offsetTop: 431, pads: 0 },
+  ])("pads $pads with $name", ({ scale, shows, offsetTop, pads }) => {
+    const { viewport, listeners } = stubViewport(844);
+    const { getByTestId } = render(<Frame on />);
+
+    Object.assign(viewport, { scale, height: shows, offsetTop });
+    listeners.get("scroll")?.();
+
+    expect(getByTestId("frame").style.paddingBottom).toBe(`${pads}px`);
   });
 
   it("listens to nothing when it is off", () => {

@@ -40,8 +40,9 @@ The test is the primary pointer and nothing else. A keyboard is not a pointer,
 so an iPad in a keyboard case still answers coarse and starts without vim,
 though it has an Escape key. That is the wrong guess for that device, and the
 app has no dependable way to make a better one: a browser does not say whether
-a keyboard is attached. The answer is the toggle. A choice made by hand is stored and from
-then on wins over the pointer, so the iPad's owner turns vim on one time.
+a keyboard is attached. The answer is the toggle. The browser stores a choice
+made by hand, and from then on the choice wins over the pointer, so the iPad's
+owner turns vim on one time.
 
 The toggle is a row of the command palette and has no leader key. A leader
 sequence is a vim mapping, and one that turned vim off could not turn it back
@@ -63,8 +64,9 @@ back side by side when the window widens, as when a phone is turned on its
 side.
 
 It is not called a zoom, though. A zoom is a mode somebody turned on, and the
-footer says so. Nobody asked for this one, so the footer counts instead:
-`pane 1/2` tells you there is a pane you cannot see, which `zoom` would not.
+status bar says so. Nobody asked for this one, so the status bar counts
+instead: `pane 1/2` tells you there is a pane you cannot see, which `zoom`
+would not.
 
 This follows the width alone. A thin desktop window has the same two useless
 columns.
@@ -77,7 +79,7 @@ phone the focus is what raises the on-screen keyboard, and the keyboard takes
 half the screen. A tap that opened a note from the finder asked to read it. A
 tap on the text is the one that asks to type.
 
-So the question is put to the last input, not to the device. After a key, the
+So the app asks the last input, not the device. After a key, the
 editor takes the focus as before. After a touch, it does not. A tablet with a
 keyboard attached answers both ways within a minute, and gets the right result
 each time.
@@ -95,29 +97,28 @@ next keys typed would be the tree's, and `d` there deletes the row. Giving the
 editor the focus is the safer of the two, and a wide screen has room for a
 keyboard.
 
-A terminal is left out of the rule: a shell is for typing.
+The rule leaves a terminal out: a shell is for typing.
 
 ## The toolbar stays above the keyboard
 
 The toolbar could hide while something is being typed into, and give its 44px
-back to the note. It stays. The palette lists a
-note's inserts and edits only when it opens over that note's editor, which is
-while the keyboard is up. A toolbar hidden then would be gone at the one moment
-`run` has the most to offer, and with vim off there is no other way to the
-palette from a note but typing `/`.
+back to the note. It stays. The palette lists a note's inserts and edits only
+when it opens over that note's editor, which is while the keyboard is up. A
+toolbar hidden then would be gone at the one moment `run` has the most to
+offer, and with vim off there is no other way to the palette from a note but
+typing `/`.
 
 For the same reason a tap on a toolbar button does not take the focus. The
 palette finds the editor it opens over by asking what holds the focus. A button
 that took the focus would open a palette with no note behind it, and the
 keyboard would fold away under the finger.
 
-Keeping the toolbar in sight takes work on iOS. Chrome on Android shrinks the page
-when the keyboard opens, which the viewport meta asks for, and everything moves
-up with it. Safari covers the page and tells only `window.visualViewport`. So
-the frame of the page measures what is covered and pads it away, and the panes,
-the footer and the toolbar all end at the top of the keyboard. One reader does
-this for the whole frame. A second one inside a pane would measure after the
-first had made room, and find nothing covered.
+Keeping the toolbar in sight takes work on iOS, where the keyboard covers the
+page and does not shrink it.
+[The on-screen keyboard](/reference/editor-keys.md#the-on-screen-keyboard)
+states how the frame makes room. One reader does that for the whole frame, and
+not one per pane: a second reader inside a pane would measure after the first
+had made room, and find nothing covered.
 
 Inputs are 16px under a finger because Safari zooms the page when a smaller
 input takes the focus, and stays zoomed. The editor's own text is smaller, so
@@ -140,13 +141,13 @@ strip and then choosing `done` by name is already two deliberate moves.
 ### Why not an Undo
 
 An earlier round did it the other way: the tap wrote at once, and an `Undo`
-appeared after it. It was removed. To put a todo back, the Undo had to write to
-the line the cycle had just written, and it could not confirm which line that
-was. The vault decides what a cycle writes, and the browser cannot know it
-ahead: a recurring todo, for one, gains a copy above it when it is ticked. So
-the Undo guessed, and an Undo that guesses wrong writes to the wrong line. The
-guards built round the guess (a read to confirm, a chain of writes, a check of
-the text) cost the keys a fast second press.
+appeared after it. A later commit removed it. To put a todo back, the Undo had
+to write to the line the cycle had just written, and it could not confirm
+which line that was. The vault decides what a cycle writes, and the browser
+cannot know it ahead: a recurring todo, for one, gains a copy above it when it
+is ticked. So the Undo guessed, and an Undo that guesses wrong writes to the
+wrong line. The guards built round the guess (a read to confirm, a chain of
+writes, a check of the text) cost the keys a fast second press.
 
 A question before the write needs to know nothing about what the write will do.
 
