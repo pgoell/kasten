@@ -1,6 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { type ITheme, Terminal } from "@xterm/xterm";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { keyBytes, type TerminalKey, TerminalKeys, withCtrl } from "@/components/terminal-keys";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import "@xterm/xterm/css/xterm.css";
 import {
@@ -12,6 +13,7 @@ import {
   TTYD_SUBPROTOCOL,
   terminalUrl,
 } from "@/lib/ttyd";
+import { useViewport } from "@/lib/use-viewport";
 
 /**
  * The One colours, read off the same CSS variables the editor is painted from.
@@ -65,6 +67,7 @@ export function TerminalPane({
   focusSignal,
   focused = true,
 }: TerminalPaneProps) {
+  const frame = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   // Read through a ref, the way `editor.tsx` reads the same prop. The terminal
@@ -78,6 +81,13 @@ export function TerminalPane({
   useEffect(() => {
     commandsRef.current = commands;
   });
+
+  const { coarse } = useViewport();
+  // The key row's Ctrl, armed for one key. The state paints the button and the
+  // ref is what the terminal's own handler reads, since that handler is built
+  // once per session and would otherwise hold the first render's answer.
+  const [ctrl, setCtrl] = useState(false);
+  const ctrlRef = useRef(false);
 
   useEffect(() => {
     const element = host.current;
@@ -145,7 +155,15 @@ export function TerminalPane({
       if (decoded.kind === "output") term.write(decoded.bytes);
     };
 
-    const typing = term.onData((data) => {
+    // The key row's keys arrive here too, through `term.input`, so this is the
+    // one place Ctrl is spent: on the next key, whichever keyboard it is from.
+    const typing = term.onData((typed) => {
+      let data = typed;
+      if (ctrlRef.current) {
+        data = withCtrl(typed);
+        ctrlRef.current = false;
+        setCtrl(false);
+      }
       if (socket.readyState === WebSocket.OPEN) socket.send(encodeInput(data));
     });
     // Tell the PTY what `fit()` just decided, or a rewrapped terminal draws at
@@ -199,6 +217,55 @@ export function TerminalPane({
     return () => window.removeEventListener("focus", onWindowFocus);
   }, [focused]);
 
+  // An on-screen keyboard that covers the page rather than shrinking it, which
+  // is every iOS one: the layout keeps its height, and only the visual viewport
+  // says how much of it is still in sight. Whatever of the pane lies under the
+  // keyboard is padded away, the host shrinks, and its `ResizeObserver` refits
+  // the terminal. Where the keyboard does shrink the layout, as the viewport
+  // meta asks of Android, nothing is covered and this pads nothing.
+  useEffect(() => {
+    const element = frame.current;
+    const viewport = window.visualViewport;
+    if (!coarse || element === null || !viewport) return;
+
+    const clear = () => {
+      // A pinch zoom shrinks the visual viewport too, and is not a keyboard.
+      const covered =
+        viewport.scale === 1
+          ? element.getBoundingClientRect().bottom - (viewport.offsetTop + viewport.height)
+          : 0;
+      element.style.paddingBottom = `${Math.max(0, Math.round(covered))}px`;
+    };
+
+    clear();
+    // `scroll` as well: iOS pans the visual viewport after the keyboard is up.
+    viewport.addEventListener("resize", clear);
+    viewport.addEventListener("scroll", clear);
+    return () => {
+      viewport.removeEventListener("resize", clear);
+      viewport.removeEventListener("scroll", clear);
+      element.style.paddingBottom = "";
+    };
+  }, [coarse]);
+
+  function onKey(key: TerminalKey) {
+    const term = termRef.current;
+    if (term === null) return;
+    if (key === "Ctrl") {
+      ctrlRef.current = !ctrlRef.current;
+      setCtrl(ctrlRef.current);
+      return;
+    }
+    // `input` and not the socket: it fires `onData`, so the key takes the path
+    // a typed one takes, scrolls the terminal to the prompt and spends Ctrl.
+    term.input(keyBytes(key, ctrlRef.current, term.modes.applicationCursorKeysMode));
+  }
+
   // No border of its own: `pane-layout.tsx` draws that already.
-  return <div ref={host} className="h-full w-full" />;
+  return (
+    <div ref={frame} className="flex h-full w-full flex-col">
+      <div ref={host} className="min-h-0 w-full flex-1" />
+      {coarse && <TerminalKeys ctrl={ctrl} onKey={onKey} />}
+    </div>
+  );
 }

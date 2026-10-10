@@ -366,6 +366,27 @@ work, not evidence that they are comfortable, and they are expected to change.
 place to change them; the component, the `<leader>?` panel and its test all
 derive from those two. This table does not, and has to be edited by hand.
 
+On a touch screen, which is a coarse primary pointer, a row of keys sits under
+the terminal, for what an on-screen keyboard lacks. A mouse never sees it.
+
+| Key | Sends |
+| --- | --- |
+| `Esc` | Escape |
+| `Tab` | Tab |
+| `Ctrl` | Nothing by itself. It holds Ctrl for the next key and lets go after it; a second tap lets go at once |
+| `←` `↓` `↑` `→` | The arrow, in the cursor mode the running program asked for, so they work in vim and less as well as at a prompt |
+| `\|` `/` `-` | The character |
+
+`Ctrl` applies to the next key from either keyboard. A letter typed after it
+becomes the control character, so `Ctrl` then `c` is `Ctrl+C`. An arrow becomes
+the Ctrl arrow, `/` and `-` become `Ctrl+_` and `|` becomes `Ctrl+\`, as on a
+keyboard. Anything else goes through unchanged and still lets go of Ctrl.
+
+A tap on a key leaves the focus in the terminal, so the on-screen keyboard
+stays up. A tap on the terminal focuses it and raises the keyboard. The
+terminal refits when the keyboard opens and closes: where the keyboard covers
+the page rather than shrinking it, the pane pads away the covered part.
+
 `Ctrl+Shift+Q` empties the pane rather than removing it, which is what
 `<leader>q` does to a note. That is also the way out of a window that holds
 nothing but a terminal: there is no chord that splits, so with one terminal
