@@ -10,7 +10,14 @@ import { type Align, alignsOf, isRow } from "@/lib/table";
 import { parseTodo } from "@/lib/todo";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
 import { playerUrl, videoId, watchedAt } from "@/lib/video";
-import { setVimMode, type VimMode, vimModeField, vimModeState } from "@/lib/vim-mode";
+import {
+  editingMode,
+  setVimMode,
+  type VimMode,
+  vimKeys,
+  vimModeField,
+  vimModeState,
+} from "@/lib/vim-mode";
 import { vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
 /** An empty replacement: the range is in the document but not on the screen. */
@@ -389,7 +396,7 @@ function revealsSource(mode: VimMode): boolean {
 }
 
 function isLineRevealed(state: EditorState, line: Line): boolean {
-  if (!revealsSource(state.field(vimModeField))) return false;
+  if (!revealsSource(editingMode(state))) return false;
   return state.selection.ranges.some((range) => range.from <= line.to && range.to >= line.from);
 }
 
@@ -402,7 +409,7 @@ function isLineRevealed(state: EditorState, line: Line): boolean {
  * The one the cursor is in is the one whose marks are worth seeing.
  */
 function isNodeRevealed(state: EditorState, from: number, to: number): boolean {
-  if (!revealsSource(state.field(vimModeField))) return false;
+  if (!revealsSource(editingMode(state))) return false;
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 }
 
@@ -808,7 +815,11 @@ function build(state: EditorState): Live {
 const live = StateField.define<Live>({
   create: build,
   update(value, tr) {
-    const modeChanged = tr.effects.some((effect) => effect.is(setVimMode));
+    // Turning vim off or on arrives by reconfiguration, the way the listing
+    // below does, and changes which line shows its source as a mode change does.
+    const modeChanged =
+      tr.effects.some((effect) => effect.is(setVimMode)) ||
+      tr.startState.facet(vimKeys) !== tr.state.facet(vimKeys);
     // The listing arrives by reconfiguration rather than by effect, so there is
     // nothing in `tr.effects` to read it off. A note holding a link to a note
     // that has just been written has to stop calling it dead.

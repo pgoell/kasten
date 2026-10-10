@@ -8,7 +8,7 @@ import { useCallback, useSyncExternalStore } from "react";
 const NARROW = "(width < 48rem)";
 
 /** A finger rather than a mouse. The primary pointer only: a laptop with a touch screen stays fine. */
-const COARSE = "(pointer: coarse)";
+export const COARSE = "(pointer: coarse)";
 
 function useMediaQuery(query: string): boolean {
   const subscribe = useCallback(
