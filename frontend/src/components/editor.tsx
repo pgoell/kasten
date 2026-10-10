@@ -17,9 +17,10 @@ import { useEffect, useRef } from "react";
 import { backticks } from "@/lib/backticks";
 import { toHtml, toSlack } from "@/lib/copy-as";
 import { editorCommands } from "@/lib/editor-commands";
+import { toggleMark } from "@/lib/format-commands";
 import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
-import type { EditorCommands } from "@/lib/key-bindings";
+import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
@@ -323,6 +324,12 @@ function followOnTap(): Extension {
       landed = editing ? null : target;
       return false;
     },
+    // The browser takes the finger for a scroll. No click follows one, but
+    // nothing should be left waiting for the next click either.
+    pointercancel() {
+      landed = null;
+      return false;
+    },
     click(_event, view) {
       if (landed === null) return false;
       view.state.facet(followHandler)?.(landed);
@@ -367,11 +374,31 @@ const relativeNumbers = lineNumbers({
 });
 
 /**
+ * The formatting chords as plain bindings, for the editor without vim.
+ *
+ * `FORMAT` spells each key for vim, `<C-S-H>`, and CodeMirror wants
+ * `Ctrl-Shift-h`. Without these ctrl+i falls through to basicSetup, which
+ * selects the enclosing syntax node on it.
+ */
+const formatKeys = keymap.of(
+  FORMAT.map(({ key, spec }) => ({
+    key: key
+      .slice(1, -1)
+      .replace("C-", "Ctrl-")
+      .replace("S-", "Shift-")
+      .replace(/.$/, (letter) => letter.toLowerCase()),
+    run: (view: EditorView) => toggleMark(view, spec),
+    preventDefault: true,
+  })),
+);
+
+/**
  * What the compartment holds: vim and the gutter that counts for it, or the
- * word that there is none, which live preview reads as always typing.
+ * word that there is none, which live preview reads as always typing, and the
+ * chords vim would have resolved.
  */
 function modalKeys(on: boolean): Extension {
-  return on ? [vim(), relativeNumbers] : vimKeys.of(false);
+  return on ? [vim(), relativeNumbers] : [vimKeys.of(false), formatKeys];
 }
 
 /**
@@ -714,7 +741,10 @@ export function Editor({
             // The terminal's chord for the palette, here as well: `<leader>:`
             // is a vim mapping, and with vim off no other key opens it.
             {
-              key: "Mod-Shift-p",
+              // Ctrl on every platform and not `Mod`, which is cmd on a Mac:
+              // `TERMINAL_CHORD` is ctrl there too, and one chord has to mean
+              // one thing in both panes.
+              key: "Ctrl-Shift-p",
               run: (view) => {
                 view.state.facet(editorCommands)?.openPalette();
                 return true;

@@ -27,22 +27,25 @@ edit. Where it is a mouse, the editor starts with vim.
 `Toggle vim keys` in [the command palette](#the-command-palette) changes that by
 hand. The browser stores the choice in `localStorage` under `kasten.vim`, as
 `on` or `off`, and from then on the choice wins over the pointer. Every open
-pane follows at once, and the text, the cursor and the undo history stay.
+pane follows at once, and the text, the cursor and the undo history stay. Every
+other tab holding kasten follows at the same moment, not at its next keystroke.
+A browser that blocks site data cannot store the choice: the editor then goes
+by the pointer, and a toggle holds until the page is closed.
 
 Without vim the editor is a plain one. Every line can be typed into, live
 preview shows the source of the line the cursor is on and of the mark the
 cursor is in, and the line numbers count from the top.
 
-Every key on this page that vim resolves stops working: the leader, the
-formatting chords, `gf`, Enter on a link, the ex prompt and the yank to the
-clipboard. Ctrl+S, Tab, Ctrl+click, the `/` menu and the completions stay. The
-palette runs the rest by name:
+Every key on this page that vim resolves stops working: the leader, `gf`,
+Enter on a link, the ex prompt and the yank to the clipboard. Ctrl+S, Tab,
+Ctrl+click, the `/` menu, the completions and the four
+[formatting](#formatting) chords stay, the chords working wherever the cursor
+is, there being no mode to ask about. The palette runs the rest by name:
 
 | Lost key | Palette row |
 | --- | --- |
 | `<leader>` and a letter | the row with the same label |
 | `<leader>1` to `<leader>0` | `Go to tab 1` to `Go to tab 10` |
-| Ctrl+B, Ctrl+I, Ctrl+Shift+H, Ctrl+Shift+X | `Bold`, `Italic`, `Highlight`, `Strikethrough` |
 | `:w` | `Write the note` |
 | `:e` | `Read the note off the vault again` |
 | `:e!` | `Read the note off the vault again, throwing away unsaved text` |
@@ -52,9 +55,12 @@ palette runs the rest by name:
 The three copy rows take the selection, or the whole note where nothing is
 selected. `:copy` with a line range typed by hand has no row.
 
-Ctrl+Shift+P opens the palette from a note with or without vim. A device with
-no keyboard has no chord: there, type `/` at the start of a line or after a
-space and choose `Run a command by name`.
+Ctrl+Shift+P opens the palette from a note with or without vim. The key is Ctrl
+on a Mac too, as it is in [a terminal](#terminal). Firefox on Windows and Linux
+keeps that chord for a private window and does not hand it to the page, so it
+opens nothing there. Without vim, and on a device with no keyboard, the other
+way in is to type `/` at the start of a line or after a space and choose
+`Run a command by name`.
 
 ## Leader
 
@@ -1283,7 +1289,8 @@ puts vim in insert mode first.
 
 ## Formatting
 
-These apply in insert and visual mode. Vim owns all four in normal mode, where
+These apply in insert and visual mode, and everywhere with
+[vim off](#vim-on-or-off). Vim owns all four in normal mode, where
 they page up, walk the jump list, and decrement a number, and they keep doing
 that. The bindings carry a mode and vim's own do not, which is what leaves
 normal mode alone.

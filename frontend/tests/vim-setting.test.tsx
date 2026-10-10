@@ -1,3 +1,4 @@
+import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
@@ -38,7 +39,10 @@ function viewIn(container: HTMLElement) {
 }
 
 beforeEach(() => localStorage.clear());
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("the vim setting", () => {
   it("runs vim on a fine pointer", () => {
@@ -69,20 +73,76 @@ describe("the vim setting", () => {
     expect(pressDd(container)).toBe("line oneline two");
   });
 
-  it("toggles from the palette, stores the answer, and keeps the buffer", () => {
+  it("toggles from the palette and stores the answer", () => {
     const { container } = render(<Editor initialDoc={DOC} />);
-    // An edit the vault never saw, which a remount would lose.
-    pressDd(container);
 
     act(() => entry(null, "Toggle vim keys").run());
 
     expect(localStorage.getItem("kasten.vim")).toBe("off");
-    expect(pressDd(container)).toBe("line two");
+    expect(pressDd(container)).toBe("line oneline two");
 
     act(() => toggleVim());
 
     expect(localStorage.getItem("kasten.vim")).toBe("on");
-    expect(pressDd(container)).toBe("");
+    expect(pressDd(container)).toBe("line two");
+  });
+
+  it("keeps the view, the text, the cursor and the undo history over a toggle", () => {
+    const { container } = render(<Editor initialDoc={"one\ntwo\nthree"} startLine={2} />);
+    const view = viewIn(container);
+    // An edit the vault never saw, which a remount would lose.
+    pressDd(container);
+    const cursor = view.state.selection.main.head;
+
+    act(() => toggleVim());
+
+    expect(viewIn(container)).toBe(view);
+    expect(view.state.doc.toString()).toBe("one\nthree");
+    expect(view.state.selection.main.head).toBe(cursor);
+    expect(view.state.doc.lineAt(cursor).number).toBe(2);
+
+    // The edit made under vim is still one step back without it.
+    act(() => void undo(view));
+
+    expect(view.state.doc.toString()).toBe("one\ntwo\nthree");
+  });
+
+  it("follows a toggle made in another tab at once, without waiting for a render", () => {
+    const { container } = render(<Editor initialDoc={DOC} />);
+
+    // What the browser does in every tab but the one that wrote.
+    localStorage.setItem("kasten.vim", "off");
+    act(() => void window.dispatchEvent(new StorageEvent("storage", { key: "kasten.vim" })));
+
+    expect(pressDd(container)).toBe("line oneline two");
+  });
+
+  it("falls back to the pointer when the browser will not let storage be read", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("The operation is insecure.", "SecurityError");
+    });
+    const { container } = render(<Editor initialDoc={DOC} />);
+
+    expect(pressDd(container)).toBe("line two");
+  });
+
+  it("still toggles for the session when the browser will not let storage be written", () => {
+    const blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+    const { container } = render(<Editor initialDoc={DOC} />);
+
+    act(() => toggleVim());
+
+    expect(localStorage.getItem("kasten.vim")).toBeNull();
+    expect(pressDd(container)).toBe("line oneline two");
+
+    // A write that lands puts the store back in charge, for the tests below
+    // as much as for the reader.
+    blocked.mockRestore();
+    act(() => toggleVim());
+
+    expect(localStorage.getItem("kasten.vim")).toBe("on");
   });
 
   it("opens the palette on ctrl+shift+p with vim on, past vim's own keymap", () => {
@@ -137,6 +197,23 @@ describe("the editor without vim", () => {
     expect(gutter(container)).toEqual(["1", "2", "3"]);
   });
 
+  it("bolds and italicises on the chords vim would have resolved", () => {
+    const { container } = render(<Editor initialDoc="word" />);
+    const view = viewIn(container);
+
+    fireEvent.keyDown(content(container), { key: "b", ctrlKey: true });
+    expect(view.state.doc.toString()).toBe("**word**");
+
+    fireEvent.keyDown(content(container), { key: "b", ctrlKey: true });
+    fireEvent.keyDown(content(container), { key: "i", ctrlKey: true });
+    expect(view.state.doc.toString()).toBe("*word*");
+
+    fireEvent.keyDown(content(container), { key: "i", ctrlKey: true });
+    // CodeMirror reads a shifted letter off the key code.
+    fireEvent.keyDown(content(container), { key: "X", keyCode: 88, ctrlKey: true, shiftKey: true });
+    expect(view.state.doc.toString()).toBe("~~word~~");
+  });
+
   it("opens the palette on ctrl+shift+p", () => {
     const commands = stubCommands();
     const { container } = render(<Editor initialDoc={DOC} commands={commands} />);
@@ -171,12 +248,15 @@ describe("the editor without vim", () => {
       <Editor initialDoc={"intro\n\nsee [[reading/borges]]"} onFollow={onFollow} />,
     );
 
-    // No click: a drag ends without one.
-    fireEvent.pointerDown(container.querySelector(".cm-wikilink") as HTMLElement, {
-      pointerType: "touch",
-    });
-    fireEvent.pointerDown(content(container), { pointerType: "touch" });
-    fireEvent.click(content(container));
+    const link = container.querySelector(".cm-wikilink") as HTMLElement;
+
+    // What a browser sends for a drag: the finger lands, moves, and the
+    // browser takes the gesture for a scroll. The click is one no browser
+    // sends after that, and it must find nothing waiting.
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.pointerMove(link, { pointerType: "touch", clientY: 40 });
+    fireEvent.pointerCancel(link, { pointerType: "touch" });
+    fireEvent.click(link);
 
     expect(onFollow).not.toHaveBeenCalled();
   });
