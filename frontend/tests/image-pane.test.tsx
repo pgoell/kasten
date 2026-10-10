@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { ImagePane } from "@/components/image-pane";
+import { gesture, ImagePane } from "@/components/image-pane";
 import { stubCommands } from "./stub-commands";
 
 const SHOT = "99 Misc/02 Assets/01 Images/2026-08-12-abcdef01.png";
@@ -13,6 +13,175 @@ function open(path = SHOT) {
   const pane = container.querySelector("[data-image-pane]") as HTMLElement;
   return { commands, onDelete, pane };
 }
+
+/** The box the picture sits in, which is what takes the fingers. */
+function surface() {
+  return screen.getByRole("img").parentElement as HTMLElement;
+}
+
+function transform() {
+  return screen.getByRole("img").style.transform;
+}
+
+/** Two fingers down 100 apart around the origin, then spread to 200. */
+function pinchOut() {
+  fireEvent.pointerDown(surface(), { pointerId: 1, clientX: -50, clientY: 0 });
+  fireEvent.pointerDown(surface(), { pointerId: 2, clientX: 50, clientY: 0 });
+  fireEvent.pointerMove(surface(), { pointerId: 1, clientX: -150, clientY: 0 });
+}
+
+describe("gesture", () => {
+  const centre = { x: 100, y: 100 };
+  const fitted = { scale: 1, x: 0, y: 0 };
+
+  it("scales by the ratio of the distances and keeps the midpoint where it was", () => {
+    // The midpoint is 40 right of the centre, so doubling pushes the picture's
+    // middle 40 left to keep that point under the fingers.
+    const next = gesture(
+      fitted,
+      [
+        { x: 120, y: 100 },
+        { x: 160, y: 100 },
+      ],
+      [
+        { x: 100, y: 100 },
+        { x: 180, y: 100 },
+      ],
+      centre,
+    );
+
+    expect(next).toEqual({ scale: 2, x: -40, y: 0 });
+  });
+
+  it("carries the picture along when both fingers move together", () => {
+    const next = gesture(
+      { scale: 2, x: 0, y: 0 },
+      [
+        { x: 90, y: 100 },
+        { x: 110, y: 100 },
+      ],
+      [
+        { x: 100, y: 130 },
+        { x: 120, y: 130 },
+      ],
+      centre,
+    );
+
+    expect(next).toEqual({ scale: 2, x: 10, y: 30 });
+  });
+
+  it("stops at fitted and at eight times, and fitted is centred", () => {
+    const apart = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+    ];
+    const close = [
+      { x: 45, y: 0 },
+      { x: 55, y: 0 },
+    ];
+
+    expect(gesture({ scale: 2, x: 30, y: 30 }, apart, close, centre)).toEqual(fitted);
+    expect(gesture({ scale: 4, x: 0, y: 0 }, close, apart, centre).scale).toBe(8);
+  });
+
+  it("drags a zoomed picture with one pointer and leaves a fitted one alone", () => {
+    const before = [{ x: 10, y: 10 }];
+    const after = [{ x: 25, y: 5 }];
+
+    expect(gesture({ scale: 2, x: 1, y: 1 }, before, after, centre)).toEqual({
+      scale: 2,
+      x: 16,
+      y: -4,
+    });
+    expect(gesture(fitted, before, after, centre)).toBe(fitted);
+  });
+
+  it("ignores two pointers on one spot", () => {
+    const spot = { x: 5, y: 5 };
+
+    expect(gesture(fitted, [spot, spot], [{ x: 0, y: 0 }, spot], centre)).toBe(fitted);
+  });
+});
+
+describe("the image pane by touch", () => {
+  beforeEach(() => {
+    // jsdom has no pointer capture.
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+  });
+
+  it("starts fitted, on a surface the browser does not scroll or zoom", () => {
+    open();
+
+    expect(transform()).toBe("translate(0px, 0px) scale(1)");
+    expect(surface()).toHaveClass("touch-none");
+    expect(screen.getByRole("img")).toHaveAttribute("draggable", "false");
+  });
+
+  it("zooms on a pinch, and captures each pointer", () => {
+    open();
+
+    pinchOut();
+
+    // jsdom has no layout, so the box's centre is the origin and the midpoint
+    // moved from 0 to -50.
+    expect(transform()).toBe("translate(-50px, 0px) scale(2)");
+    expect(HTMLElement.prototype.setPointerCapture).toHaveBeenCalledWith(1);
+    expect(HTMLElement.prototype.setPointerCapture).toHaveBeenCalledWith(2);
+  });
+
+  it("leaves a fitted picture where it is under one pointer", () => {
+    open();
+
+    fireEvent.pointerDown(surface(), { pointerId: 1, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(surface(), { pointerId: 1, clientX: 40, clientY: 40 });
+
+    expect(transform()).toBe("translate(0px, 0px) scale(1)");
+  });
+
+  it("pans a zoomed picture with the finger left down", () => {
+    open();
+    pinchOut();
+
+    fireEvent.pointerUp(surface(), { pointerId: 2 });
+    fireEvent.pointerMove(surface(), { pointerId: 1, clientX: -140, clientY: 20 });
+
+    expect(transform()).toBe("translate(-40px, 20px) scale(2)");
+  });
+
+  it("forgets a cancelled pointer, so the next finger does not pinch against it", () => {
+    open();
+    pinchOut();
+
+    fireEvent.pointerCancel(surface(), { pointerId: 1 });
+    fireEvent.pointerCancel(surface(), { pointerId: 2 });
+    fireEvent.pointerDown(surface(), { pointerId: 3, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(surface(), { pointerId: 3, clientX: 10, clientY: 0 });
+
+    expect(transform()).toBe("translate(-40px, 0px) scale(2)");
+  });
+
+  it("ignores a pointer that moves without being down, which is a mouse", () => {
+    open();
+    pinchOut();
+    fireEvent.pointerUp(surface(), { pointerId: 1 });
+    fireEvent.pointerUp(surface(), { pointerId: 2 });
+
+    fireEvent.pointerMove(surface(), { pointerId: 1, clientX: 300, clientY: 300 });
+
+    expect(transform()).toBe("translate(-50px, 0px) scale(2)");
+  });
+
+  it("shows the next picture fitted", () => {
+    const { rerender } = render(
+      <ImagePane path={SHOT} commands={stubCommands()} onDelete={vi.fn()} />,
+    );
+    pinchOut();
+
+    rerender(<ImagePane path="other.png" commands={stubCommands()} onDelete={vi.fn()} />);
+
+    expect(transform()).toBe("translate(0px, 0px) scale(1)");
+  });
+});
 
 describe("the image pane", () => {
   it("shows the image the vault serves, with the path above it", () => {
