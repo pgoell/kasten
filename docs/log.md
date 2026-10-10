@@ -320,4 +320,4 @@
 ## 2026-10-10
 
 * **Update**: the page's viewport meta gained `interactive-widget=resizes-content`, so the layout shrinks when an on-screen keyboard opens and nothing sits under the keyboard. A new hook, `useViewport` in `frontend/src/lib/use-viewport.ts`, answers whether the window is narrower than 768px and whether the primary pointer is coarse. No component reads the hook yet, so no page of these docs changes.
-* **Update**: [Editor keys](/reference/editor-keys.md) gained the row of keys a terminal pane draws on a touch screen: Esc, Tab, a sticky Ctrl, the four arrows, `|`, `/` and `-`. It says what each sends, that a tap keeps the on-screen keyboard up, and that the terminal refits when the keyboard opens and closes.
+* **Update**: [Editor keys](/reference/editor-keys.md) gained the row of keys a terminal pane draws on a touch screen: Esc, Tab, a sticky Ctrl, the four arrows, `|`, `/` and `-`. It says what each sends, that a tap keeps the on-screen keyboard up, which input lets go of Ctrl and which keeps it held, and that the terminal refits when the keyboard opens and closes.

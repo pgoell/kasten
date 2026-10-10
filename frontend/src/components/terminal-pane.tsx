@@ -155,11 +155,17 @@ export function TerminalPane({
       if (decoded.kind === "output") term.write(decoded.bytes);
     };
 
-    // The key row's keys arrive here too, through `term.input`, so this is the
-    // one place Ctrl is spent: on the next key, whichever keyboard it is from.
+    // Ctrl is spent here on the next thing typed, and on nothing that starts
+    // with an escape. xterm answers the program through this same event: a
+    // focus report, a mouse report, a reply to a query. With reporting on, the
+    // tap that raises the keyboard sends one, and it would otherwise take the
+    // Ctrl meant for the letter after it. A letter typed on a phone keyboard
+    // never starts with an escape; the row's own keys can, and spend Ctrl in
+    // `onKey`. A bracketed paste and an arrow from a hardware keyboard start
+    // with one too and leave Ctrl armed, which a tap on Ctrl undoes.
     const typing = term.onData((typed) => {
       let data = typed;
-      if (ctrlRef.current) {
+      if (ctrlRef.current && !typed.startsWith("\x1b")) {
         data = withCtrl(typed);
         ctrlRef.current = false;
         setCtrl(false);
@@ -191,6 +197,10 @@ export function TerminalPane({
       }
       term.dispose();
       termRef.current = null;
+      // Ctrl was armed for this shell, and the pane may be about to hold
+      // another: the route swaps `session` without remounting.
+      ctrlRef.current = false;
+      setCtrl(false);
     };
   }, [session]);
 
@@ -248,6 +258,15 @@ export function TerminalPane({
     };
   }, [coarse]);
 
+  // The row is gone with the finger, and Ctrl with nothing showing it armed
+  // would turn the next letter into a surprise.
+  useEffect(() => {
+    if (!coarse) {
+      ctrlRef.current = false;
+      setCtrl(false);
+    }
+  }, [coarse]);
+
   function onKey(key: TerminalKey) {
     const term = termRef.current;
     if (term === null) return;
@@ -256,9 +275,12 @@ export function TerminalPane({
       setCtrl(ctrlRef.current);
       return;
     }
+    const bytes = keyBytes(key, ctrlRef.current, term.modes.applicationCursorKeysMode);
+    ctrlRef.current = false;
+    setCtrl(false);
     // `input` and not the socket: it fires `onData`, so the key takes the path
-    // a typed one takes, scrolls the terminal to the prompt and spends Ctrl.
-    term.input(keyBytes(key, ctrlRef.current, term.modes.applicationCursorKeysMode));
+    // a typed one takes and scrolls the terminal to the prompt.
+    term.input(bytes);
   }
 
   // No border of its own: `pane-layout.tsx` draws that already.

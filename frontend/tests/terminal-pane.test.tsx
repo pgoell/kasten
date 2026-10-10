@@ -105,6 +105,7 @@ describe("TerminalPane", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("says the shell could not be reached when the socket never opens", () => {
@@ -140,11 +141,12 @@ describe("TerminalPane", () => {
   describe("key row", () => {
     /** A phone, with the socket open so a key has somewhere to go. */
     function phone() {
-      stubMatchMedia({ [COARSE]: true });
-      render(<TerminalPane session="notes" commands={stubCommands()} />);
+      const media = stubMatchMedia({ [COARSE]: true });
+      const view = render(<TerminalPane session="notes" commands={stubCommands()} />);
       act(() => socket().accept());
       // The auth frame is not a key.
       socket().sent.length = 0;
+      return { media, ...view };
     }
 
     function tap(name: string) {
@@ -204,6 +206,63 @@ describe("TerminalPane", () => {
       expect(socket().sent).toEqual([encodeInput("\x1b[1;5D"), encodeInput("\x1b[D")]);
     });
 
+    it("keeps Ctrl through what the terminal reports on its own", () => {
+      phone();
+
+      tap("Ctrl");
+      // Focus in, a mouse press and a device attributes reply, as xterm sends
+      // them for the tap that raises the keyboard.
+      for (const report of ["\x1b[I", "\x1b[<0;10;5M", "\x1b[?1;2c"]) act(() => term.type(report));
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+
+      act(() => term.type("d"));
+
+      expect(socket().sent.at(-1)).toEqual(encodeInput("\x04"));
+      expect(socket().sent).toHaveLength(4);
+    });
+
+    it("spends Ctrl on a typed run it cannot apply to", () => {
+      phone();
+
+      tap("Ctrl");
+      act(() => term.type("ls"));
+      act(() => term.type("c"));
+
+      expect(socket().sent).toEqual([encodeInput("ls"), encodeInput("c")]);
+    });
+
+    it("does not carry Ctrl over to another session in the same pane", () => {
+      const { rerender } = phone();
+
+      tap("Ctrl");
+      rerender(<TerminalPane session="other" commands={stubCommands()} />);
+      act(() => socket().accept());
+      socket().sent.length = 0;
+
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+      act(() => term.type("c"));
+      expect(socket().sent).toEqual([encodeInput("c")]);
+    });
+
+    it("lets go of Ctrl when the row goes away", async () => {
+      const { media } = phone();
+
+      tap("Ctrl");
+      await media.set(COARSE, false);
+      expect(screen.queryByRole("toolbar")).toBeNull();
+      act(() => term.type("c"));
+      expect(socket().sent).toEqual([encodeInput("c")]);
+
+      await media.set(COARSE, true);
+      expect(screen.getByRole("button", { name: "Ctrl" }).getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+    });
+
     it("lets go of Ctrl on a second tap", () => {
       phone();
 
@@ -235,7 +294,7 @@ describe("TerminalPane", () => {
       vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
         bottom: 800,
       } as DOMRect);
-      phone();
+      const { unmount } = phone();
       const frame = screen.getByRole("toolbar").parentElement as HTMLElement;
       expect(frame.style.paddingBottom).toBe("0px");
 
@@ -243,9 +302,27 @@ describe("TerminalPane", () => {
       listeners.get("resize")?.();
       expect(frame.style.paddingBottom).toBe("300px");
 
+      // The page panned up under the keyboard: less of the pane is covered.
+      viewport.offsetTop = 100;
+      listeners.get("scroll")?.();
+      expect(frame.style.paddingBottom).toBe("200px");
+
+      // A pinch zoom is not a keyboard.
+      viewport.scale = 2;
+      listeners.get("resize")?.();
+      expect(frame.style.paddingBottom).toBe("0px");
+
+      viewport.scale = 1;
+      viewport.offsetTop = 0;
       viewport.height = 800;
       listeners.get("resize")?.();
       expect(frame.style.paddingBottom).toBe("0px");
+
+      viewport.height = 500;
+      listeners.get("resize")?.();
+      unmount();
+      expect(frame.style.paddingBottom).toBe("");
+      expect(listeners.size).toBe(0);
     });
   });
 });

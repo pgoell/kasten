@@ -380,7 +380,10 @@ the terminal, for what an on-screen keyboard lacks. A mouse never sees it.
 `Ctrl` applies to the next key from either keyboard. A letter typed after it
 becomes the control character, so `Ctrl` then `c` is `Ctrl+C`. An arrow becomes
 the Ctrl arrow, `/` and `-` become `Ctrl+_` and `|` becomes `Ctrl+\`, as on a
-keyboard. Anything else goes through unchanged and still lets go of Ctrl.
+keyboard. Anything else typed goes through unchanged and still lets go of
+Ctrl. What starts with an escape keeps Ctrl held: what the terminal reports by
+itself (focus, the mouse, an answer to the program), a bracketed paste, and an
+arrow from a hardware keyboard.
 
 A tap on a key leaves the focus in the terminal, so the on-screen keyboard
 stays up. A tap on the terminal focuses it and raises the keyboard. The
