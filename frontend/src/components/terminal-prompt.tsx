@@ -9,6 +9,7 @@ import {
   PANEL_NARROW,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 
 /**
@@ -182,7 +183,7 @@ export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProp
                   opening.current = true;
                   onOpen(name);
                 }}
-                className={`${ROW} ${
+                className={`${ROW} ${TAP} ${
                   index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                 }`}
               >

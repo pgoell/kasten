@@ -268,6 +268,20 @@ turns it off, which is what tmux does, so `<leader>o` moves to the next pane
 and unzooms in one press. The four directions have nowhere to go while it is
 on, one pane being all there is on screen.
 
+A window narrower than 768px draws every tab that way, zoomed or not: the
+focused pane alone, the rest hidden and still holding what they held. The
+splits are kept, so they are back when the window widens. `<leader>o` is the
+way to the next pane there, and the footer does not say `zoom` for it. It
+says `pane 1/2` instead, the pane drawn and how many the tab holds, whenever
+the tab holds more than one.
+
+That window's footer carries the date and the time and leaves out the weekday,
+the week and the version. A notice takes the clock's place while it shows. A
+click or a tap on a notice opens it out in full above the footer, and one on
+the save sign of a write that failed or a note that changed on disk does the
+same with the reason and the way out; a second one shuts it. Under a mouse the
+same text is on hover.
+
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
 nothing to tell it apart from.
@@ -285,7 +299,8 @@ tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
 left focused, for the herdr session when that pane holds a terminal, and
-`todos` when it holds the todo list.
+`todos` when it holds the todo list. More tabs than the window is wide scroll
+sideways, and the strip keeps the tab on screen in view.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
 holding a note it writes the note and empties the pane, and it takes a terminal
@@ -1839,6 +1854,15 @@ fills the screen and says nothing about which note in the vault opened it.
 | `q` | Close the file tree |
 | Escape | Back to the editor |
 
+In a window narrower than 768px the tree is a drawer over the page rather than
+a panel beside it. It starts closed, the button on the rail at the left edge
+and `<leader>b` open it, and it has no grip to resize it by. A tap outside it
+closes it, and so does anything that hands the focus to a pane: opening a note,
+an image or a page from it, a note made with `c` or picked in the finder or the
+search, and Escape, which lands in the pane on screen. The page under an open
+drawer takes no focus and no keys. A panel open in a wide window closes when
+the window turns narrow.
+
 The tree draws the vault's images beside its notes, muted, keeping the suffix a
 note's row drops: the vault holds one kind of note and five kinds of image. They
 are the only rows here that are not notes, and nothing else in the app treats
@@ -1998,6 +2022,10 @@ into the finder has to name a path, and the finder never writes.
 | Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the highlighted note |
 | Escape | Close, and hand the focus back |
+
+A click or a tap on a row opens it, as Enter on it would. In a window narrower
+than 768px the list takes the whole panel, and the preview is neither read nor
+drawn; the same holds for [the note search](#the-note-search).
 
 Tab walks the list rather than completing anything, the way it does in a
 terminal fuzzy finder. There is nothing here to complete: Enter opens the row

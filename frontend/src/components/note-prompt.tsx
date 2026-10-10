@@ -13,6 +13,7 @@ import {
   PANEL_NARROW,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 
 /**
@@ -380,7 +381,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
                 // click still lands here, and takes the folder Tab would take.
                 tabIndex={-1}
                 onClick={() => pick(folder)}
-                className={`${ROW} ${
+                className={`${ROW} ${TAP} ${
                   index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                 }`}
               >

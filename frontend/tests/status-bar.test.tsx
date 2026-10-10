@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { StatusBar } from "@/components/status-bar";
 
 // The frontend's own half of the reading is stamped in at build time, so it is
@@ -161,6 +161,121 @@ describe("the clock in the bar", () => {
 
     rerender(<StatusBar zoom />);
     expect(screen.getByTestId("zoom-shown")).toHaveTextContent("zoom");
+  });
+
+  it("says which pane of how many is drawn, and nothing where it was not told", () => {
+    // A narrow window draws one pane of a split, which looks like a single note.
+    const { rerender } = render(<StatusBar />);
+    expect(screen.queryByTestId("pane-shown")).toBeNull();
+
+    rerender(<StatusBar pane="1/2" />);
+    expect(screen.getByTestId("pane-shown")).toHaveTextContent("pane 1/2");
+  });
+
+  it("goes out of reach under an open drawer", () => {
+    const { rerender } = render(<StatusBar />);
+    expect(screen.getByRole("contentinfo")).not.toHaveAttribute("inert");
+
+    rerender(<StatusBar inert />);
+    expect(screen.getByRole("contentinfo")).toHaveAttribute("inert");
+  });
+
+  // jsdom applies no media query, so the three below can only read the class
+  // that carries one. What it draws is checked in a browser.
+  it("is 44px tall under a finger and 24px under a mouse", () => {
+    render(<StatusBar />);
+
+    expect(screen.getByRole("contentinfo")).toHaveClass("h-6", "pointer-coarse:h-11");
+  });
+
+  it("drops the weekday, the week and the version below md", () => {
+    BUILD.value = "abc1234";
+    render(<StatusBar version="0.36.0" />);
+
+    expect(screen.getByText(/^CW \d+$/)).toHaveClass("max-md:hidden");
+    expect(screen.getByTestId("version")).toHaveClass("max-md:hidden");
+  });
+
+  it("gives a notice the clock's room below md", () => {
+    const { rerender } = render(<StatusBar />);
+    const clock = () => screen.getByText(/^CW \d+$/).parentElement;
+    expect(clock()).not.toHaveClass("max-md:hidden");
+
+    rerender(<StatusBar notice="A book is already there" />);
+    expect(clock()).toHaveClass("max-md:hidden");
+  });
+
+  it("opens a notice out in full on a tap, and shuts it on the next", () => {
+    // A finger cannot hover, so the `title` that carries the rest is no use.
+    render(<StatusBar notice="A book is already there" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("notice"));
+    expect(screen.getByTestId("status-detail")).toHaveTextContent("A book is already there");
+
+    fireEvent.click(screen.getByTestId("status-detail"));
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("shuts with the notice it showed, so the next one arrives closed", () => {
+    const { rerender } = render(<StatusBar notice="A book is already there" />);
+    fireEvent.click(screen.getByTestId("notice"));
+    expect(screen.getByTestId("status-detail")).toBeInTheDocument();
+
+    rerender(<StatusBar />);
+    rerender(<StatusBar notice="The upload was too large" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+
+    // One notice replacing another shuts it as well, nobody having asked for
+    // the second in full.
+    fireEvent.click(screen.getByTestId("notice"));
+    rerender(<StatusBar notice="A book is already there" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("shuts with the failure it showed, so the next one arrives closed", () => {
+    const { rerender } = render(<StatusBar status="error" reason="507" />);
+    fireEvent.click(screen.getByTestId("save-status"));
+    expect(screen.getByTestId("status-detail")).toBeInTheDocument();
+
+    rerender(<StatusBar status="saved" />);
+    rerender(<StatusBar status="error" reason="507" />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("opens out why a write failed and what to do about it, on a tap", () => {
+    render(<StatusBar status="error" reason="507 the disk is full" />);
+
+    fireEvent.click(screen.getByTestId("save-status"));
+
+    const detail = screen.getByTestId("status-detail");
+    expect(detail).toHaveTextContent("Could not save");
+    expect(detail).toHaveTextContent("507 the disk is full");
+    expect(detail).toHaveTextContent(":w or ctrl+s writes it again");
+  });
+
+  it("opens nothing out of a save that went fine", () => {
+    render(<StatusBar status="saved" />);
+
+    fireEvent.click(screen.getByTestId("save-status"));
+
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("keeps the bar out of the tab order, a keyboard having the hover", () => {
+    render(<StatusBar status="error" notice="A book is already there" />);
+
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveAttribute("tabindex", "-1");
+    }
+  });
+
+  it("cuts a long notice short rather than widen the bar", () => {
+    render(<StatusBar notice="A book is already there" />);
+
+    const notice = screen.getByTestId("notice");
+    expect(notice).toHaveClass("truncate");
+    expect(notice).toHaveAttribute("title", "A book is already there");
   });
 
   it("draws the notice before the archive tag", () => {
