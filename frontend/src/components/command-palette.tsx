@@ -9,6 +9,7 @@ import {
   PANEL_NARROW,
   ROW,
   STATUS,
+  TAP,
 } from "@/lib/overlay-styles";
 import type { PaletteEntry } from "@/lib/palette";
 
@@ -116,7 +117,7 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
               aria-selected={index === cursor}
               tabIndex={-1}
               onClick={() => accept(entry)}
-              className={`${ROW} flex justify-between gap-3 ${
+              className={`${ROW} ${TAP} flex justify-between gap-3 ${
                 index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
               }`}
             >
