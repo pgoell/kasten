@@ -1507,22 +1507,24 @@ describe("a book under a finger", () => {
     });
   }
 
-  it("turns the page forward on a tap near the right edge", async () => {
+  // By side and not by order: the fake counts `goLeft` and `goRight` apart
+  // from `prev` and `next`, which is what a book read right to left tells apart.
+  it("goes right on a tap near the right edge", async () => {
     await opened();
 
     tap(350);
 
-    expect(lastView().nexts).toBe(1);
-    expect(lastView().prevs).toBe(0);
+    expect(lastView().rights).toBe(1);
+    expect(lastView().lefts + lastView().nexts + lastView().prevs).toBe(0);
   });
 
-  it("turns the page back on a tap near the left edge", async () => {
+  it("goes left on a tap near the left edge", async () => {
     await opened();
 
     tap(50);
 
-    expect(lastView().prevs).toBe(1);
-    expect(lastView().nexts).toBe(0);
+    expect(lastView().lefts).toBe(1);
+    expect(lastView().rights + lastView().nexts + lastView().prevs).toBe(0);
   });
 
   it("turns nothing on a tap in the middle of the page", async () => {
@@ -1530,7 +1532,7 @@ describe("a book under a finger", () => {
 
     tap(200);
 
-    expect(lastView().nexts + lastView().prevs).toBe(0);
+    expect(lastView().lefts + lastView().rights).toBe(0);
   });
 
   it("leaves a tap on a link to the link", async () => {
@@ -1542,7 +1544,7 @@ describe("a book under a finger", () => {
 
     tap(350, link);
 
-    expect(lastView().nexts).toBe(0);
+    expect(lastView().rights).toBe(0);
   });
 
   it("turns nothing while words are selected", async () => {
@@ -1551,7 +1553,7 @@ describe("a book under a finger", () => {
 
     tap(350);
 
-    expect(lastView().nexts).toBe(0);
+    expect(lastView().rights).toBe(0);
   });
 
   it("leaves a click at the edge alone under a mouse", async () => {
@@ -1559,7 +1561,7 @@ describe("a book under a finger", () => {
 
     tap(350);
 
-    expect(lastView().nexts).toBe(0);
+    expect(lastView().rights).toBe(0);
   });
 
   it("opens the contents from the footer, the way t does", async () => {
@@ -1587,6 +1589,45 @@ describe("a book under a finger", () => {
       chapter: "One",
       image: undefined,
     });
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+  });
+
+  it("still takes a passage the press on Take put away", async () => {
+    const pane = await opened();
+    lastView().lastLocation = { cfi: CFI, tocItem: CHAPTERS[0] };
+    selects("A sentence worth keeping.");
+    const button = pane.container.querySelector("footer [data-take]") as HTMLElement;
+
+    // A `MouseEvent` under the pointer's name, the way `tap` builds its click:
+    // React listens by type, and whether this jsdom has a `PointerEvent` is
+    // then nobody's question.
+    const press = new MouseEvent("pointerdown", { bubbles: true, cancelable: true });
+    act(() => {
+      button.dispatchEvent(press);
+    });
+    expect(press.defaultPrevented).toBe(true);
+
+    // What a phone does for a tap outside the frame the words are in.
+    selectsNothing();
+    // Still there, or the click below would land on whatever took its place.
+    expect(pane.container.querySelector("footer [data-take]")).toBe(button);
+
+    await act(async () => button.click());
+
+    expect(pane.onTake).toHaveBeenCalledWith({
+      text: "A sentence worth keeping.",
+      chapter: "One",
+      image: undefined,
+    });
+    expect(pane.container.querySelector("[data-take]")).toBeNull();
+  });
+
+  it("forgets the passage for a collapse no press made", async () => {
+    const pane = await opened();
+    selects("A sentence worth keeping.");
+
+    selectsNothing();
+
     expect(pane.container.querySelector("[data-take]")).toBeNull();
   });
 

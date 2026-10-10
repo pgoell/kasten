@@ -41,6 +41,9 @@ interface FoliateView extends HTMLElement {
   close(): void;
   next(): void;
   prev(): void;
+  /** `prev` and `next` by the side of the page, which the book's direction decides (`view.js:519-524`). */
+  goLeft(): void;
+  goRight(): void;
   /**
    * Built by `open`, and a fixed-layout book's renderer has no `setStyles`.
    *
@@ -560,6 +563,25 @@ export function BookPane({
     range: Range;
     backward: boolean;
   } | null>(null);
+  /**
+   * Whether a finger is down on the footer's `Take`, between its press and its click.
+   *
+   * The book's words live in foliate's iframe and the button does not, so a
+   * phone may put the selection away for a tap that lands outside the frame.
+   * That `selectionchange` arrives before the `click`, and answering it would
+   * forget the passage and take the button out from under the finger, the
+   * click then landing on `Contents`, which slides into its place. So a
+   * collapse during a press is not answered at all.
+   *
+   * A ref because `onSelectionChange` is built once with the view.
+   *
+   * ponytail: a press that ends in no click and no `pointercancel`, a finger
+   * slid off the button, leaves this set. If the selection collapsed under
+   * that press the button stays, holding the passage it showed, until it is
+   * tapped or something else is selected. There is no event to clear it on:
+   * `pointerup` and `pointerleave` both come before the `click`.
+   */
+  const pressing = useRef(false);
 
   // Read through refs, the way `terminal-pane.tsx` reads the same prop. The
   // view is built in one effect keyed on the bytes, and naming these in its
@@ -596,6 +618,7 @@ export function BookPane({
    * range rather than out of a fourth field on the ref.
    */
   const take = useCallback(async () => {
+    pressing.current = false;
     const held = taking.current;
     if (held === null) return;
     taking.current = null;
@@ -996,8 +1019,12 @@ export function BookPane({
      * A swipe already turns a flowing book, the paginator following the finger
      * and snapping to a page (`paginator.js:568-574, :831-865`). The renderer a
      * pdf and a pre-paginated epub get listens for no touch at all
-     * (`fixed-layout.js`), so there this is the only way to turn one, and it is
-     * the same `prev` and `next` that `h` and `l` call.
+     * (`fixed-layout.js`), so there this is the only way to turn one.
+     *
+     * By side and not by the `prev` and `next` that `h` and `l` call: the
+     * swipe follows the finger, so in a book read right to left the left edge
+     * is the way forward, and `goLeft` and `goRight` ask the book which it is
+     * (`view.js:519-524`).
      *
      * `click` and not `pointerdown`: a swipe and a long press end in no click,
      * so neither turns a page on its way to doing something else.
@@ -1021,8 +1048,8 @@ export function BookPane({
       const outer = frame.getBoundingClientRect();
       const box = pane.getBoundingClientRect();
       const x = outer.left + (event.clientX * outer.width) / frame.offsetWidth - box.left;
-      if (x < box.width * EDGE) void view.prev();
-      else if (x > box.width * (1 - EDGE)) void view.next();
+      if (x < box.width * EDGE) void view.goLeft();
+      else if (x > box.width * (1 - EDGE)) void view.goRight();
     }
 
     /**
@@ -1177,6 +1204,9 @@ export function BookPane({
       // A figure is a passage with no words in it: a drag over a plate gives an
       // empty string, so the text alone cannot say whether anything is selected.
       if (selection === null || range === null || (text.trim() === "" && figure === null)) {
+        // The press on `Take` is what put the selection away, so the passage
+        // is still the one being taken. See `pressing`.
+        if (pressing.current) return;
         taking.current = null;
         setAt(null);
         return;
@@ -1186,6 +1216,8 @@ export function BookPane({
       // A chapter can change with no document loading, one spine file often
       // holding several, so a drag that runs past a boundary would otherwise
       // be named for wherever it came to rest.
+      // Something new is selected, so a press that never ended is over.
+      pressing.current = false;
       const chapter = taking.current?.passage.chapter ?? chapterNow(doc);
       const backward = runsBackward(doc, selection);
       taking.current = { passage: { text, chapter }, figure, range, backward };
@@ -1412,7 +1444,22 @@ export function BookPane({
         {coarse && (
           <span className="ml-auto flex gap-2">
             {at && (
-              <button type="button" data-take onClick={() => void take()} className={TOUCH}>
+              <button
+                type="button"
+                data-take
+                // Refused so the press moves neither the focus nor the
+                // selection, where the browser asks. Where it does not ask,
+                // `pressing` holds the passage through the collapse.
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  pressing.current = true;
+                }}
+                onPointerCancel={() => {
+                  pressing.current = false;
+                }}
+                onClick={() => void take()}
+                className={TOUCH}
+              >
                 Take
               </button>
             )}
