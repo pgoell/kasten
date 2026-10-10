@@ -28,9 +28,9 @@ close it; the dump itself is in the daily note.
 The icon opens the page on its own, without the browser's address bar. Install
 from `/capture` itself: any other page installs the whole notebook instead.
 
-Install this before the notebook if you want both. With the notebook installed,
-Chrome no longer offers an install on `/capture`; the reason and the way back
-are in [Install kasten on your phone](/how-to/install-on-your-phone.md#why-capture-goes-first).
+With the notebook's own app installed, Chrome no longer offers an install on
+`/capture`. [Install kasten on your phone](/how-to/install-on-your-phone.md#both-apps-on-one-phone)
+says why and what order to use.
 
 If Chrome offers only a shortcut rather than an install, the manifest did not
 load. The site is behind a login gate, and the page asks for the manifest with

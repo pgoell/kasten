@@ -12,7 +12,7 @@ on its code.
 * [Cut a release](cut-a-release.md): pick the next version from the commits, bump it, tag it and watch it deploy
 * [Deploy to the VPS](deploy-to-the-vps.md): the maintainer's own deployment, as a worked example: bootstrap dev and prod on the box, on amd64 or arm64, deploy day to day, and prove the shell is still behind its gate
 * [Import an Anki deck](import-an-anki-deck.md): turn an .apkg export into markdown notes, and know what does not survive the trip
-* [Install kasten on your phone](install-on-your-phone.md): put the whole notebook on a phone's home screen, and install it and the capture page in the order Android allows
+* [Install kasten on your phone](install-on-your-phone.md): put the whole notebook on a phone's home screen, and what Android does when the capture page is installed beside it
 * [Recover an earlier version of a note](recover-an-earlier-version.md): read back or restore a note as it was before a save overwrote it
 * [Regenerate the API types](regenerate-the-api-types.md): rebuild the frontend's TypeScript types after changing a backend endpoint
 * [Run the checks](run-the-checks.md): run the linters, tests and type checks, and get past the two ways the git hooks go wrong

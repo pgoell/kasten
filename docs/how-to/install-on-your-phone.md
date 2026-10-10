@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Install kasten on your phone
-description: Put the whole notebook on a phone's home screen, beside or instead of the capture page, and install the two in the order Android allows.
+description: Put the whole notebook on a phone's home screen, and what Android does when the capture page is installed beside it.
 tags: [phone, install, android, ios, capture]
 status: stable
 ---
@@ -15,29 +15,32 @@ the app it belongs to, so what a browser installs depends on the page you are on
 
 ## Install it on Android
 
-1. If you want the capture app too and do not have it yet, install it first:
-   [Capture from your phone](/how-to/capture-from-your-phone.md#install-it-on-android).
-2. Open `https://<your-host>/` in Chrome, signed in.
-3. Open Chrome's menu and choose **Add to home screen**, then **Install**.
+1. Open `https://<your-host>/` in Chrome, signed in.
+2. Open Chrome's menu and choose **Add to home screen**, then **Install**.
 
 The icon is the card box, and it opens the notebook without the browser's
 address bar.
 
-### Why capture goes first
+### Both apps on one phone
 
-The notebook's app covers every address on the host, `/capture` among them.
-Chrome on Android refuses to install an app whose start page an installed app
-already covers, so with the notebook installed, `/capture` no longer offers an
-install. The other order works: the capture app covers `/capture` alone, which
-leaves `/` free.
+The two apps get in each other's way at install time, because the notebook's
+app covers every address on the host, `/capture` among them. What follows is
+read from Chrome's source and has not been tried on a phone.
 
-If the notebook is already installed and you want the capture app, uninstall
-the notebook, install capture, then install the notebook again.
+* **With the notebook installed**, Chrome offers no install on `/capture`: it
+  refuses an app whose start page an installed app already covers.
+* **With the capture app installed**, Chrome's menu on `/` says **Open app**
+  where **Install** was, because the menu looks at the host and not at the
+  page. Chrome's own install prompt, the one it raises by itself at the foot of
+  a page, is still allowed on `/`, since the capture app covers `/capture`
+  alone. kasten has no install button of its own to raise it with.
 
-Chrome's menu may also answer **Open app** on `/` when the capture app is
-installed, since the menu looks at the host and not at the page. If it does,
-there is no other way in from the menu, and the notebook stays a browser tab or
-a plain shortcut.
+So the order with a chance of both is capture first, by
+[its own steps](/how-to/capture-from-your-phone.md#install-it-on-android), then
+the notebook through Chrome's prompt when it appears. If the notebook is
+already installed and you want the capture app, uninstall the notebook first.
+If you want one app, the notebook holds `/capture` too, but only the capture
+app is in the share sheet.
 
 ### With both installed
 
@@ -59,4 +62,3 @@ way from `/capture`, as **dump**, and the order does not matter.
 ## Related
 
 * [Capture from your phone](/how-to/capture-from-your-phone.md): the capture app and its share target
-* [Reverse-proxy routes](/reference/reverse-proxy-routes.md): why the manifest needs the session behind a login gate
