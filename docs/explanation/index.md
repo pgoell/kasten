@@ -9,6 +9,7 @@ keyboard; they answer "why" rather than "how".
 * [Deleting a note](deleting-a-note.md): why a delete moves the note into a hidden folder instead of removing it
 * [Moving a note](moving-notes.md): why a move rewrites links before it renames, why a drop asks and the prompt does not, why index entries move only when they were written, why a folder kasten makes gets an index, and why the backfill waits to be asked
 * [Live preview and the vim mode](live-preview.md): why the editor renders markdown in normal mode and shows you the source in insert mode
+* [kasten on a phone](kasten-on-a-phone.md): why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, and what no real phone has confirmed
 * [The archive](the-archive.md): why finished work goes in a folder rather than a field, and why one key rather than a filter on every list
 * [The file beside a note](books-in-the-vault.md): why what you read is its note's path with the suffix swapped, why the suffix is one of two, the two doors a file comes in by, why a highlight is found again by searching the page for its words, and why the vault's history never takes a copy
 * [OKF in the vault](okf-in-the-vault.md): why the vault is an Open Knowledge Format bundle, what the one adopted field buys, why the backfill is not a save and when to turn it off, what a note renamed onto a reserved name costs, and why the vocabulary is a note nothing validates

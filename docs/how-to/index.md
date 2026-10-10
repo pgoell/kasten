@@ -18,6 +18,7 @@ on its code.
 * [Self-host kasten](self-host-kasten.md): run kasten on one machine of your own, amd64 or arm64, behind basic auth, oauth2-proxy or Tailscale
 * [Troubleshoot a self-hosted kasten](troubleshoot-self-hosting.md): why the stack will not start, get a certificate, let you in, save a note or open a terminal
 * [Upgrade kasten](upgrade-kasten.md): move to a new release, pinned or on latest, check it, and roll back
+* [Use kasten on a phone](use-kasten-on-a-phone.md): open the file tree, find a note, run a command, turn vim on, move between the panes of a split, tick a todo, type in a terminal and close a panel, by touch
 * [Write a practice exam](write-a-practice-exam.md): put a set of questions in the vault so kasten can ask them one at a time and score the sitting
 
 Why the two environments are built in opposite ways is
