@@ -212,6 +212,8 @@ tests with a stubbed viewport, and not seen:
   keyboard.
 * What a tablet answers for the pointer with a trackpad or a mouse attached,
   and so whether it then starts with vim.
+* That a tap on `Write my text` or `Take the vault's` settles a note that
+  changed on disk. The check was a unit test, with clicks.
 * Firefox and Safari, on any device.
 * The install. That Chrome refuses nested scopes as described is read from
   Chromium's source, not tried. Unseen too: that an old capture app stays as it
