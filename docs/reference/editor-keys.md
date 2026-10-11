@@ -180,7 +180,7 @@ dimmed page around them.
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
 | An HTML page | The page's own links and buttons | [The file tree](#the-file-tree) |
-| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full | [Panes and tabs](#panes-and-tabs) |
+| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write is `Write my text`, and under `Changed on disk` that and `Take the vault's` | [Panes and tabs](#panes-and-tabs) |
 | The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](#the-command-palette) |
 
 ### Still keys only
@@ -413,7 +413,9 @@ the week and the version. A notice takes the clock's place while it shows. A
 click or a tap on a notice opens it out in full above the footer, and one on
 the save sign of a write that failed or a note that changed on disk does the
 same with the reason and the way out; a second one shuts it. Under a mouse the
-same text is on hover.
+same text is on hover. Opened out, a write that failed has a `Write my text`
+button under it, which does what `:w` does, and a note that changed on disk has
+that and `Take the vault's`, which does what `:e!` does.
 
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
@@ -2340,6 +2342,9 @@ it asks, which writer wins. `:w` writes your buffer over the vault and keeps
 what you typed. `:e!` throws your buffer away and takes what the vault holds.
 Nothing else settles it: until one of them is pressed, nothing you typed
 reaches the vault and nothing the other writer left reaches your screen.
+
+Without a prompt to type them at, which is a phone, click or tap the save sign:
+`Write my text` is `:w` and `Take the vault's` is `:e!`.
 
 `:e` without the bang is vim's own reread and behaves the way vim's does. It
 takes the note off the vault when nothing is waiting to be written, and

@@ -217,6 +217,30 @@ describe("the clock in the bar", () => {
     expect(screen.queryByTestId("status-detail")).toBeNull();
   });
 
+  it("settles a conflict by touch, a phone having no prompt to type :w at", () => {
+    const onWrite = vi.fn();
+    const onTakeVault = vi.fn();
+    render(<StatusBar status="conflict" onWrite={onWrite} onTakeVault={onTakeVault} />);
+    expect(screen.queryByText("Write my text")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("save-status"));
+    fireEvent.click(screen.getByText("Write my text"));
+    expect(onWrite).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("save-status"));
+    fireEvent.click(screen.getByText("Take the vault's"));
+    expect(onTakeVault).toHaveBeenCalledOnce();
+  });
+
+  it("offers a failed write the write alone, there being no other writer", () => {
+    render(<StatusBar status="error" onWrite={vi.fn()} onTakeVault={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId("save-status"));
+    expect(screen.getByText("Write my text")).toBeInTheDocument();
+    expect(screen.queryByText("Take the vault's")).toBeNull();
+  });
+
   it("shuts with the notice it showed, so the next one arrives closed", () => {
     const { rerender } = render(<StatusBar notice="A book is already there" />);
     fireEvent.click(screen.getByTestId("notice"));

@@ -74,6 +74,21 @@ const SAVE_FIX: Partial<Record<SaveStatus, string>> = {
   conflict: "Somebody else wrote this note. :w keeps your text, :e! takes the vault's.",
 };
 
+/**
+ * The same two ways out as buttons, under the sentence that names them.
+ *
+ * A phone has no ex prompt to type `:w` at: vim is off under a finger, and on
+ * it has no Escape to reach normal mode with. The palette's `Write the note`
+ * row lists only over a focused editor, and the tap that opened this sentence
+ * took the focus off it.
+ */
+const SAVE_ACTIONS: Partial<Record<SaveStatus, readonly ("write" | "takeVault")[]>> = {
+  error: ["write"],
+  conflict: ["write", "takeVault"],
+};
+
+const ACTION_LABEL = { write: "Write my text", takeVault: "Take the vault's" } as const;
+
 // Any smaller and the arrowheads close up into blobs at this stroke width.
 const ICON = "size-4 shrink-0";
 
@@ -214,6 +229,10 @@ interface StatusBarProps {
    * which would otherwise read out a page the sheet has covered.
    */
   inert?: boolean;
+  /** Write the buffer over the vault, which is `:w`. */
+  onWrite?: () => void;
+  /** Throw the buffer away for the vault's text, which is `:e!`. */
+  onTakeVault?: () => void;
 }
 
 /**
@@ -232,6 +251,8 @@ export function StatusBar({
   zoom,
   pane,
   inert,
+  onWrite,
+  onTakeVault,
 }: StatusBarProps) {
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
@@ -266,6 +287,11 @@ export function StatusBar({
         ? saveLines.join("\n")
         : undefined;
   const open = (which: "notice" | "save") => setOpened(opened === which ? null : which);
+  const run = { write: onWrite, takeVault: onTakeVault };
+  const actions =
+    opened === "save" && status
+      ? (SAVE_ACTIONS[status] ?? []).filter((action) => run[action] !== undefined)
+      : [];
 
   const save = status && (
     <span
@@ -320,15 +346,35 @@ export function StatusBar({
       {detail !== undefined && (
         // Over the page and not inside the bar, whose height is fixed. Out of
         // the tab order like the two that open it: a keyboard has the `title`.
-        <button
-          type="button"
-          tabIndex={-1}
-          data-testid="status-detail"
-          onClick={() => setOpened(null)}
-          className="absolute inset-x-0 bottom-full z-10 border-t border-one-line bg-one-panel px-3 py-2 text-left text-[11px] whitespace-pre-line text-one-warn"
-        >
-          {detail}
-        </button>
+        <div className="absolute inset-x-0 bottom-full z-10 border-t border-one-line bg-one-panel text-[11px]">
+          <button
+            type="button"
+            tabIndex={-1}
+            data-testid="status-detail"
+            onClick={() => setOpened(null)}
+            className="block w-full px-3 py-2 text-left whitespace-pre-line text-one-warn"
+          >
+            {detail}
+          </button>
+          {actions.length > 0 && (
+            <div className="flex gap-px border-t border-one-line">
+              {actions.map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => {
+                    setOpened(null);
+                    run[action]?.();
+                  }}
+                  className="min-h-6 flex-1 px-3 text-one-muted active:bg-one-hover active:text-one-accent pointer-coarse:min-h-11"
+                >
+                  {ACTION_LABEL[action]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
       <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
         {version !== undefined && <Version backend={version} />}

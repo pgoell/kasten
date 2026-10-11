@@ -59,7 +59,7 @@ import type { MoveMode } from "@/lib/move";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookType, importedNote, noteName } from "@/lib/note-path";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
-import { paletteEntries } from "@/lib/palette";
+import { paletteEntries, viewCommands } from "@/lib/palette";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
   activeTab,
@@ -1804,6 +1804,20 @@ function Home() {
     [pane.path, queryClient, revert, refuse],
   );
 
+  /**
+   * `:e!` for the status bar's button, which has no view to run it in.
+   *
+   * Through the focused pane's editor and not `reload` alone: `reload` answers
+   * with the vault's text and the editor is who puts it on screen. The cache
+   * cannot carry it there, holding that same text already whenever the conflict
+   * was raised by a reload the editor refused.
+   */
+  const takeVault = useCallback(() => {
+    const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
+    const view = editor && EditorView.findFromDOM(editor);
+    if (view) view.state.facet(viewCommands)?.reload(view, true);
+  }, [pane.id]);
+
   return (
     <main ref={frame} className="flex h-dvh flex-col bg-one-bg">
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
@@ -2079,6 +2093,8 @@ function Home() {
             : undefined
         }
         inert={narrow && treeOpen}
+        onWrite={() => void save()}
+        onTakeVault={takeVault}
       />
       {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}

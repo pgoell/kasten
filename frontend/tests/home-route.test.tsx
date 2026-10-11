@@ -524,6 +524,32 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
+  it("settles a conflict from the status bar, either way, with no key pressed", async () => {
+    // What a phone has: no ex prompt, and an editor the tap on the sign blurred.
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    fetchNote.mockResolvedValueOnce("somebody else's text");
+    fireEvent.click(screen.getByTestId("save-status"));
+    fireEvent.click(screen.getByText("Take the vault's"));
+    await settle();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(app.text()).toBe("somebody else's text");
+    expect(app.status()).toBe("Saved");
+
+    app.press("x");
+    somebodyElseWrote();
+    await settle();
+    fireEvent.click(screen.getByTestId("save-status"));
+    fireEvent.click(screen.getByText("Write my text"));
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledTimes(1);
+    expect(app.status()).toBe("Saved");
+  });
+
   it("does not let a write in flight put back what :e! threw away", async () => {
     const app = await editing();
 

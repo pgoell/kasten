@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Use kasten on a phone
-description: Open the file tree, find a note, run a command, turn vim on, move between panes, tick a todo, type in a terminal and close a panel, all by touch.
+description: Open the file tree, find a note, run a command, turn vim on, move between panes, tick a todo, settle a note that changed on disk, type in a terminal and close a panel, all by touch.
 tags: [phone, touch, toolbar, vim, todo, terminal]
 status: stable
 ---
@@ -88,6 +88,17 @@ To add a todo, tap `+` in the header.
 
 To tick a todo in the note you are writing, tap into its line, tap `run`, and
 choose `Cycle the todo on this line`.
+
+## Settle a note that changed on disk
+
+The status bar says `Changed on disk` when something else wrote the note while
+it held text you had not saved. Nothing is written until you choose.
+
+1. Tap `Changed on disk`. The two ways out open above the bar.
+2. Tap `Write my text` to write your text over the vault's, or
+   `Take the vault's` to throw your text away.
+
+`Could not save` opens the same way and offers `Write my text`.
 
 ## Type in a terminal
 
