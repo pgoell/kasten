@@ -135,45 +135,27 @@ this box's value, and this box sets none of them:
 | `KASTEN_NETWORK` | `web` | the external Docker network shared with Caddy |
 | `JJ_USER`, `JJ_EMAIL` | unset | who jj records for a change made in the shell |
 
-Two more are repository variables in GitHub rather than lines in the file,
-because the job needs them before it has read anything:
+`KASTEN_DATA_DIR`, the host directory holding `vault/` and `agent/`, is not in
+the file: compose defaults it to `/home/pascal/kasten-data`, and the deploy
+script checks that `vault/` is there before it starts anything.
 
-| Variable | Default | What it sets |
-| --- | --- | --- |
-| `DEPLOY_DIR` | `/home/pascal/kasten-deploy` | where the job copies `compose.yaml` and finds `.env.prod` |
-| `KASTEN_DATA_DIR` | `/home/pascal/kasten-data` | the host directory holding `vault/` and `agent/`, checked by the job and mounted by compose |
+To run kasten on one machine without a shared Caddy at all, use
+[Self-host kasten](/how-to/self-host-kasten.md) instead.
 
-A fork deploying to a box of its own sets these under Settings, Secrets and
-variables, Actions, Variables. To run kasten on one machine without a shared
-Caddy at all, use [Self-host kasten](/how-to/self-host-kasten.md) instead.
+### 6. Deploy key
 
-### 6. Self-hosted runner
+No runner and no code of this repository runs on the box. The deploy job
+opens an SSH connection and sends one word, the tag. The key it uses is bound
+to `deploy/deploy.sh kasten` in `~/Code/server-infra`, which checks the tag,
+pulls the three images, and restarts the services from
+`deploy/kasten/compose.yaml` there. That file is a copy of `deploy/compose.yaml`
+here: after a change to it, copy it over by hand, or production keeps the old
+one.
 
-Runners are per repository for a user account, so the Klassenzeit and website
-runners on this box cannot serve kasten. Add a third:
-
-```sh
-./scripts/setup-runner.sh
-```
-
-It unpacks the runner, registers it as `iuno-kasten` (or as `$RUNNER_NAME`
-when that is set), installs a systemd user
-unit, and waits for GitHub to report it online. No sudo: lingering is already
-enabled for pascal, so a user unit survives logout and reboot. Re-running it is
-safe, it skips whatever is already done.
-
-The runner inherits pascal's group membership, which includes `docker`, so the
-deploy job can drive compose.
-
-To match the other two runners as system services instead, register with
-`config.sh` as the script does, then `sudo ./svc.sh install pascal && sudo
-./svc.sh start` in `~/actions-runner-kasten`.
-
-Check status any time:
-
-```sh
-gh api /repos/pgoell/kasten/actions/runners --jq '.runners[] | .name + " " + .status'
-```
+`deploy/README.md` in server-infra has the steps: make a key, add its line to
+`~/.ssh/authorized_keys`, and give the `vps` environment of this repository
+the secret `DEPLOY_SSH_KEY` and the variables `DEPLOY_HOST` and
+`DEPLOY_KNOWN_HOSTS`. Only `main` and release tags may use that environment.
 
 ### 7. Dev services
 
@@ -193,9 +175,9 @@ pick the version off the commits, bump `backend/pyproject.toml`, then tag. The
 workflow checks the tag against that version and stops there if they disagree,
 then builds each changed image twice, for amd64 on `ubuntu-latest` and for
 arm64 on `ubuntu-24.04-arm`, tags the pair with the release tag and `latest`,
-pushes to GHCR, and the self-hosted runner pulls, runs migrations
-as a one-shot container, restarts the services, and waits for the backend
-healthcheck.
+pushes to GHCR, and sends the tag to the box over SSH. The deploy script there
+pulls, runs migrations as a one-shot container, restarts the services, and
+waits for the backend healthcheck.
 
 **Rollback.** Run the `Deploy production` workflow by hand with the `tag` input
 set to an older release. It skips the build and redeploys that tag.

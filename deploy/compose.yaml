@@ -1,8 +1,10 @@
 # deploy/compose.yaml
 #
-# Production only. Copied to /home/pascal/kasten-deploy/compose.yaml by the
-# self-hosted runner on every release deploy, and run against the external
-# `web` network declared by /home/pascal/Code/server-infra/docker-compose.yml.
+# Production only. The VPS runs a copy of this file that is kept in
+# server-infra (deploy/kasten/compose.yaml) and copied over by hand, so a
+# release cannot change what the containers mount. A change here reaches
+# production only after that copy. It runs against the external `web` network
+# declared by /home/pascal/Code/server-infra/docker-compose.yml.
 # Caddy and the shared Postgres live in that compose file, not this one.
 #
 # Nothing here is ever built on the server. Images come from GHCR, built by

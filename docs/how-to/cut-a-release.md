@@ -77,8 +77,9 @@ there if the two disagree, so a forgotten bump costs a retag rather than a
 release that lies about which version it is. Then it builds each image twice,
 for `linux/amd64` on `ubuntu-latest` and for `linux/arm64` on
 `ubuntu-24.04-arm`, side by side, and pushes the pair to GHCR as one image
-tagged with the version and `latest`. The self-hosted runner pulls,
-migrates, restarts and waits for the backend healthcheck. It is an amd64 box,
+tagged with the version and `latest`. The last job sends the tag to the VPS
+over SSH, and the deploy script there pulls, migrates, restarts and waits for
+the backend healthcheck. It is an amd64 box,
 so it pulls the amd64 half, built from the same Dockerfile lines and the same
 pinned binaries as before arm64 was added.
 
