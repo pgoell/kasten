@@ -1,0 +1,43 @@
+name: Deploy production over SSH
+
+# The deploy that needs no runner on the VPS. It sends a tag over SSH, and a
+# script that lives on the VPS, in server-infra, pulls the images of that tag
+# and restarts the services from a compose file kept there. The key can do
+# nothing else: no shell, and no file of this repo runs on the box.
+#
+# By hand only, until it has deployed once. Then it takes the place of the
+# `deploy` job in deploy-prod.yml and this file goes.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing image tag to deploy (e.g. 1.2.0)."
+        required: true
+
+# The same group as deploy-prod.yml: the two never run side by side.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    # Holds the SSH key, and only main and release tags may use it.
+    environment: vps
+    steps:
+      - name: Send the tag to the VPS
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_SSH_KEY" >~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$DEPLOY_HOST" "$TAG"
