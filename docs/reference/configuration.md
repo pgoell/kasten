@@ -309,8 +309,7 @@ These are read by compose, not by the backend, so they take no part in
 | `KASTEN_DB_PORT` | `5434` | `compose.yaml` | the dev Postgres's port on loopback |
 
 [Deploy to the VPS](/how-to/deploy-to-the-vps.md#5-prod-env-file) says where
-the production ones go, and names the two repository variables the deploy job
-reads, `DEPLOY_DIR` and `KASTEN_DATA_DIR`.
+the production ones go.
 
 ## The self-host stack
 

@@ -259,4 +259,4 @@ release tag.
 ## The runbook
 
 The step-by-step for both environments, including DNS, Caddy and the
-self-hosted runner, is in [Deploy to the VPS](/how-to/deploy-to-the-vps.md).
+deploy key, is in [Deploy to the VPS](/how-to/deploy-to-the-vps.md).

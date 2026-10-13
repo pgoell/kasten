@@ -237,56 +237,26 @@ jobs:
     # still stops the deploy. A skipped one does not, because `build` and
     # `images` skip on a release whose every image was copied.
     if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
+    # Nothing of this repo runs on the VPS. The job sends the tag over SSH, and
+    # a script that lives on the box, in server-infra, pulls the images of that
+    # tag, runs the migrations, restarts the services from a compose file kept
+    # there and waits for the backend to report healthy. The key can do nothing
+    # else, and only main and release tags may use the environment that holds
+    # it.
+    environment: vps
+    permissions: {}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-      - name: Pull images and restart services
+      - name: Send the tag to the VPS
         env:
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Repository variables, so a fork can deploy to its own box without
-          # editing this file. Unset, they fall back to this VPS's paths.
-          DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/home/pascal/kasten-deploy' }}
-          KASTEN_DATA_DIR: ${{ vars.KASTEN_DATA_DIR || '/home/pascal/kasten-data' }}
-          KASTEN_IMAGE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
-          mkdir -p "$DEPLOY_DIR"
-          cp deploy/compose.yaml "$DEPLOY_DIR/compose.yaml"
-
-          if [ ! -f "$DEPLOY_DIR/.env.prod" ]; then
-            echo "::error::Missing $DEPLOY_DIR/.env.prod. Follow the bootstrap in docs/how-to/deploy-to-the-vps.md."
-            exit 1
-          fi
-          # Refuse to start if the vault mount is missing. Compose would happily
-          # create an empty directory and the notebook would come up blank.
-          # KASTEN_DATA_DIR is in the environment, so compose mounts the same
-          # directory this checks.
-          if [ ! -d "$KASTEN_DATA_DIR/vault" ]; then
-            echo "::error::Missing $KASTEN_DATA_DIR/vault. Follow the bootstrap in docs/how-to/deploy-to-the-vps.md."
-            exit 1
-          fi
-
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-          cd "$DEPLOY_DIR"
-          # `--env-file` so the compose-level settings in deploy/compose.yaml
-          # (image repo, uid, network) can sit in .env.prod beside the backend's,
-          # rather than in a second file. A variable set above still wins.
-          docker compose --env-file .env.prod pull
-          docker compose --env-file .env.prod up -d
-          docker logout ghcr.io
-
-      - name: Wait for the backend to report healthy
-        run: |
-          set -euo pipefail
-          for _ in $(seq 1 30); do
-            status=$(docker inspect -f '{{.State.Health.Status}}' kasten-backend-prod 2>/dev/null || echo starting)
-            if [ "$status" = "healthy" ]; then
-              echo "backend healthy"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::kasten-backend-prod did not become healthy"
-          docker logs --tail 50 kasten-backend-prod
-          exit 1
+          install -d -m 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_SSH_KEY" >~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$DEPLOY_HOST" "$TAG"
