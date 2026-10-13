@@ -183,15 +183,17 @@ curl -s -o /dev/null -w '%{http_code}\n' --http1.1 \
   -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==' \
   -H 'Sec-WebSocket-Protocol: tty' \
   https://<KASTEN_DOMAIN>/term/ws
+curl -s -o /dev/null -w '%{http_code}\n' -m 5 https://<KASTEN_DOMAIN>/chat/events
 ```
 
-With basic auth, `401` on all three. With oauth2-proxy, `302` on the first and
-third and `401` on the second. With Tailscale, run them from outside the
+With basic auth, `401` on all four. With oauth2-proxy, `302` on the first,
+third and fourth and `401` on the second. With Tailscale, run them from outside the
 tailnet: no connection at all.
 
-**`101` on the third means the shell is open to whoever can reach the port.
-Stop the stack** (`docker compose down`) and check that `KASTEN_GATE` and the
-`/term/*` route in the `Caddyfile` are as shipped.
+**`101` on the third or `200` on the fourth means the shell is open to whoever
+can reach the port. Stop the stack** (`docker compose down`) and check that
+`KASTEN_GATE` and the `/term/*` and `/chat/*` routes in the `Caddyfile` are as
+shipped.
 
 ## Next
 

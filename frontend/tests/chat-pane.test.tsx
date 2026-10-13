@@ -5,7 +5,10 @@ import { stubCommands } from "./stub-commands";
 
 /** The runner's stream, which the test speaks through by hand. */
 class FakeSource {
+  static CLOSED = 2;
   static last: FakeSource | null = null;
+  static made = 0;
+  readyState = 1;
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
   onmessage: ((message: { data: string }) => void) | null = null;
@@ -14,6 +17,7 @@ class FakeSource {
   constructor(url: string) {
     this.url = url;
     FakeSource.last = this;
+    FakeSource.made += 1;
   }
   close() {
     this.closed = true;
@@ -196,6 +200,27 @@ describe("ChatPane", () => {
     act(() => FakeSource.last?.onerror?.());
 
     expect(screen.getByRole("status")).toHaveTextContent("Could not reach the chat runner");
+  });
+
+  it("asks again when the proxy answered for a runner that was not there", () => {
+    vi.useFakeTimers();
+    mount();
+    const made = FakeSource.made;
+    const first = FakeSource.last;
+
+    // A dropped stream: the browser reconnects, and a second one would be two.
+    act(() => first?.onerror?.());
+    act(() => vi.advanceTimersByTime(5000));
+    expect(FakeSource.made).toBe(made);
+
+    // A 502: the browser has given up.
+    act(() => {
+      if (first) first.readyState = FakeSource.CLOSED;
+      first?.onerror?.();
+    });
+    act(() => vi.advanceTimersByTime(5000));
+    expect(FakeSource.made).toBe(made + 1);
+    vi.useRealTimers();
   });
 
   it("runs a leader key from the pane, and leaves a typed space alone", () => {

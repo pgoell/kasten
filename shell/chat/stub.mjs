@@ -20,7 +20,7 @@ const assistant = (content) => ({
 
 async function* say(text) {
   for (const word of text.split(/(?<= )/)) {
-    await pause(60);
+    await pause(90);
     yield {
       type: "stream_event",
       parent_tool_use_id: null,
@@ -63,7 +63,10 @@ const QUESTIONS = [
 ];
 
 const steps = (made, options) => [
-  () => say("Closing the day. I will read today's note and the open todos first."),
+  () =>
+    say(
+      "Closing the day. I will read today's note first, then count the todos that are still open across the vault, and then ask you what to do with them before I write tomorrow's plan.",
+    ),
   () =>
     tool(
       `read${made}`,

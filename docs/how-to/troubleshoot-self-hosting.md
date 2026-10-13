@@ -125,6 +125,21 @@ sign in, and open the terminal again.
 **`The shell closed the connection`.** The shell was there and ended. Open the
 terminal again.
 
+## The chat pane does not connect
+
+**`Could not reach the chat runner at /chat/events.`** Either the proxy has no
+`/chat/*` route, which a `Caddyfile` copied before the chat pane existed will
+not have, or the runner is not up. `docker compose logs shell` says which:
+`installing @anthropic-ai/claude-agent-sdk` on a first start, `could not be
+installed` with no network, or `no claude, so the chat runner is not started`
+when the Claude Code install failed before it.
+
+**Every message does nothing.** The proxy rewrites `Host`, and the runner
+answers `403`. [Reverse-proxy routes](/reference/reverse-proxy-routes.md) has
+the rule.
+
+**`Not logged in`.** Open a terminal pane, run `claude` and sign in.
+
 **The shell restarts again and again**, with
 `the home volume is not writable by uid ...` in `docker compose logs shell`. The
 home volume was made under another `KASTEN_UID`. Give it to the one in `.env`,

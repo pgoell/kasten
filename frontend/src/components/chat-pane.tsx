@@ -16,6 +16,9 @@ import { useViewport } from "@/lib/use-viewport";
 /** The two skills this pane exists to start, each one press away. */
 const SKILLS = ["/close-day", "/process-meeting"];
 
+/** How long a pane waits before it asks a runner that was not there again. */
+const RETRY_MS = 3000;
+
 // `min-h-11` under a finger, which is the 44px the phone's toolbar holds to.
 const BUTTON =
   "shrink-0 rounded border border-one-line px-2 py-0.5 text-[12px] text-one-fg hover:bg-one-hover disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:px-3 pointer-coarse:text-sm";
@@ -56,14 +59,30 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   const { coarse } = useViewport();
 
   useEffect(() => {
-    // `EventSource` reconnects on its own, and the runner answers every
-    // connection with a `reset` and the whole log, so nothing here keeps count
-    // of what it has seen.
-    const source = new EventSource("/chat/events");
-    source.onopen = () => setReached(true);
-    source.onerror = () => setReached(false);
-    source.onmessage = (message) => dispatch(JSON.parse(message.data) as ChatEvent);
-    return () => source.close();
+    let source: EventSource;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+
+    // The runner answers every connection with a `reset` and the whole log, so
+    // nothing here keeps count of what it has seen.
+    function connect() {
+      source = new EventSource("/chat/events");
+      source.onopen = () => setReached(true);
+      source.onmessage = (message) => dispatch(JSON.parse(message.data) as ChatEvent);
+      source.onerror = () => {
+        setReached(false);
+        // `EventSource` reconnects by itself after a dropped connection and
+        // gives up for good after an answer that is not a stream: the proxy's
+        // 502 while the shell container restarts, which is the one moment a
+        // pane most needs to come back unasked.
+        if (source.readyState === EventSource.CLOSED) retry = setTimeout(connect, RETRY_MS);
+      };
+    }
+    connect();
+
+    return () => {
+      clearTimeout(retry);
+      source.close();
+    };
   }, []);
 
   // The panel and not the box. A box that took the focus would take the space
@@ -122,6 +141,8 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   }
 
   const running = state.running > 0;
+  // A run that waits on the form above is not working, it is waiting for you.
+  const asking = state.items.some((item) => item.kind === "ask" && item.open);
 
   return (
     <section
@@ -187,7 +208,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           <Item key={at} item={item} />
         ))}
         {state.streaming !== "" && <p className="whitespace-pre-wrap">{state.streaming}</p>}
-        {running && state.streaming === "" && <p className="text-one-muted">Working…</p>}
+        {running && state.streaming === "" && !asking && <p className="text-one-muted">Working…</p>}
       </div>
 
       <form

@@ -4,7 +4,7 @@ Why kasten is built the way it is. These pages are for reading away from the
 keyboard; they answer "why" rather than "how".
 
 * [The vault and the derived index](vault-and-derived-index.md): why the notes live on disk and Postgres is allowed to hold nothing that matters
-* [Security model](security-model.md): why kasten has no login of its own, what the gate covers, the two prefixes left open, what the shell can reach, and the consent and page-fetch checks the backend makes itself
+* [Security model](security-model.md): why kasten has no login of its own, what the gate covers, the two prefixes left open, what the shell and the chat pane can reach, and the consent and page-fetch checks the backend makes itself
 * [Two environments](environments.md): why the maintainer's dev and prod are deployed in deliberately different ways, the constraints that box imposes on both, why the shell and the agent logins in it must sit behind the gate, why Claude Code is installed on first start and not in the image, and why prod images are built for amd64 and arm64
 * [Deleting a note](deleting-a-note.md): why a delete moves the note into a hidden folder instead of removing it
 * [Moving a note](moving-notes.md): why a move rewrites links before it renames, why a drop asks and the prompt does not, why index entries move only when they were written, why a folder kasten makes gets an index, and why the backfill waits to be asked
@@ -17,3 +17,4 @@ keyboard; they answer "why" rather than "how".
 * [People in the vault](people-in-the-vault.md): why a person is a note with a type rather than a record, why their card counts links and never names, what that costs the vault as it stands, and why nothing was indexed to build it
 * [The graph](the-graph.md): why the graph is read off the vault on every request, why its query is parsed on the backend when todos are parsed in the browser, why the graph reads aliases the editor does not yet, and why the language is two shapes rather than Cypher
 * [The agent boundary](the-agent-boundary.md): why a token reaches eight capabilities under a prefix of their own rather than the routes the browser uses, what it cannot do, why the write is conditional in one direction only, why the consent step checks its own origin, and what one Caddy block is holding
+* [The chat pane](the-chat-pane.md): why it runs on the Claude Agent SDK in the shell container, why it has a proxy route of its own, why it speaks HTTP and server-sent events, why there is one session that outlives the page, why tools run unasked, and why the SDK is installed on first start

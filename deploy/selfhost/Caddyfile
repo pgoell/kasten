@@ -14,10 +14,10 @@ import gates/{$KASTEN_GATE}.caddy
 {$KASTEN_DOMAIN} {
 	import site
 
-	# Everything but the event stream. `encode` buffers `/api/events` whole,
-	# and the browser then holds a connection that never delivers, which reads
-	# as a healthy stream rather than as an error.
-	@compressible not path /api/events
+	# Everything but the two event streams. `encode` buffers each whole, and
+	# the browser then holds a connection that never delivers, which reads as
+	# a healthy stream rather than as an error.
+	@compressible not path /api/events /chat/events
 	encode @compressible zstd gzip
 
 	handle /api/* {
@@ -44,6 +44,15 @@ import gates/{$KASTEN_GATE}.caddy
 	handle /term/* {
 		import gate
 		reverse_proxy shell:7681
+	}
+
+	# The chat runner, in the same container as ttyd: Claude Code with a shell
+	# in the vault, running tools unasked. The gate is the only thing in front
+	# of it too. Never remove it. `Host` goes through as it came, which the
+	# runner's own check on a post depends on.
+	handle /chat/* {
+		import gate
+		reverse_proxy shell:7682
 	}
 
 	handle {
