@@ -207,7 +207,8 @@ function weekdayOf(date: string): number {
  *
  * The weeks are counted from the one `date` is in, Monday first, so `every 2
  * weeks on Friday` counted from a Wednesday lands two days on and from a
- * Friday fourteen. That is where obsidian-tasks puts both.
+ * Friday fourteen. That is how rrule, the library obsidian-tasks counts with,
+ * reads an interval of weeks.
  */
 function nextWeekday(date: string, every: number, days: number[]): string {
   const monday = shiftDay(date, -((weekdayOf(date) + 6) % 7));
