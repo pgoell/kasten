@@ -1420,8 +1420,8 @@ nothing, and Enter on an empty input does nothing.
 Under the preview are the terms that line has not used, drawn as the pane draws
 them under an edit and reached the same way, by Tab or by a click. A press
 writes the term, `due:` or `every:` or `!high`, and the ones that take a value
-then offer it, so a todo due Friday and repeating monthly can be written without
-typing a colon. Enter on one of them takes it rather than writing the todo.
+then offer it, so a todo due Friday and repeating every other Friday can be
+written without typing a colon. Enter on one of them takes it rather than writing the todo.
 
 `s` opens that same prompt on the row under the cursor, and what it takes lands
 as a part of that todo: in the note the todo lives in, one step further in, after
@@ -1825,6 +1825,16 @@ weekday naming the next one. Typing `fri` and taking `friday` writes the date
 itself, so what lands on the line is a date the format reads rather than a word
 it cannot. `estimate` works the same way and offers `15m` up to `4h`; any other
 duration is typed out.
+
+`repeat` is the third of them. Taking it leaves `🔁 ` and offers the rules:
+`every day`, `every week`, `every month`, `every year` and `every weekday`,
+then the ones that name the day the line is due, such as
+`every week on Friday`, `every 2 weeks on Friday`, `every month on the 14th`,
+`every month on the 2nd Friday` and, where it is one, `every month on the last
+Friday`. A line with no `📅` is read by its `⏳`, then its `🛫`, then today.
+Typing narrows them, over the spaces a rule is written with. Any other rule
+[the format reads](/reference/todo-format.md#recurrence) is typed out.
+`daily`, `weekly` and `monthly` are still one press each.
 
 Ctrl+Space opens the list without the colon, anywhere on a todo line. Without
 one or the other nothing pops up while a todo is being written, which is what

@@ -191,6 +191,10 @@ in the words where they were typed.
 ```
 every day | every week | every month | every year
 every <n> days | every <n> weeks | every <n> months | every <n> years
+every weekday
+every week on Monday, Thursday | every <n> weeks on Friday | every Sunday
+every month on the 15th | every month on the last
+every month on the 2nd Tuesday | every month on the last Friday
 ```
 
 and any of them may end `when done`. A rule this does not cover stays in the
@@ -202,6 +206,14 @@ ticked. A month rule counts calendar months and clamps to the last day of a
 month too short for it: the thirty-first of January one month on is the
 twenty-eighth of February. A recurring todo carrying no date at all writes no
 copy.
+
+The last four lines name their days, and such a rule lands on the first of
+them after the date it counts from, never on that date itself. The weeks of
+`every <n> weeks on Friday` are counted from the week that date is in, Monday
+first. A weekday of the month is the 1st to the 4th or the last. A month that
+lacks the day named is passed over, so `on the 31st` skips February, and
+`on the last` is the rule for the end of every month. Every other date on the
+line still moves by the same number of days.
 
 ## Two things that look like todos
 
