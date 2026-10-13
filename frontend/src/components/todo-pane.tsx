@@ -36,6 +36,7 @@ import {
   treeOf,
   VIEWS_NOTE,
   waiting,
+  waitOf,
 } from "@/lib/todo-view";
 import { useViewport } from "@/lib/use-viewport";
 
@@ -140,6 +141,7 @@ const SET: Record<string, TodoState> = {
   P: "doing",
   X: "done",
   B: "blocked",
+  W: "waiting",
   R: "rejected",
 };
 
@@ -537,7 +539,9 @@ export function TodoPane({
     // Here the ranking only decides membership: the sections set the order.
     const reads = new Set(
       rankLines(
-        kept.map(({ todo }) => todo.text),
+        // The name a todo waits on is off its words and on its row, so it is
+        // ranked with them: typing a name finds what waits on that person.
+        kept.map(({ todo }) => `${todo.text} ${todo.waitingOn ?? ""}`),
         terms.text,
       ),
     );
@@ -570,6 +574,7 @@ export function TodoPane({
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
 
   const blocked = shown.filter(({ todo }) => todo.state === "blocked").length;
+  const onSomebody = shown.filter(({ todo }) => todo.state === "waiting").length;
 
   /**
    * Hand the focus back to the list, which is where the keys below act.
@@ -724,12 +729,14 @@ export function TodoPane({
         if (at !== undefined) onCycle(at.hit);
         break;
       // One key per state, shifted so every lowercase key keeps its meaning.
-      // The walk cannot reach blocked or rejected from here: a row leaves this
-      // list the moment it is done, and these are how you get to them.
+      // The walk cannot reach blocked, waiting or rejected from here: a row
+      // leaves this list the moment it is done, and these are how you get to
+      // them.
       case "O":
       case "P":
       case "X":
       case "B":
+      case "W":
       case "R":
         if (at !== undefined) onCycle(at.hit, SET[key]);
         break;
@@ -898,6 +905,8 @@ export function TodoPane({
                   today,
                 );
                 const time = clocks(todo);
+                const wait = waitOf(todo, today);
+                const held = todo.state === "blocked" || todo.state === "waiting";
                 // One tab stop for the whole pane: tab reaches the cursor, and
                 // the vim keys move it from there.
                 const tabIndex = key === cursorKey ? 0 : -1;
@@ -964,10 +973,9 @@ export function TodoPane({
                     style={coarse ? { paddingLeft: 0 } : indent}
                     // A blocked row is drawn muted rather than gathered under a
                     // heading of its own: its state is written on the line, and
-                    // the date group is still where the work belongs.
-                    className={`${ROW} flex gap-2 ${
-                      todo.state === "blocked" ? "text-one-muted" : "text-one-fg"
-                    } ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
+                    // the date group is still where the work belongs. A waiting
+                    // row is held the same way, by a person rather than a todo.
+                    className={`${ROW} flex gap-2 ${held ? "text-one-muted" : "text-one-fg"} ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
                   >
                     {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
                     {/* Leftmost of what a row carries beyond its state, so
@@ -998,6 +1006,11 @@ export function TodoPane({
                         date is: it is the shortest thing on the row. */}
                     {progress.has(key) && (
                       <span className="shrink-0 text-one-muted">{progress.get(key)}</span>
+                    )}
+                    {/* Who a waiting row is on and for how many days, taken off
+                        the line's `👤`. */}
+                    {wait !== null && (
+                      <span className="max-w-[40%] shrink-0 truncate text-one-muted">{wait}</span>
                     )}
                     {/* Out of the truncation for the reason the date is. What
                         is on the line, not a sum: a running session lands here
@@ -1062,11 +1075,7 @@ export function TodoPane({
                         data-armed={asking ? "" : undefined}
                         style={indent}
                         className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
-                          asking
-                            ? "text-one-accent"
-                            : todo.state === "blocked"
-                              ? "text-one-muted"
-                              : "text-one-fg"
+                          asking ? "text-one-accent" : held ? "text-one-muted" : "text-one-fg"
                         }`}
                       >
                         {asking
@@ -1132,13 +1141,14 @@ export function TodoPane({
             `${shown.length} finished`
           ) : (
             <>
-              {shown.length - blocked} open, {blocked} blocked
+              {shown.length - blocked - onSomebody} open, {blocked} blocked
+              {onSomebody > 0 && `, ${onSomebody} waiting`}
               {timers > 0 && `, ${timers} running`}
             </>
           )}
         </span>
         <span>
-          x cycle&ensp;&ensp;O P X B R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
+          x cycle&ensp;&ensp;O P X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
           edit&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/
           filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
         </span>

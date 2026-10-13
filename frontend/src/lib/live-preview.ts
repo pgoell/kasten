@@ -628,8 +628,8 @@ function build(state: EditorState): Live {
       // left alone throughout: its number is content, not decoration.
       if (isBullet) {
         // The state is read off the line rather than off a node: the parser
-        // emits `TaskMarker` for `[ ]` and `[x]` and for nothing else, so three
-        // of the five states have no node to hang a rendering on. Reading it
+        // emits `TaskMarker` for `[ ]` and `[x]` and for nothing else, so four
+        // of the six states have no node to hang a rendering on. Reading it
         // through `parseTodo` is also what stops the drawing and the writes
         // disagreeing about what counts as a todo.
         const todo = parseTodo(line.text);

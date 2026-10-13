@@ -10,7 +10,7 @@
  * made in one place and a note stays consistent however it was edited.
  */
 
-export type TodoState = "open" | "doing" | "done" | "blocked" | "rejected";
+export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "rejected";
 export type TodoPriority = "highest" | "high" | "medium" | "low" | "lowest";
 
 export interface Todo {
@@ -38,6 +38,10 @@ export interface Todo {
   estimate?: string;
   /** `1h20m`, as written. */
   worked?: string;
+  /** The day a `[w]` todo began to wait, which is the date after its `👤`. */
+  waitingSince?: string;
+  /** Who it waits on, as written after the `👤`: a name, or a `[[link]]` to one. */
+  waitingOn?: string;
 }
 
 /** `X` is here because another editor writes it. Everything kasten writes is `x`. */
@@ -47,6 +51,7 @@ const STATES: Record<string, TodoState> = {
   x: "done",
   X: "done",
   b: "blocked",
+  w: "waiting",
   "-": "rejected",
 };
 
@@ -55,6 +60,7 @@ const BOX: Record<TodoState, string> = {
   doing: "/",
   done: "x",
   blocked: "b",
+  waiting: "w",
   rejected: "-",
 };
 
@@ -62,7 +68,7 @@ const BOX: Record<TodoState, string> = {
  * How each state is drawn where a list is drawn rather than edited.
  *
  * Here rather than in the panel that first wanted it, because the pane wants
- * the same five and a second copy would be five characters to keep in step by
+ * the same six and a second copy would be six characters to keep in step by
  * hand. `.cm-todo-*` in `app.css` is the third copy and cannot be this one:
  * the editor draws its symbol in a `::before`, which no module can reach.
  */
@@ -71,6 +77,7 @@ export const STATE_SYMBOL: Record<TodoState, string> = {
   doing: "◐",
   done: "☑",
   blocked: "⊘",
+  waiting: "◷",
   rejected: "☒",
 };
 
@@ -92,7 +99,7 @@ const PRIORITY_OF: Record<string, TodoPriority> = {
 };
 
 /** The bullet, the box, and everything after it. */
-const LINE = /^([ \t]*)- \[([ /xXb-])\](?:[ \t](.*))?$/;
+const LINE = /^([ \t]*)- \[([ /xXbw-])\](?:[ \t](.*))?$/;
 
 /** A line that is not a todo, cut into what it is indented by and what it says. */
 const PLAIN = /^([ \t]*)(?:- )?(.*)$/;
@@ -115,7 +122,14 @@ const WORKED = /⏱[ \t]+(\S+)/;
 // than to the next space. A tag ends it too: a recurrence never carries one,
 // and a tag belongs to the words.
 const RECURRENCE =
-  /🔁[ \t]+(.+?)(?=[ \t]*(?:📅|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🆔|⛔|⏲|⏱|#)|[ \t]*$)/;
+  /🔁[ \t]+(.+?)(?=[ \t]*(?:📅|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🆔|⛔|⏲|⏱|👤|#)|[ \t]*$)/;
+
+// Who a todo waits on and since when, both optional and the date first. The
+// name is free text as a rule is, so it runs to the next marker or tag. It
+// needs a space before either, which is what lets `[[ada#notes]]` keep its
+// anchor.
+const WAITING =
+  /👤(?:[ \t]+(\d{4}-\d{2}-\d{2}))?(?:[ \t]+(.+?))?(?=[ \t]+(?:📅|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🆔|⛔|⏲|⏱|#)|[ \t]*$)/;
 
 /** Exported because `todo-shorthand.ts` fills the same `Todo.tags` from it. */
 export const TAG = /#[^\s#]+/g;
@@ -150,6 +164,14 @@ function readFields(rest: string): Fields {
     blockedBy.push(blocker);
   }
 
+  // A `👤` with neither a date nor a name after it says nothing, and stays in
+  // the words like any other marker whose value does not parse.
+  const waiting = WAITING.exec(text);
+  const [, waitingSince, waitingOn] = waiting ?? [];
+  if (waiting !== null && (waitingSince !== undefined || waitingOn !== undefined)) {
+    text = text.slice(0, waiting.index) + text.slice(waiting.index + waiting[0].length);
+  }
+
   // Taking a field out of the middle leaves two spaces where there was one.
   text = text.replace(/[ \t]+/g, " ").trim();
 
@@ -168,6 +190,8 @@ function readFields(rest: string): Fields {
     blockedBy,
     estimate,
     worked,
+    waitingSince,
+    waitingOn,
   };
 }
 
@@ -198,6 +222,11 @@ function tail(todo: Todo): string {
   if (todo.worked !== undefined) parts.push(`⏱ ${todo.worked}`);
   if (todo.id !== undefined) parts.push(`🆔 ${todo.id}`);
   for (const blocker of todo.blockedBy) parts.push(`⛔ ${blocker}`);
+  // Last, and the name last within it, so who a todo waits on is typed at the
+  // end of the line the key stamped.
+  if (todo.waitingSince !== undefined || todo.waitingOn !== undefined) {
+    parts.push(["👤", todo.waitingSince, todo.waitingOn].filter(Boolean).join(" "));
+  }
 
   return parts.join(" ");
 }
@@ -233,8 +262,8 @@ function proseOf(todo: Todo): string {
  * One step round the cycle.
  *
  * The walk is the work: open, doing, done, and out to a plain line again.
- * Blocked and rejected are things that happen to work rather than steps in it,
- * so neither is on the walk and both are set by a key of their own. That is
+ * Blocked, waiting and rejected are things that happen to work rather than
+ * steps in it, so none is on the walk and each is set by a key of its own. That is
  * also what puts done last: a list of open work loses the row at the end of the
  * walk rather than in the middle of it, where the two states past it were once
  * unreachable from the pane.
@@ -258,6 +287,15 @@ export function cycleLine(line: string, today: string, id: string): string {
     // blocked todo is one somebody had already begun.
     case "blocked":
       return formatTodo({ ...todo, state: "doing" });
+    // The same step for the same reason, and the `👤` goes with the wait it
+    // recorded: the answer has come, which is what moved the todo on.
+    case "waiting":
+      return formatTodo({
+        ...todo,
+        state: "doing",
+        waitingSince: undefined,
+        waitingOn: undefined,
+      });
     case "doing":
       return formatTodo({ ...todo, state: "done", done: today, id: todo.id ?? id });
     // Both ways out, each dropping the stamp its own state wrote. Every other
@@ -274,7 +312,10 @@ export function cycleLine(line: string, today: string, id: string): string {
  *
  * The stamps are the cycle's, because a state is worth the same whichever key
  * wrote it: entering done stamps the date and an id, entering rejected stamps
- * its own date, and leaving either drops the stamp it wrote. A line already in
+ * its own date, and leaving either drops the stamp it wrote. Entering waiting
+ * stamps the day the wait began, and every other state drops the `👤` whole,
+ * the name with the date: it says who the todo waits on, and it no longer
+ * waits. A line already in
  * that state comes back untouched, so the caller can tell a press that changed
  * nothing.
  */
@@ -288,6 +329,8 @@ export function setStateOn(line: string, state: TodoState, today: string, id: st
     done: state === "done" ? (todo.done ?? today) : undefined,
     cancelled: state === "rejected" ? (todo.cancelled ?? today) : undefined,
     id: state === "done" ? (todo.id ?? id) : todo.id,
+    waitingSince: state === "waiting" ? (todo.waitingSince ?? today) : undefined,
+    waitingOn: state === "waiting" ? todo.waitingOn : undefined,
   });
 }
 

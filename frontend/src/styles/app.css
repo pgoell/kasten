@@ -242,6 +242,13 @@ body {
   color: var(--color-one-yellow);
 }
 
+/* Yellow as blocked is, for the same reason: somebody else is holding it. The
+   clock says it is a person the todo waits on and not another todo. */
+.cm-todo-waiting::before {
+  content: "◷ ";
+  color: var(--color-one-yellow);
+}
+
 /* Red, so a dropped todo is not read as an open one: muted is what an empty box
    wears, and the two boxes differ by one stroke. */
 .cm-todo-rejected::before {
