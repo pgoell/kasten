@@ -335,7 +335,10 @@ export function cycleLines({
       if (isOpen(part.todo)) {
         // A part that was waiting on somebody is finished with the rest, and
         // its `👤` goes as it does when a key sets the state.
-        const freed = { ...part.todo, waitingSince: undefined, waitingOn: undefined };
+        const freed =
+          part.todo.state === "waiting"
+            ? { ...part.todo, waitingSince: undefined, waitingOn: undefined }
+            : part.todo;
         moved.set(part.line, formatTodo({ ...freed, state: "done", done: today }));
       }
     }
