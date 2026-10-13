@@ -18,6 +18,7 @@ const ALL = [
   "daily",
   "weekly",
   "monthly",
+  "repeat",
   "estimate",
 ];
 
@@ -42,6 +43,7 @@ describe("lineSuggestions", () => {
       "daily",
       "weekly",
       "monthly",
+      "repeat",
       "estimate",
     ]);
   });
@@ -110,6 +112,96 @@ describe("lineSuggestions", () => {
   it("offers the scheduled date its own days", () => {
     expect(lineSuggestions("- [ ] call bob ⏳", TODAY)?.options[0]?.text).toBe(" 2026-08-10");
   });
+
+  it("offers the rules once a recurrence marker is written, named for today", () => {
+    const found = lineSuggestions("- [ ] call bob 🔁", TODAY);
+
+    expect(found?.options.map(({ name }) => name)).toEqual([
+      "every day",
+      "every week",
+      "every month",
+      "every year",
+      "every weekday",
+      "every week on Monday",
+      "every 2 weeks on Monday",
+      "every month on the 10th",
+      "every month on the 2nd Monday",
+    ]);
+    expect(found?.options[5]?.text).toBe(" every week on Monday");
+    expect(found?.from).toBe(17);
+  });
+
+  it("names the rules for the date the todo carries rather than for today", () => {
+    // The last Friday of August, and not its last day.
+    expect(names("- [ ] call bob 📅 2026-08-28 🔁")?.slice(5)).toEqual([
+      "every week on Friday",
+      "every 2 weeks on Friday",
+      "every month on the 28th",
+      "every month on the 4th Friday",
+      "every month on the last Friday",
+    ]);
+    // Past the twenty-eighth a numbered day is one some months lack.
+    expect(names("- [ ] call bob 📅 2026-08-31 🔁")?.slice(7)).toEqual([
+      "every month on the last Monday",
+      "every month on the last",
+    ]);
+  });
+
+  it("narrows the rules over the spaces a rule is written with", () => {
+    expect(names("- [ ] call bob 🔁 every week o")).toEqual(["every week on Monday"]);
+    expect(names("- [ ] call bob 🔁 Every M")).toEqual([
+      "every month",
+      "every month on the 10th",
+      "every month on the 2nd Monday",
+    ]);
+  });
+
+  it("goes back to the fields once the rule is written", () => {
+    expect(names("- [ ] call bob 🔁 every week")).toBeNull();
+    expect(names("- [ ] call bob 🔁 every week", true)).toEqual([
+      "due",
+      "scheduled",
+      "start",
+      "highest",
+      "high",
+      "medium",
+      "low",
+      "lowest",
+      "estimate",
+    ]);
+  });
+});
+
+describe("shorthandSuggestions, after every:", () => {
+  it("offers the rules as the one word the shorthand takes", () => {
+    const found = shorthandSuggestions("call bob every:", TODAY);
+
+    expect(found?.from).toBe(15);
+    expect(found?.options.map(({ text }) => text)).toEqual([
+      "day",
+      "week",
+      "month",
+      "year",
+      "weekday",
+      "week-on-monday",
+      "2-weeks-on-monday",
+      "month-on-the-10th",
+      "month-on-the-2nd-monday",
+    ]);
+    expect(found?.options[5]?.name).toBe("every week on Monday");
+  });
+
+  it("names them for the due date the input already sets", () => {
+    const found = shorthandSuggestions("call bob due:2026-08-14 every:week-", TODAY);
+
+    expect(found?.options.map(({ text }) => text)).toEqual(["week-on-friday"]);
+  });
+
+  it("goes back to the terms once the rule is written", () => {
+    expect(
+      shorthandSuggestions("call bob every:week-on-monday", TODAY)?.options.map((o) => o.name),
+    ).not.toContain("repeat");
+  });
 });
 
 describe("shorthandSuggestions", () => {
@@ -130,7 +222,7 @@ describe("shorthandSuggestions", () => {
   it("leaves out a field the input already sets, however it was spelled", () => {
     expect(
       shorthandSuggestions("call bob due:tomorrow !high", TODAY)?.options.map((o) => o.name),
-    ).toEqual(["scheduled", "start", "daily", "weekly", "monthly", "estimate"]);
+    ).toEqual(["scheduled", "start", "daily", "weekly", "monthly", "repeat", "estimate"]);
   });
 
   it("offers the days after a term that takes one, with no space before them", () => {

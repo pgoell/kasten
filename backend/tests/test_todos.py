@@ -27,7 +27,8 @@ async def test_finds_every_state(client: AsyncClient, vault: Path) -> None:
     write(
         vault,
         "projects/kasten.md",
-        "# kasten\n- [ ] open\n- [/] doing\n- [x] done\n- [b] blocked\n- [-] rejected\n",
+        "# kasten\n- [ ] open\n- [/] doing\n- [x] done\n- [b] blocked\n- [-] rejected\n"
+        "- [w] waiting\n",
     )
 
     response = await client.get("/api/todos")
@@ -39,6 +40,7 @@ async def test_finds_every_state(client: AsyncClient, vault: Path) -> None:
         {"path": "projects/kasten.md", "line": 4, "text": "- [x] done"},
         {"path": "projects/kasten.md", "line": 5, "text": "- [b] blocked"},
         {"path": "projects/kasten.md", "line": 6, "text": "- [-] rejected"},
+        {"path": "projects/kasten.md", "line": 7, "text": "- [w] waiting"},
     ]
 
 

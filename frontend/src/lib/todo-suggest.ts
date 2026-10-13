@@ -3,7 +3,7 @@
  *
  * Every field a todo carries is a glyph, and no glyph is on a keyboard, so the
  * line is far harder to write than it is to read. This answers with the fields
- * the line has not got yet, and with the values for the two that take one, off
+ * the line has not got yet, and with the values for the ones that take one, off
  * nothing but the text before the cursor.
  *
  * One table of fields, read by the three places a todo is written.
@@ -22,7 +22,8 @@
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { readClock } from "@/lib/clock";
 import { PRIORITY_SYMBOL, parseTodo, type Todo, type TodoPriority } from "@/lib/todo";
-import { expandShorthand, readDate } from "@/lib/todo-shorthand";
+import { offeredRules, parseRecurrence } from "@/lib/todo-recur";
+import { expandShorthand, readDate, readEvery } from "@/lib/todo-shorthand";
 import { parseDuration } from "@/lib/todo-time";
 
 export interface Suggestion {
@@ -81,7 +82,7 @@ const PRIORITIES: Field[] = (Object.keys(PRIORITY_SYMBOL) as TodoPriority[]).map
   on: (todo) => todo.priority !== undefined,
 }));
 
-/** The three rules worth a key. Anything else is typed out after the `🔁`. */
+/** The three rules worth a key. `repeat` below reaches the rest. */
 const EVERY: Field[] = [
   ["daily", "day"],
   ["weekly", "week"],
@@ -101,6 +102,7 @@ const FIELDS: Field[] = [
   marker("start", "🛫", "start", (todo) => todo.start !== undefined),
   ...PRIORITIES,
   ...EVERY,
+  marker("repeat", "🔁", "every", (todo) => todo.recurrence !== undefined),
   marker("estimate", "⏲", "est", (todo) => todo.estimate !== undefined),
 ];
 
@@ -126,6 +128,15 @@ const VALUE = /(📅|⏳|🛫|⏲)[ \t]*([\w-]*)$/;
 /** The same at the end of the shorthand, where the colon is the marker's own. */
 const TERM = /(due|sched|start|est):(\S*)$/;
 
+/**
+ * A `🔁` at the end of a todo line, with whatever has been typed after it. A
+ * rule is several words, so this runs over spaces where a date stops at one.
+ */
+const RULE = /🔁[ \t]*([\w, \t]*)$/;
+
+/** The same at the end of the shorthand, where a rule is one word. */
+const EVERY_TERM = /every:(\S*)$/;
+
 /** A colon opening the list, which has to start a word so prose keeps its own. */
 const OPEN = /[ \t]:(\w*)$/;
 
@@ -144,6 +155,24 @@ function values(long: boolean, today: string, pad: string): Suggestion[] {
     const date = readDate(word, today);
     return date === undefined ? [] : [{ name: word, hint: date, text: pad + date }];
   });
+}
+
+/**
+ * The rules that follow a `🔁`, counted from the date the todo carries or from
+ * today, and narrowed to what has been typed. `spell` turns a rule into what
+ * the caller writes, and what is typed is matched against that, so each place
+ * narrows in its own spelling.
+ */
+function rules(todo: Todo, today: string, typed: string, spell: (rule: string) => string) {
+  const wanted = typed.toLowerCase();
+  return offeredRules(todo.due ?? todo.scheduled ?? todo.start ?? today)
+    .map((rule) => ({ name: rule, hint: "", text: spell(rule) }))
+    .filter(({ text }) => text.toLowerCase().startsWith(wanted));
+}
+
+/** `every week on Monday, Thursday` as the one word the shorthand takes. */
+function asWord(rule: string): string {
+  return rule.slice("every ".length).toLowerCase().replaceAll(", ", ",").replaceAll(" ", "-");
 }
 
 /** The fields the todo has not got, spelled the way the caller writes them. */
@@ -192,6 +221,18 @@ export function lineSuggestions(
     if (days !== null) return days;
   }
 
+  const rule = RULE.exec(before);
+  const begun = rule?.[1]?.trim() ?? "";
+  if (rule !== null && parseRecurrence(begun) === null) {
+    const options = rules(todo, today, begun, (text) => text);
+    if (options.length > 0) {
+      return {
+        from: rule.index + "🔁".length,
+        options: options.map((option) => ({ ...option, text: ` ${option.text}` })),
+      };
+    }
+  }
+
   const open = OPEN.exec(before);
   if (open === null && !prompted) return null;
 
@@ -229,6 +270,13 @@ export function shorthandSuggestions(before: string, today: string): Suggestions
       // this list does not hold and the shorthand reads perfectly well.
       if (days !== null) return days;
     }
+  }
+
+  const every = EVERY_TERM.exec(before);
+  const begun = every?.[1] ?? "";
+  if (every !== null && readEvery(begun.toLowerCase()) === undefined) {
+    const options = rules(expandShorthand(before, today), today, begun, asWord);
+    if (options.length > 0) return { from: before.length - begun.length, options };
   }
 
   const pad = before === "" || /\s$/.test(before) ? "" : " ";

@@ -39,7 +39,7 @@ kasten keeps in step, and the `.jj` directory beside the notes.
 From the vault root, with `rg` and `cat`, which is all a read needs:
 
 ```sh
-rg -n '^\s*- \[[ /xXb-]\] '            # every todo line, with note and line number
+rg -n '^\s*- \[[ /xXbw-]\] '            # every todo line, with note and line number
 rg -n '📅 2026-08-14'                  # everything due that day
 rg -n 'kt-3f9a2c'                      # the todo, its done log line, its sessions
 cat '{{periodic}}/00 Daily/2026-08-10.md'
@@ -91,7 +91,8 @@ Today's date below is the day you are doing this, `YYYY-MM-DD`.
    `🆔 kt-<six hex>` if the line carries no id. Keep
    [the field order](#the-field-order).
 3. If the todo has parts, that is todos indented under it, tick every part that
-   is still `[ ]`, `[/]` or `[b]`: box `[x]` and `✅ <today>` on each, no id.
+   is still `[ ]`, `[/]`, `[b]` or `[w]`: box `[x]` and `✅ <today>` on each, no
+   id, and drop a `👤` field the part carries.
    Leave a part already done or rejected alone.
 4. If the line carries `🔁`, leave the finished line where it is and put a fresh
    copy above it, one period on. Move every date it carries by the same number
@@ -138,6 +139,7 @@ off, the done log line is deleted wherever it sits, and dependents go back to
 | worked | `⏱ 1h20m` | a duration, written by kasten off the time log |
 | id | `🆔 kt-3f9a2c` | `kt-` and six hex characters |
 | blocked by | `⛔ kt-8b1e04` | another todo's id |
+| waiting on | `👤 2026-08-03 [[Ada Lovelace]]` | the day the wait began, then who |
 | tags | `#health` | a word, left where you typed it |
 
 **A date** is `YYYY-MM-DD` and nothing else. `📅 next tuesday` is not a date, so
@@ -159,7 +161,7 @@ appears once. A todo opens only when every `⛔` on it names a closed todo, and 
 Every field except the two clocks is what the obsidian-tasks plugin already
 reads, so this vault opened in Obsidian shows working tasks.
 
-## The five states
+## The six states
 
 | Box | State |
 | --- | --- |
@@ -167,18 +169,27 @@ reads, so this vault opened in Obsidian shows working tasks.
 | `[/]` | doing |
 | `[x]` | done |
 | `[b]` | blocked |
+| `[w]` | waiting |
 | `[-]` | rejected |
 
 `[X]` reads as done too, because other editors write it that way. Write `[x]`.
-Open means neither done nor rejected, so a blocked todo is open work. Entering
-rejected stamps `❌ <today>`, and leaving it drops that stamp.
+Open means neither done nor rejected, so a blocked todo is open work and so is
+a waiting one. Entering rejected stamps `❌ <today>`, and leaving it drops that
+stamp.
+
+Blocked waits on another todo, named by `⛔`. Waiting waits on a person, for an
+approval or an answer. To set a todo waiting, write the box `[w]` and put
+`👤 <today> <who>` straight after the words, ahead of every other field, the
+name as a `[[link]]` to the person's
+note where the vault has one. Keep a date the line already carries. When the
+todo leaves `[w]` for any other state, drop the `👤` field whole.
 
 ## The field order
 
 The words first, then the fields:
 
 ```
-📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
+👤 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
 ```
 
 kasten rebuilds a todo line rather than patching it, so a line whose fields sit
@@ -191,6 +202,10 @@ in the words where they were typed.
 ```
 every day | every week | every month | every year
 every <n> days | every <n> weeks | every <n> months | every <n> years
+every weekday
+every week on Monday, Thursday | every <n> weeks on Friday | every Sunday
+every month on the 15th | every month on the last
+every month on the 2nd Tuesday | every month on the last Friday
 ```
 
 and any of them may end `when done`. A rule this does not cover stays in the
@@ -202,6 +217,14 @@ ticked. A month rule counts calendar months and clamps to the last day of a
 month too short for it: the thirty-first of January one month on is the
 twenty-eighth of February. A recurring todo carrying no date at all writes no
 copy.
+
+The last four lines name their days, and such a rule lands on the first of
+them after the date it counts from, never on that date itself. The weeks of
+`every <n> weeks on Friday` are counted from the week that date is in, Monday
+first. A weekday of the month is the 1st to the 4th or the last. A month that
+lacks the day named is passed over, so `on the 31st` skips February, and
+`on the last` is the rule for the end of every month. Every other date on the
+line still moves by the same number of days.
 
 ## Two things that look like todos
 

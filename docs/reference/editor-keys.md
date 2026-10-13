@@ -108,6 +108,7 @@ A row along the bottom edge, under the status bar.
 | `run` | Open the command palette | `openPalette` | `<leader>:` |
 | `today` | Open today's note | `openDaily` | `<leader>gd` |
 | `todos` | Open the todo pane | `openTodos` | `<leader>gt` |
+| `chat` | Open the chat with Claude Code | `openChat` | `<leader>cc` |
 | `pane` | Move to the next pane. Drawn only while the tab holds more than one | `nextPane` | `<leader>o` |
 
 Each button runs the command its key runs and nothing more. Every other leader
@@ -205,6 +206,7 @@ move-right, because the leader is registered in normal mode only.
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
+| `<leader>cc` | Open the chat with Claude Code in the focused pane |
 | `<leader>cd` | Capture a thought into the `## Dump` of today's note |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
@@ -253,6 +255,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>sp` | Set this todo to doing |
 | `<leader>sx` | Set this todo to done |
 | `<leader>sb` | Set this todo to blocked |
+| `<leader>sw` | Set this todo to waiting on somebody |
 | `<leader>sr` | Set this todo to rejected |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
@@ -614,6 +617,35 @@ dropping every key until you clicked into it.
 A terminal pane is not in the URL. `?note=` names a note, and a terminal names
 nothing, so a reload comes back to an empty pane. `<leader>cs` and the session
 name is how you get back to it, which is the mechanism the sessions already have.
+
+## The chat pane
+
+`<leader>cc` puts a chat with Claude Code in the focused pane, replacing what
+was there. It is the Claude Code of the shell container, in the vault, and the
+session is the container's: closing the pane, a reload and another device all
+come back to the same conversation.
+[Run a skill from the chat pane](/how-to/run-a-skill-from-the-chat-pane.md)
+walks through a run.
+
+The pane takes the focus, not its message box, so the leader works at once.
+
+| Key | Where | Does |
+| --- | --- | --- |
+| `i`, Enter | the pane | Move to the message box |
+| Enter | the message box | Send. Under a coarse pointer it breaks the line, and `Send` sends |
+| Shift+Enter | the message box | Break the line |
+| Escape | the message box | Back to the pane |
+| `<leader>` and a key | the pane | Every leader key. `<leader>q` takes the chat out of the pane |
+
+In the message box and in a question's `Other` field a space is a space, so
+the leader is reached from the pane, after Escape.
+
+The header holds `/close-day` and `/process-meeting`, which send that text,
+`Stop` while a run lasts, and `New`, which ends the session and empties the
+pane. A tool call is a folded line that a click or Enter opens. A question a
+skill asks is a form: radio buttons where it takes one answer, checkboxes where
+it takes several, and an `Other` field for your own words. `Answer` is off
+until every question has an answer.
 
 ## The book pane
 
@@ -1132,9 +1164,12 @@ more presses walk it through doing and done, and a fourth gives the words back
 as prose. It edits the buffer, so `u` undoes it and the autosave writes it.
 [The cycle](/reference/todo-format.md#the-cycle) says what each press stamps.
 
-The walk is the work and nothing else. Blocked and rejected are not on it, and
-the five `<leader>s` keys are how you reach any state from any other: `so`
-open, `sp` doing, `sx` done, `sb` blocked, `sr` rejected. They stamp what the
+The walk is the work and nothing else. Blocked, waiting and rejected are not on
+it, and the six `<leader>s` keys are how you reach any state from any other:
+`so` open, `sp` doing, `sx` done, `sb` blocked, `sw` waiting, `sr` rejected.
+`sw` stamps `👤` and today after the words and leaves the cursor on the date,
+where `a` then types
+[who the todo waits on](/reference/todo-format.md#waiting-on-somebody). They stamp what the
 walk stamps and drag what it drags, so setting a parent done still ticks its
 parts. `s` for state, and `p` for in progress because `d` is spent on the done
 list in the pane.
@@ -1248,7 +1283,7 @@ screen the state's symbol is a button of its own that cycles the todo as `x`
 does, and the header carries a `+` that adds one as `a` does. Under the header
 `done`, `next` and `view` do what `d`, `n` and `v` do. Each row ends in a `⋯`
 that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
-`blocked` and `rejected` set the state as `O`, `P`, `X`, `B` and `R` do,
+`blocked`, `waiting` and `rejected` set the state as `O`, `P`, `X`, `B`, `W` and `R` do,
 `timer` is `t`, `part` is `s` and `edit` is `i`. `edit` does nothing while
 another row is being edited. A state picked from the strip is set on one tap.
 
@@ -1284,8 +1319,12 @@ in its parent's group with its parent's date on the row, and one whose parent
 has not started yet waits with it. [Subtasks](/reference/todo-format.md#subtasks)
 says what comes down and what never does. A blocked row is drawn muted and
 sits in the group its due date names rather than under a heading of its own, its
-state already being written on the line. The footer counts the rows, so many
-open and so many blocked, and how many timers are going where any are.
+state already being written on the line. A row
+[waiting on somebody](/reference/todo-format.md#waiting-on-somebody) is drawn
+the same way and says for how many days and on whom before its date,
+`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. The footer counts the rows, so many open and so many
+blocked, how many are waiting where any are, and how many timers are going
+where any are.
 
 Only open todos are listed. One that is done or rejected is not work, and the
 session lines `GET /api/todos` also matches are not todos, so neither is here.
@@ -1302,7 +1341,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
 | `v` | Show the next saved view, or all todos again |
-| `O` `P` `X` `B` `R` | Set the row's todo to open, doing, done, blocked or rejected |
+| `O` `P` `X` `B` `W` `R` | Set the row's todo to open, doing, done, blocked, waiting or rejected |
 | `/` | Narrow the list |
 | `q` | Close the pane |
 | Escape | Back to the editor |
@@ -1364,8 +1403,8 @@ todo has no due date worth grouping on, and a list reaching back to the
 beginning of the vault is not one anybody reads to the end of. Pressing `d`
 again brings the open list back.
 
-The five shifted keys set a state directly, which is the only way to blocked and
-rejected from here: a row leaves this list the moment it is done, and done is
+The six shifted keys set a state directly, which is the only way to blocked,
+waiting and rejected from here: a row leaves this list the moment it is done, and done is
 where the walk goes first. They are the pane's spelling of the `<leader>s` keys
 and write exactly what those write.
 
@@ -1389,8 +1428,8 @@ nothing, and Enter on an empty input does nothing.
 Under the preview are the terms that line has not used, drawn as the pane draws
 them under an edit and reached the same way, by Tab or by a click. A press
 writes the term, `due:` or `every:` or `!high`, and the ones that take a value
-then offer it, so a todo due Friday and repeating monthly can be written without
-typing a colon. Enter on one of them takes it rather than writing the todo.
+then offer it, so a todo due Friday and repeating every other Friday can be
+written without typing a colon. Enter on one of them takes it rather than writing the todo.
 
 `s` opens that same prompt on the row under the cursor, and what it takes lands
 as a part of that todo: in the note the todo lives in, one step further in, after
@@ -1794,6 +1833,16 @@ weekday naming the next one. Typing `fri` and taking `friday` writes the date
 itself, so what lands on the line is a date the format reads rather than a word
 it cannot. `estimate` works the same way and offers `15m` up to `4h`; any other
 duration is typed out.
+
+`repeat` is the third of them. Taking it leaves `🔁 ` and offers the rules:
+`every day`, `every week`, `every month`, `every year` and `every weekday`,
+then the ones that name the day the line is due, such as
+`every week on Friday`, `every 2 weeks on Friday`, `every month on the 14th`,
+`every month on the 2nd Friday` and, where it is one, `every month on the last
+Friday`. A line with no `📅` is read by its `⏳`, then its `🛫`, then today.
+Typing narrows them, over the spaces a rule is written with. Any other rule
+[the format reads](/reference/todo-format.md#recurrence) is typed out.
+`daily`, `weekly` and `monthly` are still one press each.
 
 Ctrl+Space opens the list without the colon, anywhere on a todo line. Without
 one or the other nothing pops up while a todo is being written, which is what

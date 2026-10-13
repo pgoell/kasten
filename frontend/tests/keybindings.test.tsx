@@ -46,6 +46,7 @@ function stubCommands() {
     revealTree: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),
+    openChat: vi.fn(),
     importPage: vi.fn(),
     captureDump: vi.fn(),
     splitRight: vi.fn(),
@@ -674,6 +675,16 @@ describe("the leader key", () => {
 
     // Blocked is not on the walk, so this key is the only way to it.
     expect(doc()).toBe("- [b] wire up the pane");
+  });
+
+  it("sets a todo to waiting on leader s w, stamping the day the wait began", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "w" });
+
+    expect(doc()).toMatch(/^- \[w\] wire up the pane 👤 \d{4}-\d{2}-\d{2}$/);
   });
 
   it("tidies the note's markdown on the leader's format key", () => {

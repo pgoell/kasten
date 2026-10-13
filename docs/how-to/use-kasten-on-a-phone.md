@@ -11,7 +11,7 @@ status: stable
 You have kasten open in a phone's browser, or installed from
 [Install kasten on your phone](/how-to/install-on-your-phone.md), and you want
 to do by touch what the keys do at a desk. A row of buttons runs along the
-bottom edge: `files`, `find`, `search`, `run`, `today` and `todos`. Every
+bottom edge: `files`, `find`, `search`, `run`, `today`, `todos` and `chat`. Every
 recipe below starts there.
 
 [Editor keys](/reference/editor-keys.md#what-counts-as-a-phone) says which
@@ -82,7 +82,7 @@ The `pane` button shows only while the tab holds more than one pane.
 3. Tap the symbol again within four seconds.
 
 To set a state directly, tap `⋯` at the end of the row, then `open`, `doing`,
-`done`, `blocked` or `rejected`. That takes one tap.
+`done`, `blocked`, `waiting` or `rejected`. That takes one tap.
 
 To add a todo, tap `+` in the header.
 

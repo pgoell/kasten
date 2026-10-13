@@ -13,8 +13,9 @@ oauth2-proxy.
   CodeMirror 6 with vim mode, xterm, bun. Every key is in
   [the editor keys](../docs/reference/editor-keys.md).
 - `shell/`: ttyd over herdr on a node base, with the vault mounted and jj, rg,
-  git, curl, jq, Claude Code, codex and dsh beside it. It publishes no port, the way
-  in being a Caddy `handle /term/*` behind oauth2-proxy.
+  git, curl, jq, Claude Code, codex and dsh beside it. `shell/chat/` is the
+  runner the chat pane talks to. It publishes no port, the way in being a Caddy
+  `handle /term/*` and `handle /chat/*` behind oauth2-proxy.
 - `vault/`: the notes, and a colocated jj repo holding their history.
 - `plugins/`: the Claude Code plugin that reaches the vault with curl where MCP
   is off. `.claude-plugin/marketplace.json` at the root makes the repo its

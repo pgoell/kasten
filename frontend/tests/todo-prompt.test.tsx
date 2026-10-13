@@ -66,6 +66,7 @@ describe("TodoPrompt", () => {
       "🔁 daily",
       "🔁 weekly",
       "🔁 monthly",
+      "🔁 repeat",
       "⏲ estimate",
     ]);
   });

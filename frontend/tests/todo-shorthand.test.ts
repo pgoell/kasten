@@ -82,6 +82,8 @@ describe("matchesFilter", () => {
   it("takes a row carrying either term of one group", () => {
     expect(matches("- [/] wire up the pane", "/open /doing")).toBe(true);
     expect(matches("- [b] wire up the pane", "/open /doing")).toBe(false);
+    expect(matches("- [w] wire up the pane 👤 2026-08-03 Ada", "/waiting")).toBe(true);
+    expect(matches("- [b] wire up the pane", "/waiting")).toBe(false);
   });
 
   it("drops a row carrying a negated term", () => {
@@ -188,6 +190,20 @@ describe("expandShorthand", () => {
     expect(written("pay rent due:09-01 every:3months")).toBe(
       "- [ ] pay rent 📅 2026-09-01 🔁 every 3 months ➕ 2026-08-10",
     );
+  });
+
+  it("reads a rule naming its days, a hyphen standing for each space", () => {
+    const rule = (word: string) => expandShorthand(`a every:${word}`, TODAY).recurrence;
+
+    expect(rule("weekday")).toBe("every weekday");
+    expect(rule("week-on-mon,thu")).toBe("every week on Monday, Thursday");
+    expect(rule("2-weeks-on-friday")).toBe("every 2 weeks on Friday");
+    expect(rule("2weeks-on-friday")).toBe("every 2 weeks on Friday");
+    expect(rule("friday")).toBe("every week on Friday");
+    expect(rule("month-on-the-15th")).toBe("every month on the 15th");
+    expect(rule("month-on-the-last-friday")).toBe("every month on the last Friday");
+    expect(rule("week-when-done")).toBe("every week when done");
+    expect(rule("week-")).toBeUndefined();
   });
 
   it("leaves a recurrence it cannot read in the words", () => {

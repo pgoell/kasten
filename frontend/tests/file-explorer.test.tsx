@@ -108,6 +108,7 @@ function Harness({
         openReview: () => {},
         createTab: () => {},
         openTerminal: () => {},
+        openChat: () => {},
         importPage: () => {},
         captureDump: () => {},
         splitRight: () => {},

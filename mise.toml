@@ -2,6 +2,10 @@
 
 [tools]
 python = "3.14"
+# The chat runner in `shell/chat` runs on the shell image's node, so its tests
+# run on the same major here. Nothing else in the repo runs on node: the
+# frontend is bun's.
+node   = "24"
 uv     = "latest"
 bun    = "1.3.8"
 "ubi:evilmartians/lefthook" = "1.11.14"
@@ -120,7 +124,7 @@ run = "uv run alembic downgrade -1"
 
 [tasks.test]
 description = "Run all tests (backend + frontend)"
-depends = ["test:py", "fe:test"]
+depends = ["test:py", "fe:test", "shell:test"]
 
 [tasks."test:py"]
 description = "Run backend tests"
@@ -129,6 +133,18 @@ run = "uv run pytest"
 [tasks."fe:test"]
 description = "Run frontend tests"
 run = "bun run --cwd frontend test"
+
+[tasks."shell:test"]
+description = "Run the chat runner's tests"
+# node's own runner, and a glob rather than the directory: handed a directory,
+# `node --test` tries to run it as a module.
+run = "node --test 'shell/chat/*.test.mjs'"
+
+[tasks."chat:stub"]
+description = "Run the chat runner with a scripted session on :7682, no login"
+# What `fe:dev` proxies `/chat` to, so the chat pane can be worked on without
+# the shell container or a Claude login.
+run = "node shell/chat/stub.mjs"
 
 # ─── Vault maintenance ──────────────────────────────────────────────────────
 
@@ -165,7 +181,7 @@ description = "Run the fast linters and both type checkers (pre-commit gate)"
 # this the frontend was the half where a type error reached the branch. It
 # brings `fe:build` with it, which is what emits the gitignored route tree, and
 # the pair costs about two seconds.
-depends = ["lint:py", "fe:lint", "fe:typecheck"]
+depends = ["lint:py", "fe:lint", "fe:typecheck", "shell:lint"]
 
 [tasks."lint:py"]
 description = "Lint, format-check and type-check the backend"
@@ -196,6 +212,13 @@ run = "bun run build --logLevel warn"
 [tasks."fe:lint"]
 description = "Lint the frontend (Biome)"
 run = "bun run --cwd frontend lint"
+
+[tasks."shell:lint"]
+description = "Lint the chat runner (Biome)"
+# The frontend's Biome and the frontend's rules, pointed at the one other
+# directory of JavaScript in the repo, rather than a second install and a
+# second config for five files.
+run = "frontend/node_modules/.bin/biome check --config-path frontend shell/chat"
 
 [tasks."fe:fmt"]
 description = "Format the frontend (Biome)"

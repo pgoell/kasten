@@ -55,6 +55,16 @@ describe("personTodos", () => {
     ]);
   });
 
+  it("keeps a todo that waits on them, the link being in its 👤 and not its words", () => {
+    const found = personTodos(
+      [hit("a.md", 3, "- [w] decision record 👤 2026-10-01 [[Max Bosch]]")],
+      MAX,
+      PATHS,
+    );
+
+    expect(found.map((one) => one.todo.text)).toEqual(["decision record"]);
+  });
+
   it("drops the finished, the rejected and the lines that are not todos", () => {
     const found = personTodos(
       [
