@@ -342,3 +342,7 @@
 ## 2026-10-11
 
 * **Update**: the save sign of a write that failed, opened out above the status bar, has a `Write my text` button, and that of a note that changed on disk has that and `Take the vault's`. They do what `:w` and `:e!` do, which a phone had no way to type and no palette row for once the tap on the sign had taken the focus off the editor. [Editor keys](/reference/editor-keys.md#touch) and [Use kasten on a phone](/how-to/use-kasten-on-a-phone.md), which gained a recipe, say so.
+
+## 2026-10-13
+
+* **Update**: a todo tagged `#client` is client work. The todo pane draws `◆` on its row and sorts it ahead of internal work of the same priority inside a group. A part of a client todo is client work, so `#client` and `-#client` in the filter line take parts with their parent. The startup note `How-To-TODO.md` gained "Client work", which states the mark and the order for an agent that ranks todos. A vault that already holds the note keeps its old text. [Todo format](/reference/todo-format.md#client-work) gained a section, and [Editor keys](/reference/editor-keys.md#the-todo-pane) says so.

@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Todo format
-description: The line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the terms that filter one, and the note that saves them.
+description: The line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the tag that marks client work, the terms that filter one, and the note that saves them.
 resource: frontend/src/lib/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
@@ -225,7 +225,8 @@ leaves the nesting alone, which is what markdown itself does and what lets the
 pane, which never sees that prose, read the same tree the editor reads.
 
 A part takes what the todo above it carries and does not spell for itself: the
-due date, the scheduled date, the start date and the priority. `esim` above is
+due date, the scheduled date, the start date, the priority and
+[the client mark](#client-work). `esim` above is
 due 2026-08-14, and so is `pick a plan`, each field coming off the nearest todo
 above it that carries one. A part that spells its own wins, and that is the
 whole of the override: `- [ ] esim 📅 2026-08-12` is due on the twelfth whatever
@@ -412,6 +413,39 @@ counts them.
 The first line written into it makes `## Time`, the way the first `- ✅` makes
 `## Done`.
 
+## Client work
+
+`#client` on a todo says the work is for a client. Every other todo is internal
+work.
+
+```markdown
+- [ ] send the offer #client 📅 2026-08-14
+  - [ ] check the numbers
+- [ ] tidy the wiki 📅 2026-08-14
+```
+
+A part of a client todo is client work, with no tag of its own, so `check the
+numbers` above is. A part cannot take the mark off: it is client work while
+anything above it is.
+
+[The todo pane](/reference/editor-keys.md#the-todo-pane) draws `◆` on a row of
+client work and sorts it ahead of internal work of the same priority inside a
+group. The tag never lifts a row over one of a higher priority, and it moves no
+row to another group.
+
+`#client` in [the filter line](#filter-terms) shows client work alone and
+`-#client` shows internal work alone, parts going with their parent. Either
+makes a [saved view](#saved-views):
+
+```markdown
+- client: #client
+- internal: -#client
+```
+
+The tag is fixed, as `#next` is. A vault that never writes it sees no change.
+[The agent note](#the-agent-note) states the same order, so an agent that ranks
+todos weights client work the way the pane does.
+
 ## Filter terms
 
 The todo pane's filter line takes these:
@@ -466,15 +500,18 @@ while it is half written.
 ## The agent note
 
 `99 Misc/01 Config/01 Agents/How-To-TODO.md` says all of the above to an agent
-working in the vault: the fields, their values, the states, the field order, and
-the writes a completion is. A note like any other, so read it, edit it or delete
+working in the vault: the fields, their values, the states, the field order, the
+writes a completion is, and what marks client work. A note like any other, so read it, edit it or delete
 it.
 
 The backend writes it at startup into a vault holding none, rather than a key
 press writing it the way [Saved views](#saved-views) are written. The agents
 that read it are not all inside the app: one in a terminal pane and one on your
 laptop find it the same way, by opening the note, and the second never presses a
-key in kasten. A deleted one comes back the next time the backend starts.
+key in kasten. A deleted one comes back the next time the backend starts. A vault that holds
+the note keeps its own text, so a release that changes the note reaches that
+vault only when you delete the note and restart the backend, or copy the new
+sections in by hand.
 
 The rule it carries: edit the markdown directly for everything, and tick a todo
 done through `PUT /api/files/{path}`. Everything else about a todo is one line

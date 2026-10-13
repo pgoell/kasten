@@ -231,3 +231,14 @@ parent's date onto its parts: write it once, and write a date on a part only
 where that part is due on a different day from the whole. `🆔`, `➕`, `✅`, `❌`,
 `⛔`, `🔁`, `⏲` and `⏱` are never taken from a parent, each saying something
 about one line.
+
+## Client work
+
+`#client` on a todo says the work is for a client. Every other todo is internal
+work. A part of a client todo is client work too, however many steps down, with
+no tag of its own. Do not copy the tag onto the parts.
+
+When you rank todos, order them by priority first, and between two of the same
+priority put client work ahead of internal work. The tag never lifts a todo over
+one of a higher priority, and it changes no date. kasten's todo pane sorts each
+of its groups this way.

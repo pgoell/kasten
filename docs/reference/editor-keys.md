@@ -1239,8 +1239,9 @@ other panes mid-sitting.
 `<leader>gt` fills the focused pane with every open todo in the vault, grouped
 by when it is due, under Overdue, Today, This week, Later and No date. An empty
 group draws no heading. A row is the state's symbol, the mark where a timer is
-running on it, the priority where there is one, the words, the count of its parts
-where it has any, the two clocks and the day of the due date.
+running on it, the priority where there is one, `◆` on
+[client work](/reference/todo-format.md#client-work), the words, the count of
+its parts where it has any, the two clocks and the day of the due date.
 
 A click or a tap on a row opens the line the todo is written on. On a touch
 screen the state's symbol is a button of its own that cycles the todo as `x`
@@ -1261,9 +1262,10 @@ says why the button asks and why there is no Undo.
 
 Inside a group the important work comes first: highest, high, medium, then what
 carries no priority at all, then low and lowest, which is where obsidian-tasks
-reads a bare line. Two rows of the same priority keep the order the vault
-answered in. A part sorts with the todo it hangs off rather than on its own
-priority, so it never leaves it.
+reads a bare line. Between two rows of the same priority, client work comes
+before internal work. Two rows that still tie keep the order the vault answered
+in. A part sorts with the todo it hangs off rather than on its own priority, so
+it never leaves it.
 
 A part is drawn one step in under the todo it belongs to, so the list reads the
 way the note does. Where that todo is not a row in the same group, because it
