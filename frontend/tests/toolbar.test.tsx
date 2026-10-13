@@ -9,6 +9,7 @@ const BUTTONS = [
   ["Run a command by name", "openPalette"],
   ["Open today's note", "openDaily"],
   ["Open the todo pane", "openTodos"],
+  ["Open the chat with Claude Code", "openChat"],
   ["Move to the next pane", "nextPane"],
 ] as const;
 
@@ -27,7 +28,7 @@ describe("Toolbar", () => {
   it("offers the next pane only where the tab holds one", () => {
     render(<Toolbar commands={stubCommands()} split={false} />);
 
-    expect(screen.getAllByRole("button")).toHaveLength(6);
+    expect(screen.getAllByRole("button")).toHaveLength(7);
     expect(screen.queryByRole("button", { name: "Move to the next pane" })).toBeNull();
   });
 

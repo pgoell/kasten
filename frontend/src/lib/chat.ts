@@ -1,0 +1,186 @@
+/**
+ * What the chat runner says, and what the chat pane makes of it.
+ *
+ * Pure: no `EventSource`, no DOM. `chat-pane.tsx` owns the stream and the
+ * markup, and this owns the reading of it, so a run can be tested as a list of
+ * events without mounting anything. The other end is `shell/chat/runner.mjs`,
+ * and the two have to agree on the events below.
+ */
+
+export interface ChatOption {
+  label: string;
+  description: string;
+}
+
+/** One question of an `AskUserQuestion` call, as Claude wrote it. */
+export interface ChatQuestion {
+  question: string;
+  header: string;
+  options: ChatOption[];
+  multiSelect: boolean;
+}
+
+/** An answer per question, keyed by the question's own text. */
+export type ChatAnswers = Record<string, string>;
+
+export type ChatEvent =
+  | { type: "reset" }
+  | { type: "user"; text: string }
+  | { type: "delta"; text: string }
+  | { type: "text"; text: string }
+  | { type: "tool"; id: string; name: string; input: unknown }
+  | { type: "tool_result"; id: string; text: string; error: boolean }
+  | { type: "ask"; id: string; questions: ChatQuestion[] }
+  | { type: "answered"; id: string; answers?: ChatAnswers }
+  | { type: "done"; error?: string }
+  | { type: "error"; text: string };
+
+export type ChatItem =
+  | { kind: "user"; text: string }
+  | { kind: "text"; text: string }
+  | {
+      kind: "tool";
+      id: string;
+      name: string;
+      input: unknown;
+      result?: { text: string; error: boolean };
+    }
+  | {
+      kind: "ask";
+      id: string;
+      questions: ChatQuestion[];
+      /** Whether it still waits for an answer. */
+      open: boolean;
+      /** Absent on one that was stopped rather than answered. */
+      answers?: ChatAnswers;
+    }
+  | { kind: "error"; text: string };
+
+export interface ChatState {
+  items: ChatItem[];
+  /** The text block now arriving, a few words at a time. */
+  streaming: string;
+  /**
+   * Turns sent and not yet finished. A count and not a flag, because a message
+   * sent during a run is queued behind it, and the first `done` is not the end.
+   */
+  running: number;
+}
+
+export const EMPTY: ChatState = { items: [], streaming: "", running: 0 };
+
+export function reduce(state: ChatState, event: ChatEvent): ChatState {
+  const add = (item: ChatItem): ChatState => ({
+    ...state,
+    items: [...state.items, item],
+    streaming: "",
+  });
+
+  switch (event.type) {
+    // First on every connection, with the whole log behind it. So a pane that
+    // reconnects forgets what it had and is told all of it again.
+    case "reset":
+      return EMPTY;
+    case "user":
+      return { ...add({ kind: "user", text: event.text }), running: state.running + 1 };
+    case "delta":
+      return { ...state, streaming: state.streaming + event.text };
+    // The whole block, which takes the place of the pieces that led up to it.
+    case "text":
+      return add({ kind: "text", text: event.text });
+    case "tool":
+      return add({ kind: "tool", id: event.id, name: event.name, input: event.input });
+    case "tool_result":
+      return {
+        ...state,
+        items: state.items.map((item) =>
+          item.kind === "tool" && item.id === event.id
+            ? { ...item, result: { text: event.text, error: event.error } }
+            : item,
+        ),
+      };
+    case "ask":
+      return add({ kind: "ask", id: event.id, questions: event.questions, open: true });
+    case "answered":
+      return {
+        ...state,
+        items: state.items.map((item) =>
+          item.kind === "ask" && item.id === event.id
+            ? { ...item, open: false, answers: event.answers }
+            : item,
+        ),
+      };
+    case "done": {
+      const next = event.error === undefined ? state : add({ kind: "error", text: event.error });
+      return { ...next, streaming: "", running: Math.max(0, state.running - 1) };
+    }
+    // The session itself ended, and whatever was queued behind it with it.
+    case "error":
+      return { ...add({ kind: "error", text: event.text }), running: 0 };
+  }
+}
+
+/** The fields that say what a tool call is about, most telling first. */
+const TELLING = ["command", "file_path", "skill", "pattern", "url", "query", "description"];
+
+/**
+ * One line for a tool call while it is folded: the command, the file, the skill.
+ *
+ * A guess at which field matters, since every tool names its own. A tool with
+ * none of these shows its name alone, and the whole input is one tap away.
+ */
+export function toolLine(input: unknown): string {
+  if (typeof input !== "object" || input === null) return "";
+  const fields = input as Record<string, unknown>;
+  for (const name of TELLING) {
+    const value = fields[name];
+    if (typeof value === "string" && value !== "") return value;
+  }
+  return "";
+}
+
+/** What was picked and what was typed for one question. */
+export interface Pick {
+  labels: string[];
+  other: string;
+}
+
+/**
+ * The answers a form holds, or nothing while a question still has none.
+ *
+ * Keyed by the question's text and joined with `", "`, which is the shape the
+ * tool reads. Typed text stands beside the picked labels as one more answer,
+ * never as the word "Other".
+ */
+export function answersFor(
+  questions: ChatQuestion[],
+  picks: Record<string, Pick | undefined>,
+): ChatAnswers | undefined {
+  const answers: ChatAnswers = {};
+  for (const { question } of questions) {
+    const pick = picks[question];
+    const parts = [...(pick?.labels ?? []), pick?.other.trim() ?? ""].filter((part) => part !== "");
+    if (parts.length === 0) return undefined;
+    answers[question] = parts.join(", ");
+  }
+  return answers;
+}
+
+/**
+ * Say something to the runner. Whether it took it is the answer.
+ *
+ * JSON on purpose, and not only because the runner parses it: the runner
+ * refuses any other content type, which is what keeps a form on another site
+ * from posting here. See `fromOwnPage` in `shell/chat/runner.mjs`.
+ */
+export async function postChat(
+  path: "send" | "answer" | "stop" | "new",
+  body: object = {},
+): Promise<boolean> {
+  const response = await fetch(`/chat/${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return response.ok;
+}

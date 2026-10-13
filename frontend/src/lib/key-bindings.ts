@@ -116,6 +116,8 @@ export interface EditorCommands {
   createTab(): void;
   /** Open a terminal in the focused pane, attached to a herdr session by name. */
   openTerminal(): void;
+  /** Open the chat with Claude Code in the focused pane. */
+  openChat(): void;
   /** Ask for a web address, and put the page it names in the inbox as a note. */
   importPage(): void;
   /** Ask for one thought, and put it in the `## Dump` of today's note. */
@@ -206,6 +208,9 @@ export const LEADER: readonly LeaderBinding[] = [
   // behind is a book in the vault and the note that reads it. `b` for the
   // book, beside `gr` which reads one.
   { key: "cb", label: "Add a book to the inbox", command: "uploadBook" },
+  // `c` for chat, doubled the way `gg` is: the group's letter is the thing's
+  // own first letter. It sits beside `cs`, the other pane with an agent in it.
+  { key: "cc", label: "Open the chat with Claude Code", command: "openChat" },
   // `d` for the dump, the section of today's note the thought lands in. In the
   // `c` group because it creates: a paragraph, and the note and the section
   // where the day has neither. Not a bare `d`, which would shadow `df` and `du`:

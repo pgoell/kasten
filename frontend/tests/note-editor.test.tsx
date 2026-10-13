@@ -98,6 +98,7 @@ function OpenNote({ path }: { path: string }) {
       revealTree: () => {},
       createTab: () => {},
       openTerminal: () => {},
+      openChat: () => {},
       importPage: () => {},
       captureDump: () => {},
       splitRight: () => {},

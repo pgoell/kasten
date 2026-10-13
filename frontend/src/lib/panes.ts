@@ -109,6 +109,15 @@ export interface Pane {
    * above.
    */
   graph?: { around?: string };
+  /**
+   * Set on a pane holding the chat, absent on every other.
+   *
+   * A boolean and not a session name, which is where this parts company with
+   * `term`: the runner holds one session, and every chat pane is a view of it.
+   * A twelfth optional field for the reason `todos` is the second, written out
+   * above.
+   */
+  chat?: boolean;
 }
 
 /** A row or a column of panes, or of further splits. */
@@ -258,6 +267,20 @@ export function openTerminalInFocused(layout: Layout, session: string): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, term: session }),
+  });
+}
+
+/**
+ * Put the chat in the focused pane, replacing whatever was there.
+ *
+ * Over the pane, the way a terminal is put over one: this is a place to work
+ * in, not a thing read beside a note.
+ */
+export function openChatInFocused(layout: Layout): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, chat: true }),
   });
 }
 
