@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Todo format
-description: The line a todo is written on, every field it carries, the five states, the cycle, the done log, the time log, the tag that marks client work, the terms that filter one, and the note that saves them.
+description: The line a todo is written on, every field it carries, the six states, the cycle, the done log, the time log, the tag that marks client work, the terms that filter one, and the note that saves them.
 resource: frontend/src/lib/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
@@ -36,7 +36,7 @@ does not parse, stays in the words where the person who typed it can see it.
 
 | Field | Spelling | From |
 | --- | --- | --- |
-| state | `[ ]` `[/]` `[x]` `[b]` `[-]` | ours |
+| state | `[ ]` `[/]` `[x]` `[b]` `[w]` `[-]` | ours |
 | due | `📅 2026-08-14` | obsidian-tasks |
 | scheduled | `⏳ 2026-08-12` | obsidian-tasks |
 | start | `🛫 2026-08-11` | obsidian-tasks |
@@ -49,6 +49,7 @@ does not parse, stays in the words where the person who typed it can see it.
 | worked | `⏱ 1h20m` | ours |
 | id | `🆔 kt-3f9a2c` | obsidian-tasks |
 | blocked by | `⛔ kt-8b1e04` | obsidian-tasks |
+| waiting on | `👤 2026-08-03 [[Ada Lovelace]]` | ours |
 | tags | `#kasten` | Obsidian |
 
 The five dates are `YYYY-MM-DD` and nothing else. A `📅 next tuesday` is not a
@@ -60,9 +61,10 @@ tag rather than to the next space.
 Both clocks take a duration, written `2h`, `45m` or `1h20m`. Nothing else is
 one: `90`, `1h30` and `two hours` are words, not times.
 
-Only the two clocks are ours. Everything else is what the obsidian-tasks plugin
-already reads, so the vault opened in Obsidian shows working tasks rather than
-prose.
+Only the two clocks and the `👤` are ours. Everything else is what the
+obsidian-tasks plugin already reads, so the vault opened in Obsidian shows
+working tasks rather than prose. The plugin leaves a marker it does not know in
+the task's words, so the three of ours show there as text.
 
 Tags are the one field left where it was typed. `call the #health dentist` keeps
 its tag mid-sentence, because moving it to the end would rewrite the note every
@@ -71,9 +73,9 @@ time somebody ticked something.
 `⛔` may appear more than once, each naming another todo's id, and every one is
 kept in the order it was written. Every other field appears once.
 
-Nine of these are written by kasten today: the state, the due date, the
+Ten of these are written by kasten today: the state, the due date, the
 priority, the created date, the done date, the cancelled date, the id, the
-estimate and the worked total. The last two are the newest. `est:45m` in
+estimate, the worked total and the day a wait began. `est:45m` in
 [the add prompt](#the-add-prompts-shorthand) writes the `⏲`, and every stop of
 the timer rewrites the `⏱` off [the time log](#the-time-log). The rest are read,
 carried and written back untouched: you type a scheduled date, a start date, a
@@ -86,7 +88,7 @@ There is deliberately no block anchor. The id does every job a `^anchor` would
 have done: the done log names it, dependencies name it, and the time log names
 it.
 
-## The five states
+## The six states
 
 | Box | State | Drawn |
 | --- | --- | --- |
@@ -94,19 +96,25 @@ it.
 | `[/]` | doing | ◐ |
 | `[x]` | done | ☑ |
 | `[b]` | blocked | ⊘ |
+| `[w]` | waiting | ◷ |
 | `[-]` | rejected | ☒ |
 
 `[X]` reads as done as well, because another editor writes it that way. kasten
 always writes `[x]`.
 
-Five rather than the plugin's two, because blocked and rejected are things that
-happen to work and a todo that is neither open nor done has to be able to say
-which. `[/]` and `[-]` are what most Obsidian themes already style; `[b]` has no
-convention behind it and reads as what it is.
+Six rather than the plugin's two, because blocked, waiting and rejected are
+things that happen to work and a todo that is neither open nor done has to be
+able to say which. `[/]` and `[-]` are what most Obsidian themes already style;
+`[b]` and `[w]` have no convention behind them and read as what they are.
+Obsidian shows a box it does not know as a task that is not done.
+
+Blocked and waiting are two different holds. A blocked todo waits on another
+todo, which its `⛔` names. A waiting todo waits on somebody, for an approval or
+an answer, and [its `👤`](#waiting-on-somebody) says who and since when.
 
 Open means neither done nor rejected, which is what
 [the todo pane and the todo overlay](/reference/editor-keys.md#todos) both show.
-A blocked todo is open work.
+A blocked todo is open work, and so is a waiting one.
 
 ## The cycle
 
@@ -119,18 +127,20 @@ A blocked todo is open work.
 | `[/]` | `[x]` | `✅` today, and `🆔` unless the line already carries one |
 | `[x]` | a plain line | strips the `✅` it wrote |
 | `[b]` | `[/]` | nothing |
+| `[w]` | `[/]` | strips the `👤` |
 | `[-]` | a plain line | strips the `❌` it wrote |
 
 The walk is the work: not started, started, finished, and out of the list again.
-Blocked and rejected are things that happen to work rather than steps in it, so
-neither is on the walk and each has [a key of its own](#setting-a-state). That
+Blocked, waiting and rejected are things that happen to work rather than steps
+in it, so none is on the walk and each has [a key of its own](#setting-a-state). That
 is also what puts done last. A list of open work loses a row the moment it is
 done, so a walk with two closed states in it could never reach the second: from
 the todo pane the old order made blocked and rejected unreachable, because the
 row left the list at done and took the rest of the walk with it.
 
 The walk picks a blocked line up where the work left off, at doing, rather than
-at the start of it. A todo somebody blocked is one somebody had begun.
+at the start of it. A todo somebody blocked is one somebody had begun. It picks
+a waiting line up at the same place, the answer having come.
 
 The first step reads the fields already on the line, so a todo written out by
 hand arrives carrying them. It takes the line's bullet off where it had one, the
@@ -166,14 +176,15 @@ what those two presses write.
 
 ## Setting a state
 
-Five keys put a line straight into one state from wherever it was: `O`, `P`,
-`X`, `B` and `R` in the todo pane, and `<leader>so`, `<leader>sp`,
-`<leader>sx`, `<leader>sb` and `<leader>sr` in the editor. `p` is in progress,
-`d` being spent on the done list.
+Six keys put a line straight into one state from wherever it was: `O`, `P`,
+`X`, `B`, `W` and `R` in the todo pane, and `<leader>so`, `<leader>sp`,
+`<leader>sx`, `<leader>sb`, `<leader>sw` and `<leader>sr` in the editor. `p` is
+in progress, `d` being spent on the done list.
 
 A state is worth the same whichever key wrote it. Entering done stamps `✅`
 today and an `🆔` where the line carries none, entering rejected stamps `❌`
 today, and leaving either drops the stamp it wrote, exactly as the walk does.
+Entering waiting stamps `👤` today, and every other state drops the `👤` whole.
 A key aimed at the state a line is already in changes nothing. A plain line
 becomes a todo in that state, carrying the `➕` the walk would have stamped.
 
@@ -186,7 +197,7 @@ parts, a recurring todo set to done writes its next copy, and a todo carrying an
 The words come first, then every field the line carries, in this order:
 
 ```
-📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
+📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔ 👤
 ```
 
 One decision made in one place, so a note stays consistent however it was
@@ -250,7 +261,8 @@ as closed. A todo with no parts shows nothing.
 
 Ticking a parent done ticks every part that is still open, stamping today's
 `✅` on each and leaving a part that was already done or rejected where it is.
-Blocked counts as open, so a `[b]` part goes done with the rest. One
+Blocked and waiting count as open, so a `[b]` or a `[w]` part goes done with the
+rest, the `[w]` one losing its `👤`. One
 `- ✅` line is written for the press, naming the parent, because six lines for
 one press is noise, and no part gets an id, nothing naming one. It is one
 buffer edit, so one `u` puts every line back.
@@ -295,6 +307,45 @@ by a blocker that has been deleted.
 
 One level per write. If A blocks B and B blocks C, closing A opens B, and C is
 opened by the write that closes B rather than by the same pass.
+
+## Waiting on somebody
+
+`[w]` says a todo waits on a person, and `👤` says who and since when:
+
+```markdown
+- [w] decision record for the queue #adr 📅 2026-08-14 👤 2026-08-03 [[Ada Lovelace]]
+```
+
+The date comes first and is the day the wait began. The name comes after it and
+runs to the next field, the next tag or the end of the line. It is free text,
+so `the tax office` is a name. A `[[link]]` to
+[a person's note](/explanation/people-in-the-vault.md) is the better one: the
+link is on the line, so the todo shows on that person's card. Either half may
+be missing. A `👤` with nothing after it is not a field and stays in the words.
+
+`W` in the todo pane and `<leader>sw` in the editor set the state and stamp
+`👤` with today. A date the line already carries is kept, so setting the state
+twice does not restart the wait. kasten cannot know the name, so you type it:
+the `👤` is the last thing on the line and the name is the last thing in it,
+which puts the name at the end of the line. From the pane that is `W`, `i`, the
+name, Enter.
+
+Leaving the state drops the `👤` whole, the name with the date, whichever key
+leaves and wherever it goes. The field says who the todo waits on, and it no
+longer waits. `x` on a waiting line goes to doing, as it does on a blocked one.
+
+A `👤` on a line that is not `[w]` is read, carried and written back, and
+means nothing until the line is set to waiting. Then its name is kept and
+the date is stamped.
+
+`⛔` and `[w]` do not meet. kasten moves a line carrying `⛔` between `[ ]` and
+`[b]` only, so a waiting line that also names a blocker stays waiting when the
+blocker closes.
+
+The todo pane keeps a waiting row in the group its due date names, drawn muted
+as a blocked row is, with the name and the days waited on the row: `👤 Ada
+Lovelace 7d`. [The todo pane](/reference/editor-keys.md#the-todo-pane) says the
+rest.
 
 ## Recurrence
 
@@ -454,12 +505,12 @@ The todo pane's filter line takes these:
 | --- | --- |
 | `#tag` | a todo carrying that tag |
 | `!highest` `!high` `!med` `!low` `!lowest` | that priority |
-| `/open` `/doing` `/done` `/blocked` `/rejected` | that state |
+| `/open` `/doing` `/done` `/blocked` `/waiting` `/rejected` | that state |
 | `due:today` | due today |
 | `due:overdue` | due before today |
 | `due:<7d` | due less than seven days out, so today counts and the seventh day does not |
 | `-` before any of the above | negates it |
-| anything else | ranked as text |
+| anything else | ranked as text, against the words and the name after a `👤` |
 
 Within one group the terms are an or; across groups they are an and. So
 `#kasten !high` means both, while `!high !low` means either. `-#kasten`

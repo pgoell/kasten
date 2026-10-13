@@ -253,6 +253,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>sp` | Set this todo to doing |
 | `<leader>sx` | Set this todo to done |
 | `<leader>sb` | Set this todo to blocked |
+| `<leader>sw` | Set this todo to waiting on somebody |
 | `<leader>sr` | Set this todo to rejected |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |
@@ -1132,9 +1133,11 @@ more presses walk it through doing and done, and a fourth gives the words back
 as prose. It edits the buffer, so `u` undoes it and the autosave writes it.
 [The cycle](/reference/todo-format.md#the-cycle) says what each press stamps.
 
-The walk is the work and nothing else. Blocked and rejected are not on it, and
-the five `<leader>s` keys are how you reach any state from any other: `so`
-open, `sp` doing, `sx` done, `sb` blocked, `sr` rejected. They stamp what the
+The walk is the work and nothing else. Blocked, waiting and rejected are not on
+it, and the six `<leader>s` keys are how you reach any state from any other:
+`so` open, `sp` doing, `sx` done, `sb` blocked, `sw` waiting, `sr` rejected.
+`sw` stamps `👤` and today at the end of the line, where `A` then types
+[who the todo waits on](/reference/todo-format.md#waiting-on-somebody). They stamp what the
 walk stamps and drag what it drags, so setting a parent done still ticks its
 parts. `s` for state, and `p` for in progress because `d` is spent on the done
 list in the pane.
@@ -1248,7 +1251,7 @@ screen the state's symbol is a button of its own that cycles the todo as `x`
 does, and the header carries a `+` that adds one as `a` does. Under the header
 `done`, `next` and `view` do what `d`, `n` and `v` do. Each row ends in a `⋯`
 that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
-`blocked` and `rejected` set the state as `O`, `P`, `X`, `B` and `R` do,
+`blocked`, `waiting` and `rejected` set the state as `O`, `P`, `X`, `B`, `W` and `R` do,
 `timer` is `t`, `part` is `s` and `edit` is `i`. `edit` does nothing while
 another row is being edited. A state picked from the strip is set on one tap.
 
@@ -1284,8 +1287,12 @@ in its parent's group with its parent's date on the row, and one whose parent
 has not started yet waits with it. [Subtasks](/reference/todo-format.md#subtasks)
 says what comes down and what never does. A blocked row is drawn muted and
 sits in the group its due date names rather than under a heading of its own, its
-state already being written on the line. The footer counts the rows, so many
-open and so many blocked, and how many timers are going where any are.
+state already being written on the line. A row
+[waiting on somebody](/reference/todo-format.md#waiting-on-somebody) is drawn
+the same way and says who and for how many days before its date,
+`👤 Ada Lovelace 7d`. The footer counts the rows, so many open and so many
+blocked, how many are waiting where any are, and how many timers are going
+where any are.
 
 Only open todos are listed. One that is done or rejected is not work, and the
 session lines `GET /api/todos` also matches are not todos, so neither is here.
@@ -1302,7 +1309,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
 | `v` | Show the next saved view, or all todos again |
-| `O` `P` `X` `B` `R` | Set the row's todo to open, doing, done, blocked or rejected |
+| `O` `P` `X` `B` `W` `R` | Set the row's todo to open, doing, done, blocked, waiting or rejected |
 | `/` | Narrow the list |
 | `q` | Close the pane |
 | Escape | Back to the editor |
@@ -1364,8 +1371,8 @@ todo has no due date worth grouping on, and a list reaching back to the
 beginning of the vault is not one anybody reads to the end of. Pressing `d`
 again brings the open list back.
 
-The five shifted keys set a state directly, which is the only way to blocked and
-rejected from here: a row leaves this list the moment it is done, and done is
+The six shifted keys set a state directly, which is the only way to blocked,
+waiting and rejected from here: a row leaves this list the moment it is done, and done is
 where the walk goes first. They are the pane's spelling of the `<leader>s` keys
 and write exactly what those write.
 
