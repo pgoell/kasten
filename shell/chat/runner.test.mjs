@@ -46,6 +46,7 @@ function fakeQuery(script) {
       [Symbol.asyncIterator]: () => stream,
       interrupt: async () => {
         seen.interrupted += 1;
+        if (seen.failInterrupt) throw new Error("ProcessTransport is not ready for writing");
       },
       close: () => {
         seen.closed += 1;
@@ -238,6 +239,20 @@ test("stop interrupts the run and refuses the open question", async () => {
     { type: "answered", id: asked.id },
     { type: "done", error: "error_during_execution" },
   ]);
+});
+
+test("a stop the SDK refuses is an error answer, not the end of the runner", async () => {
+  const chat = await serve(async function* (_text, options) {
+    await options.canUseTool("AskUserQuestion", { questions: QUESTIONS }, {});
+    yield result;
+  });
+  chat.seen.failInterrupt = true;
+  await chat.post("/chat/send", { text: "go" });
+  await chat.events(chat.has("ask"));
+
+  assert.equal((await chat.post("/chat/stop", {})).status, 500);
+  // Still serving, and the stream says the question was let go.
+  assert.equal((await chat.events(chat.ended)).at(-1).type, "done");
 });
 
 test("new ends the session and empties the log", async () => {

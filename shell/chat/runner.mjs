@@ -260,7 +260,9 @@ export function createChat({ query, claudePath, cwd }) {
     if (request.method === "GET" && pathname === "/chat/events") {
       response.writeHead(200, {
         "content-type": "text/event-stream",
-        "cache-control": "no-store",
+        // `no-transform` asks a proxy not to compress this. A compressor
+        // that buffers the stream leaves the pane connected and empty.
+        "cache-control": "no-store, no-transform",
       });
       // `reset` first, so a pane that reconnects drops what it had and builds
       // the transcript again from the log, with no bookkeeping of what it saw.
@@ -282,7 +284,17 @@ export function createChat({ query, claudePath, cwd }) {
       return;
     }
     const body = await readJson(request);
-    const status = typeof body === "object" && body !== null ? await post(body) : 400;
+    let status = 400;
+    try {
+      if (typeof body === "object" && body !== null) status = await post(body);
+    } catch (error) {
+      // The SDK refusing a call, an interrupt sent to a process that has just
+      // gone being the one seen. Unanswered it would be an unhandled rejection,
+      // which ends the runner and the session with it.
+      if (!(error instanceof Error)) throw error;
+      console.error(`kasten-chat: ${pathname} failed: ${error.message}`);
+      status = 500;
+    }
     response.writeHead(status).end();
   }
 

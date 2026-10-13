@@ -106,6 +106,10 @@ What the runner does check:
   for those, so the runner refuses them and the agent is told to find another
   way. Only a question the agent asks of you gets through, as a form.
 
+The stream, `GET /chat/events`, carries no such check and needs none. A page
+on another site can open it and cannot read it: the runner sends no CORS
+header, so the browser withholds every byte.
+
 What it does not check: who is on the docker network. Port `7682` answers any
 container there, as ttyd's `7681` does, and a container that can send a
 request can send a matching `Origin` with it. The trust zone above is the

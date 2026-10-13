@@ -60,8 +60,9 @@ docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
 Both blocks must carry the request matcher that leaves `/api/events` and
-`/chat/events` uncompressed, and the `handle /term/*` and `handle /chat/*`
-routes, each carrying `import oauth2_auth`.
+`/chat/events` uncompressed, and the `handle /term/*` route carrying
+`import oauth2_auth`. The prod block carries `handle /chat/*` with the same
+import; [Open the chat route](#open-the-chat-route) has it.
 [Two environments](/explanation/environments.md#constraints-the-box-imposes)
 says what breaks without each.
 
@@ -307,13 +308,14 @@ rather than the directory.
 
 ## Open the chat route
 
-Do this once per environment, before or after the release that carries the
-chat runner. Until it is done the chat pane says it could not reach the runner
+Do this once, for prod, before or after the release that carries the chat
+runner. Until it is done the chat pane says it could not reach the runner
 and nothing else changes.
 
 **1. Add the stanza** to the `kasten.pgoell.com` block in
-`~/Code/server-infra/caddy/Caddyfile`, beside `handle /term/*`, and to the
-`kasten-dev.pgoell.com` block with `kasten-shell-dev` as the name:
+`~/Code/server-infra/caddy/Caddyfile`, beside `handle /term/*`. Dev needs
+none: its vite server proxies `/chat` to `kasten-shell-dev` itself, through
+the route the frontend already has.
 
 ```
 # The chat runner: Claude Code with a shell in the vault, running tools
@@ -324,8 +326,9 @@ handle /chat/* {
 }
 ```
 
-**2. Widen the matcher** in both blocks, or the pane connects and shows
-nothing:
+**2. Widen the matcher** in both blocks. The runner marks its stream
+`no-transform`, which Caddy's `encode` honours, so this is the second lock and
+not the first:
 
 ```
 @compressible not path /api/events /chat/events
@@ -338,6 +341,9 @@ below.
 pane, run `claude`, sign in. The chat runner uses that login. The first start
 of the new image installs the Agent SDK into the home volume, which needs the
 network and shows in `docker logs kasten-shell-prod`.
+
+In dev, `mise run dev:up` rebuilds `kasten-shell-dev` with the runner in it,
+and that container wants its own sign-in.
 
 ## Prove the shell is not exposed
 

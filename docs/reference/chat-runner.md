@@ -21,7 +21,7 @@ over HTTP. The proxy routes `/chat/*` to it behind the login gate:
 | `GET /chat/events` | | `200`, `text/event-stream` | Sends `reset`, then every logged event, then each new one as it happens |
 | `POST /chat/send` | `{"text": "..."}` | `204`, or `400` for empty text | Starts a session if there is none, and queues the text as a user turn |
 | `POST /chat/answer` | `{"id": "ask1", "answers": {...}}` | `204`, `409` if that question is not open | Answers an open question |
-| `POST /chat/stop` | `{}` | `204` | Interrupts the run and closes every open question as not answered |
+| `POST /chat/stop` | `{}` | `204`, `500` if the SDK refused the interrupt | Interrupts the run and closes every open question as not answered |
 | `POST /chat/new` | `{}` | `204` | Ends the session and empties the log |
 
 Any other path or method answers `404`. A body that is not a JSON object
@@ -62,6 +62,9 @@ Each is one `data:` line of JSON on the stream.
 
 A subagent's own text and tool calls are not sent. Its `Agent` call and that
 call's result are.
+
+The stream is sent with `Cache-Control: no-store, no-transform`, the second
+asking a proxy to leave it uncompressed.
 
 Because a `delta` is not logged, a page that connects in the middle of a text
 block sees that block only once it is whole.
