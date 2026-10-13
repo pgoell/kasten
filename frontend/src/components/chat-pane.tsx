@@ -52,6 +52,8 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   const [draft, setDraft] = useState("");
   /** Unknown until the stream opens or fails, so a pane does not flash a warning on its way up. */
   const [reached, setReached] = useState<boolean | null>(null);
+  /** The last thing said to the runner that it did not take, if it took none since. */
+  const [refused, setRefused] = useState<string | null>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
   /** Whether the transcript is at its foot, which is when it follows new text. */
@@ -99,18 +101,41 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
     if (element !== null && following.current) element.scrollTop = element.scrollHeight;
   }, [state]);
 
-  function send(text: string) {
+  /**
+   * Say something to the runner, and say so in the pane when it was not taken:
+   * a login that ran out, a proxy answering for a runner that is down, a
+   * question somebody else answered first. Silence there reads as a run that
+   * is about to start.
+   */
+  async function tell(path: Parameters<typeof postChat>[0], body?: object): Promise<boolean> {
+    const taken = await postChat(path, body);
+    setRefused(taken ? null : path);
+    return taken;
+  }
+
+  async function send(text: string) {
     if (text.trim() === "") return;
-    setDraft("");
-    void postChat("send", { text });
+    // Cleared at once, so a second Enter cannot send it twice, and put back
+    // when the runner did not take it, so it is still there to send again.
+    const typed = text === draft;
+    if (typed) setDraft("");
+    const taken = await tell("send", { text });
+    if (!taken && typed) setDraft((now) => (now === "" ? text : now));
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
-    // Typing is typing: a space in the box or in a form's field is a space.
-    if (event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement) {
+    const { key } = event;
+    const inside = (event.target as Element).closest("textarea, input, button, summary");
+
+    // One way back to the pane from anything in it, the message box included.
+    if (key === "Escape" && inside !== null) {
+      event.preventDefault();
+      panel.current?.focus();
       return;
     }
-    const { key } = event;
+    // Typing is typing, and a button's keys are the button's: a space in the
+    // box is a space, and Enter on a tool call opens it.
+    if (inside !== null) return;
 
     if (heldModifier(key)) return;
 
@@ -155,7 +180,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
       <header className="flex flex-wrap items-center gap-2 border-b border-one-line px-3 py-1">
         <span className={`${LABEL} shrink-0`}>chat</span>
         {SKILLS.map((skill) => (
-          <button key={skill} type="button" className={BUTTON} onClick={() => send(skill)}>
+          <button key={skill} type="button" className={BUTTON} onClick={() => void send(skill)}>
             {skill}
           </button>
         ))}
@@ -164,7 +189,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           <button
             type="button"
             className={`${BUTTON} text-one-warn`}
-            onClick={() => void postChat("stop")}
+            onClick={() => void tell("stop")}
           >
             Stop
           </button>
@@ -173,7 +198,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           type="button"
           aria-label="New session"
           className={BUTTON}
-          onClick={() => void postChat("new")}
+          onClick={() => void tell("new")}
         >
           New
         </button>
@@ -183,6 +208,12 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
         <p role="status" className="border-b border-one-line px-3 py-1 text-[12px] text-one-warn">
           Could not reach the chat runner at /chat/events. Check that the shell container is
           running, that the /chat route is in place, and that you are logged in.
+        </p>
+      )}
+
+      {refused !== null && reached !== false && (
+        <p role="alert" className="border-b border-one-line px-3 py-1 text-[12px] text-one-warn">
+          The chat runner did not take that ({refused}). Try again, or reload if your login ran out.
         </p>
       )}
 
@@ -205,7 +236,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           // The log only grows and a reset replaces all of it, so a position
           // names the same item for as long as the item is there.
           // biome-ignore lint/suspicious/noArrayIndexKey: see above.
-          <Item key={at} item={item} />
+          <Item key={at} item={item} onAnswer={(body) => void tell("answer", body)} />
         ))}
         {state.streaming !== "" && <p className="whitespace-pre-wrap">{state.streaming}</p>}
         {running && state.streaming === "" && !asking && <p className="text-one-muted">Working…</p>}
@@ -215,7 +246,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
         className="flex items-end gap-2 border-t border-one-line px-3 py-2"
         onSubmit={(event) => {
           event.preventDefault();
-          send(draft);
+          void send(draft);
         }}
       >
         <textarea
@@ -224,15 +255,13 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
           rows={Math.min(6, draft.split("\n").length)}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              panel.current?.focus();
-            }
             // Enter sends from a keyboard. On a phone's it breaks the line as
             // it does everywhere else there, and the button sends.
-            if (event.key === "Enter" && !event.shiftKey && !coarse) {
+            // Not the Enter that picks a word in an input method's list.
+            const composing = event.nativeEvent.isComposing;
+            if (event.key === "Enter" && !event.shiftKey && !coarse && !composing) {
               event.preventDefault();
-              send(draft);
+              void send(draft);
             }
           }}
           aria-label="Message"
@@ -249,7 +278,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   );
 }
 
-function Item({ item }: { item: ChatItem }) {
+function Item({ item, onAnswer }: { item: ChatItem; onAnswer: (body: object) => void }) {
   switch (item.kind) {
     case "user":
       return (
@@ -264,7 +293,7 @@ function Item({ item }: { item: ChatItem }) {
     case "tool":
       return <Tool item={item} />;
     case "ask":
-      return item.open ? <Ask item={item} /> : <Answered item={item} />;
+      return item.open ? <Ask item={item} onAnswer={onAnswer} /> : <Answered item={item} />;
   }
 }
 
@@ -294,7 +323,13 @@ function Tool({ item }: { item: Extract<ChatItem, { kind: "tool" }> }) {
 }
 
 /** A question the run is waiting on: Claude's options, and a field for anything else. */
-function Ask({ item }: { item: Extract<ChatItem, { kind: "ask" }> }) {
+function Ask({
+  item,
+  onAnswer,
+}: {
+  item: Extract<ChatItem, { kind: "ask" }>;
+  onAnswer: (body: object) => void;
+}) {
   const [picks, setPicks] = useState<Record<string, Pick | undefined>>({});
   const answers = answersFor(item.questions, picks);
 
@@ -310,7 +345,7 @@ function Ask({ item }: { item: Extract<ChatItem, { kind: "ask" }> }) {
       className="space-y-3 rounded border border-one-accent bg-one-panel p-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (answers !== undefined) void postChat("answer", { id: item.id, answers });
+        if (answers !== undefined) onAnswer({ id: item.id, answers });
       }}
     >
       {item.questions.map(({ question, header, options, multiSelect }) => {

@@ -65,8 +65,10 @@ said.
 
 ## Stop a run, or start over
 
-`Stop` interrupts the run. A question still open is closed as not answered.
-The session keeps what was said so far, so the next message goes on from there.
+`Stop` interrupts the turn that is running. A question still open is closed as
+not answered. A message you sent while it ran was waiting its turn and still
+runs. The session keeps what was said so far, so the next message goes on from
+there.
 
 `New` ends the session and empties the pane. The next message starts a fresh
 one, with none of the earlier context.
@@ -89,6 +91,10 @@ session, and a question can be answered from either.
   down, the `/chat/*` route is missing from the proxy, or your login ran out.
   The pane tries again every few seconds.
   [Reverse-proxy routes](/reference/reverse-proxy-routes.md) has the route.
+* **`The chat runner did not take that`.** A message, an answer or a press of
+  `Stop` got no yes. Your login ran out, the runner is restarting, or the
+  question was already answered from another device. What you typed is still
+  in the box.
 * **`Not logged in`.** Sign Claude Code in from a terminal pane, as above.
 * **A skill says the calendar or the mail was not read.** The shell image has
   no `gws` and no `python3`. The skill needs both in the container, which this

@@ -18,14 +18,15 @@ over HTTP. The proxy routes `/chat/*` to it behind the login gate:
 
 | Request | Body | Answer | Does |
 | --- | --- | --- | --- |
-| `GET /chat/events` | | `200`, `text/event-stream` | Sends `reset`, then every logged event, then each new one as it happens |
+| `GET /chat/events` | | `200`, `text/event-stream` | Sends one `reset` holding every logged event, then each new one as it happens |
 | `POST /chat/send` | `{"text": "..."}` | `204`, or `400` for empty text | Starts a session if there is none, and queues the text as a user turn |
 | `POST /chat/answer` | `{"id": "ask1", "answers": {...}}` | `204`, `409` if that question is not open | Answers an open question |
-| `POST /chat/stop` | `{}` | `204`, `500` if the SDK refused the interrupt | Interrupts the run and closes every open question as not answered |
+| `POST /chat/stop` | `{}` | `204`, `500` if the SDK refused the interrupt | Interrupts the turn now running and closes every open question as not answered. A message queued behind that turn still runs |
 | `POST /chat/new` | `{}` | `204` | Ends the session and empties the log |
 
 Any other path or method answers `404`. A body that is not a JSON object
-answers `400`.
+answers `400`. A request the runner fails on answers `500` and the runner
+goes on.
 
 `answers` maps each question's text to the chosen label. Several labels, or a
 label and typed text, are joined with `", "`.
@@ -49,7 +50,7 @@ Each is one `data:` line of JSON on the stream.
 
 | `type` | Fields | Means |
 | --- | --- | --- |
-| `reset` | | Forget everything. First on every connection, and sent on `new` |
+| `reset` | `log` | Forget everything and take `log`, a list of the events below, as the run so far. First on every connection, and sent with an empty `log` on `new` |
 | `user` | `text` | A message you sent |
 | `delta` | `text` | A piece of the text block now being written. Live only, never logged |
 | `text` | `text` | A whole text block. Replaces the deltas before it |
@@ -58,7 +59,7 @@ Each is one `data:` line of JSON on the stream.
 | `ask` | `id`, `questions` | The run waits on a question. `questions` is the `AskUserQuestion` input: 1 to 4 questions, each with `question`, `header`, `multiSelect` and 2 to 4 `options` of `label` and `description` |
 | `answered` | `id`, `answers` | The question closed. No `answers` means it was stopped |
 | `done` | `error` | A turn ended. `error` is set when it ended badly |
-| `error` | `text` | The session itself ended. The next `send` starts another |
+| `error` | `text` | The session itself ended. Its open questions close as not answered, and the next `send` starts another |
 
 A subagent's own text and tool calls are not sent. Its `Agent` call and that
 call's result are.

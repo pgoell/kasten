@@ -24,7 +24,7 @@ export interface ChatQuestion {
 export type ChatAnswers = Record<string, string>;
 
 export type ChatEvent =
-  | { type: "reset" }
+  | { type: "reset"; log: ChatEvent[] }
   | { type: "user"; text: string }
   | { type: "delta"; text: string }
   | { type: "text"; text: string }
@@ -77,10 +77,11 @@ export function reduce(state: ChatState, event: ChatEvent): ChatState {
   });
 
   switch (event.type) {
-    // First on every connection, with the whole log behind it. So a pane that
-    // reconnects forgets what it had and is told all of it again.
+    // First on every connection, with the whole log inside it. So a pane that
+    // reconnects swaps what it had for the run so far in one step, and a form
+    // half filled in is still on screen afterwards to be finished.
     case "reset":
-      return EMPTY;
+      return event.log.reduce(reduce, EMPTY);
     case "user":
       return { ...add({ kind: "user", text: event.text }), running: state.running + 1 };
     case "delta":
@@ -177,10 +178,17 @@ export async function postChat(
   path: "send" | "answer" | "stop" | "new",
   body: object = {},
 ): Promise<boolean> {
-  const response = await fetch(`/chat/${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return response.ok;
+  try {
+    const response = await fetch(`/chat/${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return response.ok;
+  } catch (error: unknown) {
+    // What `fetch` throws when there is no network or no server, which to the
+    // person who pressed the button is one more way of not having been heard.
+    if (error instanceof TypeError) return false;
+    throw error;
+  }
 }

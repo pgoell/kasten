@@ -34,7 +34,7 @@ const play = (events: ChatEvent[]) => events.reduce(reduce, EMPTY);
 describe("reduce", () => {
   it("builds a run out of its events", () => {
     const state = play([
-      { type: "reset" },
+      { type: "reset", log: [] },
       { type: "user", text: "/close-day" },
       { type: "delta", text: "Rea" },
       { type: "text", text: "Reading." },
@@ -73,7 +73,10 @@ describe("reduce", () => {
   });
 
   it("forgets everything on a reset, which every connection begins with", () => {
-    const state = play([{ type: "user", text: "old" }, { type: "reset" }]);
+    const state = play([
+      { type: "user", text: "old" },
+      { type: "reset", log: [] },
+    ]);
 
     expect(state).toEqual(EMPTY);
   });
@@ -91,6 +94,25 @@ describe("reduce", () => {
       open: false,
       answers: undefined,
     });
+  });
+
+  it("takes the run so far out of a reset, in one step", () => {
+    const state = play([
+      { type: "user", text: "old" },
+      {
+        type: "reset",
+        log: [
+          { type: "user", text: "/close-day" },
+          { type: "text", text: "Reading." },
+        ],
+      },
+    ]);
+
+    expect(state.items).toEqual([
+      { kind: "user", text: "/close-day" },
+      { kind: "text", text: "Reading." },
+    ]);
+    expect(state.running).toBe(1);
   });
 
   it("stays running while a message is queued behind the one that finished", () => {
@@ -173,6 +195,17 @@ describe("postChat", () => {
       headers: { "content-type": "application/json" },
       body: '{"text":"/close-day"}',
     });
+  });
+
+  it("counts no network as not taken", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+
+    expect(await postChat("stop")).toBe(false);
   });
 
   it("says when the runner refused", async () => {

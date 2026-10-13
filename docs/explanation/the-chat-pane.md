@@ -126,7 +126,7 @@ sequenceDiagram
   participant R as Chat runner
   participant C as Claude Code
   P->>R: GET /chat/events
-  R-->>P: reset, then the log so far
+  R-->>P: reset, holding the log so far
   P->>R: POST /chat/send {text: "/close-day"}
   R->>C: user turn (Agent SDK)
   R-->>P: user

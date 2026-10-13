@@ -89,7 +89,7 @@ describe("ChatPane", () => {
 
   it("starts each skill from a button", async () => {
     mount();
-    say({ type: "reset" });
+    say({ type: "reset", log: [] });
 
     fireEvent.click(screen.getByRole("button", { name: "/close-day" }));
     fireEvent.click(screen.getByRole("button", { name: "/process-meeting" }));
@@ -104,7 +104,7 @@ describe("ChatPane", () => {
 
   it("sends what was typed on Enter and keeps a line break on Shift+Enter", async () => {
     mount();
-    say({ type: "reset" });
+    say({ type: "reset", log: [] });
     const box = screen.getByRole("textbox", { name: "Message" });
 
     fireEvent.change(box, { target: { value: "hello" } });
@@ -121,7 +121,7 @@ describe("ChatPane", () => {
   it("draws the run: the message, the text as it arrives, a folded tool call", () => {
     mount();
     say(
-      { type: "reset" },
+      { type: "reset", log: [] },
       { type: "user", text: "/close-day" },
       { type: "tool", id: "t1", name: "Bash", input: { command: "rg todo /vault" } },
       { type: "tool_result", id: "t1", text: "3 matches", error: false },
@@ -140,7 +140,7 @@ describe("ChatPane", () => {
 
   it("offers stop only during a run, and new always", async () => {
     mount();
-    say({ type: "reset" }, { type: "user", text: "hi" });
+    say({ type: "reset", log: [] }, { type: "user", text: "hi" });
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
     say({ type: "done", error: "Stopped." });
@@ -156,7 +156,7 @@ describe("ChatPane", () => {
 
   it("asks a question as a form and sends back what was picked", async () => {
     mount();
-    say({ type: "reset" }, { type: "user", text: "/close-day" }, ASK);
+    say({ type: "reset", log: [] }, { type: "user", text: "/close-day" }, ASK);
     const send = screen.getByRole("button", { name: "Answer" });
 
     // Nothing to send until every question has an answer.
@@ -184,7 +184,7 @@ describe("ChatPane", () => {
 
   it("shows an answered question as what was asked and what was said", () => {
     mount();
-    say({ type: "reset" }, ASK, {
+    say({ type: "reset", log: [] }, ASK, {
       type: "answered",
       id: "ask1",
       answers: { "Which day?": "Today", "Which sections?": "Focus" },
@@ -193,6 +193,54 @@ describe("ChatPane", () => {
     expect(screen.queryByRole("button", { name: "Answer" })).toBeNull();
     expect(screen.getByText("Which day?")).toBeInTheDocument();
     expect(screen.getByText("Today")).toBeInTheDocument();
+  });
+
+  it("keeps a message the runner did not take, and says so", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 403 })),
+    );
+    mount();
+    say({ type: "reset", log: [] });
+    const box = screen.getByRole("textbox", { name: "Message" });
+
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("did not take that (send)");
+    expect(box).toHaveValue("hello");
+  });
+
+  it("leaves a button's own keys to the button, and Escape leads back to the pane", () => {
+    const { commands } = mount();
+    say(
+      { type: "reset", log: [] },
+      { type: "tool", id: "t1", name: "Bash", input: { command: "ls" } },
+    );
+    const pane = screen.getByRole("region", { name: "chat" });
+    const line = screen.getByText("ls").closest("summary") as HTMLElement;
+    const skill = screen.getByRole("button", { name: "/close-day" });
+
+    // Not prevented, so the browser opens the tool call and presses the button.
+    expect(fireEvent.keyDown(line, { key: "Enter" })).toBe(true);
+    expect(fireEvent.keyDown(skill, { key: " " })).toBe(true);
+    fireEvent.keyDown(skill, { key: "q" });
+    expect(commands.closeNote).not.toHaveBeenCalled();
+
+    skill.focus();
+    fireEvent.keyDown(skill, { key: "Escape" });
+    expect(pane).toHaveFocus();
+  });
+
+  it("keeps a half-filled form across a reconnect", () => {
+    mount();
+    say({ type: "reset", log: [{ type: "user", text: "/close-day" }, ASK] });
+    fireEvent.click(screen.getByRole("radio", { name: /Today/ }));
+
+    // The stream dropped and came back: the same run, told again from the top.
+    say({ type: "reset", log: [{ type: "user", text: "/close-day" }, ASK] });
+
+    expect(screen.getByRole("radio", { name: /Today/ })).toBeChecked();
   });
 
   it("says when the runner cannot be reached", () => {
@@ -225,7 +273,7 @@ describe("ChatPane", () => {
 
   it("runs a leader key from the pane, and leaves a typed space alone", () => {
     const { commands } = mount();
-    say({ type: "reset" });
+    say({ type: "reset", log: [] });
     const pane = screen.getByRole("region", { name: "chat" });
 
     fireEvent.keyDown(pane, { key: " " });
@@ -240,7 +288,7 @@ describe("ChatPane", () => {
 
   it("goes to the box on i, and back to the pane on Escape", () => {
     mount();
-    say({ type: "reset" });
+    say({ type: "reset", log: [] });
     const pane = screen.getByRole("region", { name: "chat" });
     const box = screen.getByRole("textbox", { name: "Message" });
 

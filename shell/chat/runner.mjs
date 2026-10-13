@@ -194,14 +194,21 @@ export function createChat({ query, claudePath, cwd }) {
     (async () => {
       try {
         for await (const message of mine.running) read(message);
+        // The stream ran out with nobody having asked it to. Without a word
+        // the pane would go on showing a run that is not there.
+        say({ type: "error", text: "The session ended." });
       } catch (error) {
         // Whatever ended the session, the person looking at the pane is the
         // one who can act on it: no login, no network, a crashed process.
         if (!(error instanceof Error)) throw error;
         say({ type: "error", text: error.message });
       } finally {
-        // Ended either way. The next message starts another.
-        if (session === mine) session = null;
+        // Ended either way. A question it left open has nobody to hear the
+        // answer, and the next message starts another session.
+        if (session === mine) {
+          refuse(mine);
+          session = null;
+        }
       }
     })();
 
@@ -249,12 +256,12 @@ export function createChat({ query, claudePath, cwd }) {
         ending.running.close();
       }
       log = [];
-      emit({ type: "reset" }, { live: true });
+      emit({ type: "reset", log }, { live: true });
       return 204;
     },
   };
 
-  async function handle(request, response) {
+  async function route(request, response) {
     const { pathname } = new URL(request.url, "http://runner");
 
     if (request.method === "GET" && pathname === "/chat/events") {
@@ -264,11 +271,10 @@ export function createChat({ query, claudePath, cwd }) {
         // that buffers the stream leaves the pane connected and empty.
         "cache-control": "no-store, no-transform",
       });
-      // `reset` first, so a pane that reconnects drops what it had and builds
-      // the transcript again from the log, with no bookkeeping of what it saw.
-      for (const event of [{ type: "reset" }, ...log]) {
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
-      }
+      // The whole log in the one `reset`, so a pane that reconnects swaps what
+      // it had for this in a single step, with no bookkeeping of what it saw
+      // and no moment in between where it has nothing to draw.
+      response.write(`data: ${JSON.stringify({ type: "reset", log })}\n\n`);
       clients.add(response);
       request.on("close", () => clients.delete(response));
       return;
@@ -284,18 +290,23 @@ export function createChat({ query, claudePath, cwd }) {
       return;
     }
     const body = await readJson(request);
-    let status = 400;
+    const isObject = typeof body === "object" && body !== null && !Array.isArray(body);
+    response.writeHead(isObject ? await post(body) : 400).end();
+  }
+
+  async function handle(request, response) {
     try {
-      if (typeof body === "object" && body !== null) status = await post(body);
+      await route(request, response);
     } catch (error) {
-      // The SDK refusing a call, an interrupt sent to a process that has just
-      // gone being the one seen. Unanswered it would be an unhandled rejection,
+      // A request that went wrong is that request's problem: a body cut off
+      // as a phone lost its signal, an address `URL` cannot read, an interrupt
+      // the SDK refused. Left to reject, any of them is an unhandled rejection,
       // which ends the runner and the session with it.
       if (!(error instanceof Error)) throw error;
-      console.error(`kasten-chat: ${pathname} failed: ${error.message}`);
-      status = 500;
+      console.error(`kasten-chat: ${request.method} ${request.url}: ${error.message}`);
+      if (!response.headersSent) response.writeHead(500);
+      response.end();
     }
-    response.writeHead(status).end();
   }
 
   return { handle };

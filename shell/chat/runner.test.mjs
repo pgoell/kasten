@@ -95,7 +95,13 @@ async function serve(script) {
       buffer += decoder.decode(value, { stream: true });
       const frames = buffer.split("\n\n");
       buffer = frames.pop();
-      for (const frame of frames) seen.push(JSON.parse(frame.slice("data: ".length)));
+      for (const frame of frames) {
+        const event = JSON.parse(frame.slice("data: ".length));
+        // The log rides in the `reset`. Unfolded here, so a test reads a run
+        // as one list whether it connected before the run or after it.
+        if (event.type === "reset") seen.splice(0, seen.length, { type: "reset" }, ...event.log);
+        else seen.push(event);
+      }
     }
     await reader.cancel();
     return seen;
@@ -288,6 +294,34 @@ test("a session that fails says so, and the next message starts another", async 
   await chat.post("/chat/send", { text: "two" });
   await chat.events((all) => all.at(-1)?.type === "done");
   assert.equal(chat.seen.calls.length, 2);
+});
+
+test("a session that ends on its own says so and lets its question go", async () => {
+  const chat = await serve(async function* (_text, options) {
+    yield assistant([{ type: "text", text: "One question." }]);
+    // Not awaited: the process dies with the question still on screen.
+    void options.canUseTool("AskUserQuestion", { questions: QUESTIONS }, {});
+    throw new Error("Claude Code process exited with code 1");
+  });
+  await chat.post("/chat/send", { text: "go" });
+  const seen = await chat.events((all) => all.some((event) => event.type === "answered"));
+
+  assert.deepEqual(
+    seen.slice(-3).map((event) => event.type),
+    ["ask", "error", "answered"],
+  );
+});
+
+test("a request that goes wrong does not take the runner down", async () => {
+  const chat = await serve(async function* () {
+    yield result;
+  });
+
+  // An address `URL` cannot read, which only something on the docker network
+  // could send, and a body that is an array where an object was asked for.
+  assert.equal((await fetch(`http://${chat.host}//`)).status, 500);
+  assert.equal((await chat.post("/chat/new", [])).status, 400);
+  assert.equal((await chat.post("/chat/send", { text: "hi" })).status, 204);
 });
 
 test("a post from another site is refused before it reaches the session", async () => {

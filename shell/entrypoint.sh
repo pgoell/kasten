@@ -137,17 +137,24 @@ run_chat() {
         echo "kasten-shell: no claude, so the chat runner is not started" >&2
         return 0
     }
-    mkdir -p "${chat_dir}"
+    mkdir -p "${chat_dir}" || return 0
     installed="$(node -p "require('${chat_dir}/node_modules/${sdk}/package.json').version" 2>/dev/null || true)"
     if [ "${installed}" != "${KASTEN_AGENT_SDK_VERSION}" ]; then
         echo "kasten-shell: installing ${sdk}@${KASTEN_AGENT_SDK_VERSION} into ${chat_dir}" >&2
-        timeout 600 npm install --prefix "${chat_dir}" --omit=optional --no-audit --no-fund \
-            "${sdk}@${KASTEN_AGENT_SDK_VERSION}" >&2 || {
-            echo "kasten-shell: the Agent SDK could not be installed (no network?). The chat pane will not connect; restart the container to try again." >&2
-            return 0
-        }
+        if ! timeout 600 npm install --prefix "${chat_dir}" --omit=optional --no-audit --no-fund \
+            "${sdk}@${KASTEN_AGENT_SDK_VERSION}" >&2; then
+            # An older SDK still in the volume is better than no chat pane.
+            if [ -z "${installed}" ]; then
+                echo "kasten-shell: the Agent SDK could not be installed (no network?). The chat pane will not connect; restart the container to try again." >&2
+                return 0
+            fi
+            echo "kasten-shell: the Agent SDK could not be updated; the chat runner starts on ${installed}" >&2
+        fi
     fi
-    cp /opt/kasten-chat/runner.mjs /opt/kasten-chat/main.mjs "${chat_dir}/"
+    cp /opt/kasten-chat/runner.mjs /opt/kasten-chat/main.mjs "${chat_dir}/" || {
+        echo "kasten-shell: the chat runner could not be copied into ${chat_dir}, so it is not started" >&2
+        return 0
+    }
     while true; do
         node "${chat_dir}/main.mjs" "${claude_bin}" >&2 || true
         echo "kasten-shell: the chat runner stopped; starting it again" >&2
