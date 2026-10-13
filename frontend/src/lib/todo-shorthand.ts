@@ -47,6 +47,7 @@ const STATE_TERMS: Record<string, TodoState> = {
   "/doing": "doing",
   "/done": "done",
   "/blocked": "blocked",
+  "/waiting": "waiting",
   "/rejected": "rejected",
 };
 

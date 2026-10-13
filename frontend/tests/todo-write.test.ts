@@ -194,6 +194,12 @@ describe("cycleLines", () => {
     expect(moved.get(2)).not.toContain("🆔");
   });
 
+  it("finishes a part that was waiting on somebody, and drops who it waited on", () => {
+    const note = ["- [/] a", "  - [w] b 👤 2026-08-03 [[Ada]]"];
+
+    expect(set(note, 1, "done").get(2)).toBe(`  - [x] b ✅ ${TODAY}`);
+  });
+
   it("leaves the parts where they are when the parent leaves done", () => {
     const note = [`- [x] a ✅ ${TODAY} 🆔 kt-000001`, `  - [x] b ✅ ${TODAY}`];
 

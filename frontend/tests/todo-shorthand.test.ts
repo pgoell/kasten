@@ -82,6 +82,8 @@ describe("matchesFilter", () => {
   it("takes a row carrying either term of one group", () => {
     expect(matches("- [/] wire up the pane", "/open /doing")).toBe(true);
     expect(matches("- [b] wire up the pane", "/open /doing")).toBe(false);
+    expect(matches("- [w] wire up the pane 👤 2026-08-03 Ada", "/waiting")).toBe(true);
+    expect(matches("- [b] wire up the pane", "/waiting")).toBe(false);
   });
 
   it("drops a row carrying a negated term", () => {

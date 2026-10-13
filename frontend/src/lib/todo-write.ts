@@ -333,7 +333,10 @@ export function cycleLines({
       // No id on a part: nothing names it, the log writes one line for the
       // press, and that line names the parent.
       if (isOpen(part.todo)) {
-        moved.set(part.line, formatTodo({ ...part.todo, state: "done", done: today }));
+        // A part that was waiting on somebody is finished with the rest, and
+        // its `👤` goes as it does when a key sets the state.
+        const freed = { ...part.todo, waitingSince: undefined, waitingOn: undefined };
+        moved.set(part.line, formatTodo({ ...freed, state: "done", done: today }));
       }
     }
   }

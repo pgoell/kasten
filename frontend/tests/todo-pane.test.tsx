@@ -534,6 +534,46 @@ describe("the todo pane", () => {
     expect(pane.cursor()?.textContent).toContain("call the dentist");
   });
 
+  it("draws a waiting todo muted, with who it is on and for how long", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [w] decision record 📅 2026-08-10 👤 2026-08-03 [[Ada]]" },
+      { path: "a.md", line: 2, text: "- [ ] buy milk 📅 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    const waiting = pane.rows().find((row) => row.textContent?.includes("decision record"));
+    expect(waiting?.textContent).toContain("◷");
+    expect(waiting?.textContent).toContain("👤 7d Ada");
+    expect(waiting?.className).toContain("text-one-muted");
+    expect(pane.footer()).toContain("1 open, 0 blocked, 1 waiting");
+  });
+
+  it("opens the edit of a waiting row that names nobody with the cursor where the name goes", async () => {
+    const line = "- [w] decision record 👤 2026-08-03 📅 2026-08-10";
+    const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+
+    pane.press("i");
+
+    const input = (await screen.findByLabelText("edit line")) as HTMLInputElement;
+    await waitFor(() =>
+      expect(input.selectionStart).toBe("- [w] decision record 👤 2026-08-03".length),
+    );
+  });
+
+  it("finds what waits on somebody by the name typed into the filter", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [w] decision record 👤 2026-08-03 [[Ada]]" },
+      { path: "a.md", line: 2, text: "- [ ] buy milk" },
+    ]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+
+    fireEvent.change(pane.filter(), { target: { value: "ada" } });
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+    expect(pane.rows()[0]?.textContent).toContain("decision record");
+  });
+
   it("counts the open and blocked rows in the footer", async () => {
     const pane = renderPane();
 
@@ -551,7 +591,7 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("i edit");
     expect(pane.footer()).toContain("d done");
     expect(pane.footer()).toContain("n next");
-    expect(pane.footer()).toContain("O P X B R state");
+    expect(pane.footer()).toContain("O P X B W R state");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
     expect(pane.footer()).toContain("t timer");
@@ -723,6 +763,15 @@ describe("the todo pane", () => {
     // The walk cannot reach blocked from here: a row leaves this list the
     // moment it is done, which is the state the walk passes through first.
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "blocked");
+  });
+
+  it("sets a row to waiting on W", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("W");
+
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "waiting");
   });
 
   it("starts or stops the timer on the row under the cursor on t", async () => {
@@ -1276,6 +1325,7 @@ describe("the todo pane by touch", () => {
     ["doing", "doing"],
     ["done", "done"],
     ["blocked", "blocked"],
+    ["waiting", "waiting"],
     ["rejected", "rejected"],
   ])("sets the state on a tap of %s, and closes the actions", async (label, state) => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });

@@ -10,6 +10,7 @@ import {
   sectionOf,
   treeOf,
   waiting,
+  waitOf,
 } from "@/lib/todo-view";
 
 /** The day every test below is written against, so no assertion expires. */
@@ -333,5 +334,26 @@ describe("parseViews", () => {
     // A line that is not a view is skipped, so the block costs the parse
     // nothing. The assertion above is what says the block did not eat a view.
     expect(DEFAULT_VIEWS.split("\n").slice(0, 3)).toEqual(["---", "type: Reference", "---"]);
+  });
+});
+
+describe("waitOf", () => {
+  it("says who a waiting todo is on and for how many days", () => {
+    expect(waitOf(todo("- [w] a 👤 2026-08-03 [[people/Ada Lovelace]]"), TODAY)).toBe(
+      "👤 7d Ada Lovelace",
+    );
+    expect(waitOf(todo("- [w] a 👤 2026-08-10 the tax office"), TODAY)).toBe(
+      "👤 0d the tax office",
+    );
+  });
+
+  it("says what the line carries where it carries half", () => {
+    expect(waitOf(todo("- [w] a 👤 [[Ada]]"), TODAY)).toBe("👤 Ada");
+    expect(waitOf(todo("- [w] a 👤 2026-08-03"), TODAY)).toBe("👤 7d");
+    expect(waitOf(todo("- [w] a"), TODAY)).toBeNull();
+  });
+
+  it("says nothing of a todo that is not waiting, whatever it carries", () => {
+    expect(waitOf(todo("- [ ] a 👤 2026-08-03 Ada"), TODAY)).toBeNull();
   });
 });

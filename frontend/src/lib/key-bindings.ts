@@ -421,6 +421,11 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
     run: (view) => cycleTodoAtCursor(view, "blocked"),
   },
   {
+    key: "sw",
+    label: "Set this todo to waiting on somebody",
+    run: (view) => cycleTodoAtCursor(view, "waiting"),
+  },
+  {
     key: "sr",
     label: "Set this todo to rejected",
     run: (view) => cycleTodoAtCursor(view, "rejected"),
@@ -665,6 +670,7 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "P", label: "Set the todo under the cursor to doing" },
   { key: "X", label: "Set the todo under the cursor to done" },
   { key: "B", label: "Set the todo under the cursor to blocked" },
+  { key: "W", label: "Set the todo under the cursor to waiting on somebody" },
   { key: "R", label: "Set the todo under the cursor to rejected" },
   { key: "/", label: "Narrow the list" },
   { key: "q", label: "Close the pane" },

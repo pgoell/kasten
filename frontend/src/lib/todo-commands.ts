@@ -3,7 +3,15 @@ import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
 import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
-import { cycleLine, formatTodo, newId, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
+import {
+  cycleLine,
+  formatTodo,
+  nameAt,
+  newId,
+  parseTodo,
+  setStateOn,
+  type TodoState,
+} from "@/lib/todo";
 import { closedAmong, cycleLines, doneLine, doneLineEdits } from "@/lib/todo-write";
 
 /** Where the box ends on a line that has one, which is where the words start. */
@@ -125,6 +133,8 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
     state.doc.length,
   );
 
+  const named = want === "waiting" ? nameAt(cycled) : null;
+
   view.dispatch({
     changes,
     // Onto the first word. The box is drawn as a symbol and hidden with the
@@ -132,8 +142,13 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
     // not on the screen, and `x` would cut it. The line's own start is what
     // maps, the log line being able to land above the todo as easily as below
     // it; the box is then an offset into the line the changes just wrote.
+    //
+    // A line just set to waiting names nobody yet, and there the cursor goes
+    // onto the last digit of the date instead, so `a` types the name.
     selection: {
-      anchor: changes.mapPos(line.from, -1) + (BOX.exec(cycled)?.[0].length ?? 0),
+      anchor:
+        changes.mapPos(line.from, -1) +
+        (named === null ? (BOX.exec(cycled)?.[0].length ?? 0) : named - 1),
     },
   });
 

@@ -524,8 +524,8 @@ it: the files are the source of truth.
 It matches two shapes and nothing else:
 
 * a checkbox list item at any indent, in any of
-  [the five states](/reference/todo-format.md#the-five-states): `- [ ]`,
-  `- [/]`, `- [x]`, `- [X]`, `- [b]` or `- [-]`
+  [the six states](/reference/todo-format.md#the-six-states): `- [ ]`,
+  `- [/]`, `- [x]`, `- [X]`, `- [b]`, `- [w]` or `- [-]`
 * a running session line, `- 14:03- …`, with no end time on it
 
 `[X]` is matched because another editor writes it that way. `[` is not one of
