@@ -2,6 +2,7 @@ import {
   cycleLine,
   formatTodo,
   isOpen,
+  nameAt,
   newId,
   parseTodo,
   setStateOn,
@@ -261,18 +262,32 @@ describe("a todo waiting on somebody", () => {
     expect(todo.waitingOn).toBe("Ada");
   });
 
-  it("writes the field last, the date before the name", () => {
+  it("writes the field ahead of every other, the date before the name", () => {
+    // obsidian-tasks reads a line back from its end and stops at what it does
+    // not know, so a marker of ours has to sit before the ones it reads.
     const line =
-      "- [w] decision record #adr 📅 2026-08-14 🆔 kt-3f9a2c ⛔ kt-8b1e04 👤 2026-08-03 [[Ada]]";
+      "- [w] decision record #adr 👤 2026-08-03 [[Ada]] 📅 2026-08-14 🆔 kt-3f9a2c ⛔ kt-8b1e04";
 
     expect(formatTodo(parsed(line))).toBe(line);
-    expect(formatTodo(parsed("- [w] a 👤 2026-08-03 Ada 📅 2026-08-14"))).toBe(
-      "- [w] a 📅 2026-08-14 👤 2026-08-03 Ada",
+    expect(formatTodo(parsed("- [w] a 📅 2026-08-14 👤 2026-08-03 Ada"))).toBe(
+      "- [w] a 👤 2026-08-03 Ada 📅 2026-08-14",
     );
+  });
+
+  it("says where the name goes on a waiting line that names nobody", () => {
+    const line = "- [w] decision record 👤 2026-08-10 📅 2026-08-14";
+
+    expect(line.slice(0, nameAt(line) ?? 0)).toBe("- [w] decision record 👤 2026-08-10");
+    expect(nameAt("- [w] decision record 👤 2026-08-10 Ada 📅 2026-08-14")).toBeNull();
+    expect(nameAt("- [ ] decision record 👤 2026-08-10")).toBeNull();
+    expect(nameAt("- [w] decision record")).toBeNull();
   });
 
   it("stamps the day on entering, and keeps one the line already carries", () => {
     expect(set("- [ ] decision record", "waiting")).toBe("- [w] decision record 👤 2026-08-10");
+    expect(set("- [ ] decision record 📅 2026-08-14", "waiting")).toBe(
+      "- [w] decision record 👤 2026-08-10 📅 2026-08-14",
+    );
     expect(set("- [ ] decision record 👤 [[Ada]]", "waiting")).toBe(
       "- [w] decision record 👤 2026-08-10 [[Ada]]",
     );

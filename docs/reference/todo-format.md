@@ -66,6 +66,12 @@ obsidian-tasks plugin already reads, so the vault opened in Obsidian shows
 working tasks rather than prose. The plugin leaves a marker it does not know in
 the task's words, so the three of ours show there as text.
 
+The plugin reads a line back from its end and stops at the first thing it does
+not know, so it reads no field written before one of ours. That is why `👤` sits
+ahead of every field the plugin reads. `⏲` and `⏱` do not: on a line carrying
+either, Obsidian reads the `🆔` and the `⛔` after them and takes the dates
+before them for words.
+
 Tags are the one field left where it was typed. `call the #health dentist` keeps
 its tag mid-sentence, because moving it to the end would rewrite the note every
 time somebody ticked something.
@@ -197,7 +203,7 @@ parts, a recurring todo set to done writes its next copy, and a todo carrying an
 The words come first, then every field the line carries, in this order:
 
 ```
-📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔ 👤
+👤 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
 ```
 
 One decision made in one place, so a note stays consistent however it was
@@ -313,7 +319,7 @@ opened by the write that closes B rather than by the same pass.
 `[w]` says a todo waits on a person, and `👤` says who and since when:
 
 ```markdown
-- [w] decision record for the queue #adr 📅 2026-08-14 👤 2026-08-03 [[Ada Lovelace]]
+- [w] decision record for the queue #adr 👤 2026-08-03 [[Ada Lovelace]] 📅 2026-08-14
 ```
 
 The date comes first and is the day the wait began. The name comes after it and
@@ -325,10 +331,14 @@ be missing. A `👤` with nothing after it is not a field and stays in the words
 
 `W` in the todo pane and `<leader>sw` in the editor set the state and stamp
 `👤` with today. A date the line already carries is kept, so setting the state
-twice does not restart the wait. kasten cannot know the name, so you type it:
-the `👤` is the last thing on the line and the name is the last thing in it,
-which puts the name at the end of the line. From the pane that is `W`, `i`, the
-name, Enter.
+twice does not restart the wait. kasten cannot know the name, so you type it,
+straight after the date. Both places put the cursor there on a waiting line
+that names nobody: `i` in the pane opens the line with the cursor after the
+date, and `<leader>sw` leaves it on the date's last digit, where `a` appends.
+From the pane that is `W`, `i`, a space and the name, Enter.
+
+The `👤` is written straight after the words, ahead of every other field, so
+that [Obsidian still reads the rest of the line](#the-fields).
 
 Leaving the state drops the `👤` whole, the name with the date, whichever key
 leaves and wherever it goes. The field says who the todo waits on, and it no

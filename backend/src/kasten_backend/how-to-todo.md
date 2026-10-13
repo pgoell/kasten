@@ -179,7 +179,8 @@ stamp.
 
 Blocked waits on another todo, named by `⛔`. Waiting waits on a person, for an
 approval or an answer. To set a todo waiting, write the box `[w]` and put
-`👤 <today> <who>` last on the line, the name as a `[[link]]` to the person's
+`👤 <today> <who>` straight after the words, ahead of every other field, the
+name as a `[[link]]` to the person's
 note where the vault has one. Keep a date the line already carries. When the
 todo leaves `[w]` for any other state, drop the `👤` field whole.
 
@@ -188,7 +189,7 @@ todo leaves `[w]` for any other state, drop the `👤` field whole.
 The words first, then the fields:
 
 ```
-📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔ 👤
+👤 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
 ```
 
 kasten rebuilds a todo line rather than patching it, so a line whose fields sit

@@ -10,6 +10,7 @@ import { dailyDate } from "@/lib/periodic";
 import {
   cycleLine,
   isOpen,
+  nameAt,
   PRIORITY_SYMBOL,
   parseTodo,
   STATE_SYMBOL,
@@ -651,8 +652,11 @@ export function TodoPane({
     draft.current?.focus();
     // At the end rather than over the whole line: an edit starts on a line that
     // is already right in the middle, and one keystroke onto a selected line
-    // would wipe it.
-    const at = draft.current?.value.length ?? 0;
+    // would wipe it. A waiting line that names nobody is the exception: the
+    // name is what is missing, and it goes mid-line, after the `👤` and its
+    // date.
+    const value = draft.current?.value ?? "";
+    const at = nameAt(value) ?? value.length;
     draft.current?.setSelectionRange(at, at);
   }, [editingKey, focusList]);
 

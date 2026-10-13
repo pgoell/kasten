@@ -210,6 +210,13 @@ function tail(todo: Todo): string {
   const parts: string[] = [];
 
   if (todo.text !== "") parts.push(todo.text);
+  // Ahead of every other field, straight after the words. obsidian-tasks reads
+  // a line back from its end and stops at the first thing it does not know,
+  // so a marker of ours written last would hide the due date from it. Here it
+  // reads as the end of the task's words.
+  if (todo.waitingSince !== undefined || todo.waitingOn !== undefined) {
+    parts.push(["👤", todo.waitingSince, todo.waitingOn].filter(Boolean).join(" "));
+  }
   if (todo.due !== undefined) parts.push(`📅 ${todo.due}`);
   if (todo.scheduled !== undefined) parts.push(`⏳ ${todo.scheduled}`);
   if (todo.start !== undefined) parts.push(`🛫 ${todo.start}`);
@@ -222,11 +229,6 @@ function tail(todo: Todo): string {
   if (todo.worked !== undefined) parts.push(`⏱ ${todo.worked}`);
   if (todo.id !== undefined) parts.push(`🆔 ${todo.id}`);
   for (const blocker of todo.blockedBy) parts.push(`⛔ ${blocker}`);
-  // Last, and the name last within it, so who a todo waits on is typed at the
-  // end of the line the key stamped.
-  if (todo.waitingSince !== undefined || todo.waitingOn !== undefined) {
-    parts.push(["👤", todo.waitingSince, todo.waitingOn].filter(Boolean).join(" "));
-  }
 
   return parts.join(" ");
 }
@@ -234,6 +236,23 @@ function tail(todo: Todo): string {
 export function formatTodo(todo: Todo): string {
   const rest = tail(todo);
   return `${" ".repeat(todo.indent)}- [${BOX[todo.state]}]${rest === "" ? "" : ` ${rest}`}`;
+}
+
+/**
+ * Where the name goes on a waiting line that names nobody: the offset just
+ * past the date its `👤` carries. Null on any other line.
+ *
+ * The key that sets the state cannot know who the todo waits on, and the `👤`
+ * sits ahead of the other fields, so the place to type the name is mid-line.
+ * Both places a line is edited put the cursor here.
+ */
+export function nameAt(line: string): number | null {
+  const todo = parseTodo(line);
+  if (todo?.state !== "waiting" || todo.waitingOn !== undefined) return null;
+
+  const stamp = `👤 ${todo.waitingSince}`;
+  const at = line.indexOf(stamp);
+  return todo.waitingSince === undefined || at === -1 ? null : at + stamp.length;
 }
 
 /** Neither done nor rejected, which is what both views show by default. */

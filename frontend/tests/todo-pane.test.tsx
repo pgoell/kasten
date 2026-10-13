@@ -548,6 +548,19 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("1 open, 0 blocked, 1 waiting");
   });
 
+  it("opens the edit of a waiting row that names nobody with the cursor where the name goes", async () => {
+    const line = "- [w] decision record 👤 2026-08-03 📅 2026-08-10";
+    const pane = renderPane([{ path: "a.md", line: 1, text: line }]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+
+    pane.press("i");
+
+    const input = (await screen.findByLabelText("edit line")) as HTMLInputElement;
+    await waitFor(() =>
+      expect(input.selectionStart).toBe("- [w] decision record 👤 2026-08-03".length),
+    );
+  });
+
   it("finds what waits on somebody by the name typed into the filter", async () => {
     const pane = renderPane([
       { path: "a.md", line: 1, text: "- [w] decision record 👤 2026-08-03 [[Ada]]" },
