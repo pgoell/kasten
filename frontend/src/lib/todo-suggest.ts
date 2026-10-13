@@ -16,7 +16,7 @@
  * Four fields are deliberately not offered. `➕`, `✅` and `❌` are kasten's own
  * stamps, and a done date written by hand is one the done log knows nothing
  * about. `🆔` has a key of its own, `<leader>i`. And a `⛔` names another todo's
- * id, which nothing here can see.
+ * id, which nothing here can see: the todo pane's `b` writes it.
  */
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";

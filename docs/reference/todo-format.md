@@ -297,6 +297,13 @@ after the parts it already has. It is the add prompt's shorthand either way, so
 - [b] write the docs ⛔ kt-c0ffee
 ```
 
+[`b` in the todo pane](/reference/editor-keys.md#the-todo-pane) writes the
+pair: you pick the blocker from the list, kasten stamps a `🆔` on it where it
+has none, and the todo under the cursor gets the `⛔`. An open todo becomes
+`[b]` in the same write, unless the blocker is already closed. The blocker's
+note is written first, so a write that fails halfway leaves an id nothing
+names and never a `⛔` naming nothing.
+
 Closing or reopening the blocker rewrites every dependent naming it, in
 whichever note each one lives in, so the line says the truth without anything
 having to work it out at read time. The write runs from the blocker's side
@@ -309,6 +316,10 @@ waiting on something outside the vault and is left alone entirely. Cycling a
 dependent from `[b]` to `[ ]` by hand is undone the next time the blocker moves,
 which is the intended behaviour: the way to unblock something is to close what
 blocks it, or to delete the `⛔`.
+
+Deleting the last `⛔` from a `[b]` line with the pane's `i` opens the line in
+the same write, since no blocker is left whose press could open it. The same
+deletion typed in the editor leaves the `[b]`, which `<leader>so` clears.
 
 A line may carry several `⛔`, and it opens only when every one of them is
 closed. A `⛔` naming an id no note holds changes nothing: an unresolvable

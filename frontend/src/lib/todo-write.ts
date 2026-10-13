@@ -266,6 +266,40 @@ export function applyBlocked(text: string, closed: Closed): string | null {
   return lines.join("\n");
 }
 
+/**
+ * `line` naming one more blocker, in the state its blockers now call for.
+ *
+ * Null where the line is no todo or names `id` already. The state is
+ * `blockedLines`' own choice, so a line this writes and a line a blocker's
+ * press rewrites cannot disagree: open becomes blocked under a blocker still
+ * open, and doing, waiting, done and rejected keep the state they have.
+ */
+export function blockLine(line: string, id: string, closed: Closed): string | null {
+  const todo = parseTodo(line);
+  if (todo === null || todo.blockedBy.includes(id)) return null;
+
+  const named = formatTodo({ ...todo, blockedBy: [...todo.blockedBy, id] });
+  return blockedLines([named], closed).get(1) ?? named;
+}
+
+/**
+ * An edited line, opened where the edit took the last `⛔` off a blocked todo.
+ *
+ * Deleting the `⛔` is how a dependency is taken back, and nothing would move
+ * the line afterwards: the cascade runs off a blocker's press and finds the
+ * dependents by their `⛔`. A `[b]` that never carried one waits on something
+ * outside the vault, and stays as it was typed.
+ */
+export function unblockedEdit(before: string, after: string): string {
+  const was = parseTodo(before);
+  const now = parseTodo(after);
+  if (was === null || now === null) return after;
+  if (was.state !== "blocked" || now.state !== "blocked") return after;
+  if (was.blockedBy.length === 0 || now.blockedBy.length > 0) return after;
+
+  return formatTodo({ ...now, state: "open" });
+}
+
 export interface CycleLinesInput {
   /** The whole note, split on newlines. */
   lines: string[];

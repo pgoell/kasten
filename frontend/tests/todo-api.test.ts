@@ -1,18 +1,26 @@
-import { addSubtaskInVault, addTodoInVault, editTodoInVault } from "@/lib/todo-api";
+import {
+  addSubtaskInVault,
+  addTodoInVault,
+  blockTodoInVault,
+  editTodoInVault,
+} from "@/lib/todo-api";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
 // do: what this half owns is which notes it reads and what it sends back.
-const { createNote, fetchNote, saveNote } = vi.hoisted(() => ({
+const { createNote, fetchNote, fetchTodos, saveNote } = vi.hoisted(() => ({
   createNote: vi.fn(),
   fetchNote: vi.fn(),
+  fetchTodos: vi.fn(),
   saveNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ createNote, fetchNote, saveNote }));
+vi.mock("@/lib/api", () => ({ createNote, fetchNote, fetchTodos, saveNote }));
 
 beforeEach(() => {
   createNote.mockReset();
   createNote.mockResolvedValue(undefined);
   fetchNote.mockReset();
+  fetchTodos.mockReset();
+  fetchTodos.mockResolvedValue([]);
   saveNote.mockReset();
   saveNote.mockResolvedValue(undefined);
 });
@@ -43,6 +51,83 @@ describe("editTodoInVault", () => {
     fetchNote.mockResolvedValue(NOTE.replace("- [ ] call the dentist", "- [ ] buy milk"));
 
     await editTodoInVault(HIT, "- [ ] call the dentist 📅 2026-08-15");
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("editTodoInVault, on a blocked line", () => {
+  it("opens the line where the edit deleted its last blocker", async () => {
+    const hit = { path: "a.md", line: 1, text: "- [b] write the docs ⛔ kt-c0ffee" };
+    fetchNote.mockResolvedValue(hit.text);
+
+    await editTodoInVault(hit, "- [b] write the docs");
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith("a.md", "- [ ] write the docs");
+  });
+});
+
+describe("blockTodoInVault", () => {
+  const DOCS = { path: "docs.md", line: 2, text: "- [ ] write the docs" };
+  const SHIP = { path: "release.md", line: 1, text: "- [/] ship the release" };
+  const NOTES: Record<string, string> = {
+    "docs.md": ["# Docs", "- [ ] write the docs"].join("\n"),
+    "release.md": "- [/] ship the release",
+  };
+
+  beforeEach(() => {
+    fetchNote.mockImplementation(async (path: string) => NOTES[path]);
+  });
+
+  it("stamps an id on the blocker, then names it on the dependent and blocks that", async () => {
+    await blockTodoInVault(DOCS, SHIP);
+
+    expect(saveNote).toHaveBeenCalledTimes(2);
+    // The blocker first: a failure between the two leaves an id nothing
+    // names rather than a `⛔` naming nothing.
+    const [path, text] = saveNote.mock.calls[0] as [string, string];
+    expect(path).toBe("release.md");
+    const id = /^- \[\/\] ship the release 🆔 (kt-[0-9a-f]{6})$/.exec(text)?.[1];
+    expect(id).toBeDefined();
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "docs.md",
+      ["# Docs", `- [b] write the docs ⛔ ${id}`].join("\n"),
+    );
+  });
+
+  it("leaves a blocker that carries an id alone", async () => {
+    const ship = { ...SHIP, text: "- [/] ship the release 🆔 kt-c0ffee" };
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "release.md" ? ship.text : NOTES[path],
+    );
+
+    await blockTodoInVault(DOCS, ship);
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "docs.md",
+      ["# Docs", "- [b] write the docs ⛔ kt-c0ffee"].join("\n"),
+    );
+  });
+
+  it("writes one note once where it holds both", async () => {
+    const note = ["- [ ] ship the release 🆔 kt-c0ffee", "- [/] write the docs"].join("\n");
+    fetchNote.mockResolvedValue(note);
+
+    await blockTodoInVault(
+      { path: "a.md", line: 2, text: "- [/] write the docs" },
+      { path: "a.md", line: 1, text: "- [ ] ship the release 🆔 kt-c0ffee" },
+    );
+
+    // Doing stays doing: kasten moves a `⛔` line between open and blocked only.
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "a.md",
+      ["- [ ] ship the release 🆔 kt-c0ffee", "- [/] write the docs ⛔ kt-c0ffee"].join("\n"),
+    );
+  });
+
+  it("writes nothing, not even the id, where either note moved under its row", async () => {
+    await blockTodoInVault({ ...DOCS, line: 1 }, SHIP);
+    await blockTodoInVault(DOCS, { ...SHIP, text: "- [ ] ship the release" });
 
     expect(saveNote).not.toHaveBeenCalled();
   });

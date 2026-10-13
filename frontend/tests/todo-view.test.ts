@@ -1,8 +1,10 @@
 import { parseTodo, type Todo } from "@/lib/todo";
 import {
   DEFAULT_VIEWS,
+  dependentsOf,
   inherited,
   type Node,
+  namedTodos,
   nextActionOf,
   type Placed,
   parseViews,
@@ -11,6 +13,7 @@ import {
   treeOf,
   waiting,
   waitOf,
+  waitsFor,
 } from "@/lib/todo-view";
 
 /** The day every test below is written against, so no assertion expires. */
@@ -355,5 +358,53 @@ describe("waitOf", () => {
 
   it("says nothing of a todo that is not waiting, whatever it carries", () => {
     expect(waitOf(todo("- [ ] a 👤 2026-08-03 Ada"), TODAY)).toBeNull();
+  });
+});
+
+describe("waitsFor", () => {
+  const named = namedTodos([
+    todo("- [/] ship the release 🆔 kt-000001"),
+    todo("- [x] cut the branch ✅ 2026-08-09 🆔 kt-000002"),
+  ]);
+
+  it("names every blocker still open by its words", () => {
+    expect(waitsFor(todo("- [b] write the docs ⛔ kt-000001"), named)).toEqual([
+      "ship the release",
+    ]);
+  });
+
+  it("leaves out a blocker already closed", () => {
+    expect(waitsFor(todo("- [b] a ⛔ kt-000001 ⛔ kt-000002"), named)).toEqual([
+      "ship the release",
+    ]);
+  });
+
+  it("names a blocker no note holds by its id", () => {
+    expect(waitsFor(todo("- [b] a ⛔ kt-ffffff"), named)).toEqual(["kt-ffffff"]);
+  });
+
+  it("says nothing for a todo naming no blocker", () => {
+    expect(waitsFor(todo("- [b] a"), named)).toEqual([]);
+  });
+});
+
+describe("dependentsOf", () => {
+  it("gathers the open todos waiting for each open todo", () => {
+    const docs = todo("- [b] write the docs ⛔ kt-000001");
+    const post = todo("- [/] write the post ⛔ kt-000001");
+    const waiters = dependentsOf([todo("- [/] ship the release 🆔 kt-000001"), docs, post]);
+
+    expect(waiters.get("kt-000001")).toEqual([docs, post]);
+  });
+
+  it("counts nothing finished, on either side", () => {
+    const waiters = dependentsOf([
+      todo("- [ ] ship the release 🆔 kt-000001"),
+      todo("- [x] cut the branch ✅ 2026-08-09 🆔 kt-000002"),
+      todo("- [x] write the docs ✅ 2026-08-09 ⛔ kt-000001"),
+      todo("- [ ] tag it ⛔ kt-000002"),
+    ]);
+
+    expect(waiters.size).toBe(0);
   });
 });

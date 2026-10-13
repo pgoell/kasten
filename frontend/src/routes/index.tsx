@@ -99,6 +99,7 @@ import { newId, parseTodo, type TodoState } from "@/lib/todo";
 import {
   addSubtaskInVault,
   addTodoInVault,
+  blockTodoInVault,
   cycleTodoAside,
   cycleTodoInVault,
   editTodoInVault,
@@ -1317,6 +1318,16 @@ function Home() {
     [todosWritten],
   );
 
+  /** Write a `⛔` naming the todo picked, from the pane's `b`. Only the write, as `editTodo` is. */
+  const blockTodo = useCallback(
+    (hit: SearchHit, blocker: SearchHit) => {
+      void blockTodoInVault(hit, blocker).then(todosWritten, () => {
+        // As above: the list stays as it is, and the next event redraws it.
+      });
+    },
+    [todosWritten],
+  );
+
   /**
    * Put the file the picker just handed back into the vault, with its note.
    *
@@ -1908,6 +1919,7 @@ function Home() {
                     onAdd={() => setTodoPrompt({})}
                     onSubtask={(hit) => setTodoPrompt({ parent: hit })}
                     onEdit={editTodo}
+                    onBlock={blockTodo}
                     onTimer={toggleTimer}
                     archive={archive}
                     focusSignal={focused ? focusSignal : 0}

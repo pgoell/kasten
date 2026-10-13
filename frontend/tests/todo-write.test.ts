@@ -3,6 +3,7 @@ import {
   addTodoWrites,
   applyBlocked,
   blockedLines,
+  blockLine,
   type Closed,
   type CycleInput,
   cycleLines,
@@ -14,6 +15,7 @@ import {
   type LogInput,
   type TimerInput,
   timerWrites,
+  unblockedEdit,
   type Write,
 } from "@/lib/todo-write";
 
@@ -898,5 +900,64 @@ describe("timerWrites, a session somebody forgot", () => {
     // The rule, not a bug: the part that ran into today is lost, and both times
     // are on the line for anybody who wants to correct it.
     expect(writes[1]?.text).toBe(totalled("9m"));
+  });
+});
+
+describe("blockLine", () => {
+  const open: Closed = () => false;
+
+  it("names the blocker last on the line and blocks an open todo", () => {
+    expect(blockLine("- [ ] write the docs 📅 2026-08-14", "kt-c0ffee", open)).toBe(
+      "- [b] write the docs 📅 2026-08-14 ⛔ kt-c0ffee",
+    );
+  });
+
+  it.each([
+    ["doing", "- [/] write the docs"],
+    ["waiting", "- [w] write the docs 👤 2026-08-03 Ada"],
+  ])("leaves a %s todo in its state", (_state, line) => {
+    expect(blockLine(line, "kt-c0ffee", open)).toBe(`${line} ⛔ kt-c0ffee`);
+  });
+
+  it("leaves a todo open under a blocker already closed", () => {
+    expect(blockLine("- [ ] write the docs", "kt-c0ffee", () => true)).toBe(
+      "- [ ] write the docs ⛔ kt-c0ffee",
+    );
+  });
+
+  it("keeps the blockers the line already names", () => {
+    expect(blockLine("- [b] write the docs ⛔ kt-000001", "kt-c0ffee", open)).toBe(
+      "- [b] write the docs ⛔ kt-000001 ⛔ kt-c0ffee",
+    );
+  });
+
+  it("answers nothing for a blocker the line names already, or a line that is no todo", () => {
+    expect(blockLine("- [b] write the docs ⛔ kt-c0ffee", "kt-c0ffee", open)).toBeNull();
+    expect(blockLine("write the docs", "kt-c0ffee", open)).toBeNull();
+  });
+});
+
+describe("unblockedEdit", () => {
+  it("opens a blocked line whose last blocker the edit deleted", () => {
+    expect(unblockedEdit("- [b] write the docs ⛔ kt-c0ffee", "- [b] write the docs")).toBe(
+      "- [ ] write the docs",
+    );
+  });
+
+  it("leaves a line that still names a blocker", () => {
+    const after = "- [b] write the docs ⛔ kt-000001";
+    expect(unblockedEdit(`${after} ⛔ kt-c0ffee`, after)).toBe(after);
+  });
+
+  it("leaves a blocked line that never named one, which waits on something outside the vault", () => {
+    expect(unblockedEdit("- [b] write the docs", "- [b] write the manual")).toBe(
+      "- [b] write the manual",
+    );
+  });
+
+  it("leaves the state the edit itself set", () => {
+    expect(unblockedEdit("- [b] write the docs ⛔ kt-c0ffee", "- [/] write the docs")).toBe(
+      "- [/] write the docs",
+    );
   });
 });

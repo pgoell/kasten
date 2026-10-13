@@ -23,11 +23,13 @@ import { lineSuggestions } from "@/lib/todo-suggest";
 import { parseSession, type Session } from "@/lib/todo-time";
 import {
   DEFAULT_VIEWS,
+  dependentsOf,
   descendants,
   HEADING,
   inherited,
   isClient,
   type Node,
+  namedTodos,
   nextActionOf,
   type Placed,
   parseViews,
@@ -38,6 +40,7 @@ import {
   VIEWS_NOTE,
   waiting,
   waitOf,
+  waitsFor,
 } from "@/lib/todo-view";
 import { useViewport } from "@/lib/use-viewport";
 
@@ -208,6 +211,13 @@ interface TodoPaneProps {
    */
   onEdit: (hit: SearchHit, line: string) => void;
   /**
+   * Say that the first row's todo waits for the second's.
+   *
+   * Two hits, each for the reason `onCycle` takes one: the write puts a `⛔`
+   * on one line and may put an id on the other.
+   */
+  onBlock: (hit: SearchHit, blocker: SearchHit) => void;
+  /**
    * Whether the archive is on the list, which the route holds and one key flips.
    *
    * In the query key as well as the request, so the two readings are two cached
@@ -262,6 +272,7 @@ export function TodoPane({
   onAdd,
   onSubtask,
   onEdit,
+  onBlock,
   onTimer,
   focusSignal,
   today,
@@ -285,6 +296,13 @@ export function TodoPane({
    * press, and holding the text here is what lets the input be the row itself.
    */
   const [editing, setEditing] = useState<{ key: string; line: string } | null>(null);
+  /**
+   * The row `b` was pressed on, while the list is the picker of what blocks it.
+   *
+   * The pane is its own picker: the rows are already every todo there is to
+   * name, and the filter line already narrows them.
+   */
+  const [picking, setPicking] = useState<SearchHit | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
@@ -446,11 +464,21 @@ export function TodoPane({
       // The todo as the tree left it, so a part carrying no date of its own
       // waits, groups and sorts with whatever holds it.
       const full = forest.todos.get(rowKey(hit)) ?? todo;
-      if (full === null || !isOpen(full) || waiting(full, today)) continue;
+      if (full === null || !isOpen(full)) continue;
+      // A todo that cannot be started yet can still be what another waits for,
+      // so the picker lists it.
+      if (picking === null && waiting(full, today)) continue;
       found.push({ hit, todo: full, parent: forest.parents.get(rowKey(hit)) });
     }
     return found;
-  }, [parsed, today, forest]);
+  }, [parsed, today, forest, picking]);
+
+  // What each `⛔` names and what waits for each todo, read off every line the
+  // vault answered with: a blocker the filter has hidden still blocks.
+  const links = useMemo(() => {
+    const todos = parsed.flatMap(({ todo }) => todo ?? []);
+    return { named: namedTodos(todos), dependents: dependentsOf(todos) };
+  }, [parsed]);
 
   /**
    * Which todos have a session running, and the day of the oldest one, keyed by
@@ -531,10 +559,13 @@ export function TodoPane({
     return found;
   }, [parsed, today, forest]);
 
+  // A blocker is picked off the open list, whichever list `b` was pressed on.
+  const listed: Mode = picking === null ? mode : "open";
+
   const shown = useMemo(() => {
     const terms = parseFilter(line);
     const lists: Record<Mode, Row[]> = { open, done: finished, next };
-    const kept = lists[mode].filter(({ todo }) => matchesFilter(todo, terms, today));
+    const kept = lists[listed].filter(({ todo }) => matchesFilter(todo, terms, today));
     if (terms.text === "") return kept;
     // Whatever was not a term ranks as text, the way it does everywhere else.
     // Here the ranking only decides membership: the sections set the order.
@@ -547,12 +578,12 @@ export function TodoPane({
       ),
     );
     return kept.filter((_, index) => reads.has(index));
-  }, [open, finished, next, mode, line, today]);
+  }, [open, finished, next, listed, line, today]);
 
   // The heading is the group's name here, not a lookup at the draw, because
   // `d` groups on a date and there is no table of every day there has been.
   const groups = useMemo(() => {
-    if (mode === "done") {
+    if (listed === "done") {
       // Newest day first, which ISO dates sort into by themselves.
       const days = [...new Set(shown.map(({ todo }) => todo.done ?? ""))].sort().reverse();
       return days.map((heading) => ({
@@ -564,7 +595,7 @@ export function TodoPane({
       heading: HEADING[section],
       rows: nest(byPriority(shown.filter((row) => sectionOf(row.todo, today) === section))),
     })).filter((group) => group.rows.length > 0);
-  }, [shown, mode, today]);
+  }, [shown, listed, today]);
   // The same rows flattened, because `j` and `k` move down a list and a heading
   // is not a row the cursor can sit on.
   const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
@@ -687,6 +718,26 @@ export function TodoPane({
     setEditing({ key: rowKey(hit), line: hit.text });
   }
 
+  /** `b`: the list becomes the picker of what blocks this row. Finished work waits for nothing. */
+  function block(hit: SearchHit) {
+    const todo = parseTodo(hit.text);
+    if (todo === null || !isOpen(todo)) return;
+    setPicking(hit);
+    setActive(0);
+  }
+
+  /** The row picked as the blocker. One that cannot be it leaves the picker open. */
+  function pick(blocker: SearchHit) {
+    if (picking === null) return;
+    // A todo does not wait for itself, nor twice for the same one.
+    if (rowKey(blocker) === rowKey(picking)) return;
+    const id = parseTodo(blocker.text)?.id;
+    if (id !== undefined && parseTodo(picking.text)?.blockedBy.includes(id)) return;
+
+    onBlock(picking, blocker);
+    setPicking(null);
+  }
+
   function onKeyDown(event: React.KeyboardEvent) {
     // Typing into an input is not the list's keys: `j` in one is a letter. The
     // filter is one, the row being edited is the other, and the pane holds no
@@ -714,6 +765,10 @@ export function TodoPane({
       return;
     }
 
+    // The picker moves, narrows, takes and gives up. Every other key would
+    // act on a row that is here to be chosen.
+    if (picking !== null && !["j", "k", "/", "Enter", "Escape"].includes(key)) return;
+
     switch (key) {
       case "j":
         setActive(Math.min(cursor + 1, rows.length - 1));
@@ -725,7 +780,9 @@ export function TodoPane({
         setPending(key);
         break;
       case "Enter":
-        if (at !== undefined) onOpen(at.hit.path, at.hit.line);
+        if (at === undefined) break;
+        if (picking !== null) pick(at.hit);
+        else onOpen(at.hit.path, at.hit.line);
         break;
       // The editor's `<leader>x` said without the leader, which a pane holding
       // no buffer has no need of.
@@ -764,6 +821,11 @@ export function TodoPane({
       case "i":
         if (at !== undefined) edit(at.hit);
         break;
+      // Lowercase beside `B`: that one sets the state, this one says what the
+      // state is waiting for.
+      case "b":
+        if (at !== undefined) block(at.hit);
+        break;
       // One field rather than a boolean each: `d` and `n` swap the same list,
       // and two flags could both be on.
       case "d":
@@ -786,6 +848,10 @@ export function TodoPane({
         commands.closeNote();
         break;
       case "Escape":
+        if (picking !== null) {
+          setPicking(null);
+          break;
+        }
         // The editor is the only other place the focus belongs, and it owns no
         // React handle here, so the pane finds it the way the reader sees it.
         document.querySelector<HTMLElement>(".cm-content")?.focus();
@@ -862,6 +928,29 @@ export function TodoPane({
         )}
       </header>
 
+      {/* What the list is for while it is a picker, and whose blocker it is
+          picking. A line of its own, so a narrow header loses no filter. */}
+      {picking !== null && (
+        <div
+          data-testid="todo-pick"
+          className="flex items-center gap-3 border-b border-one-line px-3 text-[11px] text-one-accent"
+        >
+          <span className="min-w-0 flex-1 truncate py-1">
+            ⛔ pick what blocks: {parseTodo(picking.text)?.text}
+          </span>
+          {coarse && (
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setPicking(null)}
+              className="min-h-11 shrink-0 px-3 text-one-muted"
+            >
+              cancel
+            </button>
+          )}
+        </div>
+      )}
+
       {/* `d`, `n` and `v` by finger. Outside the list, so they stay put while
           it scrolls, and out of the tab order like every button but the row. */}
       {coarse && (
@@ -894,7 +983,7 @@ export function TodoPane({
       <div className="flex-1 overflow-auto py-1" onScroll={() => setArmed(null)}>
         {rows.length === 0 ? (
           <p className="px-3 py-1 text-[13px] text-one-muted">
-            {mode === "done" ? "nothing finished" : "nothing to do"}
+            {listed === "done" ? "nothing finished" : "nothing to do"}
           </p>
         ) : (
           groups.map(({ heading, rows: group }) => (
@@ -910,6 +999,9 @@ export function TodoPane({
                 );
                 const time = clocks(todo);
                 const wait = waitOf(todo, today);
+                const blockers = waitsFor(todo, links.named);
+                const dependents =
+                  todo.id !== undefined && isOpen(todo) ? links.dependents.get(todo.id) : undefined;
                 const held = todo.state === "blocked" || todo.state === "waiting";
                 // One tab stop for the whole pane: tab reaches the cursor, and
                 // the vim keys move it from there.
@@ -971,7 +1063,8 @@ export function TodoPane({
                     type="button"
                     data-row={key}
                     tabIndex={tabIndex}
-                    onClick={() => onOpen(hit.path, hit.line)}
+                    // A tap is Enter by finger, and takes the row as Enter does.
+                    onClick={() => (picking === null ? onOpen(hit.path, hit.line) : pick(hit))}
                     title={key}
                     // The state button in front carries the indent on touch.
                     style={coarse ? { paddingLeft: 0 } : indent}
@@ -1010,6 +1103,27 @@ export function TodoPane({
                         date is: it is the shortest thing on the row. */}
                     {progress.has(key) && (
                       <span className="shrink-0 text-one-muted">{progress.get(key)}</span>
+                    )}
+                    {/* What the row waits for: the blocker's words where there
+                        is one, a count where there are more, and every one of
+                        them in the title. Nothing for a blocker already closed. */}
+                    {blockers.length > 0 && (
+                      <span
+                        title={`waits for:\n${blockers.join("\n")}`}
+                        className="max-w-[40%] shrink-0 truncate text-one-muted"
+                      >
+                        ⛔ {blockers.length === 1 ? blockers[0] : blockers.length}
+                      </span>
+                    )}
+                    {/* And what waits for it, as a count: the words are on the
+                        rows that wait. */}
+                    {dependents !== undefined && (
+                      <span
+                        title={`blocks:\n${dependents.map((one) => one.text).join("\n")}`}
+                        className="shrink-0 text-one-muted"
+                      >
+                        → {dependents.length}
+                      </span>
                     )}
                     {/* Who a waiting row is on and for how many days, taken off
                         the line's `👤`. */}
@@ -1059,6 +1173,7 @@ export function TodoPane({
                   ["timer", () => onTimer(hit)],
                   ["part", () => onSubtask(hit)],
                   ["edit", () => edit(hit)],
+                  ["blocked by", () => block(hit)],
                 ];
                 return (
                   <div key={key}>
@@ -1141,7 +1256,7 @@ export function TodoPane({
         className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
       >
         <span>
-          {mode === "done" ? (
+          {listed === "done" ? (
             `${shown.length} finished`
           ) : (
             <>
@@ -1151,11 +1266,15 @@ export function TodoPane({
             </>
           )}
         </span>
-        <span>
-          x cycle&ensp;&ensp;O P X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
-          edit&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;/
-          filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
-        </span>
+        {picking !== null ? (
+          <span>j k move&ensp;&ensp;/ filter&ensp;&ensp;Enter pick&ensp;&ensp;Escape cancel</span>
+        ) : (
+          <span>
+            x cycle&ensp;&ensp;O P X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
+            edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n
+            next&ensp;&ensp;v view&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+          </span>
+        )}
       </footer>
     </section>
   );

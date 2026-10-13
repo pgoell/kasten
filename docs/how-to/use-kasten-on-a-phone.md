@@ -84,6 +84,10 @@ The `pane` button shows only while the tab holds more than one pane.
 To set a state directly, tap `⋯` at the end of the row, then `open`, `doing`,
 `done`, `blocked`, `waiting` or `rejected`. That takes one tap.
 
+To say a todo waits for another one, tap `⋯` at the end of its row, then
+`blocked by`, then the row of the todo that blocks it. `cancel` above the list
+takes it back.
+
 To add a todo, tap `+` in the header.
 
 To tick a todo in the note you are writing, tap into its line, tap `run`, and

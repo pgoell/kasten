@@ -74,6 +74,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
   const onAdd = vi.fn();
   const onSubtask = vi.fn();
   const onEdit = vi.fn();
+  const onBlock = vi.fn();
   const onTimer = vi.fn();
   const { reached, commands } = recorder();
   const client = new QueryClient();
@@ -87,6 +88,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
         onAdd={onAdd}
         onSubtask={onSubtask}
         onEdit={onEdit}
+        onBlock={onBlock}
         onTimer={onTimer}
         focusSignal={focusSignal}
         today={TODAY}
@@ -102,8 +104,11 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     onAdd,
     onSubtask,
     onEdit,
+    onBlock,
     onTimer,
     reached,
+    /** What the pane says it is picking a blocker for, or nothing outside the picker. */
+    picking: () => screen.queryByTestId("todo-pick")?.textContent ?? "",
     /** What the vault answers with next, which is how a write reaches the pane. */
     answer: (next: typeof TODOS) => act(() => client.setQueryData(["todos", false], next)),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
@@ -1054,6 +1059,118 @@ describe("the todo pane", () => {
   });
 });
 
+describe("the todo pane, picking what blocks a todo", () => {
+  it("turns the list into a picker on b, and hands both rows over on enter", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("b");
+    expect(pane.picking()).toContain("pick what blocks: call the dentist #health");
+    expect(pane.footer()).toContain("Enter pick");
+
+    pane.press("j");
+    pane.press("Enter");
+
+    // The row `b` was pressed on waits, and the row under the cursor blocks.
+    expect(pane.onBlock).toHaveBeenCalledExactlyOnceWith(TODOS[0], TODOS[1]);
+    expect(pane.onOpen).not.toHaveBeenCalled();
+    expect(pane.picking()).toBe("");
+  });
+
+  it("gives the list back on escape and writes nothing", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("b");
+    pane.press("Escape");
+
+    expect(pane.picking()).toBe("");
+    expect(pane.onBlock).not.toHaveBeenCalled();
+  });
+
+  it("does not let a todo block itself, and stays a picker", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("b");
+    pane.press("Enter");
+
+    expect(pane.onBlock).not.toHaveBeenCalled();
+    expect(pane.picking()).not.toBe("");
+  });
+
+  it("does not name a blocker the todo names already", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [b] write the docs ⛔ kt-c0ffee" },
+      { path: "a.md", line: 2, text: "- [ ] ship the release 🆔 kt-c0ffee" },
+    ]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+
+    pane.press("b");
+    pane.press("j");
+    pane.press("Enter");
+
+    expect(pane.onBlock).not.toHaveBeenCalled();
+  });
+
+  it("keeps every key that acts on a row off the picker", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("b");
+    for (const key of ["x", "X", "t", "a", "s", "i", "d", "q"]) pane.press(key);
+
+    expect(pane.onCycle).not.toHaveBeenCalled();
+    expect(pane.onTimer).not.toHaveBeenCalled();
+    expect(pane.onAdd).not.toHaveBeenCalled();
+    expect(pane.draft()).toBeNull();
+    expect(pane.reached).toEqual([]);
+    expect(pane.rows()).toHaveLength(6);
+  });
+
+  it("offers a todo that cannot be started yet, which the list leaves out", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] write the docs" },
+      { path: "a.md", line: 2, text: "- [ ] ship the release 🛫 2026-09-01" },
+    ]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(1));
+
+    pane.press("b");
+
+    expect(pane.rows()).toHaveLength(2);
+  });
+
+  it("picks nothing for a finished todo", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("d");
+    pane.press("b");
+
+    expect(pane.picking()).toBe("");
+  });
+
+  it("says on a row what it waits for and how many wait for it", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [/] ship the release 🆔 kt-000001" },
+      { path: "a.md", line: 2, text: "- [b] write the docs ⛔ kt-000001" },
+      { path: "a.md", line: 3, text: "- [b] write the post ⛔ kt-000001 ⛔ kt-ffffff" },
+      { path: "a.md", line: 4, text: "- [ ] tag it ⛔ kt-000002" },
+      { path: "a.md", line: 5, text: "- [x] cut the branch ✅ 2026-08-01 🆔 kt-000002" },
+    ]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+
+    const [ship, docs, post, tag] = pane.texts();
+    expect(ship).toContain("→ 2");
+    expect(docs).toContain("⛔ ship the release");
+    // Two blockers are a count, and the title names both, one to a line.
+    expect(post).toContain("⛔ 2");
+    expect(screen.getByTitle(/ship the release kt-ffffff/)).toBeDefined();
+    // A blocker already closed holds nothing.
+    expect(tag).not.toContain("⛔");
+  });
+});
+
 describe("the todo pane by touch", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -1447,6 +1564,32 @@ describe("the todo pane by touch", () => {
     expect(pane.onSubtask).toHaveBeenCalledExactlyOnceWith(TODOS[3]);
     expect(pane.onAdd).not.toHaveBeenCalled();
     expect(screen.queryByLabelText("part buy milk")).toBeNull();
+  });
+
+  it("picks a blocker by taps: the strip, then the row, which opens nothing", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("blocked by buy milk"));
+    fireEvent.click(row("renew the passport") as HTMLElement);
+
+    expect(pane.onBlock).toHaveBeenCalledExactlyOnceWith(TODOS[3], TODOS[4]);
+    expect(pane.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("takes the picker back from a button, there being no escape under a finger", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+    fireEvent.click(screen.getByLabelText("blocked by buy milk"));
+    fireEvent.click(screen.getByText("cancel"));
+
+    expect(pane.picking()).toBe("");
+    expect(pane.onBlock).not.toHaveBeenCalled();
   });
 
   it("turns the row tapped into its line, wherever the cursor is", async () => {

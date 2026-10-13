@@ -15,13 +15,22 @@ import {
   searchNotes,
 } from "@/lib/api";
 import { periodicNote } from "@/lib/periodic";
-import { cycleLine, isOpen, newId, parseTodo, setStateOn, type TodoState } from "@/lib/todo";
+import {
+  cycleLine,
+  formatTodo,
+  isOpen,
+  newId,
+  parseTodo,
+  setStateOn,
+  type TodoState,
+} from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { expandShorthand } from "@/lib/todo-shorthand";
 import { parseSession } from "@/lib/todo-time";
 import {
   addTodoWrites,
   applyBlocked,
+  blockLine,
   type Closed,
   closedAmong,
   cycleTodoWrites,
@@ -29,6 +38,7 @@ import {
   insertSubtask,
   type SessionHit,
   timerWrites,
+  unblockedEdit,
   type Write,
 } from "@/lib/todo-write";
 
@@ -77,10 +87,11 @@ export async function addTodoInVault(input: string, today: string, paths: string
 /**
  * Put one edited line back where the row found it, exactly as it was left.
  *
- * No rule and no reformatting: the line is the whole record, so an edit is the
- * line itself and whatever it now says is what kasten will read out of it next.
- * That is what reaches the fields the shorthand does not spell, `🔁` and `⏳`
- * among them.
+ * No reformatting: the line is the whole record, so an edit is the line itself
+ * and whatever it now says is what kasten will read out of it next. That is
+ * what reaches the fields the shorthand does not spell, `🔁` and `⏳` among
+ * them. One rule: a blocked line whose last `⛔` the edit deleted is opened,
+ * nothing else being left to open it.
  *
  * The note is read again and the old line checked against the row the prompt
  * opened on, which is stricter than the guard the cycle uses and has to be: a
@@ -94,7 +105,44 @@ export async function editTodoInVault(hit: SearchHit, line: string): Promise<voi
   const lines = text.split("\n");
   if (lines[hit.line - 1] !== hit.text) return;
 
-  lines[hit.line - 1] = line;
+  lines[hit.line - 1] = unblockedEdit(hit.text, line);
+  await saveNote(hit.path, lines.join("\n"));
+}
+
+/**
+ * Say that the row's todo waits for another: `⛔` and the blocker's id on its
+ * line, and an id on the blocker where it has none.
+ *
+ * Both lines are checked against their rows before anything is written, for
+ * the reason an edit checks its one. Then the blocker first: a write that
+ * fails between the two leaves an id nothing names, where the other order
+ * would leave a `⛔` naming nothing.
+ *
+ * No `paths` and no `send`: both lines came out of notes the vault holds.
+ */
+export async function blockTodoInVault(hit: SearchHit, blocker: SearchHit): Promise<void> {
+  const blockerLines = (await fetchNote(blocker.path)).split("\n");
+  const named = parseTodo(blocker.text);
+  if (named === null || blockerLines[blocker.line - 1] !== blocker.text) return;
+
+  // One note holding both is read once and written once, the second read
+  // being older than the first write otherwise.
+  const same = hit.path === blocker.path;
+  const lines = same ? blockerLines : (await fetchNote(hit.path)).split("\n");
+  if (lines[hit.line - 1] !== hit.text) return;
+
+  const id = named.id ?? newId();
+  const seen = closedAmong((await fetchTodos()).flatMap((found) => parseTodo(found.text) ?? []));
+  // The blocker answers off its own line: the id may be minutes old or new.
+  const closed: Closed = (asked) => (asked === id ? !isOpen(named) : seen(asked));
+  const held = blockLine(hit.text, id, closed);
+  if (held === null) return;
+
+  if (named.id === undefined) {
+    blockerLines[blocker.line - 1] = formatTodo({ ...named, id });
+    if (!same) await saveNote(blocker.path, blockerLines.join("\n"));
+  }
+  lines[hit.line - 1] = held;
   await saveNote(hit.path, lines.join("\n"));
 }
 

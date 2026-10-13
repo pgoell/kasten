@@ -672,6 +672,7 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "B", label: "Set the todo under the cursor to blocked" },
   { key: "W", label: "Set the todo under the cursor to waiting on somebody" },
   { key: "R", label: "Set the todo under the cursor to rejected" },
+  { key: "b", label: "Pick the todo that blocks the one under the cursor" },
   { key: "/", label: "Narrow the list" },
   { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Back to the editor" },

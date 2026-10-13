@@ -249,3 +249,47 @@ export function waitOf(todo: Todo, today: string): string | null {
 
   return said === "" ? null : `👤 ${said}`;
 }
+
+/** Every todo carrying an id, by that id, which is what a `⛔` names. */
+export function namedTodos(todos: Todo[]): Map<string, Todo> {
+  const named = new Map<string, Todo>();
+  for (const todo of todos) if (todo.id !== undefined) named.set(todo.id, todo);
+  return named;
+}
+
+/**
+ * The words of every blocker a todo still waits for.
+ *
+ * A closed blocker holds nothing and is left out. One no note holds reads as
+ * open, as it does to the cascade, and is named by its id, there being no
+ * words to name it by.
+ */
+export function waitsFor(todo: Todo, named: Map<string, Todo>): string[] {
+  const held: string[] = [];
+  for (const id of todo.blockedBy) {
+    const blocker = named.get(id);
+    if (blocker === undefined) held.push(id);
+    else if (isOpen(blocker)) held.push(blocker.text);
+  }
+  return held;
+}
+
+/**
+ * The open todos waiting for each open todo, keyed by the blocker's id.
+ *
+ * Open on both sides: a finished todo waits for nothing, and nothing waits for
+ * a finished one.
+ */
+export function dependentsOf(todos: Todo[]): Map<string, Todo[]> {
+  const named = namedTodos(todos);
+  const waiters = new Map<string, Todo[]>();
+  for (const todo of todos) {
+    if (!isOpen(todo)) continue;
+    for (const id of todo.blockedBy) {
+      const blocker = named.get(id);
+      if (blocker === undefined || !isOpen(blocker)) continue;
+      waiters.set(id, [...(waiters.get(id) ?? []), todo]);
+    }
+  }
+  return waiters;
+}

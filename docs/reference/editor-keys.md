@@ -1284,8 +1284,10 @@ does, and the header carries a `+` that adds one as `a` does. Under the header
 `done`, `next` and `view` do what `d`, `n` and `v` do. Each row ends in a `⋯`
 that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
 `blocked`, `waiting` and `rejected` set the state as `O`, `P`, `X`, `B`, `W` and `R` do,
-`timer` is `t`, `part` is `s` and `edit` is `i`. `edit` does nothing while
-another row is being edited. A state picked from the strip is set on one tap.
+`timer` is `t`, `part` is `s`, `edit` is `i` and `blocked by` is `b`. `edit`
+does nothing while another row is being edited. After `blocked by`, a tap on a
+row picks it as the blocker and opens nothing, and `cancel` beside the picker's
+line is Escape. A state picked from the strip is set on one tap.
 
 The state button takes two taps: the first turns the symbol into the state the
 todo would move to with a `?` after it, and the second is the one that cycles.
@@ -1342,6 +1344,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `n` | Show one next action per task |
 | `v` | Show the next saved view, or all todos again |
 | `O` `P` `X` `B` `W` `R` | Set the row's todo to open, doing, done, blocked, waiting or rejected |
+| `b` | Pick the todo that blocks the row's todo |
 | `/` | Narrow the list |
 | `q` | Close the pane |
 | Escape | Back to the editor |
@@ -1407,6 +1410,28 @@ The six shifted keys set a state directly, which is the only way to blocked,
 waiting and rejected from here: a row leaves this list the moment it is done, and done is
 where the walk goes first. They are the pane's spelling of the `<leader>s` keys
 and write exactly what those write.
+
+`b` says that the row's todo waits for another one. The list becomes the
+picker: a line under the header reads `⛔ pick what blocks:` and the todo's
+words, and the footer shows the four keys that still work. `j` and `k` move,
+`/` narrows, Enter takes the row under the cursor as the blocker, and Escape
+gives the list back with nothing written. The picker lists every open todo,
+one whose `🛫` has not arrived among them, since a todo you cannot start yet
+can still be what another waits for. It takes neither the todo itself nor a
+todo the line names already, and stays open when you try. `b` does nothing on
+a finished todo.
+
+Enter writes two lines. The blocker gets a `🆔` where it has none, and the
+todo gets `⛔` and that id. An open todo becomes blocked; one that is doing or
+waiting keeps its state.
+[Dependencies](/reference/todo-format.md#dependencies) has the rule.
+
+A row that waits says for what: `⛔` and the blocker's words, or `⛔ 2` where
+it waits for more than one, with every blocker in the hover title. A blocker
+already closed is not counted, and a `⛔` naming an id no note holds shows the
+id. A row something waits for carries `→` and how many, with their words in
+the hover title. Both are read off the lines the vault holds, and nothing is
+stored for them.
 
 `n` swaps the list for one row per top level todo, each naming the one thing
 you could start on it, which is the GTD question asked directly. That is the
@@ -1852,7 +1877,8 @@ Four fields are deliberately absent. `➕`, `✅` and `❌` are kasten's own sta
 and a done date written by hand is one
 [the done log](/reference/todo-format.md#the-done-log) knows nothing about.
 `🆔` has a key of its own, `<leader>i`. And a `⛔` names another todo's id,
-which the line being typed cannot see.
+which the line being typed cannot see: [`b` in the todo pane](#the-todo-pane)
+writes it.
 
 ## Images
 
