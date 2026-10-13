@@ -66,8 +66,9 @@ services:
       start_period: 20s
 
   # A shell in a container beside the vault, reached only through Caddy's
-  # `handle /term/*` and its `import oauth2_auth`. No `ports` key: publishing
-  # one would put an unauthenticated shell on the internet. No `depends_on`
+  # `handle /term/*` and its `import oauth2_auth`. The chat runner listens in
+  # here too, on 7682, behind `handle /chat/*` and the same import. No `ports`
+  # key: publishing one would put an unauthenticated shell on the internet. No `depends_on`
   # either, because a shell does not need the backend or the database to be a
   # shell, and no healthcheck, because a shell nobody is attached to has
   # nothing to report.

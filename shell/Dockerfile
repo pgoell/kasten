@@ -220,6 +220,16 @@ COPY --from=agents --chown=kasten:kasten /opt/npm /opt/npm
 COPY shell/herdr.toml /etc/herdr/config.toml.default
 COPY shell/entrypoint.sh /usr/local/bin/kasten-shell-entrypoint
 
+# The chat runner, which the chat pane talks to: two files of kasten's own and
+# no dependency in the image. What it runs on, the Claude Agent SDK, is
+# Anthropic's proprietary software like Claude Code itself ("All rights
+# reserved", its LICENSE.md), so it stays out of a published image for the
+# reason given in the `agents` stage. The entrypoint installs this exact
+# version into the home volume instead, and copies these two files beside it.
+# A pin and not a range, so the image decides which SDK a deploy runs.
+ENV KASTEN_AGENT_SDK_VERSION=0.3.296
+COPY shell/chat/runner.mjs shell/chat/main.mjs /opt/kasten-chat/
+
 # Appended, not copied over /etc/zsh/zshrc. Debian's file binds Home, End,
 # Delete and the arrow keys from terminfo, and replacing it would leave a
 # browser terminal where those keys print escape sequences.
@@ -237,6 +247,8 @@ ENTRYPOINT ["/usr/local/bin/kasten-shell-entrypoint"]
 
 # No EXPOSE. The container is reached over the `web` network by name, and
 # publishing a port would put a root-less but unauthenticated shell on the box.
+# That holds for both ports in here: ttyd on 7681 and the chat runner on 7682,
+# which the entrypoint starts beside it.
 #
 # The command ends at `--session` with no name after it. `-a` appends the
 # client's `?arg=` fragments after the server's own argv, so `?arg=agent-kasten`

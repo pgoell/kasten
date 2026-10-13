@@ -11,6 +11,7 @@ import {
   mapPanes,
   nextPane,
   openBookBeside,
+  openChatInFocused,
   openGraphBeside,
   openGraphInFocused,
   openImageInFocused,
@@ -539,6 +540,21 @@ describe("a person's card in a pane beside their note", () => {
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(card);
+  });
+});
+
+describe("openChatInFocused", () => {
+  it("puts the chat over the focused pane, the note and its line gone", () => {
+    const layout = openChatInFocused(emptyLayout("a.md", 12));
+
+    expect(focusedPane(layout)).toEqual({ id: focusedPane(layout).id, chat: true });
+  });
+
+  it("leaves an empty pane behind when the chat is taken out", () => {
+    const layout = clearFocused(openChatInFocused(emptyLayout()));
+
+    expect(focusedPane(layout).chat).toBeUndefined();
+    expect(tabPanes(layout)).toHaveLength(1);
   });
 });
 

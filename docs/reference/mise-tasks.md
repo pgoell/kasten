@@ -58,9 +58,11 @@ the other two services run stock images and rebuild nothing.
 
 | Task | What it does |
 |---|---|
-| `test` | Backend and frontend tests |
+| `test` | Backend, frontend and chat runner tests |
 | `test:py` | Backend tests only |
 | `fe:test` | Frontend tests only, the `unit` and `perf` projects |
+| `shell:test` | The chat runner's tests, on node's own test runner against a scripted session |
+| `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. `fe:dev` proxies `/chat` to it |
 | `fe:frame` | The end-to-end frame gates, in Chromium |
 | `fe:bench` | Record the frontend benchmark numbers on this machine |
 
@@ -106,9 +108,10 @@ container has no mise, so run that line there instead, as
 
 | Task | What it does |
 |---|---|
-| `lint` | ruff, ty, Biome and `tsc`. The pre-commit gate |
+| `lint` | ruff, ty, Biome on both JavaScript trees and `tsc`. The pre-commit gate |
 | `lint:py` | Backend lint, format check and type check |
 | `fe:lint` | Biome on the frontend |
+| `shell:lint` | Biome on `shell/chat`, with the frontend's binary and rules |
 | `fmt` | Format everything |
 | `fe:fmt` | Format the frontend |
 | `fe:typecheck` | Build the frontend, then `tsc --noEmit` |

@@ -825,6 +825,7 @@ export function Editor({
             openReview: () => commandsRef.current?.openReview(),
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),
+            openChat: () => commandsRef.current?.openChat(),
             importPage: () => commandsRef.current?.importPage(),
             captureDump: () => commandsRef.current?.captureDump(),
             splitRight: () => commandsRef.current?.splitRight(),

@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Security model
-description: Why kasten has no login of its own, what the gate in front of it covers, the two prefixes left open and what guards them, what the shell can reach, and the two checks the backend makes for a proxy that does less.
+description: Why kasten has no login of its own, what the gate in front of it covers, the two prefixes left open and what guards them, what the shell and the chat pane can reach, and the two checks the backend makes for a proxy that does less.
 tags: [security, deploy, self-host, agent]
 status: stable
 ---
@@ -76,8 +76,47 @@ gate gets it. From there:
 
 Not the docker socket, which would hand out root on the host, and not your home
 directory on the host. No port is published for it, so the gate's `/term/*`
-route is the only way in. Those two facts are its whole defence, which is why
+route, and `/chat/*` beside it, is the only way in. Those two facts are its whole defence, which is why
 every runbook here ends by proving them.
+
+## What the chat pane can reach
+
+The chat pane talks to a second process in the shell container, the chat
+runner, through the gate's `/chat/*` route. The runner starts Claude Code in
+the vault and lets it use every tool without asking: shell commands, file
+writes, file deletes.
+
+That sounds like more than the terminal pane and is exactly as much. Whoever
+passes the gate already has a shell in that container, with the vault, the
+backend and the agents' logins in reach, and can start Claude Code there with
+any flag they like. A permission prompt in the chat pane would guard a door
+that stands beside an open one. So the runner asks for none, and says so here
+instead of leaving it to be found.
+
+What the runner does check:
+
+* **A post must come from kasten's own page.** It must be JSON and carry an
+  `Origin` naming the host it was sent to. Under basic auth a browser resends
+  the password with any post to the host, from any site, and a post here runs
+  an agent. A form on another site cannot send JSON without a preflight, and
+  the runner answers none.
+* **Nothing the pane cannot show is approved.** A few things reach the runner
+  for a decision even with prompts off: an `rm` of a path Claude Code holds
+  critical, a rule in the vault's settings that says ask. The pane has no form
+  for those, so the runner refuses them and the agent is told to find another
+  way. Only a question the agent asks of you gets through, as a form.
+
+The stream, `GET /chat/events`, carries no such check and needs none. A page
+on another site can open it and cannot read it: the runner sends no CORS
+header, so the browser withholds every byte.
+
+What it does not check: who is on the docker network. Port `7682` answers any
+container there, as ttyd's `7681` does, and a container that can send a
+request can send a matching `Origin` with it. The trust zone above is the
+boundary for both.
+
+A run spends the Claude login in the home volume. Whoever reaches the pane can
+spend it, as whoever reaches the shell can.
 
 ## Two checks for a proxy that does less
 

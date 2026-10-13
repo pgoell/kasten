@@ -1,7 +1,7 @@
 #!/bin/sh
 # Give the uid a passwd line if it has none, seed herdr's config and the commit
 # identity into the home volume once, install Claude Code there if it is
-# missing, then hand over to ttyd.
+# missing, start the chat runner beside it, then hand over to ttyd.
 #
 # The config cannot live in the image. herdr rewrites that file whenever you
 # change a setting in its own UI, and an image path is root-owned and read-only
@@ -111,5 +111,56 @@ if ! command -v claude >/dev/null; then
     fi
     rm -f "${installer}"
 fi
+
+# The chat runner, which is what the chat pane talks to. It needs the Claude
+# Agent SDK, and the SDK is Anthropic's proprietary software, so it is installed
+# here, into the home volume, for the reason Claude Code is. The version is the
+# image's pin, so a release that moves the pin replaces the copy in the volume.
+#
+# `--omit=optional` leaves out the Claude Code binary the SDK would bring. The
+# runner is handed the `claude` installed above instead: one install and one
+# login for the terminal pane and the chat pane.
+#
+# The runner's own two files are copied beside the SDK on every start. Node
+# resolves a package from the directories above the file that imports it, so
+# the files have to sit where the SDK is, and copying each time is what lets a
+# new image replace them.
+#
+# All of it in the background. A slow npm must not hold the shell back, and a
+# runner that dies is started again rather than taking ttyd down with it. A
+# failure is printed and passed over, for the reason a failed Claude Code
+# install is: a shell without a chat pane is still a shell.
+chat_dir="${HOME}/.kasten-chat"
+sdk="@anthropic-ai/claude-agent-sdk"
+run_chat() {
+    claude_bin="$(command -v claude)" || {
+        echo "kasten-shell: no claude, so the chat runner is not started" >&2
+        return 0
+    }
+    mkdir -p "${chat_dir}" || return 0
+    installed="$(node -p "require('${chat_dir}/node_modules/${sdk}/package.json').version" 2>/dev/null || true)"
+    if [ "${installed}" != "${KASTEN_AGENT_SDK_VERSION}" ]; then
+        echo "kasten-shell: installing ${sdk}@${KASTEN_AGENT_SDK_VERSION} into ${chat_dir}" >&2
+        if ! timeout 600 npm install --prefix "${chat_dir}" --omit=optional --no-audit --no-fund \
+            "${sdk}@${KASTEN_AGENT_SDK_VERSION}" >&2; then
+            # An older SDK still in the volume is better than no chat pane.
+            if [ -z "${installed}" ]; then
+                echo "kasten-shell: the Agent SDK could not be installed (no network?). The chat pane will not connect; restart the container to try again." >&2
+                return 0
+            fi
+            echo "kasten-shell: the Agent SDK could not be updated; the chat runner starts on ${installed}" >&2
+        fi
+    fi
+    cp /opt/kasten-chat/runner.mjs /opt/kasten-chat/main.mjs "${chat_dir}/" || {
+        echo "kasten-shell: the chat runner could not be copied into ${chat_dir}, so it is not started" >&2
+        return 0
+    }
+    while true; do
+        node "${chat_dir}/main.mjs" "${claude_bin}" >&2 || true
+        echo "kasten-shell: the chat runner stopped; starting it again" >&2
+        sleep 5
+    done
+}
+run_chat &
 
 exec "$@"

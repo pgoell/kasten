@@ -106,7 +106,8 @@ services:
       - kasten-shell-home:/home/kasten
     restart: unless-stopped
     # No `ports`. The only route in is Caddy on the `web` network, behind
-    # `import oauth2_auth`. Publishing one would put a shell on the internet.
+    # `import oauth2_auth`: `/term/*` to ttyd on 7681 and `/chat/*` to the chat
+    # runner on 7682. Publishing one would put a shell on the internet.
     networks:
       - web
 
@@ -132,6 +133,10 @@ services:
       # the HMR websocket at wss://<host>:443 so hot reload survives Caddy.
       KASTEN_DEV_PUBLIC_HOST: ${KASTEN_DEV_PUBLIC_HOST:-kasten-dev.pgoell.com}
       KASTEN_DEV_BACKEND: http://backend-dev:8000
+      # The chat runner in shell-dev, by name on the `web` network. Vite
+      # proxies `/chat` there, so hosted dev needs no Caddy route for it: the
+      # request comes in through the frontend's own.
+      KASTEN_DEV_CHAT: http://shell-dev:7682
     # Loopback only. The real route in is Caddy on the `web` network; this is
     # for a local browser on the box, which cannot pass the OAuth gate. Never
     # drop the 127.0.0.1 prefix: Docker publishes ports with DNAT rules that

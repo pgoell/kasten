@@ -10,6 +10,16 @@ import { defineConfig } from "vitest/config";
 import { devPolicy } from "./src/lib/csp.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
+// The chat runner, which in production Caddy reaches in the shell container.
+// `mise run chat:stub` listens here with a scripted session.
+const CHAT = process.env.KASTEN_DEV_CHAT ?? "http://localhost:7682";
+// No `changeOrigin`: the runner refuses a post whose `Origin` is not the host
+// it was sent to, and rewriting `Host` would make every post from this page
+// look like one from another site.
+const PROXY = {
+  "/api": { target: BACKEND, changeOrigin: true },
+  "/chat": { target: CHAT },
+};
 
 /**
  * The commit the tree is on, in seven characters, or nothing without one.
@@ -202,14 +212,10 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     ...hosted,
-    proxy: {
-      "/api": { target: BACKEND, changeOrigin: true },
-    },
+    proxy: PROXY,
   },
   preview: {
-    proxy: {
-      "/api": { target: BACKEND, changeOrigin: true },
-    },
+    proxy: PROXY,
   },
   test: {
     globals: true,

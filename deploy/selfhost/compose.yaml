@@ -51,9 +51,10 @@ services:
       retries: 5
       start_period: 20s
 
-  # A shell beside the vault. No `ports`: the only way in is Caddy's
-  # `/term/*` route, which carries the gate. Publishing a port here would put
-  # a shell on the network with no login in front of it.
+  # A shell beside the vault, and the chat runner in the same container. No
+  # `ports`: the only way in is Caddy's `/term/*` and `/chat/*` routes, which
+  # carry the gate. Publishing a port here would put a shell on the network
+  # with no login in front of it.
   shell:
     image: ${KASTEN_IMAGE_REPO:-ghcr.io/pgoell}/kasten-shell:${KASTEN_IMAGE_TAG:-latest}
     user: "${KASTEN_UID:-1000}:${KASTEN_GID:-1000}"

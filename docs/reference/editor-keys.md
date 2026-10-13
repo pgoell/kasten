@@ -108,6 +108,7 @@ A row along the bottom edge, under the status bar.
 | `run` | Open the command palette | `openPalette` | `<leader>:` |
 | `today` | Open today's note | `openDaily` | `<leader>gd` |
 | `todos` | Open the todo pane | `openTodos` | `<leader>gt` |
+| `chat` | Open the chat with Claude Code | `openChat` | `<leader>cc` |
 | `pane` | Move to the next pane. Drawn only while the tab holds more than one | `nextPane` | `<leader>o` |
 
 Each button runs the command its key runs and nothing more. Every other leader
@@ -205,6 +206,7 @@ move-right, because the leader is registered in normal mode only.
 | --- | --- |
 | `<leader>b` | Fold the file tree away, or bring it back |
 | `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
+| `<leader>cc` | Open the chat with Claude Code in the focused pane |
 | `<leader>cd` | Capture a thought into the `## Dump` of today's note |
 | `<leader>cf` | Open the new note prompt |
 | `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
@@ -614,6 +616,35 @@ dropping every key until you clicked into it.
 A terminal pane is not in the URL. `?note=` names a note, and a terminal names
 nothing, so a reload comes back to an empty pane. `<leader>cs` and the session
 name is how you get back to it, which is the mechanism the sessions already have.
+
+## The chat pane
+
+`<leader>cc` puts a chat with Claude Code in the focused pane, replacing what
+was there. It is the Claude Code of the shell container, in the vault, and the
+session is the container's: closing the pane, a reload and another device all
+come back to the same conversation.
+[Run a skill from the chat pane](/how-to/run-a-skill-from-the-chat-pane.md)
+walks through a run.
+
+The pane takes the focus, not its message box, so the leader works at once.
+
+| Key | Where | Does |
+| --- | --- | --- |
+| `i`, Enter | the pane | Move to the message box |
+| Enter | the message box | Send. Under a coarse pointer it breaks the line, and `Send` sends |
+| Shift+Enter | the message box | Break the line |
+| Escape | the message box | Back to the pane |
+| `<leader>` and a key | the pane | Every leader key. `<leader>q` takes the chat out of the pane |
+
+In the message box and in a question's `Other` field a space is a space, so
+the leader is reached from the pane, after Escape.
+
+The header holds `/close-day` and `/process-meeting`, which send that text,
+`Stop` while a run lasts, and `New`, which ends the session and empties the
+pane. A tool call is a folded line that a click or Enter opens. A question a
+skill asks is a form: radio buttons where it takes one answer, checkboxes where
+it takes several, and an `Other` field for your own words. `Answer` is off
+until every question has an answer.
 
 ## The book pane
 
@@ -1389,8 +1420,8 @@ nothing, and Enter on an empty input does nothing.
 Under the preview are the terms that line has not used, drawn as the pane draws
 them under an edit and reached the same way, by Tab or by a click. A press
 writes the term, `due:` or `every:` or `!high`, and the ones that take a value
-then offer it, so a todo due Friday and repeating monthly can be written without
-typing a colon. Enter on one of them takes it rather than writing the todo.
+then offer it, so a todo due Friday and repeating every other Friday can be
+written without typing a colon. Enter on one of them takes it rather than writing the todo.
 
 `s` opens that same prompt on the row under the cursor, and what it takes lands
 as a part of that todo: in the note the todo lives in, one step further in, after
@@ -1794,6 +1825,16 @@ weekday naming the next one. Typing `fri` and taking `friday` writes the date
 itself, so what lands on the line is a date the format reads rather than a word
 it cannot. `estimate` works the same way and offers `15m` up to `4h`; any other
 duration is typed out.
+
+`repeat` is the third of them. Taking it leaves `🔁 ` and offers the rules:
+`every day`, `every week`, `every month`, `every year` and `every weekday`,
+then the ones that name the day the line is due, such as
+`every week on Friday`, `every 2 weeks on Friday`, `every month on the 14th`,
+`every month on the 2nd Friday` and, where it is one, `every month on the last
+Friday`. A line with no `📅` is read by its `⏳`, then its `🛫`, then today.
+Typing narrows them, over the spaces a rule is written with. Any other rule
+[the format reads](/reference/todo-format.md#recurrence) is typed out.
+`daily`, `weekly` and `monthly` are still one press each.
 
 Ctrl+Space opens the list without the colon, anywhere on a todo line. Without
 one or the other nothing pops up while a todo is being written, which is what

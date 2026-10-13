@@ -55,6 +55,8 @@ jobs:
         run: mise run test:py
       - name: Frontend tests
         run: mise run fe:test
+      - name: Chat runner tests
+        run: mise run shell:test
 
   perf:
     name: Perf

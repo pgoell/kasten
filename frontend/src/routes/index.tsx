@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookPane } from "@/components/book-pane";
+import { ChatPane } from "@/components/chat-pane";
 import { ClipPrompt } from "@/components/clip-prompt";
 import { CommandPalette } from "@/components/command-palette";
 import { DumpPrompt } from "@/components/dump-prompt";
@@ -73,6 +74,7 @@ import {
   mapPanes,
   nextPane,
   openBookBeside,
+  openChatInFocused,
   openExamInFocused,
   openGraphBeside,
   openGraphInFocused,
@@ -1453,6 +1455,7 @@ function Home() {
         // goes on running.
         if (
           pane.term !== undefined ||
+          pane.chat === true ||
           pane.todos === true ||
           pane.book !== undefined ||
           pane.exam !== undefined ||
@@ -1712,6 +1715,12 @@ function Home() {
       // No save first: opening the prompt moves no path. Naming a session does
       // replace what is in the pane, and that is asked on the way out below.
       openTerminal: () => setTerminalPrompt(true),
+      // Saved first for the reason `openReview` is: this replaces the focused
+      // pane. Closing the pane later ends nothing, the session being the
+      // runner's.
+      openChat: async () => {
+        if (await saveFirst()) moveTo(openChatInFocused);
+      },
       // No save first, for the reason the terminal's prompt needs none: opening
       // it moves no path. The note it makes is opened through `openInPane`,
       // which asks.
@@ -1758,6 +1767,7 @@ function Home() {
       restoreDeleted,
       pane.path,
       pane.term,
+      pane.chat,
       pane.todos,
       pane.book,
       pane.exam,
@@ -2004,6 +2014,8 @@ function Home() {
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}
                   />
+                ) : shown.chat === true ? (
+                  <ChatPane commands={commands} focusSignal={focused ? focusSignal : 0} />
                 ) : shown.path === undefined ? (
                   // An empty pane is an editor on an empty document, which is
                   // what the window has always shown with no note open. It
