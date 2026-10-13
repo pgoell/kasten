@@ -25,6 +25,7 @@ import {
   descendants,
   HEADING,
   inherited,
+  isClient,
   type Node,
   nextActionOf,
   type Placed,
@@ -98,7 +99,9 @@ const NORMAL = 3;
  * What sorts is not the rows but the run each one heads: a part whose parent is
  * in this group joins the run above it, so it travels with what holds it
  * whatever its own priority says, and `nest` still meets a parent before its
- * children. Stable, so the order the vault answered in decides a tie.
+ * children. Between two runs of one priority, client work goes first: it is a
+ * tiebreak and never lifts a run over a higher priority. Stable, so the order
+ * the vault answered in decides what is left.
  */
 function byPriority(rows: Row[]): Row[] {
   const here = new Set(rows.map((row) => rowKey(row.hit)));
@@ -115,8 +118,12 @@ function byPriority(rows: Row[]): Row[] {
     const priority = run[0]?.todo.priority;
     return priority === undefined ? NORMAL : RANK[priority];
   };
-  return runs.sort((a, b) => rank(a) - rank(b)).flat();
+  const internal = (run: Row[]) => (run[0] !== undefined && isClient(run[0].todo) ? 0 : 1);
+  return runs.sort((a, b) => rank(a) - rank(b) || internal(a) - internal(b)).flat();
 }
+
+/** What a row of client work carries, beside its priority. */
+const CLIENT_MARK = "◆";
 
 /** How far one step of nesting shifts a row, in `rem`, past the list's own padding. */
 const STEP = 1.1;
@@ -971,6 +978,13 @@ export function TodoPane({
                         carries none. */}
                     {todo.priority !== undefined && (
                       <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
+                    )}
+                    {/* Drawn as well as left in the words, because a part takes
+                        the mark off its parent and has no tag to show. */}
+                    {isClient(todo) && (
+                      <span title="client work" className="shrink-0 text-one-accent">
+                        {CLIENT_MARK}
+                      </span>
                     )}
                     {/* What this is a part of, in front of the part itself, so
                         a next action reads as work on something. Muted: the row

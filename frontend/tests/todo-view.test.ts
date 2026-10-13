@@ -163,6 +163,20 @@ describe("inherited", () => {
     expect(part?.start).toBe("2026-08-11");
   });
 
+  it("makes every part of a client todo client work, and passes no other tag down", () => {
+    const parent = filled("- [ ] a #client #next", "  - [ ] b #kasten", "    - [ ] c");
+
+    expect(parent.children[0]?.todo.tags).toEqual(["#kasten", "#client"]);
+    expect(parent.children[0]?.children[0]?.todo.tags).toEqual(["#client"]);
+  });
+
+  it("leaves the tags of a part alone where it or nothing above it is client work", () => {
+    expect(filled("- [ ] a #client", "  - [ ] b #client").children[0]?.todo.tags).toEqual([
+      "#client",
+    ]);
+    expect(filled("- [ ] a #kasten", "  - [ ] b").children[0]?.todo.tags).toEqual([]);
+  });
+
   it("passes what a part took on to the parts of that part", () => {
     const parent = filled("- [ ] a 📅 2026-08-14", "  - [ ] b", "    - [ ] c");
 

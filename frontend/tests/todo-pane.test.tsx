@@ -355,6 +355,50 @@ describe("the todo pane", () => {
     expect(fourth).toContain("buy milk");
   });
 
+  it("puts client work first among rows of one priority, and never over a higher one", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] tidy the wiki 📅 2026-08-10 ⏫" },
+      { path: "a.md", line: 2, text: "- [ ] file the tax 📅 2026-08-10" },
+      { path: "a.md", line: 3, text: "- [ ] send the offer #client 📅 2026-08-10" },
+      { path: "a.md", line: 4, text: "- [ ] review the draft #client 📅 2026-08-10 ⏫" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(4));
+    const [first, second, third, fourth] = pane.texts();
+    expect(first).toContain("review the draft");
+    expect(second).toContain("tidy the wiki");
+    expect(third).toContain("send the offer");
+    expect(fourth).toContain("file the tax");
+  });
+
+  it("marks client work, a part of it included, and nothing else", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] send the offer #client 📅 2026-08-10" },
+      { path: "a.md", line: 2, text: "  - [ ] check the numbers" },
+      { path: "a.md", line: 3, text: "- [ ] file the tax 📅 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(3));
+    expect(pane.texts().map((text) => text.includes("◆"))).toEqual([true, true, false]);
+  });
+
+  it("narrows to client work or to internal work, parts going with their parent", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] send the offer #client 📅 2026-08-10" },
+      { path: "a.md", line: 2, text: "  - [ ] check the numbers" },
+      { path: "a.md", line: 3, text: "- [ ] file the tax 📅 2026-08-10" },
+    ]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(3));
+
+    pane.type("#client");
+    expect(pane.texts().join()).not.toContain("file the tax");
+    expect(pane.rows()).toHaveLength(2);
+
+    pane.type("-#client");
+    expect(pane.rows()).toHaveLength(1);
+    expect(pane.texts()[0]).toContain("file the tax");
+  });
+
   it("draws the priority a row carries, and nothing where it carries none", async () => {
     const pane = renderPane();
 

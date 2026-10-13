@@ -83,6 +83,20 @@ export function treeOf(placed: Placed[]): Node[] {
 }
 
 /**
+ * The tag that says a todo is client work, which sorts ahead of internal work.
+ *
+ * A fixed tag, as `#next` is, rather than a setting: a vault that never writes
+ * it sees nothing change, and a name per vault would have to reach the agents
+ * that plan from the same lines as well as this pane.
+ */
+export const CLIENT = "#client";
+
+/** Whether a todo is client work, by its own tag or by the one a parent passed down. */
+export function isClient(todo: Todo): boolean {
+  return todo.tags.includes(CLIENT);
+}
+
+/**
  * The forest with each part's missing dates and priority filled in from the
  * todo that holds it.
  *
@@ -108,6 +122,14 @@ export function inherited(roots: Node[], from?: Todo): Node[] {
       scheduled: node.todo.scheduled ?? from?.scheduled,
       start: node.todo.start ?? from?.start,
       priority: node.todo.priority ?? from?.priority,
+      // Who the work is for is a question about the work too, so a part of a
+      // client todo is client work. Into `tags` rather than a field of its
+      // own, so `#client` in the filter line finds the parts with the parent.
+      // No other tag comes down: `#next` names one line.
+      tags:
+        from !== undefined && isClient(from) && !isClient(node.todo)
+          ? [...node.todo.tags, CLIENT]
+          : node.todo.tags,
     };
     // What this one ended up with, not what it was handed, so a part several
     // steps down takes each field off the nearest todo above it carrying one.
