@@ -190,7 +190,7 @@ in progress, `d` being spent on the done list.
 A state is worth the same whichever key wrote it. Entering done stamps `✅`
 today and an `🆔` where the line carries none, entering rejected stamps `❌`
 today, and leaving either drops the stamp it wrote, exactly as the walk does.
-Entering waiting stamps `👤` today, and every other state drops the `👤` whole.
+Entering waiting stamps `👤` today, and leaving it drops the `👤` whole.
 A key aimed at the state a line is already in changes nothing. A plain line
 becomes a todo in that state, carrying the `➕` the walk would have stamped.
 
@@ -348,9 +348,9 @@ Leaving the state drops the `👤` whole, the name with the date, whichever key
 leaves and wherever it goes. The field says who the todo waits on, and it no
 longer waits. `x` on a waiting line goes to doing, as it does on a blocked one.
 
-A `👤` on a line that is not `[w]` is read, carried and written back, and
-means nothing until the line is set to waiting. Then its name is kept and
-the date is stamped.
+A `👤` on a line that is not `[w]` is read, carried and written back by every
+key, and means nothing until the line is set to waiting. Then its name is kept
+and the date is stamped.
 
 `⛔` and `[w]` do not meet. kasten moves a line carrying `⛔` between `[ ]` and
 `[b]` only, so a waiting line that also names a blocker stays waiting when the

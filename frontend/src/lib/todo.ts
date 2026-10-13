@@ -332,15 +332,18 @@ export function cycleLine(line: string, today: string, id: string): string {
  * The stamps are the cycle's, because a state is worth the same whichever key
  * wrote it: entering done stamps the date and an id, entering rejected stamps
  * its own date, and leaving either drops the stamp it wrote. Entering waiting
- * stamps the day the wait began, and every other state drops the `👤` whole,
- * the name with the date: it says who the todo waits on, and it no longer
- * waits. A line already in
+ * stamps the day the wait began, and leaving it drops the `👤` whole, the name
+ * with the date: it says who the todo waits on, and it no longer waits. A line
+ * already in
  * that state comes back untouched, so the caller can tell a press that changed
  * nothing.
  */
 export function setStateOn(line: string, state: TodoState, today: string, id: string): string {
   const todo = parseTodo(line) ?? todoOf(line, today);
   if (parseTodo(line)?.state === state) return line;
+  // Only a wait that is ending takes its `👤` with it. One typed onto a line
+  // that was never waiting is somebody's words, and stays.
+  const left = todo.state === "waiting";
 
   return formatTodo({
     ...todo,
@@ -348,8 +351,9 @@ export function setStateOn(line: string, state: TodoState, today: string, id: st
     done: state === "done" ? (todo.done ?? today) : undefined,
     cancelled: state === "rejected" ? (todo.cancelled ?? today) : undefined,
     id: state === "done" ? (todo.id ?? id) : todo.id,
-    waitingSince: state === "waiting" ? (todo.waitingSince ?? today) : undefined,
-    waitingOn: state === "waiting" ? todo.waitingOn : undefined,
+    waitingSince:
+      state === "waiting" ? (todo.waitingSince ?? today) : left ? undefined : todo.waitingSince,
+    waitingOn: left ? undefined : todo.waitingOn,
   });
 }
 

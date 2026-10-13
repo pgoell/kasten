@@ -306,6 +306,12 @@ describe("a todo waiting on somebody", () => {
     );
   });
 
+  it("keeps a 👤 typed onto a line that was never waiting", () => {
+    expect(set("- [ ] decision record 👤 [[Ada]]", "doing")).toBe(
+      "- [/] decision record 👤 [[Ada]]",
+    );
+  });
+
   it("is off the walk, which picks it up at doing and drops the field", () => {
     expect(press("- [w] decision record 👤 2026-08-03 [[Ada]]")).toBe("- [/] decision record");
     // The walk never arrives at it.
