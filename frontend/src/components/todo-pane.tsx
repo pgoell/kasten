@@ -1182,6 +1182,8 @@ export function TodoPane({
                         type="button"
                         tabIndex={-1}
                         onClick={() => {
+                          // A row in the picker is there to be chosen.
+                          if (picking !== null) return;
                           setArmed(asking ? null : arming);
                           // Two ways to change a state do not both stand
                           // open: the question shuts a strip, as a strip
@@ -1208,6 +1210,7 @@ export function TodoPane({
                         // The question on a state button, this row's or
                         // another's, is taken back as the strip opens.
                         onClick={() => {
+                          if (picking !== null) return;
                           setArmed(null);
                           setMore(opened ? null : arming);
                         }}

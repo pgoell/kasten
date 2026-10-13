@@ -91,7 +91,8 @@ export async function addTodoInVault(input: string, today: string, paths: string
  * and whatever it now says is what kasten will read out of it next. That is
  * what reaches the fields the shorthand does not spell, `🔁` and `⏳` among
  * them. One rule: a blocked line whose last `⛔` the edit deleted is opened,
- * nothing else being left to open it.
+ * nothing else being left to open it, and that one line is rebuilt in the
+ * field order.
  *
  * The note is read again and the old line checked against the row the prompt
  * opened on, which is stricter than the guard the cycle uses and has to be: a
