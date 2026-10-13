@@ -10,6 +10,10 @@
  * `query` is handed in rather than imported, so the tests drive this with a
  * script and `main.mjs` is the only file that needs the SDK installed.
  *
+ * `POST /chat/propose` is a one-shot agent that files one inbox note into a
+ * folder. It runs its own query, outside the session and the log: the inbox
+ * screen wants an answer, not a conversation, and `/chat/new` must not reach it.
+ *
  * Plain HTTP and server-sent events rather than a WebSocket: node has no
  * WebSocket server of its own, and `EventSource` reconnects without being
  * asked.
@@ -17,6 +21,47 @@
 
 const REFUSED =
   "The chat pane has no way to ask for approval. Do this another way, or tell the user to run it from the terminal pane.";
+
+const PROPOSE_SYSTEM =
+  "You file one note from a personal markdown vault's inbox. Pick the one folder from the list where the note belongs, judging by the note's text, its `type:` frontmatter, the ontology and the example note names in each folder. Give the reason in one short sentence.";
+
+function isFolder(folder) {
+  return (
+    typeof folder === "object" &&
+    folder !== null &&
+    typeof folder.path === "string" &&
+    folder.path !== "" &&
+    Array.isArray(folder.examples) &&
+    folder.examples.every((example) => typeof example === "string")
+  );
+}
+
+function isProposal(body) {
+  return (
+    typeof body.path === "string" &&
+    body.path !== "" &&
+    typeof body.content === "string" &&
+    typeof body.ontology === "string" &&
+    Array.isArray(body.folders) &&
+    body.folders.length > 0 &&
+    body.folders.every(isFolder)
+  );
+}
+
+/** The note and the folders as the agent reads them. Long notes are cut, the ask is short. */
+function proposePrompt({ path, content, ontology, folders }) {
+  return [
+    `Note: ${path}`,
+    "",
+    content.slice(0, 8000),
+    "",
+    "Ontology:",
+    ontology,
+    "",
+    "Folders:",
+    ...folders.map((folder) => `- ${folder.path} (e.g. ${folder.examples.slice(0, 5).join(", ")})`),
+  ].join("\n");
+}
 
 /** User turns, handed to the SDK as they arrive. The SDK reads it for the life of the session. */
 function turns() {
@@ -224,7 +269,76 @@ export function createChat({ query, claudePath, cwd }) {
     current.pending.clear();
   }
 
+  async function propose(body, response) {
+    if (!isProposal(body)) return 400;
+    const folders = body.folders.map((folder) => folder.path);
+    // The pane drops a request when the user walks on. Nobody is left to read
+    // the answer, so the run stops instead of finishing for nothing.
+    const abortController = new AbortController();
+    response.on("close", () => {
+      if (!response.writableEnded) abortController.abort();
+    });
+    // No `maxTurns`: structured output takes a turn after the answer, so a cap of one cuts it off.
+    const running = query({
+      prompt: proposePrompt(body),
+      options: {
+        cwd,
+        pathToClaudeCodeExecutable: claudePath,
+        systemPrompt: PROPOSE_SYSTEM,
+        // Nothing here may run a tool. `tools: []` only empties the built-in set,
+        // and without `strictMcpConfig` a `.mcp.json` in the vault or the account's
+        // connectors would still load. The prompt holds a note that may have come
+        // from the web, so a tool that slips in is refused, not run. Also no vault
+        // skills or CLAUDE.md, since it answers from what it was sent.
+        tools: [],
+        strictMcpConfig: true,
+        settingSources: [],
+        persistSession: false,
+        model: "haiku",
+        permissionMode: "dontAsk",
+        abortController,
+        outputFormat: {
+          type: "json_schema",
+          schema: {
+            type: "object",
+            properties: {
+              folder: { type: "string", enum: folders },
+              reason: { type: "string" },
+            },
+            required: ["folder", "reason"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    let answer;
+    try {
+      for await (const message of running) {
+        if (message.type === "result") {
+          answer = message;
+          break;
+        }
+      }
+    } catch (error) {
+      // The socket is gone, so nobody reads this status. It only records why the run ended.
+      if (!(error instanceof Error) || !abortController.signal.aborted) throw error;
+      return 499;
+    }
+    const picked = answer?.is_error ? undefined : answer?.structured_output;
+    if (
+      typeof picked !== "object" ||
+      picked === null ||
+      !folders.includes(picked.folder) ||
+      typeof picked.reason !== "string"
+    ) {
+      return 502;
+    }
+    return { status: 200, json: { folder: picked.folder, reason: picked.reason } };
+  }
+
   const posts = {
+    "/chat/propose": propose,
     "/chat/send": ({ text }) => {
       if (typeof text !== "string" || text.trim() === "") return 400;
       session ??= start();
@@ -291,7 +405,12 @@ export function createChat({ query, claudePath, cwd }) {
     }
     const body = await readJson(request);
     const isObject = typeof body === "object" && body !== null && !Array.isArray(body);
-    response.writeHead(isObject ? await post(body) : 400).end();
+    const answer = isObject ? await post(body, response) : 400;
+    if (typeof answer === "number") response.writeHead(answer).end();
+    else {
+      response.writeHead(answer.status, { "content-type": "application/json" });
+      response.end(JSON.stringify(answer.json));
+    }
   }
 
   async function handle(request, response) {

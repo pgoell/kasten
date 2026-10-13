@@ -20,6 +20,7 @@ import {
   openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
+  openTriageInFocused,
   openVideoBeside,
   panesOf,
   removeFocused,
@@ -573,6 +574,25 @@ describe("openReviewInFocused", () => {
     const layout = openReviewInFocused(split);
 
     expect(tabPanes(layout).filter((pane) => pane.review === true)).toHaveLength(1);
+    expect(tabPanes(layout)).toHaveLength(2);
+  });
+});
+
+describe("openTriageInFocused", () => {
+  it("puts the triage in the focused pane and clears what it held", () => {
+    const layout = openTriageInFocused(openInFocused(emptyLayout("a"), "notes/borges.md"));
+
+    const pane = focusedPane(layout);
+    expect(pane?.triage).toBe(true);
+    expect(pane?.path).toBeUndefined();
+  });
+
+  it("leaves every other pane alone", () => {
+    const split = splitFocused(emptyLayout("a"), "row");
+
+    const layout = openTriageInFocused(split);
+
+    expect(tabPanes(layout).filter((pane) => pane.triage === true)).toHaveLength(1);
     expect(tabPanes(layout)).toHaveLength(2);
   });
 });

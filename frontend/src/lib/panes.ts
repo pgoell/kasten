@@ -64,6 +64,13 @@ export interface Pane {
    */
   review?: boolean;
   /**
+   * Set on a pane holding the inbox triage, absent on every other.
+   *
+   * A boolean for the reason `review` is one: the pane reads the inbox and the
+   * folders itself, so there is no note or path for the pane to hold.
+   */
+  triage?: boolean;
+  /**
    * The image this pane is showing, absent otherwise.
    *
    * The image's own path and not a note's, which is where this parts company
@@ -309,6 +316,20 @@ export function openReviewInFocused(layout: Layout): Layout {
   return withTab(layout, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, review: true }),
+  });
+}
+
+/**
+ * Put the inbox triage in the focused pane, replacing whatever was there.
+ *
+ * Over the pane rather than beside it, for the reason `openReviewInFocused` is
+ * over it: the triage is the whole screen, not a thing to read beside a note.
+ */
+export function openTriageInFocused(layout: Layout): Layout {
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, triage: true }),
   });
 }
 

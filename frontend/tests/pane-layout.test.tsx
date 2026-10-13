@@ -9,6 +9,7 @@ import {
   type Layout,
   openBookBeside,
   openInFocused,
+  openTriageInFocused,
   splitFocused,
   tabPanes,
   toggleZoom,
@@ -172,6 +173,14 @@ describe("TabStrip", () => {
     screen.getByRole("tab", { name: /a$/ }).click();
 
     expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
+  it("names a tab holding the inbox triage triage", () => {
+    const layout = addTab(openTriageInFocused(emptyLayout()));
+
+    render(<TabStrip layout={layout} onSelect={() => {}} />);
+
+    expect(screen.getByRole("tab", { name: /triage/ })).toBeInTheDocument();
   });
 
   it("names a tab whose focused pane holds a book after the note", () => {

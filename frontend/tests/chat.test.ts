@@ -4,6 +4,7 @@ import {
   type ChatQuestion,
   EMPTY,
   postChat,
+  proposeFolder,
   reduce,
   toolLine,
 } from "@/lib/chat";
@@ -215,5 +216,54 @@ describe("postChat", () => {
     );
 
     expect(await postChat("answer", { id: "ask1", answers: {} })).toBe(false);
+  });
+});
+
+describe("proposeFolder", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const input = {
+    path: "00 Inbox/a.md",
+    content: "# A",
+    ontology: "",
+    folders: [{ path: "reading", examples: ["Borges"] }],
+  };
+
+  it("posts JSON to the runner and returns its answer", async () => {
+    const fetched = vi.fn(
+      async () => new Response(JSON.stringify({ folder: "reading", reason: "A book." })),
+    );
+    vi.stubGlobal("fetch", fetched);
+
+    expect(await proposeFolder(input)).toEqual({ folder: "reading", reason: "A book." });
+    expect(fetched).toHaveBeenCalledWith("/chat/propose", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  });
+
+  it("passes the signal to fetch, so a dropped request reaches the runner", async () => {
+    const fetched = vi.fn(
+      async () => new Response(JSON.stringify({ folder: "reading", reason: "A book." })),
+    );
+    vi.stubGlobal("fetch", fetched);
+    const controller = new AbortController();
+
+    await proposeFolder(input, controller.signal);
+
+    expect(fetched).toHaveBeenCalledWith(
+      "/chat/propose",
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it("throws on an answer that is not ok", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 502 })),
+    );
+
+    await expect(proposeFolder(input)).rejects.toThrow("POST /chat/propose failed with 502");
   });
 });

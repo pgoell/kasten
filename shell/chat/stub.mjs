@@ -5,7 +5,8 @@
  *
  * No SDK, no login and no vault: it plays one made-up `/close-day` whatever is
  * sent, slowly enough to watch, with a tool call, a question and a closing
- * line. `mise run fe:dev` proxies `/chat` to the port this listens on. Never
+ * line. A `/chat/propose` gets a fixed answer, the first folder it was sent.
+ * `mise run fe:dev` proxies `/chat` to the port this listens on. Never
  * copied into the image.
  */
 import { createServer } from "node:http";
@@ -93,7 +94,24 @@ const steps = (made, options) => [
   () => say("Done. Tomorrow's note has the three todos and the plan. Good night."),
 ];
 
+async function* proposal(options) {
+  await pause(600);
+  yield {
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    result: "",
+    structured_output: {
+      folder: options.outputFormat.schema.properties.folder.enum[0],
+      reason: "The stub files everything in the first folder.",
+    },
+  };
+}
+
 function query({ prompt, options }) {
+  // A proposal sends one prompt string, not a stream of turns.
+  if (typeof prompt === "string") return proposal(options);
+
   let interrupted = false;
   let made = 0;
 

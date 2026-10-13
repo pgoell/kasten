@@ -118,6 +118,13 @@ boundary for both.
 A run spends the Claude login in the home volume. Whoever reaches the pane can
 spend it, as whoever reaches the shell can.
 
+The inbox triage's route, `POST /chat/propose`, passes the origin check like
+every other post. Its proposal runs with no tools at all, built-in or MCP, and
+in a mode that refuses any tool that slips in, so it cannot act on the vault. It
+answers with a folder from the list the page sent and a short reason. The worst
+a hostile note can do is suggest a wrong folder that already exists, or a
+misleading reason, and a move happens only when the person makes it.
+
 ## Two checks for a proxy that does less
 
 The gate does most of the work, but two attacks get through some gates and not

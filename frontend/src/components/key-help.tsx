@@ -13,6 +13,7 @@ import {
   TERMINAL_CHORD,
   TODO_PANE,
   TREE,
+  TRIAGE_PANE,
 } from "@/lib/key-bindings";
 import { closeOnBackdrop, HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 
@@ -61,7 +62,10 @@ const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
   { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
   { title: "Notes", keys: ["cf", "rf", "df", "du", "cw", "cm", "w"] },
   { title: "Find", keys: ["ff", "fg", "ft"] },
-  { title: "Go to", keys: ["gd", "gw", "gm", "gq", "gy", "gb", "go", "gr", "ge", "gs", "gt"] },
+  {
+    title: "Go to",
+    keys: ["gd", "gw", "gm", "gq", "gy", "gb", "go", "gr", "ge", "gs", "gi", "gt"],
+  },
   { title: "Todos", keys: ["x", "i", "so", "sp", "sx", "sb", "sr"] },
 ];
 
@@ -151,6 +155,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     },
     { title: "File tree", keys: TREE },
     { title: "Todo pane", keys: TODO_PANE },
+    { title: "Triage pane", keys: TRIAGE_PANE },
     // Last, because it is the one group whose left column is an address rather
     // than something to press.
     { title: "Screens you type", keys: SCREENS },

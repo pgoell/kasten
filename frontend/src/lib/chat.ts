@@ -192,3 +192,44 @@ export async function postChat(
     throw error;
   }
 }
+
+/** One folder a note could be filed in, with a few of the notes already there. */
+export interface TriageFolder {
+  path: string;
+  examples: string[];
+}
+
+/** What the agent is asked about: one note, the vocabulary, and the folders it may pick. */
+export interface ProposeInput {
+  path: string;
+  content: string;
+  /** The vault's ontology note, or `""` when there is none. */
+  ontology: string;
+  /** Never empty: the runner refuses a request with no folder to choose from. */
+  folders: TriageFolder[];
+}
+
+/** The agent's pick: a folder from the list it was given, and why. */
+export interface Proposal {
+  folder: string;
+  reason: string;
+}
+
+/**
+ * Ask the runner which folder a note belongs in.
+ *
+ * Throws on any answer but a 200, so a TanStack Query `queryFn` shows the
+ * failure. JSON for the same reason as `postChat`: the runner refuses any other
+ * content type. The signal goes to `fetch` because the runner stops the agent
+ * when the request is dropped, so a note walked past stops costing.
+ */
+export async function proposeFolder(input: ProposeInput, signal?: AbortSignal): Promise<Proposal> {
+  const response = await fetch("/chat/propose", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+    signal,
+  });
+  if (!response.ok) throw new Error(`POST /chat/propose failed with ${response.status}`);
+  return (await response.json()) as Proposal;
+}

@@ -62,7 +62,7 @@ the other two services run stock images and rebuild nothing.
 | `test:py` | Backend tests only |
 | `fe:test` | Frontend tests only, the `unit` and `perf` projects |
 | `shell:test` | The chat runner's tests, on node's own test runner against a scripted session |
-| `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. `fe:dev` proxies `/chat` to it |
+| `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. The stub also answers `/chat/propose` with the first folder it is sent. `fe:dev` proxies `/chat` to it |
 | `fe:frame` | The end-to-end frame gates, in Chromium |
 | `fe:bench` | Record the frontend benchmark numbers on this machine |
 

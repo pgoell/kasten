@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Chat runner
-description: The process in the shell container the chat pane talks to. Its five routes, the events it streams, the check every post must pass, the options it starts Claude Code with, and where its files live.
+description: The process in the shell container the chat pane talks to. Its six routes, the events it streams, the check every post must pass, the options it starts Claude Code with, and where its files live.
 resource: shell/chat/runner.mjs
 tags: [chat, agent, shell, sse, api]
 status: stable
@@ -23,6 +23,7 @@ over HTTP. The proxy routes `/chat/*` to it behind the login gate:
 | `POST /chat/answer` | `{"id": "ask1", "answers": {...}}` | `204`, `409` if that question is not open | Answers an open question |
 | `POST /chat/stop` | `{}` | `204`, `500` if the SDK refused the interrupt | Interrupts the turn now running and closes every open question as not answered. A message queued behind that turn still runs |
 | `POST /chat/new` | `{}` | `204` | Ends the session and empties the log |
+| `POST /chat/propose` | `{"path", "content", "ontology", "folders"}` | `200` with `{"folder", "reason"}`, `400`, `499`, `500`, `502` | Asks Claude once which folder a note belongs in. Outside the session and the log. See below |
 
 Any other path or method answers `404`. A body that is not a JSON object
 answers `400`. A request the runner fails on answers `500` and the runner
@@ -32,6 +33,23 @@ goes on.
 label and typed text, are joined with `", "`.
 
 A message sent during a run is queued and runs after it.
+
+`POST /chat/propose` takes the path of one inbox note and its text, the
+ontology note's text (empty if there is none), and `folders`: a list of
+`{"path", "examples"}` objects, one for each folder a note may go in. The
+runner reads the first 8000 characters of the text and at most five examples
+per folder. Each folder needs a non-empty `path` and an `examples` list of
+strings, and the list needs at least one folder.
+
+It answers `200` with `{"folder", "reason"}`, where `folder` is one of the
+paths sent. It answers `400` for a body of any other shape. It answers `502`
+when the run ends in error, or gives no answer with a `folder` from the list and
+a `reason` string. It answers `499` when the page drops the request, and the run
+stops. The status is never read, since the page is gone. A query that throws answers `500`, as any
+failed post does. Nothing it does reaches the session or the log, so `/chat/new`
+does not end a proposal.
+
+A propose post is checked like every other post, below.
 
 ## The check on every post
 
@@ -86,6 +104,26 @@ block sees that block only once it is whole.
 refuses everything else that reaches it.
 [Security model](/explanation/security-model.md#what-the-chat-pane-can-reach)
 says what does reach it.
+
+## What a proposal runs with
+
+`POST /chat/propose` runs its own query. It takes none of the session's
+options. These are the ones it sets:
+
+| SDK option | Value |
+| --- | --- |
+| `cwd` | `/vault` |
+| `systemPrompt` | a short instruction to pick one folder from the list and give the reason in one short sentence. Not the `claude_code` preset |
+| `tools` | `[]`, the built-in tools only |
+| `strictMcpConfig` | `true` |
+| `settingSources` | `[]` |
+| `persistSession` | `false` |
+| `model` | `haiku` |
+| `permissionMode` | `dontAsk` |
+| `abortController` | aborted when the page drops the request |
+| `outputFormat` | a JSON schema with `folder`, one of the paths sent, and `reason`, a string. No other field |
+| `maxTurns` | not set |
+| `env` | not set, so Claude Code inherits the container's environment and login, as the session does |
 
 ## Files
 

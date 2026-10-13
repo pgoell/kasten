@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The chat pane
-description: Why the chat pane runs on the Claude Agent SDK in the shell container, why it reaches it through a route of its own, why it speaks HTTP and server-sent events, why there is one session and it outlives the page, why tools run unasked, and why the SDK is installed on first start.
+description: Why the chat pane runs on the Claude Agent SDK in the shell container, why it reaches it through a route of its own, why it speaks HTTP and server-sent events, why there is one session and it outlives the page, why tools run unasked, why the SDK is installed on first start, and why the inbox triage asks outside the session.
 tags: [chat, agent, shell, security, design]
 status: stable
 ---
@@ -117,6 +117,34 @@ The SDK would bring its own copy of Claude Code. The install leaves that out
 and the runner uses the `claude` already there, so the terminal pane and the
 chat pane share one program and one login. The cost is that the two versions
 can drift: the SDK is pinned and `claude` updates itself.
+
+## Why the triage asks outside the session
+
+The inbox triage asks Claude where a note belongs. It does that in one call of
+its own, not as a message in the shared session.
+
+The session is one log that every pane shows, so a proposal sent there would
+land in the chat pane of every reader, once for each note in the inbox. A `New`
+would also end the session, and with it a triage in the middle of its notes. A
+message waits its turn behind a run, too, so a skill that was running would hold
+up the next proposal.
+
+The agent proposes and the browser moves. Only the move endpoint rewrites the
+links to a note, and a `mv` from the shell would skip that rewrite. The links
+would then point at nothing.
+[Moving a note](/explanation/moving-notes.md#why-the-links-are-rewritten-before-the-rename)
+says why the rewrite comes first.
+
+The proposal has no tools at all, built-in or MCP, and it runs in a mode that
+refuses any tool that slips in. It answers from the note and the folders it was
+sent, and a note can say anything, since whoever wrote it decides what it holds.
+With no tools, a note that tells the model to do something can at most change
+the folder it picks or the reason it gives. The answer is also limited to the
+folders in the list, so the worst case is a wrong folder that already exists.
+
+The run loads no settings, skills or MCP servers from the vault or the account,
+so the answer rests on what it was sent. A page that drops the request stops the
+run, since nobody is left to read the answer.
 
 ## What a run looks like on the wire
 

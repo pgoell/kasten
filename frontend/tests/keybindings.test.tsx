@@ -41,6 +41,7 @@ function stubCommands() {
     importNotes: vi.fn(),
     exportNote: vi.fn(),
     openReview: vi.fn(),
+    openTriage: vi.fn(),
     openExam: vi.fn(),
     focusTree: vi.fn(),
     revealTree: vi.fn(),

@@ -18,6 +18,7 @@ on its code.
 * [Run the checks](run-the-checks.md): run the linters, tests and type checks, and get past the two ways the git hooks go wrong
 * [Self-host kasten](self-host-kasten.md): run kasten on one machine of your own, amd64 or arm64, behind basic auth, oauth2-proxy or Tailscale
 * [Run a skill from the chat pane](run-a-skill-from-the-chat-pane.md): open the chat pane, start `/close-day` or `/process-meeting`, answer a question, read a tool call, stop a run and start a new session, at a desk and on a phone
+* [Triage the inbox](triage-the-inbox.md): open the inbox triage, read the folder Claude proposes for a note, move it, type another place, skip, ask again, and undo a move
 * [Troubleshoot a self-hosted kasten](troubleshoot-self-hosting.md): why the stack will not start, get a certificate, let you in, save a note, open a terminal or connect the chat pane
 * [Upgrade kasten](upgrade-kasten.md): move to a new release, pinned or on latest, check it, and roll back
 * [Use kasten on a phone](use-kasten-on-a-phone.md): open the file tree, find a note, run a command, turn vim on, move between the panes of a split, tick a todo, settle a note that changed on disk, type in a terminal and close a panel, by touch

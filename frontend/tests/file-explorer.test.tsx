@@ -106,6 +106,7 @@ function Harness({
         exportNote: () => {},
         openExam: () => {},
         openReview: () => {},
+        openTriage: () => {},
         createTab: () => {},
         openTerminal: () => {},
         openChat: () => {},

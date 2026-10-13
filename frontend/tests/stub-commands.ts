@@ -42,6 +42,7 @@ export function stubCommands() {
     exportNote: vi.fn(),
     openExam: vi.fn(),
     openReview: vi.fn(),
+    openTriage: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),
     openChat: vi.fn(),

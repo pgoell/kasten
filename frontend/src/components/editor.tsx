@@ -823,6 +823,7 @@ export function Editor({
             exportNote: () => commandsRef.current?.exportNote(),
             openExam: () => commandsRef.current?.openExam(),
             openReview: () => commandsRef.current?.openReview(),
+            openTriage: () => commandsRef.current?.openTriage(),
             createTab: () => commandsRef.current?.createTab(),
             openTerminal: () => commandsRef.current?.openTerminal(),
             openChat: () => commandsRef.current?.openChat(),

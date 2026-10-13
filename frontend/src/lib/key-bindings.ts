@@ -110,6 +110,8 @@ export interface EditorCommands {
   openExam(): void;
   /** Open the review in the focused pane, on its list of decks. */
   openReview(): void;
+  /** Open the inbox triage in the focused pane. */
+  openTriage(): void;
   /** Show or hide the archive in the tree, the finder, search and the todos. */
   toggleArchive(): void;
   /** Start a tab holding one empty pane, and go to it. */
@@ -277,6 +279,8 @@ export const LEADER: readonly LeaderBinding[] = [
   // because the group's letters are spent, and `gg` is the key vim already
   // spends on going to the top of everything.
   { key: "gg", label: "Open the graph of the whole vault", command: "openGraph" },
+  // `g` for go and `i` for inbox, the pane it goes to being the inbox's triage.
+  { key: "gi", label: "Open the inbox triage pane", command: "openTriage" },
   // `g` for go and `l` for local, Obsidian's word for the graph around a note.
   { key: "gl", label: "Show the graph around this note beside it", command: "openLocalGraph" },
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
@@ -675,4 +679,17 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "/", label: "Narrow the list" },
   { key: "q", label: "Close the pane" },
   { key: "Escape", label: "Back to the editor" },
+];
+
+/**
+ * The keys of the inbox triage, for the help panel. Display only: the pane
+ * binds the keys itself, and these rows are what it shows the person.
+ */
+export const TRIAGE_PANE: readonly { key: string; label: string }[] = [
+  { key: "Enter", label: "Move the note where the agent proposes" },
+  { key: "e", label: "Type the place to move it to instead" },
+  { key: "j / k", label: "Go to the next or the previous note" },
+  { key: "o", label: "Open the note in the pane" },
+  { key: "r", label: "Ask for the proposal again" },
+  { key: "q", label: "Close the pane" },
 ];

@@ -83,6 +83,7 @@ const INERT: TreeCommands = {
   exportNote: vi.fn(),
   openExam: vi.fn(),
   openReview: vi.fn(),
+  openTriage: vi.fn(),
   renameFolder: () => {},
   createTab: () => {},
   openTerminal: () => {},

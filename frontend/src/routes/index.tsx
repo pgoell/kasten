@@ -29,6 +29,7 @@ import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
 import { Toolbar } from "@/components/toolbar";
+import { TriagePane } from "@/components/triage-pane";
 import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
@@ -85,6 +86,7 @@ import {
   openReviewInFocused,
   openTerminalInFocused,
   openTodosInFocused,
+  openTriageInFocused,
   openVideoBeside,
   removeFocused,
   splitFocused,
@@ -1460,6 +1462,7 @@ function Home() {
           pane.book !== undefined ||
           pane.exam !== undefined ||
           pane.review === true ||
+          pane.triage === true ||
           pane.image !== undefined ||
           pane.html !== undefined ||
           pane.video !== undefined
@@ -1698,6 +1701,10 @@ function Home() {
       openReview: async () => {
         if (await saveFirst()) moveTo(openReviewInFocused);
       },
+      // Saved first for the reason `openReview` is.
+      openTriage: async () => {
+        if (await saveFirst()) moveTo(openTriageInFocused);
+      },
       // Both, and in one render: a folded panel has no row to focus.
       focusTree: () => {
         setTreeOpen(true);
@@ -1772,6 +1779,7 @@ function Home() {
       pane.book,
       pane.exam,
       pane.review,
+      pane.triage,
       pane.image,
       pane.html,
       pane.video,
@@ -1923,6 +1931,14 @@ function Home() {
                     commands={commands}
                     onClose={() => void commands.closeNote()}
                     onOpen={(path) => void openInPane(path)}
+                    focusSignal={focused ? focusSignal : 0}
+                  />
+                ) : shown.triage === true ? (
+                  <TriagePane
+                    commands={commands}
+                    onClose={() => void commands.closeNote()}
+                    onOpen={(path) => void openInPane(path)}
+                    onMoved={(from, to) => followMove("rename", from, to)}
                     focusSignal={focused ? focusSignal : 0}
                   />
                 ) : shown.exam !== undefined ? (

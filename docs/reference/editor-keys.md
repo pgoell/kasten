@@ -178,6 +178,7 @@ dimmed page around them.
 | A video | A tap on the count goes to the next video. The player's controls are YouTube's own | [The video pane](#the-video-pane) |
 | A person card | A tap on a row opens the line it names | [The person card](#the-person-card) |
 | The review | Every move is a button | [The review pane](#the-review-pane) |
+| The triage pane | `Previous`, `Next`, `Move`, `Edit`, `Open`, `Ask again` and `Close` are buttons under the note, and `Cancel` is one while the field is open | [The triage pane](#the-triage-pane) |
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
 | An HTML page | The page's own links and buttons | [The file tree](#the-file-tree) |
@@ -227,6 +228,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>gd` | Open today's note |
 | `<leader>ge` | Sit the open note as a practice exam |
 | `<leader>gg` | Put the graph of the whole vault in the focused pane |
+| `<leader>gi` | Open the inbox triage pane |
 | `<leader>gl` | Show the graph around this note in a pane beside it |
 | `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
@@ -437,7 +439,7 @@ tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
 left focused, for the herdr session when that pane holds a terminal, and
-`todos` when it holds the todo list. More tabs than the window is wide scroll
+`todos`, `chat` or `triage` when it holds one of those panes. More tabs than the window is wide scroll
 sideways, and the strip keeps the tab on screen in view.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
@@ -1268,6 +1270,46 @@ The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.
 
 [Flashcard format](/reference/flashcard-format.md) is what a card is written in.
+
+## The triage pane
+
+`<leader>gi` fills the focused pane with the inbox triage: one note at a time,
+the place the agent proposes for it, and the keys below. The move a key makes
+is the ordinary note move, which [Moving a note](/explanation/moving-notes.md)
+explains. [Triage the inbox](/how-to/triage-the-inbox.md) walks through it.
+
+| Key | What it does |
+| --- | --- |
+| `Enter` | Move the note where the agent proposes |
+| `e` | Type the place to move it to instead |
+| `j / k` | Go to the next or the previous note |
+| `o` | Open the note in the pane |
+| `r` | Ask for the proposal again |
+| `q` | Close the pane |
+
+`Enter` and the Move button do nothing until the proposal has arrived, and
+nothing when the proposed folder is no longer in the listing. The pane then
+shows `The proposal was no folder to move to. Press r to ask again, or e to type a place.`
+The note keeps its own file name in the proposed place. A focused button takes its own Enter, so one press moves the note once.
+
+`e` opens a field holding the proposed path, or the note's own path when there
+is no proposal. In the field, Enter moves the note only when the path ends in
+`.md` and is not the note's own path, and otherwise the field stays open. Escape
+closes it and keeps the note, as the Cancel button does. While the field has the
+cursor the pane's keys stand down, so `e` and a space are letters in the path.
+
+A move the vault refuses leaves the note in the queue, and the pane shows
+`Could not move to <path>. Something may already be there.` under the proposal.
+A move that goes through takes the note out of the queue at once, and the next
+note takes its place. Other panes holding the note follow it to its new path.
+
+`j` and `k` walk the notes still in the inbox. They move nothing, and the pane
+starts again at the top of the inbox the next time it opens. `o` puts the note
+in the focused pane in place of the triage, so `<leader>gi` brings the triage
+back.
+
+The leader works inside the pane, so `<leader>o` and the rest reach the other
+panes mid-triage.
 
 ## The todo pane
 

@@ -12,6 +12,7 @@ import {
   TERMINAL_CHORD,
   TODO_PANE,
   TREE,
+  TRIAGE_PANE,
 } from "@/lib/key-bindings";
 
 /**
@@ -136,6 +137,14 @@ describe("KeyHelp", () => {
     }
   });
 
+  it("lists every triage pane key", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    for (const { key, label } of TRIAGE_PANE) {
+      expect(group("Triage pane").getByText(key).nextElementSibling).toHaveTextContent(label);
+    }
+  });
+
   it("lists every screen reached by typing its address", () => {
     // The two screens with no key and no link. Without this group nothing in
     // the app says `/tokens` exists at all, and finding it means reading the
@@ -228,6 +237,7 @@ describe("the key tables", () => {
       exportNote: () => {},
       openExam: () => {},
       openReview: () => {},
+      openTriage: () => {},
       createTab: () => {},
       openTerminal: () => {},
       openChat: () => {},
@@ -294,6 +304,7 @@ describe("the key tables", () => {
       exportNote: () => {},
       openExam: () => {},
       openReview: () => {},
+      openTriage: () => {},
       createTab: () => {},
       openTerminal: () => {},
       openChat: () => {},

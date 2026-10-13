@@ -21,12 +21,19 @@ const QUESTIONS = [
  * The script is called once per user turn with the text and the options the
  * runner passed, and yields the SDK messages that turn produces. It records
  * what the runner did to it, which is what the tests assert on.
+ *
+ * A string prompt is a proposal: the script is called once with the prompt and
+ * its messages are the whole answer.
  */
 function fakeQuery(script) {
-  const seen = { calls: [], interrupted: 0, closed: 0 };
+  const seen = { calls: [], prompts: [], interrupted: 0, closed: 0 };
 
   function query({ prompt, options }) {
     seen.calls.push(options);
+    if (typeof prompt === "string") {
+      seen.prompts.push(prompt);
+      return script(prompt, options);
+    }
     let stop;
     const stopped = new Promise((resolve) => {
       stop = resolve;
@@ -113,12 +120,38 @@ async function serve(script) {
   return { ...fake, host, post, events, ended, has };
 }
 
+/** Poll until `done` holds, for at most two seconds. */
+async function waitFor(done) {
+  for (let i = 0; i < 200 && !done(); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.ok(done(), "timed out waiting");
+}
+
 const assistant = (content) => ({
   type: "assistant",
   parent_tool_use_id: null,
   message: { content },
 });
 const result = { type: "result", subtype: "success", is_error: false, result: "ok" };
+
+const FOLDERS = [
+  { path: "01 Projects", examples: ["Garden redesign", "Tax return"] },
+  { path: "03 Areas", examples: ["Health", "Finances"] },
+];
+const PROPOSAL = {
+  path: "00 Inbox/Foo.md",
+  content: "Ask the bank about the fee.",
+  ontology: "",
+  folders: FOLDERS,
+};
+const picked = (structured_output) => ({
+  type: "result",
+  subtype: "success",
+  is_error: false,
+  result: "",
+  structured_output,
+});
 
 test("a turn becomes a log of user, text, tool, tool result and done", async () => {
   const chat = await serve(async function* () {
@@ -352,4 +385,163 @@ test("a message with no text, and a path nobody serves, are refused", async () =
   assert.equal((await chat.post("/chat/send", "nope")).status, 400);
   assert.equal((await chat.post("/chat/elsewhere", {})).status, 404);
   assert.equal((await fetch(`http://${chat.host}/`)).status, 404);
+});
+
+test("a proposal answers with the folder the agent picked", async () => {
+  const chat = await serve(async function* () {
+    yield picked({ folder: "03 Areas", reason: "x" });
+  });
+
+  const response = await chat.post("/chat/propose", PROPOSAL);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /^application\/json/);
+  assert.deepEqual(await response.json(), { folder: "03 Areas", reason: "x" });
+
+  const [options] = chat.seen.calls;
+  const [prompt] = chat.seen.prompts;
+  assert.deepEqual(options.tools, []);
+  assert.deepEqual(options.settingSources, []);
+  assert.equal(options.strictMcpConfig, true);
+  assert.equal(options.persistSession, false);
+  assert.equal(options.model, "haiku");
+  assert.equal(options.permissionMode, "dontAsk");
+  assert.equal(options.allowDangerouslySkipPermissions, undefined);
+  assert.equal(typeof options.systemPrompt, "string");
+  assert.ok(options.abortController instanceof AbortController);
+  assert.equal(options.abortController.signal.aborted, false);
+  assert.deepEqual(options.outputFormat.schema.properties.folder.enum, ["01 Projects", "03 Areas"]);
+  assert.ok(prompt.includes("00 Inbox/Foo.md"));
+  assert.ok(prompt.includes("Garden redesign"));
+});
+
+test("a proposal whose agent fails answers 500, and the runner serves the next", async () => {
+  let first = true;
+  const chat = await serve(async function* () {
+    if (first) {
+      first = false;
+      throw new Error("spawn failed");
+    }
+    yield picked({ folder: "03 Areas", reason: "x" });
+  });
+
+  assert.equal((await chat.post("/chat/propose", PROPOSAL)).status, 500);
+  assert.equal((await chat.post("/chat/propose", PROPOSAL)).status, 200);
+});
+
+test("a folder with an empty path is a 400", async () => {
+  const chat = await serve(async function* () {
+    yield picked({ folder: "03 Areas", reason: "x" });
+  });
+
+  const folders = [{ path: "", examples: [] }];
+  assert.equal((await chat.post("/chat/propose", { ...PROPOSAL, folders })).status, 400);
+  assert.equal(chat.seen.calls.length, 0);
+});
+
+test("a proposal the page walks away from stops its agent", async () => {
+  const chat = await serve(async function* (_prompt, options) {
+    await new Promise((_resolve, reject) => {
+      options.abortController.signal.addEventListener("abort", () => reject(new Error("aborted")));
+    });
+    yield result;
+  });
+
+  const walkAway = new AbortController();
+  const sent = fetch(`http://${chat.host}/chat/propose`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: `http://${chat.host}` },
+    body: JSON.stringify(PROPOSAL),
+    signal: walkAway.signal,
+  });
+  const aborted = assert.rejects(sent, { name: "AbortError" });
+
+  await waitFor(() => chat.seen.calls.length === 1);
+  walkAway.abort();
+  await aborted;
+  await waitFor(() => chat.seen.calls[0]?.abortController.signal.aborted === true);
+});
+
+test("a proposal cuts a long note to 8000 characters", async () => {
+  const chat = await serve(async function* () {
+    yield picked({ folder: "01 Projects", reason: "x" });
+  });
+
+  await chat.post("/chat/propose", { ...PROPOSAL, content: "a".repeat(9000) });
+  const [prompt] = chat.seen.prompts;
+  assert.ok(prompt.includes("a".repeat(8000)));
+  assert.ok(!prompt.includes("a".repeat(8001)));
+});
+
+test("an answer the page cannot use is a 502", async () => {
+  const answers = [
+    picked({ folder: "99 Elsewhere", reason: "x" }),
+    {
+      type: "result",
+      subtype: "error_max_structured_output_retries",
+      is_error: true,
+      result: "no",
+    },
+    picked(undefined),
+    picked({ folder: "03 Areas", reason: 7 }),
+  ];
+  const chat = await serve(async function* () {
+    yield answers.shift();
+  });
+
+  for (let i = 0; i < 4; i += 1) {
+    assert.equal((await chat.post("/chat/propose", PROPOSAL)).status, 502);
+  }
+});
+
+test("a proposal with no answer at all is a 502", async () => {
+  const chat = await serve(async function* () {});
+  assert.equal((await chat.post("/chat/propose", PROPOSAL)).status, 502);
+});
+
+test("a proposal with a body that is not the shape asked for is a 400", async () => {
+  const chat = await serve(async function* () {
+    yield picked({ folder: "03 Areas", reason: "x" });
+  });
+
+  const bodies = [
+    { ...PROPOSAL, folders: undefined },
+    { ...PROPOSAL, folders: [] },
+    { ...PROPOSAL, path: 3 },
+    { ...PROPOSAL, folders: [{ path: "03 Areas", examples: [1] }] },
+  ];
+  for (const body of bodies) {
+    assert.equal((await chat.post("/chat/propose", body)).status, 400);
+  }
+  assert.equal(chat.seen.calls.length, 0);
+});
+
+test("a proposal from another site is refused", async () => {
+  const chat = await serve(async function* () {
+    yield picked({ folder: "03 Areas", reason: "x" });
+  });
+
+  const foreign = await chat.post("/chat/propose", PROPOSAL, { origin: "https://evil.example" });
+  assert.equal(foreign.status, 403);
+  assert.equal(chat.seen.calls.length, 0);
+});
+
+test("a proposal leaves nothing in the chat and starts no session", async () => {
+  const chat = await serve(async function* () {
+    yield picked({ folder: "03 Areas", reason: "x" });
+  });
+
+  // Open before the proposal, so anything it sent to the chat would reach this reader.
+  const watching = chat.events(chat.ended);
+  assert.equal((await chat.post("/chat/propose", PROPOSAL)).status, 200);
+  assert.equal(chat.seen.calls.length, 1);
+  assert.equal((await chat.post("/chat/stop", {})).status, 204);
+  assert.equal(chat.seen.interrupted, 0);
+
+  // The first message after it ends the reader's wait, so the reader sees all of it.
+  assert.equal((await chat.post("/chat/send", { text: "after" })).status, 204);
+  assert.deepEqual(await watching, [
+    { type: "reset" },
+    { type: "user", text: "after" },
+    { type: "done" },
+  ]);
 });
