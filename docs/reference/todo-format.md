@@ -343,8 +343,8 @@ the date is stamped.
 blocker closes.
 
 The todo pane keeps a waiting row in the group its due date names, drawn muted
-as a blocked row is, with the name and the days waited on the row: `👤 Ada
-Lovelace 7d`. [The todo pane](/reference/editor-keys.md#the-todo-pane) says the
+as a blocked row is, with the days waited and the name on the row: `👤 7d Ada
+Lovelace`. [The todo pane](/reference/editor-keys.md#the-todo-pane) says the
 rest.
 
 ## Recurrence

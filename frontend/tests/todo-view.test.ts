@@ -340,10 +340,10 @@ describe("parseViews", () => {
 describe("waitOf", () => {
   it("says who a waiting todo is on and for how many days", () => {
     expect(waitOf(todo("- [w] a 👤 2026-08-03 [[people/Ada Lovelace]]"), TODAY)).toBe(
-      "👤 Ada Lovelace 7d",
+      "👤 7d Ada Lovelace",
     );
     expect(waitOf(todo("- [w] a 👤 2026-08-10 the tax office"), TODAY)).toBe(
-      "👤 the tax office 0d",
+      "👤 0d the tax office",
     );
   });
 

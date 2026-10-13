@@ -231,8 +231,10 @@ export function progressOf(node: Node): { closed: number; total: number } | null
  * What a `[w]` row says about its wait: who it is on and how many days it has
  * run. Null for any other state, and for a wait that names neither.
  *
- * The name loses its brackets and its path for the reason a person card's rows
- * do, and the days are whole ones, read in UTC as `shiftDay` reads them.
+ * The days come first, as the date does on the line, so a narrow row that cuts
+ * this short cuts the name and keeps the number. The name loses its brackets
+ * and its path for the reason a person card's rows do, and the days are whole
+ * ones, read in UTC as `shiftDay` reads them.
  */
 export function waitOf(todo: Todo, today: string): string | null {
   if (todo.state !== "waiting") return null;
@@ -243,7 +245,7 @@ export function waitOf(todo: Todo, today: string): string | null {
       ? undefined
       : `${Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${since}T00:00:00Z`)) / 86_400_000)}d`;
   const who = todo.waitingOn === undefined ? undefined : plainLinks(todo.waitingOn);
-  const said = [who, days].filter(Boolean).join(" ");
+  const said = [days, who].filter(Boolean).join(" ");
 
   return said === "" ? null : `👤 ${said}`;
 }

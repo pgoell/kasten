@@ -543,7 +543,7 @@ describe("the todo pane", () => {
     await waitFor(() => expect(pane.rows()).toHaveLength(2));
     const waiting = pane.rows().find((row) => row.textContent?.includes("decision record"));
     expect(waiting?.textContent).toContain("◷");
-    expect(waiting?.textContent).toContain("👤 Ada 7d");
+    expect(waiting?.textContent).toContain("👤 7d Ada");
     expect(waiting?.className).toContain("text-one-muted");
     expect(pane.footer()).toContain("1 open, 0 blocked, 1 waiting");
   });

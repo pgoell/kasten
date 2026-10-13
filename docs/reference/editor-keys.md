@@ -1289,8 +1289,8 @@ says what comes down and what never does. A blocked row is drawn muted and
 sits in the group its due date names rather than under a heading of its own, its
 state already being written on the line. A row
 [waiting on somebody](/reference/todo-format.md#waiting-on-somebody) is drawn
-the same way and says who and for how many days before its date,
-`👤 Ada Lovelace 7d`. The footer counts the rows, so many open and so many
+the same way and says for how many days and on whom before its date,
+`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. The footer counts the rows, so many open and so many
 blocked, how many are waiting where any are, and how many timers are going
 where any are.
 
