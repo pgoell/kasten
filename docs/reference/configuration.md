@@ -278,6 +278,19 @@ because the published image does not carry it. That start needs network to
 reach `claude.ai` and takes longer. It installs only when no `claude` is on
 `PATH`, and a failed install is logged and does not stop the shell.
 
+After that it installs the Claude Agent SDK into `~/.kasten-chat`, at the
+version `KASTEN_AGENT_SDK_VERSION` in the image names, and starts
+[the chat runner](/reference/chat-runner.md) on port `7682`. Both happen in
+the background, so the shell does not wait for them. A release that moves the
+pin replaces the copy in the volume on its first start.
+
+| Variable | Set on | What it does |
+| --- | --- | --- |
+| `KASTEN_AGENT_SDK_VERSION` | the image | the SDK version the entrypoint installs. Change it in `shell/Dockerfile`, not in compose |
+| `CLAUDE_CODE_OAUTH_TOKEN` | the shell container, optional | signs Claude Code in without the interactive login. From `claude setup-token` |
+| `ANTHROPIC_API_KEY` | never | Claude Code prefers it to the subscription login, so every run in the terminal and the chat pane would be billed to the API account |
+| `KASTEN_DEV_CHAT` | the frontend dev server | where vite proxies `/chat`. Default `http://localhost:7682` |
+
 ## Compose variables
 
 These are read by compose, not by the backend, so they take no part in

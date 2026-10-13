@@ -192,6 +192,20 @@ describe("expandShorthand", () => {
     );
   });
 
+  it("reads a rule naming its days, a hyphen standing for each space", () => {
+    const rule = (word: string) => expandShorthand(`a every:${word}`, TODAY).recurrence;
+
+    expect(rule("weekday")).toBe("every weekday");
+    expect(rule("week-on-mon,thu")).toBe("every week on Monday, Thursday");
+    expect(rule("2-weeks-on-friday")).toBe("every 2 weeks on Friday");
+    expect(rule("2weeks-on-friday")).toBe("every 2 weeks on Friday");
+    expect(rule("friday")).toBe("every week on Friday");
+    expect(rule("month-on-the-15th")).toBe("every month on the 15th");
+    expect(rule("month-on-the-last-friday")).toBe("every month on the last Friday");
+    expect(rule("week-when-done")).toBe("every week when done");
+    expect(rule("week-")).toBeUndefined();
+  });
+
   it("leaves a recurrence it cannot read in the words", () => {
     // Read back through `parseRecurrence`, so a rule that would sit on the line
     // saying nothing stays where it was typed instead.

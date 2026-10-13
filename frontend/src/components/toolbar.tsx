@@ -6,7 +6,7 @@ import { LABEL } from "@/lib/overlay-styles";
  *
  * Each names a command the leader already reaches and nothing else, so the
  * row adds no behaviour of its own. `name` is what a screen reader says, the
- * word on the button being cut to what fits seven across a phone.
+ * word on the button being cut to what fits eight across a phone.
  */
 const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[] = [
   { command: "toggleTree", label: "files", name: "File tree" },
@@ -17,6 +17,9 @@ const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[
   // The pane and not the overlay `findTodos` opens: the pane is the one with
   // buttons a finger can cycle and add with. The overlay is a palette row.
   { command: "openTodos", label: "todos", name: "Open the todo pane" },
+  // The reason the chat exists: a skill started with a thumb. Eight across a
+  // 360px phone is 45px each, one over the 44 a button has to be.
+  { command: "openChat", label: "chat", name: "Open the chat with Claude Code" },
 ];
 
 interface ToolbarProps {

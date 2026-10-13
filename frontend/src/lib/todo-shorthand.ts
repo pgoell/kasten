@@ -13,7 +13,7 @@
 
 import { shiftDay } from "@/lib/clock";
 import { TAG, type Todo, type TodoPriority, type TodoState } from "@/lib/todo";
-import { parseRecurrence } from "@/lib/todo-recur";
+import { formatRecurrence, parseRecurrence } from "@/lib/todo-recur";
 import { parseDuration } from "@/lib/todo-time";
 
 export type DueWindow = "today" | "overdue" | "week";
@@ -187,23 +187,27 @@ const DATE_TERMS: Record<string, "due" | "scheduled" | "start"> = {
   start: "start",
 };
 
-/** A recurrence with its spaces taken out, `3months` for `every 3 months`. */
-const PERIOD = /^(\d+)?([a-z]+)$/;
+/** The number a rule opens with, where its unit is written straight after it. */
+const COUNT = /^(\d+)(?=[a-z])/;
 
 /**
- * `week` or `3months` as the rule a `🔁` carries, or nothing where it is not one.
+ * `week`, `3months` or `month-on-the-15th` as the rule a `🔁` carries, or
+ * nothing where it is not one.
  *
- * A word cannot hold the space obsidian-tasks writes the rule with, so the
- * number and the unit are written together and put back apart here. Read back
- * through the parser that will act on it, so a rule nothing can count from
- * stays in the words rather than sitting on the line saying nothing.
+ * A word cannot hold the spaces obsidian-tasks writes the rule with, so a
+ * hyphen stands for each, and the number may be written against its unit. Read
+ * through the parser that will act on it and written back in its spelling, so
+ * `every:week-on-mon,thu` lands as `every week on Monday, Thursday` and a rule
+ * nothing can count from stays in the words rather than sitting on the line
+ * saying nothing.
  */
-function readEvery(value: string): string | undefined {
-  const found = PERIOD.exec(value);
-  if (found === null) return undefined;
+export function readEvery(value: string): string | undefined {
+  // A hyphen with nothing after it is a rule still being typed, and the parser
+  // would trim the space it stands for and read the rule as finished.
+  if (value.endsWith("-")) return undefined;
 
-  const rule = `every ${found[1] === undefined ? "" : `${found[1]} `}${found[2]}`;
-  return parseRecurrence(rule) === null ? undefined : rule;
+  const rule = parseRecurrence(`every ${value.replace(COUNT, "$1 ").replaceAll("-", " ")}`);
+  return rule === null ? undefined : formatRecurrence(rule);
 }
 
 /**

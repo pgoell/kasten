@@ -59,8 +59,10 @@ docker exec caddy caddy validate --config /etc/caddy/Caddyfile
 docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-Both blocks must carry the request matcher that leaves `/api/events`
-uncompressed, and the `handle /term/*` route that carries `import oauth2_auth`.
+Both blocks must carry the request matcher that leaves `/api/events` and
+`/chat/events` uncompressed, and the `handle /term/*` route carrying
+`import oauth2_auth`. The prod block carries `handle /chat/*` with the same
+import; [Open the chat route](#open-the-chat-route) has it.
 [Two environments](/explanation/environments.md#constraints-the-box-imposes)
 says what breaks without each.
 
@@ -304,6 +306,45 @@ curl -s -o /dev/null -w '%{http_code}\n' https://kasten.pgoell.com/.well-known/o
 against the mounted directory. A mint that fails means step 1 mounted the file
 rather than the directory.
 
+## Open the chat route
+
+Do this once, for prod, before or after the release that carries the chat
+runner. Until it is done the chat pane says it could not reach the runner
+and nothing else changes.
+
+**1. Add the stanza** to the `kasten.pgoell.com` block in
+`~/Code/server-infra/caddy/Caddyfile`, beside `handle /term/*`. Dev needs
+none: its vite server proxies `/chat` to `kasten-shell-dev` itself, through
+the route the frontend already has.
+
+```
+# The chat runner: Claude Code with a shell in the vault, running tools
+# unasked. Never without oauth2_auth, for the reason /term/* never is.
+handle /chat/* {
+    import oauth2_auth
+    reverse_proxy kasten-shell-prod:7682
+}
+```
+
+**2. Widen the matcher** in both blocks. The runner marks its stream
+`no-transform`, which Caddy's `encode` honours, so this is the second lock and
+not the first:
+
+```
+@compressible not path /api/events /chat/events
+```
+
+**3. Validate and reload**, as in [Caddy](#2-caddy) above, then run the proof
+below.
+
+**4. Sign Claude Code in**, if the shell container never was: open a terminal
+pane, run `claude`, sign in. The chat runner uses that login. The first start
+of the new image installs the Agent SDK into the home volume, which needs the
+network and shows in `docker logs kasten-shell-prod`.
+
+In dev, `mise run dev:up` rebuilds `kasten-shell-dev` with the runner in it,
+and that container wants its own sign-in.
+
 ## Prove the shell is not exposed
 
 Run this after any change to compose or the Caddyfile. Two things stand between
@@ -315,6 +356,7 @@ On the box:
 ```sh
 docker inspect -f '{{json .NetworkSettings.Ports}}' kasten-shell-prod   # expect {}
 ss -ltn 'sport = :7681'                                                # expect no listener
+ss -ltn 'sport = :7682'                                                # expect no listener
 ```
 
 From anywhere, with no oauth2 cookie:
@@ -333,9 +375,19 @@ page. `101` means the gate is missing and the internet has a shell. `400` or
 number. `502` means the container is not up yet, which is expected before the
 first release ships the image and is not the same answer as `302`.
 
-Run it against `kasten-dev.pgoell.com` too, and check that
-`grep -A4 'handle /term' caddy/Caddyfile` prints `import oauth2_auth` for both
-hosts rather than one.
+The chat runner sits behind the same gate and gets the same proof:
+
+```sh
+curl -sS -o /dev/null -w '%{http_code}\n' -m 5 https://kasten.pgoell.com/chat/events
+```
+
+`302` is right again. `200` means the gate is missing and the internet has an
+agent with a shell. `404` before [Open the chat route](#open-the-chat-route) is
+done is the frontend answering, which is closed, not open.
+
+Run both against `kasten-dev.pgoell.com` too, and check that
+`grep -A4 'handle /term\|handle /chat' caddy/Caddyfile` prints
+`import oauth2_auth` under every one of them.
 
 ## Look at dev in a browser
 

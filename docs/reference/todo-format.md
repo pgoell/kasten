@@ -216,7 +216,11 @@ offer the fields it has not got yet. A colon opens the list in the editor, the
 todo pane's `i` draws it under the row, and the add prompt draws it under the
 input in [its own shorthand](#the-add-prompts-shorthand). One table of fields
 answers all three, so a field cannot be reachable in one and missing from
-another.
+another. `daily`, `weekly` and `monthly` write those three rules in one press,
+and `repeat` writes the `🔁` and then offers every plain period, `every weekday`
+and the rules naming the day the todo is due: its weekday, its day of the month
+and which of that weekday in the month it is. A todo with no due date is read
+by its scheduled date, then its start date, then today.
 
 Each reads what is written so far and leaves out what is there: a line already
 carrying a `📅` is not offered another. The fields that take a value are written
@@ -364,10 +368,32 @@ rest.
 ```
 every day | every week | every month | every year
 every <n> days | every <n> weeks | every <n> months | every <n> years
+every weekday
+every week on Monday, Thursday | every <n> weeks on Friday | every Sunday
+every month on the 15th | every month on the last
+every month on the 2nd Tuesday | every month on the last Friday
 ```
 
-and any of them may end `when done`. A rule this cannot read stays in the words,
-where you can see it, and writes nothing.
+and any of them may end `when done`. A month rule naming a day takes a number
+as well, `every 3 months on the 1st`. A rule this cannot read stays in the
+words, where you can see it, and writes nothing.
+
+The first two lines count periods. The rest name their days:
+
+| Rule | Lands on |
+| --- | --- |
+| `every weekday` | Monday to Friday |
+| `every week on Monday, Thursday` | each day named, any number of them |
+| `every Sunday` | the same as `every week on Sunday` |
+| `every month on the 15th` | that day, the 1st to the 31st |
+| `every month on the last` | the last day of the month, whatever its length |
+| `every month on the 2nd Tuesday` | the 1st, 2nd, 3rd or 4th of that weekday |
+| `every month on the last Friday` | the last of that weekday |
+
+These are obsidian-tasks' own spellings, a subset of what it reads. A weekday
+is read in full or by its first three letters, and case and spare spaces do
+not matter: `every week on mon,thu` is the rule above. kasten writes back
+what you typed and does not respell it.
 
 Ticking a recurring todo done leaves the completed line where it is with its
 `✅` and puts the fresh copy above it, so the note carries the history of the
@@ -387,6 +413,23 @@ A month rule counts calendar months and clamps to the last day of one that is
 too short: the thirty-first of January one month on is the twenty-eighth of
 February, not the third of March. A year rule does the same to the twenty-ninth
 of February.
+
+A rule naming its days lands on the first of them after the date it counts
+from, and never on that date itself. So the date a todo carries need not be one
+of the days named: `every week on Monday, Thursday` ticked with a due date on a
+Tuesday comes back on the Thursday. Every other date still moves by the same
+number of days.
+
+`every 2 weeks on Friday` counts its weeks from the week the date is in, Monday
+first. From a Friday the copy is fourteen days on. From the Wednesday before,
+the Friday of that same week still counts, so the copy is two days on.
+
+A month that lacks the day named is passed over, not clamped:
+`every month on the 31st` counted from the thirty-first of January lands on the
+thirty-first of March. That is what obsidian-tasks does with it, and
+`every month on the last` is the rule for the end of every month. A rule whose
+months never have the day, `every 12 months on the 30th` counted from a
+February, writes no copy.
 
 The copy is open and carries no `✅`, no `❌`, no `🆔` and no `⏱`: those name
 the instance that was finished, which the done log links to. The `➕` stays,
@@ -617,12 +660,24 @@ nobody typed is worse on disk than no date at all.
 by which kasten rather than your keyboard puts an estimate on a line. Anything
 after it that is not a duration stays in the words, as a mistyped date does.
 
-`every:` takes the rule with its space taken out, a word being one word:
-`every:week` writes `🔁 every week` and `every:3months` writes
-`🔁 every 3 months`. It is read back through the parser that will count from it,
-so `every:fortnight` stays in the words rather than sitting on the line saying
-nothing. The `when done` suffix is not spelled here; type it on the line, or
-reach the line with `i` in the todo pane.
+`every:` takes the rule as one word, a word being one word. The `every` is the
+term itself, a hyphen stands for each space, and a number may be written
+against its unit:
+
+| Typed | Writes |
+| --- | --- |
+| `every:week` | `🔁 every week` |
+| `every:3months` | `🔁 every 3 months` |
+| `every:weekday` | `🔁 every weekday` |
+| `every:week-on-mon,thu` | `🔁 every week on Monday, Thursday` |
+| `every:2-weeks-on-friday` | `🔁 every 2 weeks on Friday` |
+| `every:month-on-the-15th` | `🔁 every month on the 15th` |
+| `every:month-on-the-last-friday` | `🔁 every month on the last Friday` |
+| `every:week-when-done` | `🔁 every week when done` |
+
+It is read through the parser that will count from it and written in
+obsidian-tasks' spelling, so `every:fortnight` stays in the words rather than
+sitting on the line saying nothing.
 
 Only `due:` is a filter term as well. There is nothing useful to filter on in
 the other four, so `sched:tomorrow` in the filter line is text to rank against

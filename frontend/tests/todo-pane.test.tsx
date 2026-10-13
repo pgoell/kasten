@@ -697,6 +697,7 @@ describe("the todo pane", () => {
       "🔁 daily",
       "🔁 weekly",
       "🔁 monthly",
+      "🔁 repeat",
       "⏲ estimate",
     ]);
   });

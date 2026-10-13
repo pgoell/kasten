@@ -11,7 +11,7 @@ status: stable
 You have kasten open in a phone's browser, or installed from
 [Install kasten on your phone](/how-to/install-on-your-phone.md), and you want
 to do by touch what the keys do at a desk. A row of buttons runs along the
-bottom edge: `files`, `find`, `search`, `run`, `today` and `todos`. Every
+bottom edge: `files`, `find`, `search`, `run`, `today`, `todos` and `chat`. Every
 recipe below starts there.
 
 [Editor keys](/reference/editor-keys.md#what-counts-as-a-phone) says which

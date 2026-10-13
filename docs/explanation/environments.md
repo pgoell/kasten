@@ -46,7 +46,10 @@ the first exists and what it cannot do.
 
 Both environments reach the shell container the same way, through a Caddy
 `handle /term/*` carrying `import oauth2_auth`, and neither container publishes
-a port. Those two facts are the whole of its security, so
+a port. [The chat pane](/explanation/the-chat-pane.md) reaches the same
+container on a second port: in prod through a `handle /chat/*` carrying the
+same import, in dev through the vite server, which proxies `/chat` to
+`shell-dev` behind the frontend's own gated route. Those two facts are the whole of its security, so
 [Deploy to the VPS](/how-to/deploy-to-the-vps.md#prove-the-shell-is-not-exposed)
 carries the commands that prove them.
 
@@ -136,6 +139,9 @@ matcher:
 @compressible not path /api/events
 encode @compressible gzip
 ```
+
+`/chat/events`, the chat pane's stream, is the same kind of response and needs
+the same exemption: `not path /api/events /chat/events`.
 
 Both kasten site blocks carry it and everything else stays compressed. The
 Caddyfile lives in another repo, which is why the requirement is written down

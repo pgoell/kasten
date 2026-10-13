@@ -46,6 +46,7 @@ function stubCommands() {
     revealTree: vi.fn(),
     createTab: vi.fn(),
     openTerminal: vi.fn(),
+    openChat: vi.fn(),
     importPage: vi.fn(),
     captureDump: vi.fn(),
     splitRight: vi.fn(),
