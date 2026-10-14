@@ -799,19 +799,21 @@ function build(state: EditorState): Live {
           state.doc.sliceString(link.from + 2, link.to - 2),
         );
 
-        // Until both listings land the name cannot be told for a note or an
-        // image, nor found in a folder: on a cold load `![[b]]` would watch the
-        // inbox path and call a note in `x/` missing, and a picture would be
-        // taken for a note. The source stays until they do.
+        // Until the listings land the name cannot be found in a folder: on a
+        // cold load `![[b]]` would watch the inbox path and call a note in `x/`
+        // missing, and `![[shot.png]]` would be taken for a note. The source
+        // stays until they do. Only a name with a suffix waits on the images,
+        // so a listing of them that never comes leaves the notes drawn.
         const paths = state.facet(vaultPaths);
         const images = state.facet(imagePaths);
-        if (paths === null || images === null) return false;
+        if (paths === null) return false;
+        if (images === null && /\.\w+$/.test(name) && !name.endsWith(".md")) return false;
 
         // An image the vault holds is drawn as one, found by the rule a link
         // finds its note by. Anything else is a note, or nothing.
-        const image = resolveIn(name, images);
+        const image = images === null ? null : resolveIn(name, images);
         const picture =
-          image !== null && images.includes(image) ? imageSource(encodeURI(image)) : null;
+          image !== null && images?.includes(image) ? imageSource(encodeURI(image)) : null;
 
         const source = state.facet(embedSource);
         const label = heading === null ? name : `${name}#${heading}`;

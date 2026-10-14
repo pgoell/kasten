@@ -908,6 +908,18 @@ describe("an embed", () => {
     expect(vault.watched).toEqual([]);
   });
 
+  it("draws a note without waiting on the image listing", () => {
+    const vault = fakeVault({ "b.md": "body" });
+    const view = mount(`${ABOVE}![[b]]`, [
+      vimKeys.of(false),
+      livePreview(),
+      vaultPaths.of(["b.md"]),
+      embedSource.of(vault.source),
+    ]);
+
+    expect(view.dom.querySelector(".cm-embed")?.textContent).toBe("body");
+  });
+
   it("draws the note read-only, rendered, and told what the vault holds", () => {
     const vault = fakeVault({ "b.md": "# B\nsee [[ghost]]" });
     const view = mount(`${ABOVE}![[b]]`, plain(vault.source));

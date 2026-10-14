@@ -2057,6 +2057,7 @@ function Home() {
                     commands={commands}
                     preview={preview}
                     paths={linkable}
+                    images={images}
                     tags={tags}
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}
