@@ -656,6 +656,34 @@ describe("live preview", () => {
     expect(container.querySelector("iframe.cm-video")).toBeNull();
     expect(container.querySelector("img.cm-image")?.getAttribute("alt")).toBe("shot");
   });
+
+  it("hides the backslash of an escape, which a card side opening with a fence carries", () => {
+    const { container } = render(<Editor initialDoc={"\\```js\n\nplain"} />);
+
+    expect(content(container)).toBe("```jsplain");
+  });
+
+  it("shows the escape's backslash on the cursor's line in insert mode", async () => {
+    const { container } = render(<Editor initialDoc={"\\```js\n\nplain"} />);
+
+    fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toBe("\\```jsplain"));
+  });
+
+  it("draws a sound's ![](path) as a player rather than a broken picture", () => {
+    const { container } = render(
+      <Editor initialDoc={"word\n\n![](Flashcards/Japanese%20media/kana.MP3)\n"} />,
+    );
+
+    const audio = container.querySelector("audio.cm-audio");
+    expect(audio?.getAttribute("src")).toBe("/api/assets/Flashcards/Japanese%20media/kana.MP3");
+    expect(audio?.hasAttribute("controls")).toBe(true);
+    // A deck of a thousand cards would otherwise fetch a thousand sounds.
+    expect(audio?.getAttribute("preload")).toBe("none");
+    expect(container.querySelector("img.cm-image")).toBeNull();
+    expect(content(container)).not.toContain("kana");
+  });
 });
 
 /**

@@ -25,26 +25,34 @@ holding `DDIA.epub` and `DDIA.pdf`, the vault being a directory anybody may
 copy into, so something has to choose, and the epub is the one that reflows.
 """
 
-ASSET_MAGIC = {
-    ".epub": b"PK\x03\x04",
-    ".pdf": b"%PDF-",
-    ".png": b"\x89PNG\r\n\x1a\n",
-    ".jpg": b"\xff\xd8\xff",
-    ".jpeg": b"\xff\xd8\xff",
-    ".gif": b"GIF8",
-    ".webp": b"RIFF",
+ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
+    ".epub": re.compile(rb"PK\x03\x04"),
+    ".pdf": re.compile(rb"%PDF-"),
+    ".png": re.compile(rb"\x89PNG\r\n\x1a\n"),
+    ".jpg": re.compile(rb"\xff\xd8\xff"),
+    ".jpeg": re.compile(rb"\xff\xd8\xff"),
+    ".gif": re.compile(rb"GIF8"),
+    ".webp": re.compile(rb"RIFF"),
+    ".mp3": re.compile(rb"ID3|\xff[\xfb\xfa\xf3\xf2\xe3\xe2]"),
+    ".m4a": re.compile(rb".{4}ftyp", re.DOTALL),
+    ".ogg": re.compile(rb"OggS"),
+    ".wav": re.compile(rb"RIFF"),
 }
-"""What the vault takes beside its notes, and the bytes each one starts with.
+"""What the vault takes beside its notes, and what the head of each one matches.
 
 The keys are the whole rule about which paths `resolve_asset_path` answers to,
 so a new format is one row here. The values belong to the upload, which refuses
 a body disagreeing with the name it arrived under: a usability check and never a
 security one, for the reason `write_asset` spells out.
 
-`.webp` is the loose one of the seven. Its four bytes are a RIFF container's,
-shared with wav and avi, and the tag that separates them sits at byte eight.
-One prefix per suffix is worth more than that exactness on a check nothing
-downstream relies on.
+Patterns rather than prefixes, because a sound does not start one way: an mp3
+opens with an ID3 tag or straight on a frame header, and an m4a's `ftyp` sits
+behind the four bytes of its box size. `fits` matches them at the head.
+
+`.webp` and `.wav` are the loose ones. Both match a RIFF container's four
+bytes, shared with avi and with each other, and the tag that separates them
+sits at byte eight. A short pattern per suffix is worth more than that
+exactness on a check nothing downstream relies on.
 
 Lowercase keys, matched ignoring case: `PHOTO.PNG` and `Plan.PDF` are assets,
 the way Obsidian finds them, because a file copied in over the terminal keeps
@@ -55,13 +63,25 @@ and `books_beside` swap in a lowercase suffix, so `Plan.PDF` is no book of
 `Plan.md`.
 """
 
-IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES)))
-"""The suffixes `list_images` walks for, which is every asset but the books.
+HEAD_BYTES = 8
+"""How much of a file's head `fits` reads, which is the furthest any pattern reaches.
+
+The png signature and an m4a's size and `ftyp` are eight bytes each. Typed
+rather than derived, since a pattern's reach is not its length; a row reaching
+further has to widen this by hand, and `fits` cuts the head here so it cannot
+quietly depend on more.
+"""
+
+AUDIO_SUFFIXES = (".m4a", ".mp3", ".ogg", ".wav")
+"""What a sound's name ends in: an asset the editor draws as a player."""
+
+IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES) - set(AUDIO_SUFFIXES)))
+"""The suffixes `list_images` walks for, which is every asset but the books and sounds.
 
 The whole tuple comes out, not the format that happened to be here first. A
 book left in this set is a row in the file tree and a candidate for `![](`
 completion, which is the one thing the vault promises about a book: nothing
-lists it.
+lists it. A sound is left out so that `![](` completes pictures only.
 """
 
 HTML_SUFFIX = ".html"
@@ -100,8 +120,13 @@ def list_html(root: Path) -> list[str]:
     return _list_files(root, (HTML_SUFFIX,), ignore_case=True)
 
 
+def fits(suffix: str, head: bytes) -> bool:
+    """Whether `head` is how a file ending in `suffix`, a key of `ASSET_MAGIC`, starts."""
+    return ASSET_MAGIC[suffix].match(head[:HEAD_BYTES]) is not None
+
+
 def list_assets(root: Path) -> list[str]:
-    """Return every image and book under `root`, as sorted relative POSIX paths."""
+    """Return every image, sound and book under `root`, as sorted relative POSIX paths."""
     return _list_files(root, tuple(ASSET_MAGIC), ignore_case=True)
 
 

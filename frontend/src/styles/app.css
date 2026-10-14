@@ -299,6 +299,14 @@ body {
   border-radius: 3px;
 }
 
+/* The player an `![](word.mp3)` is drawn as. The browser's own width, never
+   past the column's on a phone, and `vertical-align` for the picture's reason:
+   it replaces inline text and sits on that text's baseline otherwise. */
+.cm-audio {
+  max-width: 100%;
+  vertical-align: middle;
+}
+
 /* The player a `![](youtube link)` is drawn as. 16:9 because that is the shape
    the player wants, and the note's column is the width, so the frame is as wide
    as the text it sits in rather than as wide as the window. `block` and not the

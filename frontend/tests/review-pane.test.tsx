@@ -215,6 +215,43 @@ describe("ReviewPane suspending the card on screen", () => {
   });
 });
 
+describe("ReviewPane replaying a card's sound", () => {
+  const SOUNDED = "#flashcards/beta\n\nc ![](beta%20media/c.mp3)::d ![](beta%20media/d.mp3)\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("plays the side showing again on r, the front before the answer and the back after", async () => {
+    // jsdom draws a media element and plays nothing, so the player is stubbed.
+    // The source is read at the call: the session reuses one element.
+    const sources: string[] = [];
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      sources.push(this.src);
+      return Promise.resolve();
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockReturnValue(undefined);
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockResolvedValue(SOUNDED);
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    await shownCard();
+    const played = () => [...sources];
+
+    fireEvent.keyDown(pane, { key: "r" });
+    expect(played().at(-1)).toMatch(/\/api\/assets\/beta%20media\/c\.mp3$/);
+
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "r" });
+    expect(played().at(-1)).toMatch(/\/api\/assets\/beta%20media\/d\.mp3$/);
+    expect(played().filter((src) => src.endsWith("d.mp3"))).toHaveLength(2);
+  });
+});
+
 describe("ReviewPane on the parked screen", () => {
   const PARKED_HITS = [
     { path: "a.md", line: 1, text: "#flashcards/alpha" },

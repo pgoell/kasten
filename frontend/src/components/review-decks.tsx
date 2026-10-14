@@ -88,8 +88,8 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
               (done) => {
                 setImported(
                   `${done.notes.length} deck${done.notes.length === 1 ? "" : "s"}, ${done.cards} cards` +
-                    (done.dropped_media > 0
-                      ? `, ${done.dropped_media} lost an image or a sound`
+                    (done.media > 0
+                      ? `, ${done.media} media file${done.media === 1 ? "" : "s"}`
                       : ""),
                 );
                 void queryClient.invalidateQueries({ queryKey: ["cards"] });

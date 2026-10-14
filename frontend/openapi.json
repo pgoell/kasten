@@ -1846,16 +1846,16 @@
             "type": "integer",
             "title": "Cards"
           },
-          "dropped_media": {
+          "media": {
             "type": "integer",
-            "title": "Dropped Media"
+            "title": "Media"
           }
         },
         "type": "object",
         "required": [
           "notes",
           "cards",
-          "dropped_media"
+          "media"
         ],
         "title": "AnkiImport",
         "description": "What one `.apkg` turned into."

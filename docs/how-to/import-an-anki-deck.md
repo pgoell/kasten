@@ -24,7 +24,7 @@ Open `/review`, either on a phone or through `<leader>gs` in the app, and press
 **Import an Anki deck**. Pick the `.apkg`.
 
 The line beside the button says what arrived: how many decks, how many cards,
-and how many cards referred to media that did not come with them.
+and how many image and sound files came with them.
 
 ## Where it lands
 
@@ -56,6 +56,11 @@ What does std::move do?
 casts to an rvalue
 ```
 
+A question ending in a colon, such as `Ratio 1:`, is written with a space
+before the `::`, so the colon stays on the question. A side that would open its
+line with three backticks gets a backslash in front, `` \```js ``, so it opens
+no code block that would hide the cards below it.
+
 The tag cannot hold a space, so a deck called `AWS Certification` is tagged
 `#flashcards/AWS-Certification`. The folder keeps the space.
 
@@ -66,6 +71,30 @@ asks it along with everything else filed there.
 
 `03 Flashcards` is
 [KASTEN_FLASHCARDS_PATH](/reference/configuration.md#kasten_flashcards_path).
+
+## Images and sounds
+
+The images and sounds a deck's cards use land in a folder beside its note:
+
+```
+03 Flashcards/Japanese.md
+03 Flashcards/Japanese media/kanji.mp3
+03 Flashcards/Japanese media/paste-1234.png
+```
+
+The card links each file where its field had it, as a markdown image:
+
+```markdown
+![](03%20Flashcards/Japanese%20media/kanji.mp3)::漢字 Chinese characters
+```
+
+A sound is drawn as a player. A card whose question is only a sound, common in
+Japanese decks, is a card like any other. `.png`, `.jpg`, `.jpeg`, `.gif`,
+`.webp`, `.mp3`, `.m4a`, `.ogg` and `.wav` come through. A file two decks share
+is written into each deck's folder.
+
+If a file in that folder already exists, the whole import is refused, as it is
+for a note.
 
 ## Importing the same deck twice is refused
 
@@ -110,15 +139,13 @@ tags counts as empty.
 
 ## What does not survive
 
-Three things, and the import says so rather than hiding them.
+Three things.
 
-**Media.** Images and sounds are dropped, and the count of cards that referenced
-one is reported, so a reversed note with an image counts two. The media map in a
-current `.apkg` is zstd-compressed protobuf, which the standard library cannot
-read without the schema. A card whose question was only a picture or a sound,
-common in Japanese decks, has nothing left to ask and is left out; it counts
-among the dropped media. Put the images back by hand with
-[an image in a note](/reference/editor-keys.md), or keep those decks in Anki.
+**Some media.** A file in another format, such as a video or an `.svg`, is
+dropped from its card, and so is one whose bytes are not what its name says or
+whose name is not a plain file name. The card keeps its text, and the import
+still lands. A card whose question was only such a file has nothing left to ask
+and is left out.
 
 **Cloze.** An Anki cloze note arrives as one card, with its Text field the
 question and Back Extra the answer, and its marks kept, so `{{c1::Paris}}`

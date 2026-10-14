@@ -1,5 +1,5 @@
 {
-  "suffixes": [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp"],
+  "suffixes": [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp3", ".m4a", ".ogg", ".wav"],
   "paths": [
     "00 Inbox/plan.pdf",
     "a.b/note.md",

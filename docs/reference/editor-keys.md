@@ -1226,6 +1226,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `1` `2` `3` `4` | Rate the card Again, Hard, Good, Easy |
 | `s` | Park the card on screen, before or after the answer |
 | `n` | Jot a new question into the note the card came from, or put the open jot line away unwritten |
+| `r` | Play the sounds of the side showing again: the question's before the answer, the answer's after |
 | `u` | Put the parked row under the cursor back |
 | `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
@@ -1263,6 +1264,12 @@ reason: a phone has no escape key, so nothing this feature does may need one.
 A card is rendered the way the editor renders a note, so a table on a card is
 asked as a table and a `[[link]]` reads as its name. The answer side is the one
 in the accent colour.
+
+A card side that holds sounds, `![](word.mp3)` and the like, plays them in order
+when it shows: the question's when the card comes up, the answer's when you turn
+it. Rating, parking or leaving the sitting stops them. `r`, or the Replay button
+in the header, plays them again. A phone refuses the first card's sounds because
+no tap started them, and Replay is how you hear that card there.
 
 The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.

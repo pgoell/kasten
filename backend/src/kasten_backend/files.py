@@ -26,7 +26,7 @@ import httpx
 from httpcore._backends.anyio import AnyIOBackend
 
 from kasten_backend.change import vault_change, vault_write
-from kasten_backend.vault import ASSET_MAGIC, relative_path, resolve_asset_path
+from kasten_backend.vault import HEAD_BYTES, fits, relative_path, resolve_asset_path
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterable
@@ -46,13 +46,6 @@ Cloudflare sits in front of production with a body limit of its own near this
 number, so a real oversize upload is usually refused before it arrives. This is
 the backstop for dev, for the LAN, for a client that did not check, and for a
 download, which no proxy in front of kasten sees at all.
-"""
-
-HEAD_BYTES = max(len(magic) for magic in ASSET_MAGIC.values())
-"""How much of an upload the suffix check needs, which is the longest magic.
-
-Derived rather than typed, so a format whose magic is longer than every one
-before it widens this by arriving in the table.
 """
 
 PAGE_FAILED = 400
@@ -224,13 +217,17 @@ async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
         raise RefusedError(502, "That page redirects too many times") from error
 
 
-async def store(root: Path, path: str, chunks: AsyncIterator[bytes]) -> str:
+async def store(root: Path, path: str, chunks: AsyncIterator[bytes], *, held: bool = False) -> str:
     """Put the bytes `chunks` yields at `path`, never over a file already there.
 
     Answers with the vault-relative path that landed. Every refusal leaves the
     path as it found it, a free one with no temp beside it. An exception the
     iterator raises, a client hanging up mid-body or a download breaking off,
     propagates after the same cleanup.
+
+    `held` is for a caller already inside `vault_write` and its own
+    `vault_change`, the Anki import writing a deck's media beside its notes.
+    The lock is not re-entrant, so taking it again here would deadlock.
     """
     asset = resolve_asset_path(root, path)
     if asset is None:
@@ -287,7 +284,7 @@ async def store(root: Path, path: str, chunks: AsyncIterator[bytes]) -> str:
         # what picks the bytes: `resolve_asset_path` above answers for the
         # names in `ASSET_MAGIC` and no others, lowered the way it lowers
         # them, so the lookup cannot miss.
-        if not head.startswith(ASSET_MAGIC[asset.suffix.lower()]):
+        if not fits(asset.suffix.lower(), head):
             raise RefusedError(400, "That file is not what its name says")
 
         # A link and not an `os.replace`, though `write_note` replaces in the
@@ -299,8 +296,11 @@ async def store(root: Path, path: str, chunks: AsyncIterator[bytes]) -> str:
             # The lock covers the link and nothing before it. Holding it across
             # the stream above would serialise every browser save behind one
             # slow upload.
-            async with vault_write(), vault_change(root, relative):
+            if held:
                 os.link(temporary, asset)
+            else:
+                async with vault_write(), vault_change(root, relative):
+                    os.link(temporary, asset)
         except FileExistsError as taken:
             # Around the link alone, so it cannot swallow the temp's own
             # `open("xb")` colliding, which means something else entirely and

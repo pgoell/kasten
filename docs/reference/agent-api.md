@@ -294,7 +294,8 @@ curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
 { "path": "20 Literature/DDIA.pdf" }
 ```
 
-`path` ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp`, and
+`path` ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.mp3`,
+`.m4a`, `.ogg` or `.wav`, and
 the bytes must start the way that suffix says. A PDF or an epub filed at a
 note's path with the suffix swapped is the file the reader opens beside that
 note, which [The file beside a note](/explanation/books-in-the-vault.md)

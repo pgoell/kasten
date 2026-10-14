@@ -478,7 +478,7 @@ the raw request body, the way `POST /api/assets/{path}` takes a book, and
 answers 201 with what was written.
 
 ```json
-{ "notes": ["03 Flashcards/AWS.md"], "cards": 412, "dropped_media": 17 }
+{ "notes": ["03 Flashcards/AWS.md"], "cards": 412, "media": 17 }
 ```
 
 The export is read with `zipfile`, `sqlite3` and `compression.zstd`, all of them
@@ -498,25 +498,40 @@ written over three lines, question, `?` and answer, so the first `::` does not
 cut it short, and is left out when its answer is empty or `?`, or when either
 side is a heading, a line of only tags or a line opening with `!suspended`, or
 its answer holds a whole schedule comment, any of which would end the card.
+A question ending in `:` is written `question ::answer`, so the colon stays on
+the question, and a side that would open its line with three backticks gets a
+backslash in front, so it opens no code block.
 `cards` counts the cards the notes hold, not those Anki made. A cloze note gives one card,
 its Text field the question and Back Extra the answer. Each card goes to the
 deck its own Anki card sits in, HTML is flattened to one line, and a nested deck
 becomes a nested folder under
 [KASTEN_FLASHCARDS_PATH](/reference/configuration.md#kasten_flashcards_path).
 
-`dropped_media` counts the cards that referred to an image or a sound, so a
-reversed note with an image counts two. A card left out because its question
-was only a picture or a sound counts too. The media map in a current export is
-zstd-compressed protobuf, which the standard library cannot read without the
-schema, so those references are stripped and the number is reported rather
-than the loss being silent.
+Images and sounds come with their deck. Each file a card names in an `<img>` or
+a `[sound:]` is written to a folder beside the deck's note,
+`03 Flashcards/AWS media/cat.png` for the note `03 Flashcards/AWS.md`, and the
+card links it as `![](03%20Flashcards/AWS%20media/cat.png)`, a vault path
+percent-encoded the way the editor encodes one, with `:`, `(` and `)` encoded
+too. The editor draws a link to a sound as a player. Both forms of the media map
+are read: the JSON one of an older export and the zstd-compressed protobuf of a
+current one, whose files are zstd-compressed too. A file two decks name is
+written once into each. `media` counts the files written.
+
+A file goes through the checks `POST /api/assets/{path}` makes: a suffix the
+vault takes as an image or a sound, bytes that start the way the suffix says,
+and the 100MB cap. A name that is not one plain file name (empty, `..`, holding
+a slash, or over 255 bytes) is refused too. A refused file, and one the export
+lists but does not hold, is not written, and the card loses the reference as if
+it had never been there; the import still lands. A card whose question was only
+such a file has nothing left to ask and is left out.
 
 ### What an import refuses
 
 * A body that is not a zip, or a zip holding no collection, answers 400.
 * A collection kasten cannot read answers 400 with a `detail` saying the export
-  is unreadable: a `collection.anki21b` that is not zstd, a deck with no name,
-  or a note whose fields are not text.
+  is unreadable: a `collection.anki21b` that is not zstd, a deck with no name
+  or a name that is not text, a note whose fields are not text, or a media map
+  that cannot be read.
 * A deck name that would climb out of the flashcards folder answers 400.
 * A collection with no note types answers 400, because without templates there
   is nothing to make a card from.
@@ -524,6 +539,8 @@ than the loss being silent.
   all**, not even the decks in the same export that would have been fine. Every
   path is resolved and every collision found before the first write, because the
   note it would land on may hold schedules you spent a month building.
+* A media file whose path is already taken answers 409 the same way, and
+  nothing is written.
 * A body over 100MB answers 413.
 
 [Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
@@ -645,15 +662,16 @@ gives the Caddy fix.
 
 ## GET /api/vault-assets
 
-Lists every image and book in the vault as a relative POSIX path, sorted.
+Lists every image, sound and book in the vault as a relative POSIX path, sorted.
 
 ```json
 ["00 Inbox/plan.pdf", "99 Misc/02 Assets/01 Images/2026-08-12-a1b2c3d4.png"]
 ```
 
 The same walk `/api/images` makes, filtered on every suffix an upload takes:
-`.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, in any case. The
-editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
+`.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.mp3`, `.m4a`,
+`.ogg` and `.wav`, in any case. `/api/images` leaves the sounds out, so `![](`
+completes pictures only. The editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
 and as dead when it does not.
 
 Not `/api/assets`, whose `GET` with a path serves one file. A listing at the
@@ -661,8 +679,8 @@ same URL would make it mean two things.
 
 ## GET /api/assets/{path}
 
-Reads one book or image out of the vault and answers with the bytes. `path` is a
-vault-relative POSIX path ending in one of seven suffixes, in any case, so
+Reads one book, image or sound out of the vault and answers with the bytes.
+`path` is a vault-relative POSIX path ending in one of eleven suffixes, in any case, so
 `Plan.PDF` is served as a pdf. A slash inside it may be sent raw or
 percent-encoded.
 
@@ -674,6 +692,10 @@ percent-encoded.
 | `.jpg`, `.jpeg` | `image/jpeg` |
 | `.gif` | `image/gif` |
 | `.webp` | `image/webp` |
+| `.mp3` | `audio/mpeg` |
+| `.m4a` | `audio/mp4` |
+| `.ogg` | `audio/ogg` |
+| `.wav` | `audio/x-wav` |
 
 The reply is the file, and the content type comes off the suffix. Nothing here
 opens what it sends: this resolves a path, checks the suffix and streams a file,
@@ -691,9 +713,9 @@ of the vault.
 
 ## POST /api/assets/{path}
 
-Puts one book or image into the vault at `path`, and never over one already
-there. `path` follows the same rules the read above follows, the seven suffixes
-included.
+Puts one book, image or sound into the vault at `path`, and never over one
+already there. `path` follows the same rules the read above follows, the eleven
+suffixes included.
 
 The body is the file itself, raw. Not multipart: one file and no fields, so
 nothing has to parse a boundary at either end. No response body comes back,
@@ -731,9 +753,12 @@ not check its file first.
 
 The bytes must start the way the suffix says they will: `PK\x03\x04` for a
 `.epub`, which is what a zip starts with, `%PDF-` for a `.pdf`, and the matching
-magic for each of the five image formats. `.webp` is checked on its `RIFF` alone, four bytes it shares
-with wav and avi, one prefix per suffix being worth more here than the
-exactness. **This is a usability check and not a security one.** The shell pane
+magic for each of the five image formats. A sound has more than one way to
+start: an `.mp3` opens with `ID3` or an MPEG frame header, an `.m4a` with `ftyp`
+behind the four bytes of its box size, an `.ogg` with `OggS`. `.webp` and `.wav`
+are checked on their `RIFF` alone, four bytes they share with each other and
+with avi, a short check per suffix being worth more here than the exactness.
+**This is a usability check and not a security one.** The shell pane
 drops a file straight into the vault without coming near this endpoint, so
 nothing downstream can rely on it having run. It earns its place because there
 is no delete: a PDF renamed `.epub` and sent by mistake would squat on the
@@ -752,8 +777,8 @@ screenshots are.
 
 ## DELETE /api/assets/{path}
 
-Takes one image out of the vault and holds it in the trash, answering with the
-entry it became.
+Takes one image or sound out of the vault and holds it in the trash, answering
+with the entry it became.
 
 ```json
 {

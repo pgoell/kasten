@@ -485,6 +485,44 @@ async def test_lists_an_image_whose_suffix_is_upper_case(client: AsyncClient, va
     assert response.json() == ["PHOTO.PNG"]
 
 
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("a.mp3", b"ID3\x04\x00 tagged"),
+        ("b.mp3", b"\xff\xfb\x90\x00 bare frame"),
+        ("c.ogg", b"OggS\x00 page"),
+        ("d.m4a", b"\x00\x00\x00\x20ftypM4A box"),
+        ("e.wav", b"RIFF\x24\x00\x00\x00WAVEfmt "),
+    ],
+)
+async def test_a_sound_lands(client: AsyncClient, vault: Path, name: str, body: bytes) -> None:
+    response = await client.post(f"/api/assets/{name}", content=body)
+
+    assert response.status_code == 201
+    assert (vault / name).read_bytes() == body
+
+
+async def test_refuses_a_sound_whose_bytes_are_an_image(client: AsyncClient, vault: Path) -> None:
+    response = await client.post("/api/assets/a.mp3", content=PNG)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "That file is not what its name says"
+    assert not (vault / "a.mp3").exists()
+
+
+async def test_lists_no_sound_among_the_images(client: AsyncClient, vault: Path) -> None:
+    # `/api/images` is what a `![](` completes against; a sound is a file the
+    # vault takes, but no image.
+    (vault / "shot.png").write_bytes(PNG)
+    (vault / "meow.mp3").write_bytes(b"ID3")
+
+    images = await client.get("/api/images")
+    assets = await client.get("/api/vault-assets")
+
+    assert images.json() == ["shot.png"]
+    assert assets.json() == ["meow.mp3", "shot.png"]
+
+
 async def test_takes_an_upload_whose_suffix_is_upper_case(client: AsyncClient, vault: Path) -> None:
     response = await client.post("/api/assets/X.PNG", content=PNG)
 

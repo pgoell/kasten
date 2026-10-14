@@ -4,6 +4,7 @@ import { EditorSelection, EditorState, type RangeSet, StateField } from "@codemi
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
+import { isAudio } from "@/lib/audio";
 import { readClock } from "@/lib/clock";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths, imageSource } from "@/lib/image";
@@ -145,6 +146,35 @@ class Picture extends WidgetType {
     image.alt = this.alt;
     image.addEventListener("load", () => view.requestMeasure());
     return image;
+  }
+}
+
+/**
+ * The player an `![](word.mp3)` is drawn as, which an Anki import writes.
+ *
+ * `preload="none"` because a deck note is a thousand lines of these, and
+ * loading every one on opening the note is a thousand requests nobody asked
+ * for. Nothing to measure: the controls have their size before anything loads.
+ */
+class Sound extends WidgetType {
+  private readonly source: string;
+
+  constructor(source: string) {
+    super();
+    this.source = source;
+  }
+
+  override eq(other: Sound): boolean {
+    return other.source === this.source;
+  }
+
+  toDOM(): HTMLElement {
+    const audio = document.createElement("audio");
+    audio.className = "cm-audio";
+    audio.controls = true;
+    audio.setAttribute("preload", "none");
+    audio.src = this.source;
+    return audio;
   }
 }
 
@@ -651,7 +681,9 @@ function build(state: EditorState): Live {
       const isTable = node.name === "Table";
       const isTag = node.name === "Tag";
       const isEmbed = node.name === "Embed";
+      const isEscape = node.name === "Escape";
       if (
+        !isEscape &&
         !isEmbed &&
         !heading &&
         !inline &&
@@ -778,6 +810,15 @@ function build(state: EditorState): Live {
 
       const line = state.doc.lineAt(node.from);
       const revealed = isLineRevealed(state, line) || node.from < tableEnd;
+
+      // `\*` is the asterisk, and the backslash is a mark like any other. An
+      // Anki card side opening with a fence is written with a backslash before
+      // its backticks so it opens none, and should read as the backticks. By the line rule, so the cursor's
+      // line and a table's source keep it.
+      if (isEscape) {
+        if (!revealed) hide(node.from, node.from + 1);
+        return;
+      }
 
       // Drawn as the note or the picture it names, by the image's line rule
       // and hidden as the image is, for the same reason. Every way out is
@@ -925,12 +966,16 @@ function build(state: EditorState): Live {
         // The position the note remembers, so a clip picked up again opens where
         // the pane left it. Read here rather than held, the widget's `eq` being
         // what stops a later position remounting the frame.
+        // A sound before a picture, by its suffix: the browser would draw an
+        // `.mp3` handed to an `img` as a broken image.
         const widget: WidgetType | null =
           video !== null
             ? new Player(video, watchedAt(state.doc.toString(), video))
-            : source !== null
-              ? new Picture(source, alt)
-              : null;
+            : source === null
+              ? null
+              : isAudio(address)
+                ? new Sound(source)
+                : new Picture(source, alt);
         // Neither a video nor an image that can load, drawn as its own source
         // for the reason above.
         if (widget === null) return;

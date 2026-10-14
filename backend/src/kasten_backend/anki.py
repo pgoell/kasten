@@ -12,10 +12,13 @@ needs to come out the same: field replacements, filters, and conditional
 sections. A cloze note type is the exception and keeps the first two fields,
 because its templates only mean something once cloze is rendered (#233).
 
-Media is counted rather than carried. The image or sound a field names lives in
-the zip under a numbered name that only the export's `media` map translates, and
-a note rendering a broken image is worse than a note saying how many cards did
-not come through.
+Media is carried. The image or sound a field names lives in the zip under a
+numbered name that only the export's `media` map translates, a JSON object in
+the legacy export and zstd-compressed protobuf in the latest. A file the vault
+would take becomes `![](path)` in the card, the path being where `import_anki`
+writes it beside the deck's note; one it would not, or one the zip lacks, is
+dropped from the text, since a note rendering a broken image is worse than a
+card without it. Reading stays pure: the deck hands the bytes to its caller.
 """
 
 import html
@@ -25,11 +28,19 @@ import re
 import sqlite3
 import tempfile
 import zipfile
-from collections import Counter, defaultdict
+from collections import defaultdict
 from compression import zstd
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+from urllib.parse import quote, unquote
+
+from kasten_backend.files import ASSET_LIMIT_BYTES
+from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 SEPARATOR = "\x1f"
 """Anki's separator: it joins a note's fields, and from schema 18 the levels of a deck name."""
@@ -43,7 +54,28 @@ crashing. Reading them in this order is what keeps the stub out.
 """
 
 ZSTD_MEMBER = "collection.anki21b"
-"""The only member that is compressed rather than an sqlite file as it stands."""
+"""The collection member that is compressed rather than an sqlite file as it stands."""
+
+ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
+"""What a zstd frame starts with.
+
+The latest export compresses its media map and every media file, the legacy
+one neither, and nothing else in the zip says which form a member is in.
+"""
+
+MEDIA_SUFFIXES = (*IMAGE_SUFFIXES, *AUDIO_SUFFIXES)
+"""What a field's image or sound may be to come through: an asset, and no book."""
+
+_LINK_SAFE = "/;,@&=+$!*'"
+"""What `media_path` leaves unescaped: `encodeURI`'s reserved set less `#` and `?`.
+
+That is `encodePath` in `note-path.ts`, less `:` and the parens besides. A `::`
+in a link would split the card line, a lone paren would end the link early, and
+the server decodes all three back.
+"""
+
+_NAME_LIMIT_BYTES = 255
+"""The longest file name a filesystem takes, which `vault.py` holds to as well."""
 
 CLOZE_KIND = 1
 """A note type's kind when it is a cloze type, in `col.models` and in its protobuf config alike."""
@@ -55,11 +87,16 @@ The hint is part of the match and not of the group, so it is dropped: a
 highlight in a markdown note has nowhere to put it.
 """
 
-_SOUND = re.compile(r"\[sound:[^\]]*\]")
+_SOUND = re.compile(r"\[sound:([^\]]*)\]")
+_IMAGE = re.compile(
+    r"""<img\b[^>]*?\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>""", re.IGNORECASE
+)
+"""An `<img>` and its `src`, quoted either way or not at all."""
+_HELD = re.compile("(\\d+)")
+"""The mark `plain` holds a link's place with: private-use characters no field holds."""
 _CODE = re.compile(r"<(script|style)\b.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
 _BREAK = re.compile(r"<\s*(?:br\s*/?|/\s*(?:div|p))\s*>", re.IGNORECASE)
 _TAG = re.compile(r"<[^>]*>")
-_MEDIA = re.compile(r"<img|\[sound:", re.IGNORECASE)
 _TOKEN = re.compile(r"\{\{(.*?)\}\}|<!--.*?-->", re.DOTALL)
 """A handlebar or an HTML comment: Anki lexes the comment whole, so a field inside it is not one."""
 _VARINT, _LENGTH = 0, 2
@@ -102,7 +139,20 @@ class Deck:
 
     name: str
     cards: list[Card]
-    dropped_media: int
+    media: dict[str, bytes]
+    """Every file a card links, by its name in the deck's media folder."""
+
+
+@dataclass(frozen=True)
+class _Rendered:
+    """One card before `plain`, which needs to know first which media came through."""
+
+    deck: str
+    question: str
+    answer: str
+    fields: dict[str, str]
+    template: Template
+    kind: _NoteType
 
 
 @dataclass(frozen=True)
@@ -129,35 +179,104 @@ class _Section:
 type _Node = str | _Field | _Section
 
 
-def plain(field: str) -> str:
+def plain(field: str, links: Mapping[str, str] | None = None) -> str:
     """One Anki field as a single line of markdown.
 
     A card is one line, so every break in the field becomes a space and the
-    result never holds a newline.
+    result never holds a newline. An image or a sound whose name `links` maps
+    becomes `![](link)`, and any other is dropped.
     """
-    text = _SOUND.sub("", field)
+    held: list[str] = []
+
+    def hold(match: re.Match[str]) -> str:
+        link = (links or {}).get(_name(match))
+        if link is None:
+            return ""
+        held.append(f"![]({link})")
+        # A mark rather than the link, which the passes below would unescape
+        # and could split; it goes back in at the end.
+        return f"{len(held) - 1}"
+
+    text = _SOUND.sub(hold, field)
+    text = _IMAGE.sub(hold, text)
     # Before the tag strip, which would leave a script's code behind as prose.
     text = _CODE.sub("", text)
     text = _BREAK.sub(" ", text)
-    # Takes `<img>` with it, which is what removes an image reference.
     text = _TAG.sub("", text)
     # After the strip, so a `&lt;b&gt;` the author meant as text stays text.
     text = html.unescape(text)
     text = _CLOZE.sub(r"==\1==", text)
     # `split()` counts the non-breaking space `&nbsp;` just unescaped as
     # whitespace, which is what turns it into an ordinary space.
-    return " ".join(text.split())
+    return _HELD.sub(lambda mark: held[int(mark[1])], " ".join(text.split()))
 
 
-def read_apkg(data: bytes) -> list[Deck]:
+def media_path(folder: str, deck: str, name: str) -> str:
+    """Where the file `name` of `deck` goes, vault-relative: a folder beside the deck's note."""
+    return "/".join(part for part in (folder, f"{deck} media", name) if part)
+
+
+def read_apkg(data: bytes, folder: str = "") -> list[Deck]:
     """Every deck `data` holds, sorted by name and without the empty ones.
+
+    `folder` is where the deck notes go. A card links each image and sound it
+    can carry at `media_path`, and its deck holds the bytes for the caller to
+    write there.
 
     Raises:
         ValueError: `data` is not a zip, or holds no collection, or holds one
             zstd or sqlite refuses to read, or one whose decks, note types or
-            note fields cannot be read.
+            note fields cannot be read, or a media map that cannot be read.
     """
-    blob = _collection(data)
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as bundle:
+            rendered = _rendered(_collection(bundle))
+            index = _media_index(bundle)
+            wanted = {name for card in rendered for name in _names(card.question, card.answer)}
+            files = {name: found for name in wanted if (found := _media_file(bundle, index, name))}
+    except zipfile.BadZipFile as error:
+        raise ValueError("not an Anki export: the bytes are not a zip") from error
+
+    cards: defaultdict[str, list[Card]] = defaultdict(list)
+    carried: defaultdict[str, dict[str, bytes]] = defaultdict(dict)
+    for card in rendered:
+        links: dict[str, str] = {}
+        for name in _names(card.question, card.answer):
+            if name in files:
+                file, blob = files[name]
+                carried[card.deck][file] = blob
+                links[name] = quote(media_path(folder, card.deck, file), safe=_LINK_SAFE)
+        cards[card.deck].append(
+            Card(
+                plain(card.question, links),
+                plain(card.answer, links),
+                card.fields,
+                card.template,
+                card.kind.name,
+                card.kind.cloze,
+            )
+        )
+
+    return [Deck(name, deck, carried[name]) for name, deck in sorted(cards.items())]
+
+
+def _names(*texts: str) -> list[str]:
+    """Every media name the `<img>` and `[sound:]` in `texts` give, the way `plain` reads them."""
+    return [
+        _name(match)
+        for text in texts
+        for pattern in (_SOUND, _IMAGE)
+        for match in pattern.finditer(text)
+    ]
+
+
+def _name(match: re.Match[str]) -> str:
+    """The name a `_SOUND` or `_IMAGE` match gives, unescaped since the field is HTML."""
+    return html.unescape(next(group for group in match.groups() if group is not None))
+
+
+def _rendered(blob: bytes) -> list[_Rendered]:
+    """Every card the collection `blob` makes, its sides rendered and not yet plain."""
     with tempfile.TemporaryDirectory() as folder:
         # sqlite3 opens a path rather than bytes, so the collection has to touch
         # a disk somewhere before it can be read.
@@ -180,8 +299,7 @@ def read_apkg(data: bytes) -> list[Deck]:
     if notes and not any(mid in types for mid, _ in notes.values()):
         raise ValueError("no note type in the collection matches its notes")
 
-    cards: defaultdict[str, list[Card]] = defaultdict(list)
-    dropped: Counter[str] = Counter()
+    rendered: list[_Rendered] = []
     clozed: set[int] = set()
     for nid, did, ord_ in card_rows:
         note = notes.get(nid)
@@ -211,12 +329,9 @@ def read_apkg(data: bytes) -> list[Deck]:
             if not filled:
                 continue
             answer, _ = _render(_parse(template.afmt), fields, question=False)
-        card = Card(plain(question), plain(answer), fields, template, kind.name, kind.cloze)
-        cards[name].append(card)
-        if _MEDIA.search(question) or _MEDIA.search(answer):
-            dropped[name] += 1
+        rendered.append(_Rendered(name, question, answer, fields, template, kind))
 
-    return [Deck(name, deck, dropped[name]) for name, deck in sorted(cards.items())]
+    return rendered
 
 
 def as_note(deck: Deck) -> str:
@@ -238,6 +353,10 @@ def as_note(deck: Deck) -> str:
     whole schedule comment, which drops the `?` card there and reads the front
     at its first `::` after all. `note_cards` holds these rules. The
     one-line form that parks a question is the form this card cannot take.
+
+    Two sides are written other than as they read, so that they read back as
+    Anki showed them (#243): a front ending in `:` gets a space before the
+    divider, and a side opening a line with three backticks gets a backslash.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
     # otherwise land in a deck called `AWS` with the rest of its name read as
@@ -245,12 +364,16 @@ def as_note(deck: Deck) -> str:
     head = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
     body: list[str] = []
     for card in note_cards(deck):
+        front = _unfenced(card.front)
         if "::" not in card.front:
-            body.append(f"{card.front}::{card.back}")
+            # `divide` splits at the first `::`, so `Ratio 1:` before the divider
+            # would lose its colon to the back; it trims the space this adds.
+            gap = " " if front.endswith(":") else ""
+            body.append(f"{front}{gap}::{card.back}")
         else:
             if body and body[-1]:
                 body.append("")
-            body += [card.front, "?", card.back, ""]
+            body += [front, "?", _unfenced(card.back), ""]
     # The blank a `?` card leaves under itself is a separator, not part of the
     # note, so the last one comes off rather than ending the note on two breaks.
     if body and not body[-1]:
@@ -277,6 +400,16 @@ def note_cards(deck: Deck) -> list[Card]:
             )
         )
     ]
+
+
+def _unfenced(side: str) -> str:
+    """`side` with a leading fence escaped, so it opens no code block in the note.
+
+    `fences()` in `card-line.ts` reads any line opening with three backticks as a
+    fence, and both readers skip every card inside one. The backslash is
+    markdown's own escape, so the side still shows its backticks.
+    """
+    return f"\\{side}" if side.startswith("```") else side
 
 
 def _ends_card(line: str) -> bool:
@@ -371,20 +504,76 @@ def _empty(value: str) -> bool:
     return _EMPTY.fullmatch(value) is not None
 
 
-def _collection(data: bytes) -> bytes:
+def _collection(bundle: zipfile.ZipFile) -> bytes:
     """The sqlite bytes of the newest collection the export holds."""
+    held = set(bundle.namelist())
+    member = next((name for name in COLLECTION_MEMBERS if name in held), None)
+    if member is None:
+        raise ValueError(f"no Anki collection in the export: {sorted(held)}")
+    blob = bundle.read(member)
     try:
-        with zipfile.ZipFile(io.BytesIO(data)) as bundle:
-            held = set(bundle.namelist())
-            member = next((name for name in COLLECTION_MEMBERS if name in held), None)
-            if member is None:
-                raise ValueError(f"no Anki collection in the export: {sorted(held)}")
-            blob = bundle.read(member)
-            return zstd.decompress(blob) if member == ZSTD_MEMBER else blob
-    except zipfile.BadZipFile as error:
-        raise ValueError("not an Anki export: the bytes are not a zip") from error
+        return zstd.decompress(blob) if member == ZSTD_MEMBER else blob
     except zstd.ZstdError as error:
         raise ValueError(f"unreadable Anki export: {member} is not zstd: {error}") from error
+
+
+def _media_index(bundle: zipfile.ZipFile) -> dict[str, str]:
+    """Every media file the export lists, by the name a field gives it, against its zip member.
+
+    The legacy map is JSON from member to name. The latest is Anki's
+    `MediaEntries`, its entries numbered by position unless one carries the
+    `legacy_zip_filename` of field 255.
+    """
+    if "media" not in bundle.namelist():
+        return {}
+    raw = bundle.read("media")
+    try:
+        if not raw.startswith(ZSTD_MAGIC):
+            return {name: member for member, name in json.loads(raw).items()}
+        index: dict[str, str] = {}
+        for number, entry in enumerate(_protobuf(zstd.decompress(raw)).get(1, [])):
+            if not isinstance(entry, bytes):
+                raise ValueError(f"entry {number} is not a message")
+            legacy = _protobuf(entry).get(255)
+            index[_string(entry, 1)] = str(legacy[0] if legacy else number)
+    except (zstd.ZstdError, ValueError, AttributeError, TypeError) as error:
+        raise ValueError(f"unreadable Anki export: bad media map ({error})") from error
+    return index
+
+
+def _media_file(
+    bundle: zipfile.ZipFile, index: dict[str, str], name: str
+) -> tuple[str, bytes] | None:
+    """The file a field names as `name`, by its name in the vault and its bytes, or None.
+
+    None for a file the vault would refuse as `store` would: a name that is not
+    one plain file name, a suffix it takes no image or sound under, a body over
+    the cap or not what its suffix says. None too for one the zip lacks.
+    """
+    # Anki percent-encodes an `<img src>` in some versions, never the map.
+    if name not in index:
+        name = unquote(name)
+    member = index.get(name)
+    if (
+        member is None
+        or name in ("", ".", "..")
+        or any(char in name for char in "/\\\x00")
+        or len(name.encode()) > _NAME_LIMIT_BYTES
+        or Path(name).suffix.lower() not in MEDIA_SUFFIXES
+        or member not in bundle.namelist()
+        or bundle.getinfo(member).file_size > ASSET_LIMIT_BYTES
+    ):
+        return None
+    data = bundle.read(member)
+    if data.startswith(ZSTD_MAGIC):
+        try:
+            # Capped, since the size the zip states is the compressed one.
+            data = zstd.ZstdDecompressor().decompress(data, max_length=ASSET_LIMIT_BYTES + 1)
+        except zstd.ZstdError:
+            return None
+    if len(data) > ASSET_LIMIT_BYTES or not fits(Path(name).suffix.lower(), data):
+        return None
+    return name, data
 
 
 def _deck_names(db: sqlite3.Connection) -> dict[int, str]:
@@ -401,6 +590,10 @@ def _deck_names(db: sqlite3.Connection) -> dict[int, str]:
             return {int(did): deck["name"].replace("::", "/") for did, deck in listing.items()}
         except (KeyError, TypeError, AttributeError) as error:
             raise ValueError(f"unreadable Anki export: bad deck list ({error!r})") from error
+    # sqlite keeps whatever type a row was written with, so a name can be a blob.
+    for did, name in rows:
+        if not isinstance(name, str):
+            raise ValueError(f"unreadable Anki export: deck {did} is named {name!r}")
     return {did: name.replace(SEPARATOR, "/") for did, name in rows}
 
 

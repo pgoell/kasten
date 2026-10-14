@@ -1176,8 +1176,8 @@ export interface components {
             notes: string[];
             /** Cards */
             cards: number;
-            /** Dropped Media */
-            dropped_media: number;
+            /** Media */
+            media: number;
         };
         /**
          * Append

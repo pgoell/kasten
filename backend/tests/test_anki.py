@@ -114,6 +114,13 @@ LAYOUTS = [
 ]
 
 
+PNG = b"\x89PNG\r\n\x1a\n not really an image"
+MP3 = b"ID3\x04\x00 not really a sound"
+
+type Media = tuple[tuple[str, bytes | None], ...]
+"""Files an export carries, by the name a field gives them; `None` is listed but not zipped."""
+
+
 def apkg(
     notes: tuple[tuple[int, int, str], ...] = NOTES,
     cards: tuple[tuple[int, int, int, int], ...] = CARDS,
@@ -122,8 +129,14 @@ def apkg(
     types: tuple[NoteType, ...] = TYPES,
     schema18: bool = False,
     member: str = "collection.anki2",
+    media: Media = (),
 ) -> bytes:
-    """The bytes of an export holding `notes` in `decks`, in one of the two schemas."""
+    """The bytes of an export holding `notes` in `decks`, in one of the two schemas.
+
+    `media` goes in the form the collection's member implies: beside
+    `collection.anki21b`, the latest export's zstd protobuf map with every file
+    zstd-compressed, and otherwise the legacy JSON map with the files raw.
+    """
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "collection"
         with sqlite3.connect(path) as db:
@@ -140,7 +153,25 @@ def apkg(
         db.close()
         blob = path.read_bytes()
 
-    return zipped(member, zstd.compress(blob) if member == "collection.anki21b" else blob)
+    latest = member == "collection.anki21b"
+    return zipped(member, zstd.compress(blob) if latest else blob, *media_members(media, latest))
+
+
+def media_members(media: Media, latest: bool) -> list[tuple[str, bytes]]:
+    """The `media` map and the numbered files beside it, in the latest form or the legacy one."""
+    files = [(str(i), data) for i, (_, data) in enumerate(media) if data is not None]
+    if not latest:
+        listing = {str(i): name for i, (name, _) in enumerate(media)}
+        return [("media", json.dumps(listing).encode()), *files]
+    entries = b"".join(
+        proto(1, proto(1, name) + proto(2, len(data or b""))) for name, data in media
+    )
+    # `meta` is what tells Anki the export is the latest form; this reader goes by the map.
+    return [
+        ("media", zstd.compress(entries)),
+        ("meta", proto(1, 3)),
+        *((number, zstd.compress(data)) for number, data in files),
+    ]
 
 
 def write_legacy(
@@ -188,11 +219,11 @@ def write_schema_18(
     db.execute("INSERT INTO templates VALUES (999, 0, 'orphan', ?)", (proto(1, "{{X}}"),))
 
 
-def proto(number: int, value: int | str) -> bytes:
-    """One protobuf field: a varint for an int, length-delimited for a string."""
+def proto(number: int, value: int | str | bytes) -> bytes:
+    """One protobuf field: a varint for an int, length-delimited for a string or a message."""
     if isinstance(value, int):
         return varint(number << 3) + varint(value)
-    data = value.encode()
+    data = value.encode() if isinstance(value, str) else value
     return varint(number << 3 | 2) + varint(len(data)) + data
 
 
@@ -205,10 +236,11 @@ def varint(value: int) -> bytes:
             return bytes(out)
 
 
-def zipped(name: str, blob: bytes) -> bytes:
+def zipped(name: str, blob: bytes, *more: tuple[str, bytes]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as bundle:
-        bundle.writestr(name, blob)
+        for member, data in ((name, blob), *more):
+            bundle.writestr(member, data)
     return buffer.getvalue()
 
 
@@ -437,7 +469,7 @@ def test_writes_a_deck_as_a_tagged_note() -> None:
                 ("alone", ""),
             )
         ],
-        0,
+        {},
     )
 
     assert as_note(deck) == "#flashcards/Certs/AWS\n\nBonjour::hello\nParis::the capital\nalone::\n"
@@ -463,7 +495,7 @@ def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
 def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None:
     template = Template("Card 1", "{{Front}}", "{{Back}}")
     pairs = (("a", "b"), ("What does std::move do?", "casts std::move"), ("c", "d"))
-    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], 0)
+    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
 
     assert as_note(deck) == (
         "#flashcards/x\n\na::b\n\nWhat does std::move do?\n?\ncasts std::move\n\nc::d\n"
@@ -488,7 +520,7 @@ def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str,
     # `frontend/tests/review.test.ts` reads the first case's text back.
     template = Template("Card 1", "{{Front}}", "{{Back}}")
     pairs = ((front, back), ("a", "b"))
-    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], 0)
+    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
 
     assert as_note(deck) == "#flashcards/x\n\na::b\n"
 
@@ -505,15 +537,40 @@ def test_keeps_a_divider_question_holding_what_is_no_schedule_stop(front: str, b
     # `srs.ts` stops a back only at a whole schedule comment, and a front at no
     # schedule at all, so neither of these ends the card.
     template = Template("Card 1", "{{Front}}", "{{Back}}")
-    deck = Deck("x", [Card(front, back, {}, template, "Basic", cloze=False)], 0)
+    deck = Deck("x", [Card(front, back, {}, template, "Basic", cloze=False)], {})
 
     assert as_note(deck) == f"#flashcards/x\n\n{front}\n?\n{back}\n"
+
+
+def test_a_front_ending_in_a_colon_reads_back_whole() -> None:
+    # `Ratio 1:::2` would split at its first `::` into `Ratio 1` and `:2`.
+    # `divide` in `card-line.ts` trims the space the divider sits behind.
+    decks = read_apkg(apkg(((1, BASIC, "Ratio 1:\x1f2"),), CARDS[:1], ((100, "x"),)))
+
+    line = as_note(decks[0]).splitlines()[-1]
+    front, back = line.split("::", 1)
+
+    assert line == "Ratio 1: ::2"
+    assert (front.strip(), back.strip()) == ("Ratio 1:", "2")
+
+
+def test_a_side_opening_a_fence_opens_none() -> None:
+    # `fences()` in `card-line.ts` reads a line opening with three backticks as
+    # a fence, and both readers would skip every card under it.
+    template = Template("Card 1", "{{Front}}", "{{Back}}")
+    pairs = (("```js x", "code"), ("```a::b", "```c"), ("a", "b"))
+    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
+
+    note = as_note(deck)
+
+    assert not any(line.lstrip().startswith("```") for line in note.splitlines())
+    assert note == "#flashcards/x\n\n\\```js x::code\n\n\\```a::b\n?\n\\```c\n\na::b\n"
 
 
 def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
     template = Template("Card 1", "{{Front}}", "{{Back}}")
     pairs = (("What does std::move do?", ""), ("a", "b"))
-    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], 0)
+    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
 
     assert as_note(deck) == "#flashcards/x\n\na::b\n"
 
@@ -672,14 +729,98 @@ def test_spells_a_nested_deck_with_a_slash_on_the_old_schema() -> None:
     assert read_apkg(data)[0].name == "Certs/AWS"
 
 
-def test_counts_each_card_that_names_media() -> None:
-    notes = ((1, REVERSED, '<img src="cat.jpg"> a cat\x1fle chat'),)
+def test_plain_turns_media_into_links() -> None:
+    links = {"cat.png": "d/cat.png", "a&b.png": "d/a&b.png", "meow.mp3": "d/meow.mp3"}
+    field = (
+        "<img src=\"cat.png\"> <IMG alt=x SRC='a&amp;b.png'> <img src=cat.png>"
+        " [sound:meow.mp3] <img src='gone.png'> [sound:gone.mp3]"
+    )
+
+    assert plain(field, links) == "![](d/cat.png) ![](d/a&b.png) ![](d/cat.png) ![](d/meow.mp3)"
+
+
+@pytest.mark.parametrize("layout", LAYOUTS)
+def test_carries_media_from_either_form_of_the_map(layout: dict[str, Any]) -> None:
+    notes = ((1, REVERSED, '<img src="cat.png"> a cat [sound:meow.mp3]\x1fle chat'),)
     cards = ((11, 1, 100, 0), (12, 1, 100, 1))
+    media = (("unused.png", PNG), ("cat.png", PNG), ("meow.mp3", MP3))
 
-    decks = read_apkg(apkg(notes, cards, ((100, "French"),)))
+    decks = read_apkg(apkg(notes, cards, ((100, "French"),), media=media, **layout), "F")
 
-    assert sides(decks) == {"French": [("a cat", "le chat"), ("le chat", "a cat")]}
-    assert decks[0].dropped_media == 2
+    link = "![](F/French%20media/cat.png) a cat ![](F/French%20media/meow.mp3)"
+    assert sides(decks) == {"French": [(link, "le chat"), ("le chat", link)]}
+    assert decks[0].media == {"cat.png": PNG, "meow.mp3": MP3}
+
+
+def test_reads_a_media_entry_by_its_legacy_zip_name() -> None:
+    # An entry carrying `legacy_zip_filename` lives under that number, not its index.
+    entries = proto(1, proto(1, "cat.png") + proto(2, len(PNG)) + proto(255, 7))
+    plain_export = apkg(((1, BASIC, '<img src="cat.png">\x1fa cat'),))
+    collection = zipfile.ZipFile(io.BytesIO(plain_export)).read("collection.anki2")
+    export = zipped(
+        "collection.anki2",
+        collection,
+        ("media", zstd.compress(entries)),
+        ("7", zstd.compress(PNG)),
+    )
+
+    decks = read_apkg(export)
+
+    assert decks[0].cards[0].front == "![](French%20media/cat.png)"
+    assert decks[0].media == {"cat.png": PNG}
+
+
+@pytest.mark.parametrize(
+    ("name", "data"),
+    [("cat.svg", b"<svg/>"), ("cat.png", MP3), ("cat.png", None), ("cat.pdf", b"%PDF-1")],
+    ids=["suffix", "magic", "missing", "book"],
+)
+def test_drops_media_it_cannot_carry(name: str, data: bytes | None) -> None:
+    notes = ((1, BASIC, f'<img src="{name}"> a cat\x1fle chat'),)
+
+    decks = read_apkg(apkg(notes, CARDS[:1], media=((name, data),)))
+
+    assert sides(decks) == {"French": [("a cat", "le chat")]}
+    assert decks[0].media == {}
+
+
+def test_encodes_a_media_name_into_a_link_that_works() -> None:
+    # `encodePath` in `note-path.ts`, and `:` and the parens besides: a `::` would
+    # split the card line and a lone paren would end the link.
+    name = "my cat (1) #2?ü:x.png"
+    notes = ((1, BASIC, f"<img src='{name}'>\x1fa cat"),)
+
+    decks = read_apkg(apkg(notes, CARDS[:1], media=((name, PNG),)), "03 Flashcards")
+
+    assert decks[0].cards[0].front == (
+        "![](03%20Flashcards/French%20media/my%20cat%20%281%29%20%232%3F%C3%BC%3Ax.png)"
+    )
+
+
+@pytest.mark.parametrize("name", ["../cat.png", "a/cat.png", "..", "", f"{'x' * 252}.png"])
+def test_carries_no_media_name_that_leaves_its_folder(name: str) -> None:
+    notes = ((1, BASIC, f'<img src="{name}"> a cat\x1fle chat'),)
+
+    decks = read_apkg(apkg(notes, CARDS[:1], media=((name, PNG),)))
+
+    assert decks[0].cards[0].front == "a cat"
+    assert decks[0].media == {}
+
+
+def test_a_front_of_only_a_sound_is_a_card() -> None:
+    notes = ((1, JAPANESE, "漢字\x1fChinese characters\x1f[sound:kanji.mp3]\x1fかんじ"),)
+    decks = read_apkg(apkg(notes, ((11, 1, 100, 0),), media=(("kanji.mp3", MP3),)))
+
+    assert as_note(decks[0]) == (
+        "#flashcards/French\n\n![](French%20media/kanji.mp3)::漢字 Chinese characters\n"
+    )
+
+
+def test_leaves_out_a_front_of_only_a_sound_it_could_not_carry() -> None:
+    notes = ((1, JAPANESE, "漢字\x1fChinese characters\x1f[sound:kanji.mp3]\x1fかんじ"),)
+    decks = read_apkg(apkg(notes, ((11, 1, 100, 0),)))
+
+    assert as_note(decks[0]) == "#flashcards/French\n\n"
 
 
 def test_skips_a_note_no_card_points_at() -> None:
@@ -714,7 +855,7 @@ async def test_import_writes_one_note_per_deck(client: AsyncClient, vault: Path)
     assert response.json() == {
         "notes": ["03 Flashcards/AWS.md", "03 Flashcards/Terraform.md"],
         "cards": 2,
-        "dropped_media": 0,
+        "media": 0,
     }
     written = (vault / "03 Flashcards" / "AWS.md").read_text(encoding="utf-8")
     # Stamped like every other note kasten writes, so the tag is under the block.
@@ -738,17 +879,52 @@ async def test_import_counts_the_cards_the_note_holds(client: AsyncClient, vault
     assert "a::b" in (vault / "03 Flashcards" / "Cpp.md").read_text(encoding="utf-8")
 
 
-async def test_import_says_how_much_media_it_dropped(client: AsyncClient, vault: Path) -> None:
-    export = apkg(
-        notes=((1, BASIC, '<img src="cat.jpg"> which cat?\x1fthe tabby'),),
-        cards=((1, 1, 10, 0),),
-        decks=((10, "Cats"),),
-    )
+CAT_EXPORT = apkg(
+    notes=(
+        (1, BASIC, '<img src="cat.png"> which cat?\x1fthe tabby [sound:purr.mp3]'),
+        (2, BASIC, '<img src="cat.png"> and here?\x1f<img src="bad.png">'),
+    ),
+    cards=((1, 1, 10, 0), (2, 2, 20, 0)),
+    decks=((10, "Cats"), (20, "Pets/Cats")),
+    schema18=True,
+    member="collection.anki21b",
+    media=(("cat.png", PNG), ("purr.mp3", MP3), ("bad.png", MP3)),
+)
+"""Two decks naming one picture, a sound, and a picture whose bytes are a sound."""
 
-    response = await client.post("/api/anki", content=export)
 
-    assert response.json()["dropped_media"] == 1
-    assert "cat.jpg" not in (vault / "03 Flashcards" / "Cats.md").read_text(encoding="utf-8")
+async def test_import_writes_media_beside_each_deck(client: AsyncClient, vault: Path) -> None:
+    response = await client.post("/api/anki", content=CAT_EXPORT)
+
+    assert response.status_code == 201
+    assert response.json()["media"] == 3
+    folder = vault / "03 Flashcards"
+    assert (folder / "Cats media" / "cat.png").read_bytes() == PNG
+    assert (folder / "Cats media" / "purr.mp3").read_bytes() == MP3
+    assert (folder / "Pets" / "Cats media" / "cat.png").read_bytes() == PNG
+    assert not (folder / "Pets" / "Cats media" / "bad.png").exists()
+    cats = (folder / "Cats.md").read_text(encoding="utf-8")
+    pets = (folder / "Pets" / "Cats.md").read_text(encoding="utf-8")
+    assert (
+        "![](03%20Flashcards/Cats%20media/cat.png) which cat?::"
+        "the tabby ![](03%20Flashcards/Cats%20media/purr.mp3)"
+    ) in cats
+    assert "![](03%20Flashcards/Pets/Cats%20media/cat.png) and here?::\n" in pets
+    served = await client.get("/api/assets/03%20Flashcards/Cats%20media/purr.mp3")
+    assert served.content == MP3
+
+
+async def test_import_refuses_media_already_in_the_vault(client: AsyncClient, vault: Path) -> None:
+    taken = vault / "03 Flashcards" / "Pets" / "Cats media" / "cat.png"
+    taken.parent.mkdir(parents=True)
+    taken.write_bytes(b"mine")
+
+    response = await client.post("/api/anki", content=CAT_EXPORT)
+
+    assert response.status_code == 409
+    assert taken.read_bytes() == b"mine"
+    assert not (vault / "03 Flashcards" / "Cats.md").exists()
+    assert not (vault / "03 Flashcards" / "Cats media").exists()
 
 
 async def test_import_refuses_a_deck_already_imported(client: AsyncClient, vault: Path) -> None:
@@ -817,8 +993,31 @@ def legacy_collection(decks: str, flds: object) -> bytes:
         zipped("collection.anki21b", b"junk"),
         legacy_collection('{"1": {}}', "a"),
         legacy_collection('{"1": {"name": "D"}}', b"a\x1fb"),
+        legacy_collection('{"1": {"name": 5}}', "a"),
+        zipped(
+            "collection.anki21",
+            sqlite3_bytes(
+                "CREATE TABLE notes (id, mid, flds)",
+                "CREATE TABLE cards (id, nid, did, ord)",
+                "CREATE TABLE decks (id, name)",
+                "CREATE TABLE notetypes (id, name, config)",
+                "CREATE TABLE fields (ntid, ord, name)",
+                "CREATE TABLE templates (ntid, ord, name, config)",
+                "INSERT INTO notes VALUES (1, 1, 'a')",
+                "INSERT INTO cards VALUES (1, 1, 1, 0)",
+                "INSERT INTO notetypes VALUES (1, 'B', x'')",
+                "INSERT INTO fields VALUES (1, 0, 'F')",
+                row=("INSERT INTO decks VALUES (1, X'41')", ()),
+            ),
+        ),
     ],
-    ids=["anki21b-not-zstd", "deck-without-name", "flds-blob"],
+    ids=[
+        "anki21b-not-zstd",
+        "deck-without-name",
+        "flds-blob",
+        "legacy-deck-name-int",
+        "deck-name-blob",
+    ],
 )
 async def test_import_refuses_an_export_it_cannot_read(
     client: AsyncClient, vault: Path, export: bytes

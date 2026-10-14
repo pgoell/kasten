@@ -55,6 +55,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     rate: (rating: Rating) => void;
     suspend: () => void;
     capture: () => void;
+    replay: () => void;
   } | null>(null);
   const panel = useRef<HTMLElement>(null);
 
@@ -163,6 +164,8 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
     // deck is one you have recognised from its question alone.
     else if (key === "s") controls.current?.suspend();
     else if (key === "n") controls.current?.capture();
+    // The side showing, so the front before the reveal and the back after it.
+    else if (key === "r") controls.current?.replay();
     else if (key === "q") onClose();
     else return;
 

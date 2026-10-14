@@ -28,7 +28,7 @@ from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
 from kasten_backend.agent_routes import router as agent_router
-from kasten_backend.anki import as_note, note_cards, read_apkg
+from kasten_backend.anki import as_note, media_path, note_cards, read_apkg
 from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
 from kasten_backend.change import vault_change, vault_write
@@ -74,6 +74,7 @@ from kasten_backend.vault import (
     rename_folder,
     rename_note,
     resolve_asset,
+    resolve_asset_path,
     resolve_book,
     resolve_folder,
     resolve_folder_path,
@@ -307,14 +308,12 @@ class AnkiImport(BaseModel):
     cards: int
     """How many cards arrived, counting every deck."""
 
-    dropped_media: int
-    """How many cards referenced an image or a sound that did not come with them.
+    media: int
+    """How many images and sounds were written beside the notes.
 
-    Said out loud rather than swallowed. The media map in a current export is
-    zstd-compressed protobuf, which the standard library cannot read without the
-    schema, so a card that was a picture arrives as its caption and nothing else.
-    A number on screen is what tells you the deck needs its pictures putting back
-    by hand rather than leaving you to find the gap one card at a time.
+    Once per deck that links a file, since each deck's note keeps its media in
+    a folder of its own. A file the vault would not take is not counted, and
+    its card holds no link to it.
     """
 
 
@@ -776,7 +775,7 @@ async def import_anki(
         raise HTTPException(status_code=413, detail="That export is too large")
 
     try:
-        decks = read_apkg(body)
+        decks = read_apkg(body, settings.flashcards_path)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -789,6 +788,7 @@ async def import_anki(
         # first three unwritten rather than half-importing and reporting a
         # failure. Outside the change, so a refused import leaves none behind.
         targets: list[tuple[Path, str]] = []
+        media: list[tuple[str, bytes]] = []
         for deck in decks:
             note = resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md")
             if note is None:
@@ -796,10 +796,22 @@ async def import_anki(
             if note.exists():
                 raise HTTPException(status_code=409, detail=f"{deck.name} is already in the vault")
             targets.append((note, as_note(deck)))
+            for name, data in deck.media.items():
+                path = media_path(settings.flashcards_path, deck.name, name)
+                asset = resolve_asset_path(settings.vault_path, path)
+                if asset is None:
+                    raise HTTPException(status_code=400, detail=f"The vault will not take {path}")
+                if asset.exists():
+                    raise HTTPException(status_code=409, detail=f"{path} is already in the vault")
+                media.append((path, data))
 
         # One change for the import rather than one per deck, the way the type
         # backfill takes one for its pass.
         async with vault_change(settings.vault_path, settings.flashcards_path):
+            # The media first, through the checks an upload meets; `read_apkg`
+            # made them already, so none refuses and no note links a missing file.
+            for path, data in media:
+                await store(settings.vault_path, path, _once(data), held=True)
             for note, text in targets:
                 relative = relative_path(settings.vault_path, note)
                 create_note(note, text if reserved(relative) else stamp(text))
@@ -809,8 +821,13 @@ async def import_anki(
         notes=written,
         # What the notes hold, not what Anki made: `as_note` leaves some out.
         cards=sum(len(note_cards(deck)) for deck in decks),
-        dropped_media=sum(deck.dropped_media for deck in decks),
+        media=len(media),
     )
+
+
+async def _once(data: bytes) -> AsyncIterator[bytes]:
+    """`data` as the stream `store` reads, in one piece."""
+    yield data
 
 
 class TokenName(BaseModel):
@@ -998,7 +1015,8 @@ async def delete_asset(
     what makes a mistyped key cost a keypress rather than a picture in a vault
     with no other delete.
 
-    Images alone, though `resolve_asset` answers for books too. A book travels
+    Images and sounds, though `resolve_asset` answers for books too. A sound has
+    no note it travels with, so it goes the way an image does. A book travels
     with the note beside it, and which of the pair a delete should take is a
     decision nothing here has made; the file tree, which is what this route
     serves, lists images and no books. So a book is a 404 like any other path

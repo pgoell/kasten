@@ -31,7 +31,20 @@ const SUFFIX = ".md";
  * names one by its full file name. The backend's `FILE_SUFFIXES` is this list,
  * and `backend/tests/link_paths.json` holds both to it.
  */
-export const FILE_SUFFIXES = [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp"];
+export const FILE_SUFFIXES = [
+  ".html",
+  ".epub",
+  ".pdf",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".mp3",
+  ".m4a",
+  ".ogg",
+  ".wav",
+];
 
 /**
  * Whether a link's name, already split, names a page or an asset rather than
