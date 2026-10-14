@@ -99,7 +99,9 @@ whose back adds nothing: it is left out, because a `?` with nothing under it is
 no card. Such a question is left out too when its answer is `?` alone, or when
 either side is a line that would end the card: a heading such as
 `# of elements`, a line of nothing but tags such as `#pragma`, a line opening
-with `!suspended`, or a schedule comment.
+with `!suspended`, or, on the answer side, a whole schedule comment such as
+`<!--SR:!2026-08-20,4,270-->`. The count the import reports is of the cards the
+notes hold, so it leaves these out too.
 
 A conditional section, `{{#Field}}` or `{{^Field}}`, shows or hides as it does in
 Anki. A card whose front shows no field with text in it is not made, since Anki

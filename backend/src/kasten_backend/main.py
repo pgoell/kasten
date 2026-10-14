@@ -28,7 +28,7 @@ from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
 from kasten_backend.agent_routes import router as agent_router
-from kasten_backend.anki import as_note, read_apkg
+from kasten_backend.anki import as_note, note_cards, read_apkg
 from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
 from kasten_backend.change import vault_change, vault_write
@@ -807,7 +807,8 @@ async def import_anki(
 
     return AnkiImport(
         notes=written,
-        cards=sum(len(deck.cards) for deck in decks),
+        # What the notes hold, not what Anki made: `as_note` leaves some out.
+        cards=sum(len(note_cards(deck)) for deck in decks),
         dropped_media=sum(deck.dropped_media for deck in decks),
     )
 

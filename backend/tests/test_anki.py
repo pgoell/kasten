@@ -477,7 +477,7 @@ def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None
         ("What does std::size count?", "# of elements"),
         ("What opens a::b?", "#pragma"),
         ("What does a::b hold?", "!suspended x"),
-        ("When is a::b due?", "<!--SR:!2026-08-20,4,270-->"),
+        ("When is a::b due?", "on <!--SR:!2026-08-20,4,270--> here"),
         ("# What does std::move do?", "casts"),
     ],
     ids=["divider", "heading", "tags", "token", "schedule", "front-heading"],
@@ -491,6 +491,23 @@ def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str,
     deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], 0)
 
     assert as_note(deck) == "#flashcards/x\n\na::b\n"
+
+
+@pytest.mark.parametrize(
+    ("front", "back"),
+    [
+        ("How is a::b scheduled?", "as <!--SR:!date,int,ease-->"),
+        ("Is <!--SR:!2026-08-20,4,270--> a::b?", "yes"),
+    ],
+    ids=["back-schedule-text", "front-schedule"],
+)
+def test_keeps_a_divider_question_holding_what_is_no_schedule_stop(front: str, back: str) -> None:
+    # `srs.ts` stops a back only at a whole schedule comment, and a front at no
+    # schedule at all, so neither of these ends the card.
+    template = Template("Card 1", "{{Front}}", "{{Back}}")
+    deck = Deck("x", [Card(front, back, {}, template, "Basic", cloze=False)], 0)
+
+    assert as_note(deck) == f"#flashcards/x\n\n{front}\n?\n{back}\n"
 
 
 def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
@@ -704,6 +721,21 @@ async def test_import_writes_one_note_per_deck(client: AsyncClient, vault: Path)
     assert "\n#flashcards/AWS\n" in written
     assert written.startswith("---\nid: ")
     assert "What is S3?::Simple Storage" in written
+
+
+async def test_import_counts_the_cards_the_note_holds(client: AsyncClient, vault: Path) -> None:
+    # The first cannot be written without `srs.ts` cutting it at `std`, so the
+    # note leaves it out, and the count must not promise it.
+    export = apkg(
+        notes=((1, BASIC, "What does std::size count?\x1f# of elements"), (2, BASIC, "a\x1fb")),
+        cards=((1, 1, 10, 0), (2, 2, 10, 0)),
+        decks=((10, "Cpp"),),
+    )
+
+    response = await client.post("/api/anki", content=export)
+
+    assert response.json()["cards"] == 1
+    assert "a::b" in (vault / "03 Flashcards" / "Cpp.md").read_text(encoding="utf-8")
 
 
 async def test_import_says_how_much_media_it_dropped(client: AsyncClient, vault: Path) -> None:

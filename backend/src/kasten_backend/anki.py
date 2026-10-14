@@ -67,6 +67,8 @@ _FIXED = {1: 8, 5: 4}
 """The protobuf wire types of a fixed-width field, against how many bytes it takes."""
 _EMPTY = re.compile(r"(?:\s|</?(?:br|div) ?/?>)*", re.IGNORECASE)
 """Anki's own test for an empty field: an editor leaves `<br>` and `<div>` behind."""
+_SCHEDULE = re.compile(r"<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->")
+"""`SR` in `card-line.ts`, the whole comment: `srs.ts` stops a back at nothing less."""
 _HEADING = re.compile(r"#{1,6}[ \t]")
 """`HEADING` in `srs.ts`."""
 _ONLY_TAGS = re.compile(r"(?:#[^\W\d][\w/-]*[ \t]*)+")
@@ -232,8 +234,9 @@ def as_note(deck: Deck) -> str:
     where a side cannot stand in that form: an empty back, since `srs.ts` asks
     no `?` with nothing under it and `review.ts` would count one; a back of `?`,
     which `review.ts` counts as a second card; and a side `srs.ts` ends a card
-    on, a heading, a line of tags, the parking token or a schedule, which drops
-    the `?` card there and reads the front at its first `::` after all. The
+    on, a heading, a line of tags, the parking token or, on the back only, a
+    whole schedule comment, which drops the `?` card there and reads the front
+    at its first `::` after all. `note_cards` holds these rules. The
     one-line form that parks a question is the form this card cannot take.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
@@ -241,12 +244,10 @@ def as_note(deck: Deck) -> str:
     # prose. The note's `# heading` is not the deck name; the tag is.
     head = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
     body: list[str] = []
-    for card in deck.cards:
-        if not card.front:
-            continue
+    for card in note_cards(deck):
         if "::" not in card.front:
             body.append(f"{card.front}::{card.back}")
-        elif not (_ends_card(card.front) or _ends_card(card.back) or card.back == "?"):
+        else:
             if body and body[-1]:
                 body.append("")
             body += [card.front, "?", card.back, ""]
@@ -257,18 +258,38 @@ def as_note(deck: Deck) -> str:
     return "\n".join(head + body) + "\n"
 
 
-def _ends_card(line: str) -> bool:
-    """Whether `srs.ts` would end a `?` card on `line`, so it cannot be a side of one.
+def note_cards(deck: Deck) -> list[Card]:
+    """The cards of `deck` that `as_note` writes, in order, by the rules its docstring gives.
 
-    `breaks()` in `srs.ts`, plus the schedule its back stops at. A side here is
-    one stripped line, so blank means empty.
+    Its own function so the import's count and the note agree on which they are.
+    """
+    return [
+        card
+        for card in deck.cards
+        if card.front
+        and (
+            "::" not in card.front
+            or not (
+                _ends_card(card.front)
+                or _ends_card(card.back)
+                or _SCHEDULE.search(card.back)
+                or card.back == "?"
+            )
+        )
+    ]
+
+
+def _ends_card(line: str) -> bool:
+    """Whether `srs.ts` `breaks()` would end a `?` card on `line`, so it cannot be a side of one.
+
+    A side here is one stripped line, so blank means empty. The schedule `srs.ts`
+    also stops a back at is checked apart, since it stops no front.
     """
     return (
         not line
         or line.startswith("!suspended")
         or _HEADING.match(line) is not None
         or _ONLY_TAGS.fullmatch(line) is not None
-        or "<!--SR:!" in line
     )
 
 
