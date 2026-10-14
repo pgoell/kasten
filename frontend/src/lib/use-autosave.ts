@@ -283,9 +283,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           const held = { content, reason: message, conflicted: wasConflicted, base };
           // An entry held after this went out holds newer text, the hide's,
           // which is on screen and on its own way out: this older text replaces
-          // neither it nor `pending`.
+          // neither it nor `pending`. An entry of this same text is the hide
+          // holding this write while it was in the air, and is its own.
           const existing = heldText(to);
-          if (existing && (heldAt.current.get(existing) ?? -1) >= seq) return false;
+          const newer = existing && existing.content !== content;
+          if (newer && (heldAt.current.get(existing) ?? -1) >= seq) return false;
           // Its own send count: a write sent after this one and failing first
           // holds newer text, which this must not replace either.
           heldAt.current.set(held, seq);

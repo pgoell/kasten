@@ -1360,6 +1360,24 @@ describe("useAutosave", () => {
     expect(saveNote).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the text to write again when a write in flight at a held hide fails", async () => {
+    const note = renderAutosave("index.md");
+    const other = await digestOf("somebody else's text");
+    note.change("# edited");
+    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
+    note.reconcile(other);
+    const quiet = pendingSave();
+    note.startSave();
+
+    await background();
+    await quiet.break();
+
+    expect(note.status()).toBe("error");
+    expect(heldText("index.md")?.content).toBe("# edited");
+    await note.save();
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited");
+  });
+
   it("writes nothing when the page is shown again", async () => {
     const note = renderAutosave("index.md");
 

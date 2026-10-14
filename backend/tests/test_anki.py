@@ -729,8 +729,9 @@ def test_a_users_question_card_right_above_an_imported_card_stays() -> None:
 
     merged = merge(old, basic_deck(("z", "Z")))
 
+    # Glued under it, `z::z` reads as part of the user's answer, so it stays too.
     assert merged is not None
-    assert unhashed(merged.text) == f"#flashcards/x\n\nmine q\n?\nmine a\nz::Z{mark(1)} {SR1}\n"
+    assert (merged.text, merged.kept, merged.updated) == (old, 1, 0)
 
 
 def test_two_question_cards_with_no_blank_between_keep_their_own_schedules() -> None:
@@ -782,6 +783,26 @@ def test_a_note_with_crlf_line_ends_merges_without_mixing_them() -> None:
     assert unhashed(changed.text) == (
         f"#flashcards/x\r\n\r\nq1\r\nq2\r\n?\r\nA{mark(1)}\r\n\r\nb::c{mark(2)}\r\nd::e{mark(3)}\r\n"
     )
+
+
+def test_a_card_inside_a_users_question_card_is_never_updated() -> None:
+    # Glued under the user's `?` card, the line is part of their answer to
+    # kasten, and the schedule under it is theirs.
+    old = f"#flashcards/x\n\nmy q\n?\nmy a\nq1::a1{marked(1, 'q1::a1')}\n{SR1}\n"
+
+    merged = merge(old, basic_deck(("q1", "a1 now\nover two lines")))
+
+    assert merged is not None
+    assert (merged.text, merged.kept, merged.updated) == (old, 1, 0)
+
+
+def test_a_card_added_after_one_inside_a_users_question_card_starts_apart() -> None:
+    old = f"#flashcards/x\n\nmy q\n?\nmy a\nq1::a1{marked(1, 'q1::a1')}\n"
+
+    merged = merge(old, basic_deck(("q1", "a1"), ("q2", "a2")))
+
+    assert merged is not None
+    assert merged.text == f"{old}\nq2::a2{marked(2, 'q2::a2')}\n"
 
 
 def test_a_shape_change_carries_the_schedule_into_the_new_shape() -> None:

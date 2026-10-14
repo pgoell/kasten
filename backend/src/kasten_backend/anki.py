@@ -756,6 +756,12 @@ class _Span:
     """Whether lines ending at the marker still hash to it; not, once edited in kasten."""
     suspended: bool
     comments: list[str]
+    inside: bool = False
+    """Whether it is a card of one line with a `?` line above it and no blank between.
+
+    `srs.ts` reads such a line as part of that `?` card's answer, someone's own
+    card, whose schedule may sit under it; so it is never rewritten.
+    """
 
 
 def merge(old: str, deck: Deck) -> Merged | None:
@@ -791,7 +797,7 @@ def merge(old: str, deck: Deck) -> Merged | None:
         span = spans.get((card.nid, card.ord))
         if span is None:
             added.append(_with_state(_marked(card, _lines(card)), False, _carried(card)))
-        elif span.digest == _digest(_lines(card)) or not span.found:
+        elif span.digest == _digest(_lines(card)) or not span.found or span.inside:
             kept += 1
         else:
             card_lines = _with_state(_marked(card, _lines(card)), span.suspended, span.comments)
@@ -802,8 +808,12 @@ def merge(old: str, deck: Deck) -> Merged | None:
     if added:
         while out and not out[-1]:
             out.pop()
-        # A `?` card or the user's prose would run into a card added right under it.
-        if not any(s.found and s.start == s.end == len(out) - 1 for s in _spans(out).values()):
+        # A `?` card or the user's prose would run into a card added right under
+        # it, and so would one inside the user's `?` card, as its answer.
+        last = len(out) - 1
+        if not any(
+            s.found and not s.inside and s.start == s.end == last for s in _spans(out).values()
+        ):
             out.append("")
         for card_lines in added:
             _place(out, card_lines)
@@ -903,6 +913,12 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
         below = lines[at + 1] if at + 1 < len(lines) else ""
         if start is not None and start < at and below.startswith(("<!--SR:", "!suspended")):
             end, state = at + 1, f"{state} {below}"
+        inside = False
+        if start == at:
+            row = at - 1
+            while row >= 0 and lines[row].strip() and not inside:
+                inside = lines[row].strip() == "?"
+                row -= 1
         spans.setdefault(
             (int(found[1]), int(found[2])),
             _Span(
@@ -912,6 +928,7 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
                 start is not None,
                 _TOKEN_WORD.search(state) is not None,
                 _STATE.findall(state),
+                inside,
             ),
         )
     return spans
