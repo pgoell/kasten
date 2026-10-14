@@ -141,6 +141,49 @@ both sides can be as long as you like.
 
 A `::` inside a fenced code block is not a card, and neither is a `?` in one.
 
+### As a cloze
+
+```markdown
+The capital of {{c1::France}} is {{c2::Paris::a city}}.
+```
+
+Anki's cloze, mark for mark. A line holding `{{cN::text}}` is a cloze, and it
+is one card per number: the line above asks twice, once as `c1` and once as
+`c2`, and each is rated and scheduled apart.
+
+* The question shows the line with that number's text hidden as `[...]`, or as
+  `[hint]` where the mark carries one after a second `::`. The line above asks
+  `The capital of [...] is Paris.` for `c1` and
+  `The capital of France is [a city].` for `c2`.
+* Every other number shows as its plain text, marks gone.
+* The answer shows the whole line with that number's text highlighted.
+* Two marks of one number are one card, hidden and shown together:
+  `{{c1::H}}{{c1::O}}` asks one card with both blanks.
+* Typing the answer compares against the hidden text, two marks joined with
+  `, `.
+
+The cloze is read before the divider. `{{c1::Paris}}` holds a `::`, and a line
+holding a cloze mark is a cloze and never a card written on one line, so the
+`::` inside the braces divides nothing. A line holding a mark and a `::` outside
+it is still a cloze, the whole line its text.
+
+Anki's Back Extra, text shown under the answer and never on the question, is the
+`?` form with the cloze as its front:
+
+```markdown
+The capital of France is {{c1::Paris}}.
+?
+On the Seine.
+```
+
+The front is the cloze, asked as above, and the back is shown under the answer.
+A front over several lines is one cloze, every mark on any of its lines counted.
+
+The marks are text everywhere else. Live preview and Obsidian show them as
+typed, and a line of `==Paris==` stays a highlight: it is a cloze in
+obsidian-spaced-repetition and prose here. Nested marks, `{{c1::a {{c2::b}}}}`,
+are not read.
+
 ## The schedule
 
 ```markdown
@@ -164,6 +207,19 @@ Standard, Infrequent Access, Glacier
 kasten writes this line and nothing else. Every other line of the note is
 byte-identical after a rating, because a rating is not licence to reflow a note.
 
+A cloze keeps one comment per number, named by it after the colon:
+
+```markdown
+The capital of {{c1::France}} is {{c2::Paris}}. <!--SR:c1!2026-08-20,4,270--> <!--SR:c2!2026-08-15,1,250-->
+```
+
+They go where any schedule goes: on the end of a one-line cloze, or on the line
+under the back of a `?` cloze. A number with no comment has never been answered,
+so rating `c2` first adds its comment and leaves `c1` with none. Rating one
+number rewrites its own comment and no other. The name is what makes the order
+free, and it is kasten's: obsidian-spaced-repetition reads neither the marks nor
+these comments, and leaves them alone.
+
 ## Parking a card
 
 A parked card stays in the note and leaves the queue. Nothing asks it, and the
@@ -186,6 +242,10 @@ The three storage classes worth knowing
 Standard, Infrequent Access, Glacier
 !suspended <!--SR:!2026-08-20,4,270-->
 ```
+
+A cloze takes the token the same two ways, on the end of its line or at the head
+of the line under a `?` back, and it parks every number the cloze holds.
+Parking one number parks them all, and putting one back puts them all back.
 
 The token and the schedule are separate things. Parking a card never touches the
 three numbers, so putting it back returns it on the date it already held.
@@ -327,9 +387,6 @@ it is.
 * **Reversed cards.** `:::` and `??` ask the same pair backwards in
   obsidian-spaced-repetition. Here they are ordinary text. Write the reverse as
   a second card.
-* **Cloze.** `==text==` is a card in obsidian-spaced-repetition and prose here.
-  [An imported Anki deck](/how-to/import-an-anki-deck.md) keeps its cloze marks
-  so nothing is lost, and nothing asks them yet.
 * **A daily limit on new cards.** Every new card in a deck is offered, except
   the ones [parked](#parking-a-card).
 
