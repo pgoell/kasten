@@ -846,4 +846,21 @@ describe("useAutosave", () => {
     expect(note.allowReload(bookmark)).toBe(false);
     expect(note.status()).toBe("conflict");
   });
+
+  it("takes the bookmark through the editor quietly when its digest failed first", async () => {
+    // The cache notifies the editor on a zero-delay timer and the rejection is
+    // a microtask, so in the route the failure lands before the editor asks.
+    const note = renderAutosave();
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+    vi.mocked(digestOf).mockRejectedValueOnce(new TypeError("crypto.subtle is undefined"));
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+    await hashed();
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("unsaved");
+
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
 });

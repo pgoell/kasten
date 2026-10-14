@@ -165,7 +165,9 @@ is one card per number: the line above asks twice, once as `c1` and once as
 The cloze is read before the divider. `{{c1::Paris}}` holds a `::`, and a line
 holding a cloze mark is a cloze and never a card written on one line, so the
 `::` inside the braces divides nothing. A line holding a mark and a `::` outside
-it is still a cloze, the whole line its text.
+it is still a cloze, the whole line its text. A one-line card written before
+this existed whose answer holds a mark turns into a cloze, and the plain comment
+on its line no longer schedules it.
 
 Anki's Back Extra, text shown under the answer and never on the question, is the
 `?` form with the cloze as its front:

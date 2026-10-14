@@ -87,8 +87,11 @@ export function useAutosave(path: string | undefined) {
   // The route moves the cache straight after adopting, so the editor asks
   // about text before the digest lands, and is answered without waiting.
   // `at` is the `saves` count at adoption, for when our own save's event is
-  // the one that says these are gone.
-  const adopted = useRef<{ content: string; digest: string | null; at: number }[]>([]);
+  // the one that says these are gone. `seen` and `failed` are for a digest
+  // that never comes, below.
+  const adopted = useRef<
+    { content: string; digest: string | null; at: number; seen: boolean; failed: boolean }[]
+  >([]);
   // Digests of our own writes still on `crypto.subtle`. The stream's question
   // is about a digest, so an event arriving while one is out cannot be told
   // from somebody else's write yet, and is answered once they are all in.
@@ -278,7 +281,13 @@ export function useAutosave(path: string | undefined) {
       // Pushed now and filled in later, so the list keeps the order of the
       // writes and not the order of their hashes. An entry dropped before its
       // digest lands takes the digest nowhere.
-      const entry = { content, digest: null as string | null, at: saves.current };
+      const entry = {
+        content,
+        digest: null as string | null,
+        at: saves.current,
+        seen: false,
+        failed: false,
+      };
       adopted.current.push(entry);
       track(
         digestOf(content).then(
@@ -288,11 +297,14 @@ export function useAutosave(path: string | undefined) {
           (error: unknown) => {
             // `crypto.subtle` missing outside a secure context, the way the save
             // path reads the same failure. Without a digest no event can ever
-            // take the entry away, so it goes now, and that text restored later
-            // reads as a conflict the reader clears with `:w`. The editor asks
-            // about the bookmark's own text before this rejection lands.
+            // take the entry away, so the editor's one question about it does:
+            // gone now if the editor already asked, gone on its asking if not.
+            // The cache notifies on a zero-delay timer and this is a microtask,
+            // so either can come first. That text restored later reads as a
+            // conflict the reader clears with `:w`.
             if (!(error instanceof TypeError)) throw error;
-            adopted.current = adopted.current.filter((other) => other !== entry);
+            if (entry.seen) adopted.current = adopted.current.filter((other) => other !== entry);
+            else entry.failed = true;
           },
         ),
       );
@@ -328,13 +340,20 @@ export function useAutosave(path: string | undefined) {
    * quiet write instead, which is a round trip away and costs nothing.
    */
   const allowReload = useCallback((text: string): boolean => {
+    // Before the clean-buffer answer, so an adopted entry with no digest coming
+    // is used up by its delivery however the buffer stood when it arrived.
+    const entry = adopted.current.find((other) => other.content === text);
+    if (entry?.failed) adopted.current = adopted.current.filter((other) => other !== entry);
+    else if (entry) entry.seen = true;
+
     if (pending.current === null) return true;
     if (text === lastText.current) return false;
     // A write the route made into this note, reaching the editor through the
     // cache. Refused the way our own answer is, and for the same reason: it
     // carries no words the reader has not got.
-    // The entry stays: its event is still to come and has to find it.
-    if (adopted.current.some((entry) => entry.content === text)) return false;
+    // The entry stays unless its digest failed: its event is still to come and
+    // has to find it.
+    if (entry) return false;
 
     conflicted.current = true;
     setStatus("conflict");

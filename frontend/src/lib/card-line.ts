@@ -109,9 +109,10 @@ export function clozeComment(cloze: number): RegExp {
  *
  * No brace inside, so a nested mark is not read as one long one; the doc says
  * nested marks are not read, and this is where that is true. Lazy, so the
- * second `::` is the hint's and a mark ends at the first `}}`.
+ * second `::` is the hint's and a mark ends at the first `}}`. The hint may be
+ * empty, so `{{c1::A::}}` hides `A` rather than `A::`, and asks it as `[...]`.
  */
-const MARK = /\{\{c(\d+)::([^{}]+?)(?:::([^{}]+?))?\}\}/g;
+const MARK = /\{\{c(\d+)::([^{}]+?)(?:::([^{}]*?))?\}\}/g;
 
 /**
  * The numbers the line's marks carry, ascending and each once.
@@ -149,7 +150,8 @@ function drawn(line: string, cloze: number, hidden: (text: string, hint?: string
  * bare `[...]` as a link, hiding the brackets that make it read as a blank.
  */
 export function clozeQuestion(line: string, cloze: number): string {
-  return drawn(line, cloze, (_, hint) => `\\[${hint ?? "..."}\\]`);
+  // `||` and not `??`: an empty hint is no hint.
+  return drawn(line, cloze, (_, hint) => `\\[${hint || "..."}\\]`);
 }
 
 /** The line as its sentence, every mark its plain text, which names a cloze as a whole. */

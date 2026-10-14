@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from kasten_backend import main
-from kasten_backend.anki import Card, Deck, Template, as_note, plain, read_apkg
+from kasten_backend.anki import Card, Deck, Template, as_note, card_count, plain, read_apkg
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -286,6 +286,21 @@ def test_plain_keeps_a_cloze_hint_for_a_cloze_note() -> None:
     assert plain(field, cloze=True) == "{{c1::Paris::a city}} is in {{c2::France}}"
 
 
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        (r"{{c1::\(x^{2}\)}} is the square", r"==\(x^{2}\)== is the square"),
+        ("{{c1::}} x", "==== x"),
+        (r"{{c1::\(x^{2}\)}} is {{c2::the square}}", r"==\(x^{2}\)== is {{c2::the square}}"),
+    ],
+    ids=["brace", "empty", "mixed"],
+)
+def test_plain_highlights_a_cloze_mark_kasten_cannot_read(field: str, expected: str) -> None:
+    # `MARK` in `card-line.ts` takes no brace and no empty text, and a mark it
+    # does not read would leave its `::` to split the line.
+    assert plain(field, cloze=True) == expected
+
+
 def test_plain_answers_with_one_line() -> None:
     result = plain("first\nsecond  \t third \n")
 
@@ -510,6 +525,25 @@ def test_a_cloze_whose_back_extra_would_end_the_card_keeps_the_cloze(extra: str)
     deck = Deck("x", [Card("{{c1::Paris}} is it", extra, {}, template, "Cloze", cloze=True)], {})
 
     assert as_note(deck) == "#flashcards/x\n\n{{c1::Paris}} is it\n"
+
+
+@pytest.mark.parametrize(
+    ("text", "body"),
+    [
+        (r"{{c1::\(x^{2}\)}} is the square", r"==\(x^{2}\)== is the square::extra"),
+        ("{{c1::}} x", "==== x::extra"),
+        (r"{{c1::\(x^{2}\)}} is {{c2::it}}", r"==\(x^{2}\)== is {{c2::it}}" + "\n?\nextra"),
+    ],
+    ids=["brace", "empty", "mixed"],
+)
+def test_a_cloze_mark_kasten_cannot_read_imports_as_a_highlight(text: str, body: str) -> None:
+    # With no mark left the note is a card like any other; with one, the line
+    # is a cloze of the marks kasten reads, so each case is one card.
+    notes = ((1, CLOZE, f"{text}\x1fextra"),)
+    deck = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))[0]
+
+    assert as_note(deck) == f"#flashcards/x\n\n{body}\n"
+    assert card_count(deck) == 1
 
 
 def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:

@@ -720,6 +720,27 @@ extra
   });
 });
 
+describe("a `?` cloze whose schedule line holds a plain comment", () => {
+  // A `?` card from main whose front happens to hold a mark.
+  const PLAIN = "#flashcards\nThe {{c1::A}} b\n?\nback\n<!--SR:!2026-10-01,1,250-->";
+
+  it("parks on that line, and puts back to the same bytes", () => {
+    const on = setSuspended(PLAIN, only(PLAIN), true);
+
+    expect(on).toBe(
+      "#flashcards\nThe {{c1::A}} b\n?\nback\n!suspended <!--SR:!2026-10-01,1,250-->",
+    );
+    expect(only(on).parked).toBe("suspended");
+    expect(setSuspended(on, only(on), false)).toBe(PLAIN);
+  });
+
+  it("adds its labelled comment on that line, the plain one left as it was", () => {
+    expect(writeSchedule(PLAIN, only(PLAIN), { due: "2026-09-01", interval: 7, ease: 250 })).toBe(
+      "#flashcards\nThe {{c1::A}} b\n?\nback\n<!--SR:!2026-10-01,1,250--> <!--SR:c1!2026-09-01,7,250-->",
+    );
+  });
+});
+
 describe("setSuspended on a cloze", () => {
   const ONE_LINE = "#flashcards\n\n{{c1::a}} {{c2::b}} <!--SR:c1!2026-08-20,4,270-->\n";
   const UNDER = "#flashcards\n\n{{c1::a}} {{c2::b}}\n?\nextra\n<!--SR:c2!2026-08-20,4,270-->\n";

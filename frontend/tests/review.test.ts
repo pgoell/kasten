@@ -1,6 +1,6 @@
 import type { SearchHit } from "@/lib/api";
 import { decksFrom, parkedNotes } from "@/lib/review";
-import { parseCards } from "@/lib/srs";
+import { parseCards, setSuspended } from "@/lib/srs";
 
 const TODAY = "2026-08-13";
 
@@ -350,6 +350,18 @@ describe("decksFrom on a cloze", () => {
       expect(decksFrom(scanned("n.md", text), TODAY)).toMatchObject([counted]);
       expect(sat(text)).toMatchObject(counted);
     }
+  });
+
+  it("agrees on a `?` cloze parked under a plain comment", () => {
+    const text = "#flashcards\nThe {{c1::A}} b\n?\nback\n<!--SR:!2026-10-01,1,250-->";
+    const [card] = parseCards(text);
+    if (card === undefined) throw new Error("no card");
+    // Parked the way the session parks it, then read by both.
+    const parked = setSuspended(text, card, true);
+    const counted = { due: 0, fresh: 0, parked: 1 };
+
+    expect(decksFrom(scanned("n.md", parked), TODAY)).toMatchObject([counted]);
+    expect(sat(parked)).toEqual(counted);
   });
 
   it("counts every number parked off one token, on the line or under the back", () => {

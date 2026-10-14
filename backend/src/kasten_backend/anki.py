@@ -88,8 +88,15 @@ The hint is part of the match and not of the group, so the highlight a note of
 another type gets drops it: Anki shows marks there as typed, and a mark kept
 would make kasten ask a card Anki never did.
 """
-_NUMBER = re.compile(r"\{\{c(\d+)::")
-"""The number of each deletion, which is what kasten asks a card for."""
+_MARK = re.compile(r"\{\{c([0-9]+)::([^{}]+?)(?:::([^{}]*?))?\}\}")
+"""A cloze mark kasten reads: `MARK` in `card-line.ts`, character for character.
+
+Narrower than `_CLOZE`, taking no brace and no empty text, so a MathJax
+`{{c1::\\(x^{2}\\)}}` is a mark to Anki and not to kasten. `[0-9]` because
+Python's `\\d` takes digits JavaScript's does not.
+"""
+_KEPT = re.compile("([0-9]+)")
+"""The mark `plain` holds a readable cloze mark's place with, as `_HELD` does a link's."""
 
 _SOUND = re.compile(r"\[sound:([^\]]*)\]")
 _IMAGE = re.compile(
@@ -189,8 +196,9 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     A card is one line, so every break in the field becomes a space and the
     result never holds a newline. An image or a sound whose name `links` maps
     becomes `![](link)`, and any other is dropped. A cloze mark stays as it is
-    with its hint where `cloze` says the field is a cloze note's text, and is
-    otherwise a `==highlight==`.
+    with its hint where `cloze` says the field is a cloze note's text and
+    kasten reads the mark, and is otherwise a `==highlight==`: a mark kasten
+    does not read would leave its `::` to split the line as a card.
     """
     held: list[str] = []
 
@@ -211,8 +219,18 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     text = _TAG.sub("", text)
     # After the strip, so a `&lt;b&gt;` the author meant as text stays text.
     text = html.unescape(text)
-    if not cloze:
-        text = _CLOZE.sub(r"==\1==", text)
+    kept: list[str] = []
+    if cloze:
+
+        def keep(match: re.Match[str]) -> str:
+            kept.append(match[0])
+            return f"{len(kept) - 1}"
+
+        # Held out first, so the highlight below cannot swallow a readable
+        # mark inside an unreadable one.
+        text = _MARK.sub(keep, text)
+    text = _CLOZE.sub(r"==\1==", text)
+    text = _KEPT.sub(lambda mark: kept[int(mark[1])], text)
     # `split()` counts the non-breaking space `&nbsp;` just unescaped as
     # whitespace, which is what turns it into an ordinary space.
     return _HELD.sub(lambda mark: held[int(mark[1])], " ".join(text.split()))
@@ -416,14 +434,14 @@ def card_count(deck: Deck) -> int:
     """How many cards the note `as_note` writes holds: a cloze is one per number it marks."""
     return sum(
         # As numbers, since `c01` and `c1` are one card to Anki.
-        len({int(n) for n in _NUMBER.findall(card.front)}) if _clozed(card) else 1
+        len({int(mark[1]) for mark in _MARK.finditer(card.front)}) if _clozed(card) else 1
         for card in note_cards(deck)
     )
 
 
 def _clozed(card: Card) -> bool:
-    """Whether `card` is written as a cloze: a cloze note's text holding a mark."""
-    return card.cloze and _CLOZE.search(card.front) is not None
+    """Whether `card` is written as a cloze: a cloze note's text holding a mark kasten reads."""
+    return card.cloze and _MARK.search(card.front) is not None
 
 
 def _divides(card: Card) -> bool:

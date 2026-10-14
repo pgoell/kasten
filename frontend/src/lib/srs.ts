@@ -449,6 +449,9 @@ export function writeSchedule(text: string, card: Card, next: Schedule): string 
   return lines.join("\n");
 }
 
+/** A schedule comment of either kind, plain or a cloze number's, whichever comes first. */
+const ANY_SR = new RegExp(`${SR.source}|${CLOZE_SR.source}`);
+
 /**
  * `text` with this card parked or put back, every other line byte-identical.
  *
@@ -467,7 +470,9 @@ export function setSuspended(text: string, card: Card, on: boolean): string {
   const last = lines[card.to] ?? "";
   // A cloze parks every number off the one token, before the first of its
   // comments, so parking any number writes the same line as parking another.
-  const schedule = card.cloze === null ? SR : CLOZE_SR;
+  // Either kind of comment: a `?` card written before cloze existed whose front
+  // happens to hold a mark is a cloze now, its schedule line holding a plain one.
+  const schedule = card.cloze === null ? SR : ANY_SR;
 
   if (card.inline) {
     lines[card.to] = on

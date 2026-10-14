@@ -147,7 +147,9 @@ and the Back Extra, with a blank line above and below, so the extra shows under
 the answer. A Back Extra that would end the card, by the rules above, is
 dropped and the cloze kept on its line. Marks in the Back Extra, and in a note
 of any other type, become highlights, `==Paris==`, since Anki shows them as
-typed there and asks no card of them. A cloze note holding no mark is written
+typed there and asks no card of them. So does a mark kasten does not read, one
+holding a brace such as MathJax's `{{c1::\(x^{2}\)}}` or one with no text,
+`{{c1::}}`. A cloze note holding no mark kasten reads is written
 as `Text::Back Extra`. The count takes a cloze as one card per number, so the
 line above counts two.
 

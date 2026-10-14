@@ -46,6 +46,12 @@ describe("a cloze line", () => {
     expect(clozeTarget(water, 1)).toBe("H, O");
   });
 
+  it("reads an empty hint as no hint", () => {
+    expect(clozeQuestion("{{c1::A::}} b", 1)).toBe("\\[...\\] b");
+    expect(clozeAnswer("{{c1::A::}} b", 1)).toBe("==A== b");
+    expect(clozeTarget("{{c1::A::}} b", 1)).toBe("A");
+  });
+
   it("takes the typed answer off the hidden text alone, never the hint", () => {
     expect(clozeTarget(LINE, 2)).toBe("Paris");
   });
