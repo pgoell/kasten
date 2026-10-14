@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { saveNote } from "@/lib/api";
-import { dropText, heldText, holdText, sameText } from "@/lib/held-text";
+import { dropText, type Held, heldText, holdText, sameText } from "@/lib/held-text";
 import { digestOf } from "@/lib/vault-events";
 
 /** Long enough that a sentence is one write, short enough to forget about. */
@@ -121,6 +121,24 @@ export function useAutosave(path: string | undefined) {
   // the text for our own write. A visit and not a path, because leaving a note
   // and coming back is the case that loses the event.
   const visit = useRef(0);
+  // The held entry the buffer holds, by identity, and the same as state for
+  // the bar, which lists the open note's held text only while it is not on
+  // screen. Identity rather than path: a flush that fails after its note was
+  // reopened holds a second entry the buffer never saw, and a save of the
+  // buffer must not take that one with it.
+  const taken = useRef<Held | null>(null);
+  const [restored, setRestored] = useState(false);
+  const take = useCallback((entry: Held | null) => {
+    taken.current = entry;
+    setRestored(entry !== null);
+  }, []);
+  // Whether this visit's own effect is still to run, and the entry held for the
+  // note when it did. Held text is offered once, at opening: an entry held
+  // later came from a flush that failed after the editor had already opened on
+  // the vault's text, and taking it then would put text in `pending` that the
+  // buffer does not show.
+  const opening = useRef(true);
+  const offered = useRef<Held | undefined>(undefined);
   const queryClient = useQueryClient();
 
   /**
@@ -163,9 +181,17 @@ export function useAutosave(path: string | undefined) {
       return (keepalive ? saveNote(path, content, true) : saveNote(path, content)).then(
         (note) => {
           lower(writing.current, to);
-          // Unconditionally: a write of this note that landed carried its newest
-          // text, which is newer than anything held for it.
-          dropText(to);
+          // The held entry goes when this write carried it: its own text, or
+          // text typed on top of the entry this visit took into the buffer. An
+          // entry the buffer never showed, held by a flush that failed after the
+          // note was reopened, is still nowhere else, and stays.
+          const entry = heldText(to);
+          if (entry && (entry.content === content || (here() && entry === taken.current))) {
+            dropText(to);
+          }
+          // Whatever the buffer took is written now, so nothing on screen is
+          // held text any more, and a second entry, if any, goes on the bar.
+          if (here()) take(null);
           // The note that came back and never the text that was sent: the two
           // differ by the `modified` stamp `PUT` writes, so what is on disk is
           // this one. Hashing the other would recognise nothing and read every
@@ -230,6 +256,8 @@ export function useAutosave(path: string | undefined) {
           // Held as well as kept, because `here()` is also true for the flush
           // as the route unmounts, when this hook is gone and `pending` with it.
           holdText(to, held);
+          // The buffer holds this text, so it is the entry the bar leaves out.
+          take(held);
           setStatus("error");
           // Hold on to the text: the next keystroke or `:w` tries again.
           pending.current ??= content;
@@ -238,7 +266,7 @@ export function useAutosave(path: string | undefined) {
         },
       );
     },
-    [path, queryClient, track],
+    [path, queryClient, track, take],
   );
 
   // Of no arguments, because the editor's save key hands its caller the
@@ -283,11 +311,12 @@ export function useAutosave(path: string | undefined) {
       reverts.current += 1;
       // The other way held text ends: the reader chose the vault's.
       if (path !== undefined) dropText(path);
+      take(null);
       setStatus("saved");
       setReason(undefined);
       return true;
     },
-    [path],
+    [path, take],
   );
 
   /**
@@ -381,21 +410,26 @@ export function useAutosave(path: string | undefined) {
    * just opened looks like. Not while held text is on its way out: the entry
    * stays until the write lands, and that write's echo would take it again.
    * Nothing is written on the take; the bar says why the text is unwritten and
-   * `:w` sends it.
+   * `:w` sends it. Once the opening is over, only the entry held at opening.
    */
-  const restore = useCallback((note: string, text: string): boolean | undefined => {
-    const held = heldText(note);
-    if (!held || pending.current !== null || writing.current.has(note)) return undefined;
-    if (sameText(held.content, text)) {
-      dropText(note);
-      return true;
-    }
-    pending.current = held.content;
-    conflicted.current = held.conflicted;
-    setStatus(held.conflicted ? "conflict" : "error");
-    setReason(held.reason);
-    return false;
-  }, []);
+  const restore = useCallback(
+    (note: string, text: string): boolean | undefined => {
+      const held = heldText(note);
+      if (!held || pending.current !== null || writing.current.has(note)) return undefined;
+      if (!opening.current && held !== offered.current) return undefined;
+      if (sameText(held.content, text)) {
+        dropText(note);
+        return true;
+      }
+      pending.current = held.content;
+      take(held);
+      conflicted.current = held.conflicted;
+      setStatus(held.conflicted ? "conflict" : "error");
+      setReason(held.reason);
+      return false;
+    },
+    [take],
+  );
 
   /**
    * Whether the editor may put `text` in, asked at the moment it would.
@@ -517,8 +551,11 @@ export function useAutosave(path: string | undefined) {
   useEffect(
     () => () => {
       void save();
+      // The next visit offers held text afresh, and its buffer holds none yet.
+      opening.current = true;
+      take(null);
     },
-    [save],
+    [save, take],
   );
 
   // A reload or a closed tab unmounts nothing, so the flush above never runs
@@ -533,16 +570,23 @@ export function useAutosave(path: string | undefined) {
   // A conflicted note, or one with an event still being placed, is held and
   // not written: unlike leaving a note, nothing has to be decided now, and the
   // reader can decide on return.
+  //
+  // Held text reopened and not touched since is left as it is: the reader has
+  // not said to write it, and the entry already holds it, with the reason the
+  // vault gave.
   useEffect(() => {
     if (path === undefined) return;
     const hide = () => {
       if (pending.current === null) return;
+      if (pending.current === taken.current?.content) return;
       const stop = conflicted.current || holding.current > 0;
-      holdText(path, {
+      const entry = {
         content: pending.current,
         reason: "Not yet written when the page was hidden",
         conflicted: conflicted.current,
-      });
+      };
+      holdText(path, entry);
+      take(entry);
       if (!stop) void write(true);
     };
     const hidden = () => {
@@ -554,7 +598,7 @@ export function useAutosave(path: string | undefined) {
       window.removeEventListener("pagehide", hide);
       document.removeEventListener("visibilitychange", hidden);
     };
-  }, [path, write]);
+  }, [path, write, take]);
 
   // The flush above still counts as the visit it leaves: React runs the old
   // render's cleanups before any of the new render's setups.
@@ -572,6 +616,10 @@ export function useAutosave(path: string | undefined) {
     const cached =
       path === undefined ? undefined : queryClient.getQueryData<string>(["note", path]);
     if (path !== undefined && cached !== undefined) restore(path, cached);
+    // An editor still to mount opens on the entry held now, and only that one
+    // is taken when it asks. See `opening`.
+    offered.current = path === undefined ? undefined : heldText(path);
+    opening.current = false;
     // The flush of the note left set `saving` on its way out and never answers
     // here, so the reading starts again for the note opened, unless it holds
     // text just taken.
@@ -583,6 +631,7 @@ export function useAutosave(path: string | undefined) {
 
   return {
     status,
+    restored,
     reason,
     change,
     save,

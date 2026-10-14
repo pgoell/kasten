@@ -900,6 +900,41 @@ describe("the route", () => {
     expect(app.text()).toBe("he index note");
   });
 
+  it("lists a flush that fails after the note was reopened, and keeps it through a save there", async () => {
+    // Back on the route and in the note before the flush answers: the buffer
+    // opened on the vault's text, so the refused text is still only held.
+    const app = await editing();
+    let fail: (() => void) | undefined;
+    saveNote.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          fail = () => reject(new Error("PUT failed with 502"));
+        }),
+    );
+
+    await app.navigate("/capture");
+    await settle();
+    await app.navigate("/");
+    await settle();
+    app.click("index.md");
+    await settle();
+    expect(app.text()).toBe("the index note");
+    await act(async () => fail?.());
+    await settle();
+
+    expect(app.held()?.label).toBe("Not saved: index");
+    app.press("x");
+    app.press("x");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    await settle();
+
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "e index note");
+    expect(app.held()?.label).toBe("Not saved: index");
+    expect(heldText("index.md")?.content).toBe("he index note");
+  });
+
   it("writes the waiting text with keepalive when the page goes away", async () => {
     await editing();
 

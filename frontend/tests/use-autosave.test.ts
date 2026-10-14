@@ -88,6 +88,8 @@ function renderAutosave(path = "index.md") {
       return outcome;
     },
     status: () => result.current.status,
+    /** Whether the buffer holds text taken from the held store. */
+    restored: () => result.current.restored,
     reason: () => result.current.reason,
     /** Ask the way the editor asks, with the text it is about to put in. */
     allowReload: (text: string) => {
@@ -1009,6 +1011,45 @@ describe("useAutosave", () => {
     expect(note.reason()).toBe("failed with 500");
     expect(await note.saved()).toBe(true);
     expect(saveNote).toHaveBeenLastCalledWith("index.md", "# left behind");
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("keeps a flush that fails after its note was reopened through the next save of that note", async () => {
+    // The reader came back before the flush answered, so the buffer holds the
+    // vault's text and not the refused one: a save of that buffer says nothing
+    // about the held text, which is still nowhere else.
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    await flush.break();
+    expect(note.restored()).toBe(false);
+
+    // A reload asked after the failure finds a buffer that never showed it.
+    expect(note.allowReload("the index note\nmore")).toBe(true);
+    note.change("# typed after coming back");
+    await idle();
+
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# typed after coming back");
+    expect(note.status()).toBe("saved");
+    expect(heldText("index.md")?.content).toBe("# left behind");
+  });
+
+  it("writes nothing on hide while reopened held text is untouched", async () => {
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md");
+    note.allowReload("the index note");
+    expect(note.restored()).toBe(true);
+
+    await pagehide();
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(heldText("index.md")?.reason).toBe("failed with 500");
+
+    // Typed into, it is the reader's text again, and the hide writes it.
+    note.change("# held and more");
+    await pagehide();
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# held and more", true);
     expect(heldText("index.md")).toBeUndefined();
   });
 

@@ -290,6 +290,7 @@ function Home() {
   // has always covered opening a second note in a single window.
   const {
     status,
+    restored,
     reason,
     change,
     save,
@@ -2174,9 +2175,10 @@ function Home() {
       <StatusBar
         status={pane.path === undefined ? undefined : status}
         reason={reason}
-        // Every note but the open one, whose held text is in its buffer and
-        // read by `status`. With no note open, that is all of them.
-        held={held.filter((each) => each.path !== pane.path)}
+        // Every note but the open one while its held text is in its buffer and
+        // read by `status`. Text held after the note was reopened is not in the
+        // buffer, so the open note is listed then too.
+        held={held.filter((each) => !(restored && each.path === pane.path))}
         flash={refused}
         archive={archive}
         notice={notice}
