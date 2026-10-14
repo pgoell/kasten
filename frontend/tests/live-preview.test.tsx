@@ -829,6 +829,7 @@ describe("an embed", () => {
       vim(),
       livePreview(),
       vaultPaths.of(["b.md"]),
+      imagePaths.of([]),
       embedSource.of(vault.source),
     ]);
     expect(view.dom.querySelector(".cm-embed")).not.toBeNull();
@@ -841,7 +842,17 @@ describe("an embed", () => {
 
   it("keeps the cursor out of the source it hides", () => {
     const vault = fakeVault({ "b.md": "body" });
-    const view = mount("![[b]]\nplain", [vim(), livePreview(), embedSource.of(vault.source)], 7);
+    const view = mount(
+      "![[b]]\nplain",
+      [
+        vim(),
+        livePreview(),
+        vaultPaths.of(["b.md"]),
+        imagePaths.of([]),
+        embedSource.of(vault.source),
+      ],
+      7,
+    );
 
     view.dispatch({ selection: EditorSelection.cursor(2) });
 
@@ -869,6 +880,32 @@ describe("an embed", () => {
 
     expect(view.contentDOM.textContent).toContain("![[b]]");
     expect(view.dom.querySelector(".cm-embed, .cm-embed-missing, .cm-embed-stub")).toBeNull();
+  });
+
+  it("stays its source until the vault listing lands", () => {
+    const vault = fakeVault({ "x/b.md": "body" });
+    const view = mount(`${ABOVE}![[b]]`, [
+      vimKeys.of(false),
+      livePreview(),
+      embedSource.of(vault.source),
+    ]);
+
+    expect(view.contentDOM.textContent).toContain("![[b]]");
+    expect(view.dom.querySelector(".cm-embed, .cm-embed-missing, .cm-embed-stub")).toBeNull();
+    expect(vault.watched).toEqual([]);
+  });
+
+  it("stays its source until the image listing lands", () => {
+    const vault = fakeVault({});
+    const view = mount(`${ABOVE}![[shot.png]]`, [
+      vimKeys.of(false),
+      livePreview(),
+      vaultPaths.of(["b.md"]),
+      embedSource.of(vault.source),
+    ]);
+
+    expect(view.contentDOM.textContent).toContain("![[shot.png]]");
+    expect(vault.watched).toEqual([]);
   });
 
   it("draws the note read-only, rendered, and told what the vault holds", () => {

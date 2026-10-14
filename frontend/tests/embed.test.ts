@@ -45,6 +45,51 @@ describe("queryEmbedSource", () => {
     stop();
   });
 
+  it("hands the listener null when the note is taken out of the cache, as trashing it does", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
+    client.setQueryData(["note", "a.md"], "body");
+    client.setQueryData(["note", "b.md"], "other");
+    const listener = vi.fn();
+    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+
+    client.removeQueries({ queryKey: ["note", "b.md"] });
+    expect(listener).toHaveBeenLastCalledWith("body");
+
+    client.removeQueries({ queryKey: ["note", "a.md"] });
+    expect(listener).toHaveBeenLastCalledWith(null);
+
+    stop();
+  });
+
+  it("hears a note again once it is back in the cache, as restoring and opening it does", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
+    client.setQueryData(["note", "a.md"], "body");
+    const listener = vi.fn();
+    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    client.removeQueries({ queryKey: ["note", "a.md"] });
+
+    client.setQueryData(["note", "a.md"], "body");
+    expect(listener).toHaveBeenLastCalledWith("body");
+    client.setQueryData(["note", "a.md"], "edited");
+    expect(listener).toHaveBeenLastCalledWith("edited");
+
+    stop();
+  });
+
+  it("leaves nothing on the cache that calls the listener once it is unsubscribed", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
+    client.setQueryData(["note", "a.md"], "body");
+    const listener = vi.fn();
+    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    stop();
+    listener.mockClear();
+
+    client.removeQueries({ queryKey: ["note", "a.md"] });
+    client.setQueryData(["note", "a.md"], "back");
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it("hands the listener null when the note cannot be read", async () => {
     const client = new QueryClient();
     fetchNote.mockRejectedValue(new Error("GET /api/files/gone.md failed with 404"));

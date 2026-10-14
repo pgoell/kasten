@@ -74,7 +74,8 @@ with vim on, insert or visual mode with the cursor on the line; with vim off,
 the cursor on the line. The cursor never rests inside the hidden `![[...]]`.
 
 The finder's preview pane shows `![[...]]` as source. It has no way to read
-another note.
+another note. A note opened before the vault's listing arrives shows its embeds
+as source for that moment too, since a name cannot be resolved without it.
 
 ## Opening the note
 

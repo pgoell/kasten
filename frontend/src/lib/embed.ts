@@ -8,7 +8,12 @@
  */
 
 import { Facet } from "@codemirror/state";
-import { type QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/react-query";
+import {
+  hashKey,
+  type QueryClient,
+  QueryObserver,
+  type QueryObserverResult,
+} from "@tanstack/react-query";
 import { fetchNote } from "@/lib/api";
 
 /** Hands an embed the text of its note, now and on every later change. */
@@ -68,11 +73,8 @@ export function queryEmbedSource(
 ): EmbedSource {
   return {
     watch(path, listener) {
-      const observer = new QueryObserver<string>(client, {
-        queryKey: ["note", path],
-        queryFn: () => fetchNote(path),
-        retry: false,
-      });
+      const queryKey = ["note", path];
+      const hash = hashKey(queryKey);
       // The observer reports every change of its result, fetching flags and
       // all, and the widget redraws on each call, so only a new answer passes.
       let last: string | null | undefined;
@@ -84,11 +86,39 @@ export function queryEmbedSource(
         last = text;
         listener(text);
       };
-      const stop = observer.subscribe(report);
-      // A note already in the cache is no change, so the observer says nothing
-      // about it until it is read again.
-      report(observer.getCurrentResult());
-      return stop;
+      const arm = () => {
+        const observer = new QueryObserver<string>(client, {
+          queryKey,
+          queryFn: () => fetchNote(path),
+          retry: false,
+        });
+        const stop = observer.subscribe(report);
+        // A note already in the cache is no change, so the observer says
+        // nothing about it until it is read again.
+        report(observer.getCurrentResult());
+        return stop;
+      };
+      let stopObserver: (() => void) | null = arm();
+      // Trashing a note removes its query, and an observer stays on the query
+      // it was built with: it would hear nothing more and the embed would go
+      // on drawing the trashed body. So the cache is watched for that removal,
+      // and for the key coming back, which is the note restored and read again.
+      const stopCache = client.getQueryCache().subscribe((event) => {
+        if (event.query.queryHash !== hash) return;
+        if (event.type === "removed" && stopObserver) {
+          stopObserver();
+          stopObserver = null;
+          last = null;
+          listener(null);
+        } else if (event.type === "added" && !stopObserver) {
+          stopObserver = arm();
+        }
+      });
+      return () => {
+        stopObserver?.();
+        stopObserver = null;
+        stopCache();
+      };
     },
     open,
   };

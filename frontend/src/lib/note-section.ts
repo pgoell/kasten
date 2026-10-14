@@ -12,6 +12,9 @@ const HEADING = /^#{1,6} /;
 /** An ATX heading's level and its title. */
 const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 
+/** The run of backticks or tildes that opens or closes a fenced code block. */
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
 /**
  * The section `heading` opens in `text`, and the 1-based line it opens on.
  *
@@ -23,9 +26,32 @@ const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 export function sectionOf(text: string, heading: string): { text: string; line: number } | null {
   const lines = text.split("\n");
   const wanted = heading.trim().toLowerCase();
-  const levelAt = (index: number) => TITLED.exec(lines[index] ?? "")?.[1]?.length ?? 0;
 
-  const at = lines.findIndex((line) => TITLED.exec(line)?.[2]?.trim().toLowerCase() === wanted);
+  // A `# comment` in a shell block is code, not a heading: it neither opens a
+  // section nor ends one. A fence closes on a run of its own character at
+  // least as long as the one that opened it, which is CommonMark's rule.
+  const coded = new Set<number>();
+  let open: string | null = null;
+  lines.forEach((line, index) => {
+    const fence = FENCE.exec(line)?.[1];
+    if (open === null && fence !== undefined) open = fence;
+    else if (open !== null) {
+      const closes =
+        fence !== undefined &&
+        fence[0] === open[0] &&
+        fence.length >= open.length &&
+        line.trim() === fence;
+      if (closes) {
+        open = null;
+      }
+      coded.add(index);
+    }
+  });
+
+  const titleAt = (index: number) => (coded.has(index) ? null : TITLED.exec(lines[index] ?? ""));
+  const levelAt = (index: number) => titleAt(index)?.[1]?.length ?? 0;
+
+  const at = lines.findIndex((_, index) => titleAt(index)?.[2]?.trim().toLowerCase() === wanted);
   if (at === -1) return null;
 
   const level = levelAt(at);

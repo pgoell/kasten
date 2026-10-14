@@ -799,12 +799,19 @@ function build(state: EditorState): Live {
           state.doc.sliceString(link.from + 2, link.to - 2),
         );
 
+        // Until both listings land the name cannot be told for a note or an
+        // image, nor found in a folder: on a cold load `![[b]]` would watch the
+        // inbox path and call a note in `x/` missing, and a picture would be
+        // taken for a note. The source stays until they do.
+        const paths = state.facet(vaultPaths);
+        const images = state.facet(imagePaths);
+        if (paths === null || images === null) return false;
+
         // An image the vault holds is drawn as one, found by the rule a link
         // finds its note by. Anything else is a note, or nothing.
-        const images = state.facet(imagePaths);
-        const image = images === null ? null : resolveIn(name, images);
+        const image = resolveIn(name, images);
         const picture =
-          image !== null && images?.includes(image) ? imageSource(encodeURI(image)) : null;
+          image !== null && images.includes(image) ? imageSource(encodeURI(image)) : null;
 
         const source = state.facet(embedSource);
         const label = heading === null ? name : `${name}#${heading}`;
@@ -815,7 +822,7 @@ function build(state: EditorState): Live {
         else if (source === null) return false;
         else if (state.facet(embedDepth) >= EMBED_DEPTH) widget = new EmbedStub(label);
         else {
-          const path = wikiLinkPath(name, state.facet(vaultPaths) ?? []);
+          const path = wikiLinkPath(name, paths);
           widget = new Embed(source, path, heading, label, state.facet(embedDepth));
         }
         decorations.push(Decoration.replace({ widget }).range(node.from, node.to));

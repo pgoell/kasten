@@ -87,6 +87,21 @@ describe("sectionOf", () => {
     expect(sectionOf(BOOK, "Labyrinths")).toBeNull();
   });
 
+  it("runs a section past a hash inside fenced code", () => {
+    const note = "# A\n```bash\n# install\nnpm i\n```\nmore\n# B";
+
+    expect(sectionOf(note, "A")).toEqual({
+      text: "# A\n```bash\n# install\nnpm i\n```\nmore",
+      line: 1,
+    });
+    expect(sectionOf("# A\n~~~\n# x\n~~~\nmore", "A")?.text).toBe("# A\n~~~\n# x\n~~~\nmore");
+  });
+
+  it("finds no heading inside fenced code", () => {
+    expect(sectionOf("```\n# A\n```\n# A\nreal", "a")).toEqual({ text: "# A\nreal", line: 4 });
+    expect(sectionOf("~~~\n# install\n~~~", "install")).toBeNull();
+  });
+
   it("reads ATX headings only", () => {
     expect(sectionOf("Setext\n======\nbody", "Setext")).toBeNull();
     expect(sectionOf("#hashtag\nbody", "hashtag")).toBeNull();
