@@ -485,20 +485,33 @@ The export is read with `zipfile`, `sqlite3` and `compression.zstd`, all of them
 in the standard library on Python 3.14, so importing a deck adds no dependency.
 Both the current collection format and the older one are read.
 
-Field 0 of each note is the question and field 1 the answer. A note with fewer
-than two fields is skipped, HTML in a field is flattened to one line, and a
-nested deck becomes a nested folder under
+Each card Anki made from a note becomes one kasten card. The question is the
+note type's front template filled in and the answer its back template, so a
+field lands on the side its template puts it, and a note type with two
+templates gives two cards per note. `{{FrontSide}}` on the back adds nothing, so
+the answer holds only what the back adds. Conditional sections follow Anki, and
+a card whose front shows no field with text in it is not made, as Anki does not
+make it. A card whose back adds nothing is written as `question::`, a
+[parked question](/reference/flashcard-format.md#parking-a-card), and a card
+whose question is empty once flattened is left out. A cloze note gives one card,
+its Text field the question and Back Extra the answer. Each card goes to the
+deck its own Anki card sits in, HTML is flattened to one line, and a nested deck
+becomes a nested folder under
 [KASTEN_FLASHCARDS_PATH](/reference/configuration.md#kasten_flashcards_path).
 
-`dropped_media` counts the cards that referred to an image or a sound. The media
-map in a current export is zstd-compressed protobuf, which the standard library
-cannot read without the schema, so those references are stripped and the number
-is reported rather than the loss being silent.
+`dropped_media` counts the cards that referred to an image or a sound, so a
+reversed note with an image counts two. A card left out because its question
+was only a picture or a sound counts too. The media map in a current export is
+zstd-compressed protobuf, which the standard library cannot read without the
+schema, so those references are stripped and the number is reported rather
+than the loss being silent.
 
 ### What an import refuses
 
 * A body that is not a zip, or a zip holding no collection, answers 400.
 * A deck name that would climb out of the flashcards folder answers 400.
+* A collection with no note types answers 400, because without templates there
+  is nothing to make a card from.
 * A deck whose note already exists answers 409, and **nothing is written at
   all**, not even the decks in the same export that would have been fine. Every
   path is resolved and every collision found before the first write, because the

@@ -2,14 +2,15 @@
 
 An `.apkg` is a zip around an sqlite database, so the whole reader is standard
 library: `zipfile`, `sqlite3`, and `compression.zstd` for the collection Anki
-writes today. A dependency would buy nothing four queries do not.
+writes today. A dependency would buy nothing a few queries do not.
 
-Anki's model is larger than what survives the trip. A note has as many fields as
-its note type declares and a card is a template over them; here a note is its
-first two fields and nothing else, because what the vault wants back is a
-markdown note of `front::back` lines and a second parser for card templates
-would be a second thing to keep true. A note that cannot spare two fields is
-left out whole rather than imported halfway.
+A card is what Anki shows, not what the note holds. A note has as many fields as
+its note type declares, and each card row names one of the type's templates; the
+question is that template's front rendered over the note's fields, the answer
+its back. The renderer below is the part of Anki's template language a card
+needs to come out the same: field replacements, filters, and conditional
+sections. A cloze note type is the exception and keeps the first two fields,
+because its templates only mean something once cloze is rendered (#233).
 
 Media is counted rather than carried. The image or sound a field names lives in
 the zip under a numbered name that only the export's `media` map translates, and
@@ -41,11 +42,11 @@ ones being a stub kept so an older Anki opening the file says so rather than
 crashing. Reading them in this order is what keeps the stub out.
 """
 
-SIDES = 2
-"""How many of a note's fields a card is: the front and the back, in that order."""
-
 ZSTD_MEMBER = "collection.anki21b"
 """The only member that is compressed rather than an sqlite file as it stands."""
+
+CLOZE_KIND = 1
+"""A note type's kind when it is a cloze type, in `col.models` and in its protobuf config alike."""
 
 _CLOZE = re.compile(r"\{\{c\d+::(.*?)(?:::.*?)?\}\}")
 """One cloze deletion, with the hint the author may have written after it.
@@ -55,9 +56,37 @@ highlight in a markdown note has nowhere to put it.
 """
 
 _SOUND = re.compile(r"\[sound:[^\]]*\]")
+_CODE = re.compile(r"<(script|style)\b.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
 _BREAK = re.compile(r"<\s*(?:br\s*/?|/\s*(?:div|p))\s*>", re.IGNORECASE)
 _TAG = re.compile(r"<[^>]*>")
 _MEDIA = re.compile(r"<img|\[sound:", re.IGNORECASE)
+_TOKEN = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
+_VARINT, _LENGTH = 0, 2
+_FIXED = {1: 8, 5: 4}
+"""The protobuf wire types of a fixed-width field, against how many bytes it takes."""
+_EMPTY = re.compile(r"(?:\s|</?(?:br|div) ?/?>)*", re.IGNORECASE)
+"""Anki's own test for an empty field: an editor leaves `<br>` and `<div>` behind."""
+
+
+@dataclass(frozen=True)
+class Template:
+    """One card template of a note type: its front and its back."""
+
+    name: str
+    qfmt: str
+    afmt: str
+
+
+@dataclass(frozen=True)
+class Card:
+    """One Anki card as two lines of text, with what it was rendered from kept beside it."""
+
+    front: str
+    back: str
+    fields: dict[str, str]
+    template: Template
+    notetype: str
+    cloze: bool
 
 
 @dataclass(frozen=True)
@@ -65,8 +94,32 @@ class Deck:
     """One Anki deck, as much of it as a markdown note can hold."""
 
     name: str
-    cards: list[tuple[str, str]]
+    cards: list[Card]
     dropped_media: int
+
+
+@dataclass(frozen=True)
+class _NoteType:
+    name: str
+    cloze: bool
+    fields: list[str]
+    templates: dict[int, Template]
+
+
+@dataclass(frozen=True)
+class _Field:
+    key: str
+    filters: list[str]
+
+
+@dataclass(frozen=True)
+class _Section:
+    key: str
+    negated: bool
+    children: list[_Node]
+
+
+type _Node = str | _Field | _Section
 
 
 def plain(field: str) -> str:
@@ -76,6 +129,8 @@ def plain(field: str) -> str:
     result never holds a newline.
     """
     text = _SOUND.sub("", field)
+    # Before the tag strip, which would leave a script's code behind as prose.
+    text = _CODE.sub("", text)
     text = _BREAK.sub(" ", text)
     # Takes `<img>` with it, which is what removes an image reference.
     text = _TAG.sub("", text)
@@ -92,7 +147,7 @@ def read_apkg(data: bytes) -> list[Deck]:
 
     Raises:
         ValueError: `data` is not a zip, or holds no collection, or holds one
-            sqlite refuses to read.
+            sqlite refuses to read, or one whose note types cannot be read.
     """
     blob = _collection(data)
     with tempfile.TemporaryDirectory() as folder:
@@ -102,45 +157,142 @@ def read_apkg(data: bytes) -> list[Deck]:
         path.write_bytes(blob)
         with closing(sqlite3.connect(path)) as db:
             try:
-                note_rows = db.execute("SELECT id, flds FROM notes").fetchall()
-                card_rows = db.execute("SELECT nid, did FROM cards").fetchall()
+                notes = {
+                    nid: (mid, flds)
+                    for nid, mid, flds in db.execute("SELECT id, mid, flds FROM notes")
+                }
+                card_rows = db.execute(
+                    "SELECT nid, did, ord FROM cards ORDER BY nid, ord"
+                ).fetchall()
                 names = _deck_names(db)
+                types = _note_types(db)
             except sqlite3.Error as error:
                 raise ValueError(f"unreadable Anki collection: {error}") from error
 
-    # A note type with several templates gives a note several cards, all of them
-    # the same two fields. The first one decides which deck the note joins.
-    deck_of: dict[int, int] = {}
-    for nid, did in card_rows:
-        deck_of.setdefault(nid, did)
+    if notes and not any(mid in types for mid, _ in notes.values()):
+        raise ValueError("no note type in the collection matches its notes")
 
-    cards: defaultdict[str, list[tuple[str, str]]] = defaultdict(list)
+    cards: defaultdict[str, list[Card]] = defaultdict(list)
     dropped: Counter[str] = Counter()
-    for nid, flds in note_rows:
-        fields = flds.split(SEPARATOR)
-        did = deck_of.get(nid)
-        name = names.get(did) if did is not None else None
-        if len(fields) < SIDES or name is None:
+    clozed: set[int] = set()
+    for nid, did, ord_ in card_rows:
+        note = notes.get(nid)
+        kind = types.get(note[0]) if note else None
+        name = names.get(did)
+        if note is None or kind is None or name is None:
             continue
-        cards[name].append((plain(fields[0]), plain(fields[1])))
-        if _MEDIA.search(fields[0]) or _MEDIA.search(fields[1]):
+        values = note[1].split(SEPARATOR)
+        fields = dict(zip(kind.fields, values + [""] * len(kind.fields), strict=False))
+        if kind.cloze:
+            # One card per note, however many deletions it has: the rows differ
+            # only in which deletion they hide, which a plain line cannot show.
+            if nid in clozed or not kind.templates:
+                continue
+            clozed.add(nid)
+            template = kind.templates[min(kind.templates)]
+            question, answer = values[0], values[1] if len(values) > 1 else ""
+        else:
+            template = kind.templates.get(ord_)
+            if template is None:
+                continue
+            question, filled = _render(_parse(template.qfmt), fields, question=True)
+            if not filled:
+                continue
+            answer, _ = _render(_parse(template.afmt), fields, question=False)
+        card = Card(plain(question), plain(answer), fields, template, kind.name, kind.cloze)
+        cards[name].append(card)
+        if _MEDIA.search(question) or _MEDIA.search(answer):
             dropped[name] += 1
 
-    return [Deck(name, pairs, dropped[name]) for name, pairs in sorted(cards.items())]
+    return [Deck(name, deck, dropped[name]) for name, deck in sorted(cards.items())]
 
 
 def as_note(deck: Deck) -> str:
     """`deck` as one markdown note: the tag line, a blank line, then a line per card.
 
-    A card missing either side is left out. It would read as a line ending in
-    `::`, which every flashcard reader takes for a card with an empty answer.
+    A card with no front is left out, since there is nothing to ask. A card with
+    no back is kept as `front::`, which kasten reads as a question parked
+    without an answer: a back that adds nothing beyond the front is common in
+    Anki, and dropping the line would lose the question with it.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
     # otherwise land in a deck called `AWS` with the rest of its name read as
     # prose. The note's `# heading` is not the deck name; the tag is.
     lines = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
-    lines += [f"{front}::{back}" for front, back in deck.cards if front and back]
+    lines += [f"{card.front}::{card.back}" for card in deck.cards if card.front]
     return "\n".join(lines) + "\n"
+
+
+def _parse(template: str) -> list[_Node]:
+    """`template` as a tree of text, field replacements and conditional sections.
+
+    One pass over the template, never over a field's value: a value holding
+    `{{Back}}` is text, the way Anki shows it. A section left open runs to the
+    end and a stray close is ignored, so a broken template still gives a card.
+    """
+    root: list[_Node] = []
+    stack = [root]
+    start = 0
+    for match in _TOKEN.finditer(template):
+        stack[-1].append(template[start : match.start()])
+        start = match.end()
+        tag = match.group(1).strip()
+        if tag.startswith(("#", "^")):
+            section = _Section(tag[1:].strip(), tag[0] == "^", [])
+            stack[-1].append(section)
+            stack.append(section.children)
+        elif tag.startswith("/"):
+            if len(stack) > 1:
+                stack.pop()
+        else:
+            *filters, key = tag.split(":")
+            stack[-1].append(_Field(key.strip(), [f.strip() for f in filters]))
+    stack[-1].append(template[start:])
+    return root
+
+
+def _render(nodes: list[_Node], fields: dict[str, str], *, question: bool) -> tuple[str, bool]:
+    """`nodes` rendered over `fields`, and whether a non-empty field went into it.
+
+    That second answer is Anki's test for making a card at all: a front of
+    literal text and nothing else is still an empty front.
+    """
+    parts: list[str] = []
+    filled = False
+    for node in nodes:
+        if isinstance(node, str):
+            parts.append(node)
+        elif isinstance(node, _Section):
+            if _empty(fields.get(node.key, "")) != node.negated:
+                continue
+            text, inner = _render(node.children, fields, question=question)
+            parts.append(text)
+            filled = filled or inner
+        else:
+            value = _replacement(node, fields, question=question)
+            parts.append(value)
+            filled = filled or not _empty(value)
+    return "".join(parts), filled
+
+
+def _replacement(node: _Field, fields: dict[str, str], *, question: bool) -> str:
+    """What one `{{...}}` shows.
+
+    `FrontSide`, the special fields and a field the note type lacks all show
+    nothing: the back would otherwise repeat the question, and the rest are
+    Anki's view of the card rather than anything the author wrote.
+    """
+    # `type:` asks for typed input on the front and shows the field on the back;
+    # `tts` reads it aloud. Neither has text a markdown line could carry.
+    if any(f == "tts" or f.startswith("tts ") for f in node.filters):
+        return ""
+    if question and "type" in node.filters:
+        return ""
+    return fields.get(node.key, "")
+
+
+def _empty(value: str) -> bool:
+    return _EMPTY.fullmatch(value) is not None
 
 
 def _collection(data: bytes) -> bytes:
@@ -169,3 +321,106 @@ def _deck_names(db: sqlite3.Connection) -> dict[int, str]:
         listing = json.loads(rows[0][0]) if rows else {}
         return {int(did): deck["name"].replace("::", "/") for did, deck in listing.items()}
     return {did: name.replace(SEPARATOR, "/") for did, name in rows}
+
+
+def _note_types(db: sqlite3.Connection) -> dict[int, _NoteType]:
+    """Every note type in the collection against its id.
+
+    Raises:
+        ValueError: the collection holds none, or one that cannot be read.
+    """
+    try:
+        rows = db.execute("SELECT id, name, config FROM notetypes").fetchall()
+    except sqlite3.OperationalError:
+        types = _legacy_note_types(db)
+    else:
+        types = {}
+        for ntid, name, config in rows:
+            names = db.execute("SELECT name FROM fields WHERE ntid = ? ORDER BY ord", (ntid,))
+            templates = {
+                ord_: Template(tname, _string(tconfig, 1), _string(tconfig, 2))
+                for ord_, tname, tconfig in db.execute(
+                    "SELECT ord, name, config FROM templates WHERE ntid = ?", (ntid,)
+                )
+            }
+            kind = _protobuf(config).get(1, [0])[0]
+            types[ntid] = _NoteType(
+                name, kind == CLOZE_KIND, [field for (field,) in names], templates
+            )
+    if not types:
+        raise ValueError("no note types in the Anki collection")
+    return types
+
+
+def _legacy_note_types(db: sqlite3.Connection) -> dict[int, _NoteType]:
+    """The note types of a collection older than schema 18, from the JSON on `col`."""
+    rows = db.execute("SELECT models FROM col").fetchall()
+    try:
+        listing = json.loads(rows[0][0]) if rows and rows[0][0] else {}
+        return {
+            int(mid): _NoteType(
+                kind["name"],
+                kind.get("type") == CLOZE_KIND,
+                [f["name"] for f in sorted(kind["flds"], key=lambda f: f["ord"])],
+                {t["ord"]: Template(t["name"], t["qfmt"], t["afmt"]) for t in kind["tmpls"]},
+            )
+            for mid, kind in listing.items()
+        }
+    except (KeyError, TypeError, AttributeError) as error:
+        raise ValueError(f"unreadable Anki note types: {error!r}") from error
+
+
+def _string(message: bytes, number: int) -> str:
+    """Field `number` of a protobuf `message` as text, or empty when it is not set."""
+    value = _protobuf(message).get(number, [b""])[0]
+    if not isinstance(value, bytes):
+        raise ValueError(f"protobuf field {number} is not a string")
+    return value.decode()
+
+
+def _protobuf(message: bytes) -> dict[int, list[int | bytes]]:
+    """The fields of a protobuf `message` by number: a varint as an int, the rest as bytes.
+
+    Anki keeps a note type's kind and a template's front and back in protobuf
+    blobs from schema 18. The wire format is simple enough that a reader is
+    shorter than a dependency on one; a field this reader has no use for is
+    stepped over by its wire type.
+
+    Raises:
+        ValueError: `message` is not well-formed protobuf.
+    """
+    fields: defaultdict[int, list[int | bytes]] = defaultdict(list)
+    at = 0
+    while at < len(message):
+        key, at = _varint(message, at)
+        number, wire = key >> 3, key & 7
+        if wire == _VARINT:
+            value, at = _varint(message, at)
+            fields[number].append(value)
+        elif wire == _LENGTH:
+            size, at = _varint(message, at)
+            if at + size > len(message):
+                raise ValueError("protobuf field runs past the end of its message")
+            fields[number].append(message[at : at + size])
+            at += size
+        elif wire in _FIXED:
+            at += _FIXED[wire]
+        else:
+            raise ValueError(f"protobuf wire type {wire} is not one Anki writes")
+    if at > len(message):
+        raise ValueError("protobuf field runs past the end of its message")
+    return fields
+
+
+def _varint(message: bytes, at: int) -> tuple[int, int]:
+    """The varint starting at `at`, and where the next field starts."""
+    value = shift = 0
+    while True:
+        if at >= len(message):
+            raise ValueError("protobuf varint runs past the end of its message")
+        byte = message[at]
+        value |= (byte & 0x7F) << shift
+        at += 1
+        shift += 7
+        if not byte & 0x80:
+            return value, at

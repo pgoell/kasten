@@ -65,23 +65,53 @@ have fifty cards you have answered, and their schedules are in it.
 To import a newer version of a deck, rename the old note first and merge by
 hand, or export the new cards to a deck under another name.
 
+## How a note becomes cards
+
+Anki makes cards from a note through its note type's card templates, and the
+import reads the same templates. Each card Anki made becomes one line: the
+front template filled in is the question, and the back template filled in is
+the answer. A field lands on the side its template puts it, wherever it sits in
+the note, so an audio field in third place goes where you heard it in Anki.
+"Basic (and reversed card)" gives two cards per note, and a note type with three
+templates gives three. A note with a single field is imported as long as its
+template gives it a front.
+
+Each card goes to the deck its own Anki card sits in. A reverse card you moved
+to another deck lands in that deck's note, not beside its forward card.
+
+`{{FrontSide}}` on the back adds nothing, because the question is already on the
+line. The answer holds only what the back adds to it. A card whose back adds
+nothing is written as `question::`, which kasten reads as
+[a parked question](/reference/flashcard-format.md#parking-a-card), so it waits
+for an answer rather than vanishing.
+
+A conditional section, `{{#Field}}` or `{{^Field}}`, shows or hides as it does in
+Anki. A card whose front shows no field with text in it is not made, since Anki
+does not make it either. A field holding only spaces, `<br>` or empty `<div>`
+tags counts as empty.
+
 ## What does not survive
 
 Three things, and the import says so rather than hiding them.
 
 **Media.** Images and sounds are dropped, and the count of cards that referenced
-one is reported. The media map in a current `.apkg` is zstd-compressed protobuf,
-which the standard library cannot read without the schema. A card that was a
-picture arrives as its caption. Put the images back by hand with
+one is reported, so a reversed note with an image counts two. The media map in a
+current `.apkg` is zstd-compressed protobuf, which the standard library cannot
+read without the schema. A card whose question was only a picture or a sound,
+common in Japanese decks, has nothing left to ask and is left out; it counts
+among the dropped media. Put the images back by hand with
 [an image in a note](/reference/editor-keys.md), or keep those decks in Anki.
 
-**Cloze.** An Anki cloze note arrives with its marks kept, so
-`{{c1::Paris}}` becomes `==Paris==`. The text is all there and nothing asks it:
+**Cloze.** An Anki cloze note arrives as one card, with its Text field the
+question and Back Extra the answer, and its marks kept, so `{{c1::Paris}}`
+becomes `==Paris==`. The text is all there and nothing asks the marks:
 [cloze is not a card](/reference/flashcard-format.md#what-is-not-read) here.
 
-**Everything but the first two fields.** A card is a question and an answer. A
-note type with six fields contributes its first two, and a note with fewer than
-two is skipped.
+**What a template does beyond its fields.** A filter such as `{{text:Field}}` or
+`{{kanji:Field}}` gives the field as it is stored. `{{type:Field}}` gives nothing
+on the front, and a `{{tts ...}}` tag gives nothing. The special fields
+`{{Tags}}`, `{{Deck}}`, `{{Card}}`, `{{Type}}` and `{{Subdeck}}` give nothing,
+and a `<script>` or `<style>` in a template adds nothing.
 
 Formatting inside a field is flattened to one line: `<br>` and the end of a
 `<div>` or `<p>` become spaces, every other tag is stripped, and entities are
