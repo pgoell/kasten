@@ -74,8 +74,9 @@ export function useAutosave(path: string | undefined) {
   //
   // A list rather than one slot, because one slot needs a promise about how far
   // apart two bookmark writes can be, and nothing here enforces one. In the
-  // order `adopt` was called, which is the order the writes landed and the
-  // order the stream reports them: so an event matching one entry says every
+  // order `adopt` was called, which is the order the writes landed (the route's
+  // `useNoteWrites` queue starts no write before the last one was adopted) and
+  // the order the stream reports them: so an event matching one entry says every
   // entry before it is on disk too, its event merged into a later one or lost,
   // and they all go. An entry left behind would take somebody restoring that
   // exact text, a `jj undo` say, for our own write, and the autosave would

@@ -1169,15 +1169,17 @@ escape. rg names the notes holding it and only those are read and reparsed. It
 matches far more than it rewrites, every mention in prose included, which costs
 nothing: the parse decides.
 
-Relative markdown links follow too, `[text](href)` and `![alt](href)` alike,
-in every note and not only the one moving. A markdown link is read from the
-folder of the file holding it, so two things break one: its target moving, and
-the file holding it moving to another folder. Either one rewrites it. A link
-between two files that moved together is left alone, which is what keeps a
-moved folder's own `index.md` working.
+Relative markdown links follow too, in every note and not only the one moving.
+A plain `[text](href)` is read from the folder of the file holding it, so two
+things break one: its target moving, and the file holding it moving to another
+folder. Either one rewrites it. A link between two files that moved together is
+left alone, which is what keeps a moved folder's own `index.md` working. An
+embed, `![alt](href)`, is read from the vault root, the way the editor draws
+it, so only its target moving rewrites it, and a move of the note holding it
+leaves it as written.
 
-A link that changes is written the short way from the folder of the file
-holding it, keeping a trailing slash and a leading `./` where it had them, and
+A plain link that changes is written the short way from the folder of the file
+holding it, an embed as its new vault path, both keeping a trailing slash and a leading `./` where it had them, and
 keeping a `#fragment` or `?query`. `%`, a space, `(`, `)`, `#` and `?` are
 escaped as `%25`, `%20`, `%28`, `%29`, `%23` and `%3F`, and nothing else, so
 `plan #2.pdf` is not cut at its `#` and an accented name reads as
