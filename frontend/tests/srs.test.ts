@@ -824,9 +824,11 @@ describe("setSuspended on a cloze", () => {
 
 describe("an imported card carrying its anki id", () => {
   const next = { due: "2026-09-01", interval: 7, ease: 250 };
-  const INLINE = "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0-->\nx::y\n";
-  const CLOZE = "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0-->\nx::y\n";
-  const MULTI = "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1-->\n\nx::y\n";
+  const INLINE =
+    "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0:0a1b2c3d-->\nx::y\n";
+  const CLOZE = "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0:0a1b2c3d-->\nx::y\n";
+  const MULTI =
+    "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1:0a1b2c3d-->\n\nx::y\n";
 
   /** Rate it, park it, put it back: the three notes written along the way. */
   function sit(text: string) {
@@ -849,7 +851,7 @@ describe("an imported card carrying its anki id", () => {
     expect(only(MULTI)).toMatchObject({ front: "Front", back: "Back line one\nBack line two" });
     expect(sameAnswer("Back line one Back line two", only(MULTI).back)).toBe(true);
 
-    const extra = "#flashcards\n\n{{c1::a}}\n?\nextra <!--anki:9:0-->\n";
+    const extra = "#flashcards\n\n{{c1::a}}\n?\nextra <!--anki:9:0:0a1b2c3d-->\n";
     expect(only(extra).back).toBe("==a==\n\nextra");
   });
 
@@ -857,10 +859,10 @@ describe("an imported card carrying its anki id", () => {
     const { rated, parked, back } = sit(INLINE);
 
     expect(rated).toBe(
-      "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0--> <!--SR:!2026-09-01,7,250-->\nx::y\n",
+      "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0:0a1b2c3d--> <!--SR:!2026-09-01,7,250-->\nx::y\n",
     );
     expect(parked).toBe(
-      "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0--> !suspended <!--SR:!2026-09-01,7,250-->\nx::y\n",
+      "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0:0a1b2c3d--> !suspended <!--SR:!2026-09-01,7,250-->\nx::y\n",
     );
     expect(back).toBe(rated);
     expect(only(parked)).toMatchObject({ back: "Simple Storage", held: next, parked: "suspended" });
@@ -871,10 +873,10 @@ describe("an imported card carrying its anki id", () => {
     const { rated, parked, back } = sit(CLOZE);
 
     expect(rated).toBe(
-      "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0--> <!--SR:c1!2026-09-01,7,250-->\nx::y\n",
+      "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0:0a1b2c3d--> <!--SR:c1!2026-09-01,7,250-->\nx::y\n",
     );
     expect(parked).toBe(
-      "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0--> !suspended <!--SR:c1!2026-09-01,7,250-->\nx::y\n",
+      "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0:0a1b2c3d--> !suspended <!--SR:c1!2026-09-01,7,250-->\nx::y\n",
     );
     expect(back).toBe(rated);
     expect(only(parked)).toMatchObject({
@@ -893,10 +895,10 @@ describe("an imported card carrying its anki id", () => {
     const { rated, parked, back } = sit(MULTI);
 
     expect(rated).toBe(
-      "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1-->\n<!--SR:!2026-09-01,7,250-->\n\nx::y\n",
+      "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1:0a1b2c3d-->\n<!--SR:!2026-09-01,7,250-->\n\nx::y\n",
     );
     expect(parked).toBe(
-      "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1-->\n!suspended <!--SR:!2026-09-01,7,250-->\n\nx::y\n",
+      "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1:0a1b2c3d-->\n!suspended <!--SR:!2026-09-01,7,250-->\n\nx::y\n",
     );
     expect(back).toBe(rated);
     const shown = { front: "Front", back: "Back line one\nBack line two", held: next };

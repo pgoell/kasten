@@ -230,8 +230,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           }
           // What the buffer took is written now, so nothing on screen is held
           // text any more, and a second entry, if any, goes on the bar. Not when
-          // the buffer took newer text since.
-          if (here() && taken.current === carried) take(null);
+          // the buffer took newer text since. An entry a hide held of this very
+          // text while it was in the air is written now too.
+          if (here() && (taken.current === carried || taken.current?.content === content)) {
+            take(null);
+          }
           // The note that came back and never the text that was sent: the two
           // differ by the `modified` stamp `PUT` writes, so what is on disk is
           // this one. Hashing the other would recognise nothing and read every
@@ -639,7 +642,6 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       const content = pending.current ?? inAir.current.get(path);
       if (content === undefined) return;
       if (content === taken.current?.content) return;
-      pending.current = content;
       const stop = conflicted.current || holding.current > 0;
       const entry = {
         content,
@@ -651,7 +653,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // After every write already in the air, which a failing one reads.
       heldAt.current.set(entry, saves.current);
       take(entry);
-      if (!stop) void write(true);
+      if (stop) return;
+      // In `pending` only to be sent: a held in-flight text put there would
+      // outlive its own write landing, and leave the note reading unsaved.
+      pending.current = content;
+      void write(true);
     };
     const hidden = () => {
       if (document.visibilityState === "hidden") hide();

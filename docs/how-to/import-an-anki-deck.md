@@ -43,11 +43,12 @@ and holds one `front::back` line per card:
 ```markdown
 #flashcards/AWS-Certification
 
-What is a VPC?::A virtual private cloud <!--anki:1700000000001:0-->
-Which region is cheapest?::us-east-1 usually <!--anki:1700000000002:0-->
+What is a VPC?::A virtual private cloud <!--anki:1700000000001:0:5d41402a-->
+Which region is cheapest?::us-east-1 usually <!--anki:1700000000002:0:7d793037-->
 ```
 
-The comment at the end of a card's last line is its Anki note id and template.
+The comment at the end of a card's last line is its Anki note id and template,
+and a short hash of the text the import wrote.
 It is how a later import of the same deck finds the card; the review never
 shows it, and a rating writes its schedule after it. Leave it in place.
 
@@ -124,6 +125,9 @@ Export the deck from Anki again and import it the same way. The import merges
 into the deck's note, card by card, using the comment at the end of each card:
 
 * A card Anki has not changed stays as it is.
+* A card you edited in kasten keeps your text, even when Anki changed it too.
+  The hash in the comment no longer matches, and the import leaves the card
+  alone.
 * A card whose text Anki changed gets the new text and keeps the schedule and
   the parking you gave it in kasten.
 * A card new in Anki goes on the end of the note.

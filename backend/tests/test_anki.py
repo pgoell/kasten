@@ -8,8 +8,10 @@ a binary blob saying nothing. The note types are the shapes a real export from
 Anki 26.09 holds, templates and all.
 """
 
+import hashlib
 import io
 import json
+import re
 import sqlite3
 import tempfile
 import zipfile
@@ -24,6 +26,8 @@ from kasten_backend.anki import (
     Card,
     Deck,
     Template,
+    _replaced,
+    _Span,
     as_note,
     card_count,
     merge,
@@ -292,8 +296,18 @@ def one_deck(
 
 
 def mark(nid: int, ord_: int = 0) -> str:
-    """The marker `as_note` writes after a card's last line, with the space before it."""
+    """A marker less its hash, with the space before it, to hold against `unhashed` text."""
     return f" <!--anki:{nid}:{ord_}-->"
+
+
+def marked(nid: int, text: str, ord_: int = 0) -> str:
+    """The marker `as_note` writes after the card whose lines, joined, are `text`."""
+    return f" <!--anki:{nid}:{ord_}:{hashlib.sha256(text.encode()).hexdigest()[:8]}-->"
+
+
+def unhashed(text: str) -> str:
+    """`text` with every marker's hash taken off, for a test about where the markers go."""
+    return re.sub(r"(<!--anki:\d+:\d+):[0-9a-f]{8}-->", r"\1-->", text)
 
 
 def basic_deck(*pairs: tuple[str, str]) -> Deck:
@@ -504,7 +518,7 @@ def test_a_multi_line_side_takes_the_question_form() -> None:
     notes = ((1, BASIC, "Name three<br>colours\x1f<ul><li>red</li><li>green</li></ul>"),)
     decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == (
+    assert unhashed(as_note(decks[0])) == (
         f"#flashcards/x\n\nName three\ncolours\n?\n- red\n- green{mark(1)}\n"
     )
 
@@ -513,14 +527,16 @@ def test_a_multi_line_front_with_no_back_is_parked_on_one_line() -> None:
     # A `?` with nothing under it is no card, so the breaks become spaces.
     decks = read_apkg(apkg(((1, SOLO, "one<br>two"),), CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == f"#flashcards/x\n\none two::{mark(1)}\n"
+    assert unhashed(as_note(decks[0])) == f"#flashcards/x\n\none two::{mark(1)}\n"
 
 
 def test_an_imported_side_that_would_end_the_card_is_kept_as_text() -> None:
     notes = ((1, BASIC, "Is a::b valid?\x1f?<br>```js"),)
     decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == f"#flashcards/x\n\nIs a::b valid?\n?\n\\?\n\\`\\`\\`js{mark(1)}\n"
+    assert unhashed(as_note(decks[0])) == (
+        f"#flashcards/x\n\nIs a::b valid?\n?\n\\?\n\\`\\`\\`js{mark(1)}\n"
+    )
     assert card_count(decks[0]) == 1
 
 
@@ -528,7 +544,7 @@ def test_a_cloze_text_stays_one_line_and_its_extra_runs_over_lines() -> None:
     notes = ((1, CLOZE, "{{c1::Paris}}<br>is the capital\x1fOn the<br><b>Seine</b>"),)
     decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == (
+    assert unhashed(as_note(decks[0])) == (
         f"#flashcards/x\n\n{{{{c1::Paris}}}} is the capital\n?\nOn the\n**Seine**{mark(1)}\n"
     )
     assert card_count(decks[0]) == 1
@@ -540,19 +556,19 @@ Name three
 colours
 ?
 - red
-- green <!--anki:1:0-->
+- green <!--anki:1:0:c7b4cdb4-->
 
-漢字::<ruby>漢字<rt>かんじ</rt></ruby> <!--anki:2:0-->
+漢字::<ruby>漢字<rt>かんじ</rt></ruby> <!--anki:2:0:6e5a75f5-->
 
 {{c1::Paris}} is in {{c2::France}}
 ?
 On the
-Seine <!--anki:3:0-->
+Seine <!--anki:3:0:572ce8f6-->
 
 What does std::size count?
 ?
 \\# of elements
-\\!suspended no <!--anki:4:0-->
+\\!suspended no <!--anki:4:0:1b669e79-->
 """
 """The note `frontend/tests/srs.test.ts` reads back, holding five cards."""
 
@@ -568,11 +584,15 @@ def test_each_card_carries_its_anki_note_and_template_on_its_last_line() -> None
     cards += ((31, 3, 100, 0), (41, 4, 100, 0))
     deck = read_apkg(apkg(notes, cards, ((100, "x"),)))[0]
 
+    # The hash is of the lines the import wrote, so a re-import can tell them
+    # from lines edited since.
+    cloze, divided = "{{c1::H}} and {{c2::O}}", "What does std::move do?\n?\ncasts"
+    seine = "{{c1::Seine}} river\n?\nin Paris"
     assert as_note(deck) == (
-        f"#flashcards/x\n\nParis::capital{mark(1)}\ncapital::Paris{mark(1, 1)}\n"
-        f"{{{{c1::H}}}} and {{{{c2::O}}}}{mark(2)}\n\n"
-        f"What does std::move do?\n?\ncasts{mark(3)}\n\n"
-        f"{{{{c1::Seine}}}} river\n?\nin Paris{mark(4)}\n"
+        f"#flashcards/x\n\nParis::capital{marked(1, 'Paris::capital')}\n"
+        f"capital::Paris{marked(1, 'capital::Paris', 1)}\n"
+        f"{cloze}{marked(2, cloze)}\n\n{divided}{marked(3, divided)}\n\n"
+        f"{seine}{marked(4, seine)}\n"
     )
 
 
@@ -583,7 +603,8 @@ def test_a_re_import_adds_the_cards_that_are_new() -> None:
 
     assert merged is not None
     assert merged.text == (
-        f"#flashcards/x\n\na::b{mark(1)}\nc::d{mark(2)}\n\nWhat is a::b?\n?\ne{mark(3)}\n"
+        f"#flashcards/x\n\na::b{marked(1, 'a::b')}\nc::d{marked(2, 'c::d')}\n\n"
+        f"What is a::b?\n?\ne{marked(3, 'What is a::b?\n?\ne')}\n"
     )
     assert (merged.added, merged.updated, merged.kept, merged.removed) == (2, 0, 1, 0)
 
@@ -594,7 +615,7 @@ def test_a_re_import_updates_the_text_of_cards_anki_changed() -> None:
     merged = merge(old, basic_deck(("a", "B"), ("What is a::b?", "e\nf"), ("c", "d")))
 
     assert merged is not None
-    assert merged.text == (
+    assert unhashed(merged.text) == (
         f"#flashcards/x\n\na::B{mark(1)}\n\nWhat is a::b?\n?\ne\nf{mark(2)}\n\nc::d{mark(3)}\n"
     )
     assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 2, 1, 0)
@@ -609,23 +630,23 @@ modified: 2026-10-01T00:00:00+00:00
 ---
 #flashcards/x
 
-a::b{mark(1)} !suspended {SR1}
-c::d{mark(2)} {SR2}
-{{{{c1::H}}}} and {{{{c2::O}}}}{mark(3)} {CLOZED}
+a::b{marked(1, "a::b")} !suspended {SR1}
+c::d{marked(2, "c::d")} {SR2}
+{{{{c1::H}}}} and {{{{c2::O}}}}{marked(3, "{{c1::H}} and {{c2::O}}")} {CLOZED}
 
 What is a::b?
 ?
-e{mark(4)}
+e{marked(4, "What is a::b?\n?\ne")}
 !suspended {SR3}
 
 What is c::d?
 ?
-f{mark(5)}
+f{marked(5, "What is c::d?\n?\nf")}
 {SR1}
 
 What is e::f?
 ?
-g{mark(6)}
+g{marked(6, "What is e::f?\n?\ng")}
 !suspended
 """
 """A deck's note after a few ratings and parkings, each in the shape `srs.ts` writes."""
@@ -656,10 +677,10 @@ def test_a_re_import_keeps_the_schedule_and_park_of_every_answered_card() -> Non
     assert kept.text == ANSWERED_NOTE
     assert (kept.kept, kept.updated) == (6, 0)
     assert (updated.kept, updated.updated) == (0, 6)
-    expected = ANSWERED_NOTE
+    expected = unhashed(ANSWERED_NOTE)
     for nid in range(1, 7):
         expected = expected.replace(mark(nid), f"!{mark(nid)}")
-    assert updated.text == expected
+    assert unhashed(updated.text) == expected
 
 
 def test_cards_removed_in_anki_are_counted_and_stay_in_the_note() -> None:
@@ -676,24 +697,104 @@ def test_a_re_import_leaves_unmarked_lines_byte_for_byte() -> None:
     # The user's own prose and cards, trailing spaces and all, and a `?` card of
     # theirs at the end that an added card must not run into.
     head = "---\nid: 1\n---\n#flashcards/x  \n\n# Mine\nSome prose  \t\n"
-    old = f"{head}a::b{mark(1)}\nmine::own\n\nMy q\n?\nmy a"
+    old = f"{head}a::b{marked(1, 'a::b')}\nmine::own\n\nMy q\n?\nmy a"
 
     merged = merge(old, basic_deck(("a", "B"), ("c", "d")))
 
     assert merged is not None
-    assert merged.text == f"{head}a::B{mark(1)}\nmine::own\n\nMy q\n?\nmy a\n\nc::d{mark(2)}\n"
+    assert merged.text == (
+        f"{head}a::B{marked(1, 'a::B')}\nmine::own\n\nMy q\n?\nmy a\n\nc::d{marked(2, 'c::d')}\n"
+    )
+
+
+def test_a_line_right_above_an_imported_question_card_stays() -> None:
+    # No blank line parts the user's line from the card, so only the hash says
+    # where the card starts.
+    card = "q1\nq2\n?\na"
+    old = f"#flashcards/x\n\nMy heading note\n{card}{marked(1, card)}\n{SR1}\n"
+
+    unchanged = merge(old, basic_deck(("q1\nq2", "a")))
+    changed = merge(old, basic_deck(("q1\nq2", "A")))
+
+    assert unchanged is not None
+    assert changed is not None
+    assert unchanged.text == old
+    assert unhashed(changed.text) == (
+        f"#flashcards/x\n\nMy heading note\n\nq1\nq2\n?\nA{mark(1)}\n{SR1}\n"
+    )
+
+
+def test_a_users_question_card_right_above_an_imported_card_stays() -> None:
+    old = f"#flashcards/x\n\nmine q\n?\nmine a\nz::z{marked(1, 'z::z')} {SR1}\n"
+
+    merged = merge(old, basic_deck(("z", "Z")))
+
+    assert merged is not None
+    assert unhashed(merged.text) == f"#flashcards/x\n\nmine q\n?\nmine a\nz::Z{mark(1)} {SR1}\n"
+
+
+def test_two_question_cards_with_no_blank_between_keep_their_own_schedules() -> None:
+    first, second = "q\n?\na", "r\n?\nb"
+    old = f"#flashcards/x\n\n{first}{marked(1, first)}\n{SR1}\n{second}{marked(2, second)}\n"
+
+    merged = merge(old, basic_deck(("q", "a\nx"), ("r", "B")))
+
+    assert merged is not None
+    assert merged.updated == 2
+    assert unhashed(merged.text) == (
+        f"#flashcards/x\n\nq\n?\na\nx{mark(1)}\n{SR1}\n\nr::B{mark(2)}\n"
+    )
+
+
+def test_overlapping_spans_replace_only_the_first() -> None:
+    # `_spans` finds none today; were it to, the later would eat the earlier.
+    lines = ["a", "b", "c", "d"]
+    replaced = {
+        0: (_Span(0, 2, "", True, False, []), ["X"]),
+        1: (_Span(1, 3, "", True, False, []), ["Y"]),
+    }
+
+    assert _replaced(lines, replaced) == (["X", "d"], 1)
+
+
+def test_a_card_edited_in_kasten_is_kept_whatever_anki_did() -> None:
+    old = f"#flashcards/x\n\nb::my better answer{marked(1, 'b::c')} {SR1}\n"
+
+    same = merge(old, basic_deck(("b", "c")))
+    changed = merge(old, basic_deck(("b", "C")))
+
+    assert same is not None
+    assert changed is not None
+    assert (same.text, same.kept, same.updated) == (old, 1, 0)
+    assert (changed.text, changed.kept, changed.updated) == (old, 1, 0)
+
+
+def test_a_note_with_crlf_line_ends_merges_without_mixing_them() -> None:
+    old = as_note(basic_deck(("q1\nq2", "a"), ("b", "c"))).replace("\n", "\r\n")
+
+    same = merge(old, basic_deck(("q1\nq2", "a"), ("b", "c")))
+    changed = merge(old, basic_deck(("q1\nq2", "A"), ("b", "c"), ("d", "e")))
+
+    assert same is not None
+    assert changed is not None
+    assert (same.text, same.kept, same.updated) == (old, 2, 0)
+    assert (changed.added, changed.updated, changed.kept) == (1, 1, 1)
+    assert unhashed(changed.text) == (
+        f"#flashcards/x\r\n\r\nq1\r\nq2\r\n?\r\nA{mark(1)}\r\n\r\nb::c{mark(2)}\r\nd::e{mark(3)}\r\n"
+    )
 
 
 def test_a_shape_change_carries_the_schedule_into_the_new_shape() -> None:
     old = (
-        f"#flashcards/x\n\na::b{mark(1)} !suspended {SR1}\nc::d{mark(2)}\n\n"
-        f"What is a::b?\n?\ne{mark(3)}\n{SR2}\n\nz::z{mark(4)}\n"
+        f"#flashcards/x\n\na::b{marked(1, 'a::b')} !suspended {SR1}\nc::d{marked(2, 'c::d')}\n\n"
+        f"What is a::b?\n?\ne{marked(3, 'What is a::b?\n?\ne')}\n{SR2}\n\n"
+        f"z::z{marked(4, 'z::z')}\n"
     )
 
     merged = merge(old, basic_deck(("a", "b\nmore"), ("c", "d"), ("What is a?", "e"), ("z", "z")))
 
     assert merged is not None
-    assert merged.text == (
+    assert unhashed(merged.text) == (
         f"#flashcards/x\n\na\n?\nb\nmore{mark(1)}\n!suspended {SR1}\n\nc::d{mark(2)}\n\n"
         f"What is a?::e{mark(3)} {SR2}\n\nz::z{mark(4)}\n"
     )
@@ -881,7 +982,7 @@ def test_a_cloze_note_imports_as_one_cloze_line(layout: dict[str, Any]) -> None:
     decks = read_apkg(apkg(notes, cards, **layout))
 
     assert sides(decks) == {"French": [("{{c1::Paris}} is in {{c2::France::a country}}", "")]}
-    assert as_note(decks[0]) == (
+    assert unhashed(as_note(decks[0])) == (
         f"#flashcards/French\n\n{{{{c1::Paris}}}} is in {{{{c2::France::a country}}}}{mark(1)}\n"
     )
 
@@ -898,7 +999,7 @@ def test_a_cloze_without_back_extra_is_kept_on_a_line_of_its_own() -> None:
         {},
     )
 
-    assert as_note(deck) == (
+    assert unhashed(as_note(deck)) == (
         f"#flashcards/x\n\na::b{mark(1)}\nRatio {{{{c1::1}}}}:{mark(2)}\nc::d{mark(3)}\n"
     )
 
@@ -913,7 +1014,7 @@ def test_a_cloze_note_with_back_extra_imports_as_the_question_form() -> None:
 
     decks = read_apkg(apkg(notes, cards, ((100, "French"),)))
 
-    assert as_note(decks[0]) == (
+    assert unhashed(as_note(decks[0])) == (
         f"#flashcards/French\n\nBonjour::hello{mark(1)}\n\n"
         f"{{{{c1::Paris}}}} is the capital\n?\nOn the **Seine**{mark(2)}\n\nOui::yes{mark(3)}\n"
     )
@@ -931,7 +1032,7 @@ def test_a_cloze_whose_back_extra_would_end_the_card_keeps_the_cloze(extra: str)
     card = Card("{{c1::Paris}} is it", extra, {}, template, "Cloze", cloze=True, nid=1, ord=0)
     deck = Deck("x", [card], {})
 
-    assert as_note(deck) == f"#flashcards/x\n\n{{{{c1::Paris}}}} is it{mark(1)}\n"
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{{{{c1::Paris}}}} is it{mark(1)}\n"
 
 
 @pytest.mark.parametrize(
@@ -949,7 +1050,7 @@ def test_a_cloze_mark_kasten_cannot_read_imports_as_a_highlight(text: str, body:
     notes = ((1, CLOZE, f"{text}\x1fextra"),)
     deck = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))[0]
 
-    assert as_note(deck) == f"#flashcards/x\n\n{body}{mark(1)}\n"
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{body}{mark(1)}\n"
     assert card_count(deck) == 1
 
 
@@ -958,7 +1059,7 @@ def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # text is still worth a question.
     decks = read_apkg(apkg(((1, CLOZE, "Paris\x1fthe capital"),), CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == f"#flashcards/x\n\nParis::the capital{mark(1)}\n"
+    assert unhashed(as_note(decks[0])) == f"#flashcards/x\n\nParis::the capital{mark(1)}\n"
 
 
 def test_writes_a_deck_as_a_tagged_note() -> None:
@@ -974,7 +1075,7 @@ def test_writes_a_deck_as_a_tagged_note() -> None:
         {},
     )
 
-    assert as_note(deck) == (
+    assert unhashed(as_note(deck)) == (
         f"#flashcards/Certs/AWS\n\nBonjour::hello{mark(1)}\nParis::the capital{mark(3)}\n"
         f"alone::{mark(4)}\n"
     )
@@ -983,7 +1084,7 @@ def test_writes_a_deck_as_a_tagged_note() -> None:
 def test_parks_a_card_whose_back_adds_nothing() -> None:
     decks = read_apkg(apkg(((1, SOLO, "alone"),), ((11, 1, 100, 0),)))
 
-    assert as_note(decks[0]) == f"#flashcards/French\n\nalone::{mark(1)}\n"
+    assert unhashed(as_note(decks[0])) == f"#flashcards/French\n\nalone::{mark(1)}\n"
 
 
 def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
@@ -992,7 +1093,7 @@ def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
     # `review.test.ts` read this exact text back.
     decks = read_apkg(apkg(((1, BASIC, "What does std::move do?\x1fcasts to an rvalue"),)))
 
-    assert as_note(decks[0]) == (
+    assert unhashed(as_note(decks[0])) == (
         f"#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue{mark(1)}\n"
     )
 
@@ -1000,7 +1101,7 @@ def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
 def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None:
     deck = basic_deck(("a", "b"), ("What does std::move do?", "casts std::move"), ("c", "d"))
 
-    assert as_note(deck) == (
+    assert unhashed(as_note(deck)) == (
         f"#flashcards/x\n\na::b{mark(1)}\n\n"
         f"What does std::move do?\n?\ncasts std::move{mark(2)}\n\nc::d{mark(3)}\n"
     )
@@ -1024,7 +1125,7 @@ def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str,
     # `frontend/tests/review.test.ts` reads the first case's text back.
     deck = basic_deck((front, back), ("a", "b"))
 
-    assert as_note(deck) == f"#flashcards/x\n\na::b{mark(2)}\n"
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\na::b{mark(2)}\n"
 
 
 @pytest.mark.parametrize(
@@ -1040,7 +1141,7 @@ def test_keeps_a_divider_question_holding_what_is_no_schedule_stop(front: str, b
     # schedule at all, so neither of these ends the card.
     deck = basic_deck((front, back))
 
-    assert as_note(deck) == f"#flashcards/x\n\n{front}\n?\n{back}{mark(1)}\n"
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{front}\n?\n{back}{mark(1)}\n"
 
 
 def test_a_front_ending_in_a_colon_reads_back_whole() -> None:
@@ -1048,7 +1149,7 @@ def test_a_front_ending_in_a_colon_reads_back_whole() -> None:
     # `divide` in `card-line.ts` trims the space the divider sits behind.
     decks = read_apkg(apkg(((1, BASIC, "Ratio 1:\x1f2"),), CARDS[:1], ((100, "x"),)))
 
-    line = as_note(decks[0]).splitlines()[-1].removesuffix(mark(1))
+    line = unhashed(as_note(decks[0])).splitlines()[-1].removesuffix(mark(1))
     front, back = line.split("::", 1)
 
     assert line == "Ratio 1: ::2"
@@ -1063,7 +1164,7 @@ def test_a_side_opening_a_fence_opens_none() -> None:
     note = as_note(deck)
 
     assert not any(line.lstrip().startswith("```") for line in note.splitlines())
-    assert note == (
+    assert unhashed(note) == (
         f"#flashcards/x\n\n\\```js x::code{mark(1)}\n\n\\```a::b\n?\n\\```c{mark(2)}\n\n"
         f"a::b{mark(3)}\n"
     )
@@ -1072,7 +1173,7 @@ def test_a_side_opening_a_fence_opens_none() -> None:
 def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
     deck = basic_deck(("What does std::move do?", ""), ("a", "b"))
 
-    assert as_note(deck) == f"#flashcards/x\n\na::b{mark(2)}\n"
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\na::b{mark(2)}\n"
 
 
 def test_script_and_style_add_no_text() -> None:
@@ -1312,7 +1413,7 @@ def test_a_front_of_only_a_sound_is_a_card() -> None:
     decks = read_apkg(apkg(notes, ((11, 1, 100, 0),), media=(("kanji.mp3", MP3),)))
 
     # The back's `<br>` is a line of it, so the card takes the `?` form.
-    assert as_note(decks[0]) == (
+    assert unhashed(as_note(decks[0])) == (
         "#flashcards/French\n\n![](French%20media/kanji.mp3)\n?\n漢字\n"
         f"Chinese characters{mark(1)}\n"
     )
@@ -1322,7 +1423,7 @@ def test_leaves_out_a_front_of_only_a_sound_it_could_not_carry() -> None:
     notes = ((1, JAPANESE, "漢字\x1fChinese characters\x1f[sound:kanji.mp3]\x1fかんじ"),)
     decks = read_apkg(apkg(notes, ((11, 1, 100, 0),)))
 
-    assert as_note(decks[0]) == "#flashcards/French\n\n"
+    assert unhashed(as_note(decks[0])) == "#flashcards/French\n\n"
 
 
 def test_skips_a_note_no_card_points_at() -> None:
@@ -1431,7 +1532,7 @@ async def test_import_writes_media_beside_each_deck(client: AsyncClient, vault: 
     assert (folder / "Pets" / "Cats media" / "cat.png").read_bytes() == PNG
     assert not (folder / "Pets" / "Cats media" / "bad.png").exists()
     cats = (folder / "Cats.md").read_text(encoding="utf-8")
-    pets = (folder / "Pets" / "Cats.md").read_text(encoding="utf-8")
+    pets = unhashed((folder / "Pets" / "Cats.md").read_text(encoding="utf-8"))
     assert (
         "![](03%20Flashcards/Cats%20media/cat.png) which cat?::"
         "the tabby ![](03%20Flashcards/Cats%20media/purr.mp3)"
@@ -1471,7 +1572,7 @@ async def test_import_skips_a_media_name_the_write_would_refuse(
 
     assert response.status_code == 201
     assert response.json()["media"] == 0
-    note = (vault / "03 Flashcards" / "Cats.md").read_text(encoding="utf-8")
+    note = unhashed((vault / "03 Flashcards" / "Cats.md").read_text(encoding="utf-8"))
     assert f"\nwhich cat?::the tabby{mark(1)}\n" in note
     assert not (vault / "03 Flashcards" / "Cats media").exists()
 
@@ -1525,7 +1626,7 @@ async def test_a_re_import_answers_with_what_it_added_updated_kept_and_removed(
         "kept": 1,
         "removed": 1,
     }
-    note = (vault / "03 Flashcards" / "AWS.md").read_text(encoding="utf-8")
+    note = unhashed((vault / "03 Flashcards" / "AWS.md").read_text(encoding="utf-8"))
     body = f"a::b{mark(1)}\nc::D{mark(2)}\ne::f{mark(3)}\ng::h{mark(4)}\n"
     assert note.endswith(f"\n#flashcards/AWS\n\n{body}")
 
@@ -1590,8 +1691,8 @@ async def test_one_export_merges_an_existing_deck_and_creates_a_new_one(
     assert response.json()["notes"] == ["03 Flashcards/AWS.md", "03 Flashcards/GCP.md"]
     assert (response.json()["added"], response.json()["updated"]) == (1, 1)
     folder = vault / "03 Flashcards"
-    assert f"\na::B{mark(1)}\n" in (folder / "AWS.md").read_text(encoding="utf-8")
-    assert f"\nc::d{mark(2)}\n" in (folder / "GCP.md").read_text(encoding="utf-8")
+    assert f"\na::B{marked(1, 'a::B')}\n" in (folder / "AWS.md").read_text(encoding="utf-8")
+    assert f"\nc::d{marked(2, 'c::d')}\n" in (folder / "GCP.md").read_text(encoding="utf-8")
 
 
 def reviewed(deck: str, *, more: bool = False) -> bytes:
@@ -1618,8 +1719,8 @@ async def test_carry_writes_anki_schedules_and_is_off_by_default(
     await client.post("/api/anki", params={"carry": "true"}, content=reviewed("On"))
 
     folder = vault / "03 Flashcards"
-    off = (folder / "Off.md").read_text(encoding="utf-8")
-    on = (folder / "On.md").read_text(encoding="utf-8")
+    off = unhashed((folder / "Off.md").read_text(encoding="utf-8"))
+    on = unhashed((folder / "On.md").read_text(encoding="utf-8"))
     # A card already in the note keeps the schedule kasten gave it, none here;
     # only the one the merge added takes Anki's.
     assert off.count("<!--SR:") == 1
@@ -1639,7 +1740,7 @@ def test_carry_writes_nothing_for_a_card_new_learning_or_relearning() -> None:
 
     deck = read_apkg(apkg(notes, cards, ((10, "x"),), reviews=reviews), carry=True)[0]
 
-    assert as_note(deck) == (
+    assert unhashed(as_note(deck)) == (
         f"#flashcards/x\n\nq1::a{mark(1)}\nq2::a{mark(2)}\nq3::a{mark(3)}\n"
         f"q4::a{mark(4)} <!--SR:!2026-01-11,4,250-->\n"
     )

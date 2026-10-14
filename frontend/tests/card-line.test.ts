@@ -120,16 +120,17 @@ describe("divide", () => {
 
 describe("the anki id", () => {
   it("comes off a side only where it is the whole marker", () => {
-    expect(ANKI_ID.test("<!--anki:1700000000000:0-->")).toBe(true);
-    expect(divide("Q::A <!--anki:1700000000000:0-->")?.back).toBe("A");
-    expect(divide("Q::A <!--anki:5:1--> <!--SR:!2026-08-20,4,270-->")?.back).toBe("A");
-    expect(clozeAnswer("The {{c1::WAL}}. <!--anki:5:0-->", 1)).toBe("The ==WAL==.");
-    expect(clozeQuestion("The {{c1::WAL}}. <!--anki:5:0-->", 1)).toBe("The \\[...\\].");
+    expect(ANKI_ID.test("<!--anki:1700000000000:0:0a1b2c3d-->")).toBe(true);
+    expect(divide("Q::A <!--anki:1700000000000:0:0a1b2c3d-->")?.back).toBe("A");
+    expect(divide("Q::A <!--anki:5:1:0a1b2c3d--> <!--SR:!2026-08-20,4,270-->")?.back).toBe("A");
+    expect(clozeAnswer("The {{c1::WAL}}. <!--anki:5:0:0a1b2c3d-->", 1)).toBe("The ==WAL==.");
+    expect(clozeQuestion("The {{c1::WAL}}. <!--anki:5:0:0a1b2c3d-->", 1)).toBe("The \\[...\\].");
 
     // Text that only looks like one is the answer somebody wrote, kept whole.
-    expect(divide("Q::A <!--anki:x:0-->")?.back).toBe("A <!--anki:x:0-->");
-    expect(divide("Q::A <!--anki:5-->")?.back).toBe("A <!--anki:5-->");
+    expect(divide("Q::A <!--anki:x:0:0a1b2c3d-->")?.back).toBe("A <!--anki:x:0:0a1b2c3d-->");
+    expect(divide("Q::A <!--anki:5:0-->")?.back).toBe("A <!--anki:5:0-->");
     expect(divide("Q::A <!--anki:5:0:1-->")?.back).toBe("A <!--anki:5:0:1-->");
+    expect(divide("Q::A <!--anki:5:0:0A1B2C3D-->")?.back).toBe("A <!--anki:5:0:0A1B2C3D-->");
     expect(divide("Q::A <!--anki::-->")?.back).toBe("A <!--anki::-->");
   });
 });

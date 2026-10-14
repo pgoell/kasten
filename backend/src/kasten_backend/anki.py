@@ -22,6 +22,7 @@ dropped from the text, since a note rendering a broken image is worse than a
 card without it. Reading stays pure: the deck hands the bytes to its caller.
 """
 
+import hashlib
 import html
 import io
 import json
@@ -140,8 +141,10 @@ _EMPTY = re.compile(r"(?:\s|</?(?:br|div) ?/?>)*", re.IGNORECASE)
 """Anki's own test for an empty field: an editor leaves `<br>` and `<div>` behind."""
 _SCHEDULE = re.compile(r"<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->")
 """`SR` in `card-line.ts`, the whole comment: `srs.ts` stops a back at nothing less."""
-_ANKI_ID = re.compile(r"<!--anki:(\d+):(\d+)-->")
-"""`ANKI_ID` in `card-line.ts`: the Anki note and template `as_note` writes after a card."""
+_ANKI_ID = re.compile(r"<!--anki:(\d+):(\d+):([0-9a-f]{8})-->")
+"""`ANKI_ID` in `card-line.ts`: the Anki note, template and hash `as_note` writes after a card."""
+_SPAN_LIMIT = 200
+"""The most lines `_spans` takes a card to run over, so a long note costs this a card at most."""
 _STATE = re.compile(r"<!--SR:[^>]*?-->")
 """A schedule comment of either kind, plain or a cloze number's, which a re-import carries over."""
 _TOKEN_WORD = re.compile(r"(?:^|\s)!suspended(?=\s|$)")
@@ -705,7 +708,16 @@ def _lines(card: Card) -> list[str]:
 
 def _marked(card: Card, lines: list[str]) -> list[str]:
     """`lines` with the card's marker after the last, where no rating writes."""
-    return [*lines[:-1], f"{lines[-1]} <!--anki:{card.nid}:{card.ord}-->"]
+    return [*lines[:-1], f"{lines[-1]} <!--anki:{card.nid}:{card.ord}:{_digest(lines)}-->"]
+
+
+def _digest(lines: list[str]) -> str:
+    """The hash a marker holds of the unmarked `lines` it ends.
+
+    It is what tells `merge` where the card starts, and whether its lines are
+    still the ones the import wrote or ones edited since in kasten.
+    """
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()[:8]
 
 
 def _place(body: list[str], lines: list[str]) -> None:
@@ -734,12 +746,14 @@ class Merged:
 
 @dataclass(frozen=True)
 class _Span:
-    """One marked card of a note: lines `start` to `end`, its text, and what a rating left on it."""
+    """One marked card of a note: lines `start` to `end`, its hash, and what a rating left on it."""
 
     start: int
     end: int
-    text: list[str]
-    """The card's lines as `_lines` would write them, the marker and the state taken off."""
+    digest: str
+    """The hash its marker holds, of the lines the import wrote."""
+    found: bool
+    """Whether lines ending at the marker still hash to it; not, once edited in kasten."""
     suspended: bool
     comments: list[str]
 
@@ -747,9 +761,11 @@ class _Span:
 def merge(old: str, deck: Deck) -> Merged | None:
     """The note `old` with `deck` imported into it again, or None when `old` holds no marker.
 
-    A card is found by its marker. One whose text is what `_lines` writes now
-    is kept as it stands, and one Anki changed is written anew, the parking
-    token and the schedules a rating left on it carried into its new shape. A
+    A card is found by its marker. One whose lines `_lines` would write the
+    same now is kept as it stands, and one Anki changed is written anew, the
+    parking token and the schedules a rating left on it carried into its new
+    shape. One edited in kasten since is kept too, whatever Anki did: the edit
+    is the user's, and the marker's hash no longer finding the card says so. A
     card the note lacks goes on the end in `as_note`'s layout. One the export
     lacks stays, since its schedule is history worth more than tidiness, and is
     only counted. Every line without a marker, the tag line and whatever the
@@ -757,8 +773,13 @@ def merge(old: str, deck: Deck) -> Merged | None:
 
     None for a note without a marker, which an import older than the marker
     wrote: nothing in it says which card is which, so nothing can be merged.
+
+    A note whose first line ends in CRLF, as one saved on Windows may, is read
+    without the CRs, so its hashes match, and written back with CRLF on every
+    line rather than with two endings in one file.
     """
-    lines = old.split("\n")
+    crlf = old.split("\n", 1)[0].endswith("\r")
+    lines = [line.removesuffix("\r") for line in old.split("\n")]
     spans = _spans(lines)
     if not spans:
         return None
@@ -770,18 +791,19 @@ def merge(old: str, deck: Deck) -> Merged | None:
         span = spans.get((card.nid, card.ord))
         if span is None:
             added.append(_with_state(_marked(card, _lines(card)), False, _carried(card)))
-        elif span.text == _lines(card):
+        elif span.digest == _digest(_lines(card)) or not span.found:
             kept += 1
         else:
             card_lines = _with_state(_marked(card, _lines(card)), span.suspended, span.comments)
             replaced[span.start] = (span, card_lines)
 
-    out = _replaced(lines, replaced)
+    out, updated = _replaced(lines, replaced)
+    kept += len(replaced) - updated
     if added:
         while out and not out[-1]:
             out.pop()
         # A `?` card or the user's prose would run into a card added right under it.
-        if not any(s.start == s.end == len(out) - 1 for s in _spans(out).values()):
+        if not any(s.found and s.start == s.end == len(out) - 1 for s in _spans(out).values()):
             out.append("")
         for card_lines in added:
             _place(out, card_lines)
@@ -789,18 +811,28 @@ def merge(old: str, deck: Deck) -> Merged | None:
             out.pop()
         out.append("")
     removed = len(spans.keys() - {(card.nid, card.ord) for card in note_cards(deck)})
-    return Merged("\n".join(out), len(added), len(replaced), kept, removed)
+    # Untouched, the note comes back as it was, whatever its line ends.
+    text = ("\r\n" if crlf else "\n").join(out) if added or updated else old
+    return Merged(text, len(added), updated, kept, removed)
 
 
-def _replaced(lines: list[str], replaced: dict[int, tuple[_Span, list[str]]]) -> list[str]:
-    """`lines` with each span in `replaced`, keyed by where it starts, swapped for its new lines."""
+def _replaced(
+    lines: list[str], replaced: dict[int, tuple[_Span, list[str]]]
+) -> tuple[list[str], int]:
+    """`lines` with each span in `replaced`, keyed by where it starts, swapped for its new lines.
+
+    Also how many were swapped. A span starting inside one already swapped is
+    left as it is: two cards cannot hold one line, and writing the second
+    would lose part of the first.
+    """
     out: list[str] = []
-    at = 0
+    at = applied = 0
     while at < len(lines):
         if at not in replaced:
             out.append(lines[at])
             at += 1
             continue
+        applied += 1
         span, card_lines = replaced[at]
         block = len(card_lines) > 1
         # A card that turned into a `?` card needs the blank lines either side
@@ -811,7 +843,7 @@ def _replaced(lines: list[str], replaced: dict[int, tuple[_Span, list[str]]]) ->
         at = span.end + 1
         if block and at < len(lines) and lines[at].strip():
             out.append("")
-    return out
+    return out, applied
 
 
 def _carried(card: Card) -> list[str]:
@@ -845,30 +877,39 @@ def _with_state(lines: list[str], suspended: bool, comments: list[str]) -> list[
 def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
     """Every marked card in `lines`, by its Anki note and template.
 
-    A marker closes a `?` card when a `?` line stands between it and the blank
-    line above, and a card on its own line otherwise. A `?` card's state may
-    sit on the line under its marker, where `srs.ts` splices it.
+    A card is the fewest lines ending at its marker that hash to the hash the
+    marker holds: one for a card of one line, more for a `?` card, whose state
+    may sit on the line under its marker, where `srs.ts` splices it. A blank
+    line or `_SPAN_LIMIT` ends the search, since a card holds no blank line,
+    and a card not found by then was edited since and is marked so. Nothing
+    is guessed from the lines around a card, which may be anyone's.
     """
     spans: dict[tuple[int, int], _Span] = {}
     for at, line in enumerate(lines):
         found = _ANKI_ID.search(line)
         if found is None:
             continue
-        top = at
-        # Up to the blank line, or to the card above where nothing parts them.
-        while top > 0 and lines[top - 1].strip() and not _ANKI_ID.search(lines[top - 1]):
-            top -= 1
-        block = any(lines[row].strip() == "?" for row in range(top, at))
-        start, end, state = (top if block else at), at, line[found.end() :]
+        card = [line[: found.start()].removesuffix(" ")]
+        start = None
+        for top in range(at, max(at - _SPAN_LIMIT, -1), -1):
+            if top < at:
+                if not lines[top].strip():
+                    break
+                card.insert(0, lines[top])
+            if _digest(card) == found[3]:
+                start = top
+                break
+        end, state = at, line[found.end() :]
         below = lines[at + 1] if at + 1 < len(lines) else ""
-        if block and below.startswith(("<!--SR:", "!suspended")):
+        if start is not None and start < at and below.startswith(("<!--SR:", "!suspended")):
             end, state = at + 1, f"{state} {below}"
         spans.setdefault(
             (int(found[1]), int(found[2])),
             _Span(
-                start,
+                at if start is None else start,
                 end,
-                [*lines[start:at], line[: found.start()].removesuffix(" ")],
+                found[3],
+                start is not None,
                 _TOKEN_WORD.search(state) is not None,
                 _STATE.findall(state),
             ),
@@ -920,7 +961,7 @@ def _divides(card: Card) -> bool:
     return bool(card.back) and not (
         any(_ends_card(line) or line == "?" for line in lines)
         or _SCHEDULE.search(card.back)
-        or _ANKI_ID.search(card.back)
+        or "<!--anki:" in card.back
     )
 
 

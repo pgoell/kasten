@@ -1340,6 +1340,26 @@ describe("useAutosave", () => {
     expect(saveNote).toHaveBeenCalledTimes(1);
   });
 
+  it("calls the note saved once a write in flight at a held hide lands", async () => {
+    const note = renderAutosave("index.md");
+    const other = await digestOf("somebody else's text");
+    note.change("# edited");
+    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
+    note.reconcile(other);
+    // `:w` while the event is still being placed, which sends regardless.
+    const quiet = pendingSave();
+    note.startSave();
+
+    await background();
+    expect(heldText("index.md")?.content).toBe("# edited");
+    await quiet.finish();
+
+    expect(note.status()).toBe("saved");
+    expect(heldText("index.md")).toBeUndefined();
+    expect(note.restored()).toBe(false);
+    expect(saveNote).toHaveBeenCalledTimes(1);
+  });
+
   it("writes nothing when the page is shown again", async () => {
     const note = renderAutosave("index.md");
 

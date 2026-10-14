@@ -354,9 +354,9 @@ describe("decksFrom against the sitting", () => {
 
 describe("decksFrom on an imported deck carrying anki ids", () => {
   const MARKED =
-    "#flashcards/aws\n\nWhat is S3?::Simple Storage <!--anki:1:0--> <!--SR:!2026-08-01,1,250-->\n" +
-    "Not answered yet:: <!--anki:2:0-->\n" +
-    "The capital is {{c1::Paris}}. <!--anki:3:0-->\n\nFront\n?\nBack <!--anki:4:1-->\n";
+    "#flashcards/aws\n\nWhat is S3?::Simple Storage <!--anki:1:0:0a1b2c3d--> <!--SR:!2026-08-01,1,250-->\n" +
+    "Not answered yet:: <!--anki:2:0:0a1b2c3d-->\n" +
+    "The capital is {{c1::Paris}}. <!--anki:3:0:0a1b2c3d-->\n\nFront\n?\nBack <!--anki:4:1:0a1b2c3d-->\n";
 
   it("counts what the sitting asks, a card whose back is the id alone parked", () => {
     const notes = one("aws.md", MARKED);

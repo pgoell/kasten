@@ -491,12 +491,16 @@ answers 201 with what was written.
 numbers it asks; `cards` counts each number. A first import counts every card
 as added.
 
-Every card ends in `<!--anki:NID:ORD-->`, its Anki note id and template ord (a
-cloze's lowest), after its last line. A rating writes its schedule after or
-under that marker and never touches it. When the deck's note already exists,
-the import merges into it by marker:
+Every card ends in `<!--anki:NID:ORD:HASH-->` after its last line: its Anki note
+id, its template ord (a cloze's lowest), and the first 8 hex digits of the
+sha256 of the lines the import wrote for it. A rating writes its schedule after
+or under that marker and never touches it. When the deck's note already exists,
+the import merges into it by marker, and finds each card's lines as the ones
+ending at the marker whose hash matches:
 
 * A card whose text is what the import would write now is kept untouched.
+* A card whose lines no longer match the hash was edited in kasten, and is
+  kept untouched, counted as `kept`, whatever Anki now holds.
 * A card whose text Anki changed is written anew, its schedule comments and
   `!suspended` token carried into its new shape.
 * A card the note lacks goes on the end.
@@ -570,7 +574,7 @@ such a file has nothing left to ask and is left out.
 * A deck name that would climb out of the flashcards folder answers 400.
 * A collection with no note types answers 400, because without templates there
   is nothing to make a card from.
-* A deck whose note already exists but holds no `<!--anki:NID:ORD-->` marker,
+* A deck whose note already exists but holds no `<!--anki:NID:ORD:HASH-->` marker,
   one imported before the cards carried their ids, answers 409, and **nothing
   is written at all**, not even the decks in the same export that would have
   been fine. Every path is resolved and every collision found before the first

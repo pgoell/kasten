@@ -90,13 +90,15 @@ export const SR = /<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 export const CLOZE_SR = /<!--SR:c(\d+)!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 
 /**
- * The Anki note and template an imported card came from, `<!--anki:NID:ORD-->`.
+ * The Anki note and template an imported card came from, and a hash of the lines
+ * the import wrote: `<!--anki:NID:ORD:HHHHHHHH-->`.
  *
  * Written by the import at the end of the card's last line, so a second import
- * of the same deck finds the card to update rather than adding it again. Whole
- * and digits only, so an answer that merely mentions the comment keeps it.
+ * of the same deck finds the card to update rather than adding it again, and
+ * leaves alone one edited since. Whole, digits and eight lowercase hex only, so
+ * an answer that merely mentions the comment keeps it.
  */
-export const ANKI_ID = /<!--anki:\d+:\d+-->/;
+export const ANKI_ID = /<!--anki:\d+:\d+:[0-9a-f]{8}-->/;
 
 /** Every id on a side, with the space before it, for taking them off before it is shown. */
 const ANKI_IDS = new RegExp(`[ \\t]*${ANKI_ID.source}`, "g");
