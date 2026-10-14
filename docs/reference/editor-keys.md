@@ -2468,7 +2468,9 @@ and writes nothing to the vault, so its history gains nothing either. The status
 bar reads `Changed on disk: <note>` until you settle it, and opening the note
 shows the conflict again, your text in the buffer and what differs from the
 vault's newest text above the bar. If the vault has come to hold your text by
-then, the conflict is gone and the note opens clean. If a write
+then, the conflict is gone and the note opens clean. Moving the note, or a
+folder above it, in kasten carries the kept text to the new path; a delete, or
+a move made outside kasten, leaves it under the old one. If a write
 fails as you leave a note, or leave the editor for another screen, kasten keeps
 that note's text in this browser's storage, and the status bar reads
 `Not saved: <note>` until it is written or dropped, whatever you save

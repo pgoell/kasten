@@ -1138,6 +1138,102 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
+  /** Three panes: index.md in the first two, other.md in the third, focus on the first. */
+  async function threePanes() {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.click("other.md");
+    await settle();
+    app.focusPane(0);
+    await settle();
+    return app;
+  }
+
+  /** The text of the editor in the pane at `index`, in the order they are drawn. */
+  const paneText = (index: number) => document.querySelectorAll(".cm-content")[index]?.textContent;
+
+  /** The vault's copy of index.md becoming `text`, with the event that says so. */
+  function vaultNow(text: string, digest: string) {
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? text : VAULT[path],
+    );
+    act(() => stream().send({ path: "index.md", change: "written", digest: digest.repeat(64) }));
+  }
+
+  it("lets a pane that never showed the kept text take later outside writes", async () => {
+    const app = await threePanes();
+    app.press("x");
+    vaultNow("version two", "a");
+    await settle();
+    // Not reloaded: the write is to the focused pane's note, which declines.
+    expect(paneText(1)).toBe("the index note");
+    app.focusPane(2);
+    await settle();
+    expect(app.heldConflict()).toBe("Changed on disk: index");
+
+    vaultNow("version three", "b");
+    await settle();
+
+    // The first pane shows the kept text and refuses; the second never did.
+    expect(paneText(0)).toBe("he index note");
+    expect(paneText(1)).toBe("version three");
+    app.focusPane(1);
+    await settle();
+    fireEvent.keyDown(document.querySelectorAll(".cm-content")[1] as HTMLElement, { key: "x" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    await settle();
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "ersion three");
+  });
+
+  it("puts the vault's text back in a pane left showing kept text once the conflict is settled elsewhere", async () => {
+    const app = await threePanes();
+    app.press("x");
+    vaultNow("version two", "a");
+    await settle();
+    // Left for the third pane, then the note opened there over other.md.
+    app.focusPane(2);
+    await settle();
+    expect(app.heldConflict()).toBe("Changed on disk: index");
+    // Read while no pane holds the focus on it, so the cache takes it now and
+    // the `:e!` below reads nothing new: no reload reaches the first pane then.
+    vaultNow("version three", "b");
+    await settle();
+    expect(paneText(0)).toBe("he index note");
+    app.click("index.md");
+    await settle();
+    expect(paneText(2)).toBe("he index note");
+    expect(app.status()).toBe("Changed on disk");
+
+    // `app.ex` types into the first editor, and this has to be the third.
+    fireEvent.keyDown(document.querySelectorAll(".cm-content")[2] as HTMLElement, { key: ":" });
+    const input = document.querySelector(".cm-vim-panel input") as HTMLInputElement;
+    input.value = "e!";
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 13 });
+    await settle();
+    expect(heldText("index.md")).toBeUndefined();
+    expect(paneText(2)).toBe("version three");
+
+    app.focusPane(0);
+    await settle();
+    expect(paneText(0)).toBe("version three");
+    app.press("x");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    await settle();
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "ersion three");
+  });
+
   it("leaves a conflicted note for another note without writing, and lists it", async () => {
     // Into the other pane first: a click in the tree opens in the focused pane,
     // and over a conflicted note that is refused, as the test above pins.

@@ -1,3 +1,4 @@
+import { Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -56,7 +57,7 @@ import { visible } from "@/lib/archive";
 import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { queryEmbedSource } from "@/lib/embed";
-import { heldText, moveHeld, useHeld } from "@/lib/held-text";
+import { heldText, moveHeld, sameText, useHeld } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { MoveMode } from "@/lib/move";
@@ -121,6 +122,12 @@ import { namesAFile, outgoingLinks, splitTarget, wikiLinkPath } from "@/lib/wiki
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
+
+/** The document of the editor in pane `id` as it stands on screen, if it holds one. */
+function docIn(id: string): string | undefined {
+  const editor = document.querySelector<HTMLElement>(`[data-pane="${id}"] .cm-editor`);
+  return editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : undefined;
+}
 
 /**
  * Hand the browser a file, under a name of our choosing.
@@ -292,9 +299,33 @@ function Home() {
   // The focused pane's document as it stands on screen, which the autosave
   // checks before it takes held text into a pane that was already open, and
   // the bar diffs against the vault's while the note stands conflicted.
-  const focusedDoc = () => {
-    const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
-    return editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : undefined;
+  const focusedDoc = () => docIn(pane.id);
+  // The layout as of this render, for callbacks kept across renders to read
+  // a pane's note at the moment they are asked rather than when made.
+  const layoutNow = useRef(layout);
+  layoutNow.current = layout;
+  // What an unfocused pane's editor asks before it takes the vault's text.
+  // It refuses only in a pane showing the text held for its note as a
+  // conflict: that pane is where the reader left it, and a reload would put
+  // the vault's text there in its place, so coming back would find nothing
+  // to restore and read "Saved" under a bar saying the note changed on disk.
+  // A pane on that note that never showed the kept text takes the write, or
+  // it would sit on an old text that one keystroke writes back over the new.
+  // One callback per pane, kept, so the editor's memo is not broken by a new
+  // arrow each render.
+  const standby = useRef(new Map<string, (text: string) => boolean>());
+  const standbyReload = (id: string) => {
+    let call = standby.current.get(id);
+    if (!call) {
+      call = () => {
+        const path = tabPanes(layoutNow.current).find((each) => each.id === id)?.path;
+        const entry = path === undefined ? undefined : heldText(path);
+        const doc = docIn(id);
+        return !(entry?.conflicted && doc !== undefined && sameText(doc, entry.content));
+      };
+      standby.current.set(id, call);
+    }
+    return call;
   };
   const {
     status,
@@ -326,6 +357,31 @@ function Home() {
       if (query && query.getObserversCount() === 0) cache.remove(query);
     }
   }, [held, queryClient]);
+  // A pane left showing the kept text refused every reload while the conflict
+  // stood (`standbyReload`). Once it is settled elsewhere, the vault's text
+  // may already be in the cache, so no reload comes, and the pane would keep
+  // text the reader threw away for one keystroke to write over the vault.
+  // Put straight into the view: an unfocused pane reports no typing, and off
+  // the undo stack so `u` there cannot bring the thrown-away text back.
+  const conflictedBefore = useRef(new Set<string>());
+  useEffect(() => {
+    const now = new Set(held.filter((each) => each.conflicted).map((each) => each.path));
+    for (const path of conflictedBefore.current) {
+      const vault = queryClient.getQueryData<string>(["note", path]);
+      if (now.has(path) || vault === undefined) continue;
+      for (const each of tabPanes(layoutNow.current)) {
+        if (each.id === pane.id || each.path !== path) continue;
+        const editor = document.querySelector<HTMLElement>(`[data-pane="${each.id}"] .cm-editor`);
+        const view = editor && EditorView.findFromDOM(editor);
+        if (!view || view.state.doc.toString() === vault) continue;
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: vault },
+          annotations: Transaction.addToHistory.of(false),
+        });
+      }
+    }
+    conflictedBefore.current = now;
+  }, [held, queryClient, pane.id]);
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
   // stream for the life of the page, so it cannot close over either: opening a
@@ -2203,17 +2259,9 @@ function Home() {
                         // typing is reported alone: the autosave follows that pane,
                         // so any other pane asking would be handing it a question
                         // about a note it is not holding. An unfocused pane cannot
-                        // be typed into, so it reloads, unless its note was left
-                        // there conflicted: it is still showing the kept text, and
-                        // a reload would put the vault's on screen in its place.
-                        // Coming back then finds a buffer that is not the held
-                        // text, restores nothing, and reads "Saved" under a bar
-                        // that says the note changed on disk.
-                        allowReload={
-                          focused
-                            ? allowReload
-                            : () => shown.path === undefined || !heldText(shown.path)?.conflicted
-                        }
+                        // be typed into, so it reloads, except where it shows text
+                        // held as a conflict: see `standbyReload`.
+                        allowReload={focused ? allowReload : standbyReload(shown.id)}
                         // The focused pane alone, for the reason its typing is
                         // reported alone: the note this reads is the one the
                         // autosave follows, which is the note in that pane.
