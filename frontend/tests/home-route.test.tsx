@@ -2,7 +2,7 @@ import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-library/react";
 import { ASSET_LIMIT_BYTES } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
@@ -187,6 +187,53 @@ function stream(): FakeEventSource {
   const open = FakeEventSource.last;
   if (!open) throw new Error("The route opened no EventSource");
   return open;
+}
+
+/** The running test's signal, which vitest aborts when the test times out. */
+let signal: AbortSignal;
+
+beforeEach((context) => {
+  signal = context.signal;
+});
+
+// The route's component is split into a chunk of its own, so the first
+// `router.load()` is where vite transforms `Home` and everything under it. That
+// took 1.4s alone and over 5s under the pre-push hook's load, all of it charged
+// to whichever test mounted first. Loaded here, it is charged to no test.
+beforeAll(async () => {
+  const router = createRouter({
+    routeTree,
+    context: { queryClient: new QueryClient() },
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+  await Promise.all(Object.values(router.routesById).map((route) => router.loadRouteChunk(route)));
+});
+
+/**
+ * `act`, let go of when the test it was called in times out.
+ *
+ * vitest fails a test that runs out of time but cannot stop it, so the body
+ * goes on awaiting while the next test starts. React counts how deep in `act`
+ * it is in one place for the whole file, and while the orphan sits inside one,
+ * every later `render` is queued for an outer `act` that never ends: one
+ * timeout became 119 failures over an empty container. Rejecting on the abort
+ * takes the orphan out of its `act` before the next test starts. A signal
+ * already aborted is a hook after the timeout, which has to run as it is.
+ */
+function act(callback: () => void): void;
+function act(callback: () => Promise<void>): Promise<void>;
+function act(callback: () => void | Promise<void>): void | Promise<void> {
+  const own = signal;
+  return rtlAct(() => {
+    const result = callback();
+    // A synchronous callback cannot outlive its test, and stays synchronous
+    // here so React flushes it before `act` returns, as the call sites expect.
+    if (!(result instanceof Promise) || own.aborted) return result;
+    const aborted = new Promise<never>((_, reject) => {
+      own.addEventListener("abort", () => reject(own.reason), { once: true });
+    });
+    return Promise.race([result, aborted]);
+  });
 }
 
 /**
