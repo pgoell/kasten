@@ -24,7 +24,7 @@ import posixpath
 import re
 from bisect import bisect_right
 from typing import TYPE_CHECKING, NamedTuple
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from markdown_it import MarkdownIt
 
@@ -429,7 +429,8 @@ async def plan_move(root: Path, old: str, new: str, *, folder: bool) -> dict[str
     scan written here would read every note on every move and hold the event
     loop for all of it. The name is what narrows the read. Every link to the
     thing moving holds it: a bare `[[borges]]` is the name, a path ends in it,
-    and a markdown link spells it raw or with its spaces escaped. A folder's
+    and a markdown link spells it raw, with its spaces escaped, or the way
+    the editor's encodeURI does, accents and all. A folder's
     name narrows the same way, because a path into the folder runs through it.
     The files moving are read whatever they hold, because their own links can
     break by their moving.
@@ -442,8 +443,13 @@ async def plan_move(root: Path, old: str, new: str, *, folder: bool) -> dict[str
         moves = {old: new}
         name = _name(old)
 
+    # The editor writes a link with encodeURI, which escapes an accented letter
+    # too, so `Bücher` reaches the file as `B%C3%BCcher` and neither the raw
+    # name nor `encode_href` would find it. These are the characters encodeURI leaves alone that
+    # `quote` would escape; the editor escapes `#` and `?` after it.
+    uri = quote(name, safe=";,/?:@&=+$!*'()#").replace("#", "%23").replace("?", "%3F")
     candidates = set(moves)
-    for needle in {name, encode_href(name)}:
+    for needle in {name, encode_href(name), uri}:
         candidates.update(await notes_holding(root, needle))
 
     # The pages and assets in a moving folder move with it, and a `[[link]]`

@@ -148,7 +148,8 @@ def read_apkg(data: bytes) -> list[Deck]:
 
     Raises:
         ValueError: `data` is not a zip, or holds no collection, or holds one
-            sqlite refuses to read, or one whose note types cannot be read.
+            zstd or sqlite refuses to read, or one whose decks, note types or
+            note fields cannot be read.
     """
     blob = _collection(data)
     with tempfile.TemporaryDirectory() as folder:
@@ -182,6 +183,10 @@ def read_apkg(data: bytes) -> list[Deck]:
         name = names.get(did)
         if note is None or kind is None or name is None:
             continue
+        # sqlite keeps whatever type a row was written with, whatever the
+        # column says, so a broken export can hold its fields as a blob.
+        if not isinstance(note[1], str):
+            raise ValueError(f"unreadable Anki export: note {nid} holds its fields as {note[1]!r}")
         values = note[1].split(SEPARATOR)
         fields = dict(zip(kind.fields, values + [""] * len(kind.fields), strict=False))
         if kind.cloze:
@@ -215,13 +220,34 @@ def as_note(deck: Deck) -> str:
     no back is kept as `front::`, which kasten reads as a question parked
     without an answer: a back that adds nothing beyond the front is common in
     Anki, and dropping the line would lose the question with it.
+
+    A front holding `::` is the exception to the one line. A card line splits at
+    its first `::`, so `std::move` would cut the question short; such a card is
+    written as front, `?` and back, with a blank line either side so the `?`
+    card's front and back do not run into the lines next to it. With no back it
+    is left out: `srs.ts` asks no `?` with nothing under it and `review.ts`
+    would count one, and the one-line form that parks a question is the form
+    this card cannot take.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
     # otherwise land in a deck called `AWS` with the rest of its name read as
     # prose. The note's `# heading` is not the deck name; the tag is.
-    lines = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
-    lines += [f"{card.front}::{card.back}" for card in deck.cards if card.front]
-    return "\n".join(lines) + "\n"
+    head = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
+    body: list[str] = []
+    for card in deck.cards:
+        if not card.front:
+            continue
+        if "::" not in card.front:
+            body.append(f"{card.front}::{card.back}")
+        elif card.back:
+            if body and body[-1]:
+                body.append("")
+            body += [card.front, "?", card.back, ""]
+    # The blank a `?` card leaves under itself is a separator, not part of the
+    # note, so the last one comes off rather than ending the note on two breaks.
+    if body and not body[-1]:
+        body.pop()
+    return "\n".join(head + body) + "\n"
 
 
 def _parse(template: str) -> list[_Node]:
@@ -314,6 +340,8 @@ def _collection(data: bytes) -> bytes:
             return zstd.decompress(blob) if member == ZSTD_MEMBER else blob
     except zipfile.BadZipFile as error:
         raise ValueError("not an Anki export: the bytes are not a zip") from error
+    except zstd.ZstdError as error:
+        raise ValueError(f"unreadable Anki export: {member} is not zstd: {error}") from error
 
 
 def _deck_names(db: sqlite3.Connection) -> dict[int, str]:
@@ -325,8 +353,11 @@ def _deck_names(db: sqlite3.Connection) -> dict[int, str]:
         # one JSON object on the single row of `col`, keyed by deck id, and
         # nesting was spelled `Certs::AWS` rather than with the separator.
         rows = db.execute("SELECT decks FROM col").fetchall()
-        listing = json.loads(rows[0][0]) if rows else {}
-        return {int(did): deck["name"].replace("::", "/") for did, deck in listing.items()}
+        try:
+            listing = json.loads(rows[0][0]) if rows else {}
+            return {int(did): deck["name"].replace("::", "/") for did, deck in listing.items()}
+        except (KeyError, TypeError, AttributeError) as error:
+            raise ValueError(f"unreadable Anki export: bad deck list ({error!r})") from error
     return {did: name.replace(SEPARATOR, "/") for did, name in rows}
 
 

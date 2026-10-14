@@ -534,6 +534,21 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("unsaved");
   });
 
+  it("takes the write through the editor before its digest has landed", () => {
+    // The route moves the cache straight after `adopt`, and the cache notifies
+    // on a zero-delay timer, which on a loaded machine runs before
+    // `crypto.subtle` answers. The editor's question is about text, so nothing
+    // here waits on the digest.
+    const note = renderAutosave();
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("unsaved");
+  });
+
   it("still knows its own write when a bookmark lands between it and its event", async () => {
     // What fails when the adopted write shares `lastWritten`: the hook reads
     // its own save as somebody else's and locks the editor, which is the exact

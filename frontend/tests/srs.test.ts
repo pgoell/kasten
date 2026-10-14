@@ -378,6 +378,33 @@ describe("parseCards on a tag that opens no card", () => {
   });
 });
 
+describe("parseCards on an imported question holding `::`", () => {
+  // The text `as_note` writes in `backend/tests/test_anki.py`: on one line the
+  // first `::` would cut the question at `What does std`.
+  it("reads back the whole question and the answer", () => {
+    const cards = parseCards(
+      "#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue\n",
+      "French",
+    );
+
+    expect(cards.map(({ front, back, decks }) => ({ front, back, decks }))).toEqual([
+      { front: "What does std::move do?", back: "casts to an rvalue", decks: ["French"] },
+    ]);
+  });
+
+  it("keeps its one-line neighbours apart from it when the answer holds `::` too", () => {
+    const cards = parseCards(
+      "#flashcards/x\n\na::b\n\nWhat does std::move do?\n?\ncasts std::move\n\nc::d\n",
+    );
+
+    expect(cards.map(({ front, back }) => [front, back])).toEqual([
+      ["a", "b"],
+      ["What does std::move do?", "casts std::move"],
+      ["c", "d"],
+    ]);
+  });
+});
+
 describe("parseCards on a front running over two lines", () => {
   // The one case where the tags cannot be a card's own: `review.ts` sees the
   // matched lines alone and cannot tell this front from a line of prose, so

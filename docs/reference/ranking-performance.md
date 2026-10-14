@@ -66,6 +66,11 @@ The `perf` project also carries `sequence: { groupOrder: 1 }`, which keeps it
 out of the jsdom project's worker pool. Sharing one pool oversubscribes a
 16-thread box and reads the same code 1.6x slower.
 
+The `frame` project carries `sequence: { groupOrder: 2 }` for the same reason.
+Only `fe:frame` names it, but a bare `vitest run` collects all three projects,
+and Chromium beside the jsdom pool slowed both: the home route's warm-up took
+6.2s under load where it takes 1.5s with the frame tests held to the end.
+
 ## What the gates assert
 
 Each threshold is six times what the gate measures today: three for a real

@@ -124,9 +124,22 @@ function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
     if (fenced[at]) continue;
     const own = cardTags(text);
     const halves = halvesOf(text);
+    const above = lines[at - 1];
+    const under = lines[at + 1];
+
+    // A `::` against a `?` is a side of that card, not a card: the scan matches
+    // an imported `std::move` question on its `::` as well as its `?`, and
+    // `srs.ts` marks both sides taken before it reads a line as a card. Below
+    // it is the back, whose tags are the note's as any line's are; above it,
+    // the front, whose head tags are the `?` card's own, as `opened` reads them.
+    const back = above !== undefined && above.line === line - 1 && divides(above.text);
+    const front = under !== undefined && under.line === line + 1 && divides(under.text);
+    if (halves !== null && (back || front)) {
+      if (back || own === null) tags.push(...deckTags(text));
+      continue;
+    }
 
     if (halves !== null || divides(text)) {
-      const above = lines[at - 1];
       const opened =
         divides(text) && above !== undefined && above.line === line - 1
           ? cardTags(above.text)
@@ -159,10 +172,7 @@ function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
     // The `?` directly under has taken these: this line is that card's front.
     // Nothing else can claim them, a card written on one line carrying its own
     // front, so anywhere else they are the note's.
-    const under = lines[at + 1];
-    if (own !== null && under !== undefined && under.line === line + 1 && divides(under.text)) {
-      continue;
-    }
+    if (own !== null && front) continue;
 
     tags.push(...deckTags(text));
   }

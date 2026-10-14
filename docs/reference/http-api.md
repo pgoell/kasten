@@ -493,7 +493,9 @@ the answer holds only what the back adds. Conditional sections follow Anki, and
 a card whose front shows no field with text in it is not made, as Anki does not
 make it. A card whose back adds nothing is written as `question::`, a
 [parked question](/reference/flashcard-format.md#parking-a-card), and a card
-whose question is empty once flattened is left out. A cloze note gives one card,
+whose question is empty once flattened is left out. A question holding `::` is
+written over three lines, question, `?` and answer, so the first `::` does not
+cut it short, and is left out when its answer is empty. A cloze note gives one card,
 its Text field the question and Back Extra the answer. Each card goes to the
 deck its own Anki card sits in, HTML is flattened to one line, and a nested deck
 becomes a nested folder under
@@ -509,6 +511,9 @@ than the loss being silent.
 ### What an import refuses
 
 * A body that is not a zip, or a zip holding no collection, answers 400.
+* A collection kasten cannot read answers 400 with a `detail` saying the export
+  is unreadable: a `collection.anki21b` that is not zstd, a deck with no name,
+  or a note whose fields are not text.
 * A deck name that would climb out of the flashcards folder answers 400.
 * A collection with no note types answers 400, because without templates there
   is nothing to make a card from.
@@ -1151,7 +1156,9 @@ spelling. Skipped: an href with a scheme, `https:` or `mailto:`, one starting
 with `/`, `#` or `{`, and one that climbs out of the vault.
 
 The name narrows the read for these too. A markdown link to a note holds its
-name, raw or with its spaces escaped, and rg is asked for both. The note moving
+name, raw, with its spaces escaped, or escaped the way the editor's encodeURI
+writes it, so `Über` as `%C3%9Cber`, and rg is asked for all three, ignoring
+case, so `%c3%9c` is found as well. The note moving
 is read whatever it holds, because its own links break by its moving.
 
 At 10,000 notes a move costs 29ms, against 315ms for the walk over every note it
@@ -1288,8 +1295,9 @@ a link from outside into the folder is rewritten, a link from inside the folder
 to outside it is rewritten, and a link between two files inside it is left
 alone.
 
-The folder's name is the rg query that picks the notes to read, raw and with
-its spaces escaped. A path into the folder runs through its name, so a link
+The folder's name is the rg query that picks the notes to read, raw, with its
+spaces escaped, and escaped by encodeURI, so a link the editor wrote to
+`Bücher/x.png` as `B%C3%BCcher/x.png` follows the folder too. A path into the folder runs through its name, so a link
 that spelled the path out, wikilink or markdown, holds it. The notes inside the
 folder are read whatever they hold.
 

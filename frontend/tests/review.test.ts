@@ -1,5 +1,6 @@
 import type { SearchHit } from "@/lib/api";
 import { decksFrom, parkedNotes } from "@/lib/review";
+import { parseCards } from "@/lib/srs";
 
 const TODAY = "2026-08-13";
 
@@ -242,5 +243,48 @@ describe("parkedNotes", () => {
 
   it("names a note its frontmatter parks", () => {
     expect(parkedNotes(hits("n.md", ["sr-suspended: true", "#review"]))).toEqual(["n.md"]);
+  });
+});
+
+/** The lines of `text` `GET /api/cards` hands over, by `CARD_PATTERN` in `cards.py`. */
+function scanned(path: string, text: string): SearchHit[] {
+  const matches = /::|^[ \t]*\?[ \t]*$|<!--SR:!|^[ \t]*```|^[ \t]*!suspended|#flashcards|#review/;
+  return text
+    .split("\n")
+    .map((line, at) => ({ path, line: at + 1, text: line }))
+    .filter((hit) => matches.test(hit.text));
+}
+
+describe("decksFrom on an imported question holding `::`", () => {
+  // The text `as_note` writes in `backend/tests/test_anki.py`. A front holding
+  // `::` is a hit of its own, so the overview must not count it beside its `?`.
+  it("counts the card once, as the sitting does", () => {
+    const text = "#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue\n";
+
+    expect(decksFrom(scanned("f.md", text), TODAY)).toMatchObject([{ name: "French", fresh: 1 }]);
+    expect(parseCards(text)).toHaveLength(1);
+  });
+
+  it("counts it once when the answer holds `::` too, beside one-line cards", () => {
+    const text = "#flashcards/x\n\na::b\n\nWhat does std::move do?\n?\ncasts std::move\n\nc::d\n";
+
+    expect(decksFrom(scanned("x.md", text), TODAY)).toMatchObject([{ name: "x", fresh: 3 }]);
+    expect(parseCards(text)).toHaveLength(3);
+  });
+
+  it("takes the front's own tag as the card's", () => {
+    const text = "#flashcards/x\n\n#flashcards/cpp What does std::move do?\n?\ncasts\n";
+
+    expect(decksFrom(scanned("x.md", text), TODAY).map((deck) => [deck.name, deck.fresh])).toEqual([
+      ["cpp", 1],
+      ["x", 1],
+    ]);
+  });
+
+  it("counts nothing for a question `as_note` left out for want of an answer", () => {
+    const text = "#flashcards/x\n\na::b\n";
+
+    expect(decksFrom(scanned("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
+    expect(parseCards(text)).toHaveLength(1);
   });
 });

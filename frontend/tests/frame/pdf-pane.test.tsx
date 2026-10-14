@@ -192,13 +192,21 @@ describe("the reader over a real pdf", () => {
     const { onTake, container } = await drawPdf();
     const doc = await pageShowing(ON_PAGE_ONE);
 
-    const span = [...doc.querySelectorAll(".textLayer span")].find((one) =>
-      (one.textContent ?? "").includes("first page"),
-    ) as Element;
-    selectWhole(doc, span);
+    const words = () =>
+      [...doc.querySelectorAll(".textLayer span")].find((one) =>
+        (one.textContent ?? "").includes("first page"),
+      ) as Element;
+    selectWhole(doc, words());
 
     const button = await vi.waitFor(
       () => {
+        // foliate draws the page again whenever its box changes, and the pane
+        // prunes the text layer that render left behind, taking the selected
+        // span with it. On a loaded machine that redraw can land after the
+        // words first showed: logged on a failing run, the span was attached
+        // with the words selected, then detached with the selection empty.
+        // A reader would select again, so the test does too.
+        if (doc.getSelection()?.toString() === "") selectWhole(doc, words());
         const found = container.querySelector("[data-take]");
         expect(found).not.toBeNull();
         return found as HTMLElement;

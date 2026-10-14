@@ -449,6 +449,35 @@ def test_parks_a_card_whose_back_adds_nothing() -> None:
     assert as_note(decks[0]) == "#flashcards/French\n\nalone::\n"
 
 
+def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
+    # A card line splits at its first `::`, so on one line this question would
+    # read back as `What does std`. `frontend/tests/srs.test.ts` and
+    # `review.test.ts` read this exact text back.
+    decks = read_apkg(apkg(((1, BASIC, "What does std::move do?\x1fcasts to an rvalue"),)))
+
+    assert as_note(decks[0]) == (
+        "#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue\n"
+    )
+
+
+def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None:
+    template = Template("Card 1", "{{Front}}", "{{Back}}")
+    pairs = (("a", "b"), ("What does std::move do?", "casts std::move"), ("c", "d"))
+    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], 0)
+
+    assert as_note(deck) == (
+        "#flashcards/x\n\na::b\n\nWhat does std::move do?\n?\ncasts std::move\n\nc::d\n"
+    )
+
+
+def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
+    template = Template("Card 1", "{{Front}}", "{{Back}}")
+    pairs = (("What does std::move do?", ""), ("a", "b"))
+    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], 0)
+
+    assert as_note(deck) == "#flashcards/x\n\na::b\n"
+
+
 def test_script_and_style_add_no_text() -> None:
     notes = ((1, COND, "F1<style>.x{}</style>\x1fB1\x1f"),)
 
@@ -710,3 +739,37 @@ async def test_import_writes_no_block_into_a_reserved_name(
     await client.post("/api/anki", content=export)
 
     assert "---" not in (vault / "03 Flashcards" / "index.md").read_text(encoding="utf-8")
+
+
+def legacy_collection(decks: str, flds: object) -> bytes:
+    """An old-schema export holding one note whose fields are `flds`, of whatever type."""
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "collection"
+        with sqlite3.connect(path) as db:
+            db.execute("CREATE TABLE notes (id, mid, flds)")
+            db.execute("CREATE TABLE cards (id, nid, did, ord)")
+            db.execute("CREATE TABLE col (decks, models)")
+            db.execute("INSERT INTO notes VALUES (1, 1, ?)", (flds,))
+            db.execute("INSERT INTO cards VALUES (1, 1, 1, 0)")
+            db.execute("INSERT INTO col VALUES (?, ?)", (decks, legacy_type()))
+        db.close()
+        return zipped("collection.anki2", path.read_bytes())
+
+
+@pytest.mark.parametrize(
+    "export",
+    [
+        zipped("collection.anki21b", b"junk"),
+        legacy_collection('{"1": {}}', "a"),
+        legacy_collection('{"1": {"name": "D"}}', b"a\x1fb"),
+    ],
+    ids=["anki21b-not-zstd", "deck-without-name", "flds-blob"],
+)
+async def test_import_refuses_an_export_it_cannot_read(
+    client: AsyncClient, vault: Path, export: bytes
+) -> None:
+    response = await client.post("/api/anki", content=export)
+
+    assert response.status_code == 400
+    assert "unreadable" in response.json()["detail"]
+    assert not (vault / "03 Flashcards").exists()

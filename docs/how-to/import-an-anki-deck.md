@@ -45,6 +45,17 @@ What is a VPC?::A virtual private cloud
 Which region is cheapest?::us-east-1 usually
 ```
 
+A question that holds `::` itself, such as `What does std::move do?`, would be
+cut at its first `::` on one line, so it is written
+[over three lines](/reference/flashcard-format.md#over-several-lines) instead,
+with a blank line above and below:
+
+```markdown
+What does std::move do?
+?
+casts to an rvalue
+```
+
 The tag cannot hold a space, so a deck called `AWS Certification` is tagged
 `#flashcards/AWS-Certification`. The folder keeps the space.
 
@@ -68,7 +79,7 @@ hand, or export the new cards to a deck under another name.
 ## How a note becomes cards
 
 Anki makes cards from a note through its note type's card templates, and the
-import reads the same templates. Each card Anki made becomes one line: the
+import reads the same templates. Each card Anki made becomes one card: the
 front template filled in is the question, and the back template filled in is
 the answer. A field lands on the side its template puts it, wherever it sits in
 the note, so an audio field in third place goes where you heard it in Anki.
@@ -83,7 +94,9 @@ to another deck lands in that deck's note, not beside its forward card.
 line. The answer holds only what the back adds to it. A card whose back adds
 nothing is written as `question::`, which kasten reads as
 [a parked question](/reference/flashcard-format.md#parking-a-card), so it waits
-for an answer rather than vanishing.
+for an answer rather than vanishing. The exception is a question holding `::`
+whose back adds nothing: it is left out, because a `?` with nothing under it is
+no card.
 
 A conditional section, `{{#Field}}` or `{{^Field}}`, shows or hides as it does in
 Anki. A card whose front shows no field with text in it is not made, since Anki

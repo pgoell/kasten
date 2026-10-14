@@ -102,3 +102,58 @@ async def test_rewrites_links_out_of_a_folder_that_moved(client: AsyncClient, va
         "[home](../../../home.md) [p](poe.md)\n"
     )
     assert (vault / "home.md").read_text() == "[r](archive/2026/reading/)\n"
+
+
+# The editor writes a link with encodeURI, so an accented name reaches the
+# file as `%C3%BC`, a spelling the move has to look for as well as the raw one.
+async def test_follows_a_folder_whose_accented_name_the_link_escapes(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "Bücher").mkdir()
+    (vault / "Bücher" / "x.png").write_bytes(b"png")
+    (vault / "Müll").mkdir()
+    (vault / "Müll" / "y.png").write_bytes(b"png")
+    (vault / "home.md").write_text(
+        "# Home\n\nsee ![](B%C3%BCcher/x.png) here\n\n![](M%C3%BCll/y.png)\n"
+    )
+
+    await client.patch("/api/folders/Bücher", json={"path": "Books"})
+
+    assert (vault / "home.md").read_text() == (
+        "# Home\n\nsee ![](Books/x.png) here\n\n![](M%C3%BCll/y.png)\n"
+    )
+
+
+async def test_follows_a_folder_whose_name_the_link_escapes_in_lowercase(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "Bücher").mkdir()
+    (vault / "Bücher" / "x.png").write_bytes(b"png")
+    (vault / "home.md").write_text("![](B%c3%bccher/x.png)\n")
+
+    await client.patch("/api/folders/Bücher", json={"path": "Books"})
+
+    assert (vault / "home.md").read_text() == "![](Books/x.png)\n"
+
+
+async def test_follows_a_folder_whose_accented_name_the_link_writes_raw(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "Bücher").mkdir()
+    (vault / "Bücher" / "x.png").write_bytes(b"png")
+    (vault / "home.md").write_text("![](Bücher/x.png)\n")
+
+    await client.patch("/api/folders/Bücher", json={"path": "Books"})
+
+    assert (vault / "home.md").read_text() == "![](Books/x.png)\n"
+
+
+async def test_follows_a_note_whose_accented_name_the_link_escapes(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "Über.md").write_text("# Über")
+    (vault / "home.md").write_text("[ü](%C3%9Cber.md)\n")
+
+    await client.patch("/api/files/Über.md", json={"path": "notes/Über.md"})
+
+    assert (vault / "home.md").read_text() == "[ü](notes/Über.md)\n"

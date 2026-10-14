@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
@@ -153,16 +162,62 @@ function foliatePdfjs(): Plugin {
     // reaches that line and throws before this could have replaced it.
     enforce: "pre",
     configResolved(config) {
-      // Emptied and copied on every start rather than filled when it is
-      // missing, so a foliate bump cannot leave a stale worker behind. A copy
-      // over the top would not be enough on its own: `cpSync` merges, so a cmap
-      // or a font that a later foliate drops would stay in `public/` and go on
-      // being built into every image after it. It is 4.6MB against the page
-      // cache and it is not in the hot path of anything.
+      // Replaced whole whenever foliate's files differ from what was staged,
+      // so a foliate bump cannot leave a stale worker behind. A copy over the
+      // top would not be enough: `cpSync` merges, so a cmap or a font a later
+      // foliate drops would stay in `public/` and go on being built into every
+      // image after it.
+      //
+      // Skipped when the stamp matches, and never emptied in place, because
+      // the pre-push hook starts vitest and the build at once. Two starts that
+      // each emptied and refilled one folder took each other down with
+      // ENOTEMPTY and ENOENT. Now a copy is made beside it and renamed in, and
+      // a start that loses the rename finds the same files already there.
       const staged = path.join(config.publicDir, "pdfjs");
-      rmSync(staged, { recursive: true, force: true });
+      const stamp = PDFJS_FILES.flatMap((name) => {
+        const top = path.join(PDFJS, name);
+        const below = statSync(top).isDirectory()
+          ? readdirSync(top, { recursive: true, encoding: "utf8" }).map((one) =>
+              path.join(name, one),
+            )
+          : [];
+        return [name, ...below].map((one) => {
+          const { size, mtimeMs } = statSync(path.join(PDFJS, one));
+          return `${one} ${size} ${mtimeMs}`;
+        });
+      })
+        .sort()
+        .join("\n");
+      const stampFile = path.join(staged, ".stamp");
+      if (existsSync(stampFile) && readFileSync(stampFile, "utf8") === stamp) return;
+
+      // In vite's cache rather than `public/`, which the build copies whole: a
+      // copy left by a killed start would otherwise ship in the image.
+      const fresh = path.join(config.cacheDir, `pdfjs-${randomUUID()}`);
       for (const name of PDFJS_FILES) {
-        cpSync(path.join(PDFJS, name), path.join(staged, name), { recursive: true });
+        cpSync(path.join(PDFJS, name), path.join(fresh, name), { recursive: true });
+      }
+      writeFileSync(path.join(fresh, ".stamp"), stamp);
+      // Moved aside before it is deleted, so no delete ever walks the path
+      // another start may be renaming its copy into.
+      const old = `${fresh}-old`;
+      try {
+        renameSync(staged, old);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        // EXDEV is overlayfs refusing to rename a folder from a lower layer,
+        // which a Docker build meets when the context carried a staged copy.
+        // Nothing races inside one build, so emptying it in place is safe there.
+        if (code === "EXDEV") rmSync(staged, { recursive: true, force: true });
+        else if (code !== "ENOENT") throw error;
+      }
+      rmSync(old, { recursive: true, force: true });
+      try {
+        renameSync(fresh, staged);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== "ENOTEMPTY" && code !== "EEXIST") throw error;
+        rmSync(fresh, { recursive: true, force: true });
       }
     },
     transform(code, id) {
@@ -267,9 +322,14 @@ export default defineConfig({
           // real browser. `fe:test` names its projects rather than running them
           // all, because CI's Test job and lefthook install no browser.
           //
-          // No groupOrder here, unlike perf: `fe:frame` is the only task that
-          // names this project, so it never shares a worker pool with the jsdom
-          // suite and has nothing to be sequenced away from.
+          // Last, and alone, for the reason perf runs alone. `fe:frame` is the
+          // only task that names this project, but a bare `vitest run` collects
+          // all three, and Chromium then shares the box with the jsdom pool.
+          // Measured under load: the home route's chunk warm-up took 6.2s that
+          // way and 1.5s with this project held to the end. A timing gate here,
+          // the note prompt's 15ms commit, is the number the perf project's
+          // comment above warns about.
+          sequence: { groupOrder: 2 },
           include: ["tests/frame/**/*.test.tsx"],
           // Chromium raises "ResizeObserver loop completed with undelivered
           // notifications" as a window error, and vitest counts one of those

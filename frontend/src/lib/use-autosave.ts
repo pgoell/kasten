@@ -74,6 +74,12 @@ export function useAutosave(path: string | undefined) {
   // goes when its event arrives, and one whose event never comes outlives its
   // note, which is the staleness `lastWritten` has always carried.
   const adopted = useRef(new Map<string, string>());
+  // The same writes by text, set the moment `adopt` is called. The map above
+  // waits on `crypto.subtle`, and the route moves the cache straight after
+  // adopting: on a loaded machine the editor's reload asks before the digest
+  // lands, and found nothing to match. The editor asks about text, so it is
+  // answered from here and never has to wait.
+  const adoptedText = useRef(new Set<string>());
   const queryClient = useQueryClient();
 
   /** Resolves to whether the vault holds the text, so `<leader>q` can refuse. */
@@ -223,6 +229,7 @@ export function useAutosave(path: string | undefined) {
     (note: string, content: string) => {
       if (note !== path) return;
 
+      adoptedText.current.add(content);
       void digestOf(content).then(
         (digest) => {
           adopted.current.set(digest, content);
@@ -271,7 +278,7 @@ export function useAutosave(path: string | undefined) {
     // A write the route made into this note, reaching the editor through the
     // cache. Refused the way our own answer is, and for the same reason: it
     // carries no words the reader has not got.
-    for (const held of adopted.current.values()) if (held === text) return false;
+    if (adoptedText.current.has(text)) return false;
 
     conflicted.current = true;
     setStatus("conflict");
@@ -290,7 +297,12 @@ export function useAutosave(path: string | undefined) {
     if (digest !== null && digest === lastWritten.current) return false;
     // A write the route made, coming back off the stream. The entry goes with
     // it: one event answers one write.
-    if (digest !== null && adopted.current.delete(digest)) return false;
+    const held = digest === null ? undefined : adopted.current.get(digest);
+    if (digest !== null && held !== undefined) {
+      adopted.current.delete(digest);
+      adoptedText.current.delete(held);
+      return false;
+    }
     if (pending.current === null) return true;
 
     // Nothing is discarded and nothing is written. The buffer keeps the
