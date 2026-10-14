@@ -29,6 +29,8 @@ export interface Held {
 let store: Map<string, Held> | null = null;
 let snapshot: { path: string; reason: string }[] = [];
 const listeners = new Set<() => void>();
+/** Whether storage refused the last write, leaving the map ahead of it. */
+let unwritten = false;
 
 /**
  * A browser with site data blocked throws a `SecurityError` on any touch of
@@ -83,6 +85,12 @@ function sync(): Map<string, Held> {
       const kept = before.get(path);
       store.set(path, kept && same(kept, entry) ? kept : entry);
     }
+    // Storage refused the last write, so what it lacks may be text held only
+    // here. Kept until a write goes through, at the cost of bringing back an
+    // entry another tab dropped meanwhile, which is the cheaper way to be wrong.
+    if (unwritten) {
+      for (const [path, entry] of before) if (!store.has(path)) store.set(path, entry);
+    }
   }
   snapshot = list(store);
   return store;
@@ -100,8 +108,10 @@ function changed(held: Map<string, Held>): void {
   try {
     if (held.size === 0) localStorage.removeItem(HELD_KEY);
     else localStorage.setItem(HELD_KEY, JSON.stringify(Object.fromEntries(held)));
+    unwritten = false;
   } catch (error) {
     if (!(error instanceof DOMException)) throw error;
+    unwritten = true;
   }
   // A new array only here, because `useSyncExternalStore` compares by identity
   // and a fresh one per read would render forever.
@@ -162,6 +172,7 @@ export function useHeld(): readonly { path: string; reason: string }[] {
 export function resetHeld(): void {
   store = null;
   snapshot = [];
+  unwritten = false;
 }
 
 /**

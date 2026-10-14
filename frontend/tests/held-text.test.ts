@@ -56,6 +56,21 @@ describe("held text", () => {
     expect(result.current).toEqual([{ path: "other.md", reason: "failed with 500" }]);
   });
 
+  it("keeps text held in memory when storage was full, through a hold of another note", () => {
+    const full = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    holdText("index.md", entry);
+    full.mockRestore();
+
+    holdText("other.md", entry);
+
+    expect(heldText("index.md")).toEqual(entry);
+    // Written out with the next write that storage takes.
+    resetHeld();
+    expect(heldText("index.md")).toEqual(entry);
+  });
+
   it("holds text in memory when storage refuses every touch", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("blocked", "SecurityError");

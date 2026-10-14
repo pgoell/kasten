@@ -1087,6 +1087,41 @@ describe("useAutosave", () => {
     expect(heldText("index.md")?.content).toBe("# held");
   });
 
+  it("leaves held text listed through an outside write to a pane showing the vault's text", async () => {
+    const note = renderAutosave("daily/2026-08-05.md", () => "the index note");
+    note.seed("index.md", "the index note");
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    note.open("index.md");
+
+    // Somebody else writes the note; the clean buffer takes it.
+    expect(note.allowReload("somebody else's note")).toBe(true);
+
+    expect(note.restored()).toBe(false);
+    expect(note.status()).toBe("saved");
+    expect(heldText("index.md")?.content).toBe("# held");
+  });
+
+  it("reopens held text as an error, not a conflict, when the last write landed while typing went on", async () => {
+    const left = renderAutosave("index.md");
+    left.seed("index.md", "the index note");
+    const first = pendingSave();
+    left.change("a");
+    await idle();
+    left.change("ab");
+    await first.finish();
+    // The cache still holds the note from before the write, which landed.
+    expect(left.cached("index.md")).toBe("the index note");
+    saveNote.mockRejectedValue(new TypeError("Failed to fetch"));
+    await pagehide();
+    left.unmount();
+    await act(async () => {});
+
+    const note = renderAutosave("index.md");
+    expect(note.allowReload(written("a").content)).toBe(false);
+
+    expect(note.status()).toBe("error");
+  });
+
   it("drops held text when the flush on leaving carries it", async () => {
     holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
     const note = renderAutosave("index.md");

@@ -153,6 +153,16 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   const queryClient = useQueryClient();
 
   /**
+   * The vault's text under the buffer of `note`, the note open now: the last
+   * write of this visit when one landed, the cache otherwise. Not the cache
+   * alone, which a write is kept out of while typing went on through it.
+   */
+  const lastBase = useCallback(
+    (note: string) => lastText.current ?? queryClient.getQueryData<string>(["note", note]),
+    [queryClient],
+  );
+
+  /**
    * Resolves to whether the vault holds the text, so `<leader>q` can refuse.
    *
    * `keepalive` for the write as the page goes away, which the browser would
@@ -193,7 +203,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       const carried = taken.current;
       // What the vault held under the buffer, which a held copy of this text
       // keeps to tell on reopening whether somebody else wrote the note since.
-      const base = queryClient.getQueryData<string>(["note", to]);
+      const base = lastBase(to);
 
       // Two arguments unless it is the way out, which is the call every other
       // writer of a note makes.
@@ -295,7 +305,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
         },
       );
     },
-    [path, queryClient, track, take],
+    [path, queryClient, track, take, lastBase],
   );
 
   // Of no arguments, because the editor's save key hands its caller the
@@ -616,7 +626,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
         content: pending.current,
         reason: "Not yet written when the page was hidden",
         conflicted: conflicted.current,
-        base: queryClient.getQueryData<string>(["note", path]),
+        base: lastBase(path),
       };
       holdText(path, entry);
       // After every write already in the air, which a failing one reads.
@@ -633,7 +643,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       window.removeEventListener("pagehide", hide);
       document.removeEventListener("visibilitychange", hidden);
     };
-  }, [path, write, take, queryClient]);
+  }, [path, write, take, lastBase]);
 
   // The flush above still counts as the visit it leaves: React runs the old
   // render's cleanups before any of the new render's setups.
@@ -660,8 +670,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       if (sameText(doc, held.content)) restore(path, cached);
     }
     // An editor still to mount opens on the entry held now, and only that one
-    // is taken when it asks. See `opening`.
-    offered.current = path === undefined ? undefined : heldText(path);
+    // is taken when it asks. See `opening`. An editor already showing other
+    // text never takes it this visit: a later reload would put it in `pending`
+    // under a screen that does not show it.
+    const shownOther = doc !== undefined && held !== undefined && !sameText(doc, held.content);
+    offered.current = path === undefined || shownOther ? undefined : heldText(path);
     opening.current = false;
     // The flush of the note left set `saving` on its way out and never answers
     // here, so the reading starts again for the note opened, unless it holds
