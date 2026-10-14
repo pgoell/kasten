@@ -297,20 +297,27 @@ const followOnClick = EditorView.domEventHandlers({
       view.state.facet(followHandler)?.(target);
       return true;
     }
-    const url = urlUnder(event, view);
-    if (url === null) return false;
-    window.open(url, "_blank", "noopener");
+    const link = urlUnder(event, view);
+    if (link === null) return false;
+    window.open(link.address, "_blank", "noopener");
     return true;
   },
 });
 
+/** A markdown link to an address, and where its source sits in the note. */
+interface UrlLink {
+  address: string;
+  from: number;
+  to: number;
+}
+
 /**
- * The address the rendered `[text](url)` under the pointer points at, or null.
+ * The rendered `[text](url)` under the pointer, or null.
  *
  * Only an address with a scheme: a relative one would resolve against kasten's
  * own page, not the vault, and open nothing useful.
  */
-function urlUnder(event: Event, view: EditorView): string | null {
+function urlUnder(event: Event, view: EditorView): UrlLink | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-link") : null;
   if (element === null) return null;
   for (
@@ -321,7 +328,7 @@ function urlUnder(event: Event, view: EditorView): string | null {
     if (node.name !== "Link") continue;
     const url = node.getChild("URL");
     const address = url === null ? "" : view.state.sliceDoc(url.from, url.to);
-    return /^[a-z][a-z0-9+.-]*:/i.test(address) ? address : null;
+    return /^[a-z][a-z0-9+.-]*:/i.test(address) ? { address, from: node.from, to: node.to } : null;
   }
   return null;
 }
@@ -346,27 +353,35 @@ function linkUnder(event: Event, view: EditorView): string | null {
  *
  * A link the cursor is already in is one being edited, and a tap in it moves
  * the cursor as a tap anywhere else does. The way into a link is from beside
- * it.
+ * it. A markdown link to an address opens in a new tab, as on ctrl+click.
  */
 function followOnTap(): Extension {
   let landed: string | null = null;
+  let landedUrl: string | null = null;
   return EditorView.domEventHandlers({
     pointerdown(event, view) {
-      const target = event.pointerType === "touch" ? linkUnder(event, view) : null;
-      const editing = wikiLinkAt(view.state, view.state.selection.main.head) === target;
+      const touch = event.pointerType === "touch";
+      const head = view.state.selection.main.head;
+      const target = touch ? linkUnder(event, view) : null;
+      const editing = wikiLinkAt(view.state, head) === target;
       landed = editing ? null : target;
+      const link = touch ? urlUnder(event, view) : null;
+      landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
       return false;
     },
     // The browser takes the finger for a scroll. No click follows one, but
     // nothing should be left waiting for the next click either.
     pointercancel() {
       landed = null;
+      landedUrl = null;
       return false;
     },
     click(_event, view) {
-      if (landed === null) return false;
-      view.state.facet(followHandler)?.(landed);
+      if (landed !== null) view.state.facet(followHandler)?.(landed);
+      else if (landedUrl !== null) window.open(landedUrl, "_blank", "noopener");
+      else return false;
       landed = null;
+      landedUrl = null;
       return true;
     },
   });

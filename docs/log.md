@@ -358,4 +358,4 @@
 
 ## 2026-10-14
 
-* **Update**: [Editor keys](/reference/editor-keys.md) says Ctrl+click on a markdown link with a scheme, such as `[mail](https://...)`, opens the address in a new tab.
+* **Update**: [Editor keys](/reference/editor-keys.md) says Ctrl+click or a tap on a markdown link with a scheme, such as `[mail](https://...)`, opens the address in a new tab.

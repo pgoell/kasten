@@ -287,6 +287,33 @@ describe("the editor without vim", () => {
     expect(onFollow).not.toHaveBeenCalled();
   });
 
+  it("opens a markdown link's address on a tap", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc={"intro\n\nsee [mail](https://mail.example)"} />,
+    );
+    const link = container.querySelector(".cm-link") as HTMLElement;
+
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.click(link);
+
+    expect(open).toHaveBeenCalledWith("https://mail.example", "_blank", "noopener");
+    open.mockRestore();
+  });
+
+  it("leaves a tap in the markdown link the cursor is in to the cursor", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    // The cursor opens on the first line, which is the link's.
+    const { container } = render(<Editor initialDoc="[mail](https://mail.example)" />);
+    const link = container.querySelector(".cm-link") as HTMLElement;
+
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.click(link);
+
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
   it("goes back to hiding marks by mode when vim is turned on", async () => {
     const { container } = render(<Editor initialDoc={"## Notes\n\nplain"} />);
     expect(content(container).textContent).toContain("##");
