@@ -640,14 +640,21 @@ describe("live preview", () => {
     expect(content(container)).not.toContain("youtu.be");
   });
 
-  it("opens the player where the note says the video got to", () => {
+  it("opens the player where the note says the video got to", async () => {
     const { container } = render(
       <Editor
         initialDoc={"---\nwatching: {iDulhoQ2pro: 312}\n---\n\n![](https://youtu.be/iDulhoQ2pro)\n"}
       />,
     );
 
-    expect(container.querySelector("iframe.cm-video")?.getAttribute("src")).toContain("start=312");
+    // The first parse runs on a time budget, and under a loaded suite it can
+    // stop short of the line under the frontmatter; the frame lands when the
+    // parse catches up.
+    await waitFor(() =>
+      expect(container.querySelector("iframe.cm-video")?.getAttribute("src")).toContain(
+        "start=312",
+      ),
+    );
   });
 
   it("leaves a picture a picture", () => {

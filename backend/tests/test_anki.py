@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from kasten_backend import main
 from kasten_backend.anki import Card, Deck, Template, as_note, plain, read_apkg
 
 if TYPE_CHECKING:
@@ -925,6 +926,50 @@ async def test_import_refuses_media_already_in_the_vault(client: AsyncClient, va
     assert taken.read_bytes() == b"mine"
     assert not (vault / "03 Flashcards" / "Cats.md").exists()
     assert not (vault / "03 Flashcards" / "Cats media").exists()
+
+
+@pytest.mark.parametrize("name", [f"{'x' * 246}.png", ".hidden.png"], ids=["long", "hidden"])
+async def test_import_skips_a_media_name_the_write_would_refuse(
+    client: AsyncClient, vault: Path, name: str
+) -> None:
+    # A name that fits 255 bytes but whose temp beside it, `.{name}.{8 hex}.tmp`,
+    # does not; and a hidden name, which no vault path may hold.
+    export = apkg(
+        notes=((1, BASIC, f'<img src="{name}"> which cat?\x1fthe tabby'),),
+        cards=((1, 1, 10, 0),),
+        decks=((10, "Cats"),),
+        media=((name, PNG),),
+    )
+
+    response = await client.post("/api/anki", content=export)
+
+    assert response.status_code == 201
+    assert response.json()["media"] == 0
+    note = (vault / "03 Flashcards" / "Cats.md").read_text(encoding="utf-8")
+    assert "\nwhich cat?::the tabby\n" in note
+    assert not (vault / "03 Flashcards" / "Cats media").exists()
+
+
+async def test_import_that_fails_partway_leaves_no_media_behind(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = main.store
+    calls = 0
+
+    async def second_fails(*args: Any, **kwargs: Any) -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("disk full")
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(main, "store", second_fails)
+
+    with pytest.raises(OSError, match="disk full"):
+        await client.post("/api/anki", content=CAT_EXPORT)
+
+    folder = vault / "03 Flashcards"
+    assert [path for path in folder.rglob("*") if path.is_file()] == []
 
 
 async def test_import_refuses_a_deck_already_imported(client: AsyncClient, vault: Path) -> None:

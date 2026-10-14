@@ -519,8 +519,10 @@ written once into each. `media` counts the files written.
 
 A file goes through the checks `POST /api/assets/{path}` makes: a suffix the
 vault takes as an image or a sound, bytes that start the way the suffix says,
-and the 100MB cap. A name that is not one plain file name (empty, `..`, holding
-a slash, or over 255 bytes) is refused too. A refused file, and one the export
+and the 100MB cap. A name that is not one plain file name (empty, hidden, holding
+a slash, or over 241 bytes, which leaves room for the temp file it is streamed
+into) is refused too. If a write fails partway, the files the import already
+wrote are taken back out. A refused file, and one the export
 lists but does not hold, is not written, and the card loses the reference as if
 it had never been there; the import still lands. A card whose question was only
 such a file has nothing left to ask and is left out.

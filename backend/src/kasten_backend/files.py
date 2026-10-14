@@ -217,6 +217,15 @@ async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
         raise RefusedError(502, "That page redirects too many times") from error
 
 
+def temporary_name(name: str) -> str:
+    """The hidden name `store` streams `name` into before linking it into place.
+
+    Fourteen bytes longer than `name`, so a name near the filesystem's limit
+    fits as itself and not as its temp; the Anki reader asks this to skip one.
+    """
+    return f".{name}.{secrets.token_hex(4)}.tmp"
+
+
 async def store(root: Path, path: str, chunks: AsyncIterator[bytes], *, held: bool = False) -> str:
     """Put the bytes `chunks` yields at `path`, never over a file already there.
 
@@ -253,7 +262,7 @@ async def store(root: Path, path: str, chunks: AsyncIterator[bytes], *, held: bo
     # would land readable by its owner alone in a vault whose whole point is
     # being readable without kasten. Hidden and `.tmp`, so the listing, the
     # watcher and jj all skip whatever a crash leaves behind.
-    temporary = asset.with_name(f".{asset.name}.{secrets.token_hex(4)}.tmp")
+    temporary = asset.with_name(temporary_name(asset.name))
     # Opened above the `try`, so the `finally` can only ever unlink a file this
     # call made.
     output = temporary.open("xb")

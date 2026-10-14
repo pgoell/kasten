@@ -813,8 +813,8 @@ function build(state: EditorState): Live {
 
       // `\*` is the asterisk, and the backslash is a mark like any other. An
       // Anki card side opening with a fence is written with a backslash before
-      // its backticks so it opens none, and should read as the backticks. By the line rule, so the cursor's
-      // line and a table's source keep it.
+      // its backticks so it opens none, and should read as the backticks. By
+      // the line rule, so the cursor's line and a table's source keep it.
       if (isEscape) {
         if (!revealed) hide(node.from, node.from + 1);
         return;

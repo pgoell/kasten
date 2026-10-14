@@ -81,17 +81,16 @@ interface ReviewSessionProps {
  * A phone refuses a sound no tap asked for, which is the first card of every
  * sitting, and a sound whose source changed under it while it loaded rejects
  * as aborted. Neither is worth a word on the screen: the Replay button is
- * right there. Anything else is a fault and goes on up.
+ * right there. A file that cannot play, deleted from the vault or in a format
+ * the browser lacks, never ends, so `skip` moves on to the side's next sound
+ * the way `ended` would. Those three are every way the spec lets `play()`
+ * reject; anything else is a fault and goes on up.
  */
-function start(player: HTMLAudioElement): void {
+function start(player: HTMLAudioElement, skip: () => void): void {
   player.play().catch((error: unknown) => {
-    if (
-      error instanceof DOMException &&
-      (error.name === "NotAllowedError" || error.name === "AbortError")
-    ) {
-      return;
-    }
-    throw error;
+    if (!(error instanceof DOMException)) throw error;
+    if (error.name === "NotSupportedError") skip();
+    else if (error.name !== "NotAllowedError" && error.name !== "AbortError") throw error;
   });
 }
 
@@ -191,8 +190,27 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   const player = useRef<HTMLAudioElement | null>(null);
   /** The sounds of the side showing that wait behind the one playing. */
   const waiting = useRef<string[]>([]);
+  /** The sound the player is on, or null once a side has run out or stopped. */
+  const current = useRef<string | null>(null);
   /** Whether the card the deck read put on screen has been played. */
   const started = useRef(false);
+
+  /**
+   * Go on from the sound `from` to the next one waiting, on its end or failure.
+   *
+   * Only from the sound the player is still on: a missing file both rejects
+   * its `play()` and fires `error`, and the second of those must not skip the
+   * sound the first one moved on to.
+   */
+  const onward = useCallback((from: string | null) => {
+    const made = player.current;
+    if (made === null || from === null || from !== current.current) return;
+    const next = waiting.current.shift() ?? null;
+    current.current = next;
+    if (next === null) return;
+    made.src = next;
+    start(made, () => onward(next));
+  }, []);
 
   /**
    * Play a side's sounds in order, stopping whatever was playing.
@@ -201,25 +219,25 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
    * one, because a phone refuses `play()` that does not start synchronously in
    * a gesture. An empty list is the stop.
    */
-  const play = useCallback((sources: string[]) => {
-    // Cleared before the pause, so a sound ending under it plays nothing next.
-    waiting.current = sources.slice(1);
-    player.current?.pause();
-    const first = sources[0];
-    if (first === undefined) return;
-    if (player.current === null) {
-      const made = document.createElement("audio");
-      made.addEventListener("ended", () => {
-        const next = waiting.current.shift();
-        if (next === undefined) return;
-        made.src = next;
-        start(made);
-      });
-      player.current = made;
-    }
-    player.current.src = first;
-    start(player.current);
-  }, []);
+  const play = useCallback(
+    (sources: string[]) => {
+      // Cleared before the pause, so a sound ending under it plays nothing next.
+      waiting.current = sources.slice(1);
+      const first = sources[0] ?? null;
+      current.current = first;
+      player.current?.pause();
+      if (first === null) return;
+      if (player.current === null) {
+        const made = document.createElement("audio");
+        made.addEventListener("ended", () => onward(current.current));
+        made.addEventListener("error", () => onward(current.current));
+        player.current = made;
+      }
+      player.current.src = first;
+      start(player.current, () => onward(first));
+    },
+    [onward],
+  );
 
   // The first card is the one no tap shows: it lands when the deck read does.
   // A phone refuses it, silently, and Replay is the tap that plays it there.

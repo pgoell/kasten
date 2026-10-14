@@ -176,6 +176,15 @@ def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = Fa
     return sorted(found)
 
 
+def legal_name(part: str) -> bool:
+    """Whether one path segment is a name the vault holds: not hidden, and short enough.
+
+    Its own function so a caller holding a name and no vault, the Anki reader,
+    asks the rule `_resolve_inside` applies rather than a copy of it.
+    """
+    return not part.startswith(".") and len(part.encode("utf-8")) <= _NAME_LIMIT_BYTES
+
+
 def _resolve_inside(root: Path, relative: str) -> Path | None:
     """Return the real path of a legal location under `root`, or None.
 
@@ -208,9 +217,7 @@ def _resolve_inside(root: Path, relative: str) -> Path | None:
     # leaving its folder behind. No parts at all is the vault root, which is a
     # path the vault holds rather than one it will move or write.
     parts = path.relative_to(base).parts
-    if not parts or any(
-        part.startswith(".") or len(part.encode("utf-8")) > _NAME_LIMIT_BYTES for part in parts
-    ):
+    if not parts or not all(legal_name(part) for part in parts):
         return None
 
     # A path that is still a link after `resolve` is a link `resolve` could not

@@ -568,6 +568,29 @@ describe("ReviewSession playing a card's sounds", () => {
     expect(played()).toHaveLength(2);
   });
 
+  it("moves on to the next sound when one cannot play", async () => {
+    const { play, played } = stubPlayer();
+    // A file deleted from the vault: the play is refused as unsupported.
+    play.mockRejectedValueOnce(new DOMException("gone", "NotSupportedError"));
+    renderDeck(`#flashcards/aws\n\n![](${MEDIA}/missing.mp3) ![](${MEDIA}/two.mp3)::x\n`);
+
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    expect(played()).toHaveLength(1);
+    expect(played()[0]).toMatch(/\/two\.mp3$/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("moves on to the next sound when the player reports an error", async () => {
+    const { play, played } = stubPlayer();
+    renderDeck(`#flashcards/aws\n\n![](${MEDIA}/missing.mp3) ![](${MEDIA}/two.mp3)::x\n`);
+    await waitFor(() => expect(play).toHaveBeenCalledOnce());
+
+    fireEvent(play.mock.contexts[0] as HTMLMediaElement, new Event("error"));
+
+    expect(played()).toHaveLength(2);
+    expect(played()[1]).toMatch(/\/two\.mp3$/);
+  });
+
   it("stops the sound when the card is rated and the next has none", async () => {
     const { play, pause } = stubPlayer();
     renderDeck(`#flashcards/aws\n\n![](${MEDIA}/a.mp3)::あ\n\nquiet::silent\n`);

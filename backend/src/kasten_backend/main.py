@@ -779,7 +779,6 @@ async def import_anki(
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
-    written: list[str] = []
     # The whole import under one lock, so a deck found free by the precheck
     # cannot be taken by another writer before the loop below reaches it.
     async with vault_write():
@@ -808,14 +807,7 @@ async def import_anki(
         # One change for the import rather than one per deck, the way the type
         # backfill takes one for its pass.
         async with vault_change(settings.vault_path, settings.flashcards_path):
-            # The media first, through the checks an upload meets; `read_apkg`
-            # made them already, so none refuses and no note links a missing file.
-            for path, data in media:
-                await store(settings.vault_path, path, _once(data), held=True)
-            for note, text in targets:
-                relative = relative_path(settings.vault_path, note)
-                create_note(note, text if reserved(relative) else stamp(text))
-                written.append(relative)
+            written = await _write_import(settings.vault_path, media, targets)
 
     return AnkiImport(
         notes=written,
@@ -823,6 +815,36 @@ async def import_anki(
         cards=sum(len(note_cards(deck)) for deck in decks),
         media=len(media),
     )
+
+
+async def _write_import(
+    root: Path, media: list[tuple[str, bytes]], targets: list[tuple[Path, str]]
+) -> list[str]:
+    """Write an import's media and then its notes, answering with the notes' paths.
+
+    The media first, through the checks an upload meets; `read_apkg` made them
+    already, so none refuses and no note links a missing file. A write failing
+    partway takes back what this import put down, so the retry is not refused
+    by its own leftovers: a `finally` rather than a catch, since every failure
+    gets the same answer. The caller holds the lock and the change.
+    """
+    landed: list[Path] = []
+    written: list[str] = []
+    done = False
+    try:
+        for path, data in media:
+            landed.append(root / await store(root, path, _once(data), held=True))
+        for note, text in targets:
+            relative = relative_path(root, note)
+            create_note(note, text if reserved(relative) else stamp(text))
+            landed.append(note)
+            written.append(relative)
+        done = True
+    finally:
+        if not done:
+            for path in landed:
+                path.unlink(missing_ok=True)
+    return written
 
 
 async def _once(data: bytes) -> AsyncIterator[bytes]:

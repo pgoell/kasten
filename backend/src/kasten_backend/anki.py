@@ -36,8 +36,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote
 
-from kasten_backend.files import ASSET_LIMIT_BYTES
-from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits
+from kasten_backend.files import ASSET_LIMIT_BYTES, temporary_name
+from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits, legal_name
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -547,7 +547,8 @@ def _media_file(
     """The file a field names as `name`, by its name in the vault and its bytes, or None.
 
     None for a file the vault would refuse as `store` would: a name that is not
-    one plain file name, a suffix it takes no image or sound under, a body over
+    one plain file name the vault holds (hidden, or too long once its temp's
+    fourteen bytes are added), a suffix it takes no image or sound under, a body over
     the cap or not what its suffix says. None too for one the zip lacks.
     """
     # Anki percent-encodes an `<img src>` in some versions, never the map.
@@ -556,9 +557,11 @@ def _media_file(
     member = index.get(name)
     if (
         member is None
-        or name in ("", ".", "..")
+        or not name
         or any(char in name for char in "/\\\x00")
-        or len(name.encode()) > _NAME_LIMIT_BYTES
+        or not legal_name(name)
+        # The temp `store` streams into is longer than the name and has to fit too.
+        or len(temporary_name(name).encode()) > _NAME_LIMIT_BYTES
         or Path(name).suffix.lower() not in MEDIA_SUFFIXES
         or member not in bundle.namelist()
         or bundle.getinfo(member).file_size > ASSET_LIMIT_BYTES
