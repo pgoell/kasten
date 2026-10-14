@@ -191,9 +191,12 @@ function foliatePdfjs(): Plugin {
       const stampFile = path.join(staged, ".stamp");
       if (existsSync(stampFile) && readFileSync(stampFile, "utf8") === stamp) return;
 
-      // In vite's cache rather than `public/`, which the build copies whole: a
-      // copy left by a killed start would otherwise ship in the image.
-      const fresh = path.join(config.cacheDir, `pdfjs-${randomUUID()}`);
+      // Beside `public/` rather than in it, which the build copies whole: a
+      // copy left by a killed start would otherwise ship in the image. And not
+      // in vite's cache under `node_modules`, which the dev container mounts
+      // separately from the rest, so the rename below would cross mounts and
+      // fail with EXDEV.
+      const fresh = path.join(config.root, `.pdfjs-${randomUUID()}`);
       for (const name of PDFJS_FILES) {
         cpSync(path.join(PDFJS, name), path.join(fresh, name), { recursive: true });
       }

@@ -470,6 +470,29 @@ def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None
     )
 
 
+@pytest.mark.parametrize(
+    ("front", "back"),
+    [
+        ("Is a::b valid?", "?"),
+        ("What does std::size count?", "# of elements"),
+        ("What opens a::b?", "#pragma"),
+        ("What does a::b hold?", "!suspended x"),
+        ("When is a::b due?", "<!--SR:!2026-08-20,4,270-->"),
+        ("# What does std::move do?", "casts"),
+    ],
+    ids=["divider", "heading", "tags", "token", "schedule", "front-heading"],
+)
+def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str, back: str) -> None:
+    # `srs.ts` would drop the `?` card and read the front at its first `::`, or,
+    # for a `?` answer, `review.ts` would count the answer as a second card.
+    # `frontend/tests/review.test.ts` reads the first case's text back.
+    template = Template("Card 1", "{{Front}}", "{{Back}}")
+    pairs = ((front, back), ("a", "b"))
+    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], 0)
+
+    assert as_note(deck) == "#flashcards/x\n\na::b\n"
+
+
 def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
     template = Template("Card 1", "{{Front}}", "{{Back}}")
     pairs = (("What does std::move do?", ""), ("a", "b"))

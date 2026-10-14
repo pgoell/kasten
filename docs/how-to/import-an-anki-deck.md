@@ -96,7 +96,10 @@ nothing is written as `question::`, which kasten reads as
 [a parked question](/reference/flashcard-format.md#parking-a-card), so it waits
 for an answer rather than vanishing. The exception is a question holding `::`
 whose back adds nothing: it is left out, because a `?` with nothing under it is
-no card.
+no card. Such a question is left out too when its answer is `?` alone, or when
+either side is a line that would end the card: a heading such as
+`# of elements`, a line of nothing but tags such as `#pragma`, a line opening
+with `!suspended`, or a schedule comment.
 
 A conditional section, `{{#Field}}` or `{{^Field}}`, shows or hides as it does in
 Anki. A card whose front shows no field with text in it is not made, since Anki

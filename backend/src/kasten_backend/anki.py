@@ -67,6 +67,10 @@ _FIXED = {1: 8, 5: 4}
 """The protobuf wire types of a fixed-width field, against how many bytes it takes."""
 _EMPTY = re.compile(r"(?:\s|</?(?:br|div) ?/?>)*", re.IGNORECASE)
 """Anki's own test for an empty field: an editor leaves `<br>` and `<div>` behind."""
+_HEADING = re.compile(r"#{1,6}[ \t]")
+"""`HEADING` in `srs.ts`."""
+_ONLY_TAGS = re.compile(r"(?:#[^\W\d][\w/-]*[ \t]*)+")
+"""`ONLY_TAGS` in `deck-tag.ts`, `[^\\W\\d]` and `\\w` standing in for the `\\p{L}` `re` lacks."""
 
 
 @dataclass(frozen=True)
@@ -224,10 +228,13 @@ def as_note(deck: Deck) -> str:
     A front holding `::` is the exception to the one line. A card line splits at
     its first `::`, so `std::move` would cut the question short; such a card is
     written as front, `?` and back, with a blank line either side so the `?`
-    card's front and back do not run into the lines next to it. With no back it
-    is left out: `srs.ts` asks no `?` with nothing under it and `review.ts`
-    would count one, and the one-line form that parks a question is the form
-    this card cannot take.
+    card's front and back do not run into the lines next to it. It is left out
+    where a side cannot stand in that form: an empty back, since `srs.ts` asks
+    no `?` with nothing under it and `review.ts` would count one; a back of `?`,
+    which `review.ts` counts as a second card; and a side `srs.ts` ends a card
+    on, a heading, a line of tags, the parking token or a schedule, which drops
+    the `?` card there and reads the front at its first `::` after all. The
+    one-line form that parks a question is the form this card cannot take.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
     # otherwise land in a deck called `AWS` with the rest of its name read as
@@ -239,7 +246,7 @@ def as_note(deck: Deck) -> str:
             continue
         if "::" not in card.front:
             body.append(f"{card.front}::{card.back}")
-        elif card.back:
+        elif not (_ends_card(card.front) or _ends_card(card.back) or card.back == "?"):
             if body and body[-1]:
                 body.append("")
             body += [card.front, "?", card.back, ""]
@@ -248,6 +255,21 @@ def as_note(deck: Deck) -> str:
     if body and not body[-1]:
         body.pop()
     return "\n".join(head + body) + "\n"
+
+
+def _ends_card(line: str) -> bool:
+    """Whether `srs.ts` would end a `?` card on `line`, so it cannot be a side of one.
+
+    `breaks()` in `srs.ts`, plus the schedule its back stops at. A side here is
+    one stripped line, so blank means empty.
+    """
+    return (
+        not line
+        or line.startswith("!suspended")
+        or _HEADING.match(line) is not None
+        or _ONLY_TAGS.fullmatch(line) is not None
+        or "<!--SR:!" in line
+    )
 
 
 def _parse(template: str) -> list[_Node]:

@@ -495,7 +495,9 @@ make it. A card whose back adds nothing is written as `question::`, a
 [parked question](/reference/flashcard-format.md#parking-a-card), and a card
 whose question is empty once flattened is left out. A question holding `::` is
 written over three lines, question, `?` and answer, so the first `::` does not
-cut it short, and is left out when its answer is empty. A cloze note gives one card,
+cut it short, and is left out when its answer is empty or `?`, or when either
+side is a heading, a line of only tags, a line opening with `!suspended` or a
+schedule comment, any of which would end the card. A cloze note gives one card,
 its Text field the question and Back Extra the answer. Each card goes to the
 deck its own Anki card sits in, HTML is flattened to one line, and a nested deck
 becomes a nested folder under

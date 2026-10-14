@@ -549,6 +549,34 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("unsaved");
   });
 
+  it("takes the write off the stream before its digest has landed", async () => {
+    // The event carries a digest, which `adopt` only has once `crypto.subtle`
+    // answers. An event arriving inside that wait is answered when it does.
+    const note = renderAutosave();
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+    const digest = await digestOf(bookmark);
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+
+    expect(note.reconcile(digest)).toBe(false);
+    expect(note.status()).toBe("unsaved");
+    // Queued behind adopt's own digest of the same text, so by now it is in.
+    await digestOf(bookmark);
+    await hashed();
+    expect(note.status()).toBe("unsaved");
+  });
+
+  it("still flags somebody else's write that arrives while a digest is out", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
+
+    expect(note.reconcile(await digestOf("somebody else's text"))).toBe(false);
+    await vi.waitFor(() => expect(note.status()).toBe("conflict"));
+  });
+
   it("still knows its own write when a bookmark lands between it and its event", async () => {
     // What fails when the adopted write shares `lastWritten`: the hook reads
     // its own save as somebody else's and locks the editor, which is the exact

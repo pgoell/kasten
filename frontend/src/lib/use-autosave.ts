@@ -80,6 +80,16 @@ export function useAutosave(path: string | undefined) {
   // lands, and found nothing to match. The editor asks about text, so it is
   // answered from here and never has to wait.
   const adoptedText = useRef(new Set<string>());
+  // Digests of our own writes still on `crypto.subtle`. The stream's question
+  // is about a digest, so an event arriving while one is out cannot be told
+  // from somebody else's write yet, and is answered once they are all in.
+  const hashing = useRef(new Set<Promise<void>>());
+  const track = useCallback((landing: Promise<void>) => {
+    hashing.current.add(landing);
+    // `finally` and not a second handler, so a failure the digest's own handler
+    // rethrows still surfaces rather than being swallowed here.
+    void landing.finally(() => hashing.current.delete(landing));
+  }, []);
   const queryClient = useQueryClient();
 
   /** Resolves to whether the vault holds the text, so `<leader>q` can refuse. */
@@ -108,19 +118,21 @@ export function useAutosave(path: string | undefined) {
         // this one. Hashing the other would recognise nothing and read every
         // save of our own as somebody else's write.
         lastText.current = note.content;
-        void digestOf(note.content).then(
-          (digest) => {
-            lastWritten.current = digest;
-          },
-          (error: unknown) => {
-            // `crypto.subtle` is missing outside a secure context, which is a
-            // proxy serving the app over plain http and nothing else. Left
-            // unhandled it is an unhandled rejection per save; handled, the
-            // hook simply recognises none of its own writes, so a save the
-            // typing carried on through raises a conflict the reader clears
-            // with `:w`. Wrong in the direction that writes nothing.
-            if (!(error instanceof TypeError)) throw error;
-          },
+        track(
+          digestOf(note.content).then(
+            (digest) => {
+              lastWritten.current = digest;
+            },
+            (error: unknown) => {
+              // `crypto.subtle` is missing outside a secure context, which is a
+              // proxy serving the app over plain http and nothing else. Left
+              // unhandled it is an unhandled rejection per save; handled, the
+              // hook simply recognises none of its own writes, so a save the
+              // typing carried on through raises a conflict the reader clears
+              // with `:w`. Wrong in the direction that writes nothing.
+              if (!(error instanceof TypeError)) throw error;
+            },
+          ),
         );
         // Typing during the write leaves newer text behind us, and that is not
         // saved however this one went. The cache waits on the same test: the
@@ -155,7 +167,7 @@ export function useAutosave(path: string | undefined) {
         return false;
       },
     );
-  }, [path, queryClient]);
+  }, [path, queryClient, track]);
 
   /**
    * Write what is waiting on the way to doing something else, refusing while
@@ -230,19 +242,21 @@ export function useAutosave(path: string | undefined) {
       if (note !== path) return;
 
       adoptedText.current.add(content);
-      void digestOf(content).then(
-        (digest) => {
-          adopted.current.set(digest, content);
-        },
-        (error: unknown) => {
-          // `crypto.subtle` missing outside a secure context, the way the save
-          // path reads the same failure. Wrong in the direction that costs a
-          // conflict the reader clears with `:w`.
-          if (!(error instanceof TypeError)) throw error;
-        },
+      track(
+        digestOf(content).then(
+          (digest) => {
+            adopted.current.set(digest, content);
+          },
+          (error: unknown) => {
+            // `crypto.subtle` missing outside a secure context, the way the save
+            // path reads the same failure. Wrong in the direction that costs a
+            // conflict the reader clears with `:w`.
+            if (!(error instanceof TypeError)) throw error;
+          },
+        ),
       );
     },
-    [path],
+    [path, track],
   );
 
   const change = useCallback(
@@ -293,23 +307,36 @@ export function useAutosave(path: string | undefined) {
   const reconcile = useCallback((digest: string | null): boolean => {
     // Our own write coming back. Every write is reported, this hook's included,
     // and reading one as somebody else's would flag a conflict on every save
-    // the typing carried on through.
-    if (digest !== null && digest === lastWritten.current) return false;
-    // A write the route made, coming back off the stream. The entry goes with
-    // it: one event answers one write.
-    const held = digest === null ? undefined : adopted.current.get(digest);
-    if (digest !== null && held !== undefined) {
-      adopted.current.delete(digest);
+    // the typing carried on through. Then a write the route made, coming back
+    // off the stream, whose entry goes with it: one event answers one write.
+    const ours = (of: string): boolean => {
+      if (of === lastWritten.current) return true;
+      const held = adopted.current.get(of);
+      if (held === undefined) return false;
+      adopted.current.delete(of);
       adoptedText.current.delete(held);
-      return false;
-    }
+      return true;
+    };
+    if (digest !== null && ours(digest)) return false;
     if (pending.current === null) return true;
 
     // Nothing is discarded and nothing is written. The buffer keeps the
     // reader's text, the vault keeps the other writer's, and `:w` is how the
     // reader says which one wins.
-    conflicted.current = true;
-    setStatus("conflict");
+    const conflict = () => {
+      conflicted.current = true;
+      setStatus("conflict");
+    };
+    if (digest === null || hashing.current.size === 0) {
+      conflict();
+      return false;
+    }
+    // One of our digests is still out and may be this one. A buffer saved in
+    // the meantime has overwritten the other write, so there is nothing left
+    // to flag.
+    void Promise.allSettled(hashing.current).then(() => {
+      if (!ours(digest) && pending.current !== null) conflict();
+    });
     return false;
   }, []);
 

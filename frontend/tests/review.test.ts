@@ -281,6 +281,15 @@ describe("decksFrom on an imported question holding `::`", () => {
     ]);
   });
 
+  it("counts nothing for a question `as_note` left out for an answer of `?`", () => {
+    // `as_note` once wrote `Is a::b valid?`, `?`, `?` here, which this file
+    // counted as two cards and `srs.ts` as one; it now leaves the card out.
+    const text = "#flashcards/x\n\na::b\n";
+
+    expect(decksFrom(scanned("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
+    expect(parseCards(text)).toHaveLength(1);
+  });
+
   it("counts nothing for a question `as_note` left out for want of an answer", () => {
     const text = "#flashcards/x\n\na::b\n";
 
