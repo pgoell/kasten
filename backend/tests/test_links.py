@@ -550,8 +550,38 @@ def test_follows_a_link_after_an_escaped_backtick() -> None:
     ],
 )
 def test_follows_a_link_whose_alias_holds_a_backtick(text: str, expected: str) -> None:
-    # A backtick in a link is the alias's, and neither opens nor closes code.
+    # A backtick in a link opens no code, so it cannot pair with a later one.
     assert relink(text, {"x.md": "y.md"}, ["x.md"]) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Type `[[` and close with ]] like [[Old]] or `x`\n",
+        "Run `x [[Note|a`b]] then [[Old]] and `y`\n",
+    ],
+)
+def test_follows_a_link_after_a_span_that_closes_inside_another(text: str) -> None:
+    # The span's closer sits in what reads as a `[[link]]`, and it still closes:
+    # skipping it would pair the opener with the last backtick and hide `[[Old]]`.
+    assert relink(text, {"Old.md": "New.md"}, ["Old.md"]) == text.replace("[[Old]]", "[[New]]")
+
+
+@pytest.mark.parametrize(
+    ("text", "spans"),
+    [
+        ("a \\` b `c`", [(7, 10)]),
+        ("C:\\\\`[[x]]`", [(4, 11)]),
+        ("\\``[[x]]`", [(2, 9)]),
+        ("`a\\`", [(0, 4)]),
+    ],
+)
+def test_code_spans_reads_a_backslash_before_a_backtick(
+    text: str, spans: list[tuple[int, int]]
+) -> None:
+    # An odd run of backslashes escapes one backtick of an opener, and the rest
+    # of its run may still open. Inside code a backslash escapes nothing.
+    assert code_spans(text) == spans
 
 
 @pytest.mark.parametrize(

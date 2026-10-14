@@ -209,39 +209,51 @@ def _inline_code(line: str) -> list[tuple[int, int]]:
     telling where a paragraph ends means parsing lists, headings and tables, and
     a stray backtick in one list item must not hide the links of the next.
 
-    A run after a backslash opens nothing, the backtick being escaped. A run
-    inside a `[[link]]` opens and closes nothing, so a backtick in an alias does
-    not pair with one later on the line; a link wholly inside a span is still
-    in it.
+    A backslash escapes the first backtick of a run that opens, and the rest of
+    the run opens as a shorter one; inside code a backslash is only a backslash,
+    so a closer is taken as written.
+
+    A run that starts inside a `[[link]]` may close a span and never opens one,
+    so a backtick in an alias cannot pair with one later on the line and hide
+    the links between. It still closes: blanking the link instead would move a
+    span's real end past it, and hide the links after.
 
     Paired by a walk over the runs rather than by a pattern, which would scan to
     the end of the line from every unclosed run.
     """
-    masked = WIKILINK.sub(lambda link: " " * len(link[0]), line)
-    runs = [(run.start(), run.end()) for run in BACKTICKS.finditer(masked)]
-
-    closers: list[int | None] = [None] * len(runs)
-    later: dict[int, int] = {}
-    for index in reversed(range(len(runs))):
-        start, stop = runs[index]
-        closers[index] = later.get(stop - start)
-        later[stop - start] = index
+    links = [link.span() for link in WIKILINK.finditer(line)]
+    runs = [run.span() for run in BACKTICKS.finditer(line)]
+    by_width: dict[int, list[int]] = {}
+    for index, (start, stop) in enumerate(runs):
+        by_width.setdefault(stop - start, []).append(index)
 
     spans = []
     index = 0
     while index < len(runs):
-        start = runs[index][0]
-        closer = closers[index]
-        if closer is None or masked[start - 1 : start] == "\\":
-            index += 1
+        start, stop = runs[index]
+        index += 1
+        start += _backslashes_before(line, start) % 2
+        if start == stop or _inside(start, links):
             continue
-        spans.append((start, runs[closer][1]))
-        index = closer + 1
+        same = by_width.get(stop - start, [])
+        closer = bisect_right(same, index - 1)
+        if closer == len(same):
+            continue
+        spans.append((start, runs[same[closer]][1]))
+        index = same[closer] + 1
     return spans
 
 
-def _in_code(position: int, spans: list[tuple[int, int]]) -> bool:
-    """Whether `position` falls in one of `spans`, which `code_spans` returns sorted and apart.
+def _backslashes_before(line: str, position: int) -> int:
+    """How many backslashes run up to `position`, an odd count escaping what follows."""
+    count = 0
+    while count < position and line[position - count - 1] == "\\":
+        count += 1
+    return count
+
+
+def _inside(position: int, spans: list[tuple[int, int]]) -> bool:
+    """Whether `position` falls in one of `spans`, sorted and apart.
 
     A search rather than a scan of every span, which on a long note full of code
     held the event loop for seconds: one scan per link.
@@ -261,7 +273,7 @@ def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
     code = code_spans(text)
 
     def rewrite(match: re.Match[str]) -> str:
-        if _in_code(match.start(), code):
+        if _inside(match.start(), code):
             return match.group(0)
         target = match.group(1)
         name = split_target(target).name
@@ -341,7 +353,7 @@ def relink_markdown(text: str, before: str, after: str, old: str, new: str) -> s
     code = code_spans(text)
 
     def rewrite(match: re.Match[str]) -> str:
-        if _in_code(match.start(), code):
+        if _inside(match.start(), code):
             return match.group(0)
         href = match.group(2)
         target = markdown_target(href, here)
