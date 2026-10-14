@@ -22,6 +22,21 @@
  * nothing to adopt and buys a second reader of the vault. The `!` in the
  * comment is theirs too, and is kept even though nothing here varies on it.
  *
+ * A cloze is Anki's, `{{c1::text}}` and `{{c1::text::hint}}`, and is one card
+ * per number. Its comments are kasten's own, `<!--SR:c1!…-->`, one per number
+ * and named by it, so a line holds independent cards in any order; the plugin's
+ * `<!--SR:!` matches none of them. A line holding a mark is a cloze before it is
+ * anything else, the `::` inside the braces dividing nothing.
+ *
+ * ```markdown
+ * The capital of {{c1::France}} is {{c2::Paris}}. <!--SR:c2!2026-08-15,1,250-->
+ *
+ * The capital of France is {{c1::Paris}}.
+ * ?
+ * On the Seine.
+ * <!--SR:c1!2026-08-20,4,270-->
+ * ```
+ *
  * Which decks a card is in is read here, off `deck-tag.ts`'s rule, because this
  * is the reader that sees the note whole. A `::` is a common enough thing to
  * type that reading every one of them as a card would fill the queue with C++
@@ -30,8 +45,15 @@
  */
 
 import {
+  CLOZE_SR,
+  clozeAnswer,
+  clozeComment,
+  clozeNumbers,
+  clozeQuestion,
+  clozeTarget,
   divide,
   fences,
+  holdsCloze,
   parks,
   SR,
   SUSPEND_TOKEN,
@@ -100,6 +122,20 @@ export interface Card {
    * behind it in a sitting already running.
    */
   parked: Parked | null;
+  /**
+   * The number a cloze card asks, or null where the card is no cloze.
+   *
+   * One line holds a card per number, all spanning the same lines, so this is
+   * what tells a rating which of the line's comments is its own.
+   */
+  cloze: number | null;
+  /**
+   * What a typed answer is compared against, where that is not the back.
+   *
+   * A cloze's back is the whole line with its text highlighted, and the answer
+   * somebody types is the hidden text alone.
+   */
+  target: string | null;
 }
 
 /** What a card starts life at, which is SM-2's 2.5 and Anki's default. */
@@ -130,13 +166,46 @@ function breaks(line: string | undefined): boolean {
   return HEADING.test(line.trimStart()) || onlyTags(line);
 }
 
-/** The three numbers one `<!--SR:!…-->` holds, or null where there is none. */
-export function readSchedule(text: string): Schedule | null {
-  const found = SR.exec(text);
+/**
+ * The three numbers one `<!--SR:!…-->` holds, or null where there is none.
+ *
+ * `comment` is a cloze number's own, `clozeComment`, where the card is one.
+ */
+export function readSchedule(text: string, comment = SR): Schedule | null {
+  const found = comment.exec(text);
   if (found === null) return null;
   // The defaults are unreachable: a match means all three groups are there.
   const [, due = "", interval = "1", ease = "250"] = found;
   return { due, interval: Number(interval), ease: Number(ease) };
+}
+
+/**
+ * One card per number the cloze `line` holds, in ascending order.
+ *
+ * Pushed in that order and sorted by line alone, so the ordinals the session
+ * holds come out the same on every read. `extra` is a `?` cloze's back, shown
+ * under the answer, and `schedule` the line its comments sit on.
+ */
+function clozeCards(
+  line: string,
+  extra: string,
+  schedule: string,
+  card: Pick<Card, "from" | "to" | "inline" | "parked">,
+): Card[] {
+  // The card's own tags are no part of the question, here as on any card.
+  const text = withoutTags(line);
+  return clozeNumbers(line).map((cloze) => {
+    const answer = clozeAnswer(text, cloze);
+    return {
+      ...card,
+      front: clozeQuestion(text, cloze),
+      back: extra === "" ? answer : `${answer}\n\n${extra}`,
+      decks: [],
+      held: readSchedule(schedule, clozeComment(cloze)),
+      cloze,
+      target: clozeTarget(text, cloze),
+    };
+  });
 }
 
 /**
@@ -161,22 +230,38 @@ export function parseCards(text: string, note = ""): Card[] {
 
     // The front runs back to the blank line or heading above it. A `?` with
     // nothing over it is a line of prose, not a card missing its question.
-    let from = at;
-    while (!breaks(lines[from - 1])) from--;
+    // A line holding a mark ends it too: directly over the `?` it is the whole
+    // front, the cloze this card asks, and further up it is a cloze of its own,
+    // which is the one reading `review.ts` can make off the matched lines.
+    const cloze = !breaks(lines[at - 1]) && holdsCloze(lines[at - 1]);
+    let from = cloze ? at - 1 : at;
+    if (!cloze) while (!breaks(lines[from - 1]) && !holdsCloze(lines[from - 1])) from--;
     if (from === at) continue;
 
     let to = at;
-    while (!breaks(lines[to + 1]) && !SR.test(lines[to + 1] ?? "")) to++;
-    if (to === at) continue;
+    while (
+      !breaks(lines[to + 1]) &&
+      !SR.test(lines[to + 1] ?? "") &&
+      !CLOZE_SR.test(lines[to + 1] ?? "")
+    ) {
+      to++;
+    }
+    // A `?` with nothing under it is no card, except under a cloze, whose `?`
+    // it stays with an empty back. `review.ts` sees the matched lines alone and
+    // cannot tell a blank line under the `?` from a back of plain text, so both
+    // readers take the `?` as the cloze's and read its dates under it.
+    if (to === at && !cloze) continue;
 
     const back = lines.slice(at + 1, to + 1);
     // The schedule sits on its own line under the back, where the plugin puts
     // it, and the token sits at the head of that same line. Either one takes
     // the line into the card's span, so `setSuspended` has a line to write on.
+    // A cloze's comments do the same for a cloze and nothing else: a plain
+    // card would splice its own comment under them and never find it again.
     const under = lines[to + 1] ?? "";
     const schedule = readSchedule(under);
     const held = parks(under);
-    if (schedule !== null || held) to++;
+    if (schedule !== null || held || (cloze && CLOZE_SR.test(under))) to++;
 
     // A card's own tags sit at the head of its first line, and that line is
     // the one directly above the `?`. A front running over two lines is prose
@@ -185,9 +270,24 @@ export function parseCards(text: string, note = ""): Card[] {
     // so both readers hand those to the note rather than disagreeing.
     const own = (from === at - 1 ? cardTags(lines[from] ?? "") : null) ?? [];
     if (own.length > 0) claimed.add(from);
-    owned.push(own);
-
     for (let mark = from; mark <= to; mark++) taken[mark] = true;
+
+    if (cloze) {
+      const asked = clozeCards(lines[from] ?? "", back.join("\n").trim(), lines[to] ?? "", {
+        from,
+        to,
+        inline: false,
+        parked: held ? "suspended" : null,
+      });
+      // One entry per card pushed, `owned` being read by the cards' index.
+      for (const card of asked) {
+        owned.push(own);
+        cards.push(card);
+      }
+      continue;
+    }
+
+    owned.push(own);
     cards.push({
       from,
       to,
@@ -199,11 +299,27 @@ export function parseCards(text: string, note = ""): Card[] {
       decks: [],
       held: schedule,
       parked: held ? "suspended" : null,
+      cloze: null,
+      target: null,
     });
   }
 
   for (const [at, line] of lines.entries()) {
     if (fenced[at] || taken[at]) continue;
+
+    // Before the divider: `{{c1::Paris}}` holds a `::` that divides nothing,
+    // and a cloze is never a question waiting on its answer.
+    if (holdsCloze(line)) {
+      const own = cardTags(line) ?? [];
+      if (own.length > 0) claimed.add(at);
+      const parked = suspended(line) ? "suspended" : null;
+      for (const card of clozeCards(line, "", line, { from: at, to: at, inline: true, parked })) {
+        owned.push(own);
+        cards.push(card);
+      }
+      continue;
+    }
+
     const halves = divide(line);
     // A line opening with the divider is prose, not a card missing its
     // question. A card missing its answer is the other way round and is kept.
@@ -224,6 +340,8 @@ export function parseCards(text: string, note = ""): Card[] {
       // The token first: a card carrying it was parked on purpose, and a card
       // parked on purpose before it was ever answered has both shapes at once.
       parked: suspended(line) ? "suspended" : halves.back === "" ? "unanswered" : null,
+      cloze: null,
+      target: null,
     });
   }
 
@@ -290,9 +408,9 @@ export function nextSchedule(held: Schedule | null, rating: Rating, today: strin
   return { due: shiftDay(today, interval), interval, ease };
 }
 
-/** `next` written as the comment that goes in the note. */
-function comment(next: Schedule): string {
-  return `<!--SR:!${next.due},${next.interval},${next.ease}-->`;
+/** `next` written as the comment that goes in the note, named by its number on a cloze. */
+function comment(next: Schedule, cloze: number | null = null): string {
+  return `<!--SR:${cloze === null ? "" : `c${cloze}`}!${next.due},${next.interval},${next.ease}-->`;
 }
 
 /**
@@ -304,6 +422,19 @@ function comment(next: Schedule): string {
 export function writeSchedule(text: string, card: Card, next: Schedule): string {
   const lines = text.split("\n");
   const last = lines[card.to] ?? "";
+
+  // A cloze rewrites its own number's comment and no other. Where it has none
+  // yet it joins the line the others sit on, which is the cloze's own line, or
+  // the line under a `?` back once any comment or the token has made one.
+  if (card.cloze !== null) {
+    const own = clozeComment(card.cloze);
+    const written = comment(next, card.cloze);
+    if (own.test(last)) lines[card.to] = last.replace(own, written);
+    else if (card.inline || CLOZE_SR.test(last) || SR.test(last) || parks(last)) {
+      lines[card.to] = `${last.trimEnd()} ${written}`;
+    } else lines.splice(card.to + 1, 0, written);
+    return lines.join("\n");
+  }
 
   if (card.inline) {
     lines[card.to] = SR.test(last)
@@ -334,11 +465,14 @@ export function writeSchedule(text: string, card: Card, next: Schedule): string 
 export function setSuspended(text: string, card: Card, on: boolean): string {
   const lines = text.split("\n");
   const last = lines[card.to] ?? "";
+  // A cloze parks every number off the one token, before the first of its
+  // comments, so parking any number writes the same line as parking another.
+  const schedule = card.cloze === null ? SR : CLOZE_SR;
 
   if (card.inline) {
     lines[card.to] = on
-      ? SR.test(last)
-        ? last.replace(SR, `${SUSPEND_TOKEN} $&`)
+      ? schedule.test(last)
+        ? last.replace(schedule, `${SUSPEND_TOKEN} $&`)
         : `${last.trimEnd()} ${SUSPEND_TOKEN}`
       : withoutToken(last);
     return lines.join("\n");
@@ -355,7 +489,7 @@ export function setSuspended(text: string, card: Card, on: boolean): string {
 
   // `card.to` is the schedule's line where the card has one, and the last line
   // of its back where it has none.
-  if (SR.test(last)) lines[card.to] = `${SUSPEND_TOKEN} ${last}`;
+  if (schedule.test(last)) lines[card.to] = `${SUSPEND_TOKEN} ${last}`;
   else lines.splice(card.to + 1, 0, SUSPEND_TOKEN);
   return lines.join("\n");
 }

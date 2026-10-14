@@ -311,8 +311,14 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     setTexts((was) => new Map(was).set(seat.note, next));
     setRevealed(false);
     setTyped("");
-    setQueue((queued) => queued.slice(1));
-    const coming = queue[1];
+    // The one token parks every number of a cloze, so the seats of the others
+    // leave with this one rather than coming up parked later in the sitting.
+    const after = cardsOf(deck, new Map([[seat.note, next]])).get(seat.note) ?? [];
+    const left = queue
+      .slice(1)
+      .filter(({ note, at }) => note !== seat.note || after[at]?.parked === null);
+    setQueue(left);
+    const coming = left[0];
     const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
     play(following === undefined ? [] : soundsShowing(following, false));
 
@@ -507,7 +513,8 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             <NotePreview key={`front:${card.front}`} text={card.front} />
             {shown && typing && (
               <p data-testid="review-verdict" className="mt-6 text-[13px] text-one-muted">
-                {sameAnswer(typed, card.back) ? (
+                {/* A cloze's back is the whole line, its target the hidden text. */}
+                {sameAnswer(typed, card.target ?? card.back) ? (
                   "Matched"
                 ) : (
                   <>
@@ -619,7 +626,15 @@ function cardsOf(deck: Deck, texts: Map<string, string>): Map<string, Card[]> {
     [...texts].map(([note, text]) => {
       if (deck.whole) {
         const held = readNoteSchedule(text);
-        const whole = { from: 0, to: 0, front: noteBody(text).trim(), back: "", inline: false };
+        const whole = {
+          from: 0,
+          to: 0,
+          front: noteBody(text).trim(),
+          back: "",
+          inline: false,
+          cloze: null,
+          target: null,
+        };
         return [
           note,
           [

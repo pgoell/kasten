@@ -159,8 +159,6 @@ Each of these is a real feature of Anki, left out on purpose:
 
 * **Reversed cards.** One block would carry two schedules in one comment,
   doubling the parser and the writer. Write the reverse as a second card.
-* **Cloze.** A second card shape with its own parse and its own blanking rules.
-  [An imported deck](/how-to/import-an-anki-deck.md) keeps the text.
 * **Media in an imported deck.** The media map in a current `.apkg` is
   zstd-compressed protobuf, and reading it without the schema is not a stdlib
   job. The import reports how many cards lost one rather than hiding it.

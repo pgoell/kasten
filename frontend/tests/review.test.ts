@@ -248,7 +248,8 @@ describe("parkedNotes", () => {
 
 /** The lines of `text` `GET /api/cards` hands over, by `CARD_PATTERN` in `cards.py`. */
 function scanned(path: string, text: string): SearchHit[] {
-  const matches = /::|^[ \t]*\?[ \t]*$|<!--SR:!|^[ \t]*```|^[ \t]*!suspended|#flashcards|#review/;
+  const matches =
+    /::|^[ \t]*\?[ \t]*$|<!--SR:!|<!--SR:c\d+!|^[ \t]*```|^[ \t]*!suspended|#flashcards|#review/;
   return text
     .split("\n")
     .map((line, at) => ({ path, line: at + 1, text: line }))
@@ -295,5 +296,81 @@ describe("decksFrom on an imported question holding `::`", () => {
 
     expect(decksFrom(scanned("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
     expect(parseCards(text)).toHaveLength(1);
+  });
+});
+
+/** What the sitting would count off the same note, by `parseCards`. */
+function sat(text: string) {
+  const cards = parseCards(text, "n").filter((card) => card.decks.length > 0);
+  return {
+    due: cards.filter((card) => !card.parked && card.held !== null && card.held.due <= TODAY)
+      .length,
+    fresh: cards.filter((card) => !card.parked && card.held === null).length,
+    parked: cards.filter((card) => card.parked !== null).length,
+  };
+}
+
+describe("decksFrom on a cloze", () => {
+  it("counts each number of a one-line cloze as a card, new or due off its own comment", () => {
+    const text =
+      "#flashcards/geo\n\nThe capital of {{c1::France}} is {{c2::Paris}}. <!--SR:c2!2026-08-01,1,250-->\n";
+    const counted = { due: 1, fresh: 1, parked: 0 };
+
+    expect(decksFrom(scanned("g.md", text), TODAY)).toMatchObject([{ name: "geo", ...counted }]);
+    expect(sat(text)).toEqual(counted);
+  });
+
+  it("agrees with the sitting on a `?` cloze, its comments under the back", () => {
+    const text =
+      "#flashcards/geo\n\nThe capital of {{c1::France}} is {{c2::Paris}}.\n?\nOn the Seine.\n" +
+      "<!--SR:c1!2026-08-01,1,250--> <!--SR:c2!2026-09-01,1,250-->\n\nc {{c1::d}} c::e\n";
+    const counted = { due: 1, fresh: 1, parked: 0 };
+
+    expect(decksFrom(scanned("g.md", text), TODAY)).toMatchObject([{ name: "geo", ...counted }]);
+    expect(sat(text)).toEqual(counted);
+  });
+
+  it("agrees on a `?` cloze whose front holds a marked line further up", () => {
+    const text = "#flashcards\n\n{{c1::a}} first\n{{c1::b}} {{c2::c}}\n?\nextra\n!suspended\n";
+    const counted = { due: 0, fresh: 1, parked: 2 };
+
+    expect(decksFrom(scanned("n.md", text), TODAY)).toMatchObject([counted]);
+    expect(sat(text)).toEqual(counted);
+  });
+
+  it("agrees on a cloze over a `?` with nothing under it", () => {
+    // The scan never shows the line under the `?`, so neither reader asks it:
+    // the `?` is the cloze's, its back empty, its dates on the line under it.
+    for (const text of [
+      "#flashcards\n\n{{c1::a}} {{c2::b}} <!--SR:c1!2026-08-01,1,250-->\n?\n\nprose\n",
+      "#flashcards\n\n{{c1::a}} {{c2::b}}\n?\n<!--SR:c1!2026-08-01,1,250-->\n",
+    ]) {
+      const counted = text.includes("}}\n?\n<!--") ? { due: 1, fresh: 1 } : { due: 0, fresh: 2 };
+
+      expect(decksFrom(scanned("n.md", text), TODAY)).toMatchObject([counted]);
+      expect(sat(text)).toMatchObject(counted);
+    }
+  });
+
+  it("counts every number parked off one token, on the line or under the back", () => {
+    const text =
+      "#flashcards\n\n{{c1::a}} {{c2::b}} !suspended\n\n{{c1::c}} {{c2::d}}\n?\nextra\n" +
+      "!suspended <!--SR:c1!2026-08-01,1,250-->\n";
+    const counted = { due: 0, fresh: 0, parked: 4 };
+
+    expect(decksFrom(scanned("n.md", text), TODAY)).toMatchObject([counted]);
+    expect(sat(text)).toEqual(counted);
+  });
+
+  it("counts no cloze inside a fence, and none in a note nobody tagged", () => {
+    const fenced = "#flashcards\n\na::b\n\n```\n{{c1::a}} {{c2::b}}\n```\n";
+    expect(decksFrom(scanned("f.md", fenced), TODAY)).toMatchObject([{ fresh: 1 }]);
+    expect(sat(fenced)).toEqual({ due: 0, fresh: 1, parked: 0 });
+
+    const untagged = "prose\n\n{{c1::a}} {{c2::b}}\n";
+    expect(decksFrom(scanned("u.md", untagged), TODAY)).toEqual([]);
+    expect(sat(untagged)).toEqual({ due: 0, fresh: 0, parked: 0 });
+    // Still two cards, only in no deck: the sitting drops them as the overview does.
+    expect(parseCards(untagged)).toHaveLength(2);
   });
 });

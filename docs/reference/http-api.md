@@ -436,7 +436,8 @@ It matches six shapes:
 
 * a line holding `::`, or a line that is exactly `?`, which are
   [the two ways a card is written](/reference/flashcard-format.md#the-two-ways-to-write-a-card)
-* a line holding `<!--SR:!`, which is a card's schedule
+* a line holding `<!--SR:!`, which is a card's schedule, or `<!--SR:c1!`, which
+  is a cloze number's
 * a line opening a fenced code block, which is how the client tells a card from a
   `std::vector`
 * a line opening `!suspended`, which is
@@ -501,8 +502,10 @@ its answer holds a whole schedule comment, any of which would end the card.
 A question ending in `:` is written `question ::answer`, so the colon stays on
 the question, and a side that would open its line with three backticks gets a
 backslash in front, so it opens no code block.
-`cards` counts the cards the notes hold, not those Anki made. A cloze note gives one card,
-its Text field the question and Back Extra the answer. Each card goes to the
+`cards` counts the cards the notes hold, not those Anki made. A cloze note gives
+one [cloze](/reference/flashcard-format.md#as-a-cloze) line, its marks and hints
+kept, written over three lines with `?` when its Back Extra holds text, and
+counts one card per number it marks. Each card goes to the
 deck its own Anki card sits in, HTML is flattened to one line, and a nested deck
 becomes a nested folder under
 [KASTEN_FLASHCARDS_PATH](/reference/configuration.md#kasten_flashcards_path).

@@ -9,8 +9,9 @@ its note type declares, and each card row names one of the type's templates; the
 question is that template's front rendered over the note's fields, the answer
 its back. The renderer below is the part of Anki's template language a card
 needs to come out the same: field replacements, filters, and conditional
-sections. A cloze note type is the exception and keeps the first two fields,
-because its templates only mean something once cloze is rendered (#233).
+sections. A cloze note type is the exception and keeps its first two fields,
+the text with its marks and the Back Extra, because kasten reads Anki's cloze
+marks itself and asks one card per number from the one line (#233).
 
 Media is carried. The image or sound a field names lives in the zip under a
 numbered name that only the export's `media` map translates, a JSON object in
@@ -83,9 +84,12 @@ CLOZE_KIND = 1
 _CLOZE = re.compile(r"\{\{c\d+::(.*?)(?:::.*?)?\}\}")
 """One cloze deletion, with the hint the author may have written after it.
 
-The hint is part of the match and not of the group, so it is dropped: a
-highlight in a markdown note has nowhere to put it.
+The hint is part of the match and not of the group, so the highlight a note of
+another type gets drops it: Anki shows marks there as typed, and a mark kept
+would make kasten ask a card Anki never did.
 """
+_NUMBER = re.compile(r"\{\{c(\d+)::")
+"""The number of each deletion, which is what kasten asks a card for."""
 
 _SOUND = re.compile(r"\[sound:([^\]]*)\]")
 _IMAGE = re.compile(
@@ -179,12 +183,14 @@ class _Section:
 type _Node = str | _Field | _Section
 
 
-def plain(field: str, links: Mapping[str, str] | None = None) -> str:
+def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = False) -> str:
     """One Anki field as a single line of markdown.
 
     A card is one line, so every break in the field becomes a space and the
     result never holds a newline. An image or a sound whose name `links` maps
-    becomes `![](link)`, and any other is dropped.
+    becomes `![](link)`, and any other is dropped. A cloze mark stays as it is
+    with its hint where `cloze` says the field is a cloze note's text, and is
+    otherwise a `==highlight==`.
     """
     held: list[str] = []
 
@@ -205,7 +211,8 @@ def plain(field: str, links: Mapping[str, str] | None = None) -> str:
     text = _TAG.sub("", text)
     # After the strip, so a `&lt;b&gt;` the author meant as text stays text.
     text = html.unescape(text)
-    text = _CLOZE.sub(r"==\1==", text)
+    if not cloze:
+        text = _CLOZE.sub(r"==\1==", text)
     # `split()` counts the non-breaking space `&nbsp;` just unescaped as
     # whitespace, which is what turns it into an ordinary space.
     return _HELD.sub(lambda mark: held[int(mark[1])], " ".join(text.split()))
@@ -248,7 +255,9 @@ def read_apkg(data: bytes, folder: str = "") -> list[Deck]:
                 links[name] = quote(media_path(folder, card.deck, file), safe=_LINK_SAFE)
         cards[card.deck].append(
             Card(
-                plain(card.question, links),
+                plain(card.question, links, cloze=card.kind.cloze),
+                # Back Extra shows its marks as typed in Anki, and kept here
+                # they would make the `?` back a cloze of its own.
                 plain(card.answer, links),
                 card.fields,
                 card.template,
@@ -314,8 +323,9 @@ def _rendered(blob: bytes) -> list[_Rendered]:
         values = note[1].split(SEPARATOR)
         fields = dict(zip(kind.fields, values + [""] * len(kind.fields), strict=False))
         if kind.cloze:
-            # One card per note, however many deletions it has: the rows differ
-            # only in which deletion they hide, which a plain line cannot show.
+            # One line per note, however many deletions it has: the rows differ
+            # only in which number they hide, and kasten asks each number from
+            # the one line.
             if nid in clozed or not kind.templates:
                 continue
             clozed.add(nid)
@@ -357,6 +367,12 @@ def as_note(deck: Deck) -> str:
     Two sides are written other than as they read, so that they read back as
     Anki showed them (#243): a front ending in `:` gets a space before the
     divider, and a side opening a line with three backticks gets a backslash.
+
+    A cloze note holding a mark is a cloze, its marks being what tell kasten
+    so, and is never left out. With a Back Extra that can stand as a `?` back
+    it takes the `?` form; with none, or one that cannot, it is its line alone
+    and the extra is lost, which is less than losing the card. A cloze note
+    with no mark is a card like any other.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
     # otherwise land in a deck called `AWS` with the rest of its name read as
@@ -365,7 +381,10 @@ def as_note(deck: Deck) -> str:
     body: list[str] = []
     for card in note_cards(deck):
         front = _unfenced(card.front)
-        if "::" not in card.front:
+        if _clozed(card) and not _divides(card):
+            # A cloze line holds no divider, so the colon gap has nothing to keep.
+            body.append(front)
+        elif "::" not in card.front:
             # `divide` splits at the first `::`, so `Ratio 1:` before the divider
             # would lose its colon to the back; it trims the space this adds.
             gap = " " if front.endswith(":") else ""
@@ -389,17 +408,32 @@ def note_cards(deck: Deck) -> list[Card]:
     return [
         card
         for card in deck.cards
-        if card.front
-        and (
-            "::" not in card.front
-            or not (
-                _ends_card(card.front)
-                or _ends_card(card.back)
-                or _SCHEDULE.search(card.back)
-                or card.back == "?"
-            )
-        )
+        if card.front and (_clozed(card) or "::" not in card.front or _divides(card))
     ]
+
+
+def card_count(deck: Deck) -> int:
+    """How many cards the note `as_note` writes holds: a cloze is one per number it marks."""
+    return sum(
+        # As numbers, since `c01` and `c1` are one card to Anki.
+        len({int(n) for n in _NUMBER.findall(card.front)}) if _clozed(card) else 1
+        for card in note_cards(deck)
+    )
+
+
+def _clozed(card: Card) -> bool:
+    """Whether `card` is written as a cloze: a cloze note's text holding a mark."""
+    return card.cloze and _CLOZE.search(card.front) is not None
+
+
+def _divides(card: Card) -> bool:
+    """Whether `card` can stand as front, `?` and back, by the rules `as_note` gives."""
+    return not (
+        _ends_card(card.front)
+        or _ends_card(card.back)
+        or _SCHEDULE.search(card.back)
+        or card.back == "?"
+    )
 
 
 def _unfenced(side: str) -> str:

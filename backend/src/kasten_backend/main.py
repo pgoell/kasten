@@ -28,7 +28,7 @@ from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
 from kasten_backend.agent_routes import router as agent_router
-from kasten_backend.anki import as_note, media_path, note_cards, read_apkg
+from kasten_backend.anki import as_note, card_count, media_path, read_apkg
 from kasten_backend.build import build_id
 from kasten_backend.cards import find_cards
 from kasten_backend.change import vault_change, vault_write
@@ -811,8 +811,9 @@ async def import_anki(
 
     return AnkiImport(
         notes=written,
-        # What the notes hold, not what Anki made: `as_note` leaves some out.
-        cards=sum(len(note_cards(deck)) for deck in decks),
+        # What the notes hold, not what Anki made: `as_note` leaves some out,
+        # and a cloze line is a card per number.
+        cards=sum(card_count(deck) for deck in decks),
         media=len(media),
     )
 

@@ -132,6 +132,25 @@ with `!suspended`, or, on the answer side, a whole schedule comment such as
 `<!--SR:!2026-08-20,4,270-->`. The count the import reports is of the cards the
 notes hold, so it leaves these out too.
 
+A cloze note arrives as [a cloze](/reference/flashcard-format.md#as-a-cloze),
+its marks and hints as Anki had them, one line however many cards Anki made
+from it:
+
+```markdown
+The capital of {{c1::France}} is {{c2::Paris::a city}}.
+```
+
+kasten asks that line once per number, `c1` apart from `c2`, with the hint
+shown in the blank, as Anki does. A note whose Back Extra holds text is written
+[over three lines](/reference/flashcard-format.md#as-a-cloze), the cloze, `?`
+and the Back Extra, with a blank line above and below, so the extra shows under
+the answer. A Back Extra that would end the card, by the rules above, is
+dropped and the cloze kept on its line. Marks in the Back Extra, and in a note
+of any other type, become highlights, `==Paris==`, since Anki shows them as
+typed there and asks no card of them. A cloze note holding no mark is written
+as `Text::Back Extra`. The count takes a cloze as one card per number, so the
+line above counts two.
+
 A conditional section, `{{#Field}}` or `{{^Field}}`, shows or hides as it does in
 Anki. A card whose front shows no field with text in it is not made, since Anki
 does not make it either. A field holding only spaces, `<br>` or empty `<div>`
@@ -139,18 +158,13 @@ tags counts as empty.
 
 ## What does not survive
 
-Three things.
+Two things.
 
 **Some media.** A file in another format, such as a video or an `.svg`, is
 dropped from its card, and so is one whose bytes are not what its name says or
 whose name is not a plain file name. The card keeps its text, and the import
 still lands. A card whose question was only such a file has nothing left to ask
 and is left out.
-
-**Cloze.** An Anki cloze note arrives as one card, with its Text field the
-question and Back Extra the answer, and its marks kept, so `{{c1::Paris}}`
-becomes `==Paris==`. The text is all there and nothing asks the marks:
-[cloze is not a card](/reference/flashcard-format.md#what-is-not-read) here.
 
 **What a template does beyond its fields.** A filter such as `{{text:Field}}` or
 `{{kanji:Field}}` gives the field as it is stored. `{{type:Field}}` gives nothing

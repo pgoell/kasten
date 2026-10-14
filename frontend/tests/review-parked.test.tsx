@@ -142,6 +142,33 @@ describe("ReviewParked putting a card back", () => {
     expect(written).not.toContain("!suspended");
   });
 
+  it("lists a parked cloze once and puts every number back", async () => {
+    const CLOZE =
+      "#flashcards/geo\n\n{{c1::France}} has {{c2::Paris}} !suspended <!--SR:c1!2026-08-20,4,270-->\n";
+    vi.spyOn(api, "fetchCards").mockResolvedValue([
+      { path: "g.md", line: 1, text: "#flashcards/geo" },
+      { path: "g.md", line: 3, text: CLOZE.split("\n")[2] ?? "" },
+    ]);
+    vi.spyOn(api, "fetchNote").mockResolvedValue(CLOZE);
+    const wrote = saved();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <ReviewParked onLeave={vi.fn()} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    // One row for the cloze, named by its sentence rather than by one number.
+    await screen.findByText("France has Paris");
+
+    expect(container.querySelectorAll("button[data-parked]")).toHaveLength(1);
+    fireEvent.click(container.querySelector('button[data-unpark="g.md:0"]') as HTMLButtonElement);
+
+    expect(wrote.mock.calls[0]?.[1]).toBe(
+      "#flashcards/geo\n\n{{c1::France}} has {{c2::Paris}} <!--SR:c1!2026-08-20,4,270-->\n",
+    );
+    expect(container.querySelectorAll("button[data-parked]")).toHaveLength(0);
+  });
+
   it("draws no put-back control on a question with no answer", async () => {
     const { container } = renderParked();
     await screen.findByText("What is a moved block?");

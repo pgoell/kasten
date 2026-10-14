@@ -81,6 +81,95 @@ export function withoutToken(text: string): string {
  */
 export const SR = /<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 
+/**
+ * A cloze's schedule, one per number and named by it: `<!--SR:c1!…-->`.
+ *
+ * The name sits between the colon and the `!`, which is what keeps the two
+ * comments apart in both directions: `SR` wants the `!` straight after the
+ * colon, and this wants a number before it. A cloze line can then carry its
+ * numbers' comments in any order, and a plain card beside it never reads one.
+ */
+export const CLOZE_SR = /<!--SR:c(\d+)!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
+
+/** Every cloze comment on a line, for taking them all off a side before it is shown. */
+const CLOZE_SRS = new RegExp(CLOZE_SR.source, "g");
+
+/**
+ * The comment of one number, the `!` after it what keeps `c1` off `c12`.
+ *
+ * Built per number rather than read off `CLOZE_SR`, because a rating rewrites
+ * its own comment and no other, and a replace has to find that one.
+ */
+export function clozeComment(cloze: number): RegExp {
+  return new RegExp(`<!--SR:c${cloze}!(\\d{4}-\\d{2}-\\d{2}),(\\d+),(\\d+)-->`);
+}
+
+/**
+ * One cloze mark, `{{c1::text}}` or `{{c1::text::hint}}`.
+ *
+ * No brace inside, so a nested mark is not read as one long one; the doc says
+ * nested marks are not read, and this is where that is true. Lazy, so the
+ * second `::` is the hint's and a mark ends at the first `}}`.
+ */
+const MARK = /\{\{c(\d+)::([^{}]+?)(?:::([^{}]+?))?\}\}/g;
+
+/**
+ * The numbers the line's marks carry, ascending and each once.
+ *
+ * Ascending because the session addresses a card by its ordinal among its
+ * note's cards, and a line's cards sort by the line alone: the order they are
+ * pushed in is the order they keep, so it has to be the same on every read.
+ */
+export function clozeNumbers(line: string): number[] {
+  const found = new Set([...line.matchAll(MARK)].map((mark) => Number(mark[1])));
+  return [...found].sort((one, two) => one - two);
+}
+
+/** Whether the line is a cloze, which it is before it is anything else. */
+export function holdsCloze(line: string | undefined): boolean {
+  return line !== undefined && clozeNumbers(line).length > 0;
+}
+
+/** `line` with every schedule comment taken off, plain and labelled, and the token. */
+function bare(line: string): string {
+  return withoutToken(line.replace(CLOZE_SRS, "").replace(SR, "")).trim();
+}
+
+/** `line` with one number's marks drawn by `hidden` and every other number's as its text. */
+function drawn(line: string, cloze: number, hidden: (text: string, hint?: string) => string) {
+  return bare(line).replace(MARK, (_, number: string, text: string, hint?: string) =>
+    Number(number) === cloze ? hidden(text, hint) : text,
+  );
+}
+
+/**
+ * The question this number asks: its text hidden as `[...]`, or as `[hint]`.
+ *
+ * The brackets escaped, because a front is markdown and the preview reads a
+ * bare `[...]` as a link, hiding the brackets that make it read as a blank.
+ */
+export function clozeQuestion(line: string, cloze: number): string {
+  return drawn(line, cloze, (_, hint) => `\\[${hint ?? "..."}\\]`);
+}
+
+/** The line as its sentence, every mark its plain text, which names a cloze as a whole. */
+export function clozePlain(line: string): string {
+  return drawn(line, 0, (text) => text);
+}
+
+/** The answer: the whole line, with this number's text highlighted. */
+export function clozeAnswer(line: string, cloze: number): string {
+  return drawn(line, cloze, (text) => `==${text}==`);
+}
+
+/** What typing the answer is compared against: this number's texts, joined. */
+export function clozeTarget(line: string, cloze: number): string {
+  return [...line.matchAll(MARK)]
+    .filter((mark) => Number(mark[1]) === cloze)
+    .map((mark) => mark[2] ?? "")
+    .join(", ");
+}
+
 /** The two halves of a card written on one line, or null where the line is no card. */
 export interface Divided {
   front: string;

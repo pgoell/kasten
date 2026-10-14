@@ -52,6 +52,25 @@ async def test_finds_every_shape(client: AsyncClient, vault: Path) -> None:
     ]
 
 
+CLOZE = """#flashcards/geo
+
+The capital of {{c1::France}} is {{c2::Paris}}.
+?
+On the Seine.
+<!--SR:c1!2026-08-20,4,270--> <!--SR:c2!2026-08-15,1,250-->
+"""
+
+
+async def test_finds_a_cloze_schedule_on_a_line_of_its_own(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "decks/geo.md", CLOZE)
+
+    response = await client.get("/api/cards")
+
+    assert [hit["line"] for hit in response.json()] == [1, 3, 4, 6]
+
+
 FENCED = """# C++ drills
 
 #flashcards/cpp

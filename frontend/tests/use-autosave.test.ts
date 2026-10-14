@@ -749,4 +749,101 @@ describe("useAutosave", () => {
     expect(note.allowReload("a bookmark nobody mentioned")).toBe(false);
     expect(note.status()).toBe("conflict");
   });
+
+  it("forgets an adopted write once the reader leaves the note and comes back", async () => {
+    // The route drops events for other notes, so the adopted write's event can
+    // be lost on the way to the other note. Kept, the entry would take somebody
+    // restoring that text, a `jj undo` say, for our own write.
+    const note = renderAutosave("index.md");
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+
+    note.adopt("index.md", bookmark);
+    await hashed();
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    note.change("# edited");
+
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("flags the adopted text off the stream after the reader left and came back", async () => {
+    const note = renderAutosave("index.md");
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+
+    note.adopt("index.md", bookmark);
+    await hashed();
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    note.change("# edited");
+
+    expect(note.reconcile(await digestOf(bookmark))).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("forgets its own save once the reader leaves the note and comes back", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# edited");
+    await note.save();
+    await hashed();
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    note.change("# edited more");
+
+    expect(note.allowReload(written("# edited").content)).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("flags its own saved text off the stream after the reader left and came back", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# edited");
+    await note.save();
+    await hashed();
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    note.change("# edited more");
+
+    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("still knows the new note's save when the old note's flush answers late", async () => {
+    // The flush of the note left behind answers with the closure of that note,
+    // after the hook already follows the next one. Taking the slots there would
+    // read the new note's own save as somebody else's write.
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    note.change("# daily");
+    await note.save();
+    await hashed();
+    await flush.finish();
+    await hashed();
+    note.change("# daily more");
+
+    expect(note.reconcile(await digestOf(written("# daily").content))).toBe(false);
+    expect(note.allowReload(written("# daily").content)).toBe(false);
+    expect(note.status()).toBe("unsaved");
+  });
+
+  it("stops trusting an adopted text once its digest fails", async () => {
+    // Without `crypto.subtle` the entry never gets a digest, so no event ever
+    // takes it away, and it would take that text restored for good.
+    const note = renderAutosave();
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+    vi.mocked(digestOf).mockRejectedValueOnce(new TypeError("crypto.subtle is undefined"));
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("unsaved");
+    await hashed();
+
+    expect(note.allowReload(bookmark)).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
 });

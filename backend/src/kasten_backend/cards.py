@@ -39,13 +39,14 @@ cleverer pattern here: a note nobody tagged holds no cards whatever is in it, so
 the false positives cost a line in the answer and never a card on screen.
 """
 
-SCHEDULE_LINE = r"<!--SR:!"
-"""The comment holding a card's schedule, wherever it sits.
+SCHEDULE_LINE = r"<!--SR:(?:c\d+)?!"
+"""The comment holding a card's schedule, wherever it sits, or a cloze number's.
 
 On the end of a one-line card, so the same line matches `CARD_LINE` as well and
 rg reports it once, or on a line of its own under a longer card's back. That is
 what makes the count work out: every card matches exactly once through
-`CARD_LINE`, and every schedule exactly once through this.
+`CARD_LINE`, and every line of schedules exactly once through this. A cloze
+keeps one comment per number, `<!--SR:c1!`, all of them on one line.
 """
 
 FENCE_LINE = r"^[ \t]*```"

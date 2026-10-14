@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { fetchCards, fetchNote, saveNote } from "@/lib/api";
+import { clozePlain } from "@/lib/card-line";
+import { withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 import { parkedNotes } from "@/lib/review";
 import {
@@ -188,14 +190,23 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
 function rowsOf(texts: Map<string, string>): ParkedRow[] {
   return [...texts].flatMap(([note, text]) => {
     const name = noteName(note);
-    const cards = parseCards(text, name).flatMap((card, at) =>
-      card.parked === null || card.decks.length === 0
+    const lines = text.split("\n");
+    const parsed = parseCards(text, name);
+    const cards = parsed.flatMap((card, at) =>
+      card.parked === null ||
+      card.decks.length === 0 ||
+      // One row per cloze and not per number: one token parks them all and
+      // putting the first back puts every one back, so the others have no row
+      // to stand for. The first number's ordinal is the row's address.
+      (card.cloze !== null && parsed[at - 1]?.from === card.from)
         ? []
         : [
             {
               note,
               at,
-              front: card.front,
+              // A cloze named by its sentence, no number of it being the one asked.
+              front:
+                card.cloze === null ? card.front : clozePlain(withoutTags(lines[card.from] ?? "")),
               deck: card.decks[0] ?? name,
               reason: card.parked,
               whole: false,

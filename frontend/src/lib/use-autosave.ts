@@ -106,6 +106,13 @@ export function useAutosave(path: string | undefined) {
   // Bumped by every write that goes out, so a held event can tell whether `:w`
   // has since overwritten whatever it turns out to be.
   const saves = useRef(0);
+  // Bumped each time a note is opened, so a write knows whether the visit it
+  // was made in is still the one on screen. The route drops events for every
+  // other note, so the event of a write made before the reader left is gone,
+  // and a slot or an adopted entry kept past that would take somebody restoring
+  // the text for our own write. A visit and not a path, because leaving a note
+  // and coming back is the case that loses the event.
+  const visit = useRef(0);
   const queryClient = useQueryClient();
 
   /** Resolves to whether the vault holds the text, so `<leader>q` can refuse. */
@@ -126,19 +133,25 @@ export function useAutosave(path: string | undefined) {
     setStatus("saving");
     setReason(undefined);
     const to = path;
+    const opened = visit.current;
     writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
 
     return saveNote(path, content).then(
       (note) => {
         lower(writing.current, to);
+        // The flush on the way out of a note answers here with that note's
+        // closure, after the hook already follows the next one: its slots are
+        // that one's, and its own event is dropped by the route anyway.
+        const here = () => visit.current === opened;
         // The note that came back and never the text that was sent: the two
         // differ by the `modified` stamp `PUT` writes, so what is on disk is
         // this one. Hashing the other would recognise nothing and read every
         // save of our own as somebody else's write.
-        lastText.current = note.content;
+        if (here()) lastText.current = note.content;
         track(
           digestOf(note.content).then(
             (digest) => {
+              if (!here()) return;
               lastWritten.current = digest;
               lastSent.current = seq;
             },
@@ -274,9 +287,12 @@ export function useAutosave(path: string | undefined) {
           },
           (error: unknown) => {
             // `crypto.subtle` missing outside a secure context, the way the save
-            // path reads the same failure. Wrong in the direction that costs a
-            // conflict the reader clears with `:w`.
+            // path reads the same failure. Without a digest no event can ever
+            // take the entry away, so it goes now, and that text restored later
+            // reads as a conflict the reader clears with `:w`. The editor asks
+            // about the bookmark's own text before this rejection lands.
             if (!(error instanceof TypeError)) throw error;
+            adopted.current = adopted.current.filter((other) => other !== entry);
           },
         ),
       );
@@ -404,6 +420,16 @@ export function useAutosave(path: string | undefined) {
     },
     [save],
   );
+
+  // The flush above still counts as the visit it leaves: React runs the old
+  // render's cleanups before any of the new render's setups.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs on each opening, and reads nothing of `path`
+  useEffect(() => {
+    visit.current += 1;
+    adopted.current = [];
+    lastText.current = null;
+    lastWritten.current = null;
+  }, [path]);
 
   return {
     status,
