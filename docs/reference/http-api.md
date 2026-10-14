@@ -621,6 +621,22 @@ a byte and never errors either.
 [Two environments](/explanation/environments.md#constraints-the-box-imposes)
 gives the Caddy fix.
 
+## GET /api/vault-assets
+
+Lists every image and book in the vault as a relative POSIX path, sorted.
+
+```json
+["00 Inbox/plan.pdf", "99 Misc/02 Assets/01 Images/2026-08-12-a1b2c3d4.png"]
+```
+
+The same walk `/api/images` makes, filtered on every suffix an upload takes:
+`.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, lowercase. The
+editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
+and as dead when it does not.
+
+Not `/api/assets`, whose `GET` with a path serves one file. A listing at the
+same URL would make it mean two things.
+
 ## GET /api/assets/{path}
 
 Reads one book or image out of the vault and answers with the bytes. `path` is a
@@ -1062,6 +1078,21 @@ folders leaves `[[borges]]` alone, because a bare name follows the note on its
 own, and a change of name rewrites it. The note being moved is read like any
 other, which carries its links to itself along with it.
 
+The books that travel with the note are moved files too, and a link to one
+follows the same way: `[[inbox/borges.pdf]]` becomes `[[reading/borges.pdf]]`,
+and on a rename a bare `[[borges.pdf]]` becomes `[[kafka.pdf]]`. A book held
+back because its landing is taken keeps its links, since it is still where they
+point.
+
+A link inside code is left as written, because there it is an example of the
+syntax and not a link. Code is a fenced block, of three or more backticks or
+tildes indented by at most three spaces and closed by a fence of the same
+character at least as long, or running to the end of the note when nothing
+closes it; and an inline span, a run of backticks closed by a run of the same
+length. A block indented by four spaces is not read as code, because that is
+also how a list item continues. Markdown links in code are left alone the same
+way.
+
 The rule a target is read by is the editor's, so what a rename follows is what
 `gf` opens: a target with a slash is a path, a bare name is looked for anywhere
 in the vault, and the note at the vault root wins a tie. A link the vault
@@ -1070,7 +1101,8 @@ the two part: the editor puts the note it is about to make in the inbox, and a
 rename leaves the name where it stands, there being no note to follow. The rule is written
 out twice, in `backend/src/kasten_backend/links.py` and in
 `frontend/src/lib/wikilink.ts`, which is what the editor resolving a link
-without asking the server costs.
+without asking the server costs. `backend/tests/link_paths.json` holds the cases
+both test suites read, so the two copies cannot drift apart unnoticed.
 
 The rewrite runs before the note is moved, because a bare name only names the
 note while the note is still where the links were written to find it, and inside
@@ -1222,8 +1254,9 @@ no folder, no half-moved subtree and no jj change behind.
 Links follow, the way [a note's move](#what-a-move-does-to-the-links) makes them
 follow, and by the same rules read over every note the folder carries at once. A
 link that spelled the old folder out gets the new one, and a bare `[[borges]]`
-is left alone, the note's name being unchanged. A page of HTML in the folder
-moves with it, and a `[[reading/report.html]]` follows the same way.
+is left alone, the note's name being unchanged. A page of HTML, an image and a
+book in the folder move with it, and `[[reading/report.html]]`,
+`![[reading/plan.pdf]]` and `[[reading/plan.pdf|Plan]]` follow the same way.
 
 The folder is matched as a whole path segment, so moving `reading/` takes
 `reading/borges.md` and leaves `readings.md` where it is. The subtree's own

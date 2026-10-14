@@ -337,6 +337,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault-assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Vault Assets
+         * @description List every image and book in the vault as a relative POSIX path, sorted.
+         *
+         *     What the editor asks before it draws a `[[plan.pdf]]` as live or dead, so
+         *     the books are in it where `/api/images` leaves them out. Not `/api/assets`,
+         *     whose `GET` with a path serves one file: an empty path there is a 404 for a
+         *     file nobody named, and a listing beside it would be the same URL meaning two
+         *     things.
+         */
+        get: operations["list_vault_assets_api_vault_assets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/html/{path}": {
         parameters: {
             query?: never;
@@ -1950,6 +1976,26 @@ export interface operations {
         };
     };
     list_vault_html_api_html_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    list_vault_assets_api_vault_assets_get: {
         parameters: {
             query?: never;
             header?: never;

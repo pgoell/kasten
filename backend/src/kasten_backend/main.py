@@ -63,6 +63,7 @@ from kasten_backend.trash import (
 from kasten_backend.vault import (
     BOOK_SUFFIXES,
     create_note,
+    list_assets,
     list_html,
     list_images,
     list_markdown_files,
@@ -429,6 +430,19 @@ async def list_vault_html(settings: Annotated[Settings, Depends(get_settings)]) 
     the tree and nothing else the notes feed.
     """
     return list_html(settings.vault_path)
+
+
+@app.get("/api/vault-assets")
+async def list_vault_assets(settings: Annotated[Settings, Depends(get_settings)]) -> list[str]:
+    """List every image and book in the vault as a relative POSIX path, sorted.
+
+    What the editor asks before it draws a `[[plan.pdf]]` as live or dead, so
+    the books are in it where `/api/images` leaves them out. Not `/api/assets`,
+    whose `GET` with a path serves one file: an empty path there is a 404 for a
+    file nobody named, and a listing beside it would be the same URL meaning two
+    things.
+    """
+    return list_assets(settings.vault_path)
 
 
 HTML_POLICY = "; ".join(

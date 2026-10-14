@@ -638,6 +638,29 @@
         }
       }
     },
+    "/api/vault-assets": {
+      "get": {
+        "summary": "List Vault Assets",
+        "description": "List every image and book in the vault as a relative POSIX path, sorted.\n\nWhat the editor asks before it draws a `[[plan.pdf]]` as live or dead, so\nthe books are in it where `/api/images` leaves them out. Not `/api/assets`,\nwhose `GET` with a path serves one file: an empty path there is a 404 for a\nfile nobody named, and a listing beside it would be the same URL meaning two\nthings.",
+        "operationId": "list_vault_assets_api_vault_assets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Vault Assets Api Vault Assets Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/html/{path}": {
       "get": {
         "summary": "Read Html",

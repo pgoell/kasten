@@ -95,6 +95,11 @@ def list_html(root: Path) -> list[str]:
     return _list_files(root, (HTML_SUFFIX,))
 
 
+def list_assets(root: Path) -> list[str]:
+    """Return every image and book under `root`, as sorted relative POSIX paths."""
+    return _list_files(root, tuple(ASSET_MAGIC))
+
+
 def _list_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
     """Return every file under `root` whose name ends in one of `suffixes`.
 
@@ -400,11 +405,20 @@ def move_asset_beside(source: Path, target: Path) -> None:
     epub follows the note while the pdf stays put, and the note ends up read as
     the epub, which is the one the reader would have picked anyway.
     """
-    for suffix in BOOK_SUFFIXES:
-        book = source.with_suffix(suffix)
-        landing = target.with_suffix(suffix)
-        if book.is_file() and not landing.exists():
-            book.rename(landing)
+    for book, landing in books_beside(source, target):
+        book.rename(landing)
+
+
+def books_beside(source: Path, target: Path) -> list[tuple[Path, Path]]:
+    """Each book beside the note at `source` that a move to `target` carries, and where it lands.
+
+    Its own function because the link rewrite asks it before the move and
+    `move_asset_beside` after the note has gone, and the two must agree on which
+    books travel: a link pointed at a book that stayed behind lands on nothing.
+    Neither answer changes in between, the note's rename touching no book.
+    """
+    pairs = ((source.with_suffix(suffix), target.with_suffix(suffix)) for suffix in BOOK_SUFFIXES)
+    return [(book, landing) for book, landing in pairs if book.is_file() and not landing.exists()]
 
 
 def rename_folder(source: Path, target: Path) -> None:

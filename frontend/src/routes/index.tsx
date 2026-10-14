@@ -38,6 +38,7 @@ import {
   deleteFolder,
   deleteImage,
   deleteNote,
+  fetchAssets,
   fetchFiles,
   fetchHtml,
   fetchImages,
@@ -115,7 +116,7 @@ import { useNoteWrites } from "@/lib/use-note-writes";
 import { useViewport } from "@/lib/use-viewport";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { setWatched } from "@/lib/video";
-import { outgoingLinks, splitTarget, wikiLinkPath } from "@/lib/wikilink";
+import { namesAFile, outgoingLinks, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
@@ -193,9 +194,16 @@ function Home() {
   // The pages of HTML a research run leaves, which are rows of the tree and
   // nothing else. Refetched on a `listing` beside the images.
   const { data: html } = useQuery({ queryKey: ["html"], queryFn: fetchHtml });
-  // What a `[[link]]` can land on: the notes, and the pages beside them. Absent
-  // while the notes load, so the editor calls no link dead before it knows.
-  const linkable = useMemo(() => data && [...data, ...(html ?? [])], [data, html]);
+  // Every book, pdf and picture, which `[[plan.pdf]]` links to and nothing
+  // else here reads. Refetched on a `listing` beside the pages.
+  const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: fetchAssets });
+  // What a `[[link]]` can land on: the notes, and the pages and assets beside
+  // them. Absent while the notes load, so the editor calls no link dead before
+  // it knows.
+  const linkable = useMemo(
+    () => data && [...data, ...(html ?? []), ...(assets ?? [])],
+    [data, html, assets],
+  );
   // The vault's tag vocabulary, for the completion an open `#` offers. Not
   // filtered by the archive toggle: a tag written in an archived note is
   // still a tag, and spelling it the same way is the whole point.
@@ -619,6 +627,7 @@ function Home() {
       if (event.change === "listing") {
         queryClient.invalidateQueries({ queryKey: ["images"] }, { cancelRefetch: false });
         queryClient.invalidateQueries({ queryKey: ["html"] }, { cancelRefetch: false });
+        queryClient.invalidateQueries({ queryKey: ["assets"] }, { cancelRefetch: false });
       }
 
       // A tag is a word inside a note, so any write can change the vocabulary,
@@ -954,9 +963,14 @@ function Home() {
         void openInPane(path);
         return;
       }
-      // The vault has no write for a page, so a link to one nobody made stays
-      // a dead link rather than turning into a note named `.html`.
-      if (path.endsWith(".html")) return;
+      // The vault has no write for a page or an asset, so a link to one nobody
+      // made stays a dead link rather than turning into a note named `.pdf.md`.
+      // One the vault holds opens in a tab of its own, the browser being what
+      // reads a pdf or a picture.
+      if (namesAFile(name)) {
+        if (assets?.includes(path)) window.open(`/api/assets/${encodeURI(path)}`, "_blank");
+        return;
+      }
 
       // One write, and the body goes over as it stands. `periodic.ts` owns the
       // block and the blank line after it, because the fence has to be the
@@ -977,7 +991,7 @@ function Home() {
         },
       );
     },
-    [data, html, linkable, queryClient, openInPane, openHtmlInPane],
+    [data, html, assets, linkable, queryClient, openInPane, openHtmlInPane],
   );
 
   /**
@@ -1130,6 +1144,8 @@ function Home() {
             mapPanes(previous, (shown) => (shown.image === path ? { id: shown.id } : shown)),
           );
           void queryClient.invalidateQueries({ queryKey: ["images"] });
+          // A picture is an asset too, and a link to it is dead now.
+          void queryClient.invalidateQueries({ queryKey: ["assets"] });
         },
         // The vault has moved past the row: the image went between the listing
         // and the key. The tree redraws off the next event.

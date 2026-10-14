@@ -440,6 +440,22 @@ async def test_lists_the_images_in_the_vault(client: AsyncClient, vault: Path) -
     assert response.json() == ["99 Misc/shot.png"]
 
 
+async def test_lists_every_asset_in_the_vault(client: AsyncClient, vault: Path) -> None:
+    (vault / "99 Misc").mkdir()
+    (vault / "99 Misc" / "shot.png").write_bytes(PNG)
+    (vault / "note.md").write_text("# note")
+    (vault / "report.html").write_text("<p>report</p>")
+    (vault / "DDIA.epub").write_bytes(BOOK)
+    (vault / "SICP.pdf").write_bytes(PDF)
+
+    response = await client.get("/api/vault-assets")
+
+    # The books are in, where `/api/images` leaves them out: this is what the
+    # editor reads to draw `[[SICP.pdf]]` live.
+    assert response.status_code == 200
+    assert response.json() == ["99 Misc/shot.png", "DDIA.epub", "SICP.pdf"]
+
+
 async def test_takes_an_image_out_of_the_vault(client: AsyncClient, vault: Path) -> None:
     (vault / "99 Misc").mkdir()
     (vault / "99 Misc" / "shot.png").write_bytes(PNG)

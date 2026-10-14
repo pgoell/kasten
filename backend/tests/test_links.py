@@ -1,16 +1,21 @@
 """What a move does to the links that named the notes it moved."""
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
-from kasten_backend.links import link_path, relink, split_target
+from kasten_backend.links import FILE_SUFFIXES, code_spans, link_path, relink, split_target
 from kasten_backend.search import SearchError, notes_holding
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from httpx import AsyncClient
+
+LINK_PATHS = json.loads((Path(__file__).parent / "link_paths.json").read_text())
+"""The cases `wikiLinkPath` in the frontend is tested against too, so the two copies agree."""
+
+BOOK = b"%PDF-1.7 not really a book"
 
 
 async def test_follows_a_link_that_spelled_out_the_path(client: AsyncClient, vault: Path) -> None:
@@ -357,3 +362,159 @@ async def test_refuses_to_move_a_note_it_cannot_read_the_vault_for(
     # rg failing has to be an error here and not an empty answer.
     with pytest.raises(SearchError):
         await notes_holding(missing_vault, "borges")
+
+
+def test_reads_a_file_by_the_suffixes_the_shared_table_names() -> None:
+    assert set(FILE_SUFFIXES) == set(LINK_PATHS["suffixes"])
+
+
+@pytest.mark.parametrize("case", LINK_PATHS["cases"], ids=lambda case: case["target"])
+def test_link_path_answers_the_shared_table(case: dict[str, str]) -> None:
+    assert link_path(case["target"], LINK_PATHS["paths"]) == case["path"]
+
+
+async def test_follows_an_asset_in_a_folder_that_moved(client: AsyncClient, vault: Path) -> None:
+    (vault / "rehearse").mkdir()
+    (vault / "rehearse" / "plan.pdf").write_bytes(BOOK)
+    (vault / "index.md").write_text(
+        "[[rehearse/plan.pdf]] ![[rehearse/plan.pdf]] [[rehearse/plan.pdf|Plan]]"
+        " [[rehearse/plan.pdf#page=2]] [[plan.pdf]]\n"
+    )
+
+    await client.patch("/api/folders/rehearse", json={"path": "elsewhere"})
+
+    assert (vault / "index.md").read_text() == (
+        "[[elsewhere/plan.pdf]] ![[elsewhere/plan.pdf]] [[elsewhere/plan.pdf|Plan]]"
+        " [[elsewhere/plan.pdf#page=2]] [[plan.pdf]]\n"
+    )
+    assert (vault / "elsewhere" / "plan.pdf").read_bytes() == BOOK
+
+
+async def test_follows_the_book_a_moved_note_carries(client: AsyncClient, vault: Path) -> None:
+    (vault / "a").mkdir()
+    (vault / "a" / "x.md").write_text("# x")
+    (vault / "a" / "x.pdf").write_bytes(BOOK)
+    (vault / "index.md").write_text("[[a/x.pdf]] ![[a/x.pdf|the book]]\n")
+
+    await client.patch("/api/files/a/x.md", json={"path": "b/x.md"})
+
+    assert (vault / "index.md").read_text() == "[[b/x.pdf]] ![[b/x.pdf|the book]]\n"
+    assert (vault / "b" / "x.pdf").read_bytes() == BOOK
+
+
+async def test_follows_the_book_a_renamed_note_carries_by_its_name(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "x.md").write_text("# x")
+    (vault / "x.pdf").write_bytes(BOOK)
+    (vault / "index.md").write_text("[[x.pdf]] [[x]]\n")
+
+    await client.patch("/api/files/x.md", json={"path": "y.md"})
+
+    assert (vault / "index.md").read_text() == "[[y.pdf]] [[y]]\n"
+    assert (vault / "y.pdf").read_bytes() == BOOK
+
+
+async def test_leaves_the_links_of_a_book_held_back(client: AsyncClient, vault: Path) -> None:
+    # The landing is taken, so the book stays where it is, and so do the links
+    # to it: rewriting them would point them at the other book.
+    (vault / "a").mkdir()
+    (vault / "b").mkdir()
+    (vault / "a" / "x.md").write_text("# x")
+    (vault / "a" / "x.pdf").write_bytes(BOOK)
+    (vault / "b" / "x.pdf").write_bytes(b"%PDF-1.7 another book")
+    (vault / "index.md").write_text("[[a/x.pdf]] [[a/x]]\n")
+
+    await client.patch("/api/files/a/x.md", json={"path": "b/x.md"})
+
+    assert (vault / "index.md").read_text() == "[[a/x.pdf]] [[b/x]]\n"
+    assert (vault / "a" / "x.pdf").read_bytes() == BOOK
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [("a/x.md", "b/x.md"), ("a", "c")],
+)
+async def test_previews_the_files_a_move_with_assets_writes(
+    client: AsyncClient, vault: Path, source: str, target: str
+) -> None:
+    (vault / "a").mkdir()
+    (vault / "a" / "x.md").write_text("# x")
+    (vault / "a" / "x.pdf").write_bytes(BOOK)
+    (vault / "a" / "shot.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    (vault / "book.md").write_text("[[a/x.pdf]]\n")
+    (vault / "shot.md").write_text("![[a/shot.png]]\n")
+    (vault / "none.md").write_text("[[x.pdf]]\n")
+    notes = ["a/x.md", "book.md", "shot.md", "none.md"]
+    before = {name: (vault / name).read_text() for name in notes}
+
+    response = await client.get("/api/move-preview", params={"source": source, "target": target})
+    route = "/api/files/" if source.endswith(".md") else "/api/folders/"
+    await client.patch(f"{route}{source}", json={"path": target})
+
+    # `a/x.md` has moved and holds no link, so a file missing now wrote nothing.
+    written = sorted(
+        name
+        for name, text in before.items()
+        if (vault / name).exists() and (vault / name).read_text() != text
+    )
+    assert response.json()["rewrites"] == written
+    assert written == (["book.md"] if source == "a/x.md" else ["book.md", "shot.md"])
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "```\n[[x]]\n```\n",
+        "```md\nsee [[x]] and [[a/x]]\n```\n",
+        "~~~\n[[x]]\n~~~\n",
+        "   ```\n[[x]]\n   ```\n",
+        "````\n```\n[[x]]\n````\n",
+        "~~~\n```\n[[x]]\n~~~\n",
+        "```\n[[x]]\n",
+        "inline `[[x]]` here\n",
+        "inline ``a ` [[x]]`` here\n",
+        "```\n[t](a/x.md)\n```\n",
+        "`[t](a/x.md)`\n",
+    ],
+)
+async def test_leaves_a_link_in_code_as_written(
+    client: AsyncClient, vault: Path, text: str
+) -> None:
+    # Code holds the syntax as an example, so neither a move nor a rename is
+    # anything for it to answer.
+    (vault / "a").mkdir()
+    (vault / "a" / "x.md").write_text("# x")
+    (vault / "index.md").write_text(text)
+
+    await client.patch("/api/files/a/x.md", json={"path": "b/y.md"})
+
+    assert (vault / "index.md").read_text() == text
+
+
+async def test_follows_a_link_right_after_a_fence(client: AsyncClient, vault: Path) -> None:
+    (vault / "x.md").write_text("# x")
+    (vault / "index.md").write_text("```\n[[x]]\n```\n[[x]] `[[x]]` [[x]] [t](x.md)\n")
+
+    await client.patch("/api/files/x.md", json={"path": "y.md"})
+
+    expected = "```\n[[x]]\n```\n[[y]] `[[x]]` [[y]] [t](y.md)\n"
+    assert (vault / "index.md").read_text() == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "spans"),
+    [
+        ("a\n    [[x]]\n", []),
+        ("```js\nx\n``\n```\n", [(0, 15)]),
+        ("```a`b\n[[x]]\n", []),
+        ("`a\n\nb `c`", [(6, 9)]),
+        ("``a`` `b", [(0, 5)]),
+    ],
+)
+def test_code_spans_reads_code_the_way_commonmark_does(
+    text: str, spans: list[tuple[int, int]]
+) -> None:
+    # An indented line is a list item's continuation as often as it is code,
+    # and a backtick fence with a backtick after it is inline code.
+    assert code_spans(text) == spans

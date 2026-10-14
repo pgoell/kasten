@@ -36,6 +36,9 @@ const MARKS = new Set([
   "HighlightMark",
   "TaskMarker",
   "TableDelimiter",
+  // An embed's `!`: the chat gets the link inside, which the default case
+  // reaches by walking into the `Embed`.
+  "EmbedMark",
 ]);
 
 /** Blocks with nothing a reader of the chat should see. */

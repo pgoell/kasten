@@ -378,6 +378,18 @@ describe("what vim's own keys reach, by name", () => {
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith("Copied for Slack"));
   });
 
+  it("copies an embed without its bang for Slack and as written as markdown", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    const { container } = render(<Editor initialDoc="![[borges]]" />);
+    const view = viewIn(container);
+
+    entry(view, "Copy for Slack").run();
+    entry(view, "Copy as markdown").run();
+
+    expect(writeText.mock.calls).toEqual([["borges"], ["![[borges]]"]]);
+  });
+
   it("goes to a tab by number, which no leader row names", () => {
     const commands = stubCommands();
     const row = paletteEntries(commands, null).find((r) => r.label === "Go to tab 3");

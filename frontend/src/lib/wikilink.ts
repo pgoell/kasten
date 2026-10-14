@@ -25,8 +25,23 @@ const MARK = 2;
 
 const SUFFIX = ".md";
 
-/** A page of HTML in the vault, which a link names by its full file name. */
-const PAGE = ".html";
+/**
+ * What a link's name ends in when it names a file and not a note: a page of
+ * HTML, or an asset the vault serves (`ASSET_MAGIC` on the backend). A link
+ * names one by its full file name. The backend's `FILE_SUFFIXES` is this list,
+ * and `backend/tests/link_paths.json` holds both to it.
+ */
+export const FILE_SUFFIXES = [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
+/**
+ * Whether a link's name, already split, names a page or an asset rather than
+ * a note. Ignoring case, the way a bare name is looked up, so `[[Plan.PDF]]` is
+ * the pdf; only the last segment counts, so a folder with a dot names no file.
+ */
+export function namesAFile(name: string): boolean {
+  const last = name.slice(name.lastIndexOf("/") + 1).toLowerCase();
+  return FILE_SUFFIXES.some((suffix) => last.endsWith(suffix));
+}
 
 /** The `[[name]]` opening at `pos`, as an element, or null where none does. */
 function wikiLinkElement(cx: InlineContext, pos: number): Element | null {
@@ -161,6 +176,10 @@ export function wikiLinkAt(state: EditorState, pos: number): string | null {
  * the answer is a path, so a name nothing answers to is the path the note
  * would be made at, and for a bare name that path is in the inbox.
  *
+ * A name ending in one of `FILE_SUFFIXES` names that file as written, and so
+ * does one ending in `.md`; any other name gets `.md`. The backend's
+ * `named_path` is the same rule.
+ *
  * Only the name counts: `[[note#heading|alias]]` is a link to `note`. A link
  * with no name, `[[#heading]]`, is to the note it is written in, which this
  * cannot know, so it answers the empty path: no listing holds it, and every
@@ -169,7 +188,7 @@ export function wikiLinkAt(state: EditorState, pos: number): string | null {
 export function wikiLinkPath(target: string, paths: string[]): string {
   const { name } = splitTarget(target);
   if (name === "") return "";
-  const path = name.endsWith(SUFFIX) || name.endsWith(PAGE) ? name : `${name}${SUFFIX}`;
+  const path = namesAFile(name) || name.endsWith(SUFFIX) ? name : `${name}${SUFFIX}`;
   // A name says which note, never where it belongs, so following a link to one
   // nobody has written has to put it somewhere. The inbox is the folder for a
   // note with nowhere to be yet; a target spelling a path was taken at its word.
@@ -303,8 +322,8 @@ export function wikiLinkCompletions(context: CompletionContext): CompletionResul
     // completion replaces is only the name.
     from: open.from + MARK,
     options: paths.map((path) => {
-      // A page keeps its `.html`: that is what tells `[[report.html]]` from
-      // the `report` note beside it.
+      // A page or an asset keeps its suffix: that is what tells
+      // `[[report.html]]` or `[[report.pdf]]` from the `report` note beside it.
       const name = path.endsWith(SUFFIX) ? path.slice(0, -SUFFIX.length) : path;
       return { label: name, apply: closed ? name : `${name}]]`, type: "text" };
     }),

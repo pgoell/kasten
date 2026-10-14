@@ -95,6 +95,23 @@ describe("a wikilink's alias and heading", () => {
     expect(toHtml("[[x#H]]")).toBe("<p>x#H</p>");
   });
 
+  it("drops an embed's bang for Slack and Teams", () => {
+    expect(toSlack("![[borges]]")).toBe("borges");
+    expect(toHtml("![[borges]]")).toBe("<p>borges</p>");
+  });
+
+  it("drops the bang of an aliased, image, heading, listed or tabled embed", () => {
+    expect(toSlack("![[borges|Borges]]")).toBe("Borges");
+    expect(toSlack("![[shot.png]]")).toBe("shot.png");
+    expect(toSlack("![[n#h]]")).toBe("n#h");
+    expect(toHtml("![[n#h]]")).toBe("<p>n#h</p>");
+    expect(toSlack("- see ![[borges]]")).not.toContain("!");
+    expect(toHtml("- see ![[borges]]")).not.toContain("!");
+    expect(toHtml("| a |\n| - |\n| ![[borges]] |")).toBe(
+      "<table><tr><th>a</th></tr><tr><td>borges</td></tr></table>",
+    );
+  });
+
   it("writes the link inside an embed as its alias", () => {
     for (const out of [toSlack("![[x|y]]"), toHtml("![[x|y]]")]) {
       expect(out).toContain("y");

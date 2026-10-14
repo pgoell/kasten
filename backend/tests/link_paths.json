@@ -1,0 +1,38 @@
+{
+  "suffixes": [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp"],
+  "paths": [
+    "00 Inbox/plan.pdf",
+    "a.b/note.md",
+    "docs/Book.epub",
+    "img/a.jpg",
+    "img/b.jpeg",
+    "img/c.gif",
+    "img/d.webp",
+    "img/shot.png",
+    "pages/Summary.html",
+    "reading/borges.md",
+    "report.html",
+    "report.md"
+  ],
+  "cases": [
+    { "target": "plan.pdf", "path": "00 Inbox/plan.pdf" },
+    { "target": "Plan.PDF", "path": "00 Inbox/plan.pdf" },
+    { "target": "plan.pdf|the plan", "path": "00 Inbox/plan.pdf" },
+    { "target": "book.epub", "path": "docs/Book.epub" },
+    { "target": "shot.png", "path": "img/shot.png" },
+    { "target": "a.jpg", "path": "img/a.jpg" },
+    { "target": "b.jpeg", "path": "img/b.jpeg" },
+    { "target": "c.gif", "path": "img/c.gif" },
+    { "target": "d.webp", "path": "img/d.webp" },
+    { "target": "report", "path": "report.md" },
+    { "target": "report.html", "path": "report.html" },
+    { "target": "Summary.HTML", "path": "pages/Summary.html" },
+    { "target": "borges", "path": "reading/borges.md" },
+    { "target": "borges.md", "path": "reading/borges.md" },
+    { "target": "borges#Ficciones|his", "path": "reading/borges.md" },
+    { "target": "a.b/note", "path": "a.b/note.md" },
+    { "target": "elsewhere/plan.pdf", "path": "elsewhere/plan.pdf" },
+    { "target": "elsewhere/Plan.PDF", "path": "elsewhere/Plan.PDF" },
+    { "target": "elsewhere/note", "path": "elsewhere/note.md" }
+  ]
+}

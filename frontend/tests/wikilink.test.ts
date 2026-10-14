@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { CompletionContext } from "@codemirror/autocomplete";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import {
+  FILE_SUFFIXES,
   outgoingLinks,
   plainLinks,
   resolveIn,
@@ -160,6 +163,30 @@ describe("wikiLinkPath", () => {
     // `.md` alone, or the inbox folder, is a path a create would act on.
     expect(wikiLinkPath("#The Aleph", PATHS)).toBe("");
   });
+
+  it("takes every file suffix as a file, ignoring case, and a dotted folder as a note", () => {
+    for (const suffix of FILE_SUFFIXES) {
+      expect(wikiLinkPath(`x/plan${suffix}`, [])).toBe(`x/plan${suffix}`);
+      expect(wikiLinkPath(`plan${suffix.toUpperCase()}`, [`a/plan${suffix}`])).toBe(
+        `a/plan${suffix}`,
+      );
+    }
+    expect(wikiLinkPath("plan.pdf", [])).toBe("00 Inbox/plan.pdf");
+    expect(wikiLinkPath("Report.HTML", ["pages/report.html"])).toBe("pages/report.html");
+    expect(wikiLinkPath("a.b/note", [])).toBe("a.b/note.md");
+  });
+
+  it("answers what the backend's link_path answers for the shared cases", () => {
+    // The table the backend's tests read too, so the two rules cannot drift.
+    const table = JSON.parse(
+      readFileSync(path.join(import.meta.dirname, "../../backend/tests/link_paths.json"), "utf8"),
+    ) as { suffixes: string[]; paths: string[]; cases: { target: string; path: string }[] };
+
+    expect(new Set(FILE_SUFFIXES)).toEqual(new Set(table.suffixes));
+    for (const { target, path: answer } of table.cases) {
+      expect(wikiLinkPath(target, table.paths), target).toBe(answer);
+    }
+  });
 });
 
 describe("wikiLinkLands", () => {
@@ -171,6 +198,14 @@ describe("wikiLinkLands", () => {
 
   it("lands a heading of the note it is written in", () => {
     expect(wikiLinkLands("#The Aleph", PATHS)).toBe(true);
+  });
+
+  it("lands a link to an asset the vault holds, and only then", () => {
+    const assets = ["00 Inbox/plan.pdf", "docs/Book.epub"];
+    expect(wikiLinkLands("plan.pdf", [...PATHS, ...assets])).toBe(true);
+    expect(wikiLinkLands("Plan.PDF|the plan", [...PATHS, ...assets])).toBe(true);
+    expect(wikiLinkLands("book.epub", [...PATHS, ...assets])).toBe(true);
+    expect(wikiLinkLands("plan.pdf", PATHS)).toBe(false);
   });
 });
 

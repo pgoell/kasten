@@ -13,9 +13,11 @@ file holding it moves, and an `index.md` is made of nothing else.
 The rule a target is read by is the frontend's, in `frontend/src/lib/wikilink.ts`,
 and the two have to agree: the note `gf` opens is the note a rename here follows.
 That is `splitTarget` taking the heading and the alias off `[[name#heading|alias]]`,
-then `wikiLinkPath` finding the note the name is. Two copies of one rule is the
-cost of the editor resolving a link without asking the server, and the tests on
-both sides describe the same cases.
+then `wikiLinkPath` finding the note the name is. `names_a_file` and
+`named_path` are the half of `wikiLinkPath` that tells a file from a note. Two
+copies of one rule is the cost of the editor resolving a link without asking the
+server, so the cases live once, in `backend/tests/link_paths.json`, and both
+test suites read them.
 """
 
 import posixpath
@@ -27,7 +29,9 @@ from kasten_backend.search import notes_holding
 from kasten_backend.vault import (
     ASSET_MAGIC,
     HTML_SUFFIX,
+    books_beside,
     encode_href,
+    list_assets,
     list_html,
     list_markdown_files,
     write_note,
@@ -59,6 +63,16 @@ space ends the link for every reader, so it ends it here too.
 
 SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 """An href that names a place outside the vault: `https:`, `mailto:` and the rest."""
+
+FENCE = re.compile(r" {0,3}(`{3,}|~{3,})(.*)")
+"""A line that opens or closes a fenced code block, and what follows the fence on it."""
+
+INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`)(?:(?!\n[ \t\r]*\n).)*?(?<!`)\1(?!`)", re.DOTALL)
+"""One `` `code` `` span: a run of backticks closed by the next run of the same length.
+
+It may run over a line break and not over a blank line, which ends the
+paragraph, so a stray backtick cannot hide the links of every paragraph after it.
+"""
 
 
 class Target(NamedTuple):
@@ -146,6 +160,50 @@ def _respell(name: str, new: str) -> str:
     return stem if "/" in name else stem.rsplit("/", 1)[-1]
 
 
+def code_spans(text: str) -> list[tuple[int, int]]:
+    """Where `text` holds code, as `(start, end)` offsets: fenced blocks, then inline spans.
+
+    A `[[x]]` in code is an example of the syntax and not a link, so a move
+    leaves it as written, the way Obsidian does. The fences are CommonMark's:
+    three or more backticks or tildes, indented by at most three spaces, closed
+    by a line of the same character at least as long, and a fence nobody closed
+    runs to the end of the note. A backtick fence whose info string holds a
+    backtick is inline code and opens nothing.
+
+    An indented block is not read as code. Four spaces is also how a list item
+    continues, and a link in one of those is a link.
+    """
+    spans = []
+    fence: tuple[str, int] | None = None
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        marker = FENCE.match(line)
+        if fence is None:
+            if marker and not (marker[1][0] == "`" and "`" in marker[2]):
+                fence = (marker[1], offset)
+        elif (
+            marker
+            and marker[1][0] == fence[0][0]
+            and len(marker[1]) >= len(fence[0])
+            and not marker[2].strip()
+        ):
+            spans.append((fence[1], offset + len(line)))
+            fence = None
+        offset += len(line)
+    if fence is not None:
+        spans.append((fence[1], len(text)))
+
+    # Inline code is looked for between the blocks only: a backtick inside a
+    # block is the block's, and pairing it with one outside would swallow both.
+    inline = []
+    gap = 0
+    for block_start, block_end in [*spans, (len(text), len(text))]:
+        found = INLINE_CODE.finditer(text[gap:block_start])
+        inline += [(gap + m.start(), gap + m.end()) for m in found]
+        gap = block_end
+    return sorted(spans + inline)
+
+
 def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
     """`text` with every link naming a note in `moves` naming where it lands.
 
@@ -154,8 +212,11 @@ def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
     per note in the subtree, and a link would be resolved against a listing that
     a previous pass had already made wrong.
     """
+    code = code_spans(text)
 
     def rewrite(match: re.Match[str]) -> str:
+        if any(start <= match.start() < end for start, end in code):
+            return match.group(0)
         target = match.group(1)
         name = split_target(target).name
         # `[[#Risks]]` is a heading of the note it sits in, and names no note
@@ -231,8 +292,11 @@ def relink_markdown(text: str, before: str, after: str, old: str, new: str) -> s
     """
     here = posixpath.dirname(before)
     there = posixpath.dirname(after)
+    code = code_spans(text)
 
     def rewrite(match: re.Match[str]) -> str:
+        if any(start <= match.start() < end for start, end in code):
+            return match.group(0)
         href = match.group(2)
         target = markdown_target(href, here)
         if target is None:
@@ -291,14 +355,23 @@ async def plan_move(root: Path, old: str, new: str, *, folder: bool) -> dict[str
     for needle in {name, encode_href(name)}:
         candidates.update(await notes_holding(root, needle))
 
-    # The pages in a moving folder move with it, and a `[[link]]` that spelled
-    # one's path follows. Added after the candidates: a page is read by the
-    # browser, never rewritten here.
-    pages = list_html(root)
+    # The pages and assets in a moving folder move with it, and a `[[link]]`
+    # that spelled one's path follows. Added after the candidates: a file is
+    # read by the browser, never rewritten here. They are in the listing too,
+    # or a bare `[[plan.pdf]]` would name nothing a move could take anywhere.
+    files = list_html(root) + list_assets(root)
     if folder:
-        moves |= {page: moved(page, old, new) for page in pages if page.startswith(f"{old}/")}
+        moves |= {file: moved(file, old, new) for file in files if file.startswith(f"{old}/")}
+    else:
+        # A note's books go with it, unless their landing is taken, and asking
+        # the function the move asks is what keeps a held-back book's links
+        # where the book still is.
+        books = books_beside(root / old, root / new)
+        moves |= {
+            book.relative_to(root).as_posix(): to.relative_to(root).as_posix() for book, to in books
+        }
 
-    return _plan(root, sorted(candidates), moves, paths + pages, (old, new))
+    return _plan(root, sorted(candidates), moves, paths + files, (old, new))
 
 
 def _plan(

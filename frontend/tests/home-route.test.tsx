@@ -61,6 +61,7 @@ const {
   uploadAsset,
   fetchImages,
   fetchHtml,
+  fetchAssets,
   deleteImage,
   fetchVersion,
   fetchTags,
@@ -107,6 +108,7 @@ const {
     // `![](`. Nothing here is about images, so an empty list is the whole answer.
     fetchImages: vi.fn().mockResolvedValue([]),
     fetchHtml: vi.fn().mockResolvedValue([]),
+    fetchAssets: vi.fn().mockResolvedValue([]),
     // Asked once per mount, for the completion an open `#` offers. Nothing here
     // is about tags, so an empty vocabulary is the whole answer.
     fetchTags: vi.fn().mockResolvedValue([]),
@@ -134,6 +136,7 @@ vi.mock("@/lib/api", () => ({
   uploadAsset,
   fetchImages,
   fetchHtml,
+  fetchAssets,
   deleteImage,
   fetchVersion,
   fetchTags,
@@ -441,6 +444,7 @@ describe("the route", () => {
     // answering undefined is an error rather than an empty list.
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([]);
     resetFoliateFake();
   });
 
@@ -2330,6 +2334,7 @@ describe("putting a book in the vault", () => {
     fetchBook.mockImplementation(async (note: string) => beside(note));
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([]);
     // Re-armed with the rest: `resetAllMocks` takes the answer off them, and a
     // call that hands back undefined instead of a promise throws on `await`.
     uploadAsset.mockResolvedValue(undefined);
@@ -2651,6 +2656,7 @@ describe("looking at an image", () => {
     fireEvent.keyDown(app.tree(), { key: "d" });
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([]);
     await settle();
 
     expect(deleteImage).toHaveBeenCalledWith(SHOT);
@@ -2687,6 +2693,7 @@ describe("following a link to a page of HTML", () => {
     fetchTodos.mockResolvedValue([]);
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([PAGE]);
+    fetchAssets.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -2727,6 +2734,73 @@ describe("following a link to a page of HTML", () => {
 
     expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("title")).toBe(PAGE);
   });
+
+  it("opens a page named in capitals", async () => {
+    await follow("2026-10-07.HTML");
+
+    expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("title")).toBe(PAGE);
+  });
+});
+
+describe("following a link to an asset", () => {
+  const NOTE = "index.md";
+  const PLAN = "rehearse/my plan.pdf";
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    vi.stubGlobal("open", vi.fn());
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue([NOTE]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([PLAN]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  /** Open the note holding `link`, the cursor on it, and press `gf`. */
+  async function follow(link: string) {
+    fetchNote.mockResolvedValue(`[[${link}]]\n`);
+    const app = await renderApp();
+    await settle();
+    app.click(NOTE);
+    await settle();
+    app.press("g");
+    app.press("f");
+    await settle();
+    return app;
+  }
+
+  it("draws a link to an asset the vault holds as live", async () => {
+    await follow("my plan.pdf");
+
+    expect(document.querySelector(".cm-wikilink")).not.toBeNull();
+    expect(document.querySelector(".cm-wikilink-dead")).toBeNull();
+  });
+
+  it("opens an asset the vault holds in a new tab, in any case", async () => {
+    await follow("My Plan.PDF|the plan");
+
+    expect(window.open).toHaveBeenCalledWith(`/api/assets/${encodeURI(PLAN)}`, "_blank");
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("makes no note and opens nothing for an asset the vault lacks", async () => {
+    await follow("missing.pdf");
+
+    expect(window.open).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+    expect(document.querySelector(".cm-wikilink-dead")).not.toBeNull();
+  });
 });
 
 describe("following a link with an alias or a heading", () => {
@@ -2748,6 +2822,7 @@ describe("following a link with an alias or a heading", () => {
     fetchTodos.mockResolvedValue([]);
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -2915,6 +2990,7 @@ describe("opening a highlight's book with gf", () => {
     fetchTodos.mockResolvedValue([]);
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([]);
     fetchBook.mockImplementation(async (note: string) => beside(note));
     resetFoliateFake();
     // Without a section holding the words the walk finds nothing and calls
@@ -3123,6 +3199,7 @@ describe("the vault's own vocabulary", () => {
     fetchBook.mockImplementation(async (note: string) => beside(note));
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([]);
     resetFoliateFake();
   });
 
