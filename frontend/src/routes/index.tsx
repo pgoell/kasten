@@ -288,6 +288,14 @@ function Home() {
   // only one that can be typed into. Moving to another note flushes the text
   // still waiting for the one left behind, which is the same mechanism that
   // has always covered opening a second note in a single window.
+  //
+  // The focused pane's document as it stands on screen, which the autosave
+  // checks before it takes held text into a pane that was already open, and
+  // the bar diffs against the vault's while the note stands conflicted.
+  const focusedDoc = () => {
+    const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
+    return editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : undefined;
+  };
   const {
     status,
     restored,
@@ -301,15 +309,23 @@ function Home() {
     adopt,
     allowReload,
     reconcile,
-  } = useAutosave(pane.path, () => {
-    // The focused pane's document as it stands on screen, which the autosave
-    // checks before it takes held text into a pane that was already open.
-    const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
-    return editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : undefined;
-  });
+  } = useAutosave(pane.path, focusedDoc);
   // Text the vault refused, kept by note. Read here so a note held or let go
   // re-renders the bar, and the focused editor opens on its held text.
   const held = useHeld();
+  // A note left standing conflicted has the text from before the other write
+  // in the cache: the reload of it was declined while the reader's text was on
+  // screen. Kept, a reopen would draw that first and take it for the vault's,
+  // so the diff would be against text nobody holds and a vault that came to
+  // hold the kept text would still read as a conflict. Dropped only where no
+  // pane reads it, the one reading it being a pane the reader can still see.
+  useEffect(() => {
+    const cache = queryClient.getQueryCache();
+    for (const each of held) {
+      const query = each.conflicted ? cache.find({ queryKey: ["note", each.path] }) : undefined;
+      if (query && query.getObserversCount() === 0) cache.remove(query);
+    }
+  }, [held, queryClient]);
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
   // stream for the life of the page, so it cannot close over either: opening a
@@ -413,6 +429,41 @@ function Home() {
   // twice is two refusals and both have to read as one. How long the flash
   // lasts is the bar's own business.
   const [refused, setRefused] = useState(0);
+  // Raised on each keystroke while the note stands conflicted, for the bar's
+  // diff alone: typing then changes no reading, so nothing else would draw the
+  // bar again, and a reader merging by hand would be shown the text they began
+  // from. Only then, so a keystroke anywhere else does not redraw the route.
+  const [, setMerged] = useState(0);
+  // The vault's side of a conflict, read for the bar's diff alone. Not the
+  // cache: a conflict the stream raised declined the reload, so the cache
+  // holds the text from before the other write. Read apart from the note's
+  // query so the editor is not handed it. A failed read leaves the diff out,
+  // and the buttons under it still settle the conflict.
+  const [vaultSide, setVaultSide] = useState<{ path: string; text: string }>();
+  useEffect(() => {
+    const path = pane.path;
+    if (status !== "conflict" || path === undefined) return;
+    let live = true;
+    fetchNote(path).then(
+      (text) => {
+        if (live) setVaultSide({ path, text });
+      },
+      (error: unknown) => {
+        if (!(error instanceof Error)) throw error;
+        if (live) setVaultSide(undefined);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [status, pane.path]);
+  const typed = useCallback(
+    (doc: string) => {
+      change(doc);
+      if (isConflicted()) setMerged((previous) => previous + 1);
+    },
+    [change, isConflicted],
+  );
   // One sentence about an upload that failed, drawn at the foot of the window.
   // Cleared on the next press of the key rather than on a timer: a timer is a
   // third clearing mechanism nobody asked for, and one sentence in a corner is
@@ -2135,7 +2186,7 @@ function Home() {
                         // Only the focused pane reports its typing. Nothing else can
                         // be typed into, and an unfocused pane that somehow did
                         // would be writing its text to the focused pane's path.
-                        onChange={focused ? change : IGNORE}
+                        onChange={focused ? typed : IGNORE}
                         // Asked for the focused pane alone, for the reason its
                         // typing is reported alone: the autosave follows that pane,
                         // so any other pane asking would be handing it a question
@@ -2199,6 +2250,14 @@ function Home() {
         inert={narrow && treeOpen}
         onWrite={() => void save()}
         onTakeVault={takeVault}
+        // The read made when the conflict was raised, and only for the note it
+        // was read for: one left behind for another is not this one's side.
+        conflict={() => {
+          const mine = focusedDoc();
+          return vaultSide !== undefined && vaultSide.path === pane.path && mine !== undefined
+            ? { vault: vaultSide.text, mine }
+            : undefined;
+        }}
       />
       {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}

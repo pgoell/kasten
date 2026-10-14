@@ -27,7 +27,7 @@ export interface Held {
  * or a reload sees what the last page left.
  */
 let store: Map<string, Held> | null = null;
-let snapshot: { path: string; reason: string }[] = [];
+let snapshot: { path: string; reason: string; conflicted: boolean }[] = [];
 const listeners = new Set<() => void>();
 /** Whether storage refused the last write, leaving the map ahead of it. */
 let unwritten = false;
@@ -101,7 +101,12 @@ function load(): Map<string, Held> {
 }
 
 function list(held: Map<string, Held>) {
-  return [...held].map(([path, { reason }]) => ({ path, reason }));
+  // `=== true` because an entry another build wrote may lack the field.
+  return [...held].map(([path, { reason, conflicted }]) => ({
+    path,
+    reason,
+    conflicted: conflicted === true,
+  }));
 }
 
 function changed(held: Map<string, Held>): void {
@@ -163,8 +168,11 @@ function current() {
   return snapshot;
 }
 
-/** Every held note and why, re-rendering when one is held or let go. */
-export function useHeld(): readonly { path: string; reason: string }[] {
+/**
+ * Every held note, why, and whether it was left standing conflicted rather
+ * than refused, re-rendering when one is held or let go.
+ */
+export function useHeld(): readonly { path: string; reason: string; conflicted: boolean }[] {
   return useSyncExternalStore(subscribe, current);
 }
 
@@ -187,7 +195,8 @@ export function sameText(a: string, b: string): boolean {
   return unstamped(a) === unstamped(b);
 }
 
-function unstamped(text: string): string {
+/** `text` without its frontmatter's `modified` line, which every write restamps. */
+export function unstamped(text: string): string {
   if (!text.startsWith("---\n")) return text;
   const end = text.indexOf("\n---", 4);
   if (end === -1) return text;

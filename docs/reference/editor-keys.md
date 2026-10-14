@@ -181,7 +181,7 @@ dimmed page around them.
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
 | An HTML page | The page's own links and buttons | [The file tree](#the-file-tree) |
-| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write are `Write my text` and `Drop my text`, and under `Changed on disk` `Write my text` and `Take the vault's`. `Not saved: <note>`, a failed write of a note already left, names the notes whose text kasten holds; opening one puts the text back | [Panes and tabs](#panes-and-tabs) |
+| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write are `Write my text` and `Drop my text`, and under `Changed on disk` `Write my text` and `Take the vault's`. `Not saved: <note>`, a failed write of a note already left, names the notes whose text kasten holds; opening one puts the text back. `Changed on disk: <note>` names a note left while it stood conflicted; opening it shows what differs | [Panes and tabs](#panes-and-tabs) |
 | The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](#the-command-palette) |
 
 ### Still keys only
@@ -426,7 +426,7 @@ focused one is blue. A window holding a single pane has no border, having
 nothing to tell it apart from.
 
 No pane or tab key on this page moves while the note in the focused pane reads
-`Changed on disk`. Leaving the pane would write that note, so the key flashes
+`Changed on disk`. Leaving the pane would leave that note unsettled, so the key flashes
 the status bar and stays put until `:w` or `:e!` settles it, which
 [Saving](#saving) covers. A click into another pane is the one thing that still
 goes through. `<leader>z` is the other: it writes nothing, opens nothing and
@@ -2438,7 +2438,10 @@ for `:w`, `:e` and `:e!` everywhere this section names them.
 Something outside kasten writing the note is answered while it is open. A note
 you are not typing into simply takes the new text, with the cursor where you
 left it. A note holding unsaved edits keeps them instead: autosave stops, and
-the status bar wears the warning sign, labelled `Changed on disk`.
+the status bar wears the warning sign, labelled `Changed on disk`, and opens
+above itself with what differs: a line only the vault holds marked `-`, a line
+only your buffer holds marked `+`, runs of equal lines folded to a count, and
+the `modified` stamp left out.
 
 The two readings that want you write their name beside the sign rather than
 leaving a 16px icon in the corner to be noticed, and hovering either one says
@@ -2458,7 +2461,14 @@ Without a prompt to type them at, which is a phone, click or tap the save sign:
 Text that has not reached the vault is not given up. Hiding the page, which is
 a reload, a closed tab or a phone sending the app to the background, writes
 what is waiting at once rather than after the pause. A note that reads
-`Changed on disk` is not written then; its text is kept instead. If a write
+`Changed on disk` is not written then; its text is kept instead. Nor is it
+written when you leave it for another note, click into another pane or leave
+the editor for another screen: kasten keeps your text in this browser's storage
+and writes nothing to the vault, so its history gains nothing either. The status
+bar reads `Changed on disk: <note>` until you settle it, and opening the note
+shows the conflict again, your text in the buffer and what differs from the
+vault's newest text above the bar. If the vault has come to hold your text by
+then, the conflict is gone and the note opens clean. If a write
 fails as you leave a note, or leave the editor for another screen, kasten keeps
 that note's text in this browser's storage, and the status bar reads
 `Not saved: <note>` until it is written or dropped, whatever you save
@@ -2489,7 +2499,7 @@ overwrite. A `gf` at a link to a note that is not there still makes the note;
 it just leaves it unopened.
 
 The keys that move the focus decline too, because the autosave follows the
-focused pane and would write this note on its way to the next: `<leader>o`,
+focused pane and would leave this note unsettled on its way to the next: `<leader>o`,
 `<leader>h`, `<leader>j`, `<leader>k`, `<leader>l`, the splits `<leader>%` and
 `<leader>"`, `<leader>ct`, `<leader>th`, `<leader>tl`, `<leader>1` to
 `<leader>0`, and a tab clicked in the strip. The reading in the status bar
@@ -2498,8 +2508,9 @@ refused rather than as broken. Every one of them works again the moment `:w` or
 `:e!` settles the note.
 
 One way past is left, and it takes a divided window and a mouse: clicking into
-another pane moves the focus without asking, and the note you were typing into
-is written as the autosave changes over. The browser has already moved the
+another pane moves the focus without asking. The note you were typing into is
+not written: kasten keeps your text and lists the note as
+`Changed on disk: <note>` until you open it and settle it. The browser has already moved the
 focus by the time the app hears about it, so refusing would mean either pulling
 it back, which fights the hand that moved it, or leaving a pane whose border
 says focused while the cursor is somewhere else. Every key into that pane

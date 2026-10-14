@@ -521,6 +521,21 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       if (restored !== undefined) return restored;
 
       if (pending.current === null) return true;
+      // The vault holds what the buffer holds, whoever wrote it there, so
+      // nothing is left to write or to settle: a conflict over it, or a held
+      // entry of it, is over. Yes, so the reload brings the `modified` stamp
+      // onto the screen.
+      if (sameText(text, pending.current)) {
+        pending.current = null;
+        conflicted.current = false;
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = null;
+        if (path !== undefined) dropText(path);
+        take(null);
+        setStatus("saved");
+        setReason(undefined);
+        return true;
+      }
       if (text === lastText.current) return false;
       // A write the route made into this note, reaching the editor through the
       // cache. Refused the way our own answer is, and for the same reason: it
@@ -533,7 +548,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       setStatus("conflict");
       return false;
     },
-    [path, restore],
+    [path, restore, take],
   );
 
   /**
@@ -604,19 +619,40 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // that just replaced it. Unmounting flushes for the same reason. Nobody is
   // left to hear how the write went, so the promise is dropped on purpose.
   //
-  // A conflicted note is flushed too, and that overwrites the vault without
-  // anyone asking for it. The other way round loses the text on screen, which
-  // by then is the only copy of it there is, and loses it silently. This is
-  // the one path with nobody standing in front of it to be asked, which is
-  // why `saveFirst` above exists for the paths that have somebody.
+  // A conflicted note is held and not written, the way the hide below holds
+  // it: flushing would put the reader's text over the other writer's with
+  // nobody asked, and only `:w` gets to make that call. An event still being
+  // placed counts, since it may be somebody else's write, and its entry is
+  // marked conflicted all the same so the next opening shows the conflict and
+  // waits for the reader. The held store is then the only copy of the text.
+  // `write` would clear `pending` and the flag on its way out; nothing goes
+  // out here, so they are cleared by hand, or the next note inherits them:
+  // `restore` refuses while `pending` is set, and so does the opening's reset
+  // of the status. A cleanup re-run on a new `path` is exactly the leave.
   useEffect(
     () => () => {
-      void save();
+      const stop = conflicted.current || holding.current > 0;
+      if (path === undefined || pending.current === null || !stop) {
+        void save();
+      } else {
+        const entry = {
+          content: pending.current,
+          reason: "Changed on disk before the note was left",
+          conflicted: true,
+          base: lastBase(path),
+        };
+        holdText(path, entry);
+        heldAt.current.set(entry, saves.current);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = null;
+        pending.current = null;
+        conflicted.current = false;
+      }
       // The next visit offers held text afresh, and its buffer holds none yet.
       opening.current = true;
       take(null);
     },
-    [save, take],
+    [path, save, take, lastBase],
   );
 
   // A reload or a closed tab unmounts nothing, so the flush above never runs
@@ -629,8 +665,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // held copy is what the next opening offers. A landed write drops it, and
   // one that landed after the page was gone is recognised then by `sameText`.
   // A conflicted note, or one with an event still being placed, is held and
-  // not written: unlike leaving a note, nothing has to be decided now, and the
-  // reader can decide on return.
+  // not written, as on leaving: the reader decides on return.
   //
   // Held text reopened and not touched since is left as it is: the reader has
   // not said to write it, and the entry already holds it, with the reason the

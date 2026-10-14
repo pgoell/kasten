@@ -430,6 +430,19 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("saved");
   });
 
+  it("clears a conflict when the vault comes to hold the buffer's text", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.reconcile("0".repeat(64));
+    expect(note.status()).toBe("conflict");
+
+    expect(note.allowReload("# edited")).toBe(true);
+    expect(note.status()).toBe("saved");
+    await idle();
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
   it("takes anything from the vault while nothing is waiting", async () => {
     const note = renderAutosave();
 
@@ -986,7 +999,9 @@ describe("useAutosave", () => {
     });
   });
 
-  it("holds a conflicted note's failed flush as conflicted", async () => {
+  it("holds a conflicted note as conflicted on leaving, with no flush to fail", async () => {
+    // Leaving a conflicted note writes nothing over the vault: the text goes to
+    // the held store, and the reader decides on return.
     const note = renderAutosave("index.md");
     saveNote.mockRejectedValueOnce(new Error("failed with 500"));
 
@@ -995,9 +1010,107 @@ describe("useAutosave", () => {
     note.open("daily/2026-08-05.md");
     await act(async () => {});
 
-    // Leaving a conflicted note still flushes over the vault, as it always did.
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(heldText("index.md")).toMatchObject({
+      content: "# mine",
+      reason: "Changed on disk before the note was left",
+      conflicted: true,
+    });
+  });
+
+  it("holds a conflicted note's text and writes nothing when another note is opened", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# mine");
+    note.reconcile("0".repeat(64));
+    note.open("daily/2026-08-05.md");
+    await act(async () => {});
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(heldText("index.md")).toMatchObject({ content: "# mine", conflicted: true });
+    expect(note.status()).toBe("saved");
+  });
+
+  it("holds a conflicted note's text and writes nothing when the editor goes away", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# mine");
+    note.reconcile("0".repeat(64));
+    note.unmount();
+    await act(async () => {});
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(heldText("index.md")).toMatchObject({ content: "# mine", conflicted: true });
+  });
+
+  it("holds and writes nothing when the note is left while an outside write is being placed", async () => {
+    // The event may yet turn out to be somebody else's write, so it is held the
+    // way a conflict is, and reopens as one.
+    const note = renderAutosave("index.md");
+    const other = await digestOf("somebody else's text");
+
+    note.change("# edited");
+    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
+    note.reconcile(other);
+    note.open("daily/2026-08-05.md");
+    await hashed();
+    await idle();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(heldText("index.md")).toMatchObject({ content: "# edited", conflicted: true });
+    expect(note.status()).toBe("saved");
+  });
+
+  it("reopens a conflicted note left behind as a conflict, and writes nothing on the quiet period", async () => {
+    const note = renderAutosave("index.md");
+    note.seed("index.md", "the index note");
+
+    note.change("# mine");
+    note.reconcile("0".repeat(64));
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    expect(note.allowReload("the index note")).toBe(false);
+    await idle();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("writes the kept text with :w after a conflicted note is reopened, and drops the held entry", async () => {
+    const note = renderAutosave("index.md");
+    note.seed("index.md", "the index note");
+
+    note.change("# mine");
+    note.reconcile("0".repeat(64));
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    note.allowReload("the index note");
+    expect(saveNote).not.toHaveBeenCalled();
+
+    expect(await note.saved()).toBe(true);
     expect(saveNote).toHaveBeenCalledWith("index.md", "# mine");
-    expect(heldText("index.md")?.conflicted).toBe(true);
+    expect(heldText("index.md")).toBeUndefined();
+    expect(note.status()).toBe("saved");
+  });
+
+  it("drops a reopened conflict's held text when the vault's read equals it", async () => {
+    // Somebody wrote the kept text into the vault before the reopen: the
+    // reopen takes it against the stale cache, and the fresh read settles it.
+    const note = renderAutosave("index.md");
+    note.seed("index.md", "the index note");
+
+    note.change("# mine");
+    note.reconcile("0".repeat(64));
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    expect(note.allowReload("the index note")).toBe(false);
+    expect(note.status()).toBe("conflict");
+
+    expect(note.allowReload("# mine")).toBe(true);
+    expect(note.status()).toBe("saved");
+    expect(heldText("index.md")).toBeUndefined();
+    await idle();
+    expect(saveNote).not.toHaveBeenCalled();
   });
 
   it("puts held text back in the buffer when its note is reopened", async () => {

@@ -377,6 +377,11 @@ async function renderApp() {
       const item = container.querySelector("[data-testid='held']");
       return item && { label: item.textContent, title: item.getAttribute("title") ?? "" };
     },
+    /** The bar's list of notes left while they stood conflicted, or null. */
+    heldConflict: () =>
+      container.querySelector("[data-testid='held-conflict']")?.textContent ?? null,
+    /** The line diff the save detail opens on while the note stands conflicted. */
+    diff: () => container.querySelector("[data-testid='conflict-diff']")?.textContent ?? null,
     /** Leave for another route or come back, the way a link does. */
     navigate: (to: "/" | "/capture") =>
       act(async () => {
@@ -512,9 +517,11 @@ describe("the route", () => {
     somebodyElseWrote();
     await settle();
 
-    // Once, on opening. Reading it again is what puts the vault's text in front
-    // of the editor, and the buffer is holding words that are nowhere else.
-    expect(fetchNote).toHaveBeenCalledTimes(1);
+    // The note's query is not read again: that is what puts the vault's text in
+    // front of the editor, and the buffer is holding words that are nowhere
+    // else. The one read since is the bar's, for the diff, outside the cache.
+    expect(fetchNote).toHaveBeenCalledTimes(2);
+    expect(app.cached("index.md")).toBe("the index note");
     expect(app.text()).toBe("he index note");
     expect(app.status()).toBe("Changed on disk");
   });
@@ -530,6 +537,29 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
     expect(app.text()).toBe("he index note");
     expect(app.status()).toBe("Changed on disk");
+  });
+
+  it("refuses to close a conflicted note's pane and writes nothing", async () => {
+    // Two panes, so the key would close a pane and not empty the only one.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.leader("o");
+    await settle();
+    app.press("x");
+    somebodyElseWrote();
+    await settle();
+
+    app.leader("q");
+    await settle();
+
+    expect(app.panes()).toBe(2);
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(app.status()).toBe("Changed on disk");
+    expect(app.heldConflict()).toBeNull();
   });
 
   it("refuses to open another note over one that changed on disk", async () => {
@@ -599,8 +629,8 @@ describe("the route", () => {
     somebodyElseWrote();
     await settle();
 
+    // No tap on the sign first: a conflict opens the detail by itself.
     fetchNote.mockResolvedValueOnce("somebody else's text");
-    fireEvent.click(screen.getByTestId("save-status"));
     fireEvent.click(screen.getByText("Take the vault's"));
     await settle();
 
@@ -611,7 +641,6 @@ describe("the route", () => {
     app.press("x");
     somebodyElseWrote();
     await settle();
-    fireEvent.click(screen.getByTestId("save-status"));
     fireEvent.click(screen.getByText("Write my text"));
     await settle();
 
@@ -900,6 +929,22 @@ describe("the route", () => {
     expect(app.text()).toBe("he index note");
   });
 
+  it("writes nothing when the editor route is left while the note stands conflicted", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+
+    await app.navigate("/capture");
+    await settle();
+    expect(saveNote).not.toHaveBeenCalled();
+    await app.navigate("/");
+    await settle();
+
+    expect(app.heldConflict()).toBe("Changed on disk: index");
+    expect(app.held()).toBeNull();
+    expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
+  });
+
   it("lists a flush that fails after the note was reopened, and keeps it through a save there", async () => {
     // Back on the route and in the note before the flush answers: the buffer
     // opened on the vault's text, so the refused text is still only held.
@@ -1030,11 +1075,10 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
-  it("still leaves a conflicted note for a click into another pane", async () => {
-    // The hole `moveTo` cannot close, pinned so that closing it later is a
-    // decision somebody made rather than something that drifted. The layout
-    // hears about this after the browser has moved the focus, so a refusal here
-    // is a fight with the browser rather than a key declining.
+  it("leaves a conflicted note for a click into another pane, and writes nothing", async () => {
+    // The one move `moveTo` cannot refuse: the layout hears about it after the
+    // browser has moved the focus, so a refusal would be a fight with the
+    // browser. Holding the text is what keeps both writers' words instead.
     const app = await renderApp();
     await settle();
     app.click("index.md");
@@ -1056,10 +1100,208 @@ describe("the route", () => {
     app.focusPane(1);
     await settle();
 
-    // The focus moved, the note it left was flushed on the way, and the vault
-    // has the buffer's text over whatever the other writer put there.
+    // The focus moved and the vault keeps the other writer's text. The bar is
+    // where the conflict left behind can still be read.
     expect(app.status()).toBeUndefined();
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(app.heldConflict()).toBe("Changed on disk: index");
+    expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
+  });
+
+  it("leaves a conflicted note for another note without writing, and lists it", async () => {
+    // Into the other pane first: a click in the tree opens in the focused pane,
+    // and over a conflicted note that is refused, as the test above pins.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.leader("o");
+    await settle();
+    app.press("x");
+    somebodyElseWrote();
+    await settle();
+
+    app.focusPane(1);
+    await settle();
+    app.click("other.md");
+    await settle();
+
+    expect(app.status()).toBe("Saved");
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(app.heldConflict()).toBe("Changed on disk: index");
+    expect(app.held()).toBeNull();
+  });
+
+  /**
+   * Leave index.md standing conflicted, the vault now holding `vault`, and come
+   * back to it. Leaving the route is the way out with one pane: every key and
+   * every click in the tree that would leave the note in place is refused.
+   */
+  async function reopenedConflicted(vault = "somebody else's note") {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    // Through the view and not `x`, which is no edit with vim off.
+    const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
+    act(() => view?.dispatch({ changes: { from: 0, to: 1 } }));
+    expect(app.text()).toBe("he index note");
+    somebodyElseWrote();
+    await settle();
+    await app.navigate("/capture");
+    await settle();
+    await app.navigate("/");
+    await settle();
+
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? vault : VAULT[path],
+    );
+    app.click("index.md");
+    await settle();
+    return app;
+  }
+
+  it("reopens a conflicted note left behind with the diff open and both texts", async () => {
+    const app = await reopenedConflicted();
+
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Changed on disk");
+    expect(app.diff()).toContain("- somebody else's note");
+    expect(app.diff()).toContain("+ he index note");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("shows the other writer's text in the diff of a conflict raised while the note is open", async () => {
+    const app = await editing();
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "somebody else's note" : VAULT[path],
+    );
+    somebodyElseWrote();
+    await settle();
+
+    expect(app.status()).toBe("Changed on disk");
+    expect(app.text()).toBe("he index note");
+    expect(app.diff()).toContain("- somebody else's note");
+    expect(app.diff()).toContain("+ he index note");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("keeps mine with :w after reopening a conflicted note", async () => {
+    const app = await reopenedConflicted();
+
+    app.ex("w");
+    await settle();
+
     expect(saveNote).toHaveBeenCalledTimes(1);
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "he index note");
+    expect(app.status()).toBe("Saved");
+    expect(app.diff()).toBeNull();
+    expect(app.heldConflict()).toBeNull();
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("takes the vault's with :e! after reopening a conflicted note", async () => {
+    const app = await reopenedConflicted();
+
+    app.ex("e!");
+    await settle();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(app.text()).toBe("somebody else's note");
+    expect(app.status()).toBe("Saved");
+    expect(app.heldConflict()).toBeNull();
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("writes an edited merge with :w after reopening a conflicted note", async () => {
+    const app = await reopenedConflicted();
+
+    // A merge by hand: the buffer is the reader's, edited toward the vault's.
+    app.press("x");
+    expect(app.text()).toBe("e index note");
+    // The diff follows the buffer, which is what the reader is merging with.
+    expect(app.diff()).toContain("+ e index note");
+    app.ex("w");
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledTimes(1);
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "e index note");
+    expect(app.status()).toBe("Saved");
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("shows the conflict against the newest vault text when it changed again before the reopen", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+    await app.navigate("/capture");
+    await settle();
+    await app.navigate("/");
+    await settle();
+
+    // Written again, to a note no pane holds now: the stream marks it stale.
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "the newest note" : VAULT[path],
+    );
+    act(() => stream().send({ path: "index.md", change: "written", digest: "b".repeat(64) }));
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Changed on disk");
+    expect(app.diff()).toContain("- the newest note");
+    expect(app.diff()).toContain("+ he index note");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("clears the conflict on reopen when the vault came to hold the kept text", async () => {
+    const app = await reopenedConflicted("he index note");
+
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Saved");
+    expect(app.diff()).toBeNull();
+    expect(app.heldConflict()).toBeNull();
+    expect(heldText("index.md")).toBeUndefined();
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("settles a reopened conflict with the bar's buttons, with vim off", async () => {
+    // No ex prompt with vim off: the two buttons under the diff are the way out.
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      const app = await reopenedConflicted();
+      expect(document.querySelector(".cm-vimMode")).toBeNull();
+      expect(app.diff()).toContain("- somebody else's note");
+
+      fireEvent.click(screen.getByRole("button", { name: "Write my text" }));
+      await settle();
+
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "he index note");
+      expect(app.status()).toBe("Saved");
+      expect(heldText("index.md")).toBeUndefined();
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+  });
+
+  it("takes the vault's text for a reopened conflict with the bar's button, with vim off", async () => {
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      const app = await reopenedConflicted();
+
+      fireEvent.click(screen.getByRole("button", { name: "Take the vault's" }));
+      await settle();
+
+      expect(app.text()).toBe("somebody else's note");
+      expect(app.status()).toBe("Saved");
+      expect(heldText("index.md")).toBeUndefined();
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+    expect(saveNote).not.toHaveBeenCalled();
   });
 
   it("writes what is waiting before it swaps two panes", async () => {
@@ -1521,6 +1763,41 @@ describe("the route", () => {
 
       expect(app.text()).toBe("the index note");
       expect(app.tree()).toBeNull();
+    });
+
+    it("shows the diff and the buttons on a phone", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+      fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+      app.click("index.md");
+      await settle();
+      const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
+      act(() => view?.dispatch({ changes: { from: 0, to: 1 } }));
+      somebodyElseWrote();
+      await settle();
+      await app.navigate("/capture");
+      await settle();
+      await app.navigate("/");
+      await settle();
+
+      fetchNote.mockImplementation(async (path: string) =>
+        path === "index.md" ? "somebody else's note" : VAULT[path],
+      );
+      fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+      app.click("index.md");
+      await settle();
+
+      expect(app.diff()).toContain("- somebody else's note");
+      expect(app.diff()).toContain("+ he index note");
+      // Under the part that scrolls, not in it: a long diff on a small screen
+      // would otherwise carry the only way out off the top of the panel.
+      const scroller = screen.getByTestId("conflict-diff").closest(".overflow-y-auto");
+      expect(scroller).not.toBeNull();
+      for (const name of ["Write my text", "Take the vault's"]) {
+        expect(scroller?.contains(screen.getByRole("button", { name }))).toBe(false);
+      }
+      expect(saveNote).not.toHaveBeenCalled();
     });
 
     /** The column holding the panes, which an open drawer puts out of reach. */

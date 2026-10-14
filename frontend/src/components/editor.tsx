@@ -529,8 +529,8 @@ const fromVault = Annotation.define<boolean>();
  * rewrites a paragraph, and kasten's `modified` stamp moves one line of the
  * frontmatter.
  *
- * `allowed` is asked at the last moment, once there is a change to make, and a
- * no leaves the note as it stands and the vault as it stands. Absent means
+ * `allowed` is asked at the last moment, even when there is no change to make,
+ * and a no leaves the note as it stands and the vault as it stands. Absent means
  * nobody is holding text the change could take off the screen.
  */
 function takeVaultText(view: EditorView, text: string, allowed?: (text: string) => boolean): void {
@@ -551,11 +551,14 @@ function takeVaultText(view: EditorView, text: string, allowed?: (text: string) 
     insertTo -= 1;
   }
 
+  // Asked even when the text is already on screen: equal text is still an
+  // answer the autosave needs, since the vault coming to hold the buffer's
+  // text settles a conflict or a held entry over it.
+  if (allowed?.(text) === false) return;
   // Nothing left after the trim is the text already on screen, which is what
   // mounting looks like from here: the note opens on the same query data the
   // reload prop carries. A change holding nothing is still a transaction.
   if (from === to && from === insertTo) return;
-  if (allowed?.(text) === false) return;
 
   view.dispatch({
     changes: { from, to, insert: text.slice(from, insertTo) },

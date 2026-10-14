@@ -53,7 +53,23 @@ describe("held text", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: "kasten.held" }));
     });
 
-    expect(result.current).toEqual([{ path: "other.md", reason: "failed with 500" }]);
+    expect(result.current).toEqual([
+      { path: "other.md", reason: "failed with 500", conflicted: false },
+    ]);
+  });
+
+  it("lists whether each held note stands conflicted", () => {
+    const { result } = renderHook(() => useHeld());
+
+    act(() => {
+      holdText("a.md", entry);
+      holdText("b.md", { ...entry, reason: "Changed on disk", conflicted: true });
+    });
+
+    expect(result.current).toEqual([
+      { path: "a.md", reason: "failed with 500", conflicted: false },
+      { path: "b.md", reason: "Changed on disk", conflicted: true },
+    ]);
   });
 
   it("keeps text held in memory when storage was full, through a hold of another note", () => {
@@ -92,7 +108,7 @@ describe("held text", () => {
     const after = result.current;
 
     expect(before).toEqual([]);
-    expect(after).toEqual([{ path: "index.md", reason: "failed with 500" }]);
+    expect(after).toEqual([{ path: "index.md", reason: "failed with 500", conflicted: false }]);
     expect(result.current).toBe(after);
   });
 

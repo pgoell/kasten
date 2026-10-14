@@ -114,6 +114,132 @@ describe("StatusBar", () => {
     expect(screen.queryByTestId("status-detail")).toBeNull();
   });
 
+  it("lists a conflict left behind under its own label", () => {
+    render(
+      <StatusBar
+        held={[{ path: "Notes/index.md", reason: "Changed on disk", conflicted: true }]}
+      />,
+    );
+
+    expect(screen.queryByTestId("held")).toBeNull();
+    const conflict = screen.getByTestId("held-conflict");
+    expect(conflict).toHaveTextContent("Changed on disk: index");
+
+    fireEvent.click(conflict);
+    const detail = screen.getByTestId("status-detail");
+    expect(detail).toHaveTextContent("Notes/index.md: Changed on disk");
+    expect(detail).toHaveTextContent(":w keeps your text, :e! takes the vault's.");
+  });
+
+  it("lists failed saves and conflicts side by side", () => {
+    render(
+      <StatusBar
+        held={[
+          { path: "a.md", reason: "PUT failed with 500", conflicted: false },
+          { path: "b.md", reason: "Changed on disk", conflicted: true },
+          { path: "c.md", reason: "Changed on disk", conflicted: true },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("held")).toHaveTextContent("Not saved: a");
+    expect(screen.getByTestId("held-conflict")).toHaveTextContent("Changed on disk: 2 notes");
+
+    fireEvent.click(screen.getByTestId("held"));
+    const failedDetail = screen.getByTestId("status-detail");
+    expect(failedDetail).toHaveTextContent("a.md: PUT failed with 500");
+    expect(failedDetail).not.toHaveTextContent("b.md");
+
+    fireEvent.click(screen.getByTestId("held-conflict"));
+    const conflictDetail = screen.getByTestId("status-detail");
+    expect(conflictDetail).toHaveTextContent("b.md: Changed on disk");
+    expect(conflictDetail).toHaveTextContent("c.md: Changed on disk");
+    expect(conflictDetail).not.toHaveTextContent("a.md");
+    // Both crowd the clock out on a phone, either one losing text if left.
+    expect(screen.getByText(/^CW /).parentElement).toHaveClass("max-md:hidden");
+  });
+
+  it("opens the diff by itself when the note stands conflicted", () => {
+    const conflict = () => ({ vault: "# T\ntheirs\nend", mine: "# T\nmine\nend" });
+    const { rerender } = render(<StatusBar status="saved" conflict={conflict} />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+
+    rerender(<StatusBar status="conflict" conflict={conflict} />);
+
+    expect(screen.getByTestId("status-detail")).toHaveTextContent("Changed on disk");
+    const diff = screen.getByTestId("conflict-diff");
+    expect(diff).toHaveTextContent("- theirs");
+    expect(diff).toHaveTextContent("+ mine");
+
+    rerender(<StatusBar status="saved" conflict={conflict} />);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
+  });
+
+  it("collapses unchanged lines in the diff", () => {
+    const same = Array.from({ length: 12 }, (_, n) => `line ${n + 1}`);
+    const vault = ["# T", ...same, "theirs", ...same].join("\n");
+    const mine = ["# T", ...same, "mine", ...same].join("\n");
+    render(<StatusBar status="conflict" conflict={() => ({ vault, mine })} />);
+
+    const rows = [...screen.getByTestId("conflict-diff").children].map((row) => row.textContent);
+    // One line of context either side of the change, the rest one line each.
+    expect(rows).toEqual([
+      "⋯ 12 lines",
+      "  line 12",
+      "- theirs",
+      "+ mine",
+      "  line 1",
+      "⋯ 11 lines",
+    ]);
+  });
+
+  it("keeps the buttons outside the scrolling diff", () => {
+    // A long diff on a phone scrolls inside the panel; the two ways out stay
+    // below it, where a thumb can reach them however long the diff is.
+    const vault = Array.from({ length: 200 }, (_, n) => `vault ${n}`).join("\n");
+    const mine = Array.from({ length: 200 }, (_, n) => `mine ${n}`).join("\n");
+    render(
+      <StatusBar
+        status="conflict"
+        conflict={() => ({ vault, mine })}
+        onWrite={vi.fn()}
+        onTakeVault={vi.fn()}
+      />,
+    );
+
+    const scroller = screen.getByTestId("conflict-diff").closest(".overflow-y-auto");
+    expect(scroller).not.toBeNull();
+    expect(scroller).toHaveClass("max-h-[50dvh]");
+    expect(scroller).not.toContainElement(screen.getByText("Write my text"));
+    expect(scroller).not.toContainElement(screen.getByText("Take the vault's"));
+  });
+
+  it("writes or takes the vault's from the buttons under the diff", () => {
+    const onWrite = vi.fn();
+    const onTakeVault = vi.fn();
+    const conflict = () => ({ vault: "theirs", mine: "mine" });
+    render(
+      <StatusBar
+        status="conflict"
+        conflict={conflict}
+        onWrite={onWrite}
+        onTakeVault={onTakeVault}
+      />,
+    );
+
+    const diff = screen.getByTestId("conflict-diff");
+    const write = screen.getByText("Write my text");
+    expect(diff.compareDocumentPosition(write)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    fireEvent.click(write);
+    expect(onWrite).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("conflict-diff")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("save-status"));
+    expect(screen.getByTestId("conflict-diff")).toHaveTextContent("- theirs");
+    fireEvent.click(screen.getByText("Take the vault's"));
+    expect(onTakeVault).toHaveBeenCalledOnce();
+  });
+
   it("says on hover both ways out of a note that changed on disk", () => {
     const { container } = render(<StatusBar status="conflict" />);
 
@@ -273,9 +399,8 @@ describe("the clock in the bar", () => {
     const onWrite = vi.fn();
     const onTakeVault = vi.fn();
     render(<StatusBar status="conflict" onWrite={onWrite} onTakeVault={onTakeVault} />);
-    expect(screen.queryByText("Write my text")).toBeNull();
 
-    fireEvent.click(screen.getByTestId("save-status"));
+    // Open already, a conflict opening the detail by itself.
     fireEvent.click(screen.getByText("Write my text"));
     expect(onWrite).toHaveBeenCalledOnce();
     expect(screen.queryByTestId("status-detail")).toBeNull();

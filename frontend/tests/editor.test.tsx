@@ -583,15 +583,16 @@ describe("Editor reloaded from the vault", () => {
     expect(container.querySelector(".cm-content")?.textContent).toBe("onetwothreefour");
   });
 
-  it("does not ask when the vault hands back the text already open", () => {
-    // Asked after the trim and not before it, so a reload with nothing in it
-    // cannot stand a note in conflict over a change that was never made.
+  it("asks the autosave about vault text equal to the screen", () => {
+    // Equal text is still an answer: the vault has come to hold what the
+    // buffer holds, which settles a conflict or a held entry over it.
     const allowReload = vi.fn(() => true);
-    const { rerender } = render(<Editor initialDoc={DOC} allowReload={allowReload} />);
+    const { container, rerender } = render(<Editor initialDoc={DOC} allowReload={allowReload} />);
 
     rerender(<Editor initialDoc={DOC} allowReload={allowReload} reloadDoc={DOC} />);
 
-    expect(allowReload).not.toHaveBeenCalled();
+    expect(allowReload).toHaveBeenCalledWith(DOC);
+    expect(container.querySelector(".cm-content")?.textContent).toBe("onetwothreefour");
   });
 
   it("holds the cursor inside a note that came back shorter", () => {

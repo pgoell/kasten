@@ -98,9 +98,18 @@ choose `Cycle the todo on this line`.
 The status bar says `Changed on disk` when something else wrote the note while
 it held text you had not saved. Nothing is written until you choose.
 
-1. Tap `Changed on disk`. The two ways out open above the bar.
+1. Read what differs, which opens above the bar by itself: a `-` line is only
+   in the vault's text, a `+` line only in yours. If you closed it, tap
+   `Changed on disk` to open it again.
 2. Tap `Write my text` to write your text over the vault's, or
    `Take the vault's` to throw your text away.
+
+To keep parts of both, edit your text into the version you want, then tap
+`Changed on disk` and `Write my text`.
+
+`Changed on disk: <note>` means you left a note while it stood conflicted.
+kasten wrote nothing and keeps your text on this phone. Open the note: the
+conflict is back, with what differs.
 
 `Could not save` opens the same way and offers `Write my text` and
 `Drop my text`.
