@@ -154,7 +154,8 @@ is one card per number: the line above asks twice, once as `c1` and once as
 * The question shows the line with that number's text hidden as `[...]`, or as
   `[hint]` where the mark carries one after a second `::`. The line above asks
   `The capital of [...] is Paris.` for `c1` and
-  `The capital of France is [a city].` for `c2`.
+  `The capital of France is [a city].` for `c2`. An empty hint,
+  `{{c1::Paris::}}`, is no hint.
 * Every other number shows as its plain text, marks gone.
 * The answer shows the whole line with that number's text highlighted.
 * Two marks of one number are one card, hidden and shown together:
