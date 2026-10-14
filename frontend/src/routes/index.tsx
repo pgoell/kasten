@@ -922,25 +922,31 @@ function Home() {
    *
    * `[[note#heading]]` opens the note at the heading, read through the query
    * cache the panes read by; a heading the note lacks opens it at the top.
-   * `[[#heading]]` names no note, so it is the focused pane's own.
+   * `[[#heading]]` names no note, and the editor jumps within its own.
    */
   const follow = useCallback(
     (target: string, body = "") => {
       const paths = data ?? [];
       const { name, heading } = splitTarget(target);
-      const path = name === "" ? focusedNote.current.path : wikiLinkPath(target, linkable ?? []);
-      if (path === undefined) return;
+      if (name === "") return;
+      const path = wikiLinkPath(target, linkable ?? []);
       if (html?.includes(path)) {
         void openHtmlInPane(path);
         return;
       }
       if (paths.includes(path) && heading !== null) {
+        // A note opened while this one was read is where the reader went
+        // next, and the jump arriving late must not pull them back.
+        const from = focusedNote.current.path;
+        const open = (line?: number) => {
+          if (focusedNote.current.path === from) void openInPane(path, line);
+        };
         void queryClient
           .fetchQuery({ queryKey: ["note", path], queryFn: () => fetchNote(path) })
           .then(
-            (text) => openInPane(path, noteSectionOf(text, heading)?.line),
+            (text) => open(noteSectionOf(text, heading)?.line),
             // A note that will not read is still worth opening, at the top.
-            () => openInPane(path),
+            () => open(),
           );
         return;
       }
@@ -2097,6 +2103,7 @@ function Home() {
                         tags={tags}
                         relations={relations}
                         startLine={shown.line}
+                        jump={shown.jump}
                         focusSignal={focused ? focusSignal : 0}
                         focused={focused}
                         // Only the focused pane reports its typing. Nothing else can

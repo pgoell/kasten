@@ -702,6 +702,27 @@ describe("Editor following a link with an alias or a heading", () => {
     expect(onFollow.mock.calls).toEqual([[TARGET], [TARGET]]);
   });
 
+  it("jumps to a heading of its own note itself, on gf and on ctrl+click", () => {
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor initialDoc={"[[#Below]]\ntext\n## Below\nend"} onFollow={onFollow} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+    expect(onFollow).not.toHaveBeenCalled();
+    // The brackets are hidden, so the link reads as its target.
+    expect(deleteCurrentLine(container)).toBe("#Belowtextend");
+
+    fireEvent.keyDown(content, { key: "u" });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.mouseDown(container.querySelector(".cm-wikilink") as HTMLElement, { ctrlKey: true });
+    expect(onFollow).not.toHaveBeenCalled();
+    expect(deleteCurrentLine(container)).toBe("#Belowtextend");
+  });
+
   it("hands the whole target on a tap on the alias", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc={`intro\n\n${DOC}`} onFollow={onFollow} />);

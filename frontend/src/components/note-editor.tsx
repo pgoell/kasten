@@ -21,6 +21,8 @@ interface NoteEditorProps {
   relations?: string[];
   /** Line to open on, which a search hit names and nothing else does. */
   startLine?: number;
+  /** Raised with each open at `startLine`. See `Editor`. */
+  jump?: number;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
   /** A video position for this note's frontmatter. See `Editor`. */
@@ -78,6 +80,7 @@ export const NoteEditor = memo(function NoteEditor({
   tags,
   relations,
   startLine,
+  jump,
   focusSignal,
   mark,
   focused,
@@ -121,6 +124,7 @@ export const NoteEditor = memo(function NoteEditor({
       tags={tags}
       relations={relations}
       startLine={startLine}
+      jump={jump}
       focusSignal={focusSignal}
       mark={mark}
       focused={focused}

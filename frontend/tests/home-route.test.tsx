@@ -2733,7 +2733,8 @@ describe("following a link with an alias or a heading", () => {
   const NOTE = "index.md";
   const OTHER = "reading/borges.md";
   /** Frontmatter first, so the heading's line counts the block above the body. */
-  const BORGES = "---\nid: 01\n---\n# Borges\n\nintro\n\n## Life\n\nborn 1899\n";
+  /** Line 6 links back to its own heading by name, for following it twice. */
+  const BORGES = "---\nid: 01\n---\n# Borges\n\n[[borges#Life]]\n\n## Life\n\nborn 1899\n";
   const LIFE = 8;
 
   beforeEach(() => {
@@ -2812,6 +2813,76 @@ describe("following a link with an alias or a heading", () => {
 
     expect(createNote).not.toHaveBeenCalled();
     expect(opened()).toEqual({ text: "[[#Below]]\n\ntext\n\n## Below\n", line: 5 });
+  });
+
+  it("jumps again on a second gf to the heading of the note already open", async () => {
+    const app = await follow("borges#Life");
+    expect(opened().line).toBe(LIFE);
+
+    // Back to the link, and the same jump once more: the pane already holds
+    // this note at this line, so only a fresh open says to move.
+    app.press("6");
+    app.press("G");
+    expect(opened().line).toBe(6);
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    expect(opened().line).toBe(LIFE);
+  });
+
+  it("jumps again on a second gf to a heading of its own note", async () => {
+    const app = await follow("#Below", "\ntext\n\n## Below\n");
+    expect(opened().line).toBe(5);
+
+    app.press("g");
+    app.press("g");
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    expect(opened().line).toBe(5);
+  });
+
+  it("jumps to a heading of its own note by the text on screen, saved or not", async () => {
+    fetchNote.mockResolvedValue("[[#Below]]\n\ntext\n\n## Below\n");
+    const app = await renderApp();
+    await settle();
+    app.click(NOTE);
+    await settle();
+
+    // A copy of the link pasted under it, which no save has reached yet: the
+    // heading is a line further down than the vault has it.
+    for (const key of ["y", "y", "p", "g", "f"]) app.press(key);
+    await settle();
+
+    expect(opened().line).toBe(6);
+  });
+
+  it("drops the jump when another note was opened while the heading was read", async () => {
+    let answer: (text: string) => void = () => {};
+    fetchFiles.mockResolvedValue([NOTE, OTHER, "kafka.md"]);
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path === NOTE) return "[[borges#Life]]\n";
+      if (path === "kafka.md") return "the trial\n";
+      return new Promise<string>((resolve) => {
+        answer = resolve;
+      });
+    });
+    const app = await renderApp();
+    await settle();
+    app.click(NOTE);
+    await settle();
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    app.click("kafka.md");
+    await settle();
+    answer(BORGES);
+    await settle();
+
+    expect(opened().text).toBe("the trial\n");
   });
 
   it("makes a missing note under its name, not its alias", async () => {

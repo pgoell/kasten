@@ -27,6 +27,7 @@ import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
+import { noteSectionOf } from "@/lib/note-section";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { type CopyFormat, slashCompletions, viewCommands } from "@/lib/palette";
 import { moveCell } from "@/lib/table";
@@ -37,7 +38,7 @@ import { setWatched } from "@/lib/video";
 import { vimKeys } from "@/lib/vim-mode";
 import { useVim } from "@/lib/vim-setting";
 import { weatherCard } from "@/lib/weather-card";
-import { vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
+import { splitTarget, vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
 
 type SaveHandler = (doc: string) => void;
 type FollowHandler = (target: string) => void;
@@ -86,6 +87,29 @@ const highlightHandler = Facet.define<HighlightHandler, HighlightHandler | undef
 });
 
 /**
+ * Follow `[[target]]`: to the route, or for `[[#heading]]` within this note.
+ *
+ * A heading of the note on screen is found in the text on screen. The vault
+ * and the query cache hold the last save, and the line typed since moves the
+ * heading the link means.
+ */
+function followLink(view: EditorView, target: string) {
+  const { name, heading } = splitTarget(target);
+  if (name !== "") {
+    view.state.facet(followHandler)?.(target);
+    return;
+  }
+  const { doc } = view.state;
+  const section = heading === null ? null : noteSectionOf(doc.toString(), heading);
+  if (section === null) return;
+  const { from } = doc.line(section.line);
+  view.dispatch({
+    selection: { anchor: from },
+    effects: EditorView.scrollIntoView(from, { y: "center" }),
+  });
+}
+
+/**
  * Open what the cursor's line names, vim's own go-to-file.
  *
  * Two readers, in this order. A `[[link]]` under the cursor is a link even
@@ -97,7 +121,7 @@ const highlightHandler = Facet.define<HighlightHandler, HighlightHandler | undef
 function follow(view: EditorView): boolean {
   const target = wikiLinkAt(view.state, view.state.selection.main.head);
   if (target !== null) {
-    view.state.facet(followHandler)?.(target);
+    followLink(view, target);
     return true;
   }
 
@@ -295,7 +319,7 @@ const followOnClick = EditorView.domEventHandlers({
     if (!event.ctrlKey && !event.metaKey) return false;
     const target = linkUnder(event, view);
     if (target !== null) {
-      view.state.facet(followHandler)?.(target);
+      followLink(view, target);
       return true;
     }
     const link = urlUnder(event, view);
@@ -378,7 +402,7 @@ function followOnTap(): Extension {
       return false;
     },
     click(_event, view) {
-      if (landed !== null) view.state.facet(followHandler)?.(landed);
+      if (landed !== null) followLink(view, landed);
       else if (landedUrl !== null) window.open(landedUrl, "_blank", "noopener");
       else return false;
       landed = null;
@@ -630,6 +654,11 @@ interface EditorProps {
    */
   startLine?: number;
   /**
+   * Raised with each open at `startLine`, so following a link to the line
+   * already named moves the cursor back to it after it has wandered off.
+   */
+  jump?: number;
+  /**
    * Raised when the app wants this editor to take the focus, and 0 while it
    * does not.
    *
@@ -719,6 +748,7 @@ export function Editor({
   tags,
   relations,
   startLine,
+  jump,
   focusSignal,
   mark,
   focused = true,
@@ -977,6 +1007,7 @@ export function Editor({
   // Declared after the mount effect so the view exists by the time this runs,
   // which is what lets one effect serve both cases: opening a note on a line,
   // and moving to another line of the note already open.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `jump` is the trigger and not read. A second open at the same line is what moves the cursor back to it.
   useEffect(() => {
     const view = viewRef.current;
     if (!view || startLine === undefined) return;
@@ -992,7 +1023,7 @@ export function Editor({
       // against the top or bottom edge is a match you cannot read around.
       effects: EditorView.scrollIntoView(line.from, { y: "center" }),
     });
-  }, [startLine]);
+  }, [startLine, jump]);
 
   // The vault is the source of truth, so text written to the open note by an
   // agent or an ssh session belongs on screen. One transaction and not a

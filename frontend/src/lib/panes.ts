@@ -21,6 +21,13 @@ export interface Pane {
   /** Line the editor opens on, which only a search hit names. */
   line?: number;
   /**
+   * How many times the pane was opened at `line`.
+   *
+   * A second open at the line the pane already holds changes nothing else, and
+   * the cursor has moved off it since: this is what tells the editor to go back.
+   */
+  jump?: number;
+  /**
    * The herdr session it holds, absent unless this is a terminal pane.
    *
    * A pane holds a note or a terminal, never both. A comment rather than a
@@ -246,13 +253,15 @@ function replaceLeaf(node: PaneNode, target: string, next: Pane): PaneNode {
  *
  * The pane is written whole rather than patched, so a line left over from the
  * search hit that opened the last note cannot survive into one that names none
- * and drop the cursor somewhere arbitrary.
+ * and drop the cursor somewhere arbitrary. The jump count is the one thing
+ * carried over, so an open at a line always counts as a new one.
  */
 export function openInFocused(layout: Layout, path: string, line?: number): Layout {
   const tab = activeTab(layout);
+  const jump = line === undefined ? undefined : (focusedPane(layout).jump ?? 0) + 1;
   return withTab(layout, {
     ...tab,
-    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, path, line }),
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, path, line, jump }),
   });
 }
 
