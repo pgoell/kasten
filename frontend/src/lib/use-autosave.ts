@@ -108,9 +108,14 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // write empties `pending` as it goes out, and a plain fetch is cancelled with
   // the page, so this is the only copy a hide can find of a quiet write's text.
   const inAir = useRef(new Map<string, string>());
-  // The last write to each note still waiting on its base's hash, which the
-  // next write to that note goes out behind.
-  const queued = useRef(new Map<string, Promise<string | undefined>>());
+  // The last write to each note still to answer, resolving with the text on
+  // disk once it has, as far as this hook knows. The next write to that note
+  // goes out behind it and names that text as its base: not the text the last
+  // one sent, which `stamp` may have given a block, and which a write that
+  // failed never put there. Only within the visit that made it: a flush from
+  // the visit before lands text the buffer reopened without, and naming it
+  // would let this buffer over it unasked.
+  const queued = useRef(new Map<string, { link: Promise<string | undefined>; visit: number }>());
   // What the route wrote into this note, by the digest the event will carry and
   // the text the cache will hold. Its own store rather than `lastWritten` and
   // `lastText`, which the hook's own writes overwrite: a bookmark landing
@@ -224,13 +229,6 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       setReason(undefined);
       const to = path;
       const opened = visit.current;
-      // The text the vault will hold when this lands, as far as this hook knows,
-      // which the write names so that a vault moved past it refuses: the last
-      // text sent while one is still in the air, since that lands first. None
-      // for the overwrite `:w` makes of a conflict, and none on the way out,
-      // whose hash would take a task the page going away may never run.
-      const under =
-        wasConflicted || keepalive ? undefined : (inAir.current.get(to) ?? lastBase(to));
       writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
       inAir.current.set(to, content);
       const answered = () => {
@@ -253,23 +251,34 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // Held text is kept by path, and the note may move before this answers.
       const since = movesMade();
 
+      // Named so that a vault moved past the text under the buffer refuses. No
+      // base for the overwrite `:w` makes of a conflict, and none on the way
+      // out, whose hash would take a task the page going away may never run.
       // Two arguments unless it is the way out or names a base, which is the
       // call every other writer of a note makes.
+      const send = (under: string | undefined): Promise<Note> =>
+        under === undefined || wasConflicted
+          ? saveNote(to, content)
+          : baseOf(under).then((hash) =>
+              hash === undefined ? saveNote(to, content) : saveNote(to, content, false, hash),
+            );
       let request: Promise<Note>;
-      const before = queued.current.get(to);
       if (keepalive) request = saveNote(path, content, true);
-      else if (under === undefined && before === undefined) request = saveNote(path, content);
       else {
-        // Behind the write before it to this note, which waits on a hash of
-        // its own: `crypto.subtle` answers in any order, and this one reaching
-        // the vault first would find the base it names not landed yet.
-        const ready = Promise.all([under === undefined ? undefined : baseOf(under), before]).then(
-          ([base]) => base,
+        const queue = queued.current.get(to);
+        const before = queue?.link;
+        const own = lastBase(to);
+        const under = queue?.visit === opened ? queue.link : Promise.resolve(own);
+        request = before === undefined ? send(own) : before.then(() => under).then(send);
+        // Never rejects, so a failed write still lets the next one go: the vault
+        // did not move, as far as this hook knows.
+        const link = request.then(
+          (note) => note.content,
+          () => under,
         );
-        queued.current.set(to, ready);
-        request = ready.then((base) => {
-          if (queued.current.get(to) === ready) queued.current.delete(to);
-          return base === undefined ? saveNote(to, content) : saveNote(to, content, false, base);
+        queued.current.set(to, { link, visit: opened });
+        void link.then(() => {
+          if (queued.current.get(to)?.link === link) queued.current.delete(to);
         });
       }
       return request.then(

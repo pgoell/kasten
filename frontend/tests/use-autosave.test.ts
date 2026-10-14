@@ -571,6 +571,8 @@ describe("useAutosave", () => {
     note.change("# edited again");
     note.startSave();
     await quiet.finish();
+    // `:w` goes out once the quiet write lands, naming its hash.
+    await hashed();
     expect(note.isWriting("index.md")).toBe(true);
 
     await asked.finish();
@@ -1865,8 +1867,9 @@ describe("useAutosave", () => {
       );
     });
 
-    it("names the text in the air when :w goes out during a quiet write", async () => {
-      // The quiet write lands first, so that is what `:w` finds on disk.
+    it("sends :w during a quiet write once that write lands, naming what it landed as", async () => {
+      // What the quiet write lands as is what `:w` finds on disk, and only its
+      // answer says what that is.
       const note = renderAutosave();
       note.seed("index.md", "the index note");
       const quiet = pendingSave();
@@ -1877,15 +1880,100 @@ describe("useAutosave", () => {
       note.change("# edited more");
       note.startSave();
       await hashed();
+      expect(saveNote).toHaveBeenCalledOnce();
+      await quiet.finish();
+      await hashed();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "# edited more",
         false,
-        await baseOf("# edited"),
+        await baseOf(written("# edited").content),
       );
-      await quiet.finish();
       expect(note.status()).toBe("saved");
+    });
+
+    it("names the landed text when the vault stamped more than modified on the write before", async () => {
+      // A note with no block gets one on its first save, so the text sent never
+      // hashes like the text that landed.
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+      const stamped = (content: string) => `---\nid: 1\nmodified: now\n---\n${content}`;
+      let land: (() => void) | undefined;
+      saveNote.mockImplementationOnce(
+        (path: string, content: string) =>
+          new Promise((resolve) => {
+            land = () => resolve({ path, content: stamped(content) });
+          }),
+      );
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      note.change("# edited more");
+      note.startSave();
+      await hashed();
+      await act(async () => land?.());
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "# edited more",
+        false,
+        await baseOf(stamped("# edited")),
+      );
+    });
+
+    it("names its own visit's base behind a flush still in the air from the visit before", async () => {
+      // Back before the flush answered, so the buffer opened on the cache's
+      // text and not the flushed one: naming what the flush lands as would put
+      // this buffer over text that is then nowhere else.
+      const note = renderAutosave("index.md");
+      note.seed("index.md", "the index note");
+      const flush = pendingSave();
+
+      note.change("# T1");
+      note.open("other.md");
+      await hashed();
+      note.open("index.md");
+      expect(note.allowReload("the index note")).toBe(true);
+      note.change("# T2");
+      saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+      note.startSave();
+      await flush.finish();
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "# T2",
+        false,
+        await baseOf("the index note"),
+      );
+      expect(note.status()).toBe("conflict");
+      await note.save();
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "# T2");
+    });
+
+    it("names the base of a write before it that failed, which never landed", async () => {
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+      const quiet = pendingSave();
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      note.change("# edited more");
+      note.startSave();
+      await hashed();
+      await quiet.break();
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "# edited more",
+        false,
+        await baseOf("the index note"),
+      );
     });
 
     it("sends a write behind the one before it to the same note, whichever hash lands first", async () => {
