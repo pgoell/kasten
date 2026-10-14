@@ -22,6 +22,7 @@ test suites read them.
 
 import posixpath
 import re
+from bisect import bisect_right
 from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import unquote
 
@@ -67,12 +68,8 @@ SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 FENCE = re.compile(r" {0,3}(`{3,}|~{3,})(.*)")
 """A line that opens or closes a fenced code block, and what follows the fence on it."""
 
-INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`)(?:(?!\n[ \t\r]*\n).)*?(?<!`)\1(?!`)", re.DOTALL)
-"""One `` `code` `` span: a run of backticks closed by the next run of the same length.
-
-It may run over a line break and not over a blank line, which ends the
-paragraph, so a stray backtick cannot hide the links of every paragraph after it.
-"""
+BACKTICKS = re.compile(r"`+")
+"""One run of backticks, which opens or closes an inline code span."""
 
 
 class Target(NamedTuple):
@@ -172,36 +169,85 @@ def code_spans(text: str) -> list[tuple[int, int]]:
 
     An indented block is not read as code. Four spaces is also how a list item
     continues, and a link in one of those is a link.
+
+    Where the reading is in doubt the text is not code: a link wrongly taken
+    for code is left pointing at nothing, and one wrongly taken for a link is
+    only rewritten, as every move did before this read code at all.
+
+    Split on the line feed alone, not `splitlines`, which also breaks at a form feed or
+    U+2028 and would open a fence in the middle of a line.
     """
     spans = []
     fence: tuple[str, int] | None = None
     offset = 0
-    for line in text.splitlines(keepends=True):
+    for line in text.split("\n"):
+        end = min(offset + len(line) + 1, len(text))
         marker = FENCE.match(line)
-        if fence is None:
-            if marker and not (marker[1][0] == "`" and "`" in marker[2]):
-                fence = (marker[1], offset)
-        elif (
-            marker
-            and marker[1][0] == fence[0][0]
-            and len(marker[1]) >= len(fence[0])
-            and not marker[2].strip()
-        ):
-            spans.append((fence[1], offset + len(line)))
-            fence = None
-        offset += len(line)
+        if fence is not None:
+            if (
+                marker
+                and marker[1][0] == fence[0][0]
+                and len(marker[1]) >= len(fence[0])
+                and not marker[2].strip()
+            ):
+                spans.append((fence[1], end))
+                fence = None
+        elif marker and not (marker[1][0] == "`" and "`" in marker[2]):
+            fence = (marker[1], offset)
+        else:
+            spans += [(offset + start, offset + stop) for start, stop in _inline_code(line)]
+        offset += len(line) + 1
     if fence is not None:
         spans.append((fence[1], len(text)))
+    return spans
 
-    # Inline code is looked for between the blocks only: a backtick inside a
-    # block is the block's, and pairing it with one outside would swallow both.
-    inline = []
-    gap = 0
-    for block_start, block_end in [*spans, (len(text), len(text))]:
-        found = INLINE_CODE.finditer(text[gap:block_start])
-        inline += [(gap + m.start(), gap + m.end()) for m in found]
-        gap = block_end
-    return sorted(spans + inline)
+
+def _inline_code(line: str) -> list[tuple[int, int]]:
+    """The inline code spans of one line: a run of backticks closed by the next run as long.
+
+    One line, where CommonMark lets a span run on to the end of its paragraph:
+    telling where a paragraph ends means parsing lists, headings and tables, and
+    a stray backtick in one list item must not hide the links of the next.
+
+    A run after a backslash opens nothing, the backtick being escaped. A run
+    inside a `[[link]]` opens and closes nothing, so a backtick in an alias does
+    not pair with one later on the line; a link wholly inside a span is still
+    in it.
+
+    Paired by a walk over the runs rather than by a pattern, which would scan to
+    the end of the line from every unclosed run.
+    """
+    masked = WIKILINK.sub(lambda link: " " * len(link[0]), line)
+    runs = [(run.start(), run.end()) for run in BACKTICKS.finditer(masked)]
+
+    closers: list[int | None] = [None] * len(runs)
+    later: dict[int, int] = {}
+    for index in reversed(range(len(runs))):
+        start, stop = runs[index]
+        closers[index] = later.get(stop - start)
+        later[stop - start] = index
+
+    spans = []
+    index = 0
+    while index < len(runs):
+        start = runs[index][0]
+        closer = closers[index]
+        if closer is None or masked[start - 1 : start] == "\\":
+            index += 1
+            continue
+        spans.append((start, runs[closer][1]))
+        index = closer + 1
+    return spans
+
+
+def _in_code(position: int, spans: list[tuple[int, int]]) -> bool:
+    """Whether `position` falls in one of `spans`, which `code_spans` returns sorted and apart.
+
+    A search rather than a scan of every span, which on a long note full of code
+    held the event loop for seconds: one scan per link.
+    """
+    index = bisect_right(spans, position, key=lambda span: span[0])
+    return index > 0 and position < spans[index - 1][1]
 
 
 def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
@@ -215,7 +261,7 @@ def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
     code = code_spans(text)
 
     def rewrite(match: re.Match[str]) -> str:
-        if any(start <= match.start() < end for start, end in code):
+        if _in_code(match.start(), code):
             return match.group(0)
         target = match.group(1)
         name = split_target(target).name
@@ -295,7 +341,7 @@ def relink_markdown(text: str, before: str, after: str, old: str, new: str) -> s
     code = code_spans(text)
 
     def rewrite(match: re.Match[str]) -> str:
-        if any(start <= match.start() < end for start, end in code):
+        if _in_code(match.start(), code):
             return match.group(0)
         href = match.group(2)
         target = markdown_target(href, here)

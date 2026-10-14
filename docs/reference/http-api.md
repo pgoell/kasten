@@ -1089,7 +1089,9 @@ syntax and not a link. Code is a fenced block, of three or more backticks or
 tildes indented by at most three spaces and closed by a fence of the same
 character at least as long, or running to the end of the note when nothing
 closes it; and an inline span, a run of backticks closed by a run of the same
-length. A block indented by four spaces is not read as code, because that is
+length on the same line. A backtick after a backslash or inside a `[[link]]`
+opens no span. Where the text could be read either way it counts as text, so a
+real link is never left behind. A block indented by four spaces is not read as code, because that is
 also how a list item continues. Markdown links in code are left alone the same
 way.
 

@@ -1,6 +1,7 @@
 """What a move does to the links that named the notes it moved."""
 
 import json
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -518,3 +519,67 @@ def test_code_spans_reads_code_the_way_commonmark_does(
     # An indented line is a list item's continuation as often as it is code,
     # and a backtick fence with a backtick after it is inline code.
     assert code_spans(text) == spans
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "- use ` for code\n- see [[x]]\n- `y`\n",
+        "# a ` b\n[[x]] `c`\n",
+        "a ` b\n[[x]] `c`\n",
+        "| a ` | b |\n|---|---|\n| [[x]] | `c` |\n",
+    ],
+)
+def test_follows_a_link_between_two_lines_a_backtick_would_pair(text: str) -> None:
+    # A span is read on one line only, so a stray backtick in one list item,
+    # heading or table row cannot pair with one further down and hide the link.
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == text.replace("[[x]]", "[[y]]")
+
+
+def test_follows_a_link_after_an_escaped_backtick() -> None:
+    text = "a \\` b [[x]] c `d`\n"
+
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == "a \\` b [[y]] c `d`\n"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("[[x|a `b]] and [[x]] then ` end\n", "[[y|a `b]] and [[y]] then ` end\n"),
+        ("see [[x|`code`]]\n", "see [[y|`code`]]\n"),
+    ],
+)
+def test_follows_a_link_whose_alias_holds_a_backtick(text: str, expected: str) -> None:
+    # A backtick in a link is the alias's, and neither opens nor closes code.
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x\x0c```\n[[x]]\n",
+        "a\N{LINE SEPARATOR}```\n[[x]]\n",
+        "a\x0b```b\n[[x]]\n",
+        "a\x85```\n[[x]]\n",
+    ],
+)
+def test_opens_no_fence_after_a_break_that_is_not_a_newline(text: str) -> None:
+    # Python's `splitlines` breaks at these, and the fence after one sits mid-line.
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == text.replace("[[x]]", "[[y]]")
+
+
+def test_reads_a_fence_with_windows_line_endings() -> None:
+    text = "~~~\r\n[[x]]\r\n~~~\r\n[[x]]\r\n"
+
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == "~~~\r\n[[x]]\r\n~~~\r\n[[y]]\r\n"
+
+
+def test_relinks_a_long_note_full_of_code_in_time() -> None:
+    # One scan of every span per link held the event loop 27s on this note.
+    text = "text `code` [[x]] more\n" * 20000
+    began = time.perf_counter()
+
+    relink(text, {"x.md": "y.md"}, ["x.md"])
+    code_spans("`a``b" * 20000)
+
+    assert time.perf_counter() - began < 2
