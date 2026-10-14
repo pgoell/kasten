@@ -1271,6 +1271,75 @@ describe("useAutosave", () => {
     expect(heldText("index.md")).toBeUndefined();
   });
 
+  it("holds and resends a quiet write still in flight when the page is hidden", async () => {
+    const note = renderAutosave("index.md");
+    pendingSave();
+    note.change("# sent quietly");
+    await idle();
+    // The keepalive that never answers: the page went away under it.
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+
+    await pagehide();
+
+    expect(heldText("index.md")?.content).toBe("# sent quietly");
+    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# sent quietly", true);
+  });
+
+  it("holds and resends a quiet write still in flight when a phone backgrounds the page", async () => {
+    const note = renderAutosave("index.md");
+    pendingSave();
+    note.change("# sent quietly");
+    await idle();
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+
+    await background();
+
+    expect(heldText("index.md")?.content).toBe("# sent quietly");
+    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# sent quietly", true);
+  });
+
+  it("drops the copy held at hide time once the quiet write lands", async () => {
+    const note = renderAutosave("index.md");
+    const quiet = pendingSave();
+    note.change("# sent quietly");
+    await idle();
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+    await pagehide();
+    expect(heldText("index.md")?.content).toBe("# sent quietly");
+
+    await quiet.finish();
+
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("holds and sends text typed after the quiet write went out, not the quiet write's", async () => {
+    const note = renderAutosave("index.md");
+    pendingSave();
+    note.change("# sent quietly");
+    await idle();
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+    note.change("# typed after");
+
+    await pagehide();
+
+    expect(heldText("index.md")?.content).toBe("# typed after");
+    expect(saveNote).toHaveBeenCalledTimes(2);
+    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# typed after", true);
+  });
+
+  it("holds and sends nothing on hide when the quiet write in flight was thrown away", async () => {
+    const note = renderAutosave("index.md");
+    pendingSave();
+    note.change("# thrown away");
+    await idle();
+    note.revert(true);
+
+    await pagehide();
+
+    expect(heldText("index.md")).toBeUndefined();
+    expect(saveNote).toHaveBeenCalledTimes(1);
+  });
+
   it("writes nothing when the page is shown again", async () => {
     const note = renderAutosave("index.md");
 

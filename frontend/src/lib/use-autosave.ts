@@ -77,6 +77,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // the note just left: its text is still in flight while this hook has already
   // moved on, and nothing else on the route can see that write.
   const writing = useRef(new Map<string, number>());
+  // The last text sent to each note while any write to it is in the air. A
+  // write empties `pending` as it goes out, and a plain fetch is cancelled with
+  // the page, so this is the only copy a hide can find of a quiet write's text.
+  const inAir = useRef(new Map<string, string>());
   // What the route wrote into this note, by the digest the event will carry and
   // the text the cache will hold. Its own store rather than `lastWritten` and
   // `lastText`, which the hook's own writes overwrite: a bookmark landing
@@ -191,6 +195,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       const to = path;
       const opened = visit.current;
       writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
+      inAir.current.set(to, content);
+      const answered = () => {
+        lower(writing.current, to);
+        if (!writing.current.has(to)) inAir.current.delete(to);
+      };
       // The flush on the way out of a note answers here with that note's
       // closure, after the hook already follows the next one: its slots, its
       // status and its pending text are that one's, and its own event is dropped
@@ -209,7 +218,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // writer of a note makes.
       return (keepalive ? saveNote(path, content, true) : saveNote(path, content)).then(
         (note) => {
-          lower(writing.current, to);
+          answered();
           // The held entry goes when this write carried it: its own text, or
           // text typed on top of the entry the buffer had taken when this was
           // sent. An entry the buffer never showed, held by a flush that failed
@@ -266,7 +275,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // returns early on a write that failed after a `:e!`, and a count
           // lowered under it would leak for the life of the page, leaving that
           // note reading as busy and never written to again.
-          lower(writing.current, to);
+          answered();
           const message = failure instanceof Error ? failure.message : String(failure);
           const held = { content, reason: message, conflicted: wasConflicted, base };
           // An entry held after this went out holds newer text, the hide's,
@@ -348,8 +357,13 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       pending.current = null;
       conflicted.current = false;
       reverts.current += 1;
-      // The other way held text ends: the reader chose the vault's.
-      if (path !== undefined) dropText(path);
+      // The other way held text ends: the reader chose the vault's. A write
+      // still in the air carries text thrown away too, which a hide must not
+      // hold or send again.
+      if (path !== undefined) {
+        dropText(path);
+        inAir.current.delete(path);
+      }
       take(null);
       setStatus("saved");
       setReason(undefined);
@@ -619,11 +633,16 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   useEffect(() => {
     if (path === undefined) return;
     const hide = () => {
-      if (pending.current === null) return;
-      if (pending.current === taken.current?.content) return;
+      // Nothing waiting, but a quiet write may still be in the air, and the page
+      // going away cancels it. Its text is held and sent again with keepalive,
+      // and the quiet write landing after all drops the held copy.
+      const content = pending.current ?? inAir.current.get(path);
+      if (content === undefined) return;
+      if (content === taken.current?.content) return;
+      pending.current = content;
       const stop = conflicted.current || holding.current > 0;
       const entry = {
-        content: pending.current,
+        content,
         reason: "Not yet written when the page was hidden",
         conflicted: conflicted.current,
         base: lastBase(path),
