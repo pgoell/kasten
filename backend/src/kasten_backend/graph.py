@@ -25,10 +25,10 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from kasten_backend.links import split_target
+from kasten_backend.links import named_path, names_a_file, split_target
 from kasten_backend.search import scan_vault
 from kasten_backend.tags import TAG
-from kasten_backend.vault import ASSET_MAGIC, HTML_SUFFIX, SUFFIX, list_markdown_files
+from kasten_backend.vault import SUFFIX, list_markdown_files
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -85,9 +85,6 @@ ANY_RELATION = "*"
 
 ANY_LINK = "links"
 """The predicate, and the `rel:` value, matching every edge, typed or not."""
-
-ASSET_SUFFIXES = frozenset((*ASSET_MAGIC, HTML_SUFFIX))
-"""What a link names when it names a file rather than a note: `![[plan.pdf]]`, `[[report.html]]`."""
 
 
 class GraphError(ValueError):
@@ -175,8 +172,7 @@ def resolver(paths: list[str]) -> Callable[[str], str]:
         by_name.setdefault(path.rsplit("/", 1)[-1].lower(), path)
 
     def resolve(target: str) -> str:
-        typed = split_target(target).name
-        path = typed if typed.endswith(SUFFIX) else f"{typed}{SUFFIX}"
+        path = named_path(split_target(target).name)
         if path in known or "/" in path:
             return path
         return by_name.get(path.lower(), path)
@@ -193,10 +189,9 @@ def _target(written: str) -> str | None:
     note, and an embed of a file, `![[plan.pdf]]`, names a file rather than a note.
     """
     name = split_target(written).name
-    if not name:
+    if not name or names_a_file(name):
         return None
-    suffix = name.rsplit(".", 1)[-1].lower() if "." in name.rsplit("/", 1)[-1] else ""
-    return None if f".{suffix}" in ASSET_SUFFIXES else name
+    return name
 
 
 def _types(hits: Iterable[tuple[str, int, str]]) -> dict[str, str]:

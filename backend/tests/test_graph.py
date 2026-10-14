@@ -207,9 +207,23 @@ async def test_reads_a_heading_and_an_alias_after_a_path(client: AsyncClient, va
         "reading/borges#Ficciones|his stories",
         "borges|and/or",
         "borges|a#b",
+        "report.html",
+        "report.html|x",
+        "plan.pdf",
+        "Plan.PDF",
+        "docs/plan.pdf",
     ],
 )
 def test_resolver_agrees_with_link_path(target: str) -> None:
-    listing = ["borges.md", "reading/borges.md", "z/other.md"]
+    listing = ["borges.md", "plan.pdf", "reading/borges.md", "report.html", "z/other.md"]
 
     assert resolver(listing)(target) == link_path(target, listing)
+
+
+def test_resolver_reads_a_file_link_as_that_file() -> None:
+    # A page and an asset are named by their whole file name, so neither
+    # becomes a note by a `.md` on the end.
+    resolve = resolver(["plan.pdf", "report.html"])
+
+    assert resolve("report.html") == "report.html"
+    assert resolve("plan.pdf") == "plan.pdf"

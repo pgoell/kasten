@@ -77,3 +77,28 @@ describe("toHtml", () => {
     );
   });
 });
+
+describe("a wikilink's alias and heading", () => {
+  it("writes an aliased wikilink as its alias", () => {
+    expect(toSlack("see [[borges|Jorge]]")).toBe("see Jorge");
+    expect(toHtml("see [[borges|Jorge]]")).toBe("<p>see Jorge</p>");
+  });
+
+  it("writes an aliased wikilink in a table cell as its alias", () => {
+    expect(toHtml("| a |\n| - |\n| [[borges\\|Jorge]] |")).toBe(
+      "<table><tr><th>a</th></tr><tr><td>Jorge</td></tr></table>",
+    );
+  });
+
+  it("keeps a heading link without an alias as written", () => {
+    expect(toSlack("[[x#H]]")).toBe("x#H");
+    expect(toHtml("[[x#H]]")).toBe("<p>x#H</p>");
+  });
+
+  it("writes the link inside an embed as its alias", () => {
+    for (const out of [toSlack("![[x|y]]"), toHtml("![[x|y]]")]) {
+      expect(out).toContain("y");
+      expect(out).not.toContain("x|y");
+    }
+  });
+});

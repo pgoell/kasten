@@ -256,8 +256,16 @@ export function outgoingLinks(text: string, paths: string[]): string[] {
   return [...found];
 }
 
-/** What has been typed into an open `[[`, which is what a completion completes. */
-const TYPED = /\[\[[^[\]\n]*/;
+/**
+ * What has been typed into an open `[[`, which is what a completion completes.
+ *
+ * Only the name: a `|` or `#` starts the alias or heading, which no note name
+ * completes, and a table writes its bar `\|`, so a backslash ends it too.
+ */
+const TYPED = /\[\[[^[\]\n|#\\]*/;
+
+/** What follows a name when the rest of the link is already written. */
+const TAIL = /^(\]\]|\\?\||#)/;
 
 /**
  * Every note in the vault, offered inside an open `[[`.
@@ -280,8 +288,9 @@ export function wikiLinkCompletions(context: CompletionContext): CompletionResul
 
   // Typing `[[` leaves the link open: close-brackets answers a `[` with
   // nothing in markdown. So the completion closes what it completes, unless
-  // the pair is already sitting there waiting for a name.
-  const closed = context.state.sliceDoc(context.pos, context.pos + MARK) === "]]";
+  // the rest of the link, the pair or an alias or heading before it, is
+  // already sitting there waiting for a name.
+  const closed = TAIL.test(context.state.sliceDoc(context.pos, context.pos + MARK));
 
   return {
     // Past the opening brackets: they are in the document already, and what a
@@ -293,6 +302,6 @@ export function wikiLinkCompletions(context: CompletionContext): CompletionResul
       const name = path.endsWith(SUFFIX) ? path.slice(0, -SUFFIX.length) : path;
       return { label: name, apply: closed ? name : `${name}]]`, type: "text" };
     }),
-    validFor: /^[^[\]\n]*$/,
+    validFor: /^[^[\]\n|#\\]*$/,
   };
 }

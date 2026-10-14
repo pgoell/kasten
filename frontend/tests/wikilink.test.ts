@@ -236,6 +236,34 @@ describe("wikiLinkCompletions", () => {
     ]);
   });
 
+  // What the document reads once `reading/borges` is accepted with the caret
+  // at `pos`: the completion's span swapped for the option's apply.
+  function accept(doc: string, pos: number) {
+    const result = complete(doc, PATHS, pos);
+    const option = result?.options.find(({ label }) => label === "reading/borges");
+    return doc.slice(0, result?.from) + option?.apply + doc.slice(result?.to ?? pos);
+  }
+
+  it("keeps the alias when the name before it is completed", () => {
+    expect(accept("[[bor|Jo]]", "[[bor".length)).toBe("[[reading/borges|Jo]]");
+  });
+
+  it("keeps the heading when the name before it is completed", () => {
+    expect(accept("[[bor#Head]]", "[[bor".length)).toBe("[[reading/borges#Head]]");
+  });
+
+  it("keeps a table's escaped bar when the name before it is completed", () => {
+    expect(accept("| [[bor\\|Jo]] |", "| [[bor".length)).toBe("| [[reading/borges\\|Jo]] |");
+  });
+
+  it.each([
+    ["an alias", "[[borges|Jo"],
+    ["a heading", "[[borges#He"],
+    ["a table's alias", "[[borges\\|Jo"],
+  ])("offers no note once the caret is in %s", (_, doc) => {
+    expect(complete(doc, PATHS)).toBeNull();
+  });
+
   it("offers nothing outside a wikilink", () => {
     expect(complete("see borges", PATHS)).toBeNull();
   });

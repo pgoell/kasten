@@ -317,6 +317,31 @@ def test_split_target_takes_the_bar_before_the_hash(
     assert split_target(target) == expected
 
 
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        ("report.html", "report.html"),
+        ("report.html|x", "report.html"),
+        ("plan.pdf", "plan.pdf"),
+        ("Plan.PDF", "plan.pdf"),
+        ("docs/plan.pdf", "docs/plan.pdf"),
+        ("photo.png", "photo.png"),
+        ("plan", "plan.md"),
+    ],
+)
+def test_link_path_reads_a_file_link_as_that_file(target: str, expected: str) -> None:
+    assert link_path(target, ["plan.pdf", "report.html"]) == expected
+
+
+def test_follows_a_moved_note_past_links_to_files() -> None:
+    text = "[[x]] [[x#H]] [[x|y]] ![[x#H]] [[plan.pdf]] [[report.html]]\n"
+    paths = ["plan.pdf", "report.html", "x.md"]
+
+    assert relink(text, {"x.md": "z.md"}, paths) == (
+        "[[z]] [[z#H]] [[z|y]] ![[z#H]] [[plan.pdf]] [[report.html]]\n"
+    )
+
+
 def test_leaves_a_link_to_a_heading_of_its_own_note_alone() -> None:
     # `[[#Ficciones]]` names no other note, so no move is anything for it to
     # answer, even one of a file at the path an empty name would make.

@@ -25,6 +25,7 @@ from urllib.parse import unquote
 
 from kasten_backend.search import notes_holding
 from kasten_backend.vault import (
+    ASSET_MAGIC,
     HTML_SUFFIX,
     encode_href,
     list_html,
@@ -36,6 +37,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 SUFFIX = ".md"
+
+FILE_SUFFIXES = (HTML_SUFFIX, *ASSET_MAGIC)
+"""What a link's name ends in when it names a file, not a note: `[[report.html]]`, `[[a.pdf]]`."""
 
 WIKILINK = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 """One `[[link]]`, spelled the way the editor's parser spells it.
@@ -80,6 +84,27 @@ def split_target(target: str) -> Target:
     return Target(name.strip(), heading.strip() or None, alias.strip() or None)
 
 
+def names_a_file(name: str) -> bool:
+    """Whether a link's name, already split, names a page or an asset rather than a note.
+
+    Ignoring case, the way a bare name is looked up, so `[[Plan.PDF]]` is the
+    pdf and not a note called `Plan.PDF.md`. Only the last segment counts, so a
+    folder with a dot in it names no file.
+    """
+    return name.rsplit("/", 1)[-1].lower().endswith(FILE_SUFFIXES)
+
+
+def named_path(name: str) -> str:
+    """The path a link's name spells: the file as written, or the note with `.md` on.
+
+    The one rule `link_path` and the graph's `resolver` both read, so the note a
+    rename follows is the note the graph draws an edge to.
+    """
+    if names_a_file(name) or name.endswith(SUFFIX):
+        return name
+    return f"{name}{SUFFIX}"
+
+
 def link_path(target: str, paths: list[str]) -> str:
     """The vault path `[[target]]` names, whether or not a note is there.
 
@@ -94,10 +119,9 @@ def link_path(target: str, paths: list[str]) -> str:
     and not about which note a link names: what this feeds is a mapping keyed by
     notes that exist, which a path nothing answers to is not in either way.
     """
-    typed = split_target(target).name
-    # A page of HTML is named by its whole file name, so `[[report.html]]` and
-    # `[[report]]` are two files.
-    path = typed if typed.endswith((SUFFIX, HTML_SUFFIX)) else f"{typed}{SUFFIX}"
+    # A page or an asset is named by its whole file name, so `[[report.html]]`
+    # and `[[report]]` are two files.
+    path = named_path(split_target(target).name)
     if path in paths or "/" in path:
         return path
 

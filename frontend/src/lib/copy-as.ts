@@ -15,7 +15,7 @@ import { GFM, parser } from "@lezer/markdown";
 import { Highlight } from "@/lib/markdown-highlight";
 import { noteBody } from "@/lib/note-frontmatter";
 import { Tag } from "@/lib/tag";
-import { WikiLink } from "@/lib/wikilink";
+import { splitTarget, WikiLink } from "@/lib/wikilink";
 
 type Format = "slack" | "html";
 
@@ -121,8 +121,11 @@ function span(node: SyntaxNode, source: string, format: Format): string {
       return format === "html"
         ? `<mark>${inline(node, source, format)}</mark>`
         : inline(node, source, format);
-    case "WikiLink":
-      return prose(text.slice(2, -2), format);
+    case "WikiLink": {
+      // What live preview shows: the alias, else the target as written.
+      const target = text.slice(2, -2);
+      return prose(splitTarget(target).alias ?? target, format);
+    }
     case "Link":
     case "Image": {
       // `[label](url)`: the label runs from after the first bracket to the
