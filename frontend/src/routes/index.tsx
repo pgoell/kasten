@@ -56,7 +56,7 @@ import { visible } from "@/lib/archive";
 import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { queryEmbedSource } from "@/lib/embed";
-import { heldText, useHeld } from "@/lib/held-text";
+import { heldText, moveHeld, useHeld } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { MoveMode } from "@/lib/move";
@@ -440,6 +440,12 @@ function Home() {
   // query so the editor is not handed it. A failed read leaves the diff out,
   // and the buttons under it still settle the conflict.
   const [vaultSide, setVaultSide] = useState<{ path: string; text: string }>();
+  // Raised by the stream for each write to the focused note it declined to
+  // reload. A second outside write keeps the status at "conflict", and without
+  // this the diff would stay on the first: a merge made from it, then `:w`,
+  // would put the reader's text over a write they were never shown.
+  const [declined, setDeclined] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `declined` is the trigger, and is not read.
   useEffect(() => {
     const path = pane.path;
     if (status !== "conflict" || path === undefined) return;
@@ -456,7 +462,7 @@ function Home() {
     return () => {
       live = false;
     };
-  }, [status, pane.path]);
+  }, [status, pane.path, declined]);
   const typed = useCallback(
     (doc: string) => {
       change(doc);
@@ -641,6 +647,8 @@ function Home() {
             { queryKey: ["note", event.path] },
             { cancelRefetch: false },
           );
+        } else {
+          setDeclined((previous) => previous + 1);
         }
         // A todo written by an agent or over ssh reaches the pane without a
         // reload. Ahead of the early return below, which fires for a write to
@@ -1226,6 +1234,10 @@ function Home() {
    * in the tree both land here.
    */
   const followMove = useCallback((mode: MoveMode, startPath: string, path: string) => {
+    // Held text goes too, it being kept by path: left under the old one, the
+    // bar would list a note the vault no longer has, and opening it at the
+    // new one would never offer the text again.
+    moveHeld((held) => noteAfterPrompt(mode, startPath, path, held));
     setLayout((previous) =>
       mapPanes(previous, (shown) => {
         const next = noteAfterPrompt(mode, startPath, path, shown.path);
@@ -2191,8 +2203,17 @@ function Home() {
                         // typing is reported alone: the autosave follows that pane,
                         // so any other pane asking would be handing it a question
                         // about a note it is not holding. An unfocused pane cannot
-                        // be typed into, so it is always clean and always reloads.
-                        allowReload={focused ? allowReload : undefined}
+                        // be typed into, so it reloads, unless its note was left
+                        // there conflicted: it is still showing the kept text, and
+                        // a reload would put the vault's on screen in its place.
+                        // Coming back then finds a buffer that is not the held
+                        // text, restores nothing, and reads "Saved" under a bar
+                        // that says the note changed on disk.
+                        allowReload={
+                          focused
+                            ? allowReload
+                            : () => shown.path === undefined || !heldText(shown.path)?.conflicted
+                        }
                         // The focused pane alone, for the reason its typing is
                         // reported alone: the note this reads is the one the
                         // autosave follows, which is the note in that pane.

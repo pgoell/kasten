@@ -524,13 +524,22 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // The vault holds what the buffer holds, whoever wrote it there, so
       // nothing is left to write or to settle: a conflict over it, or a held
       // entry of it, is over. Yes, so the reload brings the `modified` stamp
-      // onto the screen.
+      // onto the screen. Only that entry goes: one held by a flush that failed
+      // after the reopen holds text the buffer never showed, kept as `write`
+      // keeps it.
       if (sameText(text, pending.current)) {
         pending.current = null;
         conflicted.current = false;
         if (timer.current) clearTimeout(timer.current);
         timer.current = null;
-        if (path !== undefined) dropText(path);
+        const entry = path === undefined ? undefined : heldText(path);
+        if (
+          path !== undefined &&
+          entry &&
+          (entry === taken.current || sameText(entry.content, text))
+        ) {
+          dropText(path);
+        }
         take(null);
         setStatus("saved");
         setReason(undefined);
@@ -641,6 +650,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           conflicted: true,
           base: lastBase(path),
         };
+        // Counted as the write the flush would have been: an event held for
+        // this note settles later against `saves`, and an unchanged count
+        // would let it mark the next note's pending text conflicted.
+        saves.current += 1;
         holdText(path, entry);
         heldAt.current.set(entry, saves.current);
         if (timer.current) clearTimeout(timer.current);

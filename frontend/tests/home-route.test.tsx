@@ -1108,6 +1108,36 @@ describe("the route", () => {
     expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
   });
 
+  it("keeps the kept text on screen in the pane left behind through another outside write", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.leader("o");
+    await settle();
+    app.press("x");
+    somebodyElseWrote();
+    await settle();
+    app.focusPane(1);
+    await settle();
+
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "a third writer's note" : VAULT[path],
+    );
+    act(() => stream().send({ path: "index.md", change: "written", digest: "b".repeat(64) }));
+    await settle();
+    app.focusPane(0);
+    await settle();
+
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Changed on disk");
+    expect(app.diff()).toContain("- a third writer's note");
+    expect(app.diff()).toContain("+ he index note");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
   it("leaves a conflicted note for another note without writing, and lists it", async () => {
     // Into the other pane first: a click in the tree opens in the focused pane,
     // and over a conflicted note that is refused, as the test above pins.
@@ -1173,6 +1203,46 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
+  it("carries a conflicted note's kept text through a move of the note", async () => {
+    // Held text is keyed by path, so a move that left it under the old one
+    // would list a note the vault no longer has and never offer the text again.
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
+    act(() => view?.dispatch({ changes: { from: 0, to: 1 } }));
+    somebodyElseWrote();
+    await settle();
+    await app.navigate("/capture");
+    await settle();
+    await app.navigate("/");
+    await settle();
+    expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
+
+    renameNote.mockResolvedValue({ path: "moved.md", content: "somebody else's note" });
+    fetchFiles.mockResolvedValue(["moved.md", "other.md"]);
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "moved.md" ? "somebody else's note" : VAULT[path],
+    );
+    // The tree's cursor opens on its first row, which is index.md.
+    app.leader("e");
+    await settle();
+    fireEvent.keyDown(app.tree(), { key: "r" });
+    await settle();
+    app.fill("moved.md");
+    await settle();
+
+    expect(heldText("index.md")).toBeUndefined();
+    expect(app.heldConflict()).toBe("Changed on disk: moved");
+
+    app.click("moved.md");
+    await settle();
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Changed on disk");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
   it("shows the other writer's text in the diff of a conflict raised while the note is open", async () => {
     const app = await editing();
     fetchNote.mockImplementation(async (path: string) =>
@@ -1185,6 +1255,26 @@ describe("the route", () => {
     expect(app.text()).toBe("he index note");
     expect(app.diff()).toContain("- somebody else's note");
     expect(app.diff()).toContain("+ he index note");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("shows the diff against the newest vault text when it changes again during a live conflict", async () => {
+    const app = await editing();
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "somebody else's note" : VAULT[path],
+    );
+    somebodyElseWrote();
+    await settle();
+    expect(app.diff()).toContain("- somebody else's note");
+
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "a third writer's note" : VAULT[path],
+    );
+    act(() => stream().send({ path: "index.md", change: "written", digest: "b".repeat(64) }));
+    await settle();
+
+    expect(app.diff()).toContain("- a third writer's note");
+    expect(app.text()).toBe("he index note");
     expect(saveNote).not.toHaveBeenCalled();
   });
 

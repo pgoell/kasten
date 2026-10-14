@@ -1,5 +1,13 @@
 import { act, renderHook } from "@testing-library/react";
-import { dropText, heldText, holdText, resetHeld, sameText, useHeld } from "@/lib/held-text";
+import {
+  dropText,
+  heldText,
+  holdText,
+  moveHeld,
+  resetHeld,
+  sameText,
+  useHeld,
+} from "@/lib/held-text";
 
 const entry = { content: "# left behind", reason: "failed with 500", conflicted: false };
 
@@ -56,6 +64,29 @@ describe("held text", () => {
     expect(result.current).toEqual([
       { path: "other.md", reason: "failed with 500", conflicted: false },
     ]);
+  });
+
+  it("moves held text to the note's new path", () => {
+    holdText("Inbox/a.md", entry);
+    holdText("Other/b.md", entry);
+
+    moveHeld((path) => (path.startsWith("Inbox/") ? `Done/${path.slice(6)}` : undefined));
+    resetHeld();
+
+    expect(heldText("Done/a.md")).toEqual(entry);
+    expect(heldText("Inbox/a.md")).toBeUndefined();
+    expect(heldText("Other/b.md")).toEqual(entry);
+  });
+
+  it("leaves held text where it is when the new path already holds some", () => {
+    const theirs = { ...entry, content: "# already held there" };
+    holdText("a.md", entry);
+    holdText("b.md", theirs);
+
+    moveHeld((path) => (path === "a.md" ? "b.md" : undefined));
+
+    expect(heldText("a.md")).toEqual(entry);
+    expect(heldText("b.md")).toEqual(theirs);
   });
 
   it("lists whether each held note stands conflicted", () => {

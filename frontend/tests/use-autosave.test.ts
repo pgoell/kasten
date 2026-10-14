@@ -443,6 +443,23 @@ describe("useAutosave", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
+  it("keeps a held entry the buffer never showed when the vault comes to hold the buffer's text", async () => {
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+
+    note.change("# typed");
+    note.open("daily/2026-08-05.md");
+    note.open("index.md");
+    // Refused a take while the flush is in the air, so the buffer never shows it.
+    expect(note.allowReload("the index note")).toBe(true);
+    note.change("# typed more");
+    await flush.break();
+    expect(heldText("index.md")?.content).toBe("# typed");
+
+    expect(note.allowReload("# typed more")).toBe(true);
+    expect(heldText("index.md")?.content).toBe("# typed");
+  });
+
   it("takes anything from the vault while nothing is waiting", async () => {
     const note = renderAutosave();
 
@@ -1059,6 +1076,22 @@ describe("useAutosave", () => {
     expect(saveNote).not.toHaveBeenCalled();
     expect(heldText("index.md")).toMatchObject({ content: "# edited", conflicted: true });
     expect(note.status()).toBe("saved");
+  });
+
+  it("leaving with an event still being placed does not mark the next note conflicted", async () => {
+    const note = renderAutosave("index.md");
+    const other = await digestOf("somebody else's text");
+
+    note.change("# edited");
+    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
+    note.reconcile(other);
+    note.open("daily/2026-08-05.md");
+    note.change("# daily");
+    await hashed();
+
+    expect(note.status()).not.toBe("conflict");
+    await idle();
+    expect(saveNote).toHaveBeenCalledWith("daily/2026-08-05.md", "# daily");
   });
 
   it("reopens a conflicted note left behind as a conflict, and writes nothing on the quiet period", async () => {

@@ -140,6 +140,28 @@ export function dropText(path: string): void {
   changed(held);
 }
 
+/**
+ * Carry held text along a move, `to` answering each path's new one or nothing.
+ *
+ * The map is keyed by path, so text held for a note that is then moved would
+ * stay listed under a path the vault no longer has, and opening the note at
+ * its new one would never offer it again.
+ */
+export function moveHeld(to: (path: string) => string | undefined): void {
+  const held = sync();
+  let moved = false;
+  for (const [path, entry] of [...held]) {
+    const next = to(path);
+    // Never over text already held at the new path: both stay listed, each
+    // still to be dealt with, rather than one lost without a word.
+    if (next === undefined || next === path || held.has(next)) continue;
+    held.delete(path);
+    held.set(next, entry);
+    moved = true;
+  }
+  if (moved) changed(held);
+}
+
 export function heldText(path: string): Held | undefined {
   return load().get(path);
 }
