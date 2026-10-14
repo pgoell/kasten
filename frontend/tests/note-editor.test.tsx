@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Editor } from "@/components/editor";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
+import { resetHeld } from "@/lib/held-text";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
 
@@ -180,6 +181,10 @@ describe("an open note", () => {
     cleanup();
     fetchNote.mockReset();
     saveNote.mockReset();
+    // A failed write holds its text past the test that made it, and the next
+    // test's note would open on it.
+    localStorage.removeItem("kasten.held");
+    resetHeld();
   });
 
   it("opens the note's text in the editor", async () => {
