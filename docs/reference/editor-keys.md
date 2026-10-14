@@ -1747,6 +1747,11 @@ pointer rather than the nearest position to it, so the space after the line is
 not the link. With live preview off there is no rendered link to click, and
 `gf` is the way.
 
+Ctrl+click on a markdown link, `[mail](https://mail.google.com/...)`, opens
+its address in a new tab. Only an address with a scheme opens; a relative
+one such as `[notes](notes.md)` does nothing. `gf`, Enter and a tap leave
+markdown links alone.
+
 A tap on a touch screen follows the link with no modifier. A finger that lands on a link and drags scrolls the note and follows
 nothing. A tap on the link the cursor is already in moves the cursor, so to
 edit a link, put the cursor beside it and move in with the arrow keys or

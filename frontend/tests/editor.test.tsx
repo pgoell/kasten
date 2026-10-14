@@ -185,6 +185,32 @@ describe("Editor", () => {
     expect(onFollow).not.toHaveBeenCalled();
   });
 
+  it("opens a markdown link's address in a new tab on ctrl+click", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc="see [mail](https://mail.google.com/mail/u/0/#all/1a) now" />,
+    );
+
+    fireEvent.mouseDown(container.querySelector(".cm-link") as HTMLElement, { ctrlKey: true });
+
+    expect(open).toHaveBeenCalledWith(
+      "https://mail.google.com/mail/u/0/#all/1a",
+      "_blank",
+      "noopener",
+    );
+    open.mockRestore();
+  });
+
+  it("opens nothing on ctrl+click on a markdown link with a relative address", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(<Editor initialDoc="see [notes](notes.md) now" />);
+
+    fireEvent.mouseDown(container.querySelector(".cm-link") as HTMLElement, { ctrlKey: true });
+
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
   it("stays put on ctrl+click off a wikilink", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="plain words here" onFollow={onFollow} />);

@@ -1,6 +1,7 @@
 import { acceptCompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
+import { syntaxTree } from "@codemirror/language";
 import {
   Annotation,
   Compartment,
@@ -11,6 +12,7 @@ import {
 } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import type { SyntaxNode } from "@lezer/common";
 import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
@@ -283,16 +285,46 @@ const byName = viewCommands.of({
  * in the space after the line is not. `posAtDOM` needs no layout for that,
  * which a test in jsdom also needs. The plain click is left alone, because
  * putting the cursor in a link is how the link gets edited.
+ *
+ * A markdown link to an address opens it in a new tab, so the note stays open
+ * behind it.
  */
 const followOnClick = EditorView.domEventHandlers({
   mousedown(event, view) {
     if (!event.ctrlKey && !event.metaKey) return false;
     const target = linkUnder(event, view);
-    if (target === null) return false;
-    view.state.facet(followHandler)?.(target);
+    if (target !== null) {
+      view.state.facet(followHandler)?.(target);
+      return true;
+    }
+    const url = urlUnder(event, view);
+    if (url === null) return false;
+    window.open(url, "_blank", "noopener");
     return true;
   },
 });
+
+/**
+ * The address the rendered `[text](url)` under the pointer points at, or null.
+ *
+ * Only an address with a scheme: a relative one would resolve against kasten's
+ * own page, not the vault, and open nothing useful.
+ */
+function urlUnder(event: Event, view: EditorView): string | null {
+  const element = event.target instanceof HTMLElement ? event.target.closest(".cm-link") : null;
+  if (element === null) return null;
+  for (
+    let node: SyntaxNode | null = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
+    node !== null;
+    node = node.parent
+  ) {
+    if (node.name !== "Link") continue;
+    const url = node.getChild("URL");
+    const address = url === null ? "" : view.state.sliceDoc(url.from, url.to);
+    return /^[a-z][a-z0-9+.-]*:/i.test(address) ? address : null;
+  }
+  return null;
+}
 
 /** The note the rendered link under the pointer names, or null off one. */
 function linkUnder(event: Event, view: EditorView): string | null {
