@@ -46,8 +46,11 @@ shared with wav and avi, and the tag that separates them sits at byte eight.
 One prefix per suffix is worth more than that exactness on a check nothing
 downstream relies on.
 
-Lowercase, the way `SUFFIX` is: a file called `PHOTO.PNG` is not one the vault
-serves, and the same is already true of a note called `NOTES.MD`.
+Lowercase keys, matched ignoring case: `PHOTO.PNG` and `Plan.PDF` are assets,
+the way Obsidian finds them, because a file copied in over the terminal keeps
+the name its camera or its scanner gave it. Every lookup lowers the suffix
+first. A note is the exception, `SUFFIX` matching exactly, so `NOTES.MD` is
+still not a note.
 """
 
 IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES)))
@@ -87,20 +90,20 @@ def list_images(root: Path) -> list[str]:
     back from rather than a listing of the one folder a paste writes into, so an
     image dropped in over the terminal completes too.
     """
-    return _list_files(root, IMAGE_SUFFIXES)
+    return _list_files(root, IMAGE_SUFFIXES, ignore_case=True)
 
 
 def list_html(root: Path) -> list[str]:
     """Return every HTML page under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, (HTML_SUFFIX,))
+    return _list_files(root, (HTML_SUFFIX,), ignore_case=True)
 
 
 def list_assets(root: Path) -> list[str]:
     """Return every image and book under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, tuple(ASSET_MAGIC))
+    return _list_files(root, tuple(ASSET_MAGIC), ignore_case=True)
 
 
-def _list_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
+def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = False) -> list[str]:
     """Return every file under `root` whose name ends in one of `suffixes`.
 
     Hidden files and directories are skipped, which keeps `.git` and editor
@@ -120,6 +123,9 @@ def _list_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
     A directory is walked and never listed, the suffix on its name
     notwithstanding. `resolve_note` refuses one, so a folder called `notes.md`
     used to be a row in the tree that answered 404 when you opened it.
+
+    `ignore_case` is for the files beside the notes, which `ASSET_MAGIC` says
+    why; the notes walk without it.
     """
     if not root.is_dir():
         return []
@@ -136,7 +142,7 @@ def _list_files(root: Path, suffixes: tuple[str, ...]) -> list[str]:
                 # the other side. `rglob` declined one for the same reason.
                 if entry.is_dir(follow_symlinks=False):
                     walk(entry.path, f"{prefix}{entry.name}/")
-                elif entry.name.endswith(suffixes):
+                elif (entry.name.lower() if ignore_case else entry.name).endswith(suffixes):
                     found.append(f"{prefix}{entry.name}")
 
     walk(str(root), "")
@@ -223,7 +229,7 @@ def resolve_asset_path(root: Path, relative: str) -> Path | None:
     the one rule that differs, and it is the one rule out here.
     """
     path = _resolve_inside(root, relative)
-    if path is None or path.suffix not in ASSET_MAGIC:
+    if path is None or path.suffix.lower() not in ASSET_MAGIC:
         return None
 
     return path
@@ -250,7 +256,7 @@ def resolve_html(root: Path, relative: str) -> Path | None:
     for the reason it gives there.
     """
     path = _resolve_inside(root, relative)
-    if path is None or path.suffix != HTML_SUFFIX or not path.is_file():
+    if path is None or path.suffix.lower() != HTML_SUFFIX or not path.is_file():
         return None
 
     return path
@@ -458,12 +464,16 @@ def make_folders(folder: Path) -> list[Path]:
 
 
 def encode_href(href: str) -> str:
-    """`href` with the four characters that end or garble a markdown link escaped.
+    """`href` with the six characters that end or garble a markdown link escaped.
 
     Not `quote`, which would turn every accented letter into a `%C3` too. A
-    reader of the raw file should see the name it was given.
+    reader of the raw file should see the name it was given. `#` and `?` are in
+    because a reader cuts the path at the first of either, so `plan #2.pdf`
+    written raw is a link to `plan `. `%` goes first, or it would escape the
+    escapes.
     """
-    for raw, escaped in (("%", "%25"), (" ", "%20"), ("(", "%28"), (")", "%29")):
+    pairs = (("%", "%25"), (" ", "%20"), ("(", "%28"), (")", "%29"), ("#", "%23"), ("?", "%3F"))
+    for raw, escaped in pairs:
         href = href.replace(raw, escaped)
     return href
 

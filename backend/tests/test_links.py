@@ -7,7 +7,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from kasten_backend.links import FILE_SUFFIXES, code_spans, link_path, relink, split_target
+from kasten_backend.links import (
+    FILE_SUFFIXES,
+    code_spans,
+    link_path,
+    relink,
+    relink_markdown,
+    split_target,
+)
 from kasten_backend.search import SearchError, notes_holding
 
 if TYPE_CHECKING:
@@ -602,6 +609,113 @@ def test_reads_a_fence_with_windows_line_endings() -> None:
     text = "~~~\r\n[[x]]\r\n~~~\r\n[[x]]\r\n"
 
     assert relink(text, {"x.md": "y.md"}, ["x.md"]) == "~~~\r\n[[x]]\r\n~~~\r\n[[y]]\r\n"
+
+
+async def test_follows_a_markdown_link_to_the_book_a_moved_note_carries(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "books").mkdir()
+    (vault / "notes").mkdir()
+    (vault / "books" / "Ulysses.md").write_text("# Ulysses")
+    (vault / "books" / "Ulysses.pdf").write_bytes(BOOK)
+    (vault / "notes" / "reading.md").write_text("[the book](../books/Ulysses.pdf)\n")
+
+    await client.patch("/api/files/books/Ulysses.md", json={"path": "shelf/Joyce.md"})
+
+    assert (vault / "shelf" / "Joyce.pdf").read_bytes() == BOOK
+    assert (vault / "notes" / "reading.md").read_text() == "[the book](../shelf/Joyce.pdf)\n"
+
+
+async def test_leaves_a_markdown_link_to_a_book_held_back(client: AsyncClient, vault: Path) -> None:
+    # The landing is taken, so the book stays, and the link points where it stays.
+    (vault / "books").mkdir()
+    (vault / "shelf").mkdir()
+    (vault / "books" / "Ulysses.md").write_text("# Ulysses")
+    (vault / "books" / "Ulysses.pdf").write_bytes(BOOK)
+    (vault / "shelf" / "Joyce.pdf").write_bytes(b"%PDF-1.7 another book")
+    (vault / "index.md").write_text("[the book](books/Ulysses.pdf) [the note](books/Ulysses.md)\n")
+
+    await client.patch("/api/files/books/Ulysses.md", json={"path": "shelf/Joyce.md"})
+
+    assert (vault / "books" / "Ulysses.pdf").read_bytes() == BOOK
+    assert (vault / "index.md").read_text() == (
+        "[the book](books/Ulysses.pdf) [the note](shelf/Joyce.md)\n"
+    )
+
+
+async def test_follows_a_markdown_link_to_a_folder_that_moved(
+    client: AsyncClient, vault: Path
+) -> None:
+    # A folder is in no mapping of files, so its link lands by the move itself.
+    (vault / "reading").mkdir()
+    (vault / "reading" / "borges.md").write_text("# borges")
+    (vault / "reading" / "plan.pdf").write_bytes(BOOK)
+    (vault / "index.md").write_text("[x](reading/) [p](reading/plan.pdf)\n")
+
+    await client.patch("/api/folders/reading", json={"path": "archive"})
+
+    assert (vault / "index.md").read_text() == "[x](archive/) [p](archive/plan.pdf)\n"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "> ```\n> [[x]]\n> ```\n",
+        "> quote\n>\n> ```md\n> see [[x]] and [t](x.md)\n> ```\n",
+        "- a\n    - b\n\n        ```\n        [[x]]\n        ```\n",
+        "- a\n  - b\n\n    ~~~\n    [[x]]\n    ~~~\n",
+    ],
+)
+def test_leaves_a_link_in_a_nested_fence_as_written(text: str) -> None:
+    # A fence inside a blockquote or a list item is code all the same, though
+    # its lines start with `> ` or with more than three spaces.
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == text
+    assert relink_markdown(text, "index.md", "index.md", "x.md", "y.md") == text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "> [[x]]\n> ```\n> [[x]]\n> ```\n> [[x]]\n",
+            "> [[y]]\n> ```\n> [[x]]\n> ```\n> [[y]]\n",
+        ),
+        (
+            "- a\n    - [[x]]\n\n        ```\n        [[x]]\n        ```\n    - [[x]]\n",
+            "- a\n    - [[y]]\n\n        ```\n        [[x]]\n        ```\n    - [[y]]\n",
+        ),
+        # Nobody closed the fence, and it ends with the blockquote holding it.
+        ("> ```\n> [[x]]\n\n[[x]]\n", "> ```\n> [[x]]\n\n[[y]]\n"),
+    ],
+)
+def test_follows_a_link_beside_a_nested_fence(text: str, expected: str) -> None:
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == expected
+
+
+def test_reads_a_nested_fence_with_windows_line_endings() -> None:
+    text = "> ```\r\n> [[x]]\r\n> ```\r\n[[x]] `[[x]]`\r\n"
+
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == (
+        "> ```\r\n> [[x]]\r\n> ```\r\n[[y]] `[[x]]`\r\n"
+    )
+
+
+def test_reads_a_carriage_return_as_no_line_break() -> None:
+    # Splitting on the line feed alone, a lone `\r` sits mid-line and opens no
+    # fence, and the parser must count the lines the same way.
+    text = "a\r```\n[[x]]\n```\n[[x]]\n```\n"
+
+    assert relink(text, {"x.md": "y.md"}, ["x.md"]) == "a\r```\n[[y]]\n```\n[[x]]\n```\n"
+
+
+def test_reads_code_of_a_long_note_full_of_fences_in_time() -> None:
+    # The note is parsed once, and in blocks only, for the same event loop.
+    text = "para `c` [[x]]\n\n```py\n[[x]]\n```\n\n> ```\n> q\n> ```\n- item\n\n" * 1000
+    began = time.perf_counter()
+
+    code_spans(text)
+
+    assert time.perf_counter() - began < 0.5
 
 
 def test_relinks_a_long_note_full_of_code_in_time() -> None:

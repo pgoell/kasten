@@ -9,6 +9,7 @@ import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/em
 import { imagePaths, imageSource } from "@/lib/image";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
+import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import { readRelation } from "@/lib/relation";
 import { type Align, alignsOf, isRow } from "@/lib/table";
@@ -804,7 +805,7 @@ function build(state: EditorState): Live {
         // finds its note by. Anything else is a note, or nothing.
         const image = images === null ? null : resolveIn(name, images);
         const picture =
-          image !== null && images?.includes(image) ? imageSource(encodeURI(image)) : null;
+          image !== null && images?.includes(image) ? imageSource(encodePath(image)) : null;
 
         const source = state.facet(embedSource);
         const label = heading === null ? name : `${name}#${heading}`;

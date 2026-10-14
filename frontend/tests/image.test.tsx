@@ -3,6 +3,7 @@ import { EditorState } from "@codemirror/state";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { IMAGE_FOLDER, imageCompletions, imagePaths } from "@/lib/image";
+import { ARCHIVE, applyLayout, INBOX, type Layout, PERIODIC } from "@/lib/layout";
 
 // The upload is the one thing here that leaves the browser. Standing in for the
 // module is the right level: what these tests own is which path the paste writes
@@ -11,6 +12,15 @@ const { uploadAsset } = vi.hoisted(() => ({ uploadAsset: vi.fn() }));
 vi.mock("@/lib/api", () => ({ uploadAsset }));
 
 const SHOT = `${IMAGE_FOLDER}/2026-08-12-abcdef01.png`;
+
+/** The default folders, which a test that serves another images folder puts back. */
+const LAYOUT: Layout = {
+  inbox: INBOX,
+  periodic: PERIODIC,
+  archive: ARCHIVE,
+  images: IMAGE_FOLDER,
+  config: "99 Misc/01 Config",
+};
 
 /** The path as a note spells it, which is the one a markdown destination takes. */
 const ENCODED = encodeURI(SHOT);
@@ -58,6 +68,14 @@ describe("rendering an image", () => {
 
     await waitFor(() => expect(container.querySelector("img.cm-image")).toBeNull());
     expect(container.querySelector(".cm-content")?.textContent).toContain(`![a shot](${ENCODED})`);
+  });
+
+  it("draws a picture whose name holds # or ?, from the path the note spelled", () => {
+    const { container } = open("![a plan](99%20Misc/plan%20%232%3F.png)");
+
+    expect(container.querySelector("img.cm-image")?.getAttribute("src")).toBe(
+      "/api/assets/99%20Misc/plan%20%232%3F.png",
+    );
   });
 
   it("draws an https address as it stands, sending no referrer", () => {
@@ -137,6 +155,12 @@ describe("completing an image path", () => {
     expect(found?.from).toBe("![](".length);
   });
 
+  it("writes # and ? in a name escaped, so the note's path does not end at them", () => {
+    const found = offered("![](", ["99 Misc/plan #2?.png"]);
+
+    expect(found?.options[0]?.apply).toBe("99%20Misc/plan%20%232%3F.png");
+  });
+
   it("keeps offering them as the path is typed", () => {
     expect(offered("![](99%20Misc/02")?.options).toHaveLength(1);
   });
@@ -169,6 +193,22 @@ describe("pasting an image", () => {
     // and the vault overwriting nothing.
     expect(path).toMatch(new RegExp(`^${IMAGE_FOLDER}/\\d{4}-\\d{2}-\\d{2}-[\\da-f]{8}\\.png$`));
     await waitFor(() => expect(doc()).toBe(`![](${encodeURI(path)})`));
+  });
+
+  it("escapes # and ? in the images folder the vault named", async () => {
+    const images = IMAGE_FOLDER;
+    applyLayout({ ...LAYOUT, images: "Files #1/what?" });
+    try {
+      const { editor, doc } = open("");
+      pasteImage(editor);
+
+      await waitFor(() => expect(uploadAsset).toHaveBeenCalledTimes(1));
+      const [path] = uploadAsset.mock.lastCall as [string, File];
+      const name = path.slice(path.lastIndexOf("/") + 1);
+      await waitFor(() => expect(doc()).toBe(`![](Files%20%231/what%3F/${name})`));
+    } finally {
+      applyLayout({ ...LAYOUT, images });
+    }
   });
 
   it("writes nothing into the note when the vault refuses", async () => {

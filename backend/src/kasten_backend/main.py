@@ -1010,7 +1010,9 @@ async def delete_asset(
     """
     async with vault_write():
         asset = resolve_asset(settings.vault_path, path)
-        if asset is None or asset.suffix in BOOK_SUFFIXES:
+        # Lowered, because `resolve_asset` answers for `Plan.PDF` too, and a
+        # book missed here is one this deletes.
+        if asset is None or asset.suffix.lower() in BOOK_SUFFIXES:
             raise HTTPException(status_code=404, detail="No such image")
 
         relative = relative_path(settings.vault_path, asset)

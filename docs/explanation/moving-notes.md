@@ -51,9 +51,9 @@ left alone, because it still lands where it did, and that is what keeps a moved
 folder's own index working.
 
 A link that does not need to change keeps its spelling. One that does is written
-the short way from where it now sits. Only four characters are escaped, `%`,
-space, `(` and `)`, the ones that end or garble a link, so an accented name
-stays readable in the raw file.
+the short way from where it now sits. Only six characters are escaped, `%`,
+space, `(`, `)`, `#` and `?`, the ones that end, garble or cut a link, so an
+accented name stays readable in the raw file.
 
 ## Why a drop asks and the prompt does not
 

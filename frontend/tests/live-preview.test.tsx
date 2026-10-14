@@ -784,6 +784,19 @@ describe("an embed", () => {
     expect(vault.watched).toEqual([]);
   });
 
+  it("loads an image whose name holds ?", () => {
+    // `?` and not `#`: `![[plan #2.png]]` embeds the heading `2.png` of `plan `.
+    // Ahead of `plain`'s own listing, the facet taking the first it is given.
+    const view = mount(`${ABOVE}![[plan?.png]]`, [
+      imagePaths.of(["99 Misc/plan?.png"]),
+      ...plain(fakeVault({}).source),
+    ]);
+
+    expect(view.dom.querySelector("img.cm-image")?.getAttribute("src")).toBe(
+      "/api/assets/99%20Misc/plan%3F.png",
+    );
+  });
+
   it("says so where the note or the heading is missing", () => {
     const vault = fakeVault({ "b.md": "# B\nbody" });
 

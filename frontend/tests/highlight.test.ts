@@ -118,6 +118,13 @@ describe("addHighlight", () => {
     );
   });
 
+  it("escapes # and ? in the figure's path, so the destination does not end at them", () => {
+    const image = "99 Misc/plan #2?.png";
+    expect(addHighlight(NOTE, { text: QUOTE, chapter: CHAPTER, image }, ID)).toBe(
+      quoted("![](99%20Misc/plan%20%232%3F.png)", "", `> ${QUOTE}`),
+    );
+  });
+
   it("writes a figure taken with no words as the whole block", () => {
     // What a drag over a plate gives: `selection.toString()` is empty and the
     // picture is the passage.

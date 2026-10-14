@@ -101,9 +101,10 @@ Lists every image in the vault as a relative POSIX path, sorted.
 ```
 
 The same walk `/api/files` makes, filtered on the image suffixes instead of
-`.md`: `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, lowercase. Hidden files and
-directories are skipped the same way, and a vault that does not exist reads as
-an empty one.
+`.md`: `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, in any case, so
+`PHOTO.PNG` is listed. A note's `.md` is matched exactly, so `NOTES.MD` is not a
+note. Hidden files and directories are skipped the same way, and a vault that
+does not exist reads as an empty one.
 
 Its own listing rather than rows in `/api/files`, which the tree, the finder,
 search and the link rewrite all read: an image is not a note and has no business
@@ -118,7 +119,7 @@ Lists every HTML page in the vault as a relative POSIX path, sorted.
 ["00 Inbox/research/spec-driven-development/report.html"]
 ```
 
-The same walk `/api/images` makes, filtered on `.html`, lowercase. `.htm` is not
+The same walk `/api/images` makes, filtered on `.html` in any case. `.htm` is not
 listed. The file tree reads this to draw a page as a row beside the notes.
 
 ## GET /api/html/{path}
@@ -630,7 +631,7 @@ Lists every image and book in the vault as a relative POSIX path, sorted.
 ```
 
 The same walk `/api/images` makes, filtered on every suffix an upload takes:
-`.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, lowercase. The
+`.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, in any case. The
 editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
 and as dead when it does not.
 
@@ -640,8 +641,9 @@ same URL would make it mean two things.
 ## GET /api/assets/{path}
 
 Reads one book or image out of the vault and answers with the bytes. `path` is a
-vault-relative POSIX path ending in one of seven suffixes, and a slash inside
-it may be sent raw or percent-encoded.
+vault-relative POSIX path ending in one of seven suffixes, in any case, so
+`Plan.PDF` is served as a pdf. A slash inside it may be sent raw or
+percent-encoded.
 
 | Suffix | Answered with |
 | --- | --- |
@@ -1080,19 +1082,20 @@ other, which carries its links to itself along with it.
 
 The books that travel with the note are moved files too, and a link to one
 follows the same way: `[[inbox/borges.pdf]]` becomes `[[reading/borges.pdf]]`,
-and on a rename a bare `[[borges.pdf]]` becomes `[[kafka.pdf]]`. A book held
+and on a rename a bare `[[borges.pdf]]` becomes `[[kafka.pdf]]`. A markdown
+link to it follows as well, `[the book](inbox/borges.pdf)` becoming
+`[the book](reading/borges.pdf)`. A book held
 back because its landing is taken keeps its links, since it is still where they
 point.
 
 A link inside code is left as written, because there it is an example of the
-syntax and not a link. Code is a fenced block, of three or more backticks or
-tildes indented by at most three spaces and closed by a fence of the same
-character at least as long, or running to the end of the note when nothing
-closes it; and an inline span, a run of backticks closed by a run of the same
+syntax and not a link. Code is a fenced block as a CommonMark parser reads it,
+so a fence inside a blockquote or a list item counts, and a fence nobody closed
+runs to the end of the quote, the item or the note that holds it; and an inline span, a run of backticks closed by a run of the same
 length on the same line. A backtick after a backslash or inside a `[[link]]`
 opens no span. Where the text could be read either way it counts as text, so a
-real link is never left behind. A block indented by four spaces is not read as code, because that is
-also how a list item continues. Markdown links in code are left alone the same
+real link is never left behind. A block indented by four spaces is not read as
+code. Markdown links in code are left alone the same
 way.
 
 The rule a target is read by is the editor's, so what a rename follows is what
@@ -1127,8 +1130,9 @@ moved folder's own `index.md` working.
 
 A link that changes is written the short way from the folder of the file
 holding it, keeping a trailing slash and a leading `./` where it had them, and
-keeping a `#fragment` or `?query`. `%`, a space, `(` and `)` are escaped as
-`%25`, `%20`, `%28` and `%29`, and nothing else, so an accented name reads as
+keeping a `#fragment` or `?query`. `%`, a space, `(`, `)`, `#` and `?` are
+escaped as `%25`, `%20`, `%28`, `%29`, `%23` and `%3F`, and nothing else, so
+`plan #2.pdf` is not cut at its `#` and an accented name reads as
 itself in the raw file. A link that still lands where it did keeps its
 spelling. Skipped: an href with a scheme, `https:` or `mailto:`, one starting
 with `/`, `#` or `{`, and one that climbs out of the vault.

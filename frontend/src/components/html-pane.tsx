@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import { encodePath } from "@/lib/note-path";
 
 interface HtmlPaneProps {
   /** Vault-relative path of the page to show. */
@@ -93,8 +94,8 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
 
       <iframe
         ref={frame}
-        // `encodeURI` for the reason the image pane gives.
-        src={`/api/html/${encodeURI(path)}`}
+        // Encoded for the reason the image pane gives.
+        src={`/api/html/${encodePath(path)}`}
         title={path}
         // No `allow-same-origin`: with it and `allow-scripts` together a page
         // could lift its own sandbox off and run as kasten.

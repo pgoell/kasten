@@ -2624,6 +2624,26 @@ describe("looking at an image", () => {
     expect(caught[0]?.getAttribute("href")).toBe(`/api/assets/${encodeURI(SHOT)}`);
   });
 
+  it("shows and hands over a picture whose name holds # or ?", async () => {
+    // Raw, either would end the path: `#` starts a fragment and `?` a query.
+    const odd = "99 Misc/plan #2?.png";
+    fetchImages.mockResolvedValue([odd]);
+    const caught = clicked();
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    app.click(odd);
+    await settle();
+
+    const encoded = "/api/assets/99%20Misc/plan%20%232%3F.png";
+    expect(app.imagePane()?.querySelector("img")?.getAttribute("src")).toBe(encoded);
+    const pane = app.imagePane() as HTMLElement;
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "w" });
+    await settle();
+    expect(caught[0]?.getAttribute("href")).toBe(encoded);
+  });
+
   it("hands the pane back to an editor on the leader then q", async () => {
     const app = await renderApp();
     await settle();
@@ -2740,6 +2760,21 @@ describe("following a link to a page of HTML", () => {
 
     expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("title")).toBe(PAGE);
   });
+
+  it("loads a page whose name holds # from the tree", async () => {
+    // From the tree and not a link, `[[plan #2.html]]` naming the heading `2.html`.
+    const odd = "plan #2.html";
+    fetchHtml.mockResolvedValue([odd]);
+    fetchNote.mockResolvedValue("");
+    const app = await renderApp();
+    await settle();
+    app.click(odd);
+    await settle();
+
+    expect(document.querySelector("[data-html-pane] iframe")?.getAttribute("src")).toBe(
+      "/api/html/plan%20%232.html",
+    );
+  });
 });
 
 describe("following a link to an asset", () => {
@@ -2791,6 +2826,44 @@ describe("following a link to an asset", () => {
     await follow("My Plan.PDF|the plan");
 
     expect(window.open).toHaveBeenCalledWith(`/api/assets/${encodeURI(PLAN)}`, "_blank");
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("opens an asset whose name holds ? with gf", async () => {
+    fetchAssets.mockResolvedValue(["plan?.pdf"]);
+    await follow("plan?.pdf");
+
+    expect(document.querySelector(".cm-vimMode")).not.toBeNull();
+    expect(window.open).toHaveBeenCalledWith("/api/assets/plan%3F.pdf", "_blank");
+  });
+
+  it("opens an asset whose name holds ? on ctrl+click with vim off", async () => {
+    fetchAssets.mockResolvedValue(["plan?.pdf"]);
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      fetchNote.mockResolvedValue("[[plan?.pdf]]\n");
+      const app = await renderApp();
+      await settle();
+      app.click(NOTE);
+      await settle();
+      expect(document.querySelector(".cm-vimMode")).toBeNull();
+      const link = document.querySelector(".cm-wikilink") as HTMLElement;
+      fireEvent.mouseDown(link, { ctrlKey: true });
+      await settle();
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+
+    expect(window.open).toHaveBeenCalledWith("/api/assets/plan%3F.pdf", "_blank");
+  });
+
+  it("draws and opens an asset whose suffix is in capitals", async () => {
+    fetchAssets.mockResolvedValue(["docs/Plan.PDF"]);
+    await follow("Plan.PDF");
+
+    expect(document.querySelector(".cm-wikilink")?.textContent).toBe("Plan.PDF");
+    expect(document.querySelector(".cm-wikilink-dead")).toBeNull();
+    expect(window.open).toHaveBeenCalledWith("/api/assets/docs/Plan.PDF", "_blank");
     expect(createNote).not.toHaveBeenCalled();
   });
 

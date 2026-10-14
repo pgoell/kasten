@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import { encodePath } from "@/lib/note-path";
 
 interface ImagePaneProps {
   /** Vault-relative path of the image to show. */
@@ -288,9 +289,8 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         ) : (
           <img
             // Percent-encoded on the way out, the paths in the vault carrying
-            // spaces and the listing handing them over raw. `encodeURI` and not
-            // `encodeURIComponent`, which would spell the slashes `%2F` too.
-            src={`/api/assets/${encodeURI(path)}`}
+            // spaces, `#` and `?` and the listing handing them over raw.
+            src={`/api/assets/${encodePath(path)}`}
             // The filename, which is the most an alt can honestly say about an
             // image nothing in the vault has described.
             alt={path.slice(path.lastIndexOf("/") + 1)}

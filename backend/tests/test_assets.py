@@ -456,6 +456,62 @@ async def test_lists_every_asset_in_the_vault(client: AsyncClient, vault: Path) 
     assert response.json() == ["99 Misc/shot.png", "DDIA.epub", "SICP.pdf"]
 
 
+async def test_lists_an_asset_whose_suffix_is_upper_case(client: AsyncClient, vault: Path) -> None:
+    # A file copied in over the terminal keeps the name it came with, and
+    # Obsidian finds it whatever the case of its suffix.
+    (vault / "Plan.PDF").write_bytes(PDF)
+
+    response = await client.get("/api/vault-assets")
+
+    assert response.json() == ["Plan.PDF"]
+
+
+async def test_reads_an_asset_whose_suffix_is_upper_case(client: AsyncClient, vault: Path) -> None:
+    (vault / "Plan.PDF").write_bytes(PDF)
+
+    response = await client.get("/api/assets/Plan.PDF")
+
+    assert response.status_code == 200
+    assert response.content == PDF
+    assert response.headers["content-type"] == "application/pdf"
+
+
+async def test_lists_an_image_whose_suffix_is_upper_case(client: AsyncClient, vault: Path) -> None:
+    (vault / "PHOTO.PNG").write_bytes(PNG)
+    (vault / "Plan.PDF").write_bytes(PDF)
+
+    response = await client.get("/api/images")
+
+    assert response.json() == ["PHOTO.PNG"]
+
+
+async def test_takes_an_upload_whose_suffix_is_upper_case(client: AsyncClient, vault: Path) -> None:
+    response = await client.post("/api/assets/X.PNG", content=PNG)
+
+    assert response.status_code == 201
+    assert (vault / "X.PNG").read_bytes() == PNG
+
+
+async def test_refuses_an_upper_case_upload_whose_bytes_disagree(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The magic is looked up by the lowered suffix, so the check still runs.
+    response = await client.post("/api/assets/X.PNG", content=PDF)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "That file is not what its name says"
+    assert not (vault / "X.PNG").exists()
+
+
+async def test_a_note_s_suffix_still_matches_exactly(client: AsyncClient, vault: Path) -> None:
+    # The assets ignore case and the notes do not: `NOTES.MD` stays out of the
+    # tree and cannot be read as a note.
+    (vault / "NOTES.MD").write_text("# notes")
+
+    assert (await client.get("/api/files")).json() == []
+    assert (await client.get("/api/files/NOTES.MD")).status_code == 404
+
+
 async def test_takes_an_image_out_of_the_vault(client: AsyncClient, vault: Path) -> None:
     (vault / "99 Misc").mkdir()
     (vault / "99 Misc" / "shot.png").write_bytes(PNG)
@@ -483,7 +539,11 @@ async def test_puts_a_deleted_image_back(client: AsyncClient, vault: Path) -> No
     assert (await client.get("/api/assets/shot.png")).status_code == 200
 
 
-@pytest.mark.parametrize("book", [("DDIA.epub", BOOK), ("DDIA.pdf", PDF)], ids=["epub", "pdf"])
+@pytest.mark.parametrize(
+    "book",
+    [("DDIA.epub", BOOK), ("DDIA.pdf", PDF), ("Plan.PDF", PDF)],
+    ids=["epub", "pdf", "upper-case pdf"],
+)
 async def test_refuses_to_delete_a_book(
     client: AsyncClient, vault: Path, book: tuple[str, bytes]
 ) -> None:

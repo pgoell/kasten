@@ -146,6 +146,17 @@ export function noteName(path: string): string {
 }
 
 /**
+ * A vault path spelled for a URL, or for a markdown destination that becomes one.
+ *
+ * Segment by segment, because neither whole-string encoder fits. `encodeURI`
+ * leaves `#` and `?` raw, so `plan #2.pdf` asks for `plan ` and drops the rest
+ * as a fragment; `encodeURIComponent` would spell the slashes `%2F` as well.
+ */
+export function encodePath(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+/**
  * The typed path with the slashes tidied.
  *
  * A vault path is relative and its separator is a single slash, so a doubled or

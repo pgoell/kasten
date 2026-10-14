@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from kasten_backend.indexes import backfill
+from kasten_backend.vault import encode_href, listing
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -30,6 +31,23 @@ async def test_escapes_a_name_with_a_space(client: AsyncClient, vault: Path) -> 
 
     assert (vault / "Reading List" / "index.md").read_text() == (
         "# Reading List\n\n* [Le Guin](Le%20Guin.md)\n"
+    )
+
+
+def test_encode_href_escapes_what_cuts_a_link_short() -> None:
+    # `%` first, or the `%23` it writes for `#` would come out `%2523`.
+    assert encode_href("plan #2 (final)?.pdf") == "plan%20%232%20%28final%29%3F.pdf"
+    assert encode_href("100%.png") == "100%25.png"
+
+
+def test_escapes_a_hash_and_a_question_mark_in_a_listing(tmp_path: Path) -> None:
+    # A reader cuts an href at the first `#` or `?`, so written raw these two
+    # would be links to `plan ` and `what`.
+    (tmp_path / "plan #2.pdf").write_bytes(b"%PDF-")
+    (tmp_path / "what?.png").write_bytes(b"\x89PNG")
+
+    assert listing(tmp_path) == (
+        f"# {tmp_path.name}\n\n* [plan #2.pdf](plan%20%232.pdf)\n* [what?.png](what%3F.png)\n"
     )
 
 

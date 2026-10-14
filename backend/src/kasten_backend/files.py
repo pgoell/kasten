@@ -285,8 +285,9 @@ async def store(root: Path, path: str, chunks: AsyncIterator[bytes]) -> str:
         # PDF renamed `.epub` streaming whole before the 400, and the flat check
         # wins anyway because one user moves seconds of data. The suffix is
         # what picks the bytes: `resolve_asset_path` above answers for the
-        # names in `ASSET_MAGIC` and no others, so the lookup cannot miss.
-        if not head.startswith(ASSET_MAGIC[asset.suffix]):
+        # names in `ASSET_MAGIC` and no others, lowered the way it lowers
+        # them, so the lookup cannot miss.
+        if not head.startswith(ASSET_MAGIC[asset.suffix.lower()]):
             raise RefusedError(400, "That file is not what its name says")
 
         # A link and not an `os.replace`, though `write_note` replaces in the

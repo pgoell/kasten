@@ -20,6 +20,17 @@ async def test_lists_the_html_in_the_vault(client: AsyncClient, vault: Path) -> 
     assert response.json() == ["research/report.html"]
 
 
+async def test_lists_and_reads_a_page_whose_suffix_is_upper_case(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "REPORT.HTML").write_bytes(PAGE)
+
+    assert (await client.get("/api/html")).json() == ["REPORT.HTML"]
+    response = await client.get("/api/html/REPORT.HTML")
+    assert response.status_code == 200
+    assert response.content.startswith(PAGE)
+
+
 async def test_reads_a_page_with_the_doctype_first(client: AsyncClient, vault: Path) -> None:
     (vault / "report.html").write_bytes(PAGE)
 

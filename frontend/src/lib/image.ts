@@ -18,6 +18,7 @@ import { EditorView } from "@codemirror/view";
 import { uploadAsset } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { IMAGE_FOLDER } from "@/lib/layout";
+import { encodePath } from "@/lib/note-path";
 
 /**
  * Where a pasted image is written.
@@ -154,8 +155,9 @@ export function imageCompletions(context: CompletionContext): CompletionResult |
     options: paths.map((path) => ({
       label: path.slice(path.lastIndexOf("/") + 1),
       // Encoded here rather than on the way out, so what the note holds is a
-      // legal markdown destination: a space in `99 Misc` ends one that is not.
-      apply: encodeURI(path),
+      // legal markdown destination: a space in `99 Misc` ends one that is not,
+      // and a raw `#` or `?` would turn the rest of the name into a fragment.
+      apply: encodePath(path),
       detail: path.slice(0, path.lastIndexOf("/")),
       type: "text",
     })),
@@ -206,7 +208,7 @@ async function fileImage(view: EditorView, file: File, name: string): Promise<vo
     return;
   }
 
-  view.dispatch(view.state.replaceSelection(`![](${encodeURI(path)})`));
+  view.dispatch(view.state.replaceSelection(`![](${encodePath(path)})`));
 }
 
 /**

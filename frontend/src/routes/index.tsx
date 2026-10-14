@@ -60,7 +60,7 @@ import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { MoveMode } from "@/lib/move";
 import { readField, setField } from "@/lib/note-frontmatter";
-import { bookNote, bookType, importedNote, noteName } from "@/lib/note-path";
+import { bookNote, bookType, encodePath, importedNote, noteName } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
 import { paletteEntries, viewCommands } from "@/lib/palette";
@@ -157,11 +157,11 @@ function downloadNote(path: string, text: string): void {
  * No blob, unlike the note above: these bytes are on disk and not in the page,
  * and asking for them only to wrap them in an object URL would hold a whole
  * epub in memory to save a request the browser is about to make anyway.
- * `encodeURI` and not `encodeURIComponent`, the way the image pane spells its
- * `src`: the paths carry spaces and the slashes are real slashes.
+ * Encoded the way the image pane spells its `src`: the paths carry spaces, `#`
+ * and `?`, and the slashes are real slashes.
  */
 function downloadAsset(path: string): void {
-  download(path.slice(path.lastIndexOf("/") + 1), `/api/assets/${encodeURI(path)}`);
+  download(path.slice(path.lastIndexOf("/") + 1), `/api/assets/${encodePath(path)}`);
 }
 
 interface HomeSearch {
@@ -968,7 +968,7 @@ function Home() {
       // One the vault holds opens in a tab of its own, the browser being what
       // reads a pdf or a picture.
       if (namesAFile(name)) {
-        if (assets?.includes(path)) window.open(`/api/assets/${encodeURI(path)}`, "_blank");
+        if (assets?.includes(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
         return;
       }
 

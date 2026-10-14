@@ -7,6 +7,7 @@
  * cannot be tested against exact text.
  */
 
+import { encodePath } from "@/lib/note-path";
 import { appendUnder } from "@/lib/note-section";
 
 /** The heading a highlight lands under, made on first write. */
@@ -64,9 +65,9 @@ export function addHighlight(note: string, passage: Passage, id: string): string
     .join("\n>\n");
 
   // Above the quote, because a book's caption sits under its figure and the
-  // quote is usually that caption. `encodeURI` for the reason the paste writes
-  // one: a space in `99 Misc` ends a markdown destination that is not encoded.
-  const picture = passage.image === undefined ? "" : `![](${encodeURI(passage.image)})`;
+  // quote is usually that caption. Encoded for the reason the paste writes one:
+  // a space in `99 Misc` ends a markdown destination that is not encoded.
+  const picture = passage.image === undefined ? "" : `![](${encodePath(passage.image)})`;
 
   // The leading newline is the caller's to supply: no branch of `appendUnder`
   // puts a blank line in front of the block, so this is the gap between the

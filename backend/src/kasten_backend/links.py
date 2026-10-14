@@ -26,6 +26,8 @@ from bisect import bisect_right
 from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import unquote
 
+from markdown_it import MarkdownIt
+
 from kasten_backend.search import notes_holding
 from kasten_backend.vault import (
     ASSET_MAGIC,
@@ -65,8 +67,12 @@ space ends the link for every reader, so it ends it here too.
 SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 """An href that names a place outside the vault: `https:`, `mailto:` and the rest."""
 
-FENCE = re.compile(r" {0,3}(`{3,}|~{3,})(.*)")
-"""A line that opens or closes a fenced code block, and what follows the fence on it."""
+FENCES = MarkdownIt("commonmark").disable(["inline", "text_join"])
+"""The parser that finds fenced code blocks, at any depth of blockquote or list.
+
+Blocks only: the fences are all `code_spans` asks of it, and the inline pass
+would near double the time a long note holds the event loop for.
+"""
 
 BACKTICKS = re.compile(r"`+")
 """One run of backticks, which opens or closes an inline code span."""
@@ -158,48 +164,62 @@ def _respell(name: str, new: str) -> str:
 
 
 def code_spans(text: str) -> list[tuple[int, int]]:
-    """Where `text` holds code, as `(start, end)` offsets: fenced blocks, then inline spans.
+    """Where `text` holds code, as `(start, end)` offsets: fenced blocks and inline spans.
 
     A `[[x]]` in code is an example of the syntax and not a link, so a move
-    leaves it as written, the way Obsidian does. The fences are CommonMark's:
-    three or more backticks or tildes, indented by at most three spaces, closed
-    by a line of the same character at least as long, and a fence nobody closed
-    runs to the end of the note. A backtick fence whose info string holds a
-    backtick is inline code and opens nothing.
+    leaves it as written, the way Obsidian does. The fences are the ones a
+    CommonMark parser finds, markdown-it's, so a fence inside a blockquote or
+    under a nested list item is code too, and one nobody closed ends with the
+    blockquote or list item holding it, or else with the note. A fence's span
+    is its whole lines, the `> ` in front of them included.
 
-    An indented block is not read as code. Four spaces is also how a list item
-    continues, and a link in one of those is a link.
+    An indented block is not read as code, though the parser finds those too.
+    Four spaces is also how a list item continues, and reading them as code
+    would hide links nobody asked to hide.
 
     Where the reading is in doubt the text is not code: a link wrongly taken
     for code is left pointing at nothing, and one wrongly taken for a link is
     only rewritten, as every move did before this read code at all.
 
-    Split on the line feed alone, not `splitlines`, which also breaks at a form feed or
-    U+2028 and would open a fence in the middle of a line.
+    Lines are split on the line feed alone, not `splitlines`, which also breaks
+    at a form feed or U+2028 and would open a fence in the middle of a line.
+    The parser breaks at a lone carriage return as well, so each one is handed
+    to it as a space: the parser's line numbers are then this split's, and the
+    offsets stay where they were.
     """
+    lines = text.split("\n")
+    starts = [0]
+    for line in lines:
+        starts.append(starts[-1] + len(line) + 1)
+    starts[-1] = len(text)
+
+    # Every fence opens with three backticks or tildes in a row, so a note with
+    # neither has none, and skips the parse that is most of a long note's time.
+    fenced = []
+    if "```" in text or "~~~" in text:
+        for token in FENCES.parse(text.replace("\r", " ")):
+            if token.type == "fence" and token.map is not None:
+                fenced.append((token.map[0], token.map[1]))
+
     spans = []
-    fence: tuple[str, int] | None = None
-    offset = 0
-    for line in text.split("\n"):
-        end = min(offset + len(line) + 1, len(text))
-        marker = FENCE.match(line)
-        if fence is not None:
-            if (
-                marker
-                and marker[1][0] == fence[0][0]
-                and len(marker[1]) >= len(fence[0])
-                and not marker[2].strip()
-            ):
-                spans.append((fence[1], end))
-                fence = None
-        elif marker and not (marker[1][0] == "`" and "`" in marker[2]):
-            fence = (marker[1], offset)
-        else:
-            spans += [(offset + start, offset + stop) for start, stop in _inline_code(line)]
-        offset += len(line) + 1
-    if fence is not None:
-        spans.append((fence[1], len(text)))
+    line = 0
+    for first, stop in fenced:
+        spans += _inline_spans(lines, starts, line, first)
+        spans.append((starts[first], starts[stop]))
+        line = stop
+    spans += _inline_spans(lines, starts, line, len(lines))
     return spans
+
+
+def _inline_spans(
+    lines: list[str], starts: list[int], first: int, stop: int
+) -> list[tuple[int, int]]:
+    """The inline code spans of lines `first` to `stop`, as offsets into the whole text."""
+    return [
+        (starts[index] + start, starts[index] + end)
+        for index in range(first, stop)
+        for start, end in _inline_code(lines[index])
+    ]
 
 
 def _inline_code(line: str) -> list[tuple[int, int]]:
@@ -336,13 +356,26 @@ def markdown_target(href: str, here: str) -> str | None:
     return target
 
 
-def relink_markdown(text: str, before: str, after: str, old: str, new: str) -> str:
+def relink_markdown(
+    text: str,
+    before: str,
+    after: str,
+    old: str,
+    new: str,
+    *,
+    moves: dict[str, str] | None = None,
+) -> str:
     """`text`, held by the file at `before` and about to be at `after`, with `old` at `new`.
 
     Two things move a relative link, and either one rewrites it: its target
     moving, and the file holding it moving to another folder. A link between
     two files that move together is untouched, which is what keeps a moved
     folder's own index working.
+
+    `moves` is where each file a move takes lands, when that is not where
+    `old` at `new` says: the books a note carries. A book held back is not in
+    it, so a link to one still points where it stays. A target it does not
+    hold lands by `moved`, which is how a link to a folder follows the folder.
 
     A link that still lands where it did keeps its spelling. One that changes
     is written the short way from the new folder, keeping a trailing slash and
@@ -360,7 +393,7 @@ def relink_markdown(text: str, before: str, after: str, old: str, new: str) -> s
         if target is None:
             return match.group(0)
 
-        landed = moved(target, old, new)
+        landed = (moves or {}).get(target, moved(target, old, new))
         if landed == target and here == there:
             return match.group(0)
 
@@ -446,7 +479,9 @@ def _plan(
     for relative in candidates:
         text = (base / relative).read_text(encoding="utf-8")
         rewritten = relink(text, moves, paths)
-        rewritten = relink_markdown(rewritten, relative, moved(relative, old, new), old, new)
+        rewritten = relink_markdown(
+            rewritten, relative, moved(relative, old, new), old, new, moves=moves
+        )
         if rewritten != text:
             plan[relative] = rewritten
     return plan
