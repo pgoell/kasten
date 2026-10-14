@@ -220,8 +220,9 @@ template, so a filter there does nothing either.
 
 Formatting beyond the table above, colour, font size, a heading, a table, is
 dropped and its text kept. Entities are unescaped. A cloze mark is written flat,
-`{{c1::France}}` from `{{c1::<b>France</b>}}`, so a typed answer can match it;
-only ruby stays inside it.
+`{{c1::France}}` from `{{c1::<b>France</b>}}`, so a typed answer can match it.
+Only ruby stays inside a mark, and the typed answer to it is the word without
+its reading: `漢字` for `{{c1::<ruby>漢字<rt>かんじ</rt></ruby>}}`.
 
 ## What arrives ready to use
 

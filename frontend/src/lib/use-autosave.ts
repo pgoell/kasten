@@ -53,6 +53,11 @@ export function useAutosave(path: string | undefined) {
   // timer can see it: that timer was scheduled by an older render, and the
   // status it closed over is the one from before the conflict.
   const conflicted = useRef(false);
+  // The reason this note's own last write failed, while its text waits for
+  // `:w`, and null otherwise. Read by a failed flush of the note left behind,
+  // whose closure holds a status from before: `lost` over this would take the
+  // way to retry off the bar while the retry still has text to write.
+  const failed = useRef<string | null>(null);
   // How many times the reader has thrown the buffer away, which a write in
   // flight compares against the reading it left with.
   //
@@ -139,6 +144,7 @@ export function useAutosave(path: string | undefined) {
     const sent = reverts.current;
     setStatus("saving");
     setReason(undefined);
+    failed.current = null;
     const to = path;
     const opened = visit.current;
     writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
@@ -204,8 +210,15 @@ export function useAutosave(path: string | undefined) {
         if (!here()) {
           // A conflict on the next note outranks this: it holds every write
           // back, and nothing would ever put the bar back on it.
+          // So does this note's own failed write, whose text `:w` can still
+          // send: both are named, and the bar keeps the way to retry.
+          const lost = `${to} was not saved: ${message}`;
+          if (failed.current !== null && pending.current !== null) {
+            setReason(`${failed.current}\n${lost}`);
+            return false;
+          }
           if (!conflicted.current) setStatus("lost");
-          setReason(`${to} was not saved: ${message}`);
+          setReason(lost);
           return false;
         }
         // Nothing to hold and nothing to warn about once the reader has thrown
@@ -216,6 +229,7 @@ export function useAutosave(path: string | undefined) {
         setStatus("error");
         // Hold on to the text: the next keystroke or `:w` tries again.
         pending.current ??= content;
+        failed.current = message;
         setReason(message);
         return false;
       },
@@ -256,6 +270,7 @@ export function useAutosave(path: string | undefined) {
 
     pending.current = null;
     conflicted.current = false;
+    failed.current = null;
     reverts.current += 1;
     setStatus("saved");
     setReason(undefined);
@@ -333,6 +348,8 @@ export function useAutosave(path: string | undefined) {
   const change = useCallback(
     (doc: string) => {
       pending.current = doc;
+      // The bar reads `unsaved` from here, not the failure.
+      if (!conflicted.current) failed.current = null;
       // Typing settles nothing while the note stands conflicted: the vault
       // still holds text this buffer never saw, and reading `unsaved` would
       // promise a write the timer below no longer makes.

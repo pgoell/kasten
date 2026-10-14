@@ -419,6 +419,22 @@ def test_plain_escapes_the_parking_token_anywhere_in_a_line() -> None:
     assert plain("type x !suspended there") == r"type x \!suspended there"
 
 
+@pytest.mark.parametrize(
+    ("cloze", "expected"),
+    [(True, r"x {{c1::a \!suspended b}} y"), (False, r"x ==a \!suspended b== y")],
+    ids=["cloze", "highlight"],
+)
+def test_plain_escapes_the_parking_token_inside_a_cloze_mark(cloze: bool, expected: str) -> None:
+    # A mark skips the parse, and its text would park the line all the same.
+    assert plain("x {{c1::a !suspended b}} y", cloze=cloze) == expected
+
+
+def test_a_cloze_mark_keeps_ruby_with_attributes_as_bare_tags() -> None:
+    field = '{{c1::<ruby class="x">漢字<rt class="y">かんじ</rt></ruby>}}'
+
+    assert plain(field, cloze=True) == "{{c1::<ruby>漢字<rt>かんじ</rt></ruby>}}"
+
+
 def test_plain_keeps_the_address_of_a_link_over_a_break() -> None:
     assert plain('<a href="https://x.org">a<br>b</a>') == "[a b](https://x.org)"
 

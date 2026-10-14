@@ -448,6 +448,13 @@ describe("parseCards on an imported deck keeping its formatting", () => {
     expect(cards.every((card) => card.parked === null)).toBe(true);
   });
 
+  it("asks a cloze over ruby for the word, its reading no part of the answer", () => {
+    const [card] = parseCards("#flashcards/x\n\n{{c1::<ruby>漢字<rt>かんじ</rt></ruby>}}を読む\n");
+
+    expect(card?.target).toBe("漢字");
+    expect(sameAnswer("漢字", card?.target ?? "")).toBe(true);
+  });
+
   it("parks no card whose answer names the escaped token mid-line", () => {
     const [card] = parseCards("#flashcards/x\n\nQ::type x \\!suspended there\n");
 

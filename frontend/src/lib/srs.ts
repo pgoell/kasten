@@ -179,6 +179,20 @@ export function readSchedule(text: string, comment = SR): Schedule | null {
   return { due, interval: Number(interval), ease: Number(ease) };
 }
 
+/** A ruby's reading and the parentheses around it, which are no part of the word. */
+const READING = /<(rt|rp)\b[^>]*>.*?<\/\1>/g;
+
+/** Ruby's own tags, left once the reading has gone. */
+const RUBY_TAG = /<\/?ruby\b[^>]*>/g;
+
+/**
+ * `target` as somebody types it: an imported `<ruby>漢字<rt>かんじ</rt></ruby>`
+ * is the word `漢字`, the reading drawn over it being a hint and not the answer.
+ */
+function typedTarget(target: string): string {
+  return target.replace(READING, "").replace(RUBY_TAG, "");
+}
+
 /**
  * One card per number the cloze `line` holds, in ascending order.
  *
@@ -203,7 +217,7 @@ function clozeCards(
       decks: [],
       held: readSchedule(schedule, clozeComment(cloze)),
       cloze,
-      target: clozeTarget(text, cloze),
+      target: typedTarget(clozeTarget(text, cloze)),
     };
   });
 }

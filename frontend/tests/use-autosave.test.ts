@@ -887,6 +887,25 @@ describe("useAutosave", () => {
     expect(note.reason()).toContain("index.md was not saved");
   });
 
+  it("keeps the next note's own failure when the old note's flush fails", async () => {
+    // The next note's text is still waiting and `:w` would write it, so the
+    // bar must go on offering that, and name the old note's loss beside it.
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    saveNote.mockRejectedValueOnce(new Error("PUT /api/files/daily/2026-08-05.md failed with 500"));
+    note.change("# daily");
+    await idle();
+    expect(note.status()).toBe("error");
+    await flush.break();
+
+    expect(note.status()).toBe("error");
+    expect(note.reason()).toContain("daily/2026-08-05.md failed with 500");
+    expect(note.reason()).toContain("index.md was not saved");
+  });
+
   it("keeps the next note's conflict when the old note's flush fails", async () => {
     // The conflict holds every write back, so a bar reading `error` instead
     // would hide the one thing the reader has to settle with `:w`.

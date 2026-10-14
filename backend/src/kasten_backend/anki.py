@@ -115,8 +115,8 @@ Anki fills the furigana in after the cloze, by which time a mark is a tag
 whose `>` stops the base. Read off the raw field here, the braces and colons
 of `{{c1::` stop it instead.
 """
-_UNRUBY = re.compile(r"<(?!/?(?:ruby|rt)>)[^>]*>")
-"""Every tag but ruby's own, which a cloze mark keeps as the rest of the field does."""
+_RUBY_TAG = re.compile(r"<(/?)(ruby|rt)\b[^>]*>", re.IGNORECASE)
+"""A ruby or rt tag, attributes and all, which a cloze mark keeps bare as a field does."""
 _READING = {"furigana": r"<ruby>\1<rt>\2</rt></ruby>", "kanji": r"\1", "kana": r"\2"}
 """What each of Anki's three furigana filters makes of a `_FURIGANA` match."""
 
@@ -251,7 +251,8 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
 
         def keep(match: re.Match[str], pattern: re.Pattern[str] = pattern) -> str:
             # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
-            # which is what a typed answer is held against.
+            # which is what a typed answer is held against. Ruby stays, and
+            # `srs.ts` takes the reading off before comparing.
             if pattern is _MARK:
                 kept.append(_flat(match[0]))
             else:
@@ -276,8 +277,16 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
 
 
 def _flat(text: str) -> str:
-    """`text` as one line, every tag but ruby's stripped: how a cloze mark is written."""
-    return " ".join(html.unescape(_UNRUBY.sub("", _BREAK.sub(" ", text))).split())
+    """`text` as one line, every tag but ruby's stripped: how a cloze mark is written.
+
+    The token is escaped here as `_Markdown` escapes it in the rest of the
+    field, since `suspended()` in `card-line.ts` reads it inside a mark too.
+    """
+    # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
+    text = _RUBY_TAG.sub(lambda tag: f"{tag[1]}{tag[2].lower()}", text)
+    text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text)))
+    text = text.replace("", "<").replace("", ">")
+    return " ".join(text.split()).replace("!suspended", "\\!suspended")
 
 
 def _escaped(line: str) -> str:
