@@ -30,9 +30,16 @@ function lower(counts: Map<string, number>, note: string): void {
  * A write nobody here made stops the automatic one: the vault is the source of
  * truth, and the buffer is holding text that never saw what landed there. The
  * reader breaks the tie with `:w`.
+ *
+ * `shown` reads the document the focused editor has on screen, or undefined
+ * when there is none. See the effect run on each opening.
  */
-export function useAutosave(path: string | undefined) {
+export function useAutosave(path: string | undefined, shown?: () => string | undefined) {
   const [status, setStatus] = useState<SaveStatus>("saved");
+  // Read in an effect and never a dependency: the route builds a new one per
+  // pane, and the effect it is read in must run on a new path and nothing else.
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
   // What the vault answered the failed write with, kept for the bar to show on
   // hover. `error` says a write did not land; only this says whether that was
   // the proxy, the disk or a bad path, which is what decides the next move.
@@ -128,6 +135,10 @@ export function useAutosave(path: string | undefined) {
   // buffer must not take that one with it.
   const taken = useRef<Held | null>(null);
   const [restored, setRestored] = useState(false);
+  // The `saves` count when this hook held each entry, so a failing write can
+  // tell an entry held after it went out (newer text, the hide's) from one it
+  // may replace. In memory: the store keeps an unchanged entry's object.
+  const heldAt = useRef(new WeakMap<Held, number>());
   const take = useCallback((entry: Held | null) => {
     taken.current = entry;
     setRestored(entry !== null);
@@ -175,6 +186,14 @@ export function useAutosave(path: string | undefined) {
       // status and its pending text are that one's, and its own event is dropped
       // by the route anyway.
       const here = () => visit.current === opened;
+      // The held entry this write carries, read now and not at the answer: a
+      // flush on leaving answers after the visit, and with it `taken`, is gone,
+      // and an entry held while this was in the air is newer text it never
+      // carried.
+      const carried = taken.current;
+      // What the vault held under the buffer, which a held copy of this text
+      // keeps to tell on reopening whether somebody else wrote the note since.
+      const base = queryClient.getQueryData<string>(["note", to]);
 
       // Two arguments unless it is the way out, which is the call every other
       // writer of a note makes.
@@ -182,16 +201,18 @@ export function useAutosave(path: string | undefined) {
         (note) => {
           lower(writing.current, to);
           // The held entry goes when this write carried it: its own text, or
-          // text typed on top of the entry this visit took into the buffer. An
-          // entry the buffer never showed, held by a flush that failed after the
-          // note was reopened, is still nowhere else, and stays.
+          // text typed on top of the entry the buffer had taken when this was
+          // sent. An entry the buffer never showed, held by a flush that failed
+          // after the note was reopened, is still nowhere else, and stays; so
+          // does one held while this was in the air.
           const entry = heldText(to);
-          if (entry && (entry.content === content || (here() && entry === taken.current))) {
+          if (entry && (entry.content === content || (carried !== null && entry === carried))) {
             dropText(to);
           }
-          // Whatever the buffer took is written now, so nothing on screen is
-          // held text any more, and a second entry, if any, goes on the bar.
-          if (here()) take(null);
+          // What the buffer took is written now, so nothing on screen is held
+          // text any more, and a second entry, if any, goes on the bar. Not when
+          // the buffer took newer text since.
+          if (here() && taken.current === carried) take(null);
           // The note that came back and never the text that was sent: the two
           // differ by the `modified` stamp `PUT` writes, so what is on disk is
           // this one. Hashing the other would recognise nothing and read every
@@ -237,7 +258,15 @@ export function useAutosave(path: string | undefined) {
           // note reading as busy and never written to again.
           lower(writing.current, to);
           const message = failure instanceof Error ? failure.message : String(failure);
-          const held = { content, reason: message, conflicted: wasConflicted };
+          const held = { content, reason: message, conflicted: wasConflicted, base };
+          // An entry held after this went out holds newer text, the hide's,
+          // which is on screen and on its own way out: this older text replaces
+          // neither it nor `pending`.
+          const existing = heldText(to);
+          if (existing && (heldAt.current.get(existing) ?? -1) >= seq) return false;
+          // Its own send count: a write sent after this one and failing first
+          // holds newer text, which this must not replace either.
+          heldAt.current.set(held, seq);
           // The flush of a note already left: `pending` now holds the next note's
           // text, and a retry would write this one's into it. So the text is held
           // for its own note, which takes it back when it is opened again, and
@@ -423,8 +452,11 @@ export function useAutosave(path: string | undefined) {
       }
       pending.current = held.content;
       take(held);
-      conflicted.current = held.conflicted;
-      setStatus(held.conflicted ? "conflict" : "error");
+      // A vault moved past the text the buffer was based on is somebody
+      // else's write since, and the held text must not go over it unasked.
+      const moved = held.base !== undefined && !sameText(held.base, text);
+      conflicted.current = held.conflicted || moved;
+      setStatus(conflicted.current ? "conflict" : "error");
       setReason(held.reason);
       return false;
     },
@@ -584,8 +616,11 @@ export function useAutosave(path: string | undefined) {
         content: pending.current,
         reason: "Not yet written when the page was hidden",
         conflicted: conflicted.current,
+        base: queryClient.getQueryData<string>(["note", path]),
       };
       holdText(path, entry);
+      // After every write already in the air, which a failing one reads.
+      heldAt.current.set(entry, saves.current);
       take(entry);
       if (!stop) void write(true);
     };
@@ -598,7 +633,7 @@ export function useAutosave(path: string | undefined) {
       window.removeEventListener("pagehide", hide);
       document.removeEventListener("visibilitychange", hidden);
     };
-  }, [path, write, take]);
+  }, [path, write, take, queryClient]);
 
   // The flush above still counts as the visit it leaves: React runs the old
   // render's cleanups before any of the new render's setups.
@@ -610,12 +645,20 @@ export function useAutosave(path: string | undefined) {
     lastWritten.current = null;
     // A note whose editor stayed mounted while the focus was in another pane
     // asks nothing on the way back, so `allowReload` never sees its held text.
-    // Taken here against the note the cache holds, which is what that editor
-    // was opened on. With nothing cached the editor is still to mount, and
-    // will ask; one that just mounted has asked already, and `pending` says so.
+    // Taken here against the note the cache holds, and only when that editor
+    // has the held text on screen: a second pane holding the note that never
+    // showed it has the vault's text, and taking the held text into `pending`
+    // there would send the vault's text plus a keystroke and drop the entry.
+    // Left held instead, the bar lists it. With nothing cached the editor is
+    // still to mount, and will ask; one that just mounted has asked already,
+    // and `pending` says so.
     const cached =
       path === undefined ? undefined : queryClient.getQueryData<string>(["note", path]);
-    if (path !== undefined && cached !== undefined) restore(path, cached);
+    const held = path === undefined ? undefined : heldText(path);
+    const doc = shownRef.current?.();
+    if (path !== undefined && cached !== undefined && held && doc !== undefined) {
+      if (sameText(doc, held.content)) restore(path, cached);
+    }
     // An editor still to mount opens on the entry held now, and only that one
     // is taken when it asks. See `opening`.
     offered.current = path === undefined ? undefined : heldText(path);

@@ -9,6 +9,12 @@ export interface Held {
   reason: string;
   /** Whether the note stood conflicted, which it does again when reopened. */
   conflicted: boolean;
+  /**
+   * The vault's text the buffer was based on, when it was known. A vault that
+   * has moved past it by the reopening means somebody else wrote the note
+   * meanwhile. Absent from entries stored before this was kept.
+   */
+  base?: string;
 }
 
 /**
@@ -30,28 +36,60 @@ const listeners = new Set<() => void>();
  * the map in memory still holds the text for as long as the page lives, which
  * is everything but the reload.
  */
-function load(): Map<string, Held> {
-  if (store !== null) return store;
-  store = new Map();
-  let raw: string | null = null;
+function read(): Record<string, Held> | null {
+  let raw: string | null;
   try {
     raw = localStorage.getItem(HELD_KEY);
   } catch (error) {
     if (!(error instanceof DOMException)) throw error;
+    return null;
   }
-  if (raw !== null) {
-    try {
-      for (const [path, entry] of Object.entries(JSON.parse(raw) as Record<string, Held>)) {
-        store.set(path, entry);
-      }
-    } catch (error) {
-      // Somebody else's value under the key, or a half-written one. Nothing in
-      // it can be trusted to be anybody's text.
-      if (!(error instanceof SyntaxError)) throw error;
+  if (raw === null) return {};
+  try {
+    return JSON.parse(raw) as Record<string, Held>;
+  } catch (error) {
+    // Somebody else's value under the key, or a half-written one. Nothing in
+    // it can be trusted to be anybody's text.
+    if (!(error instanceof SyntaxError)) throw error;
+    return {};
+  }
+}
+
+function same(a: Held, b: Held): boolean {
+  return (
+    a.content === b.content &&
+    a.reason === b.reason &&
+    a.conflicted === b.conflicted &&
+    a.base === b.base
+  );
+}
+
+/**
+ * Take the map from storage again, which other tabs write to as well.
+ *
+ * Read before every change and not only once: each change writes the whole
+ * map, and one built from an old read would wipe what another tab held since.
+ * An entry that has not changed keeps its object, because the autosave tells
+ * the entry its buffer took from a later one by identity.
+ */
+function sync(): Map<string, Held> {
+  const stored = read();
+  const before = store ?? new Map<string, Held>();
+  if (stored === null) {
+    store = before;
+  } else {
+    store = new Map();
+    for (const [path, entry] of Object.entries(stored)) {
+      const kept = before.get(path);
+      store.set(path, kept && same(kept, entry) ? kept : entry);
     }
   }
   snapshot = list(store);
   return store;
+}
+
+function load(): Map<string, Held> {
+  return store ?? sync();
 }
 
 function list(held: Map<string, Held>) {
@@ -73,15 +111,17 @@ function changed(held: Map<string, Held>): void {
 
 /** Keep `entry` as the text `path` holds until it is written or dropped. */
 export function holdText(path: string, entry: Held): void {
-  const held = load();
+  const held = sync();
   held.set(path, entry);
   changed(held);
 }
 
 /** Forget `path`'s held text: it was written, or the reader threw it away. */
 export function dropText(path: string): void {
-  const held = load();
-  if (!held.delete(path)) return;
+  const held = sync();
+  held.delete(path);
+  // Written and announced even when there was nothing to delete: the read
+  // above may have brought another tab's change the list has not shown yet.
   changed(held);
 }
 
@@ -89,10 +129,22 @@ export function heldText(path: string): Held | undefined {
   return load().get(path);
 }
 
+/**
+ * Another tab held or let go of text. The browser tells every tab but the one
+ * that wrote, so the bar here follows a note held over there.
+ */
+function storage(event: StorageEvent) {
+  if (event.key !== HELD_KEY && event.key !== null) return;
+  sync();
+  for (const listener of listeners) listener();
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
+  if (listeners.size === 1) window.addEventListener("storage", storage);
   return () => {
     listeners.delete(listener);
+    if (listeners.size === 0) window.removeEventListener("storage", storage);
   };
 }
 

@@ -301,7 +301,12 @@ function Home() {
     adopt,
     allowReload,
     reconcile,
-  } = useAutosave(pane.path);
+  } = useAutosave(pane.path, () => {
+    // The focused pane's document as it stands on screen, which the autosave
+    // checks before it takes held text into a pane that was already open.
+    const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
+    return editor ? EditorView.findFromDOM(editor)?.state.doc.toString() : undefined;
+  });
   // Text the vault refused, kept by note. Read here so a note held or let go
   // re-renders the bar, and the focused editor opens on its held text.
   const held = useHeld();

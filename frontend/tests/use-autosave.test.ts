@@ -52,12 +52,16 @@ function pendingSave() {
   };
 }
 
-function renderAutosave(path = "index.md") {
+/**
+ * The hook, following `path`. `shown` stands in for the focused editor's
+ * document, which the route reads off the view.
+ */
+function renderAutosave(path = "index.md", shown?: () => string | undefined) {
   const queryClient = new QueryClient();
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children);
 
-  const { result, rerender, unmount } = renderHook(({ open }) => useAutosave(open), {
+  const { result, rerender, unmount } = renderHook(({ open }) => useAutosave(open, shown), {
     initialProps: { open: path },
     wrapper,
   });
@@ -1056,7 +1060,7 @@ describe("useAutosave", () => {
   it("takes held text back when the focus returns to a pane still showing it", async () => {
     // A split: the note's editor stayed mounted while the focus was elsewhere,
     // so it asks nothing about the vault's text on the way back.
-    const note = renderAutosave("daily/2026-08-05.md");
+    const note = renderAutosave("daily/2026-08-05.md", () => "# held");
     note.seed("index.md", "the index note");
     holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
 
@@ -1065,6 +1069,85 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("error");
     expect(await note.saved()).toBe(true);
     expect(saveNote).toHaveBeenLastCalledWith("index.md", "# held");
+  });
+
+  it("leaves held text listed when the focus moves to a pane showing the vault's text", async () => {
+    // The note open in a second pane that never showed the refused text:
+    // taking it into `pending` there would send the vault's text plus a key.
+    const note = renderAutosave("daily/2026-08-05.md", () => "the index note");
+    note.seed("index.md", "the index note");
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+
+    note.open("index.md");
+    note.change("the index note!");
+    await idle();
+
+    expect(note.restored()).toBe(false);
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "the index note!");
+    expect(heldText("index.md")?.content).toBe("# held");
+  });
+
+  it("drops held text when the flush on leaving carries it", async () => {
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md");
+    note.allowReload("the index note");
+
+    note.change("# held new");
+    note.open("daily/2026-08-05.md");
+    await act(async () => {});
+
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# held new");
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("keeps text held at hide time when an older write lands", async () => {
+    const note = renderAutosave("index.md");
+    const older = pendingSave();
+    note.change("c1");
+    await idle();
+    // The keepalive that never answers: the page went away under it.
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+    note.change("c2");
+    await pagehide();
+
+    await older.finish();
+
+    expect(heldText("index.md")?.content).toBe("c2");
+  });
+
+  it("keeps text held at hide time when an older write fails", async () => {
+    const note = renderAutosave("index.md");
+    const older = pendingSave();
+    note.change("c1");
+    await idle();
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+    note.change("c2");
+    await pagehide();
+
+    await older.break();
+
+    expect(heldText("index.md")?.content).toBe("c2");
+    // Nor does the older text come back into `pending` to be written later.
+    await note.save();
+    expect(saveNote).not.toHaveBeenLastCalledWith("index.md", "c1");
+  });
+
+  it("reopens held text as conflicted when the vault moved since it was held", async () => {
+    saveNote.mockRejectedValue(new TypeError("Failed to fetch"));
+    const left = renderAutosave("index.md");
+    left.seed("index.md", "the index note");
+    left.change("# mine");
+    await pagehide();
+    expect(heldText("index.md")?.base).toBe("the index note");
+    left.unmount();
+    await act(async () => {});
+
+    // Somebody else wrote the note before it was opened again.
+    const note = renderAutosave("index.md");
+    expect(note.allowReload("somebody else's note")).toBe(false);
+
+    expect(note.status()).toBe("conflict");
+    expect(await note.saveFirst()).toBe(false);
   });
 
   it("writes nothing on its own when a held note is reopened", async () => {

@@ -28,6 +28,34 @@ describe("held text", () => {
     expect(heldText("other.md")).toEqual(entry);
   });
 
+  it("keeps another tab's held text when holding one of its own", () => {
+    holdText("index.md", entry);
+    // Another tab holds a note of its own, straight into storage.
+    localStorage.setItem(
+      "kasten.held",
+      JSON.stringify({ "index.md": entry, "other.md": { ...entry, content: "# theirs" } }),
+    );
+
+    holdText("daily.md", entry);
+    dropText("index.md");
+    resetHeld();
+
+    expect(heldText("other.md")?.content).toBe("# theirs");
+    expect(heldText("daily.md")).toEqual(entry);
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("follows another tab's held text in the list", () => {
+    const { result } = renderHook(() => useHeld());
+
+    act(() => {
+      localStorage.setItem("kasten.held", JSON.stringify({ "other.md": entry }));
+      window.dispatchEvent(new StorageEvent("storage", { key: "kasten.held" }));
+    });
+
+    expect(result.current).toEqual([{ path: "other.md", reason: "failed with 500" }]);
+  });
+
   it("holds text in memory when storage refuses every touch", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("blocked", "SecurityError");
