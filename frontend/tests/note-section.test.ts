@@ -1,4 +1,4 @@
-import { appendUnder, sectionOf } from "@/lib/note-section";
+import { appendUnder, noteSectionOf, sectionOf } from "@/lib/note-section";
 
 /** Today's daily note as the vault holds it, log line and all. */
 const DAILY = [
@@ -105,5 +105,28 @@ describe("sectionOf", () => {
   it("reads ATX headings only", () => {
     expect(sectionOf("Setext\n======\nbody", "Setext")).toBeNull();
     expect(sectionOf("#hashtag\nbody", "hashtag")).toBeNull();
+  });
+});
+
+describe("noteSectionOf", () => {
+  const FILED = `---\nid: 01\n# not a heading: yes\n---\n${BOOK}`;
+
+  it("counts the line in the whole file, frontmatter and all", () => {
+    expect(noteSectionOf(FILED, "The Aleph")).toEqual({
+      text: "## The Aleph\na point in space\n### Notes\nstill the aleph",
+      line: 7,
+    });
+  });
+
+  it("looks for the heading in the body alone", () => {
+    expect(noteSectionOf(FILED, "not a heading: yes")).toBeNull();
+  });
+
+  it("counts from the top of a note with no frontmatter", () => {
+    expect(noteSectionOf(BOOK, "Ficciones")?.line).toBe(7);
+  });
+
+  it("answers null for a heading the note does not hold", () => {
+    expect(noteSectionOf(FILED, "Labyrinths")).toBeNull();
   });
 });

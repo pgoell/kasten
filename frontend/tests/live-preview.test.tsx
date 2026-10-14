@@ -136,6 +136,44 @@ describe("live preview", () => {
     expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
   });
 
+  it("draws a link with an alias as the alias", () => {
+    const { container } = render(
+      <Editor
+        initialDoc="see [[reading/borges#The Aleph|the story]] now"
+        paths={["reading/borges.md"]}
+      />,
+    );
+
+    expect(content(container)).toBe("see the story now");
+    expect(container.querySelector(".cm-wikilink")?.textContent).toBe("the story");
+    expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
+  });
+
+  it("draws a link to a heading of its own note as alive", () => {
+    const { container } = render(<Editor initialDoc="see [[#The Aleph]]" paths={["a.md"]} />);
+
+    expect(container.querySelector(".cm-wikilink")?.textContent).toBe("#The Aleph");
+    expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
+  });
+
+  it("marks an alias dead by the note behind it", () => {
+    const { container } = render(
+      <Editor initialDoc="[[borges|Jorge]] and [[cortazar|Julio]]" paths={["borges.md"]} />,
+    );
+
+    expect(container.querySelector(".cm-wikilink-dead")?.textContent).toBe("Julio");
+  });
+
+  it("shows the whole link again with the cursor in it in insert mode", async () => {
+    const { container } = render(<Editor initialDoc="see [[borges|Jorge]] now" />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "w" });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toBe("see [[borges|Jorge]] now"));
+  });
+
   it("brings a link back to life when the note it names arrives", () => {
     const { container, rerender } = render(<Editor initialDoc="[[borges]]" paths={[]} />);
     expect(container.querySelector(".cm-wikilink-dead")).not.toBeNull();
@@ -402,6 +440,16 @@ describe("live preview", () => {
     ]);
     // No pipe anywhere: the source is off the screen, widget and all.
     expect(content(container)).not.toContain("|");
+  });
+
+  it("draws a link with an alias in a cell as the alias", () => {
+    // A bare bar would end the cell, so a table escapes it, as Obsidian does.
+    const lines = ["before", "", "| who |", "| --- |", "| [[borges#Life\\|Jorge]] |"];
+    const { container } = render(<Editor initialDoc={lines.join("\n")} paths={["borges.md"]} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    expect(table.querySelector("tbody .cm-wikilink")?.textContent).toBe("Jorge");
+    expect(table.querySelector(".cm-wikilink-dead")).toBeNull();
   });
 
   it("leaves the prose under a table out of it", () => {

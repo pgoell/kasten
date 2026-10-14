@@ -1708,6 +1708,20 @@ a page of HTML. The editor renders it as the
 name alone, in the link colour, with the brackets off the screen the way every
 other mark is hidden, and `i` on that line hands them back.
 
+The target is read the way Obsidian reads it, bar first, then hash:
+
+| Written | Shows | Opens |
+| --- | --- | --- |
+| `[[note\|alias]]` | `alias` | `note` |
+| `[[note#Heading]]` | `note#Heading` | `note`, at the heading |
+| `[[note#Heading\|alias]]` | `alias` | `note`, at the heading |
+| `[[#Heading]]` | `#Heading` | this note, at the heading |
+
+A heading the note lacks opens the note where a plain link would. In a table
+the bar is written `\|`, since a bare one ends the cell. A link to a note
+nobody has written makes it under its name alone, never under the alias or
+the heading. The backlinks panel, the graph and a rename read the same rule.
+
 | Key | Does | Mode |
 | --- | --- | --- |
 | `gf` | Open the note or page the wikilink names, or the book a highlight came from | normal |

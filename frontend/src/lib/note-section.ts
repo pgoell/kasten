@@ -6,6 +6,8 @@
  * the rule for where that end is has nothing to do with any of the three.
  */
 
+import { noteBody } from "@/lib/note-frontmatter";
+
 /** Any heading, which is what ends the section above it. */
 const HEADING = /^#{1,6} /;
 
@@ -58,6 +60,24 @@ export function sectionOf(text: string, heading: string): { text: string; line: 
   let end = at + 1;
   while (end < lines.length && !(levelAt(end) > 0 && levelAt(end) <= level)) end += 1;
   return { text: lines.slice(at, end).join("\n"), line: at + 1 };
+}
+
+/**
+ * `sectionOf` read off a whole note file rather than its body.
+ *
+ * The heading is looked for in the body, because a YAML comment reads as a
+ * heading to anything that only counts hashes. The line is counted in the
+ * whole file, frontmatter and all, since that is the file the editor opens.
+ */
+export function noteSectionOf(
+  text: string,
+  heading: string,
+): { text: string; line: number } | null {
+  const body = noteBody(text);
+  const section = sectionOf(body, heading);
+  if (section === null) return null;
+  const above = text.split("\n").length - body.split("\n").length;
+  return { text: section.text, line: section.line + above };
 }
 
 /** One edit as a range in the old text and what replaces it. */

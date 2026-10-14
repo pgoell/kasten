@@ -9,7 +9,7 @@ import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/em
 import { imagePaths, imageSource } from "@/lib/image";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
-import { sectionOf } from "@/lib/note-section";
+import { noteSectionOf } from "@/lib/note-section";
 import { readRelation } from "@/lib/relation";
 import { type Align, alignsOf, isRow } from "@/lib/table";
 import { parseTodo } from "@/lib/todo";
@@ -291,20 +291,10 @@ class Embed extends WidgetType {
     return other.path === this.path && other.heading === this.heading && other.depth === this.depth;
   }
 
-  /**
-   * What the box shows of `text`, and the line of the note it starts on.
-   *
-   * The heading is looked for in the body, because a YAML comment reads as a
-   * heading to anything that only counts hashes. The line is counted in the
-   * whole file, frontmatter and all, since that is the file `open` jumps in.
-   */
+  /** What the box shows of `text`, and the line of the note it starts on. */
   private shown(text: string): { text: string; line: number | undefined } | null {
-    const body = noteBody(text);
-    if (this.heading === null) return { text: body, line: undefined };
-    const section = sectionOf(body, this.heading);
-    if (section === null) return null;
-    const above = text.split("\n").length - body.split("\n").length;
-    return { text: section.text, line: section.line + above };
+    if (this.heading === null) return { text: noteBody(text), line: undefined };
+    return noteSectionOf(text, this.heading);
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -491,7 +481,8 @@ function markedText(state: EditorState, node: SyntaxNode): Span | null {
   const className = inline ? inline.class : "cm-link";
   const paths = node.name === "WikiLink" ? state.facet(vaultPaths) : null;
   const dead = paths !== null && !wikiLinkLands(text, paths);
-  return { text, class: dead ? `${className} cm-wikilink-dead` : className };
+  const alias = node.name === "WikiLink" ? splitTarget(text).alias : null;
+  return { text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className };
 }
 
 /** One cell's text, cut at the constructs inside it. */
@@ -1018,10 +1009,22 @@ function build(state: EditorState): Live {
         // The one construct whose rendering depends on something outside the
         // document: a wikilink to a note the vault does not hold is drawn as
         // the invitation it is rather than as a link that works.
+        const target = state.doc.sliceString(open.to, close.from);
         const paths = node.name === "WikiLink" ? state.facet(vaultPaths) : null;
-        const dead =
-          paths !== null && !wikiLinkLands(state.doc.sliceString(open.to, close.from), paths);
+        const dead = paths !== null && !wikiLinkLands(target, paths);
         const className = dead ? `${inline.class} cm-wikilink-dead` : inline.class;
+
+        // `[[note|alias]]` reads as the alias, the name and the bar going with
+        // the brackets. The class stays on text in the document, so a click on
+        // the alias still finds the link around it.
+        const alias = node.name === "WikiLink" ? splitTarget(target).alias : null;
+        if (alias !== null && !inlineRevealed) {
+          const shown = open.to + target.indexOf("|") + 1;
+          decorations.push(Decoration.mark({ class: className }).range(shown, close.from));
+          hide(open.from, shown);
+          hide(close.from, close.to);
+          return;
+        }
         decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
       }
       if (inlineRevealed) return;

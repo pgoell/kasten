@@ -94,6 +94,9 @@ export const WikiLink: MarkdownConfig = {
 /**
  * What `[[name#heading|alias]]` is made of: the note, the heading in it, and
  * what to call the link. The bar is taken first, so an alias may carry a hash.
+ *
+ * In a table a bare bar ends the cell, so a link there writes it `\|`, as
+ * Obsidian has it. The backslash is the table's, not the name's.
  */
 export function splitTarget(target: string): {
   name: string;
@@ -101,7 +104,7 @@ export function splitTarget(target: string): {
   alias: string | null;
 } {
   const bar = target.indexOf("|");
-  const named = bar === -1 ? target : target.slice(0, bar);
+  const named = bar === -1 ? target : target.slice(0, bar).replace(/\\$/, "");
   const alias = bar === -1 ? null : target.slice(bar + 1).trim() || null;
   const hash = named.indexOf("#");
   const name = (hash === -1 ? named : named.slice(0, hash)).trim();
@@ -157,10 +160,16 @@ export function wikiLinkAt(state: EditorState, pos: number): string | null {
  * A target with a slash in it is a path, and is taken at its word. Either way
  * the answer is a path, so a name nothing answers to is the path the note
  * would be made at, and for a bare name that path is in the inbox.
+ *
+ * Only the name counts: `[[note#heading|alias]]` is a link to `note`. A link
+ * with no name, `[[#heading]]`, is to the note it is written in, which this
+ * cannot know, so it answers the empty path: no listing holds it, and every
+ * caller that compares paths finds it links nowhere else.
  */
 export function wikiLinkPath(target: string, paths: string[]): string {
-  const typed = target.trim();
-  const path = typed.endsWith(SUFFIX) || typed.endsWith(PAGE) ? typed : `${typed}${SUFFIX}`;
+  const { name } = splitTarget(target);
+  if (name === "") return "";
+  const path = name.endsWith(SUFFIX) || name.endsWith(PAGE) ? name : `${name}${SUFFIX}`;
   // A name says which note, never where it belongs, so following a link to one
   // nobody has written has to put it somewhere. The inbox is the folder for a
   // note with nowhere to be yet; a target spelling a path was taken at its word.
@@ -183,9 +192,14 @@ export function resolveIn(path: string, paths: string[]): string | null {
   );
 }
 
-/** Whether the vault holds the note `[[target]]` names. */
+/**
+ * Whether the vault holds the note `[[target]]` names.
+ *
+ * A heading of the note the link is written in always lands: that note is
+ * open, so it is there.
+ */
 export function wikiLinkLands(target: string, paths: string[]): boolean {
-  return paths.includes(wikiLinkPath(target, paths));
+  return splitTarget(target).name === "" || paths.includes(wikiLinkPath(target, paths));
 }
 
 /** One `[[link]]`, spelled the way the parser above spells it. */
@@ -213,10 +227,16 @@ export function wikiLinkTargets(text: string): string[] {
  * is a line that links a person by construction, so the brackets are noise on
  * every row, and a link written as a path costs the row the words that say what
  * happened. The name is what a reader of `[[02 Projects/2026-09-28 Kickoff]]`
- * was going to read anyway.
+ * was going to read anyway. An alias is the name its writer chose to read, so
+ * it wins, and a heading stays on the name it narrows.
  */
 export function plainLinks(text: string): string {
-  return text.replace(LINK, (_, target: string) => target.slice(target.lastIndexOf("/") + 1));
+  return text.replace(LINK, (_, target: string) => {
+    const { name, heading, alias } = splitTarget(target);
+    if (alias !== null) return alias;
+    const short = name.slice(name.lastIndexOf("/") + 1);
+    return heading === null ? short : `${short}#${heading}`;
+  });
 }
 
 /**

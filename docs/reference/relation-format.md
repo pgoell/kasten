@@ -115,9 +115,9 @@ backend, with a copy of this grammar in `graph.py`, so a relation is an edge
 carrying its name. The two copies answer to this page, and the tests on each
 side describe the same lines.
 
-The graph reads one thing the editor does not yet: an alias or a heading in the
-target, `supports:: [[GraphRAG paper|the paper]]`, is cut off, and the relation
-points at `GraphRAG paper`. [Graph query](/reference/graph-query.md#what-the-graph-holds)
+An alias or a heading in the target, `supports:: [[GraphRAG paper|the paper]]`,
+is cut off, and the relation points at `GraphRAG paper`, in the graph and in the
+backlinks panel alike. [Graph query](/reference/graph-query.md#what-the-graph-holds)
 states every rule it reads links by.
 
 ## The accepted cost

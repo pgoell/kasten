@@ -55,6 +55,19 @@ describe("personTodos", () => {
     ]);
   });
 
+  it("keeps a todo linking them with an alias or a heading", () => {
+    const found = personTodos(
+      [
+        hit("a.md", 3, "- [ ] ask [[Max Bosch|Max]] about the script"),
+        hit("a.md", 4, "- [ ] read [[Max Bosch#Notes]] first"),
+      ],
+      MAX,
+      PATHS,
+    );
+
+    expect(found).toHaveLength(2);
+  });
+
   it("keeps a todo that waits on them, the link being in its 👤 and not its words", () => {
     const found = personTodos(
       [hit("a.md", 3, "- [w] decision record 👤 2026-10-01 [[Max Bosch]]")],

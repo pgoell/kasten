@@ -182,7 +182,33 @@ async def test_refuses_a_centre_not_in_the_graph(client: AsyncClient, small: Pat
     assert response.status_code == 400
 
 
-@pytest.mark.parametrize("target", ["borges", "reading/borges", "BORGES.md", "nobody", "x/nobody"])
+async def test_reads_a_heading_and_an_alias_after_a_path(client: AsyncClient, vault: Path) -> None:
+    # The alias is taken off first, so a slash or a hash in it says nothing
+    # about the note: `[[plan|a/b#c]]` is a link to `plan` by its name.
+    write(vault, "ideas/plan.md", "")
+    write(vault, "a.md", "[[ideas/plan#Risks|the risks]] [[plan|a/b#c]] ![[ ideas/plan |x]]\n")
+
+    answer = await graph(client)
+
+    assert edges(answer) == {("a.md", "ideas/plan.md", None)}
+    assert paths(answer) == {"a.md", "ideas/plan.md"}
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "borges",
+        "reading/borges",
+        "BORGES.md",
+        "nobody",
+        "x/nobody",
+        "borges#Ficciones",
+        "borges|the librarian",
+        "reading/borges#Ficciones|his stories",
+        "borges|and/or",
+        "borges|a#b",
+    ],
+)
 def test_resolver_agrees_with_link_path(target: str) -> None:
     listing = ["borges.md", "reading/borges.md", "z/other.md"]
 

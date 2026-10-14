@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from kasten_backend.links import link_path, relink, split_target
 from kasten_backend.search import SearchError, notes_holding
 
 if TYPE_CHECKING:
@@ -212,6 +213,116 @@ async def test_follows_a_link_written_in_another_case(client: AsyncClient, vault
     await client.patch("/api/files/borges.md", json={"path": "kafka.md"})
 
     assert (vault / "index.md").read_text() == "see [[kafka]]\n"
+
+
+async def test_follows_a_link_to_a_heading_or_under_an_alias(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The name is respelled and what follows it is the writer's, kept as typed.
+    (vault / "borges.md").write_text("# borges")
+    (vault / "index.md").write_text(
+        "[[borges#Ficciones]] [[borges|the librarian]] ![[borges#Ficciones]]"
+        " ![[borges|the librarian]] [[borges#Ficciones|his stories]]\n"
+    )
+
+    await client.patch("/api/files/borges.md", json={"path": "kafka.md"})
+
+    assert (vault / "index.md").read_text() == (
+        "[[kafka#Ficciones]] [[kafka|the librarian]] ![[kafka#Ficciones]]"
+        " ![[kafka|the librarian]] [[kafka#Ficciones|his stories]]\n"
+    )
+
+
+async def test_follows_a_link_in_a_table_cell_with_its_bar_escaped(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "borges.md").write_text("# borges")
+    (vault / "index.md").write_text("| who |\n| --- |\n| [[borges\\|the librarian]] |\n")
+
+    await client.patch("/api/files/borges.md", json={"path": "kafka.md"})
+
+    assert (vault / "index.md").read_text() == "| who |\n| --- |\n| [[kafka\\|the librarian]] |\n"
+
+
+async def test_follows_a_path_to_a_heading_when_the_note_moves(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "reading").mkdir()
+    (vault / "reading" / "borges.md").write_text("# borges")
+    (vault / "index.md").write_text("[[reading/borges#Ficciones|his stories]]\n")
+
+    await client.patch("/api/files/reading/borges.md", json={"path": "archive/borges.md"})
+
+    assert (vault / "index.md").read_text() == "[[archive/borges#Ficciones|his stories]]\n"
+
+
+async def test_follows_a_path_to_a_heading_when_the_folder_moves(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "reading").mkdir()
+    (vault / "reading" / "borges.md").write_text("# borges")
+    (vault / "index.md").write_text("[[reading/borges#Ficciones]] ![[reading/borges|his]]\n")
+
+    await client.patch("/api/folders/reading", json={"path": "archive"})
+
+    assert (vault / "index.md").read_text() == (
+        "[[archive/borges#Ficciones]] ![[archive/borges|his]]\n"
+    )
+
+
+async def test_keeps_a_name_a_name_when_its_alias_holds_a_slash(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The slash is in the alias, so the link was written as a name and stays
+    # one: a move between folders is nothing for it to answer.
+    (vault / "reading").mkdir()
+    (vault / "reading" / "borges.md").write_text("# borges")
+    (vault / "index.md").write_text("see [[borges|and/or]]\n")
+
+    await client.patch("/api/files/reading/borges.md", json={"path": "archive/kafka.md"})
+
+    assert (vault / "index.md").read_text() == "see [[kafka|and/or]]\n"
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        ("borges#Ficciones", "reading/borges.md"),
+        ("borges|the librarian", "reading/borges.md"),
+        (" Borges #Ficciones | his stories", "reading/borges.md"),
+        ("reading/borges#Ficciones", "reading/borges.md"),
+        ("borges|and/or", "reading/borges.md"),
+        ("borges|a#b", "reading/borges.md"),
+    ],
+)
+def test_link_path_reads_the_name_past_a_heading_and_an_alias(target: str, expected: str) -> None:
+    assert link_path(target, ["reading/borges.md"]) == expected
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        ("borges", ("borges", None, None)),
+        (" borges #Ficciones ", ("borges", "Ficciones", None)),
+        ("borges#Ficciones|his stories", ("borges", "Ficciones", "his stories")),
+        ("borges|a#b/c", ("borges", None, "a#b/c")),
+        ("#Ficciones", ("", "Ficciones", None)),
+        ("borges#|", ("borges", None, None)),
+        ("borges\\|his", ("borges", None, "his")),
+    ],
+)
+def test_split_target_takes_the_bar_before_the_hash(
+    target: str, expected: tuple[str, str | None, str | None]
+) -> None:
+    assert split_target(target) == expected
+
+
+def test_leaves_a_link_to_a_heading_of_its_own_note_alone() -> None:
+    # `[[#Ficciones]]` names no other note, so no move is anything for it to
+    # answer, even one of a file at the path an empty name would make.
+    text = "see [[#Ficciones]] and [[ #Ficciones|here]]\n"
+
+    assert relink(text, {".md": "kafka.md"}, [".md", "kafka.md"]) == text
 
 
 async def test_refuses_to_move_a_note_it_cannot_read_the_vault_for(

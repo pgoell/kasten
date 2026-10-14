@@ -12,13 +12,15 @@ file holding it moves, and an `index.md` is made of nothing else.
 
 The rule a target is read by is the frontend's, in `frontend/src/lib/wikilink.ts`,
 and the two have to agree: the note `gf` opens is the note a rename here follows.
-Two copies of one rule is the cost of the editor resolving a link without asking
-the server, and the tests on both sides describe the same three cases.
+That is `splitTarget` taking the heading and the alias off `[[name#heading|alias]]`,
+then `wikiLinkPath` finding the note the name is. Two copies of one rule is the
+cost of the editor resolving a link without asking the server, and the tests on
+both sides describe the same cases.
 """
 
 import posixpath
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import unquote
 
 from kasten_backend.search import notes_holding
@@ -55,10 +57,34 @@ SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 """An href that names a place outside the vault: `https:`, `mailto:` and the rest."""
 
 
+class Target(NamedTuple):
+    """What `[[name#heading|alias]]` is made of: the note, its heading, and the link's words."""
+
+    name: str
+    heading: str | None
+    alias: str | None
+
+
+def split_target(target: str) -> Target:
+    """`target` taken apart the way the editor's `splitTarget` takes it.
+
+    The bar is taken first, so an alias may carry a hash or a slash and still be
+    an alias. An empty name is a link to a heading of the note it sits in. In a
+    table a bare bar ends the cell, so a link there writes the bar escaped, and the
+    backslash is the table's, not the name's.
+    """
+    named, bar, alias = target.partition("|")
+    if bar:
+        named = named.removesuffix("\\")
+    name, _, heading = named.partition("#")
+    return Target(name.strip(), heading.strip() or None, alias.strip() or None)
+
+
 def link_path(target: str, paths: list[str]) -> str:
     """The vault path `[[target]]` names, whether or not a note is there.
 
-    A target with a slash in it is a path and is taken at its word. A bare name
+    Only the name counts: `[[borges#Ficciones|his]]` names what `[[borges]]` does.
+    A name with a slash in it is a path and is taken at its word. A bare name
     is looked for anywhere in the vault, ignoring case, so `[[borges]]` names
     `reading/borges.md` from any note. `paths` arrives sorted, so a note of that
     name at the vault root wins over one in a folder.
@@ -68,7 +94,7 @@ def link_path(target: str, paths: list[str]) -> str:
     and not about which note a link names: what this feeds is a mapping keyed by
     notes that exist, which a path nothing answers to is not in either way.
     """
-    typed = target.strip()
+    typed = split_target(target).name
     # A page of HTML is named by its whole file name, so `[[report.html]]` and
     # `[[report]]` are two files.
     path = typed if typed.endswith((SUFFIX, HTML_SUFFIX)) else f"{typed}{SUFFIX}"
@@ -84,8 +110,8 @@ def _name(path: str) -> str:
     return path.rsplit("/", 1)[-1][: -len(SUFFIX)]
 
 
-def _respell(target: str, new: str) -> str:
-    """`target` written for a note now at `new`, keeping the spelling it had.
+def _respell(name: str, new: str) -> str:
+    """`name`, a link's name, written for a note now at `new`, keeping the spelling it had.
 
     A path stays a path and a name stays a name, which is what leaves
     `[[borges]]` alone when only the folder changed. The `.md` goes either way:
@@ -93,7 +119,7 @@ def _respell(target: str, new: str) -> str:
     page keeps its `.html`, which is the only thing telling it from a note.
     """
     stem = new.removesuffix(SUFFIX)
-    return stem if "/" in target.strip() else stem.rsplit("/", 1)[-1]
+    return stem if "/" in name else stem.rsplit("/", 1)[-1]
 
 
 def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
@@ -107,13 +133,19 @@ def relink(text: str, moves: dict[str, str], paths: list[str]) -> str:
 
     def rewrite(match: re.Match[str]) -> str:
         target = match.group(1)
-        if not target.strip():
+        name = split_target(target).name
+        # `[[#Risks]]` is a heading of the note it sits in, and names no note
+        # a move could take somewhere else.
+        if not name:
             return match.group(0)
 
         new = moves.get(link_path(target, paths))
         if new is None:
             return match.group(0)
-        return f"[[{_respell(target, new)}]]"
+        # The heading and the alias are the writer's and stay as typed, spaces
+        # and all. Only the name before them is respelled.
+        tail = target[target.index(name) + len(name) :]
+        return f"[[{_respell(name, new)}{tail}]]"
 
     return WIKILINK.sub(rewrite, text)
 

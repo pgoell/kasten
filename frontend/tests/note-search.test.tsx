@@ -301,6 +301,18 @@ describe("backlinks", () => {
     await waitFor(() => expect(panel.rows()).toHaveLength(1));
   });
 
+  it("keeps a link written with an alias or a heading, embedded or not", async () => {
+    searchNotes.mockResolvedValue([
+      { path: "index.md", line: 3, text: "see [[borges|Jorge]]" },
+      { path: "index.md", line: 4, text: "see [[borges#Life]]" },
+      { path: "index.md", line: 5, text: "![[borges#Life]]" },
+      { path: "index.md", line: 6, text: "![[reading/borges|Jorge]]" },
+    ]);
+    const panel = renderBacklinks();
+
+    await waitFor(() => expect(panel.rows()).toHaveLength(4));
+  });
+
   it("drops a link that names another note of a similar name", async () => {
     searchNotes.mockResolvedValue([
       { path: "index.md", line: 3, text: "see [[archive/borges]]" },
@@ -399,6 +411,18 @@ describe("backlinks", () => {
 
       await waitFor(() => expect(kafka.rows()).toHaveLength(1));
       expect(kafka.groups()).toHaveLength(0);
+    });
+
+    it("groups a relation written with an alias or a heading under its name", async () => {
+      searchNotes.mockResolvedValue([
+        { path: "index.md", line: 3, text: "rel:: [[borges|Jorge]]" },
+        { path: "index.md", line: 4, text: "rel:: [[borges#Life]]" },
+      ]);
+      const panel = renderBacklinks();
+
+      await waitFor(() => expect(panel.rows()).toHaveLength(2));
+      expect(panel.groups()).toEqual([{ name: "rel", rows: expect.any(Array) }]);
+      expect(panel.groups()[0]?.rows).toHaveLength(2);
     });
 
     it("groups a name nothing has defined under its own spelling", async () => {

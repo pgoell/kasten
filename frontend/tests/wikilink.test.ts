@@ -9,6 +9,7 @@ import {
   vaultPaths,
   WikiLink,
   wikiLinkCompletions,
+  wikiLinkLands,
   wikiLinkPath,
   wikiLinkTargets,
 } from "@/lib/wikilink";
@@ -63,6 +64,19 @@ describe("outgoingLinks", () => {
   it("leaves out a link to a note nobody has written yet", () => {
     // The panel is a list of notes, and there is no note there to list.
     expect(outgoingLinks("see [[cortazar]]", PATHS)).toEqual([]);
+  });
+
+  it("counts a link with an alias or a heading, embedded or not, as one to the note", () => {
+    const text = "[[borges|x]] [[index#H]] ![[daily/2026-08-05#H]] ![[borges|y]]";
+    expect(outgoingLinks(text, PATHS)).toEqual([
+      "reading/borges.md",
+      "index.md",
+      "daily/2026-08-05.md",
+    ]);
+  });
+
+  it("counts no link to a heading of the note itself", () => {
+    expect(outgoingLinks("see [[#The Aleph]]", PATHS)).toEqual([]);
   });
 });
 
@@ -124,6 +138,39 @@ describe("wikiLinkPath", () => {
     const paths = ["report.md", "report.html"];
     expect(wikiLinkPath("report", paths)).toBe("report.md");
     expect(wikiLinkPath("report.html", paths)).toBe("report.html");
+  });
+
+  it("names the note an alias or a heading is written on", () => {
+    expect(wikiLinkPath("borges|the man", PATHS)).toBe("reading/borges.md");
+    expect(wikiLinkPath("borges#The Aleph", PATHS)).toBe("reading/borges.md");
+    expect(wikiLinkPath("borges#The Aleph|the story", PATHS)).toBe("reading/borges.md");
+  });
+
+  it("makes a missing note under its name alone, not under its alias", () => {
+    expect(wikiLinkPath("cortazar|Julio", PATHS)).toBe("00 Inbox/cortazar.md");
+    expect(wikiLinkPath("cortazar#Rayuela", PATHS)).toBe("00 Inbox/cortazar.md");
+  });
+
+  it("takes a page of HTML behind an alias", () => {
+    const paths = ["report.md", "report.html"];
+    expect(wikiLinkPath("report.html|the report", paths)).toBe("report.html");
+  });
+
+  it("names no note at all for a heading of the note it is written in", () => {
+    // `.md` alone, or the inbox folder, is a path a create would act on.
+    expect(wikiLinkPath("#The Aleph", PATHS)).toBe("");
+  });
+});
+
+describe("wikiLinkLands", () => {
+  it("lands a link with an alias or a heading on the note it names", () => {
+    expect(wikiLinkLands("borges|the man", PATHS)).toBe(true);
+    expect(wikiLinkLands("borges#The Aleph|the story", PATHS)).toBe(true);
+    expect(wikiLinkLands("cortazar|Julio", PATHS)).toBe(false);
+  });
+
+  it("lands a heading of the note it is written in", () => {
+    expect(wikiLinkLands("#The Aleph", PATHS)).toBe(true);
   });
 });
 
@@ -228,6 +275,14 @@ describe("splitTarget", () => {
     });
   });
 
+  it("reads a bar escaped for a table cell as the bar", () => {
+    expect(splitTarget("borges#Life\\|Jorge")).toEqual({
+      name: "borges",
+      heading: "Life",
+      alias: "Jorge",
+    });
+  });
+
   it("calls an empty heading none", () => {
     expect(splitTarget("borges#  ").heading).toBeNull();
   });
@@ -256,6 +311,18 @@ describe("plainLinks", () => {
       "paired with Max Bosch on the script",
     );
     expect(plainLinks("see [[02 Projects/2026-09-28 Kickoff]]")).toBe("see 2026-09-28 Kickoff");
+  });
+
+  it("writes a link with an alias as the alias", () => {
+    expect(plainLinks("paired with [[03 Areas/Max Bosch|Max]] today")).toBe(
+      "paired with Max today",
+    );
+    expect(plainLinks("see [[02 Projects/Kickoff#Agenda|the agenda]]")).toBe("see the agenda");
+  });
+
+  it("writes a link to a heading as the name and the heading, folders gone", () => {
+    expect(plainLinks("see [[02 Projects/Kickoff#Agenda]]")).toBe("see Kickoff#Agenda");
+    expect(plainLinks("see [[#Agenda]]")).toBe("see #Agenda");
   });
 
   it("leaves a line holding no link exactly as it was", () => {

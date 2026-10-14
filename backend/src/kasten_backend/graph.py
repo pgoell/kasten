@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from kasten_backend.links import split_target
 from kasten_backend.search import scan_vault
 from kasten_backend.tags import TAG
 from kasten_backend.vault import ASSET_MAGIC, HTML_SUFFIX, SUFFIX, list_markdown_files
@@ -174,7 +175,7 @@ def resolver(paths: list[str]) -> Callable[[str], str]:
         by_name.setdefault(path.rsplit("/", 1)[-1].lower(), path)
 
     def resolve(target: str) -> str:
-        typed = target.strip()
+        typed = split_target(target).name
         path = typed if typed.endswith(SUFFIX) else f"{typed}{SUFFIX}"
         if path in known or "/" in path:
             return path
@@ -186,12 +187,12 @@ def resolver(paths: list[str]) -> Callable[[str], str]:
 def _target(written: str) -> str | None:
     """The note a link's text names, or None when it names no note.
 
-    Obsidian's alias and heading are cut off, so `[[Louise Nong|Louise]]` and
-    `[[Plan#Risks]]` are links to `Louise Nong` and `Plan`. A link to a heading
-    of its own note, `[[#Risks]]`, names no other note, and an embed of a file,
-    `![[plan.pdf]]`, names a file rather than a note.
+    Obsidian's alias and heading are cut off by `links.split_target`, so
+    `[[Louise Nong|Louise]]` and `[[Plan#Risks]]` are links to `Louise Nong` and
+    `Plan`. A link to a heading of its own note, `[[#Risks]]`, names no other
+    note, and an embed of a file, `![[plan.pdf]]`, names a file rather than a note.
     """
-    name = written.split("|", 1)[0].split("#", 1)[0].strip()
+    name = split_target(written).name
     if not name:
         return None
     suffix = name.rsplit(".", 1)[-1].lower() if "." in name.rsplit("/", 1)[-1] else ""

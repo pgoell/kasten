@@ -94,6 +94,3 @@ embed.
   it.
 * **Other files.** A PDF, an epub or any file that is not one of the image types
   above is not drawn.
-* **Plain links with a heading or an alias.** `[[note|alias]]` and
-  `[[note#heading]]` without the `!` do not yet resolve to the note; issue #206
-  tracks it.
