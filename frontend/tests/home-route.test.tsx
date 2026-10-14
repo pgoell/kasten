@@ -9,6 +9,7 @@ import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
+import { hashed } from "./digests";
 import {
   defineFoliateFake,
   FakeView,
@@ -428,27 +429,6 @@ function clicked(): HTMLAnchorElement[] {
   return caught;
 }
 
-// crypto finishes a digest off the event loop, which no fake timer reaches, so
-// the real timer is kept from before the fakes go in.
-const realTimeout = globalThis.setTimeout;
-
-/**
- * Let the digest of a write the route made land, which takes a real tick.
- *
- * Rounds rather than one tick, the way `settle` takes three: `crypto.subtle`
- * finishes on a thread pool, and a single macrotask is enough on an idle
- * machine and not always enough on a loaded one. A digest that lands after the
- * event below reads as somebody else's write, which is the reading this test
- * exists to rule out.
- */
-async function hashed() {
-  for (let round = 0; round < 5; round += 1) {
-    await act(async () => {
-      await new Promise((resolve) => realTimeout(resolve, 0));
-    });
-  }
-}
-
 /** The base a save names for `text` on disk: its sha256, `modified` set aside. */
 function baseOf(text: string): Promise<string> {
   return digestOf(unstamped(text));
@@ -589,6 +569,7 @@ describe("the route", () => {
     // Written and then saved, so the buffer is clean when the event arrives and
     // the read of it goes out. This is the gap the whole mechanism is about.
     app.press("s", { ctrlKey: true });
+    await hashed();
     await settle();
     expect(saveNote).toHaveBeenCalledTimes(1);
 
@@ -672,6 +653,7 @@ describe("the route", () => {
         }),
     );
     app.ex("w");
+    await hashed();
     await settle();
     expect(saveNote).toHaveBeenCalledTimes(1);
 
@@ -704,6 +686,7 @@ describe("the route", () => {
         }),
     );
     app.ex("w");
+    await hashed();
     await settle();
 
     fetchNote.mockResolvedValueOnce("the vault's own text");
@@ -2332,8 +2315,11 @@ describe("a reader when the vault moves under it", () => {
     resetFoliateFake();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -2504,6 +2490,7 @@ describe("a reader when the vault moves under it", () => {
     // left in the air lands inside the next test carrying this one's position.
     afterEach(async () => {
       cleanup();
+      await hashed();
       await settle();
     });
 
@@ -2818,6 +2805,7 @@ describe("a reader when the vault moves under it", () => {
     // The reader's teardown flushes, the way the bookmark's own block does it.
     afterEach(async () => {
       cleanup();
+      await hashed();
       await settle();
     });
 
@@ -2993,8 +2981,11 @@ describe("importing markdown and taking it out again", () => {
     URL.revokeObjectURL = vi.fn();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -3092,6 +3083,7 @@ describe("importing markdown and taking it out again", () => {
     await settle();
 
     app.leader("w");
+    await hashed();
     await settle();
 
     const blob = vi.mocked(URL.createObjectURL).mock.calls[0]?.[0] as Blob;
@@ -3147,8 +3139,11 @@ describe("putting a book in the vault", () => {
     resetFoliateFake();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -3387,8 +3382,11 @@ describe("looking at an image", () => {
     deleteImage.mockResolvedValue({ entry: `${SHOT}@20260812T180000Z`, path: SHOT, deleted: "" });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -3521,8 +3519,11 @@ describe("following a link to a page of HTML", () => {
     fetchAssets.mockResolvedValue([]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -3600,8 +3601,11 @@ describe("following a link to an asset", () => {
     fetchAssets.mockResolvedValue([PLAN]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -3703,8 +3707,11 @@ describe("following a link with an alias or a heading", () => {
     fetchAssets.mockResolvedValue([]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -3876,8 +3883,11 @@ describe("opening a highlight's book with gf", () => {
     FakeView.sections = sectionsOf([PASSAGE]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -4005,8 +4015,11 @@ describe("capturing into today's dump", () => {
     captureDump.mockImplementation(async () => ({ path: "x.md", content: "" }));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -4081,8 +4094,11 @@ describe("the vault's own vocabulary", () => {
     resetFoliateFake();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    // A flush naming a base goes out once its hash lands, which must be
+    // inside this test and not the next one.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();

@@ -5,11 +5,10 @@ import { ChangedOnDisk } from "@/lib/api";
 import { heldText, holdText, moveHeld, resetHeld, unstamped } from "@/lib/held-text";
 import { useAutosave } from "@/lib/use-autosave";
 import { digestOf } from "@/lib/vault-events";
+import { hashed } from "./digests";
 
-// crypto finishes a digest off the event loop, which no fake timer reaches, so
-// the real timer is kept from before the fakes go in. `hashed` below is what
-// the tests wait on for the hash of a write to land.
-const realTimeout = globalThis.setTimeout;
+// crypto finishes a digest off the event loop, which no fake timer reaches.
+// `hashed` is what the tests wait on for the hashes of the writes to land.
 
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn() }));
 // The real refusal, which the hook tells apart from every other failure.
@@ -56,9 +55,17 @@ function pendingSave() {
       }),
   );
 
+  // A save naming a base asks only once its hash lands, which may not have
+  // happened yet on a loaded machine.
   return {
-    finish: () => act(async () => settle?.()),
-    break: () => act(async () => fail?.()),
+    finish: async () => {
+      if (!settle) await hashed();
+      await act(async () => settle?.());
+    },
+    break: async () => {
+      if (!fail) await hashed();
+      await act(async () => fail?.());
+    },
   };
 }
 
@@ -142,13 +149,6 @@ function renderAutosave(path = "index.md", shown?: () => string | undefined) {
 async function idle() {
   await act(async () => {
     vi.advanceTimersByTime(800);
-  });
-}
-
-/** Let the digest of what the vault answered with land, which takes a real tick. */
-async function hashed() {
-  await act(async () => {
-    await new Promise((resolve) => realTimeout(resolve, 0));
   });
 }
 
