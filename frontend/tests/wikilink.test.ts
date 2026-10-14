@@ -256,6 +256,10 @@ describe("wikiLinkCompletions", () => {
     expect(accept("| [[bor\\|Jo]] |", "| [[bor".length)).toBe("| [[reading/borges\\|Jo]] |");
   });
 
+  it("closes the link when the bar after it ends a table cell", () => {
+    expect(accept("|[[bor|", "|[[bor".length)).toBe("|[[reading/borges]]|");
+  });
+
   it.each([
     ["an alias", "[[borges|Jo"],
     ["a heading", "[[borges#He"],

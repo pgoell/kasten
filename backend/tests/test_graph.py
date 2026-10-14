@@ -142,6 +142,17 @@ async def test_local_graph_keeps_its_centre(client: AsyncClient, small: Path) ->
     assert paths(answer) == {"ideas/Embeddings.md", "rag.md", "GraphRAG paper.md"}
 
 
+async def test_local_graph_centres_a_note_named_like_a_file(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "plan.pdf.md", "See [[rag]].\n")
+    write(vault, "rag.md", "x\n")
+
+    answer = await graph(client, around="plan.pdf.md", depth=1)
+
+    assert paths(answer) == {"plan.pdf.md", "rag.md"}
+
+
 async def test_pattern_answers_rows(client: AsyncClient, small: Path) -> None:
     answer = await graph(client, q="?paper supports ?idea; ?idea depends-on [[Embeddings]]")
 

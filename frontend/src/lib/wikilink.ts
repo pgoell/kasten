@@ -264,8 +264,12 @@ export function outgoingLinks(text: string, paths: string[]): string[] {
  */
 const TYPED = /\[\[[^[\]\n|#\\]*/;
 
-/** What follows a name when the rest of the link is already written. */
-const TAIL = /^(\]\]|\\?\||#)/;
+/**
+ * What follows a name when the rest of the link is already written: the pair,
+ * or an alias or heading closed by it. A bar with no `]]` after it is a table
+ * cell's, and the link still needs closing.
+ */
+const TAIL = /^(?:\]\]|(?:\\?\||#)[^[\]\n]*\]\])/;
 
 /**
  * Every note in the vault, offered inside an open `[[`.
@@ -290,7 +294,9 @@ export function wikiLinkCompletions(context: CompletionContext): CompletionResul
   // nothing in markdown. So the completion closes what it completes, unless
   // the rest of the link, the pair or an alias or heading before it, is
   // already sitting there waiting for a name.
-  const closed = TAIL.test(context.state.sliceDoc(context.pos, context.pos + MARK));
+  const closed = TAIL.test(
+    context.state.sliceDoc(context.pos, context.state.doc.lineAt(context.pos).to),
+  );
 
   return {
     // Past the opening brackets: they are in the document already, and what a

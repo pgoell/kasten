@@ -675,7 +675,12 @@ async def query_graph(
 
     center = None
     if around is not None:
-        center = resolver(sorted(graph.nodes))(around.removesuffix(SUFFIX))
+        # A path is taken as given before it is read as a link: `plan.pdf.md`
+        # is a note, where the link `[[plan.pdf]]` names the pdf.
+        if around in graph.nodes:
+            center = around
+        else:
+            center = resolver(sorted(graph.nodes))(around.removesuffix(SUFFIX))
         if center not in graph.nodes:
             raise GraphError(f"{around} is not in the graph")
         graph = _narrowed(graph, _around(graph, center, max(0, min(depth, MOST_DEPTH))))
