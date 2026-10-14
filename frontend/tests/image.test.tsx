@@ -161,6 +161,12 @@ describe("completing an image path", () => {
     expect(found?.options[0]?.apply).toBe("99%20Misc/plan%20%232%3F.png");
   });
 
+  it("leaves a comma raw, the spelling a folder move looks for", () => {
+    const found = offered("![](", ["Trips, 2024/beach #1.png"]);
+
+    expect(found?.options[0]?.apply).toBe("Trips,%202024/beach%20%231.png");
+  });
+
   it("keeps offering them as the path is typed", () => {
     expect(offered("![](99%20Misc/02")?.options).toHaveLength(1);
   });

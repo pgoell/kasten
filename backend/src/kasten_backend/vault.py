@@ -48,9 +48,11 @@ downstream relies on.
 
 Lowercase keys, matched ignoring case: `PHOTO.PNG` and `Plan.PDF` are assets,
 the way Obsidian finds them, because a file copied in over the terminal keeps
-the name its camera or its scanner gave it. Every lookup lowers the suffix
-first. A note is the exception, `SUFFIX` matching exactly, so `NOTES.MD` is
-still not a note.
+the name its camera or its scanner gave it. The listings and the routes lower
+the suffix first. A note is the exception, `SUFFIX` matching exactly, so
+`NOTES.MD` is still not a note, and so is the book beside one: `resolve_book`
+and `books_beside` swap in a lowercase suffix, so `Plan.PDF` is no book of
+`Plan.md`.
 """
 
 IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES)))
