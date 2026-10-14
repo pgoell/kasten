@@ -1,6 +1,8 @@
 import type { SearchHit } from "@/lib/api";
-import { decksFrom, parkedNotes } from "@/lib/review";
-import { parseCards, setSuspended } from "@/lib/srs";
+import { inDeck } from "@/lib/deck-tag";
+import { noteName } from "@/lib/note-path";
+import { type Deck, type DeckNote, deckNotes, decksFrom, parkedNotes } from "@/lib/review";
+import { parseCards, readNoteSchedule, readNoteSuspended, setSuspended } from "@/lib/srs";
 
 const TODAY = "2026-08-13";
 
@@ -8,27 +10,37 @@ function hits(path: string, lines: string[]): SearchHit[] {
   return lines.map((text, at) => ({ path, line: at + 1, text }));
 }
 
+/** One note of these lines, as the overview reads it once fetched. */
+function note(path: string, lines: string[]): DeckNote[] {
+  return [{ path, text: lines.join("\n") }];
+}
+
+/** One note of this text. */
+function one(path: string, text: string): DeckNote[] {
+  return [{ path, text }];
+}
+
 describe("decksFrom", () => {
   it("names a deck after the tag's subpath", () => {
-    const decks = decksFrom(hits("decks/aws.md", ["#flashcards/aws", "a::b"]), TODAY);
+    const decks = decksFrom(note("decks/aws.md", ["#flashcards/aws", "a::b"]), TODAY);
     expect(decks).toHaveLength(1);
     expect(decks[0]?.name).toBe("aws");
     expect(decks[0]?.notes).toEqual(["decks/aws.md"]);
   });
 
   it("names a deck after its note where the tag is bare", () => {
-    const decks = decksFrom(hits("decks/Terraform drills.md", ["#flashcards", "a::b"]), TODAY);
+    const decks = decksFrom(note("decks/Terraform drills.md", ["#flashcards", "a::b"]), TODAY);
     expect(decks[0]?.name).toBe("Terraform drills");
   });
 
   it("counts a card nothing has scheduled as new", () => {
-    const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "c::d"]), TODAY);
+    const [deck] = decksFrom(note("d.md", ["#flashcards", "a::b", "c::d"]), TODAY);
     expect(deck).toMatchObject({ fresh: 2, due: 0 });
   });
 
   it("counts a card scheduled for today or earlier as due", () => {
     const [deck] = decksFrom(
-      hits("d.md", [
+      note("d.md", [
         "#flashcards",
         "a::b <!--SR:!2026-08-13,4,250-->",
         "c::d <!--SR:!2026-08-01,4,250-->",
@@ -42,35 +54,49 @@ describe("decksFrom", () => {
 
   it("counts a card written over several lines once", () => {
     const [deck] = decksFrom(
-      hits("d.md", ["#flashcards", "?", "<!--SR:!2026-08-01,4,250-->", "?"]),
+      note("d.md", [
+        "#flashcards",
+        "",
+        "Q1",
+        "?",
+        "A1",
+        "<!--SR:!2026-08-01,4,250-->",
+        "",
+        "Q2",
+        "?",
+        "A2",
+      ]),
       TODAY,
     );
     expect(deck).toMatchObject({ due: 1, fresh: 1 });
   });
 
   it("leaves a card inside a code fence out", () => {
-    // The lines `GET /api/cards` hands over for the fenced note in
-    // `backend/tests/test_cards.py`, at the numbers they really sit on.
+    // The fenced note in `backend/tests/test_cards.py`.
     const [deck] = decksFrom(
-      [
-        { path: "decks/cpp.md", line: 3, text: "#flashcards/cpp" },
-        { path: "decks/cpp.md", line: 5, text: "live::answer" },
-        { path: "decks/cpp.md", line: 7, text: "```cpp" },
-        { path: "decks/cpp.md", line: 8, text: "fenced::answer" },
-        { path: "decks/cpp.md", line: 9, text: "```" },
-      ],
+      note("decks/cpp.md", [
+        "# C++",
+        "",
+        "#flashcards/cpp",
+        "",
+        "live::answer",
+        "",
+        "```cpp",
+        "fenced::answer",
+        "```",
+      ]),
       TODAY,
     );
     expect(deck).toMatchObject({ fresh: 1 });
   });
 
   it("leaves a note carrying no tag out, whatever it holds", () => {
-    expect(decksFrom(hits("code.md", ["std::vector", "a::b", "?"]), TODAY)).toEqual([]);
+    expect(decksFrom(note("code.md", ["std::vector", "a::b", "?"]), TODAY)).toEqual([]);
   });
 
   it("keeps two decks apart", () => {
     const decks = decksFrom(
-      [...hits("a.md", ["#flashcards/aws", "a::b"]), ...hits("t.md", ["#flashcards/tf", "c::d"])],
+      [...note("a.md", ["#flashcards/aws", "a::b"]), ...note("t.md", ["#flashcards/tf", "c::d"])],
       TODAY,
     );
     expect(decks.map((deck) => deck.name)).toEqual(["aws", "tf"]);
@@ -78,7 +104,7 @@ describe("decksFrom", () => {
 
   it("makes one deck of one tag written in two notes", () => {
     const decks = decksFrom(
-      [...hits("a.md", ["#flashcards/db", "a::b"]), ...hits("b.md", ["#flashcards/db", "c::d"])],
+      [...note("a.md", ["#flashcards/db", "a::b"]), ...note("b.md", ["#flashcards/db", "c::d"])],
       TODAY,
     );
 
@@ -88,7 +114,7 @@ describe("decksFrom", () => {
 
   it("adds the deck a card names at its own head to the note's", () => {
     const decks = decksFrom(
-      hits("procs.md", ["#flashcards/db", "a::b", "#flashcards/dbt How does it relate?::so"]),
+      note("procs.md", ["#flashcards/db", "a::b", "#flashcards/dbt How does it relate?::so"]),
       TODAY,
     );
 
@@ -99,14 +125,17 @@ describe("decksFrom", () => {
   });
 
   it("takes a card's own tag on the front of one written over several lines", () => {
-    const decks = decksFrom(hits("procs.md", ["#flashcards/dbt A question", "?"]), TODAY);
+    const decks = decksFrom(
+      note("procs.md", ["#flashcards/dbt A question", "?", "An answer"]),
+      TODAY,
+    );
 
     expect(decks.map((deck) => deck.name)).toEqual(["dbt"]);
     expect(decks[0]).toMatchObject({ fresh: 1 });
   });
 
   it("makes a card of a tagged line in a note carrying no tag at all", () => {
-    const decks = decksFrom(hits("prose.md", ["std::vector", "#flashcards/dbt a::b"]), TODAY);
+    const decks = decksFrom(note("prose.md", ["std::vector", "#flashcards/dbt a::b"]), TODAY);
 
     expect(decks.map((deck) => deck.name)).toEqual(["dbt"]);
     expect(decks[0]).toMatchObject({ fresh: 1 });
@@ -116,7 +145,7 @@ describe("decksFrom", () => {
     // The line `srs.ts` and this file could most easily disagree on. Both read
     // head tags as a card's only where the card is on that line or the next.
     const decks = decksFrom(
-      hits("procs.md", ["#flashcards/db is the deck here.", "a::b", "c::d"]),
+      note("procs.md", ["#flashcards/db is the deck here.", "a::b", "c::d"]),
       TODAY,
     );
 
@@ -126,7 +155,7 @@ describe("decksFrom", () => {
 
   it("keeps a card's own tag off the card under it", () => {
     const decks = decksFrom(
-      hits("procs.md", ["#flashcards/db", "#flashcards/dbt a::b", "c::d"]),
+      note("procs.md", ["#flashcards/db", "#flashcards/dbt a::b", "c::d"]),
       TODAY,
     );
 
@@ -138,8 +167,8 @@ describe("decksFrom", () => {
   it("sorts the decks by name", () => {
     const decks = decksFrom(
       [
-        ...hits("z.md", ["#flashcards/zeta", "a::b"]),
-        ...hits("a.md", ["#flashcards/alpha", "c::d"]),
+        ...note("z.md", ["#flashcards/zeta", "a::b"]),
+        ...note("a.md", ["#flashcards/alpha", "c::d"]),
       ],
       TODAY,
     );
@@ -149,46 +178,55 @@ describe("decksFrom", () => {
 
 describe("decksFrom on a parked card", () => {
   it("counts a card carrying the token as parked rather than new", () => {
-    const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "c::d !suspended"]), TODAY);
+    const [deck] = decksFrom(note("d.md", ["#flashcards", "a::b", "c::d !suspended"]), TODAY);
     expect(deck).toMatchObject({ fresh: 1, parked: 1 });
   });
 
   it("counts a question with no answer as parked rather than new", () => {
-    const [deck] = decksFrom(hits("d.md", ["#flashcards", "a::b", "Question::"]), TODAY);
+    const [deck] = decksFrom(note("d.md", ["#flashcards", "a::b", "Question::"]), TODAY);
     expect(deck).toMatchObject({ fresh: 1, parked: 1 });
   });
 });
 
 describe("decksFrom on a note marked for review", () => {
   it("makes the note a deck of its own", () => {
-    const [deck] = decksFrom(hits("notes/tls.md", ["#review"]), TODAY);
+    const [deck] = decksFrom(note("notes/tls.md", ["#review"]), TODAY);
     expect(deck).toMatchObject({ name: "tls", notes: ["notes/tls.md"], due: 0, fresh: 1 });
   });
 
   it("counts it due when its date is today or past", () => {
-    const [deck] = decksFrom(hits("notes/tls.md", ["sr-due: 2026-08-01", "#review"]), TODAY);
+    const [deck] = decksFrom(
+      note("notes/tls.md", ["---", "sr-due: 2026-08-01", "---", "#review"]),
+      TODAY,
+    );
     expect(deck).toMatchObject({ due: 1, fresh: 0 });
   });
 
   it("counts it neither due nor new when its date is ahead", () => {
-    const [deck] = decksFrom(hits("notes/tls.md", ["sr-due: 2026-09-01", "#review"]), TODAY);
+    const [deck] = decksFrom(
+      note("notes/tls.md", ["---", "sr-due: 2026-09-01", "---", "#review"]),
+      TODAY,
+    );
     expect(deck).toMatchObject({ due: 0, fresh: 0 });
   });
 
   it("counts a note its frontmatter parks as parked, not new", () => {
-    const [deck] = decksFrom(hits("notes/tls.md", ["sr-suspended: true", "#review"]), TODAY);
+    const [deck] = decksFrom(
+      note("notes/tls.md", ["---", "sr-suspended: true", "---", "#review"]),
+      TODAY,
+    );
     expect(deck).toMatchObject({ parked: 1, fresh: 0, due: 0 });
   });
 
   it("keeps a note holding cards as a deck of cards", () => {
-    const [deck] = decksFrom(hits("d.md", ["#flashcards/aws", "a::b"]), TODAY);
+    const [deck] = decksFrom(note("d.md", ["#flashcards/aws", "a::b"]), TODAY);
     expect(deck).toMatchObject({ name: "aws", fresh: 1 });
   });
 });
 
 describe("decksFrom on a nested deck tag", () => {
   it("counts the card in the deck named and in every deck above it", () => {
-    const decks = decksFrom(hits("d.md", ["#flashcards/databases/postgres", "a::b"]), TODAY);
+    const decks = decksFrom(note("d.md", ["#flashcards/databases/postgres", "a::b"]), TODAY);
     expect(decks.map((deck) => deck.name)).toEqual(["databases", "databases/postgres"]);
     expect(decks[0]).toMatchObject({ fresh: 1, notes: ["d.md"] });
     expect(decks[1]).toMatchObject({ fresh: 1, notes: ["d.md"] });
@@ -197,8 +235,8 @@ describe("decksFrom on a nested deck tag", () => {
   it("gathers two children under the one parent", () => {
     const decks = decksFrom(
       [
-        ...hits("p.md", ["#flashcards/databases/postgres", "a::b"]),
-        ...hits("s.md", ["#flashcards/databases/sqlite", "c::d", "e::f"]),
+        ...note("p.md", ["#flashcards/databases/postgres", "a::b"]),
+        ...note("s.md", ["#flashcards/databases/sqlite", "c::d", "e::f"]),
       ],
       TODAY,
     );
@@ -212,11 +250,105 @@ describe("decksFrom on a nested deck tag", () => {
 
   it("counts a card tagged parent and child once in the parent", () => {
     const decks = decksFrom(
-      hits("d.md", ["#flashcards/databases", "#flashcards/databases/postgres a::b"]),
+      note("d.md", ["#flashcards/databases", "#flashcards/databases/postgres a::b"]),
       TODAY,
     );
     expect(decks.map((deck) => deck.name)).toEqual(["databases", "databases/postgres"]);
     expect(decks[0]).toMatchObject({ fresh: 1 });
+  });
+});
+
+describe("deckNotes", () => {
+  it("names the notes a hit marks as a deck, once each, and no others", () => {
+    const found = deckNotes([
+      ...hits("a.md", ["#flashcards", "a::b", "c::d"]),
+      ...hits("code.md", ["std::vector"]),
+      ...hits("t.md", ["#flashcards/dbt a::b"]),
+      ...hits("n.md", ["#review"]),
+      ...hits("s.md", ["sr-due: 2026-08-01"]),
+      ...hits("p.md", ["sr-suspended: true"]),
+    ]);
+
+    expect(found).toEqual(["a.md", "t.md", "n.md", "s.md", "p.md"]);
+  });
+});
+
+/**
+ * What a sitting of `deck` would ask out of `notes`, counted the way it asks.
+ *
+ * `cardsOf` and the queue in `review-session.tsx`, restated: a whole note is
+ * one card off its frontmatter, any other note its `parseCards` filtered by
+ * `inDeck`, a parked card never asked, a due one before a new one.
+ */
+function sitting(deck: Deck, notes: DeckNote[]) {
+  const cards = notes
+    .filter(({ path }) => deck.notes.includes(path))
+    .flatMap(({ path, text }) =>
+      deck.whole
+        ? [
+            {
+              held: readNoteSchedule(text),
+              parked: readNoteSuspended(text) ? "suspended" : null,
+            },
+          ]
+        : parseCards(text, noteName(path)).filter((card) =>
+            card.decks.some((filed) => inDeck(filed, deck.name)),
+          ),
+    );
+  return {
+    due: cards.filter(
+      (card) => card.parked === null && card.held !== null && card.held.due <= TODAY,
+    ).length,
+    fresh: cards.filter((card) => card.parked === null && card.held === null).length,
+    parked: cards.filter((card) => card.parked !== null).length,
+  };
+}
+
+describe("decksFrom against the sitting", () => {
+  it("counts every deck what a sitting of it asks", () => {
+    const notes: DeckNote[] = [
+      ...one(
+        "db/postgres.md",
+        "#flashcards/databases/postgres\n\na::b <!--SR:!2026-08-01,1,250-->\nc::d !suspended\n" +
+          "#flashcards/dbt e::f\n\nQ\n?\nA\n{{c1::x}} y\n<!--SR:!2026-09-01,1,250-->\n",
+      ),
+      ...one(
+        "db/sqlite.md",
+        "#flashcards/databases/sqlite\n\nThe {{c1::WAL}} is a {{c2::log}}. <!--SR:c1!2026-08-10,1,250-->\n" +
+          "Question::\n\nR\n?\nS\na::b\n",
+      ),
+      ...one("db/top.md", "#flashcards/databases\n\ng::h\n```\nfenced::no\n```\n"),
+      ...one("notes/tls.md", "---\nsr-due: 2026-08-01\n---\n#review\n\nThe handshake.\n"),
+      ...one("notes/off.md", "---\nsr-suspended: true\n---\n#review\n"),
+      ...one("notes/both.md", "#review #flashcards\n\nk::l\n"),
+      ...one("prose.md", "#flashcards/dbt is mentioned here\n\nstd::move\n"),
+    ];
+    const decks = decksFrom(notes, TODAY);
+
+    expect(decks.map((deck) => deck.name)).toEqual([
+      "both",
+      "databases",
+      "databases/postgres",
+      "databases/sqlite",
+      "dbt",
+      "off",
+      "tls",
+    ]);
+    for (const deck of decks) {
+      expect({ deck: deck.name, ...sitting(deck, notes) }).toEqual({
+        deck: deck.name,
+        due: deck.due,
+        fresh: deck.fresh,
+        parked: deck.parked,
+      });
+    }
+  });
+
+  it("counts the decks whose notes read, while another's read is still out or failed", () => {
+    // The pane hands over only the notes that came back, so a failed read is a
+    // note missing from this list and no more than that.
+    const decks = decksFrom(one("a.md", "#flashcards/aws\n\na::b\n"), TODAY);
+    expect(decks).toMatchObject([{ name: "aws", fresh: 1 }]);
   });
 });
 
@@ -246,37 +378,27 @@ describe("parkedNotes", () => {
   });
 });
 
-/** The lines of `text` `GET /api/cards` hands over, by `CARD_PATTERN` in `cards.py`. */
-function scanned(path: string, text: string): SearchHit[] {
-  const matches =
-    /::|^[ \t]*\?[ \t]*$|<!--SR:!|<!--SR:c\d+!|^[ \t]*```|^[ \t]*!suspended|#flashcards|#review/;
-  return text
-    .split("\n")
-    .map((line, at) => ({ path, line: at + 1, text: line }))
-    .filter((hit) => matches.test(hit.text));
-}
-
 describe("decksFrom on an imported question holding `::`", () => {
   // The text `as_note` writes in `backend/tests/test_anki.py`. A front holding
   // `::` is a hit of its own, so the overview must not count it beside its `?`.
   it("counts the card once, as the sitting does", () => {
     const text = "#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue\n";
 
-    expect(decksFrom(scanned("f.md", text), TODAY)).toMatchObject([{ name: "French", fresh: 1 }]);
+    expect(decksFrom(one("f.md", text), TODAY)).toMatchObject([{ name: "French", fresh: 1 }]);
     expect(parseCards(text)).toHaveLength(1);
   });
 
   it("counts it once when the answer holds `::` too, beside one-line cards", () => {
     const text = "#flashcards/x\n\na::b\n\nWhat does std::move do?\n?\ncasts std::move\n\nc::d\n";
 
-    expect(decksFrom(scanned("x.md", text), TODAY)).toMatchObject([{ name: "x", fresh: 3 }]);
+    expect(decksFrom(one("x.md", text), TODAY)).toMatchObject([{ name: "x", fresh: 3 }]);
     expect(parseCards(text)).toHaveLength(3);
   });
 
   it("takes the front's own tag as the card's", () => {
     const text = "#flashcards/x\n\n#flashcards/cpp What does std::move do?\n?\ncasts\n";
 
-    expect(decksFrom(scanned("x.md", text), TODAY).map((deck) => [deck.name, deck.fresh])).toEqual([
+    expect(decksFrom(one("x.md", text), TODAY).map((deck) => [deck.name, deck.fresh])).toEqual([
       ["cpp", 1],
       ["x", 1],
     ]);
@@ -287,14 +409,14 @@ describe("decksFrom on an imported question holding `::`", () => {
     // counted as two cards and `srs.ts` as one; it now leaves the card out.
     const text = "#flashcards/x\n\na::b\n";
 
-    expect(decksFrom(scanned("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
+    expect(decksFrom(one("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
     expect(parseCards(text)).toHaveLength(1);
   });
 
   it("counts nothing for a question `as_note` left out for want of an answer", () => {
     const text = "#flashcards/x\n\na::b\n";
 
-    expect(decksFrom(scanned("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
+    expect(decksFrom(one("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
     expect(parseCards(text)).toHaveLength(1);
   });
 });
@@ -316,7 +438,7 @@ describe("decksFrom on a cloze", () => {
       "#flashcards/geo\n\nThe capital of {{c1::France}} is {{c2::Paris}}. <!--SR:c2!2026-08-01,1,250-->\n";
     const counted = { due: 1, fresh: 1, parked: 0 };
 
-    expect(decksFrom(scanned("g.md", text), TODAY)).toMatchObject([{ name: "geo", ...counted }]);
+    expect(decksFrom(one("g.md", text), TODAY)).toMatchObject([{ name: "geo", ...counted }]);
     expect(sat(text)).toEqual(counted);
   });
 
@@ -326,7 +448,7 @@ describe("decksFrom on a cloze", () => {
       "<!--SR:c1!2026-08-01,1,250--> <!--SR:c2!2026-09-01,1,250-->\n\nc {{c1::d}} c::e\n";
     const counted = { due: 1, fresh: 1, parked: 0 };
 
-    expect(decksFrom(scanned("g.md", text), TODAY)).toMatchObject([{ name: "geo", ...counted }]);
+    expect(decksFrom(one("g.md", text), TODAY)).toMatchObject([{ name: "geo", ...counted }]);
     expect(sat(text)).toEqual(counted);
   });
 
@@ -334,20 +456,19 @@ describe("decksFrom on a cloze", () => {
     const text = "#flashcards\n\n{{c1::a}} first\n{{c1::b}} {{c2::c}}\n?\nextra\n!suspended\n";
     const counted = { due: 0, fresh: 1, parked: 2 };
 
-    expect(decksFrom(scanned("n.md", text), TODAY)).toMatchObject([counted]);
+    expect(decksFrom(one("n.md", text), TODAY)).toMatchObject([counted]);
     expect(sat(text)).toEqual(counted);
   });
 
   it("agrees on a cloze over a `?` with nothing under it", () => {
-    // The scan never shows the line under the `?`, so neither reader asks it:
-    // the `?` is the cloze's, its back empty, its dates on the line under it.
+    // The `?` is the cloze's, its back empty, its dates on the line under it.
     for (const text of [
       "#flashcards\n\n{{c1::a}} {{c2::b}} <!--SR:c1!2026-08-01,1,250-->\n?\n\nprose\n",
       "#flashcards\n\n{{c1::a}} {{c2::b}}\n?\n<!--SR:c1!2026-08-01,1,250-->\n",
     ]) {
       const counted = text.includes("}}\n?\n<!--") ? { due: 1, fresh: 1 } : { due: 0, fresh: 2 };
 
-      expect(decksFrom(scanned("n.md", text), TODAY)).toMatchObject([counted]);
+      expect(decksFrom(one("n.md", text), TODAY)).toMatchObject([counted]);
       expect(sat(text)).toMatchObject(counted);
     }
   });
@@ -360,7 +481,7 @@ describe("decksFrom on a cloze", () => {
     const parked = setSuspended(text, card, true);
     const counted = { due: 0, fresh: 0, parked: 1 };
 
-    expect(decksFrom(scanned("n.md", parked), TODAY)).toMatchObject([counted]);
+    expect(decksFrom(one("n.md", parked), TODAY)).toMatchObject([counted]);
     expect(sat(parked)).toEqual(counted);
   });
 
@@ -370,17 +491,29 @@ describe("decksFrom on a cloze", () => {
       "!suspended <!--SR:c1!2026-08-01,1,250-->\n";
     const counted = { due: 0, fresh: 0, parked: 4 };
 
-    expect(decksFrom(scanned("n.md", text), TODAY)).toMatchObject([counted]);
+    expect(decksFrom(one("n.md", text), TODAY)).toMatchObject([counted]);
     expect(sat(text)).toEqual(counted);
+  });
+
+  it("counts a cloze line under a `?` back as part of that back", () => {
+    const text = "#flashcards\n\nQ\n?\nA\n{{c1::x}} y\n";
+    expect(decksFrom(one("n.md", text), TODAY)).toMatchObject([{ fresh: 1 }]);
+    expect(sat(text)).toEqual({ due: 0, fresh: 1, parked: 0 });
+  });
+
+  it("counts a `::` line under a `?` back as part of that back", () => {
+    const text = "#flashcards\n\nQ\n?\nA\na::b\n";
+    expect(decksFrom(one("n.md", text), TODAY)).toMatchObject([{ fresh: 1 }]);
+    expect(sat(text)).toEqual({ due: 0, fresh: 1, parked: 0 });
   });
 
   it("counts no cloze inside a fence, and none in a note nobody tagged", () => {
     const fenced = "#flashcards\n\na::b\n\n```\n{{c1::a}} {{c2::b}}\n```\n";
-    expect(decksFrom(scanned("f.md", fenced), TODAY)).toMatchObject([{ fresh: 1 }]);
+    expect(decksFrom(one("f.md", fenced), TODAY)).toMatchObject([{ fresh: 1 }]);
     expect(sat(fenced)).toEqual({ due: 0, fresh: 1, parked: 0 });
 
     const untagged = "prose\n\n{{c1::a}} {{c2::b}}\n";
-    expect(decksFrom(scanned("u.md", untagged), TODAY)).toEqual([]);
+    expect(decksFrom(one("u.md", untagged), TODAY)).toEqual([]);
     expect(sat(untagged)).toEqual({ due: 0, fresh: 0, parked: 0 });
     // Still two cards, only in no deck: the sitting drops them as the overview does.
     expect(parseCards(untagged)).toHaveLength(2);

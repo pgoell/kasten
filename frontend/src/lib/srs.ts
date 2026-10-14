@@ -40,8 +40,8 @@
  * Which decks a card is in is read here, off `deck-tag.ts`'s rule, because this
  * is the reader that sees the note whole. A `::` is a common enough thing to
  * type that reading every one of them as a card would fill the queue with C++
- * and YAML, so a card in no deck at all is not a card, and the overview counts
- * the same thing off the matched lines alone.
+ * and YAML, so a card in no deck at all is not a card, to the overview and the
+ * sitting alike.
  */
 
 import {

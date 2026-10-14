@@ -259,9 +259,9 @@ def one_deck(
     return sides(read_apkg(apkg(notes, cards, ((100, "French"),), **layout)))["French"]
 
 
-def test_plain_turns_a_break_into_a_space_and_strips_every_other_tag() -> None:
-    # `<b>` leaves no space behind: only the four tags that end a line do.
-    assert plain("one<br>two<br/>three</div>four</p><b>five</b>six") == "one two three four fivesix"
+def test_plain_strips_a_tag_it_has_no_markdown_for() -> None:
+    # `<span>` leaves no space behind: only the tags that end a line do (#234).
+    assert plain('one<span class="x">two</span><font>three</font>') == "onetwothree"
 
 
 def test_plain_unescapes_entities() -> None:
@@ -312,6 +312,166 @@ def test_plain_drops_script_and_style_blocks() -> None:
     assert plain("<style>.card { color: red }</style>a<SCRIPT>var x = 1;</script>b") == "ab"
 
 
+def test_plain_writes_breaks_and_paragraphs_as_lines() -> None:
+    field = "one<br>two<div>three</div><p>four</p>five"
+
+    assert plain(field) == "one\ntwo\nthree\nfour\nfive"
+
+
+def test_plain_leaves_no_blank_line_in_a_side() -> None:
+    # `srs.ts` ends a `?` card at a blank line, so a run of breaks is one.
+    assert plain("a<br><br><br>b<p></p><div><br></div><p>c</p>") == "a\nb\nc"
+
+
+def test_plain_writes_bold_italic_and_underline_as_bold() -> None:
+    field = "<b>a</b> <strong>b</strong> <i>c</i> <em>d</em> <u>e</u> <b> f </b>"
+
+    assert plain(field) == "**a** **b** *c* *d* **e** **f**"
+
+
+def test_plain_writes_lists_a_line_per_item() -> None:
+    field = "<ul><li>one</li><li>two</li></ul><ol><li>first</li><li>second</li></ol>"
+
+    assert plain(field) == "- one\n- two\n1. first\n2. second"
+
+
+def test_plain_writes_links() -> None:
+    field = 'see <a href="https://example.com/a (b)">the site</a> now'
+
+    assert plain(field) == "see [the site](https://example.com/a%20%28b%29) now"
+
+
+def test_plain_writes_code_and_pre_with_backticks() -> None:
+    # No fence: both readers skip every card inside one.
+    assert plain("use <code>a*b</code>") == "use `a*b`"
+    assert plain("<pre>x = `1`\n  y</pre>") == "`` x = `1` ``\n`  y`"
+
+
+def test_plain_keeps_ruby_and_drops_its_parentheses() -> None:
+    field = "<ruby>漢字<rp>(</rp><rt>かんじ</rt><rp>)</rp></ruby>"
+
+    assert plain(field) == "<ruby>漢字<rt>かんじ</rt></ruby>"
+
+
+def test_plain_escapes_markdown_characters_in_text() -> None:
+    field = "2*3, snake_case, `x`, [y], a == b, <b>bold</b>"
+
+    assert plain(field) == r"2\*3, snake\_case, \`x\`, \[y], a \=\= b, **bold**"
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        ("# of elements", r"\# of elements"),
+        ("?", r"\?"),
+        ("!suspended x", r"\!suspended x"),
+        ("#pragma #once", r"\#pragma #once"),
+        ("on &lt;!--SR:!2026-08-20,4,270--&gt; here", r"on <!--SR\:!2026-08-20,4,270--> here"),
+        ("a<br># b<br>?", "a\n\\# b\n\\?"),
+    ],
+    ids=["heading", "divider", "token", "tags", "schedule", "per-line"],
+)
+def test_plain_escapes_a_line_that_would_end_a_card(field: str, expected: str) -> None:
+    # Kept as text with a backslash rather than dropped: each of these is a line
+    # `srs.ts` ends a `?` card on, or counts as a card of its own.
+    assert plain(field) == expected
+
+
+FURIGANA = 8
+FURIGANA_TYPE: NoteType = (
+    FURIGANA,
+    "Furigana",
+    0,
+    ("Expression", "Reading"),
+    (
+        ("Ruby", "{{Expression}}", "{{furigana:Reading}}"),
+        ("Kanji", "{{kanji:Reading}}", "{{kana:Reading}}"),
+        ("Stored", "{{Reading}}", "{{Expression}}"),
+    ),
+)
+
+
+def test_furigana_filters_follow_anki() -> None:
+    notes = ((1, FURIGANA, "x\x1f漢字[かんじ]を&nbsp;読[よ]む"),)
+    cards = ((11, 1, 100, 0), (12, 1, 100, 1), (13, 1, 100, 2))
+
+    assert one_deck(notes, cards, types=(*TYPES, FURIGANA_TYPE)) == [
+        ("x", "<ruby>漢字<rt>かんじ</rt></ruby>を<ruby>読<rt>よ</rt></ruby>む"),
+        ("漢字を読む", "かんじをよむ"),
+        # No filter shows the brackets as stored, which is what Anki shows.
+        (r"漢字\[かんじ]を 読\[よ]む", "x"),
+    ]
+
+
+def test_a_multi_line_side_takes_the_question_form() -> None:
+    notes = ((1, BASIC, "Name three<br>colours\x1f<ul><li>red</li><li>green</li></ul>"),)
+    decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
+
+    assert as_note(decks[0]) == "#flashcards/x\n\nName three\ncolours\n?\n- red\n- green\n"
+
+
+def test_a_multi_line_front_with_no_back_is_parked_on_one_line() -> None:
+    # A `?` with nothing under it is no card, so the breaks become spaces.
+    decks = read_apkg(apkg(((1, SOLO, "one<br>two"),), CARDS[:1], ((100, "x"),)))
+
+    assert as_note(decks[0]) == "#flashcards/x\n\none two::\n"
+
+
+def test_an_imported_side_that_would_end_the_card_is_kept_as_text() -> None:
+    notes = ((1, BASIC, "Is a::b valid?\x1f?<br>```js"),)
+    decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
+
+    assert as_note(decks[0]) == "#flashcards/x\n\nIs a::b valid?\n?\n\\?\n\\`\\`\\`js\n"
+    assert card_count(decks[0]) == 1
+
+
+def test_a_cloze_text_stays_one_line_and_its_extra_runs_over_lines() -> None:
+    notes = ((1, CLOZE, "{{c1::Paris}}<br>is the capital\x1fOn the<br><b>Seine</b>"),)
+    decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
+
+    assert as_note(decks[0]) == (
+        "#flashcards/x\n\n{{c1::Paris}} is the capital\n?\nOn the\n**Seine**\n"
+    )
+    assert card_count(decks[0]) == 1
+
+
+COUNTED_NOTE = """#flashcards/French
+
+Name three
+colours
+?
+- red
+- green
+
+漢字::<ruby>漢字<rt>かんじ</rt></ruby>
+
+{{c1::Paris}} is in {{c2::France}}
+?
+On the
+Seine
+
+What does std::size count?
+?
+\\# of elements
+\\!suspended no
+"""
+"""The note `frontend/tests/srs.test.ts` reads back, holding five cards."""
+
+
+def test_card_count_is_what_srs_reads_off_the_note() -> None:
+    notes = (
+        (1, BASIC, "Name three<br>colours\x1f<ul><li>red</li><li>green</li></ul>"),
+        (2, FURIGANA, "漢字\x1f漢字[かんじ]"),
+        (3, CLOZE, "{{c1::Paris}} is in<br>{{c2::France}}\x1fOn the<p>Seine</p>"),
+        (4, BASIC, "What does std::size count?\x1f# of elements<br>!suspended no"),
+    )
+    cards = ((11, 1, 100, 0), (21, 2, 100, 0), (31, 3, 100, 0), (41, 4, 100, 0))
+    deck = read_apkg(apkg(notes, cards, types=(*TYPES, FURIGANA_TYPE)))[0]
+
+    assert as_note(deck) == COUNTED_NOTE
+    assert card_count(deck) == 5
+
+
 @pytest.mark.parametrize("layout", LAYOUTS)
 def test_reads_note_types_and_their_templates(layout: dict[str, Any]) -> None:
     assert sides(read_apkg(apkg(**layout))) == EXPECTED
@@ -356,7 +516,7 @@ def test_three_templates_give_three_cards(layout: dict[str, Any]) -> None:
     cards = ((11, 1, 100, 0), (12, 1, 100, 1), (13, 1, 100, 2))
 
     assert one_deck(notes, cards, **layout) == [
-        ("listen here", "漢字 Chinese characters"),
+        ("listen here", "漢字\nChinese characters"),
         ("Chinese characters", "漢字"),
         ("漢字", "かんじ Chinese characters"),
     ]
@@ -374,7 +534,7 @@ def test_a_field_the_front_uses_in_any_position_is_the_question(layout: dict[str
     notes = ((1, JAPANESE, "漢字\x1fChinese characters\x1flisten here\x1fかんじ"),)
 
     assert one_deck(notes, ((11, 1, 100, 0),), **layout) == [
-        ("listen here", "漢字 Chinese characters")
+        ("listen here", "漢字\nChinese characters")
     ]
 
 
@@ -454,7 +614,7 @@ def test_a_field_of_other_markup_is_not_empty() -> None:
     notes = ((1, JAPANESE, "火\x1ffire\x1f<p></p>\x1fひ"),)
 
     # The front comes out empty after `plain`, and `as_note` leaves it out.
-    assert one_deck(notes, ((11, 1, 100, 0),)) == [("", "火 fire")]
+    assert one_deck(notes, ((11, 1, 100, 0),)) == [("", "火\nfire")]
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)
@@ -509,7 +669,7 @@ def test_a_cloze_note_with_back_extra_imports_as_the_question_form() -> None:
 
     assert as_note(decks[0]) == (
         "#flashcards/French\n\nBonjour::hello\n\n"
-        "{{c1::Paris}} is the capital\n?\nOn the Seine\n\nOui::yes\n"
+        "{{c1::Paris}} is the capital\n?\nOn the **Seine**\n\nOui::yes\n"
     )
 
 
@@ -703,7 +863,7 @@ def test_a_comment_in_a_template_shows_nothing_and_fills_nothing() -> None:
     data = apkg(notes, cards, ((100, "D"),), types=types)
 
     # The second note's front is the comment alone, so Anki makes no card.
-    assert sides(read_apkg(data)) == {"D": [("q", "secret")]}
+    assert sides(read_apkg(data)) == {"D": [("**q**", "*secret*")]}
 
 
 def test_a_third_brace_is_dropped_before_the_field_and_kept_after() -> None:
@@ -909,8 +1069,9 @@ def test_a_front_of_only_a_sound_is_a_card() -> None:
     notes = ((1, JAPANESE, "漢字\x1fChinese characters\x1f[sound:kanji.mp3]\x1fかんじ"),)
     decks = read_apkg(apkg(notes, ((11, 1, 100, 0),), media=(("kanji.mp3", MP3),)))
 
+    # The back's `<br>` is a line of it, so the card takes the `?` form.
     assert as_note(decks[0]) == (
-        "#flashcards/French\n\n![](French%20media/kanji.mp3)::漢字 Chinese characters\n"
+        "#flashcards/French\n\n![](French%20media/kanji.mp3)\n?\n漢字\nChinese characters\n"
     )
 
 
@@ -963,18 +1124,26 @@ async def test_import_writes_one_note_per_deck(client: AsyncClient, vault: Path)
 
 
 async def test_import_counts_the_cards_the_note_holds(client: AsyncClient, vault: Path) -> None:
-    # The first cannot be written without `srs.ts` cutting it at `std`, so the
-    # note leaves it out, and the count must not promise it.
+    # The empty back cannot be written without `srs.ts` cutting the question at
+    # `std`, so the note leaves it out, and the count must not promise it. A
+    # back reading as a heading is escaped and kept (#234).
     export = apkg(
-        notes=((1, BASIC, "What does std::size count?\x1f# of elements"), (2, BASIC, "a\x1fb")),
-        cards=((1, 1, 10, 0), (2, 2, 10, 0)),
+        notes=(
+            (1, BASIC, "What does std::size count?\x1f# of elements"),
+            (2, BASIC, "a\x1fb"),
+            (3, BASIC, "What does std::move do?\x1f"),
+        ),
+        cards=((1, 1, 10, 0), (2, 2, 10, 0), (3, 3, 10, 0)),
         decks=((10, "Cpp"),),
     )
 
     response = await client.post("/api/anki", content=export)
 
-    assert response.json()["cards"] == 1
-    assert "a::b" in (vault / "03 Flashcards" / "Cpp.md").read_text(encoding="utf-8")
+    note = (vault / "03 Flashcards" / "Cpp.md").read_text(encoding="utf-8")
+    assert response.json()["cards"] == 2
+    assert "a::b" in note
+    assert "?\n\\# of elements" in note
+    assert "std::move" not in note
 
 
 async def test_import_counts_each_cloze_number_as_a_card(client: AsyncClient, vault: Path) -> None:

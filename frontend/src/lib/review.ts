@@ -1,38 +1,30 @@
 /**
- * Turning the lines `GET /api/cards` found into the decks the overview shows.
+ * Turning the notes `GET /api/cards` names into the decks the overview shows.
  *
- * The scan is deliberately loose, matching every `::` in the vault, so this is
- * where a note becomes a deck: a card carrying no `#flashcards` tag of its own
- * and sitting in a note carrying none is no card at all, whatever a C++ snippet
- * in it looks like. That rule is the reason the endpoint can afford a pattern
- * that matches anything, and the reason a deck is a tag rather than a folder.
+ * The scan is deliberately loose, matching every `::` in the vault, so a note
+ * becomes a deck here and not there: a card carrying no `#flashcards` tag of its
+ * own and sitting in a note carrying none is no card at all, whatever a C++
+ * snippet in it looks like. That rule is the reason the endpoint can afford a
+ * pattern that matches anything, and the reason a deck is a tag rather than a
+ * folder.
  *
  * A deck is not a note. The same tag in three notes is one deck holding all
  * three, and one card carrying a tag of its own joins a deck the rest of its
  * note is not in. `deck-tag.ts` holds what a tag means; this file counts.
  *
- * Counting from lines rather than from parsed cards is the second half of the
- * same bargain. Every card matches exactly once, on its `::` or on its `?`, a
- * cloze being a card per number off the one line its marks are on, and every
- * schedule matches exactly once on its comment, so the overview costs one
- * pass over the answer instead of reading every note in the vault. The session
- * fetches the notes it is about to ask and parses them properly.
+ * The counts come off `parseCards`, the parser the sitting asks from, over the
+ * whole text of every note the scan marks as a deck. That costs one note read
+ * per deck note where counting off the matched lines cost none, and it buys the
+ * one thing the line reader could not keep: two readers of one format drift,
+ * and every drift was a deck promising cards its sitting would not ask. With
+ * one parser the overview and the sitting cannot disagree on what a card is.
  */
 
 import type { SearchHit } from "@/lib/api";
-import {
-  CLOZE_SR,
-  clozeComment,
-  clozeNumbers,
-  type Divided,
-  divide,
-  fences,
-  holdsCloze,
-  parks,
-  suspended,
-} from "@/lib/card-line";
-import { cardTags, deckName, deckPath, deckTags, withoutTags } from "@/lib/deck-tag";
+import { type Divided, divide, parks, suspended } from "@/lib/card-line";
+import { deckPath, withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
+import { parseCards, readNoteSchedule, readNoteSuspended } from "@/lib/srs";
 
 /** One deck as the overview draws it. */
 export interface Deck {
@@ -68,25 +60,34 @@ export interface Deck {
   whole: boolean;
 }
 
+/** One note the overview counts: where it is and everything in it. */
+export interface DeckNote {
+  path: string;
+  text: string;
+}
+
 /** The tag marking a whole note as the thing to be reviewed. */
 const REVIEW_TAG = /#review(?![\w/-])/;
 
-/** The note's own due date, off the frontmatter field. */
-const NOTE_DUE = /^sr-due:\s*(\d{4}-\d{2}-\d{2})/;
+/**
+ * A hit that makes its note a deck, `NOTE_LINE` in `cards.py`.
+ *
+ * Only these notes are worth a read. A `::` alone marks nothing, a card in no
+ * deck being no card, and a card tagged at its own head matches the first
+ * branch on its own line.
+ */
+const MARKS_DECK = /#flashcards|#review|^sr-due:|^sr-suspended:/;
 
 /** The field parking a note that is itself the card, true for the word alone. */
 const NOTE_PARKED = /^sr-suspended:\s*true\s*$/;
-
-/** The date out of a schedule comment, wherever on the line it sits. */
-const SCHEDULED = /<!--SR:!(\d{4}-\d{2}-\d{2}),/;
 
 /**
  * The two halves of a card written on one line, or null where the line is none.
  *
  * `divide` is the shared rule and this adds the one thing it leaves to its
  * callers: a line opening with the divider is prose, not a card missing its
- * question. `srs.ts:322` makes the same call on the same words, which is what
- * stops the overview counting a line the sitting will never ask.
+ * question. `srs.ts` makes the same call on the same words, which is what keeps
+ * a line of prose off the parked screen.
  */
 function halvesOf(text: string): Divided | null {
   const halves = divide(text);
@@ -94,151 +95,15 @@ function halvesOf(text: string): Divided | null {
   return halves;
 }
 
-/** The `?` dividing a card written over several lines, whose front is above it. */
-function divides(text: string): boolean {
-  return text.trim() === "?";
+/** The notes the scan marks as decks, in the order it found them. */
+export function deckNotes(hits: SearchHit[]): string[] {
+  const notes = new Set<string>();
+  for (const { path, text } of hits) if (MARKS_DECK.test(text)) notes.add(path);
+  return [...notes];
 }
 
-/** One card as the lines describe it: the decks it is in, when it is due, and whether it is parked. */
-interface Counted {
-  tags: string[];
-  due: string | null;
-  parked: boolean;
-  /** The number a cloze card asks, which names the comment holding its date. */
-  cloze: number | null;
-}
-
-/**
- * The cards one note's matched lines describe, and the decks the note itself is in.
- *
- * One pass, in the order rg reported them, reading three kinds of line. A card
- * is its `::` or its `?`, and a cloze its marks, read first. A comment on a line of its own is the schedule of the
- * card above it, which is where the plugin writes the one a `?` card carries.
- * Everything else is tags.
- *
- * Head tags count as a card's own on the line the card is written on, and on
- * the line above a `?`, which is that card's front. Anywhere else they are the
- * note's. That is what keeps the two readers of this format saying the same
- * thing: `srs.ts` sees the note whole and knows which line each card begins on,
- * this sees the matched lines alone, and a card begins either on its own line
- * or one line above its `?` in both. It costs a card whose front runs over two
- * lines the tags at its head, read as the note's there, so that card keeps the
- * deck and its neighbours gain one rather than anything going missing.
- */
-function readNote(lines: SearchHit[]): { cards: Counted[]; tags: string[] } {
-  const cards: Counted[] = [];
-  const tags: string[] = [];
-  // The scan hands the fence markers over for this, and only for this: they
-  // hold no `::`, no `?` and no tag, so the walk below would read every one of
-  // them as a line of prose and count the `std::vector` between them as a card.
-  const fenced = fences(lines.map((hit) => hit.text));
-  /**
-   * The cards a comment line under a back belongs to.
-   *
-   * The last card pushed, as it always was, except that a cloze is several: a
-   * `?` cloze is every number, each taking its own comment off the line, and a
-   * one-line cloze is none, its comments and token sitting on its own line.
-   */
-  let owner: Counted[] = [];
-
-  for (const [at, { line, text }] of lines.entries()) {
-    if (fenced[at]) continue;
-    const own = cardTags(text);
-    const above = lines[at - 1];
-    const under = lines[at + 1];
-    const back = above !== undefined && above.line === line - 1 && divides(above.text);
-    const front = under !== undefined && under.line === line + 1 && divides(under.text);
-
-    // Before the divider, as `srs.ts` reads it: `{{c1::Paris}}` holds a `::`
-    // that divides nothing. Under a `?` it is that card's back, as a `::` is.
-    // Over one it is the front of a `?` cloze, whose numbers' dates sit on the
-    // line under the back and are read there; anywhere else they are on this.
-    const numbers = clozeNumbers(text);
-    if (numbers.length > 0) {
-      if (own === null || back) tags.push(...deckTags(text));
-      if (back) continue;
-      owner = numbers.map((cloze) => ({
-        tags: own ?? [],
-        due: front ? null : (clozeComment(cloze).exec(text)?.[1] ?? null),
-        parked: !front && suspended(text),
-        cloze,
-      }));
-      cards.push(...owner);
-      if (!front) owner = [];
-      continue;
-    }
-
-    // The `?` of a cloze, which the line above has already counted.
-    if (divides(text) && above !== undefined && above.line === line - 1 && holdsCloze(above.text)) {
-      continue;
-    }
-
-    const halves = halvesOf(text);
-
-    // A `::` against a `?` is a side of that card, not a card: the scan matches
-    // an imported `std::move` question on its `::` as well as its `?`, and
-    // `srs.ts` marks both sides taken before it reads a line as a card. Below
-    // it is the back, whose tags are the note's as any line's are; above it,
-    // the front, whose head tags are the `?` card's own, as `opened` reads them.
-    if (halves !== null && (back || front)) {
-      if (back || own === null) tags.push(...deckTags(text));
-      continue;
-    }
-
-    if (halves !== null || divides(text)) {
-      const opened =
-        divides(text) && above !== undefined && above.line === line - 1
-          ? cardTags(above.text)
-          : null;
-      const card = {
-        tags: own ?? opened ?? [],
-        due: SCHEDULED.exec(text)?.[1] ?? null,
-        // The token, or a question with no answer under it, which is parked by
-        // its shape alone. A `?` card carries neither here: its token sits on
-        // the line under its back and is read below.
-        parked: suspended(text) || halves?.back === "",
-        cloze: null,
-      };
-      cards.push(card);
-      owner = [card];
-      continue;
-    }
-
-    // The line under a `?` card's back, carrying its schedule, its token, or
-    // both. Either belongs to the card above, which is where the format puts
-    // them and the one place this reader has to look back a line. A cloze's
-    // numbers each take their own comment off it, and the token parks them all.
-    const scheduled = SCHEDULED.exec(text)?.[1];
-    const parked = parks(text);
-    if (scheduled !== undefined || parked || CLOZE_SR.test(text)) {
-      for (const last of owner) {
-        const due = last.cloze === null ? scheduled : clozeComment(last.cloze).exec(text)?.[1];
-        if (due !== undefined && last.due === null) last.due = due;
-        if (parked) last.parked = true;
-      }
-      continue;
-    }
-
-    // The `?` directly under has taken these: this line is that card's front.
-    // Nothing else can claim them, a card written on one line carrying its own
-    // front, so anywhere else they are the note's.
-    if (own !== null && front) continue;
-
-    tags.push(...deckTags(text));
-  }
-
-  return { cards, tags };
-}
-
-/** Every deck the scan's hits describe, sorted by name. */
-export function decksFrom(hits: SearchHit[], today: string): Deck[] {
-  const byNote = new Map<string, SearchHit[]>();
-  for (const hit of hits) {
-    const held = byNote.get(hit.path);
-    if (held === undefined) byNote.set(hit.path, [hit]);
-    else held.push(hit);
-  }
-
+/** Every deck the notes hold, sorted by name. */
+export function decksFrom(notes: DeckNote[], today: string): Deck[] {
   // Keyed by name, so one tag in three notes is one deck. A whole note is keyed
   // by its path instead: it is not a tag, and nothing should merge with it.
   const decks = new Map<string, Deck>();
@@ -254,28 +119,22 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
     for (const note of deck.notes) if (!held.notes.includes(note)) held.notes.push(note);
   };
 
-  for (const [note, lines] of byNote) {
-    const { cards, tags } = readNote(lines);
+  for (const { path: note, text } of notes) {
     const name = noteName(note);
-    const asked = cards
-      .map((card) => ({
-        ...card,
-        // The note's tags and the card's own, which add rather than replace: a
-        // card about two things is asked in both decks.
-        decks: [...new Set([...tags, ...card.tags])].map((tag) => deckName(tag, name)),
-      }))
-      .filter((card) => card.decks.length > 0);
+    // A card in no deck is a `::` in a note nobody tagged, which the sitting
+    // drops the same way.
+    const asked = parseCards(text, name).filter((card) => card.decks.length > 0);
 
     // A note carrying both is read as a deck of cards. The cards are the more
     // specific claim: `#review` says ask me this note, and a note that says
     // which parts of itself to ask has already answered that.
     if (asked.length === 0) {
-      if (!lines.some((line) => REVIEW_TAG.test(line.text))) continue;
-      const due = lines.map((line) => NOTE_DUE.exec(line.text)?.[1]).find((at) => at !== undefined);
+      if (!REVIEW_TAG.test(text)) continue;
+      const due = readNoteSchedule(text)?.due;
       // The whole-note twin of the token on a card's line, and exclusive the
       // same way: a parked note is one the sitting will not ask, whatever date
       // it carries.
-      const held = lines.some((line) => NOTE_PARKED.test(line.text));
+      const held = readNoteSuspended(text);
       bump(`note:${note}`, {
         name,
         notes: [note],
@@ -288,19 +147,18 @@ export function decksFrom(hits: SearchHit[], today: string): Deck[] {
     }
 
     for (const card of asked) {
-      // Every deck above the one named counts the card too, and the Set is what
-      // keeps a card tagged `databases` and `databases/postgres` counted once
-      // in the parent rather than twice.
+      // Every deck above the one named counts the card too, the way `inDeck`
+      // asks it in a sitting of any of them, and the Set is what keeps a card
+      // tagged `databases` and `databases/postgres` counted once in the parent.
       for (const deck of new Set(card.decks.flatMap(deckPath))) {
         bump(deck, {
           name: deck,
           notes: [note],
           // Parked first, and exclusive: a parked card is one the sitting will
-          // not ask, whatever date it is carrying, so counting it due as well
-          // would put the disagreement this file exists to close back in.
-          due: !card.parked && card.due !== null && card.due <= today ? 1 : 0,
-          fresh: !card.parked && card.due === null ? 1 : 0,
-          parked: card.parked ? 1 : 0,
+          // not ask, whatever date it is carrying.
+          due: card.parked === null && card.held !== null && card.held.due <= today ? 1 : 0,
+          fresh: card.parked === null && card.held === null ? 1 : 0,
+          parked: card.parked !== null ? 1 : 0,
           whole: false,
         });
       }

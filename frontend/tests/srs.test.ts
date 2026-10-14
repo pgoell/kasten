@@ -405,6 +405,50 @@ describe("parseCards on an imported question holding `::`", () => {
   });
 });
 
+describe("parseCards on an imported deck keeping its formatting", () => {
+  // `COUNTED_NOTE` in `backend/tests/test_anki.py`, which `card_count` counts
+  // as five: the import's count has to be what the sitting reads.
+  const note = [
+    "#flashcards/French",
+    "",
+    "Name three",
+    "colours",
+    "?",
+    "- red",
+    "- green",
+    "",
+    "漢字::<ruby>漢字<rt>かんじ</rt></ruby>",
+    "",
+    "{{c1::Paris}} is in {{c2::France}}",
+    "?",
+    "On the",
+    "Seine",
+    "",
+    "What does std::size count?",
+    "?",
+    "\\# of elements",
+    "\\!suspended no",
+    "",
+  ].join("\n");
+
+  it("reads as many cards as the import counts, each side whole", () => {
+    const cards = parseCards(note, "French");
+
+    expect(cards).toHaveLength(5);
+    expect(cards.map(({ front, back, cloze }) => (cloze === null ? [front, back] : cloze))).toEqual(
+      [
+        ["Name three\ncolours", "- red\n- green"],
+        ["漢字", "<ruby>漢字<rt>かんじ</rt></ruby>"],
+        1,
+        2,
+        ["What does std::size count?", "\\# of elements\n\\!suspended no"],
+      ],
+    );
+    expect(cards[2]?.back.endsWith("\n\nOn the\nSeine")).toBe(true);
+    expect(cards.every((card) => card.parked === null)).toBe(true);
+  });
+});
+
 describe("parseCards on a front running over two lines", () => {
   // The one case where the tags cannot be a card's own: `review.ts` sees the
   // matched lines alone and cannot tell this front from a line of prose, so

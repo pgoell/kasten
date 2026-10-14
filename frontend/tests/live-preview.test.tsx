@@ -678,6 +678,30 @@ describe("live preview", () => {
     await waitFor(() => expect(content(container)).toBe("\\```jsplain"));
   });
 
+  it("draws an imported ruby as ruby, its reading over its base", () => {
+    const { container } = render(
+      <Editor initialDoc={"漢字::<ruby>漢字<rt>かんじ</rt></ruby>\n"} />,
+    );
+
+    expect(container.querySelector("ruby.cm-ruby rt")?.textContent).toBe("かんじ");
+    expect(content(container)).not.toContain("<rt>");
+  });
+
+  it("draws ruby in a preview pane, which is how the review shows a card", () => {
+    const { container } = render(<NotePreview text={"a <ruby>読<rt>よ</rt></ruby>む"} />);
+
+    expect(container.querySelector("ruby.cm-ruby rt")?.textContent).toBe("よ");
+    expect(content(container)).toBe("a 読よむ");
+  });
+
+  it("hands a ruby's source back on the cursor's line with vim off", () => {
+    const view = mount("<ruby>漢字<rt>かんじ</rt></ruby>\n\nnext", plain(null));
+
+    expect(view.dom.querySelector("ruby.cm-ruby")).toBeNull();
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    expect(view.dom.querySelector("ruby.cm-ruby rt")?.textContent).toBe("かんじ");
+  });
+
   it("draws a sound's ![](path) as a player rather than a broken picture", () => {
     const { container } = render(
       <Editor initialDoc={"word\n\n![](Flashcards/Japanese%20media/kana.MP3)\n"} />,

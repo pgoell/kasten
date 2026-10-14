@@ -233,6 +233,51 @@ class Player extends WidgetType {
   }
 }
 
+/**
+ * One ruby as an Anki import writes it, `<ruby>漢字<rt>かんじ</rt></ruby>`.
+ *
+ * That shape and no other, base and reading plain text: it is what
+ * `kasten_backend.anki` writes for furigana, and a ruby typed by hand in some
+ * other shape stays as its source rather than drawn half right.
+ */
+const RUBY = /^<ruby>([^<]+)<rt>([^<]+)<\/rt><\/ruby>/;
+
+/** `text` with markdown's backslash escapes taken off, which the import puts on `*`, `_` and `[`. */
+function unescaped(text: string): string {
+  return text.replace(/\\([!-/:-@[-`{-~])/g, "$1");
+}
+
+/**
+ * The reading over its base, the way Anki shows furigana.
+ *
+ * A widget rather than marks on the text, the editor drawing no HTML: the
+ * tags would otherwise stand on the screen around the word. Drawn and hidden
+ * by the image's rules, so the cursor's line shows the source to edit.
+ */
+class Ruby extends WidgetType {
+  private readonly base: string;
+  private readonly reading: string;
+
+  constructor(base: string, reading: string) {
+    super();
+    this.base = base;
+    this.reading = reading;
+  }
+
+  override eq(other: Ruby): boolean {
+    return other.base === this.base && other.reading === this.reading;
+  }
+
+  toDOM(): HTMLElement {
+    const ruby = document.createElement("ruby");
+    ruby.className = "cm-ruby";
+    ruby.append(this.base);
+    const reading = ruby.appendChild(document.createElement("rt"));
+    reading.textContent = this.reading;
+    return ruby;
+  }
+}
+
 /** What a mounted embed has to let go of, keyed by its box. */
 interface Held {
   stop: () => void;
@@ -643,7 +688,7 @@ function build(state: EditorState): Live {
    * everything inside the table is entered before anything after it.
    */
   let tableEnd = -1;
-  /** How far a table widget already reaches, the walk going on past it. */
+  /** How far a table or ruby widget already reaches, the walk going on past it. */
   let drawn = -1;
 
   const hide = (from: number, to: number) => {
@@ -682,7 +727,10 @@ function build(state: EditorState): Live {
       const isTag = node.name === "Tag";
       const isEmbed = node.name === "Embed";
       const isEscape = node.name === "Escape";
+      const isRuby =
+        node.name === "HTMLTag" && state.doc.sliceString(node.from, node.to) === "<ruby>";
       if (
+        !isRuby &&
         !isEscape &&
         !isEmbed &&
         !heading &&
@@ -981,6 +1029,22 @@ function build(state: EditorState): Live {
         if (widget === null) return;
         decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
         hidden.push(HIDDEN.range(node.from, node.to));
+        return;
+      }
+
+      // The parser reads each of the four tags as a node of its own, so the
+      // ruby is read off the text from its opening one. `drawn` keeps the walk
+      // from hiding an escape inside what the widget already stands for.
+      if (isRuby) {
+        if (revealed) return;
+        const found = RUBY.exec(state.doc.sliceString(node.from, line.to));
+        if (found === null) return;
+        const [whole, base = "", reading = ""] = found;
+        const end = node.from + whole.length;
+        const widget = new Ruby(unescaped(base), unescaped(reading));
+        decorations.push(Decoration.replace({ widget }).range(node.from, end));
+        hidden.push(HIDDEN.range(node.from, end));
+        drawn = end;
         return;
       }
 

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { ReviewDecks } from "@/components/review-decks";
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
 import { shownCard } from "./review-card";
@@ -15,8 +16,26 @@ const HITS = [
   { path: "z.md", line: 2, text: "e::f <!--SR:!2099-01-01,4,250-->" },
 ];
 
+/**
+ * Each note as the lines the scan found in it, which is what the overview reads.
+ *
+ * The counts come off the note, so the scan names the notes and this is the
+ * text of each. A sitting's own `fetchNote` mock, set later, replaces it.
+ */
+function serveNotes(hits: api.SearchHit[]) {
+  vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+    Promise.resolve(
+      hits
+        .filter((hit) => hit.path === path)
+        .map((hit) => hit.text)
+        .join("\n"),
+    ),
+  );
+}
+
 async function renderPane() {
   vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+  serveNotes(HITS);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -89,11 +108,14 @@ describe("ReviewPane on a nested deck", () => {
     vi.restoreAllMocks();
   });
 
+  const NESTED = [
+    { path: "d.md", line: 1, text: "#flashcards/databases/postgres" },
+    { path: "d.md", line: 2, text: "a::b" },
+  ];
+
   it("draws the deck under its parent, called by its last part", async () => {
-    vi.spyOn(api, "fetchCards").mockResolvedValue([
-      { path: "d.md", line: 1, text: "#flashcards/databases/postgres" },
-      { path: "d.md", line: 2, text: "a::b" },
-    ]);
+    vi.spyOn(api, "fetchCards").mockResolvedValue(NESTED);
+    serveNotes(NESTED);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -109,10 +131,8 @@ describe("ReviewPane on a nested deck", () => {
   });
 
   it("counts the card once in the header, not once per row above it", async () => {
-    vi.spyOn(api, "fetchCards").mockResolvedValue([
-      { path: "d.md", line: 1, text: "#flashcards/databases/postgres" },
-      { path: "d.md", line: 2, text: "a::b" },
-    ]);
+    vi.spyOn(api, "fetchCards").mockResolvedValue(NESTED);
+    serveNotes(NESTED);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -163,6 +183,7 @@ describe("ReviewPane on a deck holding parked cards", () => {
 
   async function renderParked() {
     vi.spyOn(api, "fetchCards").mockResolvedValue(PARKED);
+    serveNotes(PARKED);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -380,5 +401,48 @@ describe("ReviewPane jotting a question mid-sitting", () => {
 
     expect(saved).not.toHaveBeenCalled();
     expect(screen.getByTestId("review-card")).toHaveTextContent("c");
+  });
+});
+
+describe("ReviewDecks reading the deck notes", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderDecks(archive?: boolean) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} archive={archive} />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("counts the other decks when one note fails to read", async () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+      path === "a.md"
+        ? Promise.reject(new Error("GET /api/files/a.md failed with 500"))
+        : Promise.resolve(path === "b.md" ? "#flashcards/beta\n\nc::d\n" : "#flashcards/zeta\n"),
+    );
+    renderDecks();
+
+    expect(await screen.findByRole("button", { name: /beta/ })).toHaveTextContent("1 new");
+    expect(screen.queryByRole("button", { name: /alpha/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/to go/).textContent).toBe("1 to go");
+  });
+
+  it("asks the scan to skip the archive, or to walk it", async () => {
+    const cards = vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+
+    renderDecks();
+    await screen.findByRole("button", { name: /alpha/ });
+    expect(cards).toHaveBeenLastCalledWith(false);
+
+    cleanup();
+    renderDecks(true);
+    await screen.findByRole("button", { name: /alpha/ });
+    expect(cards).toHaveBeenLastCalledWith(true);
   });
 });

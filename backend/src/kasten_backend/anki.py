@@ -33,6 +33,7 @@ from collections import defaultdict
 from compression import zstd
 from contextlib import closing
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote
@@ -96,7 +97,21 @@ Narrower than `_CLOZE`, taking no brace and no empty text, so a MathJax
 Python's `\\d` takes digits JavaScript's does not.
 """
 _KEPT = re.compile("([0-9]+)")
-"""The mark `plain` holds a readable cloze mark's place with, as `_HELD` does a link's."""
+"""The mark `plain` holds a cloze mark's place with, as `_HELD` does a link's."""
+_SPACE = ""
+"""A space the whitespace pass in `plain` leaves alone: a list's indent and `<pre>`'s own."""
+_BLOCK = frozenset(
+    {"br", "div", "p", "li", "ul", "ol", "pre", "blockquote", "tr", "hr"}
+    | {f"h{level}" for level in range(1, 7)}
+)
+"""The tags a line ends at, either side of them: a browser starts a new line for each."""
+_BOLD = frozenset({"b", "strong", "u"})
+"""Underline among them, since markdown has no underline and bold is the nearest stress."""
+_ITALIC = frozenset({"i", "em"})
+_FURIGANA = re.compile(r" ?([^ >]+?)\[(.+?)\]")
+"""Anki's furigana pattern: ` 漢字[かんじ]`, the space before the base saying where it starts."""
+_READING = {"furigana": r"<ruby>\1<rt>\2</rt></ruby>", "kanji": r"\1", "kana": r"\2"}
+"""What each of Anki's three furigana filters makes of a `_FURIGANA` match."""
 
 _SOUND = re.compile(r"\[sound:([^\]]*)\]")
 _IMAGE = re.compile(
@@ -134,7 +149,7 @@ class Template:
 
 @dataclass(frozen=True)
 class Card:
-    """One Anki card as two lines of text, with what it was rendered from kept beside it."""
+    """One Anki card as two sides of markdown, with what it was rendered from kept beside it."""
 
     front: str
     back: str
@@ -191,14 +206,21 @@ type _Node = str | _Field | _Section
 
 
 def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = False) -> str:
-    """One Anki field as a single line of markdown.
+    """One Anki field as markdown, a line for each line the field shows (#234).
 
-    A card is one line, so every break in the field becomes a space and the
-    result never holds a newline. An image or a sound whose name `links` maps
-    becomes `![](link)`, and any other is dropped. A cloze mark stays as it is
-    with its hint where `cloze` says the field is a cloze note's text and
-    kasten reads the mark, and is otherwise a `==highlight==`: a mark kasten
-    does not read would leave its `::` to split the line as a card.
+    `_Markdown` gives the formatting a card can hold. No line is blank, since
+    `srs.ts` ends a `?` card at a blank line, and a line any reader would take
+    for part of the format, a heading, a lone `?`, a line of tags, the parking
+    token, a schedule comment, carries a backslash so it reads as the text it
+    was. An image or a sound whose name `links` maps becomes `![](link)`, and
+    any other is dropped.
+
+    A cloze mark stays as it is with its hint where `cloze` says the field is a
+    cloze note's text and kasten reads the mark, and is otherwise a
+    `==highlight==`: a mark kasten does not read would leave its `::` to split
+    the line as a card. A cloze note's text is one line whatever it holds,
+    since `srs.ts` reads the line over a `?` as the cloze and a line above it
+    holding a mark as another.
     """
     held: list[str] = []
 
@@ -213,27 +235,185 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
 
     text = _SOUND.sub(hold, field)
     text = _IMAGE.sub(hold, text)
-    # Before the tag strip, which would leave a script's code behind as prose.
+    # Before the parse, which would leave a script's code behind as prose.
     text = _CODE.sub("", text)
-    text = _BREAK.sub(" ", text)
-    text = _TAG.sub("", text)
-    # After the strip, so a `&lt;b&gt;` the author meant as text stays text.
-    text = html.unescape(text)
     kept: list[str] = []
-    if cloze:
+    # Readable marks first where they are kept, so the highlight cannot swallow
+    # one inside a mark kasten does not read.
+    for pattern in (_MARK, _CLOZE) if cloze else (_CLOZE,):
 
-        def keep(match: re.Match[str]) -> str:
-            kept.append(match[0])
+        def keep(match: re.Match[str], pattern: re.Pattern[str] = pattern) -> str:
+            # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
+            # which is what a typed answer is held against.
+            if pattern is _MARK:
+                kept.append(_flat(match[0]))
+            else:
+                inner = _KEPT.sub(lambda mark: kept[int(mark[1])], match[1])
+                kept.append(f"=={_flat(inner)}==")
             return f"{len(kept) - 1}"
 
-        # Held out first, so the highlight below cannot swallow a readable
-        # mark inside an unreadable one.
-        text = _MARK.sub(keep, text)
-    text = _CLOZE.sub(r"==\1==", text)
+        text = pattern.sub(keep, text)
+
+    parser = _Markdown()
+    parser.feed(text)
+    parser.close()
+    # `split()` counts the non-breaking space `&nbsp;` as whitespace, which is
+    # what turns it into an ordinary space.
+    lines = [" ".join(line.split()).replace(_SPACE, " ") for line in parser.text().split("\n")]
+    lines = [line for line in lines if line]
+    if cloze:
+        lines = [" ".join(lines)]
+    text = "\n".join(_escaped(line) for line in lines)
     text = _KEPT.sub(lambda mark: kept[int(mark[1])], text)
-    # `split()` counts the non-breaking space `&nbsp;` just unescaped as
-    # whitespace, which is what turns it into an ordinary space.
-    return _HELD.sub(lambda mark: held[int(mark[1])], " ".join(text.split()))
+    return _HELD.sub(lambda mark: held[int(mark[1])], text)
+
+
+def _flat(text: str) -> str:
+    """`text` as one line with its markup stripped, which is how a cloze mark is written."""
+    return " ".join(html.unescape(_TAG.sub("", _BREAK.sub(" ", text))).split())
+
+
+def _escaped(line: str) -> str:
+    """`line` with a backslash where a reader would take it for the format rather than text.
+
+    Each is a line `srs.ts` ends a `?` card on or reads as a divider, as
+    `_ends_card` lists them. The schedule comment takes its backslash inside,
+    since `SR` in `card-line.ts` matches anywhere on a line and a backslash
+    before the `<` would leave one whole.
+    """
+    if (
+        line == "?"
+        or line.startswith("!suspended")
+        or _HEADING.match(line) is not None
+        or _ONLY_TAGS.fullmatch(line) is not None
+    ):
+        line = f"\\{line}"
+    return line.replace("<!--SR:", "<!--SR\\:")
+
+
+def _ticks(code: str) -> str:
+    """`code` as inline code, its fence one backtick longer than any run inside it."""
+    longest = max((len(run) for run in re.findall("`+", code)), default=0)
+    pad = " " if code.startswith("`") or code.endswith("`") else ""
+    return f"{'`' * (longest + 1)}{pad}{code}{pad}{'`' * (longest + 1)}"
+
+
+class _Markdown(HTMLParser):
+    """A field's HTML as markdown, a line break apart, and not yet tidied.
+
+    The formatting a card holds and no more: bold, italic, links, inline code,
+    lists and ruby, with every tag past those dropped and its text kept. A
+    `<pre>` is a line of inline code per line rather than a fence, because both
+    readers skip every card inside a fence. Text is escaped where markdown
+    would read it, and the markdown written around it is not.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.out: list[str] = []
+        self.depth = {"**": 0, "*": 0}
+        self.opened: dict[str, int] = {}
+        """Where each open emphasis started in `out`, so its close can wrap what came after."""
+        self.lists: list[int | None] = []
+        """The open lists, innermost last: the next number of an `<ol>`, None for a `<ul>`."""
+        self.links: list[tuple[int, str | None]] = []
+        self.code: list[int] = []
+        self.pre: int | None = None
+        self.skip = 0
+        self.ruby = 0
+
+    def text(self) -> str:
+        return "".join(self.out)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _BLOCK:
+            self.out.append("\n")
+        marker = "**" if tag in _BOLD else "*" if tag in _ITALIC else None
+        if marker is not None:
+            self.depth[marker] += 1
+            # Once, so `<b><u>x</u></b>` is not `****x****`.
+            if self.depth[marker] == 1:
+                self.opened[marker] = len(self.out)
+        elif tag in ("ul", "ol"):
+            self.lists.append(1 if tag == "ol" else None)
+        elif tag == "li":
+            number = self.lists[-1] if self.lists else None
+            if number is not None:
+                self.lists[-1] = number + 1
+            indent = _SPACE * 2 * max(len(self.lists) - 1, 0)
+            self.out.append(f"{indent}{'- ' if number is None else f'{number}. '}")
+        elif tag == "a":
+            self.links.append((len(self.out), dict(attrs).get("href")))
+        elif tag == "code" and self.pre is None:
+            self.code.append(len(self.out))
+        elif tag == "pre" and self.pre is None:
+            self.pre = len(self.out)
+        elif tag == "rp":
+            # The parentheses a browser without ruby shows, which kasten draws.
+            self.skip += 1
+        elif tag == "ruby":
+            self.ruby += 1
+            self.out.append("<ruby>")
+        elif tag == "rt" and self.ruby:
+            self.out.append("<rt>")
+
+    def handle_endtag(self, tag: str) -> None:
+        marker = "**" if tag in _BOLD else "*" if tag in _ITALIC else None
+        if marker is not None and self.depth[marker] > 0:
+            self.depth[marker] -= 1
+            if self.depth[marker] == 0:
+                self._wrap(self.opened.pop(marker), marker)
+        elif tag in ("ul", "ol") and self.lists:
+            self.lists.pop()
+        elif tag == "a" and self.links:
+            at, href = self.links.pop()
+            inner = "".join(self.out[at:])
+            if href and inner.strip() and "\n" not in inner:
+                # Parens and spaces would end the link early, as in `_LINK_SAFE`.
+                address = href.replace(" ", "%20").replace("(", "%28").replace(")", "%29")
+                self.out[at:] = [f"[{inner.strip()}]({address})"]
+        elif tag == "code" and self.code:
+            at = self.code.pop()
+            lines = "".join(self.out[at:]).split("\n")
+            self.out[at:] = ["\n".join(_ticks(line) if line.strip() else line for line in lines)]
+        elif tag == "pre" and self.pre is not None:
+            inner = "".join(self.out[self.pre :]).replace(" ", _SPACE).replace("\t", _SPACE)
+            lines = [line for line in inner.split("\n") if line.replace(_SPACE, "").strip()]
+            self.out[self.pre :] = ["\n", *(f"{_ticks(line)}\n" for line in lines)]
+            self.pre = None
+        elif tag == "rp" and self.skip:
+            self.skip -= 1
+        elif tag == "rt" and self.ruby:
+            self.out.append("</rt>")
+        elif tag == "ruby" and self.ruby:
+            self.ruby -= 1
+            self.out.append("</ruby>")
+        if tag in _BLOCK:
+            self.out.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if self.skip:
+            return
+        if self.pre is None:
+            data = re.sub(r"\s+", " ", data)
+        if self.pre is None and not self.code:
+            data = re.sub(r"[*_`\[]", r"\\\g<0>", data)
+            data = re.sub("={2,}", lambda run: "\\=" * len(run[0]), data)
+        self.out.append(data)
+
+    def _wrap(self, at: int, marker: str) -> None:
+        """Everything since `at` in `marker`, line by line, the spaces at either end left outside.
+
+        `** f **` is no bold to markdown, and an emphasis does not run over a
+        line break.
+        """
+        lines: list[str] = []
+        for line in "".join(self.out[at:]).split("\n"):
+            core = line.strip()
+            start = len(line) - len(line.lstrip())
+            end = start + len(core)
+            lines.append(f"{line[:start]}{marker}{core}{marker}{line[end:]}" if core else line)
+        self.out[at:] = ["\n".join(lines)]
 
 
 def media_path(folder: str, deck: str, name: str) -> str:
@@ -370,27 +550,30 @@ def as_note(deck: Deck) -> str:
     without an answer: a back that adds nothing beyond the front is common in
     Anki, and dropping the line would lose the question with it.
 
-    A front holding `::` is the exception to the one line. A card line splits at
-    its first `::`, so `std::move` would cut the question short; such a card is
-    written as front, `?` and back, with a blank line either side so the `?`
-    card's front and back do not run into the lines next to it. It is left out
-    where a side cannot stand in that form: an empty back, since `srs.ts` asks
-    no `?` with nothing under it and `review.ts` would count one; a back of `?`,
-    which `review.ts` counts as a second card; and a side `srs.ts` ends a card
-    on, a heading, a line of tags, the parking token or, on the back only, a
-    whole schedule comment, which drops the `?` card there and reads the front
-    at its first `::` after all. `note_cards` holds these rules. The
-    one-line form that parks a question is the form this card cannot take.
+    A front holding `::` is the exception to the one line, and so is a side
+    running over lines (#234). A card line splits at its first `::`, so
+    `std::move` would cut the question short; such a card is written as front,
+    `?` and back, each side keeping its lines, with a blank line either side so
+    the `?` card's front and back do not run into the lines next to it. It is
+    left out where a side cannot stand in that form: an empty back, since
+    `srs.ts` asks no `?` with nothing under it and `review.ts` would count one;
+    a line of `?`, which `review.ts` counts as a second card; and a line
+    `srs.ts` ends a card on, a heading, a line of tags, the parking token or,
+    on the back only, a schedule comment, which drops the `?` card there and
+    reads the front at its first `::` after all. `note_cards` holds these
+    rules. `plain` escapes every such line, so only a card built by hand meets
+    them. A front over lines with no back and no `::` is the one-line form
+    that parks a question, its breaks spaces.
 
     Two sides are written other than as they read, so that they read back as
     Anki showed them (#243): a front ending in `:` gets a space before the
     divider, and a side opening a line with three backticks gets a backslash.
 
     A cloze note holding a mark is a cloze, its marks being what tell kasten
-    so, and is never left out. With a Back Extra that can stand as a `?` back
-    it takes the `?` form; with none, or one that cannot, it is its line alone
-    and the extra is lost, which is less than losing the card. A cloze note
-    with no mark is a card like any other.
+    so, and is never left out. With a Back Extra that can stand as a `?` back,
+    over as many lines as it holds, it takes the `?` form; with none, or one
+    that cannot, it is its line alone and the extra is lost, which is less than
+    losing the card. A cloze note with no mark is a card like any other.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
     # otherwise land in a deck called `AWS` with the rest of its name read as
@@ -398,11 +581,11 @@ def as_note(deck: Deck) -> str:
     head = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
     body: list[str] = []
     for card in note_cards(deck):
-        front = _unfenced(card.front)
         if _clozed(card) and not _divides(card):
             # A cloze line holds no divider, so the colon gap has nothing to keep.
-            body.append(front)
-        elif "::" not in card.front:
+            body.append(_unfenced(card.front))
+        elif _one_line(card):
+            front = _unfenced(card.front.replace("\n", " "))
             # `divide` splits at the first `::`, so `Ratio 1:` before the divider
             # would lose its colon to the back; it trims the space this adds.
             gap = " " if front.endswith(":") else ""
@@ -410,7 +593,8 @@ def as_note(deck: Deck) -> str:
         else:
             if body and body[-1]:
                 body.append("")
-            body += [front, "?", _unfenced(card.back), ""]
+            fronts, backs = card.front.splitlines(), card.back.splitlines()
+            body += [*map(_unfenced, fronts), "?", *map(_unfenced, backs), ""]
     # The blank a `?` card leaves under itself is a separator, not part of the
     # note, so the last one comes off rather than ending the note on two breaks.
     if body and not body[-1]:
@@ -426,8 +610,17 @@ def note_cards(deck: Deck) -> list[Card]:
     return [
         card
         for card in deck.cards
-        if card.front and (_clozed(card) or "::" not in card.front or _divides(card))
+        if card.front and (_clozed(card) or _one_line(card) or _divides(card))
     ]
+
+
+def _one_line(card: Card) -> bool:
+    """Whether `card` is written as `front::back`: no `::` to split it, and no side over lines.
+
+    A front over lines with no back is, its breaks spaces, since a `?` with
+    nothing under it is no card.
+    """
+    return "::" not in card.front and (not card.back or "\n" not in card.front + card.back)
 
 
 def card_count(deck: Deck) -> int:
@@ -445,12 +638,10 @@ def _clozed(card: Card) -> bool:
 
 
 def _divides(card: Card) -> bool:
-    """Whether `card` can stand as front, `?` and back, by the rules `as_note` gives."""
-    return not (
-        _ends_card(card.front)
-        or _ends_card(card.back)
-        or _SCHEDULE.search(card.back)
-        or card.back == "?"
+    """Whether `card` can stand as front, `?` and back, by `as_note`'s rules, line by line."""
+    lines = [*card.front.splitlines(), *card.back.splitlines()]
+    return bool(card.back) and not (
+        any(_ends_card(line) or line == "?" for line in lines) or _SCHEDULE.search(card.back)
     )
 
 
@@ -467,7 +658,7 @@ def _unfenced(side: str) -> str:
 def _ends_card(line: str) -> bool:
     """Whether `srs.ts` `breaks()` would end a `?` card on `line`, so it cannot be a side of one.
 
-    A side here is one stripped line, so blank means empty. The schedule `srs.ts`
+    A line of a side here is stripped, so blank means empty. The schedule `srs.ts`
     also stops a back at is checked apart, since it stops no front.
     """
     return (
@@ -549,7 +740,23 @@ def _replacement(node: _Field, fields: dict[str, str], *, question: bool) -> str
         return ""
     if question and "type" in node.filters:
         return ""
-    return fields.get(node.key, "")
+    value = fields.get(node.key, "")
+    # Innermost first, the filter by the field's name being the first applied.
+    # The rest, `text:` and `hint:` among them, give the field as it is.
+    for name in reversed(node.filters):
+        if name in _READING:
+            # Anki's own first step: its editor puts `&nbsp;` between words,
+            # which would otherwise join the base of the reading after it.
+            value = value.replace("&nbsp;", " ")
+            value = _FURIGANA.sub(lambda match, name=name: _reading(match, name), value)
+    return value
+
+
+def _reading(match: re.Match[str], name: str) -> str:
+    """What the furigana filter `name` makes of one `_FURIGANA` match, a sound left as it is."""
+    if match[2].startswith("sound:"):
+        return match[0]
+    return match.expand(_READING[name])
 
 
 def _empty(value: str) -> bool:

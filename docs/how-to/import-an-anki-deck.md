@@ -58,8 +58,24 @@ casts to an rvalue
 
 A question ending in a colon, such as `Ratio 1:`, is written with a space
 before the `::`, so the colon stays on the question. A side that would open its
-line with three backticks gets a backslash in front, `` \```js ``, so it opens
-no code block that would hide the cards below it.
+line with three backticks has them escaped, `` \`\`\`js ``, so it opens no code
+block that would hide the cards below it.
+
+A side running over several lines, a list or a field with line breaks in it,
+is written over three lines the same way, each side keeping its lines:
+
+```markdown
+Name three primary colours
+?
+- red
+- yellow
+- blue
+```
+
+A side never holds a blank line, since a blank line ends the card: a paragraph
+and a `<br>` both become one line break, and a run of them becomes one. A
+question over several lines whose answer is empty is written on one line as
+`question::`, its breaks spaces, because a `?` with nothing under it is no card.
 
 The tag cannot hold a space, so a deck called `AWS Certification` is tagged
 `#flashcards/AWS-Certification`. The folder keeps the space.
@@ -125,12 +141,14 @@ nothing is written as `question::`, which kasten reads as
 [a parked question](/reference/flashcard-format.md#parking-a-card), so it waits
 for an answer rather than vanishing. The exception is a question holding `::`
 whose back adds nothing: it is left out, because a `?` with nothing under it is
-no card. Such a question is left out too when its answer is `?` alone, or when
-either side is a line that would end the card: a heading such as
-`# of elements`, a line of nothing but tags such as `#pragma`, a line opening
-with `!suspended`, or, on the answer side, a whole schedule comment such as
-`<!--SR:!2026-08-20,4,270-->`. The count the import reports is of the cards the
-notes hold, so it leaves these out too.
+no card. The count the import reports is of the cards the notes hold, so it
+leaves such a question out too.
+
+A line of a side that kasten would read as part of the format gets a backslash,
+so it reads as the text it was and the card keeps it: a heading such as
+`\# of elements`, a line of nothing but tags such as `\#pragma`, a line of `\?`
+alone, a line opening with `\!suspended`, and a schedule comment, written
+`<!--SR\:!2026-08-20,4,270-->`.
 
 A cloze note arrives as [a cloze](/reference/flashcard-format.md#as-a-cloze),
 its marks and hints as Anki had them, one line however many cards Anki made
@@ -144,8 +162,9 @@ kasten asks that line once per number, `c1` apart from `c2`, with the hint
 shown in the blank, as Anki does. A note whose Back Extra holds text is written
 [over three lines](/reference/flashcard-format.md#as-a-cloze), the cloze, `?`
 and the Back Extra, with a blank line above and below, so the extra shows under
-the answer. A Back Extra that would end the card, by the rules above, is
-dropped and the cloze kept on its line. Marks in the Back Extra, and in a note
+the answer, over as many lines as it holds. The cloze itself stays one line,
+its line breaks spaces, because a second line holding a mark would be another
+cloze. Marks in the Back Extra, and in a note
 of any other type, become highlights, `==Paris==`, since Anki shows them as
 typed there and asks no card of them. So does a mark kasten does not read, one
 holding a brace such as MathJax's `{{c1::\(x^{2}\)}}` or one with no text,
@@ -158,6 +177,29 @@ Anki. A card whose front shows no field with text in it is not made, since Anki
 does not make it either. A field holding only spaces, `<br>` or empty `<div>`
 tags counts as empty.
 
+## Formatting
+
+A field's formatting arrives as markdown:
+
+| In Anki | In the note |
+|---|---|
+| bold, and underline | `**bold**`, there being no markdown underline |
+| italic | `*italic*` |
+| a link | `[text](address)` |
+| a bulleted or numbered list | a `- ` or `1. ` line per item |
+| `<code>` | `` `code` `` |
+| a `<pre>` block | a line of `` `code` `` per line, since cards inside a fence are skipped |
+| ruby, `<ruby>漢字<rt>かんじ</rt></ruby>` | the same tags, drawn with the reading over the word |
+
+The furigana filters do what they do in Anki. `{{furigana:Reading}}` turns
+`漢字[かんじ]` into the ruby above, `{{kanji:Reading}}` gives `漢字` and
+`{{kana:Reading}}` gives `かんじ`. A field shown with no filter keeps its
+brackets, as Anki shows it.
+
+Text that markdown would read as formatting gets a backslash, so it reads as
+text: `2\*3`, `snake\_case`, `` \` ``, `\[note]` and `\=\=`. A line opening with
+three backticks is written `` \`\`\` ``, so it opens no code block.
+
 ## What does not survive
 
 Two things.
@@ -168,15 +210,17 @@ whose name is not a plain file name. The card keeps its text, and the import
 still lands. A card whose question was only such a file has nothing left to ask
 and is left out.
 
-**What a template does beyond its fields.** A filter such as `{{text:Field}}` or
-`{{kanji:Field}}` gives the field as it is stored. `{{type:Field}}` gives nothing
-on the front, and a `{{tts ...}}` tag gives nothing. The special fields
-`{{Tags}}`, `{{Deck}}`, `{{Card}}`, `{{Type}}` and `{{Subdeck}}` give nothing,
-and a `<script>` or `<style>` in a template adds nothing.
+**What a template does beyond its fields.** A filter other than the three
+furigana ones, such as `{{text:Field}}` or `{{hint:Field}}`, gives the field as
+it is stored. `{{type:Field}}` gives nothing on the front, and a `{{tts ...}}`
+tag gives nothing. The special fields `{{Tags}}`, `{{Deck}}`, `{{Card}}`,
+`{{Type}}` and `{{Subdeck}}` give nothing, and a `<script>` or `<style>` in a
+template adds nothing. A cloze note is written from its fields and not its
+template, so a filter there does nothing either.
 
-Formatting inside a field is flattened to one line: `<br>` and the end of a
-`<div>` or `<p>` become spaces, every other tag is stripped, and entities are
-unescaped.
+Formatting beyond the table above, colour, font size, a heading, a table, is
+dropped and its text kept. Entities are unescaped. A cloze mark is written flat,
+`{{c1::France}}` from `{{c1::<b>France</b>}}`, so a typed answer can match it.
 
 ## What arrives ready to use
 

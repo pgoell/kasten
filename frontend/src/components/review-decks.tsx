@@ -1,8 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { fetchCards, importAnki } from "@/lib/api";
+import { fetchCards, fetchNote, importAnki } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { type Deck, decksFrom } from "@/lib/review";
+import { type Deck, deckNotes, decksFrom } from "@/lib/review";
 
 /** How far under another deck this one sits, `databases/postgres` being one. */
 function depthOf(name: string): number {
@@ -26,22 +26,43 @@ interface ReviewDecksProps {
 /**
  * Every deck the vault holds, and how much of each is waiting.
  *
- * One fetch answers the whole screen, because the counts come off the scan's
- * lines rather than off the notes: a vault of forty decks costs one `rg` pass
- * and no note reads at all. The session opens the note it is about to ask, and
- * only then.
+ * The scan says which notes are decks, and then each of those is read whole: a
+ * vault of forty deck notes costs one `rg` pass and forty GETs. The counts are
+ * worth that because they come off `parseCards`, the parser the sitting asks
+ * from, so a deck can never promise a card its sitting will not ask.
  */
 export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksProps) {
   const [imported, setImported] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: hits, isPending } = useQuery({
+  const { data: hits, isPending: scanning } = useQuery({
     queryKey: ["cards", archive],
     queryFn: () => fetchCards(archive),
   });
 
+  // Under `cards` rather than `note`, so the invalidation every rating, parking
+  // and import already sends refetches these too, and the counts move with the
+  // note the sitting just wrote rather than ten seconds later. One query per
+  // note, so a note that fails to read costs its own cards and no one else's.
+  const paths = hits === undefined ? [] : deckNotes(hits);
+  const reads = useQueries({
+    queries: paths.map((path) => ({
+      queryKey: ["cards", "note", path],
+      queryFn: () => fetchNote(path),
+    })),
+  });
+
+  // Until the last note is in, so a vault of decks never flashes "No decks".
+  const isPending = scanning || reads.some((read) => read.isPending);
+
   const today = readClock(new Date()).date;
-  const decks = hits === undefined ? [] : decksFrom(hits, today);
+  const decks = decksFrom(
+    paths.flatMap((path, at) => {
+      const text = reads[at]?.data;
+      return text === undefined ? [] : [{ path, text }];
+    }),
+    today,
+  );
   // Top-level rows only. A deck counts every card under it, so summing all of
   // them would count a card in `databases/postgres` again for `databases`, and
   // an imported Anki tree would read as twice the cards it holds.

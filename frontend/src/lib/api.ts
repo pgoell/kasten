@@ -160,9 +160,9 @@ export async function importAnki(file: Blob): Promise<AnkiImport> {
 /**
  * Every line in the vault that could be part of a flashcard.
  *
- * Candidate lines, in search's shape. `review.ts` groups them into decks and
- * `srs.ts` parses the ones a session actually asks, so nothing about the format
- * is known on this side of the wire.
+ * Candidate lines, in search's shape. `review.ts` picks the notes worth reading
+ * off them and `srs.ts` parses those notes, so nothing about the format is
+ * known on this side of the wire.
  */
 export async function fetchCards(archive = false): Promise<SearchHit[]> {
   const { data, response } = await client.GET("/api/cards", {

@@ -830,6 +830,79 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("unsaved");
   });
 
+  it("leaves the next note alone when the old note's flush fails and it is left untouched", async () => {
+    // The failure arm used to keep the text for a retry, but the retry runs
+    // with the next note's closure: the old note's words would land in it.
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    await flush.break();
+    note.unmount();
+
+    expect(saveNote).toHaveBeenCalledOnce();
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# left behind");
+  });
+
+  it("leaves the next note alone when the old note's flush fails and it is saved", async () => {
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    await flush.break();
+    await note.save();
+
+    expect(saveNote).toHaveBeenCalledOnce();
+    expect(saveNote).not.toHaveBeenCalledWith("daily/2026-08-05.md", expect.anything());
+  });
+
+  it("says which note lost its text when the flush on the way out fails", async () => {
+    // The text is gone, so the bar is the only place the reader learns of it,
+    // and the note on screen is not the one that lost anything.
+    const note = renderAutosave("index.md");
+    saveNote.mockRejectedValueOnce(new Error("failed with 500"));
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    await act(async () => {});
+
+    expect(note.status()).toBe("error");
+    expect(note.reason()).toContain("index.md");
+    expect(note.reason()).toContain("failed with 500");
+  });
+
+  it("still says which note lost its text when the next note was reverted meanwhile", async () => {
+    // `:e!` on the next note throws away that note's text, not the old one's.
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    note.revert(true);
+    await flush.break();
+
+    expect(note.status()).toBe("error");
+    expect(note.reason()).toContain("index.md was not saved");
+  });
+
+  it("does not call the next note saved when the old note's flush answers late", async () => {
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+    const daily = pendingSave();
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    note.change("# daily");
+    note.startSave();
+    await flush.finish();
+
+    expect(note.status()).toBe("saving");
+    expect(note.cached("daily/2026-08-05.md")).toBeUndefined();
+    await daily.finish();
+  });
+
   it("stops trusting an adopted text once its digest fails", async () => {
     // Without `crypto.subtle` the entry never gets a digest, so no event ever
     // takes it away, and it would take that text restored for good.

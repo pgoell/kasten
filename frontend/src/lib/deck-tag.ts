@@ -2,10 +2,9 @@
  * The `#flashcards` tag: what makes a note a deck, and what puts one card in
  * another deck beside it.
  *
- * Two readers need this and they read different things. `review.ts` sees the
- * lines one rg pass matched and counts the vault's decks off them; `srs.ts`
- * sees a note whole and parses the cards a sitting asks. The rule about what a
- * tag means has to be the same in both, so it is written once here.
+ * `srs.ts` reads it for every card it parses, which the overview counts and the
+ * sitting asks, and `review.ts` for the decks above a deck. The rule about
+ * what a tag means is written once here.
  *
  * ```markdown
  * #flashcards/databases

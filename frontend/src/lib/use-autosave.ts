@@ -138,14 +138,15 @@ export function useAutosave(path: string | undefined) {
     const to = path;
     const opened = visit.current;
     writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
+    // The flush on the way out of a note answers here with that note's
+    // closure, after the hook already follows the next one: its slots, its
+    // status and its pending text are that one's, and its own event is dropped
+    // by the route anyway.
+    const here = () => visit.current === opened;
 
     return saveNote(path, content).then(
       (note) => {
         lower(writing.current, to);
-        // The flush on the way out of a note answers here with that note's
-        // closure, after the hook already follows the next one: its slots are
-        // that one's, and its own event is dropped by the route anyway.
-        const here = () => visit.current === opened;
         // The note that came back and never the text that was sent: the two
         // differ by the `modified` stamp `PUT` writes, so what is on disk is
         // this one. Hashing the other would recognise nothing and read every
@@ -180,7 +181,7 @@ export function useAutosave(path: string | undefined) {
         // putting this in the cache would hand it straight back to them.
         if (pending.current === null && reverts.current === sent) {
           queryClient.setQueryData(["note", path], note.content);
-          setStatus("saved");
+          if (here()) setStatus("saved");
         }
         return true;
       },
@@ -190,15 +191,26 @@ export function useAutosave(path: string | undefined) {
         // lowered under it would leak for the life of the page, leaving that
         // note reading as busy and never written to again.
         lower(writing.current, to);
+        const message = failure instanceof Error ? failure.message : String(failure);
+        // The flush of a note already left: `pending` now holds the next note's
+        // text, and a retry would write this one's into it. The text is lost,
+        // so the bar says which note lost it, that note no longer being on screen.
+        // Ahead of the revert check, because a `:e!` since then was on the next
+        // note and threw away that one's text, not this.
+        if (!here()) {
+          setStatus("error");
+          setReason(`${to} was not saved: ${message}`);
+          return false;
+        }
         // Nothing to hold and nothing to warn about once the reader has thrown
         // this text away: the buffer holds the vault's version, and the retry
         // would be a retry of an edit that no longer exists anywhere.
         if (reverts.current !== sent) return false;
 
+        setStatus("error");
         // Hold on to the text: the next keystroke or `:w` tries again.
         pending.current ??= content;
-        setStatus("error");
-        setReason(failure instanceof Error ? failure.message : String(failure));
+        setReason(message);
         return false;
       },
     );
