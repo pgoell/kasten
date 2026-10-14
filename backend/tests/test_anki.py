@@ -403,6 +403,26 @@ def test_furigana_filters_follow_anki() -> None:
     ]
 
 
+def test_furigana_inside_a_cloze_mark_leaves_the_mark_whole() -> None:
+    # Anki fills the furigana in after the cloze, where the mark is a tag and
+    # `>` stops the base; read raw, the base would swallow `{{c1::`.
+    notes = ((1, FURIGANA, "x\x1f{{c1::漢字[かんじ]}}を"),)
+
+    assert one_deck(notes, ((11, 1, 100, 0),), types=(*TYPES, FURIGANA_TYPE)) == [
+        ("x", "==<ruby>漢字<rt>かんじ</rt></ruby>==を")
+    ]
+
+
+def test_plain_escapes_the_parking_token_anywhere_in_a_line() -> None:
+    # `suspended()` in `card-line.ts` reads the token after any space, and
+    # would park the card the answer only mentions it in.
+    assert plain("type x !suspended there") == r"type x \!suspended there"
+
+
+def test_plain_keeps_the_address_of_a_link_over_a_break() -> None:
+    assert plain('<a href="https://x.org">a<br>b</a>') == "[a b](https://x.org)"
+
+
 def test_a_multi_line_side_takes_the_question_form() -> None:
     notes = ((1, BASIC, "Name three<br>colours\x1f<ul><li>red</li><li>green</li></ul>"),)
     decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))

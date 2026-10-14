@@ -104,6 +104,9 @@ it held text you had not saved. Nothing is written until you choose.
 
 `Could not save` opens the same way and offers `Write my text`.
 
+`Not saved` means the write of a note you had just left failed. Its text did
+not reach the vault and no button brings it back; tap it to see which note.
+
 ## Type in a terminal
 
 1. Tap `run` and choose `Open a terminal`.

@@ -181,7 +181,7 @@ dimmed page around them.
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
 | An HTML page | The page's own links and buttons | [The file tree](#the-file-tree) |
-| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write is `Write my text`, and under `Changed on disk` that and `Take the vault's` | [Panes and tabs](#panes-and-tabs) |
+| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write is `Write my text`, and under `Changed on disk` that and `Take the vault's`. `Not saved`, a failed write of a note already left, names the note and offers nothing | [Panes and tabs](#panes-and-tabs) |
 | The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](#the-command-palette) |
 
 ### Still keys only

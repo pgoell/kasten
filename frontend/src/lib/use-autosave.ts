@@ -6,7 +6,11 @@ import { digestOf } from "@/lib/vault-events";
 /** Long enough that a sentence is one write, short enough to forget about. */
 const QUIET_MS = 800;
 
-export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict";
+/**
+ * `lost` is `error` for a note already left: the text went with the write, so
+ * there is nothing here for `:w` to try again with.
+ */
+export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict" | "lost";
 
 /** One fewer write in the air for `note`, taking the entry when it reaches none. */
 function lower(counts: Map<string, number>, note: string): void {
@@ -198,7 +202,9 @@ export function useAutosave(path: string | undefined) {
         // Ahead of the revert check, because a `:e!` since then was on the next
         // note and threw away that one's text, not this.
         if (!here()) {
-          setStatus("error");
+          // A conflict on the next note outranks this: it holds every write
+          // back, and nothing would ever put the bar back on it.
+          if (!conflicted.current) setStatus("lost");
           setReason(`${to} was not saved: ${message}`);
           return false;
         }

@@ -2159,7 +2159,9 @@ function Home() {
         </div>
       </div>
       <StatusBar
-        status={pane.path === undefined ? undefined : status}
+        // A lost write stays with no note open: it is the flush of the note
+        // just left failing, and nowhere else says that text is gone.
+        status={pane.path === undefined && status !== "lost" ? undefined : status}
         reason={reason}
         flash={refused}
         archive={archive}

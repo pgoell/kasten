@@ -807,6 +807,21 @@ describe("the route", () => {
     expect(app.flashing()).toBe(false);
   });
 
+  it("says the note left for an empty pane was not saved", async () => {
+    // The flush on the way out is the only write the note gets, and with no
+    // note open the bar is still the one place its failure can be read.
+    const app = await editing();
+    saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
+
+    app.leader("c", "t");
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note");
+    expect(app.status()).toBe("Not saved");
+    const title = document.querySelector("[data-testid='save-status']")?.getAttribute("title");
+    expect(title).toContain("index.md was not saved");
+  });
+
   it("still leaves a conflicted note for a click into another pane", async () => {
     // The hole `moveTo` cannot close, pinned so that closing it later is a
     // decision somebody made rather than something that drifted. The layout

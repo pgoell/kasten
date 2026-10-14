@@ -31,6 +31,7 @@ describe("StatusBar", () => {
     ["saving", "Saving"],
     ["error", "Could not save"],
     ["conflict", "Changed on disk"],
+    ["lost", "Not saved"],
   ] as const)("names the %s state for anyone who cannot see the ring", (status, label) => {
     const { container } = render(<StatusBar status={status} />);
 
@@ -60,6 +61,22 @@ describe("StatusBar", () => {
     const title = container.querySelector("[data-testid='save-status']")?.getAttribute("title");
     expect(title).toContain("PUT /api/files/index.md failed with 500");
     expect(title).toContain(":w");
+  });
+
+  it("promises no text back for a note left behind whose write failed", () => {
+    // That text was typed into another note and lives nowhere now, so the
+    // line `error` shows, that it is still here, would send the reader to a
+    // `:w` that writes nothing.
+    const { container } = render(
+      <StatusBar status="lost" reason="index.md was not saved: failed with 500" />,
+    );
+
+    const status = container.querySelector("[data-testid='save-status']");
+    expect(status).toHaveAttribute("aria-label", "Not saved");
+    const title = status?.getAttribute("title");
+    expect(title).toContain("index.md was not saved");
+    expect(title).not.toContain("still here");
+    expect(title).toContain("did not reach the vault");
   });
 
   it("says on hover both ways out of a note that changed on disk", () => {

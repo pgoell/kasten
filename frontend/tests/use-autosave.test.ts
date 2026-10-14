@@ -868,7 +868,7 @@ describe("useAutosave", () => {
     note.open("daily/2026-08-05.md");
     await act(async () => {});
 
-    expect(note.status()).toBe("error");
+    expect(note.status()).toBe("lost");
     expect(note.reason()).toContain("index.md");
     expect(note.reason()).toContain("failed with 500");
   });
@@ -883,7 +883,23 @@ describe("useAutosave", () => {
     note.revert(true);
     await flush.break();
 
-    expect(note.status()).toBe("error");
+    expect(note.status()).toBe("lost");
+    expect(note.reason()).toContain("index.md was not saved");
+  });
+
+  it("keeps the next note's conflict when the old note's flush fails", async () => {
+    // The conflict holds every write back, so a bar reading `error` instead
+    // would hide the one thing the reader has to settle with `:w`.
+    const note = renderAutosave("index.md");
+    const flush = pendingSave();
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    note.change("# daily");
+    note.reconcile("0".repeat(64));
+    await flush.break();
+
+    expect(note.status()).toBe("conflict");
     expect(note.reason()).toContain("index.md was not saved");
   });
 

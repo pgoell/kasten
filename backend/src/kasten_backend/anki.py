@@ -108,8 +108,15 @@ _BLOCK = frozenset(
 _BOLD = frozenset({"b", "strong", "u"})
 """Underline among them, since markdown has no underline and bold is the nearest stress."""
 _ITALIC = frozenset({"i", "em"})
-_FURIGANA = re.compile(r" ?([^ >]+?)\[(.+?)\]")
-"""Anki's furigana pattern: ` 漢字[かんじ]`, the space before the base saying where it starts."""
+_FURIGANA = re.compile(r" ?([^ >{}:]+?)\[(.+?)\]")
+"""Anki's furigana pattern: ` 漢字[かんじ]`, the space before the base saying where it starts.
+
+Anki fills the furigana in after the cloze, by which time a mark is a tag
+whose `>` stops the base. Read off the raw field here, the braces and colons
+of `{{c1::` stop it instead.
+"""
+_UNRUBY = re.compile(r"<(?!/?(?:ruby|rt)>)[^>]*>")
+"""Every tag but ruby's own, which a cloze mark keeps as the rest of the field does."""
 _READING = {"furigana": r"<ruby>\1<rt>\2</rt></ruby>", "kanji": r"\1", "kana": r"\2"}
 """What each of Anki's three furigana filters makes of a `_FURIGANA` match."""
 
@@ -269,8 +276,8 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
 
 
 def _flat(text: str) -> str:
-    """`text` as one line with its markup stripped, which is how a cloze mark is written."""
-    return " ".join(html.unescape(_TAG.sub("", _BREAK.sub(" ", text))).split())
+    """`text` as one line, every tag but ruby's stripped: how a cloze mark is written."""
+    return " ".join(html.unescape(_UNRUBY.sub("", _BREAK.sub(" ", text))).split())
 
 
 def _escaped(line: str) -> str:
@@ -367,8 +374,9 @@ class _Markdown(HTMLParser):
             self.lists.pop()
         elif tag == "a" and self.links:
             at, href = self.links.pop()
-            inner = "".join(self.out[at:])
-            if href and inner.strip() and "\n" not in inner:
+            # A link holds no line break, so a break in its text is a space.
+            inner = " ".join("".join(self.out[at:]).split("\n"))
+            if href and inner.strip():
                 # Parens and spaces would end the link early, as in `_LINK_SAFE`.
                 address = href.replace(" ", "%20").replace("(", "%28").replace(")", "%29")
                 self.out[at:] = [f"[{inner.strip()}]({address})"]
@@ -399,6 +407,9 @@ class _Markdown(HTMLParser):
         if self.pre is None and not self.code:
             data = re.sub(r"[*_`\[]", r"\\\g<0>", data)
             data = re.sub("={2,}", lambda run: "\\=" * len(run[0]), data)
+            # Anywhere, since `suspended()` in `card-line.ts` reads the token
+            # after any space and would park a card that only names it.
+            data = data.replace("!suspended", "\\!suspended")
         self.out.append(data)
 
     def _wrap(self, at: int, marker: str) -> None:

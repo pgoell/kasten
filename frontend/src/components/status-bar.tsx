@@ -61,10 +61,12 @@ const SAVE_LABEL: Record<SaveStatus, string> = {
   saving: "Saving",
   error: "Could not save",
   conflict: "Changed on disk",
+  lost: "Not saved",
 };
 
 /**
- * What to do about the two readings that need doing something about.
+ * What to do about the readings that need doing something about, or for
+ * `lost`, that nothing here can be done.
  *
  * The other three settle themselves, so naming a key under them would be
  * telling the reader to act on a note that is already written.
@@ -72,6 +74,7 @@ const SAVE_LABEL: Record<SaveStatus, string> = {
 const SAVE_FIX: Partial<Record<SaveStatus, string>> = {
   error: "Your text is still here. :w or ctrl+s writes it again.",
   conflict: "Somebody else wrote this note. :w keeps your text, :e! takes the vault's.",
+  lost: "What you typed into the note you left did not reach the vault, and :w here will not bring it back.",
 };
 
 /**
@@ -312,12 +315,12 @@ export function StatusBar({
       {/* The conflict wears the warning rather than the ring for the
           reason the failure does: nothing is on its way to the vault,
           and a ring spinning at the reader would say the opposite. */}
-      {status === "error" || status === "conflict" ? (
+      {status === "error" || status === "conflict" || status === "lost" ? (
         <Warning />
       ) : (
         <Spinner spinning={status !== "saved"} />
       )}
-      {/* Only the two that want the reader. A 16px sign in the corner is
+      {/* Only the ones that want the reader. A 16px sign in the corner is
           easy to type straight past, and typing past this one loses the
           text. `aria-hidden`, the label above already saying it. */}
       {SAVE_FIX[status] && (

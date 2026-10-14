@@ -447,6 +447,13 @@ describe("parseCards on an imported deck keeping its formatting", () => {
     expect(cards[2]?.back.endsWith("\n\nOn the\nSeine")).toBe(true);
     expect(cards.every((card) => card.parked === null)).toBe(true);
   });
+
+  it("parks no card whose answer names the escaped token mid-line", () => {
+    const [card] = parseCards("#flashcards/x\n\nQ::type x \\!suspended there\n");
+
+    expect(card?.parked).toBeNull();
+    expect(card?.back).toBe("type x \\!suspended there");
+  });
 });
 
 describe("parseCards on a front running over two lines", () => {
