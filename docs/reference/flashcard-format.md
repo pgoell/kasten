@@ -177,7 +177,8 @@ On the Seine.
 ```
 
 The front is the cloze, asked as above, and the back is shown under the answer.
-A front over several lines is one cloze, every mark on any of its lines counted.
+The cloze is the line directly above the `?`, the way a card's own tags are:
+marks on a front line further up are read as their own one-line cloze.
 
 The marks are text everywhere else. Live preview and Obsidian show them as
 typed, and a line of `==Paris==` stays a highlight: it is a cloze in
@@ -217,8 +218,8 @@ They go where any schedule goes: on the end of a one-line cloze, or on the line
 under the back of a `?` cloze. A number with no comment has never been answered,
 so rating `c2` first adds its comment and leaves `c1` with none. Rating one
 number rewrites its own comment and no other. The name is what makes the order
-free, and it is kasten's: obsidian-spaced-repetition reads neither the marks nor
-these comments, and leaves them alone.
+free, and it is kasten's: obsidian-spaced-repetition's `<!--SR:!` does not
+match these comments.
 
 ## Parking a card
 
