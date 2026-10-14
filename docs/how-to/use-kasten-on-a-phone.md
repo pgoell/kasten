@@ -102,10 +102,13 @@ it held text you had not saved. Nothing is written until you choose.
 2. Tap `Write my text` to write your text over the vault's, or
    `Take the vault's` to throw your text away.
 
-`Could not save` opens the same way and offers `Write my text`.
+`Could not save` opens the same way and offers `Write my text` and
+`Drop my text`.
 
-`Not saved` means the write of a note you had just left failed. Its text did
-not reach the vault and no button brings it back; tap it to see which note.
+`Not saved: <note>` means the write of a note you left failed. kasten keeps
+its text, on this phone, until it is written or dropped. Tap the label to see
+which notes, then open the note: your text is back on screen under
+`Could not save`.
 
 ## Type in a terminal
 

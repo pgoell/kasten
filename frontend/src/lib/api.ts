@@ -321,11 +321,16 @@ export async function previewMove(source: string, target: string): Promise<strin
  * stamps a fresh `modified` on the way through. Callers that cache the text
  * have to cache this one, or their copy is a stamp behind the vault from the
  * moment the write returns.
+ *
+ * `keepalive` is for the write on the way out of the page, which the browser
+ * would otherwise cancel with the page. It caps the body at 64 KiB and rejects
+ * above that, which the caller has to read as a write that did not land.
  */
-export async function saveNote(path: string, content: string): Promise<Note> {
+export async function saveNote(path: string, content: string, keepalive = false): Promise<Note> {
   const { data, response } = await client.PUT("/api/files/{path}", {
     params: { path: { path } },
     body: { content },
+    keepalive,
   });
 
   if (!data) {

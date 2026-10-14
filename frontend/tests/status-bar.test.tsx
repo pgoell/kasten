@@ -31,7 +31,6 @@ describe("StatusBar", () => {
     ["saving", "Saving"],
     ["error", "Could not save"],
     ["conflict", "Changed on disk"],
-    ["lost", "Not saved"],
   ] as const)("names the %s state for anyone who cannot see the ring", (status, label) => {
     const { container } = render(<StatusBar status={status} />);
 
@@ -63,20 +62,56 @@ describe("StatusBar", () => {
     expect(title).toContain(":w");
   });
 
-  it("promises no text back for a note left behind whose write failed", () => {
-    // That text was typed into another note and lives nowhere now, so the
-    // line `error` shows, that it is still here, would send the reader to a
-    // `:w` that writes nothing.
+  it("sends the reader back to a note left behind whose write failed", () => {
+    // That text is held for its own note, so the `:w` here, which writes the
+    // open note, is not the way to it: opening that note is.
     const { container } = render(
-      <StatusBar status="lost" reason="index.md was not saved: failed with 500" />,
+      <StatusBar
+        status="saved"
+        held={[{ path: "Notes/index.md", reason: "PUT failed with 500" }]}
+      />,
     );
 
-    const status = container.querySelector("[data-testid='save-status']");
-    expect(status).toHaveAttribute("aria-label", "Not saved");
-    const title = status?.getAttribute("title");
-    expect(title).toContain("index.md was not saved");
-    expect(title).not.toContain("still here");
-    expect(title).toContain("did not reach the vault");
+    // The open note's own reading is left alone by it.
+    expect(container.querySelector("[data-testid='save-status']")).toHaveAttribute(
+      "aria-label",
+      "Saved",
+    );
+    const held = screen.getByTestId("held");
+    expect(held).toHaveTextContent("Not saved: index");
+    const title = held.getAttribute("title");
+    expect(title).toContain("Notes/index.md: PUT failed with 500");
+    expect(title).toContain("Open the note to write it again, or :e! there to drop it.");
+  });
+
+  it("lists every held note, and drops each from the list when its text goes", () => {
+    const one = { path: "a.md", reason: "PUT failed with 500" };
+    const two = { path: "Sub/b.md", reason: "PUT failed with 502" };
+    const { rerender } = render(<StatusBar held={[one, two]} />);
+
+    const held = screen.getByTestId("held");
+    expect(held).toHaveTextContent("Not saved: 2 notes");
+    expect(held.getAttribute("title")).toContain("a.md: PUT failed with 500");
+    expect(held.getAttribute("title")).toContain("Sub/b.md: PUT failed with 502");
+
+    rerender(<StatusBar held={[two]} />);
+    expect(screen.getByTestId("held")).toHaveTextContent("Not saved: b");
+    expect(screen.getByTestId("held").getAttribute("title")).not.toContain("a.md");
+
+    rerender(<StatusBar held={[]} />);
+    expect(screen.queryByTestId("held")).toBeNull();
+  });
+
+  it("opens the held list out on a tap, a finger having no hover", () => {
+    render(<StatusBar held={[{ path: "a.md", reason: "PUT failed with 500" }]} />);
+
+    fireEvent.click(screen.getByTestId("held"));
+    const detail = screen.getByTestId("status-detail");
+    expect(detail).toHaveTextContent("a.md: PUT failed with 500");
+    expect(detail).toHaveTextContent("Open the note to write it again");
+
+    fireEvent.click(detail);
+    expect(screen.queryByTestId("status-detail")).toBeNull();
   });
 
   it("says on hover both ways out of a note that changed on disk", () => {
@@ -250,12 +285,23 @@ describe("the clock in the bar", () => {
     expect(onTakeVault).toHaveBeenCalledOnce();
   });
 
-  it("offers a failed write the write alone, there being no other writer", () => {
-    render(<StatusBar status="error" onWrite={vi.fn()} onTakeVault={vi.fn()} />);
+  it("writes or drops held text by touch, a phone having no :e! either", () => {
+    // Held text reopened in its note reads `error`, and a phone needs the way
+    // to give it up as well as the way to write it.
+    const onWrite = vi.fn();
+    const onTakeVault = vi.fn();
+    render(<StatusBar status="error" onWrite={onWrite} onTakeVault={onTakeVault} />);
 
     fireEvent.click(screen.getByTestId("save-status"));
-    expect(screen.getByText("Write my text")).toBeInTheDocument();
+    expect(screen.getByTestId("status-detail")).toHaveTextContent(":e! drops it");
+    fireEvent.click(screen.getByText("Write my text"));
+    expect(onWrite).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByTestId("save-status"));
+    // Named for what goes: there is no other writer whose text it takes.
     expect(screen.queryByText("Take the vault's")).toBeNull();
+    fireEvent.click(screen.getByText("Drop my text"));
+    expect(onTakeVault).toHaveBeenCalledOnce();
   });
 
   it("shuts with the notice it showed, so the next one arrives closed", () => {

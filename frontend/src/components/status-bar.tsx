@@ -61,20 +61,17 @@ const SAVE_LABEL: Record<SaveStatus, string> = {
   saving: "Saving",
   error: "Could not save",
   conflict: "Changed on disk",
-  lost: "Not saved",
 };
 
 /**
- * What to do about the readings that need doing something about, or for
- * `lost`, that nothing here can be done.
+ * What to do about the readings that need doing something about.
  *
  * The other three settle themselves, so naming a key under them would be
  * telling the reader to act on a note that is already written.
  */
 const SAVE_FIX: Partial<Record<SaveStatus, string>> = {
-  error: "Your text is still here. :w or ctrl+s writes it again.",
+  error: "Your text is still here. :w or ctrl+s writes it again, :e! drops it for the vault's.",
   conflict: "Somebody else wrote this note. :w keeps your text, :e! takes the vault's.",
-  lost: "What you typed into the note you left did not reach the vault, and :w here will not bring it back.",
 };
 
 /**
@@ -84,13 +81,23 @@ const SAVE_FIX: Partial<Record<SaveStatus, string>> = {
  * it has no Escape to reach normal mode with. The palette's `Write the note`
  * row lists only over a focused editor, and the tap that opened this sentence
  * took the focus off it.
+ *
+ * `:e!` is the same call under both readings but not the same loss: after a
+ * conflict it gives up your text for somebody else's, after a failed write
+ * it gives up text the vault never saw. The button names what goes.
  */
-const SAVE_ACTIONS: Partial<Record<SaveStatus, readonly ("write" | "takeVault")[]>> = {
-  error: ["write"],
-  conflict: ["write", "takeVault"],
+const SAVE_ACTIONS: Partial<Record<SaveStatus, Record<"write" | "takeVault", string>>> = {
+  error: { write: "Write my text", takeVault: "Drop my text" },
+  conflict: { write: "Write my text", takeVault: "Take the vault's" },
 };
 
-const ACTION_LABEL = { write: "Write my text", takeVault: "Take the vault's" } as const;
+/** A held note is opened to be dealt with, so nothing here can write it. */
+const HELD_FIX = "Open the note to write it again, or :e! there to drop it.";
+
+/** The note's name as the finder shows it, without the folders or `.md`. */
+function noteName(path: string) {
+  return (path.split("/").pop() ?? path).replace(/\.md$/, "");
+}
 
 // Any smaller and the arrowheads close up into blobs at this stroke width.
 const ICON = "size-4 shrink-0";
@@ -232,6 +239,15 @@ interface StatusBarProps {
    * which would otherwise read out a page the sheet has covered.
    */
   inert?: boolean;
+  /**
+   * The notes other than the open one whose text the vault refused, each with
+   * what it answered.
+   *
+   * Apart from `status`, which speaks for the open note alone. That text is
+   * kept until it is written or dropped, and leaving its note is no reason to
+   * stop saying so: a save in the next note says nothing about the last.
+   */
+  held?: readonly { path: string; reason: string }[];
   /** Write the buffer over the vault, which is `:w`. */
   onWrite?: () => void;
   /** Throw the buffer away for the vault's text, which is `:e!`. */
@@ -254,6 +270,7 @@ export function StatusBar({
   zoom,
   pane,
   inert,
+  held = [],
   onWrite,
   onTakeVault,
 }: StatusBarProps) {
@@ -274,26 +291,41 @@ export function StatusBar({
   // Which of the two is opened out above the bar. A `title` is all either had,
   // and a finger has no way to hover: the reason a write failed and the way
   // out of it were unreadable on a phone, and so was the end of a long notice.
-  const [opened, setOpened] = useState<"notice" | "save" | null>(null);
+  const [opened, setOpened] = useState<"notice" | "save" | "held" | null>(null);
+  // A string and not the list: the route filters a fresh array every render,
+  // and shutting on its identity would shut the detail as soon as it opened.
+  const heldLines = held.map(({ path, reason }) => `${path}: ${reason}`);
+  const heldKey = heldLines.join("\n");
   // Shut again when what it showed changes. Left open, it would show the next
   // notice unasked, over the last line of the note, to someone who opened
   // the one before it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the three are the trigger, and none is read.
-  useEffect(() => setOpened(null), [notice, status, reason]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the four are the trigger, and none is read.
+  useEffect(() => setOpened(null), [notice, status, reason, heldKey]);
   const saveLines = status ? [SAVE_LABEL[status], reason, SAVE_FIX[status]].filter(Boolean) : [];
   // The label alone is on screen already, or is "Saved".
   const saveOpens = saveLines.length > 1;
+  const heldLabel =
+    held.length === 1 && held[0]
+      ? `Not saved: ${noteName(held[0].path)}`
+      : `Not saved: ${held.length} notes`;
+  const heldDetail = [...heldLines, HELD_FIX].join("\n");
   const detail =
     opened === "notice"
       ? notice
       : opened === "save" && saveOpens
         ? saveLines.join("\n")
-        : undefined;
-  const open = (which: "notice" | "save") => setOpened(opened === which ? null : which);
+        : opened === "held" && held.length > 0
+          ? heldDetail
+          : undefined;
+  const open = (which: "notice" | "save" | "held") => setOpened(opened === which ? null : which);
   const run = { write: onWrite, takeVault: onTakeVault };
   const actions =
     opened === "save" && status
-      ? (SAVE_ACTIONS[status] ?? []).filter((action) => run[action] !== undefined)
+      ? (["write", "takeVault"] as const).flatMap((action) => {
+          const label = SAVE_ACTIONS[status]?.[action];
+          const call = run[action];
+          return label && call ? [{ action, label, call }] : [];
+        })
       : [];
 
   const save = status && (
@@ -315,7 +347,7 @@ export function StatusBar({
       {/* The conflict wears the warning rather than the ring for the
           reason the failure does: nothing is on its way to the vault,
           and a ring spinning at the reader would say the opposite. */}
-      {status === "error" || status === "conflict" || status === "lost" ? (
+      {status === "error" || status === "conflict" ? (
         <Warning />
       ) : (
         <Spinner spinning={status !== "saved"} />
@@ -361,18 +393,18 @@ export function StatusBar({
           </button>
           {actions.length > 0 && (
             <div className="flex gap-px border-t border-one-line">
-              {actions.map((action) => (
+              {actions.map(({ action, label, call }) => (
                 <button
                   key={action}
                   type="button"
                   tabIndex={-1}
                   onClick={() => {
                     setOpened(null);
-                    run[action]?.();
+                    call();
                   }}
                   className="min-h-6 flex-1 px-3 text-one-muted active:bg-one-hover active:text-one-accent pointer-coarse:min-h-11"
                 >
-                  {ACTION_LABEL[action]}
+                  {label}
                 </button>
               ))}
             </div>
@@ -413,8 +445,24 @@ export function StatusBar({
           </span>
         )}
       </div>
-      <Clock crowded={notice !== undefined} />
-      <div className="min-w-0 justify-self-end whitespace-nowrap">
+      {/* The held list crowds the clock out on a phone as a notice does: it
+          is the one reading there that loses text if nobody acts on it. */}
+      <Clock crowded={notice !== undefined || held.length > 0} />
+      <div className="flex min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
+        {held.length > 0 && (
+          <button
+            type="button"
+            tabIndex={-1}
+            data-testid="held"
+            // Every note and what the vault said, on hover under a mouse and
+            // opened out above the bar on a tap, the way a notice is.
+            title={heldDetail}
+            onClick={() => open("held")}
+            className="min-w-0 truncate text-[11px] text-one-warn pointer-coarse:h-11"
+          >
+            {heldLabel}
+          </button>
+        )}
         {saveOpens ? (
           <button
             type="button"

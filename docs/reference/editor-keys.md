@@ -181,7 +181,7 @@ dimmed page around them.
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
 | An HTML page | The page's own links and buttons | [The file tree](#the-file-tree) |
-| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write is `Write my text`, and under `Changed on disk` that and `Take the vault's`. `Not saved`, a failed write of a note already left, names the note and offers nothing | [Panes and tabs](#panes-and-tabs) |
+| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write are `Write my text` and `Drop my text`, and under `Changed on disk` `Write my text` and `Take the vault's`. `Not saved: <note>`, a failed write of a note already left, names the notes whose text kasten holds; opening one puts the text back | [Panes and tabs](#panes-and-tabs) |
 | The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](#the-command-palette) |
 
 ### Still keys only
@@ -417,8 +417,9 @@ click or a tap on a notice opens it out in full above the footer, and one on
 the save sign of a write that failed or a note that changed on disk does the
 same with the reason and the way out; a second one shuts it. Under a mouse the
 same text is on hover. Opened out, a write that failed has a `Write my text`
-button under it, which does what `:w` does, and a note that changed on disk has
-that and `Take the vault's`, which does what `:e!` does.
+button under it, which does what `:w` does, and `Drop my text`, which does what
+`:e!` does. A note that changed on disk has `Write my text` and
+`Take the vault's`, which is `:e!` again.
 
 Every pane in a divided window is drawn inside a border, and the border of the
 focused one is blue. A window holding a single pane has no border, having
@@ -2453,6 +2454,18 @@ reaches the vault and nothing the other writer left reaches your screen.
 
 Without a prompt to type them at, which is a phone, click or tap the save sign:
 `Write my text` is `:w` and `Take the vault's` is `:e!`.
+
+Text that has not reached the vault is not given up. Hiding the page, which is
+a reload, a closed tab or a phone sending the app to the background, writes
+what is waiting at once rather than after the pause. A note that reads
+`Changed on disk` is not written then; its text is kept instead. If a write
+fails as you leave a note, or leave the editor for another screen, kasten keeps
+that note's text in this browser's storage, and the status bar reads
+`Not saved: <note>` until it is written or dropped, whatever you save
+elsewhere meanwhile. Opening the note puts the text back in the buffer under
+`Could not save`: `:w` writes it, `:e!` drops it for the vault's. Opening it
+writes nothing on its own. If the vault already holds that text, the write
+having landed after the page went away, kasten drops it without asking.
 
 `:e` without the bang is vim's own reread and behaves the way vim's does. It
 takes the note off the vault when nothing is waiting to be written, and

@@ -55,6 +55,12 @@ interface NoteEditorProps {
   onNotice?: (message: string) => void;
   /** How a `![[note]]` in this one reads and opens its note. See `Editor`. */
   embeds?: EmbedSource;
+  /**
+   * Text the vault refused for this note, which it opens on instead of the
+   * vault's. The vault's still arrives as `reloadDoc`, and `allowReload` is
+   * where the autosave takes the held text as its own.
+   */
+  held?: string;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-muted";
@@ -93,6 +99,7 @@ export const NoteEditor = memo(function NoteEditor({
   allowReload,
   onReload,
   embeds,
+  held,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -109,7 +116,8 @@ export const NoteEditor = memo(function NoteEditor({
   return (
     <Editor
       key={path}
-      initialDoc={data}
+      // Read once, on mount, so held text let go later changes nothing here.
+      initialDoc={held ?? data}
       // The same text, read a second time: `initialDoc` opens the note and
       // this one keeps it up to date. Two things move that cache: the autosave,
       // which puts the note the vault answered its write with straight into it,

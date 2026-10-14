@@ -1,16 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { saveNote } from "@/lib/api";
+import { dropText, heldText, holdText, sameText } from "@/lib/held-text";
 import { digestOf } from "@/lib/vault-events";
 
 /** Long enough that a sentence is one write, short enough to forget about. */
 const QUIET_MS = 800;
 
 /**
- * `lost` is `error` for a note already left: the text went with the write, so
- * there is nothing here for `:w` to try again with.
+ * A note left with a failed write has no reading of its own here: its text is
+ * held (`held-text.ts`) and the bar lists it beside whatever note is open.
  */
-export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict" | "lost";
+export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict";
 
 /** One fewer write in the air for `note`, taking the entry when it reaches none. */
 function lower(counts: Map<string, number>, note: string): void {
@@ -53,11 +54,6 @@ export function useAutosave(path: string | undefined) {
   // timer can see it: that timer was scheduled by an older render, and the
   // status it closed over is the one from before the conflict.
   const conflicted = useRef(false);
-  // The reason this note's own last write failed, while its text waits for
-  // `:w`, and null otherwise. Read by a failed flush of the note left behind,
-  // whose closure holds a status from before: `lost` over this would take the
-  // way to retry off the bar while the retry still has text to write.
-  const failed = useRef<string | null>(null);
   // How many times the reader has thrown the buffer away, which a write in
   // flight compares against the reading it left with.
   //
@@ -127,114 +123,127 @@ export function useAutosave(path: string | undefined) {
   const visit = useRef(0);
   const queryClient = useQueryClient();
 
-  /** Resolves to whether the vault holds the text, so `<leader>q` can refuse. */
-  const save = useCallback((): Promise<boolean> => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
+  /**
+   * Resolves to whether the vault holds the text, so `<leader>q` can refuse.
+   *
+   * `keepalive` for the write as the page goes away, which the browser would
+   * otherwise cancel along with it.
+   */
+  const write = useCallback(
+    (keepalive: boolean): Promise<boolean> => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
 
-    const content = pending.current;
-    // Nothing waiting means disk is already up to date, which counts as saved.
-    if (path === undefined || content === null) return Promise.resolve(true);
-    pending.current = null;
-    // Reaching this at all is the reader deciding to overwrite: the timer stops
-    // short of it while the note stands conflicted, and `:w` does not.
-    conflicted.current = false;
-    saves.current += 1;
-    const seq = saves.current;
-    const sent = reverts.current;
-    setStatus("saving");
-    setReason(undefined);
-    failed.current = null;
-    const to = path;
-    const opened = visit.current;
-    writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
-    // The flush on the way out of a note answers here with that note's
-    // closure, after the hook already follows the next one: its slots, its
-    // status and its pending text are that one's, and its own event is dropped
-    // by the route anyway.
-    const here = () => visit.current === opened;
+      const content = pending.current;
+      // Nothing waiting means disk is already up to date, which counts as saved.
+      if (path === undefined || content === null) return Promise.resolve(true);
+      pending.current = null;
+      // Read before the line below clears it: a flush of a conflicted note that
+      // fails is held as conflicted, and reopens as the conflict it was.
+      const wasConflicted = conflicted.current;
+      // Reaching this at all is the reader deciding to overwrite: the timer stops
+      // short of it while the note stands conflicted, and `:w` does not.
+      conflicted.current = false;
+      saves.current += 1;
+      const seq = saves.current;
+      const sent = reverts.current;
+      setStatus("saving");
+      setReason(undefined);
+      const to = path;
+      const opened = visit.current;
+      writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
+      // The flush on the way out of a note answers here with that note's
+      // closure, after the hook already follows the next one: its slots, its
+      // status and its pending text are that one's, and its own event is dropped
+      // by the route anyway.
+      const here = () => visit.current === opened;
 
-    return saveNote(path, content).then(
-      (note) => {
-        lower(writing.current, to);
-        // The note that came back and never the text that was sent: the two
-        // differ by the `modified` stamp `PUT` writes, so what is on disk is
-        // this one. Hashing the other would recognise nothing and read every
-        // save of our own as somebody else's write.
-        if (here()) lastText.current = note.content;
-        track(
-          digestOf(note.content).then(
-            (digest) => {
-              if (!here()) return;
-              lastWritten.current = digest;
-              lastSent.current = seq;
-            },
-            (error: unknown) => {
-              // `crypto.subtle` is missing outside a secure context, which is a
-              // proxy serving the app over plain http and nothing else. Left
-              // unhandled it is an unhandled rejection per save; handled, the
-              // hook simply recognises none of its own writes, so a save the
-              // typing carried on through raises a conflict the reader clears
-              // with `:w`. Wrong in the direction that writes nothing.
-              if (!(error instanceof TypeError)) throw error;
-            },
-          ),
-        );
-        // Typing during the write leaves newer text behind us, and that is not
-        // saved however this one went. The cache waits on the same test: the
-        // editor reloads from it, so writing the text that was in the air would
-        // take those newer keystrokes off screen. Reopening a note reads this
-        // cache too.
-        //
-        // A `:e!` during the write is the other way this text stops being the
-        // note: the reader asked for the vault's version and got it, and
-        // putting this in the cache would hand it straight back to them.
-        if (pending.current === null && reverts.current === sent) {
-          queryClient.setQueryData(["note", path], note.content);
-          if (here()) setStatus("saved");
-        }
-        return true;
-      },
-      (failure: unknown) => {
-        // At the top of the arm and not at the foot of it: the line below
-        // returns early on a write that failed after a `:e!`, and a count
-        // lowered under it would leak for the life of the page, leaving that
-        // note reading as busy and never written to again.
-        lower(writing.current, to);
-        const message = failure instanceof Error ? failure.message : String(failure);
-        // The flush of a note already left: `pending` now holds the next note's
-        // text, and a retry would write this one's into it. The text is lost,
-        // so the bar says which note lost it, that note no longer being on screen.
-        // Ahead of the revert check, because a `:e!` since then was on the next
-        // note and threw away that one's text, not this.
-        if (!here()) {
-          // A conflict on the next note outranks this: it holds every write
-          // back, and nothing would ever put the bar back on it.
-          // So does this note's own failed write, whose text `:w` can still
-          // send: both are named, and the bar keeps the way to retry.
-          const lost = `${to} was not saved: ${message}`;
-          if (failed.current !== null && pending.current !== null) {
-            setReason(`${failed.current}\n${lost}`);
+      // Two arguments unless it is the way out, which is the call every other
+      // writer of a note makes.
+      return (keepalive ? saveNote(path, content, true) : saveNote(path, content)).then(
+        (note) => {
+          lower(writing.current, to);
+          // Unconditionally: a write of this note that landed carried its newest
+          // text, which is newer than anything held for it.
+          dropText(to);
+          // The note that came back and never the text that was sent: the two
+          // differ by the `modified` stamp `PUT` writes, so what is on disk is
+          // this one. Hashing the other would recognise nothing and read every
+          // save of our own as somebody else's write.
+          if (here()) lastText.current = note.content;
+          track(
+            digestOf(note.content).then(
+              (digest) => {
+                if (!here()) return;
+                lastWritten.current = digest;
+                lastSent.current = seq;
+              },
+              (error: unknown) => {
+                // `crypto.subtle` is missing outside a secure context, which is a
+                // proxy serving the app over plain http and nothing else. Left
+                // unhandled it is an unhandled rejection per save; handled, the
+                // hook simply recognises none of its own writes, so a save the
+                // typing carried on through raises a conflict the reader clears
+                // with `:w`. Wrong in the direction that writes nothing.
+                if (!(error instanceof TypeError)) throw error;
+              },
+            ),
+          );
+          // Typing during the write leaves newer text behind us, and that is not
+          // saved however this one went. The cache waits on the same test: the
+          // editor reloads from it, so writing the text that was in the air would
+          // take those newer keystrokes off screen. Reopening a note reads this
+          // cache too.
+          //
+          // A `:e!` during the write is the other way this text stops being the
+          // note: the reader asked for the vault's version and got it, and
+          // putting this in the cache would hand it straight back to them.
+          if (pending.current === null && reverts.current === sent) {
+            queryClient.setQueryData(["note", path], note.content);
+            if (here()) setStatus("saved");
+          }
+          return true;
+        },
+        (failure: unknown) => {
+          // At the top of the arm and not at the foot of it: the line below
+          // returns early on a write that failed after a `:e!`, and a count
+          // lowered under it would leak for the life of the page, leaving that
+          // note reading as busy and never written to again.
+          lower(writing.current, to);
+          const message = failure instanceof Error ? failure.message : String(failure);
+          const held = { content, reason: message, conflicted: wasConflicted };
+          // The flush of a note already left: `pending` now holds the next note's
+          // text, and a retry would write this one's into it. So the text is held
+          // for its own note, which takes it back when it is opened again, and
+          // the bar lists it meanwhile. Nothing here touches the next note's
+          // reading. Ahead of the revert check, because a `:e!` since then was on
+          // the next note and threw away that one's text, not this.
+          if (!here()) {
+            holdText(to, held);
             return false;
           }
-          if (!conflicted.current) setStatus("lost");
-          setReason(lost);
-          return false;
-        }
-        // Nothing to hold and nothing to warn about once the reader has thrown
-        // this text away: the buffer holds the vault's version, and the retry
-        // would be a retry of an edit that no longer exists anywhere.
-        if (reverts.current !== sent) return false;
+          // Nothing to hold and nothing to warn about once the reader has thrown
+          // this text away: the buffer holds the vault's version, and the retry
+          // would be a retry of an edit that no longer exists anywhere.
+          if (reverts.current !== sent) return false;
 
-        setStatus("error");
-        // Hold on to the text: the next keystroke or `:w` tries again.
-        pending.current ??= content;
-        failed.current = message;
-        setReason(message);
-        return false;
-      },
-    );
-  }, [path, queryClient, track]);
+          // Held as well as kept, because `here()` is also true for the flush
+          // as the route unmounts, when this hook is gone and `pending` with it.
+          holdText(to, held);
+          setStatus("error");
+          // Hold on to the text: the next keystroke or `:w` tries again.
+          pending.current ??= content;
+          setReason(message);
+          return false;
+        },
+      );
+    },
+    [path, queryClient, track],
+  );
+
+  // Of no arguments, because the editor's save key hands its caller the
+  // document, which would read here as a `keepalive` asked for.
+  const save = useCallback((): Promise<boolean> => write(false), [write]);
 
   /**
    * Write what is waiting on the way to doing something else, refusing while
@@ -265,17 +274,21 @@ export function useAutosave(path: string | undefined) {
    * happened. The timer needs no cancelling here: it wakes to an empty
    * `pending` and `save` turns straight back round.
    */
-  const revert = useCallback((force: boolean): boolean => {
-    if (pending.current !== null && !force) return false;
+  const revert = useCallback(
+    (force: boolean): boolean => {
+      if (pending.current !== null && !force) return false;
 
-    pending.current = null;
-    conflicted.current = false;
-    failed.current = null;
-    reverts.current += 1;
-    setStatus("saved");
-    setReason(undefined);
-    return true;
-  }, []);
+      pending.current = null;
+      conflicted.current = false;
+      reverts.current += 1;
+      // The other way held text ends: the reader chose the vault's.
+      if (path !== undefined) dropText(path);
+      setStatus("saved");
+      setReason(undefined);
+      return true;
+    },
+    [path],
+  );
 
   /**
    * Whether the vault has moved past the buffer, for the keys that must refuse.
@@ -348,8 +361,6 @@ export function useAutosave(path: string | undefined) {
   const change = useCallback(
     (doc: string) => {
       pending.current = doc;
-      // The bar reads `unsaved` from here, not the failure.
-      if (!conflicted.current) failed.current = null;
       // Typing settles nothing while the note stands conflicted: the vault
       // still holds text this buffer never saw, and reading `unsaved` would
       // promise a write the timer below no longer makes.
@@ -363,6 +374,30 @@ export function useAutosave(path: string | undefined) {
   );
 
   /**
+   * Take the text held for `note` into the buffer, against the vault's `text`.
+   * Answers as `allowReload` would, or undefined when there is nothing to take.
+   *
+   * Only into a clean buffer with no write in the air, which is what a note
+   * just opened looks like. Not while held text is on its way out: the entry
+   * stays until the write lands, and that write's echo would take it again.
+   * Nothing is written on the take; the bar says why the text is unwritten and
+   * `:w` sends it.
+   */
+  const restore = useCallback((note: string, text: string): boolean | undefined => {
+    const held = heldText(note);
+    if (!held || pending.current !== null || writing.current.has(note)) return undefined;
+    if (sameText(held.content, text)) {
+      dropText(note);
+      return true;
+    }
+    pending.current = held.content;
+    conflicted.current = held.conflicted;
+    setStatus(held.conflicted ? "conflict" : "error");
+    setReason(held.reason);
+    return false;
+  }, []);
+
+  /**
    * Whether the editor may put `text` in, asked at the moment it would.
    *
    * A buffer with nothing waiting takes anything: that is the reload doing its
@@ -373,27 +408,38 @@ export function useAutosave(path: string | undefined) {
    * not already got, and flagging it would stop the autosave of a reader who
    * did nothing but keep typing. The stamp in it reaches the buffer on the next
    * quiet write instead, which is a round trip away and costs nothing.
+   *
+   * It is also where held text comes back. A note reopened with text held for
+   * it opens on that text, and the first thing its editor does is ask about the
+   * vault's: this, which runs before the hook's own effect for the new path, so
+   * the take cannot wait for that effect.
    */
-  const allowReload = useCallback((text: string): boolean => {
-    // Before the clean-buffer answer, so an adopted entry with no digest coming
-    // is used up by its delivery however the buffer stood when it arrived.
-    const entry = adopted.current.find((other) => other.content === text);
-    if (entry?.failed) adopted.current = adopted.current.filter((other) => other !== entry);
-    else if (entry) entry.seen = true;
+  const allowReload = useCallback(
+    (text: string): boolean => {
+      // Before the clean-buffer answer, so an adopted entry with no digest coming
+      // is used up by its delivery however the buffer stood when it arrived.
+      const entry = adopted.current.find((other) => other.content === text);
+      if (entry?.failed) adopted.current = adopted.current.filter((other) => other !== entry);
+      else if (entry) entry.seen = true;
 
-    if (pending.current === null) return true;
-    if (text === lastText.current) return false;
-    // A write the route made into this note, reaching the editor through the
-    // cache. Refused the way our own answer is, and for the same reason: it
-    // carries no words the reader has not got.
-    // The entry stays unless its digest failed: its event is still to come and
-    // has to find it.
-    if (entry) return false;
+      const restored = path === undefined ? undefined : restore(path, text);
+      if (restored !== undefined) return restored;
 
-    conflicted.current = true;
-    setStatus("conflict");
-    return false;
-  }, []);
+      if (pending.current === null) return true;
+      if (text === lastText.current) return false;
+      // A write the route made into this note, reaching the editor through the
+      // cache. Refused the way our own answer is, and for the same reason: it
+      // carries no words the reader has not got.
+      // The entry stays unless its digest failed: its event is still to come and
+      // has to find it.
+      if (entry) return false;
+
+      conflicted.current = true;
+      setStatus("conflict");
+      return false;
+    },
+    [path, restore],
+  );
 
   /**
    * Called when the vault reports a write to the open note. Returns whether the
@@ -475,15 +521,65 @@ export function useAutosave(path: string | undefined) {
     [save],
   );
 
+  // A reload or a closed tab unmounts nothing, so the flush above never runs
+  // for them, and the quiet period's text goes with the page. A phone sending
+  // the app to the background fires no `pagehide` at all, only the
+  // visibility change, and may never come back to fire anything else.
+  //
+  // The text is held before anything is sent: a keepalive write can still be
+  // refused (over 64 KiB, or no network) with nobody left to hear it, and the
+  // held copy is what the next opening offers. A landed write drops it, and
+  // one that landed after the page was gone is recognised then by `sameText`.
+  // A conflicted note, or one with an event still being placed, is held and
+  // not written: unlike leaving a note, nothing has to be decided now, and the
+  // reader can decide on return.
+  useEffect(() => {
+    if (path === undefined) return;
+    const hide = () => {
+      if (pending.current === null) return;
+      const stop = conflicted.current || holding.current > 0;
+      holdText(path, {
+        content: pending.current,
+        reason: "Not yet written when the page was hidden",
+        conflicted: conflicted.current,
+      });
+      if (!stop) void write(true);
+    };
+    const hidden = () => {
+      if (document.visibilityState === "hidden") hide();
+    };
+    window.addEventListener("pagehide", hide);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("pagehide", hide);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, [path, write]);
+
   // The flush above still counts as the visit it leaves: React runs the old
   // render's cleanups before any of the new render's setups.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs on each opening, and reads nothing of `path`
+  // Runs on each opening: `queryClient` and `restore` never change.
   useEffect(() => {
     visit.current += 1;
     adopted.current = [];
     lastText.current = null;
     lastWritten.current = null;
-  }, [path]);
+    // A note whose editor stayed mounted while the focus was in another pane
+    // asks nothing on the way back, so `allowReload` never sees its held text.
+    // Taken here against the note the cache holds, which is what that editor
+    // was opened on. With nothing cached the editor is still to mount, and
+    // will ask; one that just mounted has asked already, and `pending` says so.
+    const cached =
+      path === undefined ? undefined : queryClient.getQueryData<string>(["note", path]);
+    if (path !== undefined && cached !== undefined) restore(path, cached);
+    // The flush of the note left set `saving` on its way out and never answers
+    // here, so the reading starts again for the note opened, unless it holds
+    // text just taken.
+    if (pending.current === null) {
+      setStatus("saved");
+      setReason(undefined);
+    }
+  }, [path, queryClient, restore]);
 
   return {
     status,

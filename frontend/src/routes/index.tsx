@@ -56,6 +56,7 @@ import { visible } from "@/lib/archive";
 import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { queryEmbedSource } from "@/lib/embed";
+import { heldText, useHeld } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { MoveMode } from "@/lib/move";
@@ -300,6 +301,9 @@ function Home() {
     allowReload,
     reconcile,
   } = useAutosave(pane.path);
+  // Text the vault refused, kept by note. Read here so a note held or let go
+  // re-renders the bar, and the focused editor opens on its held text.
+  const held = useHeld();
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
   // stream for the life of the page, so it cannot close over either: opening a
@@ -2136,6 +2140,15 @@ function Home() {
                         // reported alone: the note this reads is the one the
                         // autosave follows, which is the note in that pane.
                         onReload={focused ? reload : undefined}
+                        // The focused pane alone again: the autosave takes held
+                        // text through `allowReload`, which only this pane asks.
+                        // `held` is read for the re-render, `heldText` for the
+                        // content, which the list does not carry.
+                        held={
+                          focused && held.some((each) => each.path === shown.path)
+                            ? heldText(shown.path)?.content
+                            : undefined
+                        }
                         mark={mark?.note === shown.path ? mark : undefined}
                         onSave={save}
                         onFollow={follow}
@@ -2159,10 +2172,11 @@ function Home() {
         </div>
       </div>
       <StatusBar
-        // A lost write stays with no note open: it is the flush of the note
-        // just left failing, and nowhere else says that text is gone.
-        status={pane.path === undefined && status !== "lost" ? undefined : status}
+        status={pane.path === undefined ? undefined : status}
         reason={reason}
+        // Every note but the open one, whose held text is in its buffer and
+        // read by `status`. With no note open, that is all of them.
+        held={held.filter((each) => each.path !== pane.path)}
         flash={refused}
         archive={archive}
         notice={notice}

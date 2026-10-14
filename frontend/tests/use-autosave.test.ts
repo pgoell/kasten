@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
+import { heldText, holdText, resetHeld } from "@/lib/held-text";
 import { useAutosave } from "@/lib/use-autosave";
 import { digestOf } from "@/lib/vault-events";
 
@@ -116,6 +117,8 @@ function renderAutosave(path = "index.md") {
     open: (next: string) => act(() => rerender({ open: next })),
     unmount: () => act(() => unmount()),
     cached: (of: string) => queryClient.getQueryData(["note", of]),
+    /** Put a note in the cache, which is what an editor already open was opened on. */
+    seed: (of: string, text: string) => queryClient.setQueryData(["note", of], text),
   };
 }
 
@@ -133,6 +136,21 @@ async function hashed() {
   });
 }
 
+/** A reload or a closed tab, as the page hears it, and the write it starts. */
+async function pagehide() {
+  await act(async () => {
+    window.dispatchEvent(new Event("pagehide"));
+  });
+}
+
+/** A phone sending the app to the background, which fires no `pagehide`. */
+async function background() {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+}
+
 describe("useAutosave", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -145,6 +163,11 @@ describe("useAutosave", () => {
     cleanup();
     vi.useRealTimers();
     saveNote.mockReset();
+    // After the cleanup, whose flushes may hold text of their own.
+    localStorage.removeItem("kasten.held");
+    resetHeld();
+    // The own property a backgrounding test put over jsdom's getter.
+    Reflect.deleteProperty(document, "visibilityState");
   });
 
   it("holds the text back until the typing stops", async () => {
@@ -858,9 +881,9 @@ describe("useAutosave", () => {
     expect(saveNote).not.toHaveBeenCalledWith("daily/2026-08-05.md", expect.anything());
   });
 
-  it("says which note lost its text when the flush on the way out fails", async () => {
-    // The text is gone, so the bar is the only place the reader learns of it,
-    // and the note on screen is not the one that lost anything.
+  it("holds the left note's text when the flush on the way out fails", async () => {
+    // The held list in the bar reports it; the note on screen is not the one
+    // whose text the vault refused, so its own reading stays its own.
     const note = renderAutosave("index.md");
     saveNote.mockRejectedValueOnce(new Error("failed with 500"));
 
@@ -868,12 +891,16 @@ describe("useAutosave", () => {
     note.open("daily/2026-08-05.md");
     await act(async () => {});
 
-    expect(note.status()).toBe("lost");
-    expect(note.reason()).toContain("index.md");
-    expect(note.reason()).toContain("failed with 500");
+    expect(heldText("index.md")).toEqual({
+      content: "# left behind",
+      reason: "failed with 500",
+      conflicted: false,
+    });
+    expect(note.status()).toBe("saved");
+    expect(note.reason()).toBeUndefined();
   });
 
-  it("still says which note lost its text when the next note was reverted meanwhile", async () => {
+  it("still holds the left note's text when the next note was reverted meanwhile", async () => {
     // `:e!` on the next note throws away that note's text, not the old one's.
     const note = renderAutosave("index.md");
     const flush = pendingSave();
@@ -883,13 +910,12 @@ describe("useAutosave", () => {
     note.revert(true);
     await flush.break();
 
-    expect(note.status()).toBe("lost");
-    expect(note.reason()).toContain("index.md was not saved");
+    expect(heldText("index.md")?.content).toBe("# left behind");
   });
 
-  it("keeps the next note's own failure when the old note's flush fails", async () => {
+  it("keeps the next note's own failure alone when the old note's flush fails", async () => {
     // The next note's text is still waiting and `:w` would write it, so the
-    // bar must go on offering that, and name the old note's loss beside it.
+    // bar must go on offering that, its reason the next note's alone.
     const note = renderAutosave("index.md");
     const flush = pendingSave();
 
@@ -902,11 +928,11 @@ describe("useAutosave", () => {
     await flush.break();
 
     expect(note.status()).toBe("error");
-    expect(note.reason()).toContain("daily/2026-08-05.md failed with 500");
-    expect(note.reason()).toContain("index.md was not saved");
+    expect(note.reason()).toBe("PUT /api/files/daily/2026-08-05.md failed with 500");
+    expect(heldText("index.md")?.content).toBe("# left behind");
   });
 
-  it("keeps the next note's conflict when the old note's flush fails", async () => {
+  it("keeps the next note's conflict alone when the old note's flush fails", async () => {
     // The conflict holds every write back, so a bar reading `error` instead
     // would hide the one thing the reader has to settle with `:w`.
     const note = renderAutosave("index.md");
@@ -919,7 +945,222 @@ describe("useAutosave", () => {
     await flush.break();
 
     expect(note.status()).toBe("conflict");
-    expect(note.reason()).toContain("index.md was not saved");
+    expect(heldText("index.md")?.content).toBe("# left behind");
+  });
+
+  it("keeps the left note's held text through a save in the next note", async () => {
+    const note = renderAutosave("index.md");
+    saveNote.mockRejectedValueOnce(new Error("failed with 500"));
+
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    await act(async () => {});
+    note.change("# daily");
+    await idle();
+
+    expect(saveNote).toHaveBeenLastCalledWith("daily/2026-08-05.md", "# daily");
+    expect(note.status()).toBe("saved");
+    expect(heldText("index.md")?.content).toBe("# left behind");
+  });
+
+  it("holds the text when the flush on unmount fails", async () => {
+    // Leaving the editor route unmounts the hook with the visit unchanged, so
+    // the failure lands in the arm for the note on screen, with nobody left.
+    const note = renderAutosave("index.md");
+    saveNote.mockRejectedValueOnce(new Error("failed with 502"));
+
+    note.change("# typed");
+    note.unmount();
+    await act(async () => {});
+
+    expect(heldText("index.md")).toEqual({
+      content: "# typed",
+      reason: "failed with 502",
+      conflicted: false,
+    });
+  });
+
+  it("holds a conflicted note's failed flush as conflicted", async () => {
+    const note = renderAutosave("index.md");
+    saveNote.mockRejectedValueOnce(new Error("failed with 500"));
+
+    note.change("# mine");
+    note.reconcile("0".repeat(64));
+    note.open("daily/2026-08-05.md");
+    await act(async () => {});
+
+    // Leaving a conflicted note still flushes over the vault, as it always did.
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# mine");
+    expect(heldText("index.md")?.conflicted).toBe(true);
+  });
+
+  it("puts held text back in the buffer when its note is reopened", async () => {
+    const note = renderAutosave("index.md");
+    saveNote.mockRejectedValueOnce(new Error("failed with 500"));
+    note.change("# left behind");
+    note.open("daily/2026-08-05.md");
+    await act(async () => {});
+
+    note.open("index.md");
+    // The editor opens on the held text and asks about the vault's.
+    expect(note.allowReload("the index note")).toBe(false);
+
+    expect(note.status()).toBe("error");
+    expect(note.reason()).toBe("failed with 500");
+    expect(await note.saved()).toBe(true);
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# left behind");
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("takes held text back when the focus returns to a pane still showing it", async () => {
+    // A split: the note's editor stayed mounted while the focus was elsewhere,
+    // so it asks nothing about the vault's text on the way back.
+    const note = renderAutosave("daily/2026-08-05.md");
+    note.seed("index.md", "the index note");
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+
+    note.open("index.md");
+
+    expect(note.status()).toBe("error");
+    expect(await note.saved()).toBe(true);
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# held");
+  });
+
+  it("writes nothing on its own when a held note is reopened", async () => {
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md");
+
+    expect(note.allowReload("the index note")).toBe(false);
+    await idle();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(note.status()).toBe("error");
+  });
+
+  it("does not take held text a second time while its write is in the air", async () => {
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md");
+    note.allowReload("the index note");
+    const write = pendingSave();
+    note.startSave();
+
+    // The write's own echo, read while the entry is still there.
+    expect(note.allowReload("# held\nmodified: now")).toBe(true);
+    await write.finish();
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("still flags an outside write after a held note is reopened", async () => {
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md");
+    note.allowReload("the index note");
+
+    expect(note.reconcile("0".repeat(64))).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("reopens a note held while conflicted as conflicted", async () => {
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: true });
+    const note = renderAutosave("index.md");
+
+    expect(note.allowReload("the index note")).toBe(false);
+
+    expect(note.status()).toBe("conflict");
+    expect(await note.saveFirst()).toBe(false);
+  });
+
+  it("drops held text the vault already holds, the stamp aside", async () => {
+    // A keepalive write that landed after the page was gone.
+    const held = "---\nmodified: 2026-10-14T10:00:00+00:00\n---\n# held";
+    holdText("index.md", { content: held, reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md");
+
+    expect(note.allowReload("---\nmodified: 2026-10-14T10:00:03+00:00\n---\n# held")).toBe(true);
+
+    expect(heldText("index.md")).toBeUndefined();
+    expect(note.status()).toBe("saved");
+  });
+
+  it("drops held text on :e!", async () => {
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md");
+    note.allowReload("the index note");
+
+    note.revert(true);
+
+    expect(heldText("index.md")).toBeUndefined();
+    expect(note.status()).toBe("saved");
+  });
+
+  it("writes the waiting text with keepalive when the page is hidden", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# typed just now");
+    await pagehide();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# typed just now", true);
+  });
+
+  it("writes the waiting text when a phone backgrounds the page, and says how it went", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# typed just now");
+    await background();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# typed just now", true);
+    expect(note.status()).toBe("saved");
+    expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("writes nothing when the page is shown again", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# typed just now");
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("keeps the text held when the keepalive write is refused at hide time", async () => {
+    // Over 64 KiB, or the network already gone: fetch rejects with a TypeError.
+    const note = renderAutosave("index.md");
+    saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    note.change("# typed just now");
+    await pagehide();
+
+    expect(heldText("index.md")?.content).toBe("# typed just now");
+    expect(note.status()).toBe("error");
+  });
+
+  it("holds the text without writing when the page is hidden while conflicted", async () => {
+    const note = renderAutosave("index.md");
+
+    note.change("# mine");
+    note.reconcile("0".repeat(64));
+    await pagehide();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(heldText("index.md")).toEqual({
+      content: "# mine",
+      reason: "Not yet written when the page was hidden",
+      conflicted: true,
+    });
+  });
+
+  it("holds the text without writing when the page is hidden while an event is held", async () => {
+    const note = renderAutosave("index.md");
+    const other = await digestOf("somebody else's text");
+
+    note.change("# edited");
+    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
+    note.reconcile(other);
+    await pagehide();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(heldText("index.md")?.content).toBe("# edited");
   });
 
   it("does not call the next note saved when the old note's flush answers late", async () => {
