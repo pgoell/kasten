@@ -34,7 +34,8 @@ def _index(parent: str) -> str:
 def _names(line: str, here: str, path: str) -> bool:
     """Whether `line`, in an index in folder `here`, is an entry for `path`."""
     return ENTRY.match(line) is not None and any(
-        markdown_target(match.group(2), here) == path for match in MARKDOWN_LINK.finditer(line)
+        markdown_target(match.group(2), here, embed=match.group(1).startswith("!")) == path
+        for match in MARKDOWN_LINK.finditer(line)
     )
 
 

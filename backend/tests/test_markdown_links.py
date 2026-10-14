@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
+from kasten_backend.anki import media_path
 from kasten_backend.links import relink_markdown
 
 if TYPE_CHECKING:
@@ -42,12 +44,14 @@ def test_follows_a_note_inside_a_folder_that_moved() -> None:
     )
 
 
-def test_follows_an_image() -> None:
+def test_leaves_an_image_when_the_note_holding_it_moves() -> None:
+    # An embed is read from the vault root, so the note moving does not move it.
     text = "![cover](cover.png)"
 
-    assert relink_markdown(
-        text, "borges.md", "reading/borges.md", "borges.md", "reading/borges.md"
-    ) == ("![cover](../cover.png)")
+    assert (
+        relink_markdown(text, "borges.md", "reading/borges.md", "borges.md", "reading/borges.md")
+        == text
+    )
 
 
 def test_leaves_a_link_between_two_files_that_moved_together() -> None:
@@ -157,3 +161,102 @@ async def test_follows_a_note_whose_accented_name_the_link_escapes(
     await client.patch("/api/files/Über.md", json={"path": "notes/Über.md"})
 
     assert (vault / "home.md").read_text() == "[ü](notes/Über.md)\n"
+
+
+# An embed is read from the vault root, the way the editor draws it, and a plain
+# link from the folder of the file holding it. These pin the split (#248).
+
+
+async def test_leaves_an_embed_when_its_note_moves_folder(client: AsyncClient, vault: Path) -> None:
+    (vault / "A").mkdir()
+    (vault / "Images").mkdir()
+    (vault / "Images" / "x.png").write_bytes(b"png")
+    (vault / "A" / "n.md").write_text("![](Images/x.png)\n")
+
+    await client.patch("/api/files/A/n.md", json={"path": "B/n.md"})
+
+    assert (vault / "B" / "n.md").read_text() == "![](Images/x.png)\n"
+
+
+async def test_leaves_an_imported_decks_embeds_when_it_moves(
+    client: AsyncClient, vault: Path
+) -> None:
+    # Spelled the way the Anki import writes them: `media_path`, then quoted.
+    image = quote(media_path("Flashcards", "Spanish", "a.png"))
+    sound = quote(media_path("Flashcards", "Spanish", "b.mp3"))
+    (vault / "Flashcards" / "Spanish media").mkdir(parents=True)
+    (vault / "Flashcards" / "Spanish media" / "a.png").write_bytes(b"png")
+    (vault / "Flashcards" / "Spanish media" / "b.mp3").write_bytes(b"mp3")
+    text = f"Q: hola\n\n![]({image})\n\n![]({sound})\n"
+    (vault / "Flashcards" / "Spanish.md").write_text(text)
+
+    await client.patch("/api/files/Flashcards/Spanish.md", json={"path": "Decks/Spanish.md"})
+
+    assert (vault / "Decks" / "Spanish.md").read_text() == text
+
+
+async def test_follows_the_folder_an_embed_shows_from_any_folder(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "A").mkdir()
+    (vault / "Images").mkdir()
+    (vault / "Images" / "x.png").write_bytes(b"png")
+    (vault / "root.md").write_text("![](Images/x.png)\n")
+    (vault / "A" / "n.md").write_text("![](Images/x.png)\n")
+
+    await client.patch("/api/folders/Images", json={"path": "Pics"})
+
+    assert (vault / "root.md").read_text() == "![](Pics/x.png)\n"
+    assert (vault / "A" / "n.md").read_text() == "![](Pics/x.png)\n"
+
+
+async def test_a_plain_link_still_reads_from_its_folder(client: AsyncClient, vault: Path) -> None:
+    (vault / "A").mkdir()
+    (vault / "A" / "n.md").write_text("[x](Images/x.png)\n")
+
+    await client.patch("/api/files/A/n.md", json={"path": "B/n.md"})
+
+    assert (vault / "B" / "n.md").read_text() == "[x](../A/Images/x.png)\n"
+
+
+async def test_follows_an_embed_moving_with_its_note(client: AsyncClient, vault: Path) -> None:
+    (vault / "A").mkdir()
+    (vault / "A" / "pic.png").write_bytes(b"png")
+    (vault / "A" / "n.md").write_text("![](A/pic.png)\n")
+
+    await client.patch("/api/folders/A", json={"path": "B"})
+
+    assert (vault / "B" / "n.md").read_text() == "![](B/pic.png)\n"
+
+
+async def test_keeps_an_embeds_escapes_and_tail(client: AsyncClient, vault: Path) -> None:
+    (vault / "A").mkdir()
+    (vault / "My Images").mkdir()
+    (vault / "My Images" / "x.png").write_bytes(b"png")
+    (vault / "A" / "n.md").write_text("![](My%20Images/x.png#a) ![](My%20Images/x.png?v=1)\n")
+
+    await client.patch("/api/folders/My Images", json={"path": "New Pics"})
+
+    assert (vault / "A" / "n.md").read_text() == (
+        "![](New%20Pics/x.png#a) ![](New%20Pics/x.png?v=1)\n"
+    )
+
+
+def test_leaves_an_embed_outside_the_vault_alone() -> None:
+    text = "![](../x.png) ![](/x.png) ![](https://example.com/x.png)"
+
+    assert relink_markdown(text, "A/n.md", "B/C/n.md", "A/n.md", "B/C/n.md") == text
+
+
+async def test_previews_no_note_whose_embeds_stay(client: AsyncClient, vault: Path) -> None:
+    (vault / "A").mkdir()
+    (vault / "Images").mkdir()
+    (vault / "Images" / "x.png").write_bytes(b"png")
+    (vault / "A" / "n.md").write_text("![](Images/x.png)\n")
+    (vault / "other.md").write_text("![](Images/x.png)\n")
+
+    response = await client.get(
+        "/api/move-preview", params={"source": "A/n.md", "target": "B/n.md"}
+    )
+
+    assert response.json()["rewrites"] == []

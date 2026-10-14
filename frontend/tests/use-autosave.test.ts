@@ -12,6 +12,15 @@ const realTimeout = globalThis.setTimeout;
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn() }));
 vi.mock("@/lib/api", () => ({ saveNote }));
 
+// The real digest behind a spy, so one test can hold a hash back and land it
+// after a later one.
+const { real } = vi.hoisted(() => ({ real: { digestOf: (_: string) => Promise.resolve("") } }));
+vi.mock("@/lib/vault-events", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/vault-events")>();
+  real.digestOf = actual.digestOf;
+  return { ...actual, digestOf: vi.fn(actual.digestOf) };
+});
+
 /**
  * The note as the vault holds it once `content` has been written to it.
  *
@@ -644,8 +653,8 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("conflict");
   });
 
-  it("knows two adopted writes, in either order of arrival", async () => {
-    // A map rather than one slot, which would rest on a promise about how far
+  it("knows two adopted writes arriving in the order they were made", async () => {
+    // A list rather than one slot, which would rest on a promise about how far
     // apart two bookmark writes can be that nothing here enforces.
     const note = renderAutosave();
 
@@ -654,9 +663,80 @@ describe("useAutosave", () => {
     note.adopt("index.md", "the second bookmark");
     await hashed();
 
-    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
     expect(note.reconcile(await digestOf("the first bookmark"))).toBe(false);
+    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
     expect(note.status()).toBe("unsaved");
+  });
+
+  it("flags an adopted text coming back after a later adopted write's event", async () => {
+    // The stream reports one note's writes in the order they landed, so the
+    // second bookmark's event means the first is on disk and its event is gone.
+    // That text coming back now is somebody restoring it, a `jj undo` say.
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.adopt("index.md", "the first bookmark");
+    note.adopt("index.md", "the second bookmark");
+    await hashed();
+
+    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
+    expect(note.status()).toBe("unsaved");
+    expect(note.reconcile(await digestOf("the first bookmark"))).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("flags the same restored text through the editor", async () => {
+    const note = renderAutosave();
+
+    note.change("# edited");
+    note.adopt("index.md", "the first bookmark");
+    note.adopt("index.md", "the second bookmark");
+    await hashed();
+    note.reconcile(await digestOf("the second bookmark"));
+
+    expect(note.allowReload("the first bookmark")).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("drops an adopted write whose event was lost once a later save of its own comes back", async () => {
+    // The save went out after the bookmark was on disk, so its event came after
+    // the bookmark's: that one is not coming any more.
+    const note = renderAutosave();
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+    await idle();
+    await hashed();
+    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
+
+    note.change("# edited more");
+    expect(note.reconcile(await digestOf(bookmark))).toBe(false);
+    expect(note.status()).toBe("conflict");
+  });
+
+  it("drops adopted writes in the order they were made, not the order they hashed", async () => {
+    // `crypto.subtle` answers in any order. Held back here, the first digest
+    // lands after the second's event has already said the first is on disk.
+    const note = renderAutosave();
+    let release: (() => void) | undefined;
+    vi.mocked(digestOf).mockImplementationOnce(
+      (text) =>
+        new Promise((resolve) => {
+          release = () => void real.digestOf(text).then(resolve);
+        }),
+    );
+
+    note.change("# edited");
+    note.adopt("index.md", "the first bookmark");
+    note.adopt("index.md", "the second bookmark");
+    await hashed();
+    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
+    await act(async () => release?.());
+    await hashed();
+
+    expect(note.reconcile(await digestOf("the first bookmark"))).toBe(false);
+    expect(note.status()).toBe("conflict");
   });
 
   it("flags text it has not been told about yet", async () => {

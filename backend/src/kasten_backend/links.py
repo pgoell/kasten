@@ -6,9 +6,11 @@ that spelled the path out does not follow, and a rename that changed the note's
 name breaks both. This is what keeps the vault's links pointing where they were
 written to point.
 
-A markdown link is the other kind, and it follows a move too. It is read
-relative to the file it sits in, so it breaks when its target moves and when the
-file holding it moves, and an `index.md` is made of nothing else.
+A markdown link is the other kind, and it follows a move too. A plain
+`[text](path)` is read relative to the file it sits in, so it breaks when its
+target moves and when the file holding it moves, and an `index.md` is made of
+nothing else. An embed, `![alt](path)`, is read from the vault root, the way the
+editor draws it, so only its target moving breaks it.
 
 The rule a target is read by is the frontend's, in `frontend/src/lib/wikilink.ts`,
 and the two have to agree: the note `gf` opens is the note a rename here follows.
@@ -339,8 +341,13 @@ def _split(href: str) -> tuple[str, str] | None:
     return href[:cut], href[cut:]
 
 
-def markdown_target(href: str, here: str) -> str | None:
+def markdown_target(href: str, here: str, *, embed: bool = False) -> str | None:
     """The vault path `href` names from a file in folder `here`, or None.
+
+    An `embed`, the `![](href)` form, is read from the vault root and `here`
+    plays no part: the editor draws it from `/api/assets/<href>`, and a paste
+    and the Anki import write it that way. A plain link is read from `here`,
+    which is what an `index.md` entry relies on.
 
     None for an href outside the vault, including one that climbs above its
     root. A folder comes back without its trailing slash, the way `moved`
@@ -350,7 +357,8 @@ def markdown_target(href: str, here: str) -> str | None:
     if split is None:
         return None
 
-    target = posixpath.normpath(posixpath.join(here, unquote(split[0])))
+    path = unquote(split[0])
+    target = posixpath.normpath(path if embed else posixpath.join(here, path))
     if target == ".." or target.startswith("../"):
         return None
     return target
@@ -367,10 +375,11 @@ def relink_markdown(
 ) -> str:
     """`text`, held by the file at `before` and about to be at `after`, with `old` at `new`.
 
-    Two things move a relative link, and either one rewrites it: its target
-    moving, and the file holding it moving to another folder. A link between
-    two files that move together is untouched, which is what keeps a moved
-    folder's own index working.
+    Two things move a plain relative link, and either one rewrites it: its
+    target moving, and the file holding it moving to another folder. A link
+    between two files that move together is untouched, which is what keeps a
+    moved folder's own index working. An embed is read from the vault root, so
+    only its target moving rewrites it, and it is written as a vault path.
 
     `moves` is where each file a move takes lands, when that is not where
     `old` at `new` says: the books a note carries. A book held back is not in
@@ -378,8 +387,8 @@ def relink_markdown(
     hold lands by `moved`, which is how a link to a folder follows the folder.
 
     A link that still lands where it did keeps its spelling. One that changes
-    is written the short way from the new folder, keeping a trailing slash and
-    a leading `./` where it had them.
+    is written the short way from the new folder, or from the root for an
+    embed, keeping a trailing slash and a leading `./` where it had them.
     """
     here = posixpath.dirname(before)
     there = posixpath.dirname(after)
@@ -389,16 +398,17 @@ def relink_markdown(
         if _inside(match.start(), code):
             return match.group(0)
         href = match.group(2)
-        target = markdown_target(href, here)
+        embed = match.group(1).startswith("!")
+        target = markdown_target(href, here, embed=embed)
         if target is None:
             return match.group(0)
 
         landed = (moves or {}).get(target, moved(target, old, new))
-        if landed == target and here == there:
+        if landed == target and (embed or here == there):
             return match.group(0)
 
         written, tail = _split(href) or (href, "")
-        relative = posixpath.relpath(landed, there or ".")
+        relative = landed if embed else posixpath.relpath(landed, there or ".")
         if unquote(written).endswith("/"):
             relative = f"{relative}/"
         if written.startswith("./") and not relative.startswith("."):

@@ -42,6 +42,9 @@ export function useAutosave(path: string | undefined) {
   // sha256 is for the event, which carries a digest and nothing else.
   const lastWritten = useRef<string | null>(null);
   const lastText = useRef<string | null>(null);
+  // The `saves` count of the write `lastWritten` came from, which is how its
+  // event places itself against the adopted writes below.
+  const lastSent = useRef(0);
   // The same reading as `status === "conflict"`, held where the quiet-period
   // timer can see it: that timer was scheduled by an older render, and the
   // status it closed over is the one from before the conflict.
@@ -69,17 +72,22 @@ export function useAutosave(path: string | undefined) {
   // editor would then read its own write as somebody else's and lock. Which is
   // the fault this exists to prevent, arrived at from the other side.
   //
-  // A map rather than one slot, because one slot needs a promise about how far
-  // apart two bookmark writes can be, and nothing here enforces one. An entry
-  // goes when its event arrives, and one whose event never comes outlives its
-  // note, which is the staleness `lastWritten` has always carried.
-  const adopted = useRef(new Map<string, string>());
-  // The same writes by text, set the moment `adopt` is called. The map above
-  // waits on `crypto.subtle`, and the route moves the cache straight after
-  // adopting: on a loaded machine the editor's reload asks before the digest
-  // lands, and found nothing to match. The editor asks about text, so it is
-  // answered from here and never has to wait.
-  const adoptedText = useRef(new Set<string>());
+  // A list rather than one slot, because one slot needs a promise about how far
+  // apart two bookmark writes can be, and nothing here enforces one. In the
+  // order `adopt` was called, which is the order the writes landed and the
+  // order the stream reports them: so an event matching one entry says every
+  // entry before it is on disk too, its event merged into a later one or lost,
+  // and they all go. An entry left behind would take somebody restoring that
+  // exact text, a `jj undo` say, for our own write, and the autosave would
+  // write over it.
+  //
+  // The text is there the moment `adopt` is called; the digest waits on
+  // `crypto.subtle`, which answers in any order, and is filled in when it does.
+  // The route moves the cache straight after adopting, so the editor asks
+  // about text before the digest lands, and is answered without waiting.
+  // `at` is the `saves` count at adoption, for when our own save's event is
+  // the one that says these are gone.
+  const adopted = useRef<{ content: string; digest: string | null; at: number }[]>([]);
   // Digests of our own writes still on `crypto.subtle`. The stream's question
   // is about a digest, so an event arriving while one is out cannot be told
   // from somebody else's write yet, and is answered once they are all in.
@@ -112,6 +120,7 @@ export function useAutosave(path: string | undefined) {
     // short of it while the note stands conflicted, and `:w` does not.
     conflicted.current = false;
     saves.current += 1;
+    const seq = saves.current;
     const sent = reverts.current;
     setStatus("saving");
     setReason(undefined);
@@ -130,6 +139,7 @@ export function useAutosave(path: string | undefined) {
           digestOf(note.content).then(
             (digest) => {
               lastWritten.current = digest;
+              lastSent.current = seq;
             },
             (error: unknown) => {
               // `crypto.subtle` is missing outside a secure context, which is a
@@ -251,11 +261,15 @@ export function useAutosave(path: string | undefined) {
     (note: string, content: string) => {
       if (note !== path) return;
 
-      adoptedText.current.add(content);
+      // Pushed now and filled in later, so the list keeps the order of the
+      // writes and not the order of their hashes. An entry dropped before its
+      // digest lands takes the digest nowhere.
+      const entry = { content, digest: null as string | null, at: saves.current };
+      adopted.current.push(entry);
       track(
         digestOf(content).then(
           (digest) => {
-            adopted.current.set(digest, content);
+            entry.digest = digest;
           },
           (error: unknown) => {
             // `crypto.subtle` missing outside a secure context, the way the save
@@ -302,7 +316,8 @@ export function useAutosave(path: string | undefined) {
     // A write the route made into this note, reaching the editor through the
     // cache. Refused the way our own answer is, and for the same reason: it
     // carries no words the reader has not got.
-    if (adoptedText.current.has(text)) return false;
+    // The entry stays: its event is still to come and has to find it.
+    if (adopted.current.some((entry) => entry.content === text)) return false;
 
     conflicted.current = true;
     setStatus("conflict");
@@ -319,13 +334,20 @@ export function useAutosave(path: string | undefined) {
       // Our own write coming back. Every write is reported, this hook's included,
       // and reading one as somebody else's would flag a conflict on every save
       // the typing carried on through. Then a write the route made, coming back
-      // off the stream, whose entry goes with it: one event answers one write.
+      // off the stream, which takes its entry and every earlier one with it.
       const ours = (of: string): boolean => {
-        if (of === lastWritten.current) return true;
-        const held = adopted.current.get(of);
-        if (held === undefined) return false;
-        adopted.current.delete(of);
-        adoptedText.current.delete(held);
+        if (of === lastWritten.current) {
+          // An entry adopted before this save went out was adopted when its
+          // `PUT` answered, so it was on disk first and its event came first:
+          // not seen by now, it is not coming. Dropping one too early costs a
+          // conflict the reader clears with `:w`, and keeping one too long can
+          // cost somebody's write, which is the worse way to be wrong.
+          adopted.current = adopted.current.filter((entry) => entry.at >= lastSent.current);
+          return true;
+        }
+        const at = adopted.current.findIndex((entry) => entry.digest === of);
+        if (at === -1) return false;
+        adopted.current.splice(0, at + 1);
         return true;
       };
       if (digest !== null && ours(digest)) return false;

@@ -44,16 +44,22 @@ does not know what a wikilink is. Every folder kasten makes now gets one, so a
 move that left markdown links alone would break an index on nearly every move.
 That made it worth doing.
 
-A markdown link breaks two ways where a wikilink breaks one. It is read from the
-folder of the file holding it, so moving the file breaks it as surely as moving
-its target. Both rewrite it. A link between two files that moved together is
-left alone, because it still lands where it did, and that is what keeps a moved
-folder's own index working.
+A plain markdown link, `[text](path)`, breaks two ways where a wikilink breaks
+one. It is read from the folder of the file holding it, so moving the file breaks
+it as surely as moving its target. Both rewrite it. A link between two files
+that moved together is left alone, because it still lands where it did, and that
+is what keeps a moved folder's own index working.
+
+An embed, `![alt](path)`, is read from the vault root, because that is how the
+editor draws it, and a paste and the Anki import write it that way. Moving the
+note that holds it leaves it alone. Moving the file it shows, or a folder above
+that file, rewrites it to the file's new vault path. The `!` is what tells the
+two apart.
 
 A link that does not need to change keeps its spelling. One that does is written
-the short way from where it now sits. Only six characters are escaped, `%`,
-space, `(`, `)`, `#` and `?`, the ones that end, garble or cut a link, so an
-accented name stays readable in the raw file.
+the short way from where it now sits, or from the vault root for an embed. Only
+six characters are escaped, `%`, space, `(`, `)`, `#` and `?`, the ones that
+end, garble or cut a link, so an accented name stays readable in the raw file.
 
 ## Why a drop asks and the prompt does not
 
