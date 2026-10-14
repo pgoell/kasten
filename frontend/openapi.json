@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.41.1"
+    "version": "0.42.0"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -1283,7 +1283,7 @@
       },
       "delete": {
         "summary": "Delete Asset",
-        "description": "Take one image out of the vault, and hold it in the trash.\n\nThe note delete's route read for an image, down to the entry it answers\nwith: `move_to_trash` moves whatever path it is handed, and the trash names\nan entry after where it came from, so an image sits in there beside the notes\nand `PATCH /api/trash/{entry}` puts it back with no rule of its own. That is\nwhat makes a mistyped key cost a keypress rather than a picture in a vault\nwith no other delete.\n\nImages alone, though `resolve_asset` answers for books too. A book travels\nwith the note beside it, and which of the pair a delete should take is a\ndecision nothing here has made; the file tree, which is what this route\nserves, lists images and no books. So a book is a 404 like any other path\nthis does not serve, whichever of `BOOK_SUFFIXES` it ends in.\n\nThe notes pointing at the image are left alone, for the reason the note\ndelete leaves `[[link]]`s alone: rewriting them to say the picture is gone\nwould be the one edit a restore could not take back. The editor draws a\nreference to a file that is not there as a picture that will not load.",
+        "description": "Take one image out of the vault, and hold it in the trash.\n\nThe note delete's route read for an image, down to the entry it answers\nwith: `move_to_trash` moves whatever path it is handed, and the trash names\nan entry after where it came from, so an image sits in there beside the notes\nand `PATCH /api/trash/{entry}` puts it back with no rule of its own. That is\nwhat makes a mistyped key cost a keypress rather than a picture in a vault\nwith no other delete.\n\nImages and sounds, though `resolve_asset` answers for books too. A sound has\nno note it travels with, so it goes the way an image does. A book travels\nwith the note beside it, and which of the pair a delete should take is a\ndecision nothing here has made; the file tree, which is what this route\nserves, lists images and no books. So a book is a 404 like any other path\nthis does not serve, whichever of `BOOK_SUFFIXES` it ends in.\n\nThe notes pointing at the image are left alone, for the reason the note\ndelete leaves `[[link]]`s alone: rewriting them to say the picture is gone\nwould be the one edit a restore could not take back. The editor draws a\nreference to a file that is not there as a picture that will not load.",
         "operationId": "delete_asset_api_assets__path__delete",
         "parameters": [
           {

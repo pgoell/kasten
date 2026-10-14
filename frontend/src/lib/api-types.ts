@@ -828,7 +828,8 @@ export interface paths {
          *     what makes a mistyped key cost a keypress rather than a picture in a vault
          *     with no other delete.
          *
-         *     Images alone, though `resolve_asset` answers for books too. A book travels
+         *     Images and sounds, though `resolve_asset` answers for books too. A sound has
+         *     no note it travels with, so it goes the way an image does. A book travels
          *     with the note beside it, and which of the pair a delete should take is a
          *     decision nothing here has made; the file tree, which is what this route
          *     serves, lists images and no books. So a book is a 404 like any other path
