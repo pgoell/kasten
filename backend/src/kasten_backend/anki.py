@@ -60,7 +60,8 @@ _CODE = re.compile(r"<(script|style)\b.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
 _BREAK = re.compile(r"<\s*(?:br\s*/?|/\s*(?:div|p))\s*>", re.IGNORECASE)
 _TAG = re.compile(r"<[^>]*>")
 _MEDIA = re.compile(r"<img|\[sound:", re.IGNORECASE)
-_TOKEN = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
+_TOKEN = re.compile(r"\{\{(.*?)\}\}|<!--.*?-->", re.DOTALL)
+"""A handlebar or an HTML comment: Anki lexes the comment whole, so a field inside it is not one."""
 _VARINT, _LENGTH = 0, 2
 _FIXED = {1: 8, 5: 4}
 """The protobuf wire types of a fixed-width field, against how many bytes it takes."""
@@ -236,7 +237,13 @@ def _parse(template: str) -> list[_Node]:
     for match in _TOKEN.finditer(template):
         stack[-1].append(template[start : match.start()])
         start = match.end()
-        tag = match.group(1).strip()
+        if match.group(1) is None:
+            # A comment, which Anki hands to the browser to hide; a markdown
+            # line would show it, so it goes.
+            continue
+        # `{{{Front}}}` is a slip Anki forgives: the handlebar ends at the first
+        # `}}`, the extra `{` is dropped, and the last `}` stays as text.
+        tag = match.group(1).lstrip("{").strip()
         if tag.startswith(("#", "^")):
             section = _Section(tag[1:].strip(), tag[0] == "^", [])
             stack[-1].append(section)
@@ -361,13 +368,23 @@ def _legacy_note_types(db: sqlite3.Connection) -> dict[int, _NoteType]:
             int(mid): _NoteType(
                 kind["name"],
                 kind.get("type") == CLOZE_KIND,
-                [f["name"] for f in sorted(kind["flds"], key=lambda f: f["ord"])],
-                {t["ord"]: Template(t["name"], t["qfmt"], t["afmt"]) for t in kind["tmpls"]},
+                [_text(f["name"]) for f in sorted(kind["flds"], key=lambda f: f["ord"])],
+                {
+                    t["ord"]: Template(t["name"], _text(t["qfmt"]), _text(t["afmt"]))
+                    for t in kind["tmpls"]
+                },
             )
             for mid, kind in listing.items()
         }
     except (KeyError, TypeError, AttributeError) as error:
         raise ValueError(f"unreadable Anki note types: {error!r}") from error
+
+
+def _text(value: object) -> str:
+    """`value` when the JSON held a string there, which the renderer needs to parse it."""
+    if not isinstance(value, str):
+        raise ValueError(f"unreadable Anki note types: {value!r} is not text")
+    return value
 
 
 def _string(message: bytes, number: int) -> str:

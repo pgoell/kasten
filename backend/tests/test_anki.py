@@ -469,6 +469,29 @@ def test_a_field_value_is_never_read_as_template() -> None:
     assert one_deck(notes, ((11, 1, 100, 0),)) == [("{{Back}} and {{#Back}}x{{/Back}}", "secret")]
 
 
+def test_a_comment_in_a_template_shows_nothing_and_fills_nothing() -> None:
+    types: tuple[NoteType, ...] = (
+        (1, "Commented", 0, ("Front", "Back"), (("C", "<!-- {{Back}} -->{{Front}}", "{{Back}}"),)),
+    )
+    notes = ((1, 1, "<b>q</b>\x1f<i>secret</i>"), (2, 1, "\x1fsecret"))
+    cards = ((11, 1, 100, 0), (21, 2, 100, 0))
+
+    data = apkg(notes, cards, ((100, "D"),), types=types)
+
+    # The second note's front is the comment alone, so Anki makes no card.
+    assert sides(read_apkg(data)) == {"D": [("q", "secret")]}
+
+
+def test_a_third_brace_is_dropped_before_the_field_and_kept_after() -> None:
+    types: tuple[NoteType, ...] = (
+        (1, "Triple", 0, ("Front", "Back"), (("T", "{{{Front}}}", "{{Back}}"),)),
+    )
+
+    data = apkg(((1, 1, "q\x1fa"),), ((11, 1, 100, 0),), ((100, "D"),), types=types)
+
+    assert sides(read_apkg(data)) == {"D": [("q}", "a")]}
+
+
 @pytest.mark.parametrize("layout", LAYOUTS)
 def test_refuses_a_collection_with_no_note_types(layout: dict[str, Any]) -> None:
     with pytest.raises(ValueError, match="no note types"):
@@ -516,13 +539,32 @@ def test_refuses_a_broken_protobuf_config(config: bytes) -> None:
         read_apkg(zipped("collection.anki21", blob))
 
 
-@pytest.mark.parametrize("models", ["{not json", '{"1": {"name": "Basic"}}', "[1]"])
+def legacy_type(qfmt: object = "{{F}}", afmt: object = "x", field: object = "F") -> str:
+    """`col.models` holding one note type, with whatever values a test wants to break."""
+    tmpl = {"name": "c", "ord": 0, "qfmt": qfmt, "afmt": afmt}
+    return json.dumps({"1": {"name": "B", "flds": [{"name": field, "ord": 0}], "tmpls": [tmpl]}})
+
+
+@pytest.mark.parametrize(
+    "models",
+    [
+        "{not json",
+        '{"1": {"name": "Basic"}}',
+        "[1]",
+        legacy_type(qfmt=None),
+        legacy_type(afmt=3),
+        legacy_type(field=["F"]),
+    ],
+    ids=["not-json", "no-fields", "list", "qfmt-null", "afmt-int", "field-list"],
+)
 def test_refuses_note_types_it_cannot_read(models: str) -> None:
     blob = sqlite3_bytes(
         "CREATE TABLE notes (id, mid, flds)",
         "CREATE TABLE cards (id, nid, did, ord)",
         "CREATE TABLE col (decks, models)",
-        row=("INSERT INTO col VALUES ('{}', ?)", (models,)),
+        "INSERT INTO notes VALUES (1, 1, 'a')",
+        "INSERT INTO cards VALUES (1, 1, 1, 0)",
+        row=("INSERT INTO col VALUES (?, ?)", ('{"1": {"name": "D"}}', models)),
     )
 
     with pytest.raises(ValueError):
