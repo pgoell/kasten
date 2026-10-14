@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import { Editor } from "@/components/editor";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
-import { resetHeld } from "@/lib/held-text";
+import { resetHeld, unstamped } from "@/lib/held-text";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
+import { digestOf } from "@/lib/vault-events";
 
 // The api module builds its client at import time and captures `fetch` there,
 // so stubbing the global afterwards would never be seen. Standing in for the
@@ -19,7 +20,13 @@ const { fetchNote, saveNote, fetchImages } = vi.hoisted(() => ({
   // `![](`. An empty list is the whole of what these tests need it to answer.
   fetchImages: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("@/lib/api", () => ({ fetchNote, saveNote, fetchImages }));
+// The real refusal, which the autosave tells apart from every other failure.
+vi.mock("@/lib/api", async (importOriginal) => ({
+  fetchNote,
+  saveNote,
+  fetchImages,
+  ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
+}));
 
 // Render counters for the two components below. `spy: true` keeps the real
 // implementation and only records the calls, so counting costs the tree
@@ -247,7 +254,8 @@ describe("an open note", () => {
     note.press("d");
     note.press("s", { ctrlKey: true });
 
-    await waitFor(() => expect(saveNote).toHaveBeenCalledWith("index.md", ""));
+    const base = await digestOf(unstamped("the index note"));
+    await waitFor(() => expect(saveNote).toHaveBeenCalledWith("index.md", "", false, base));
     await waitFor(() => expect(note.status()).toBe("Saved"));
     expect(note.spinner()?.classList).not.toContain("animate-spin");
   });

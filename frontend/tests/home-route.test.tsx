@@ -3,9 +3,9 @@ import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-library/react";
-import { ASSET_LIMIT_BYTES } from "@/lib/api";
+import { ASSET_LIMIT_BYTES, ChangedOnDisk } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { heldText, holdText, resetHeld } from "@/lib/held-text";
+import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
@@ -148,6 +148,9 @@ vi.mock("@/lib/api", () => ({
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.
   ASSET_LIMIT_BYTES: 100 * 1024 * 1024,
+  // The autosave tells a save refused over its base from any other failure
+  // by this class, which a factory leaving it out would hand it as undefined.
+  ChangedOnDisk: class ChangedOnDisk extends Error {},
 }));
 
 // The route imports `BookPane`, which imports foliate for its side effect. With
@@ -446,6 +449,11 @@ async function hashed() {
   }
 }
 
+/** The base a save names for `text` on disk: its sha256, `modified` set aside. */
+function baseOf(text: string): Promise<string> {
+  return digestOf(unstamped(text));
+}
+
 describe("the route", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -471,10 +479,12 @@ describe("the route", () => {
     resetFoliateFake();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // By hand and first: unmounting flushes what the editor was holding, so
     // the automatic cleanup would reach mocks that have already been reset.
     cleanup();
+    // A flush naming a base goes out once its hash lands, a real tick away.
+    await hashed();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetAllMocks();
@@ -861,12 +871,34 @@ describe("the route", () => {
     saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
 
     app.leader("c", "t");
+    await hashed();
     await settle();
 
-    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note");
+    expect(saveNote).toHaveBeenCalledWith(
+      "index.md",
+      "he index note",
+      false,
+      await baseOf("the index note"),
+    );
     expect(app.status()).toBeUndefined();
     expect(app.held()?.label).toBe("Not saved: index");
     expect(app.held()?.title).toContain("index.md: PUT failed with 500");
+  });
+
+  it("reads a save the vault refused over its base as changed on disk, keeping the text", async () => {
+    const app = await editing();
+    saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    await hashed();
+    await settle();
+
+    expect(app.status()).toBe("Changed on disk");
+    expect(app.text()).toBe("he index note");
+    expect(app.cached("index.md")).toBe("the index note");
+    expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
   });
 
   it("puts the held text back in the buffer when its note is reopened", async () => {
@@ -876,6 +908,7 @@ describe("the route", () => {
     saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
 
     app.leader("c", "t");
+    await hashed();
     await settle();
     expect(app.held()?.label).toBe("Not saved: index");
     app.leader("t", "h");
@@ -889,8 +922,14 @@ describe("the route", () => {
     expect(saveNote).toHaveBeenCalledTimes(1);
 
     app.ex("w");
+    await hashed();
     await settle();
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "he index note");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "he index note",
+      false,
+      await baseOf("the index note"),
+    );
     expect(app.status()).toBe("Saved");
   });
 
@@ -899,6 +938,7 @@ describe("the route", () => {
     saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
 
     app.leader("c", "t");
+    await hashed();
     await settle();
     app.click("other.md");
     await settle();
@@ -906,9 +946,15 @@ describe("the route", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800);
     });
+    await hashed();
     await settle();
 
-    expect(saveNote).toHaveBeenLastCalledWith("other.md", "he other note");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "other.md",
+      "he other note",
+      false,
+      await baseOf("the other note"),
+    );
     expect(app.status()).toBe("Saved");
     expect(app.held()?.label).toBe("Not saved: index");
   });
@@ -918,8 +964,14 @@ describe("the route", () => {
     saveNote.mockRejectedValueOnce(new Error("PUT failed with 502"));
 
     await app.navigate("/capture");
+    await hashed();
     await settle();
-    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note");
+    expect(saveNote).toHaveBeenCalledWith(
+      "index.md",
+      "he index note",
+      false,
+      await baseOf("the index note"),
+    );
     await app.navigate("/");
     await settle();
 
@@ -958,6 +1010,7 @@ describe("the route", () => {
     );
 
     await app.navigate("/capture");
+    await hashed();
     await settle();
     await app.navigate("/");
     await settle();
@@ -973,9 +1026,15 @@ describe("the route", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800);
     });
+    await hashed();
     await settle();
 
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "e index note");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "e index note",
+      false,
+      await baseOf("the index note"),
+    );
     expect(app.held()?.label).toBe("Not saved: index");
     expect(heldText("index.md")?.content).toBe("he index note");
   });
@@ -1017,12 +1076,18 @@ describe("the route", () => {
       expect(saveNote).not.toHaveBeenCalled();
       fireEvent.click(screen.getByTestId("save-status"));
       fireEvent.click(screen.getByRole("button", { name: "Write my text" }));
+      await hashed();
       await settle();
     } finally {
       localStorage.removeItem("kasten.vim");
     }
 
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "he index note");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "he index note",
+      false,
+      await baseOf("the index note"),
+    );
     expect(heldText("index.md")).toBeUndefined();
   });
 
@@ -1191,8 +1256,14 @@ describe("the route", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800);
     });
+    await hashed();
     await settle();
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "ersion three");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "ersion three",
+      false,
+      await baseOf("version three"),
+    );
   });
 
   it("puts the vault's text back in a pane left showing kept text once the conflict is settled elsewhere", async () => {
@@ -1230,8 +1301,14 @@ describe("the route", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800);
     });
+    await hashed();
     await settle();
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "ersion three");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "ersion three",
+      false,
+      await baseOf("version three"),
+    );
   });
 
   it("leaves a conflicted note for another note without writing, and lists it", async () => {
@@ -1336,6 +1413,36 @@ describe("the route", () => {
     await settle();
     expect(app.text()).toBe("he index note");
     expect(app.status()).toBe("Changed on disk");
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("keeps held text through a delete or an agent's move, and offers it when the path is written again", async () => {
+    // An agent's move reaches the stream as a remove and a write, the same
+    // remove a delete makes, and nothing on it says where the note went.
+    holdText("index.md", {
+      content: "he index note",
+      reason: "PUT failed with 500",
+      conflicted: false,
+    });
+    const app = await renderApp();
+    await settle();
+
+    fetchFiles.mockResolvedValue(["moved.md", "other.md"]);
+    act(() => stream().send({ path: "index.md", change: "removed", digest: null }));
+    act(() => stream().send({ path: "moved.md", change: "written", digest: "a".repeat(64) }));
+    await settle();
+    expect(app.held()?.label).toBe("Not saved: index");
+
+    fetchFiles.mockResolvedValue(["index.md", "moved.md", "other.md"]);
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "a new index note" : VAULT[path],
+    );
+    act(() => stream().send({ path: "index.md", change: "written", digest: "b".repeat(64) }));
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    expect(app.text()).toBe("he index note");
     expect(saveNote).not.toHaveBeenCalled();
   });
 
@@ -1519,9 +1626,15 @@ describe("the route", () => {
     });
 
     app.leader("L");
+    await hashed();
     await settle();
 
-    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note");
+    expect(saveNote).toHaveBeenCalledWith(
+      "index.md",
+      "he index note",
+      false,
+      await baseOf("the index note"),
+    );
     // And the panes did trade places: the focus is where it was, on the note,
     // which is now the second pane on screen.
     expect(app.focusedPane()).toBe(1);
@@ -1650,9 +1763,15 @@ describe("the route", () => {
     const app = await editing();
 
     app.leader("d", "f");
+    await hashed();
     await settle();
 
-    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note");
+    expect(saveNote).toHaveBeenCalledWith(
+      "index.md",
+      "he index note",
+      false,
+      await baseOf("the index note"),
+    );
     // A call that never happened has no order, and `0` is below every real one,
     // so a delete that skipped the save fails here rather than passing empty.
     expect(saveNote.mock.invocationCallOrder[0]).toBeLessThan(

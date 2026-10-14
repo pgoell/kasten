@@ -148,6 +148,7 @@ export function dropText(path: string): void {
  * its new one would never offer it again.
  */
 export function moveHeld(to: (path: string) => string | undefined): void {
+  moves.push(to);
   const held = sync();
   let moved = false;
   for (const [path, entry] of [...held]) {
@@ -160,6 +161,26 @@ export function moveHeld(to: (path: string) => string | undefined): void {
     moved = true;
   }
   if (moved) changed(held);
+}
+
+/**
+ * Every move `moveHeld` carried, for the life of the page.
+ *
+ * A write in the air answers after its note may have moved, and the text it
+ * holds or drops belongs under the path the note has now, where `moveHeld`
+ * already put the entry it carried. The write counts the moves as it goes out
+ * and plays the later ones over its path when it answers.
+ */
+const moves: ((path: string) => string | undefined)[] = [];
+
+/** How many moves there have been, which a write reads as it goes out. */
+export function movesMade(): number {
+  return moves.length;
+}
+
+/** Where `path` is after the moves made since `since`; a move not touching it leaves it. */
+export function movedTo(path: string, since: number): string {
+  return moves.slice(since).reduce((at, to) => to(at) ?? at, path);
 }
 
 export function heldText(path: string): Held | undefined {
@@ -203,6 +224,7 @@ export function resetHeld(): void {
   store = null;
   snapshot = [];
   unwritten = false;
+  moves.length = 0;
 }
 
 /**

@@ -922,6 +922,12 @@ export interface paths {
          *     The jj change is started before the write and the snapshot taken after, so
          *     the edit is bracketed by the history rather than trailing it. A vault that
          *     is not a jj repo skips both.
+         *
+         *     A `base` makes the write conditional, a 409 when the disk no longer holds
+         *     that text. An autosave in the air when another writer wrote would otherwise
+         *     land over that writer's text unasked. The base sets `modified` aside because
+         *     every save restamps it, so a client that sent its text and has not heard
+         *     back yet can still name that text as its base.
          */
         put: operations["save_file_api_files__path__put"];
         /**
@@ -1435,6 +1441,8 @@ export interface components {
         NoteEdit: {
             /** Content */
             content: string;
+            /** Base */
+            base?: string | null;
         };
         /**
          * NoteMove

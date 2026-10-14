@@ -1,7 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { saveNote } from "@/lib/api";
-import { dropText, type Held, heldText, holdText, sameText } from "@/lib/held-text";
+import { ChangedOnDisk, type Note, saveNote } from "@/lib/api";
+import {
+  dropText,
+  type Held,
+  heldText,
+  holdText,
+  movedTo,
+  movesMade,
+  sameText,
+  unstamped,
+} from "@/lib/held-text";
 import { digestOf } from "@/lib/vault-events";
 
 /** Long enough that a sentence is one write, short enough to forget about. */
@@ -12,6 +21,20 @@ const QUIET_MS = 800;
  * held (`held-text.ts`) and the bar lists it beside whatever note is open.
  */
 export type SaveStatus = "saved" | "unsaved" | "saving" | "error" | "conflict";
+
+/**
+ * The base a save names for `text`: its sha256 with `modified` set aside, the
+ * way the backend hashes the note on disk. None where `crypto.subtle` is
+ * missing, a proxy serving plain http, and the write lands as it did before.
+ */
+async function baseOf(text: string): Promise<string | undefined> {
+  try {
+    return await digestOf(unstamped(text));
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    return undefined;
+  }
+}
 
 /** One fewer write in the air for `note`, taking the entry when it reaches none. */
 function lower(counts: Map<string, number>, note: string): void {
@@ -54,6 +77,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // sha256 is for the event, which carries a digest and nothing else.
   const lastWritten = useRef<string | null>(null);
   const lastText = useRef<string | null>(null);
+  // The vault's text under the buffer as this visit last learned it: our last
+  // write, a reload taken in, a route write adopted. What a save names as its
+  // base. Apart from `lastText`, which a restored bookmark must not match.
+  const onDisk = useRef<string | null>(null);
   // The `saves` count of the write `lastWritten` came from, which is how its
   // event places itself against the adopted writes below.
   const lastSent = useRef(0);
@@ -81,6 +108,9 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // write empties `pending` as it goes out, and a plain fetch is cancelled with
   // the page, so this is the only copy a hide can find of a quiet write's text.
   const inAir = useRef(new Map<string, string>());
+  // The last write to each note still waiting on its base's hash, which the
+  // next write to that note goes out behind.
+  const queued = useRef(new Map<string, Promise<string | undefined>>());
   // What the route wrote into this note, by the digest the event will carry and
   // the text the cache will hold. Its own store rather than `lastWritten` and
   // `lastText`, which the hook's own writes overwrite: a bookmark landing
@@ -157,12 +187,12 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   const queryClient = useQueryClient();
 
   /**
-   * The vault's text under the buffer of `note`, the note open now: the last
-   * write of this visit when one landed, the cache otherwise. Not the cache
-   * alone, which a write is kept out of while typing went on through it.
+   * The vault's text under the buffer of `note`, the note open now: what this
+   * visit last learned is on disk, the cache otherwise. Not the cache alone,
+   * which a write is kept out of while typing went on through it.
    */
   const lastBase = useCallback(
-    (note: string) => lastText.current ?? queryClient.getQueryData<string>(["note", note]),
+    (note: string) => onDisk.current ?? queryClient.getQueryData<string>(["note", note]),
     [queryClient],
   );
 
@@ -194,6 +224,13 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       setReason(undefined);
       const to = path;
       const opened = visit.current;
+      // The text the vault will hold when this lands, as far as this hook knows,
+      // which the write names so that a vault moved past it refuses: the last
+      // text sent while one is still in the air, since that lands first. None
+      // for the overwrite `:w` makes of a conflict, and none on the way out,
+      // whose hash would take a task the page going away may never run.
+      const under =
+        wasConflicted || keepalive ? undefined : (inAir.current.get(to) ?? lastBase(to));
       writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
       inAir.current.set(to, content);
       const answered = () => {
@@ -213,10 +250,29 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // What the vault held under the buffer, which a held copy of this text
       // keeps to tell on reopening whether somebody else wrote the note since.
       const base = lastBase(to);
+      // Held text is kept by path, and the note may move before this answers.
+      const since = movesMade();
 
-      // Two arguments unless it is the way out, which is the call every other
-      // writer of a note makes.
-      return (keepalive ? saveNote(path, content, true) : saveNote(path, content)).then(
+      // Two arguments unless it is the way out or names a base, which is the
+      // call every other writer of a note makes.
+      let request: Promise<Note>;
+      const before = queued.current.get(to);
+      if (keepalive) request = saveNote(path, content, true);
+      else if (under === undefined && before === undefined) request = saveNote(path, content);
+      else {
+        // Behind the write before it to this note, which waits on a hash of
+        // its own: `crypto.subtle` answers in any order, and this one reaching
+        // the vault first would find the base it names not landed yet.
+        const ready = Promise.all([under === undefined ? undefined : baseOf(under), before]).then(
+          ([base]) => base,
+        );
+        queued.current.set(to, ready);
+        request = ready.then((base) => {
+          if (queued.current.get(to) === ready) queued.current.delete(to);
+          return base === undefined ? saveNote(to, content) : saveNote(to, content, false, base);
+        });
+      }
+      return request.then(
         (note) => {
           answered();
           // The held entry goes when this write carried it: its own text, or
@@ -224,9 +280,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // sent. An entry the buffer never showed, held by a flush that failed
           // after the note was reopened, is still nowhere else, and stays; so
           // does one held while this was in the air.
-          const entry = heldText(to);
+          const now = movedTo(to, since);
+          const entry = heldText(now);
           if (entry && (entry.content === content || (carried !== null && entry === carried))) {
-            dropText(to);
+            dropText(now);
           }
           // What the buffer took is written now, so nothing on screen is held
           // text any more, and a second entry, if any, goes on the bar. Not when
@@ -239,7 +296,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // differ by the `modified` stamp `PUT` writes, so what is on disk is
           // this one. Hashing the other would recognise nothing and read every
           // save of our own as somebody else's write.
-          if (here()) lastText.current = note.content;
+          if (here()) {
+            lastText.current = note.content;
+            onDisk.current = note.content;
+          }
           track(
             digestOf(note.content).then(
               (digest) => {
@@ -280,12 +340,16 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // note reading as busy and never written to again.
           answered();
           const message = failure instanceof Error ? failure.message : String(failure);
-          const held = { content, reason: message, conflicted: wasConflicted, base };
+          // Somebody else wrote the note since the base this named, and the
+          // vault kept their text: a conflict, which only `:w` settles.
+          const refused = failure instanceof ChangedOnDisk;
+          const held = { content, reason: message, conflicted: wasConflicted || refused, base };
           // An entry held after this went out holds newer text, the hide's,
           // which is on screen and on its own way out: this older text replaces
           // neither it nor `pending`. An entry of this same text is the hide
           // holding this write while it was in the air, and is its own.
-          const existing = heldText(to);
+          const now = movedTo(to, since);
+          const existing = heldText(now);
           const newer = existing && existing.content !== content;
           if (newer && (heldAt.current.get(existing) ?? -1) >= seq) return false;
           // Its own send count: a write sent after this one and failing first
@@ -298,7 +362,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // reading. Ahead of the revert check, because a `:e!` since then was on
           // the next note and threw away that one's text, not this.
           if (!here()) {
-            holdText(to, held);
+            holdText(now, held);
             return false;
           }
           // Nothing to hold and nothing to warn about once the reader has thrown
@@ -308,11 +372,22 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
 
           // Held as well as kept, because `here()` is also true for the flush
           // as the route unmounts, when this hook is gone and `pending` with it.
-          holdText(to, held);
+          holdText(now, held);
+          // Refused after the other writer's event found nothing waiting and the
+          // editor took their text in: this text is on screen nowhere, so it is
+          // only held, for the bar to list and the next opening to offer. Kept
+          // in `pending`, `:w` would send it unseen.
+          const doc = shownRef.current?.();
+          if (refused && pending.current === null && doc !== undefined && !sameText(doc, content)) {
+            setStatus("saved");
+            return false;
+          }
           // The buffer holds this text, so it is the entry the bar leaves out.
           take(held);
-          setStatus("error");
-          // Hold on to the text: the next keystroke or `:w` tries again.
+          conflicted.current ||= refused;
+          setStatus(refused ? "conflict" : "error");
+          // Hold on to the text: the next keystroke or `:w` tries again, or
+          // only `:w` when the vault refused it.
           pending.current ??= content;
           setReason(message);
           return false;
@@ -362,6 +437,9 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       pending.current = null;
       conflicted.current = false;
       reverts.current += 1;
+      // The caller put the vault's text in the cache before asking, and that is
+      // what the buffer holds now, not the last write of this visit.
+      onDisk.current = null;
       // The other way held text ends: the reader chose the vault's. A write
       // still in the air carries text thrown away too, which a hide must not
       // hold or send again.
@@ -410,6 +488,8 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   const adopt = useCallback(
     (note: string, content: string) => {
       if (note !== path) return;
+      // On disk under the buffer now, so the next save names it.
+      onDisk.current = content;
 
       // Pushed now and filled in later, so the list keeps the order of the
       // writes and not the order of their hashes. An entry dropped before its
@@ -477,6 +557,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       if (!opening.current && held !== offered.current) return undefined;
       if (sameText(held.content, text)) {
         dropText(note);
+        onDisk.current = text;
         return true;
       }
       pending.current = held.content;
@@ -520,7 +601,13 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       const restored = path === undefined ? undefined : restore(path, text);
       if (restored !== undefined) return restored;
 
-      if (pending.current === null) return true;
+      // Taken into the buffer, so the vault under it is this text now, and the
+      // next write names it as its base. Not our last write any more: the
+      // vault moved on, and a base naming the old text would be refused.
+      if (pending.current === null) {
+        onDisk.current = text;
+        return true;
+      }
       // The vault holds what the buffer holds, whoever wrote it there, so
       // nothing is left to write or to settle: a conflict over it, or a held
       // entry of it, is over. Yes, so the reload brings the `modified` stamp
@@ -528,6 +615,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // after the reopen holds text the buffer never showed, kept as `write`
       // keeps it.
       if (sameText(text, pending.current)) {
+        onDisk.current = text;
         pending.current = null;
         conflicted.current = false;
         if (timer.current) clearTimeout(timer.current);
@@ -605,7 +693,13 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // way a conflict would have been settled, so there is nothing to flag.
       holding.current += 1;
       const at = saves.current;
+      const held = visit.current;
       void Promise.allSettled(hashing.current).then(() => {
+        // The note was left meanwhile, and the leave settled this event: it held
+        // any text as conflicted, and the opening let go of the hold. What is
+        // in `pending` now is the next note's, which an answer about this one
+        // must neither conflict nor send through this `save`.
+        if (visit.current !== held) return;
         holding.current -= 1;
         if (!ours(digest)) {
           if (saves.current === at && pending.current !== null) conflict();
@@ -725,8 +819,12 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // Runs on each opening: `queryClient` and `restore` never change.
   useEffect(() => {
     visit.current += 1;
+    // The leave has read the holds already; each one settles against the visit
+    // it was made in, and the note opened now has none.
+    holding.current = 0;
     adopted.current = [];
     lastText.current = null;
+    onDisk.current = null;
     lastWritten.current = null;
     // A note whose editor stayed mounted while the focus was in another pane
     // asks nothing on the way back, so `allowReload` never sees its held text.

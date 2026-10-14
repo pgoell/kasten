@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -163,3 +164,38 @@ async def test_dates_the_note_it_writes_and_keeps_what_the_block_had(
     assert datetime.fromisoformat(modified.removeprefix("modified: ")) > datetime(
         2020, 1, 1, tzinfo=UTC
     )
+
+
+def _base(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+async def test_writes_over_the_text_its_base_names(client: AsyncClient, vault: Path) -> None:
+    # The base leaves `modified` out, so a client still holding the stamp of a
+    # save it has not heard back from names the note on disk all the same.
+    (vault / "borges.md").write_text(
+        "---\nid: kept\nmodified: 2020-01-01T00:00:00+00:00\n---\n# borges\n"
+    )
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": "# borges\n\nEdited.\n", "base": _base("---\nid: kept\n---\n# borges\n")},
+    )
+
+    assert response.status_code == 200
+    assert (vault / "borges.md").read_text().endswith("# borges\n\nEdited.\n")
+
+
+async def test_refuses_a_base_the_disk_has_moved_past(client: AsyncClient, vault: Path) -> None:
+    # Another writer got there first, and the autosave in the air must not land
+    # over its text unasked.
+    on_disk = "---\nid: kept\nmodified: 2020-01-01T00:00:00+00:00\n---\n# borges\n\nTheirs.\n"
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": "# borges\n\nMine.\n", "base": _base("---\nid: kept\n---\n# borges\n")},
+    )
+
+    assert response.status_code == 409
+    assert (vault / "borges.md").read_text() == on_disk

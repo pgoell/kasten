@@ -1,6 +1,7 @@
 """FastAPI application entrypoint."""
 
 import asyncio
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -41,7 +42,7 @@ from kasten_backend.files import (
     open_public,
     store,
 )
-from kasten_backend.frontmatter import reserved, stamp
+from kasten_backend.frontmatter import reserved, stamp, unstamped
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError, query_graph
 from kasten_backend.guide import write_guide
 from kasten_backend.indexes import carries, drop_entries, rehome_entry
@@ -235,6 +236,12 @@ class NoteEdit(BaseModel):
     """
 
     content: str
+    base: str | None = None
+    """Hex sha256 of the UTF-8 text the client believes is on disk, `modified` left out.
+
+    A save that names one is refused when the disk has moved past it. None
+    writes unconditionally, as the agent API and the todo writes do.
+    """
 
 
 class NoteMove(BaseModel):
@@ -1254,18 +1261,27 @@ async def save_file(
     The jj change is started before the write and the snapshot taken after, so
     the edit is bracketed by the history rather than trailing it. A vault that
     is not a jj repo skips both.
+
+    A `base` makes the write conditional, a 409 when the disk no longer holds
+    that text. An autosave in the air when another writer wrote would otherwise
+    land over that writer's text unasked. The base sets `modified` aside because
+    every save restamps it, so a client that sent its text and has not heard
+    back yet can still name that text as its base.
     """
     async with vault_write():
         note = resolve_note(settings.vault_path, path)
         if note is None:
             raise HTTPException(status_code=404, detail="No such note")
 
+        current = note.read_text(encoding="utf-8")
+        if (
+            edit.base is not None
+            and hashlib.sha256(unstamped(current).encode("utf-8")).hexdigest() != edit.base
+        ):
+            raise HTTPException(status_code=409, detail="Changed on disk")
+
         relative = relative_path(settings.vault_path, note)
-        content = (
-            edit.content
-            if reserved(relative)
-            else stamp(edit.content, note.read_text(encoding="utf-8"))
-        )
+        content = edit.content if reserved(relative) else stamp(edit.content, current)
 
         async with vault_change(settings.vault_path, relative):
             write_note(note, content)

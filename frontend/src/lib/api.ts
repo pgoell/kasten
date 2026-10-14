@@ -319,6 +319,18 @@ export async function previewMove(source: string, target: string): Promise<strin
 }
 
 /**
+ * A save refused because somebody else wrote the note since its base.
+ *
+ * A class of its own, because the autosave reads it as a conflict and every
+ * other failure as a write to try again.
+ */
+export class ChangedOnDisk extends Error {
+  constructor() {
+    super("Changed on disk");
+  }
+}
+
+/**
  * Write one note back to the vault, over the note that is already there.
  *
  * The note that comes back is what landed on disk, not what was sent: `PUT`
@@ -329,14 +341,25 @@ export async function previewMove(source: string, target: string): Promise<strin
  * `keepalive` is for the write on the way out of the page, which the browser
  * would otherwise cancel with the page. It caps the body at 64 KiB and rejects
  * above that, which the caller has to read as a write that did not land.
+ *
+ * `base` is the sha256 of the text the caller believes is on disk, `modified`
+ * set aside (`unstamped`), and makes the write conditional: a vault that has
+ * moved past it refuses with `ChangedOnDisk`. Without one the write lands
+ * whatever is there.
  */
-export async function saveNote(path: string, content: string, keepalive = false): Promise<Note> {
+export async function saveNote(
+  path: string,
+  content: string,
+  keepalive = false,
+  base?: string,
+): Promise<Note> {
   const { data, response } = await client.PUT("/api/files/{path}", {
     params: { path: { path } },
-    body: { content },
+    body: base === undefined ? { content } : { content, base },
     keepalive,
   });
 
+  if (response.status === 409) throw new ChangedOnDisk();
   if (!data) {
     throw new Error(`PUT /api/files/${path} failed with ${response.status}`);
   }

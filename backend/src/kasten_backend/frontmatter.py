@@ -132,3 +132,23 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
         dated.append(f"modified: {when}")
 
     return "\n".join([FENCE, *opening, *dated, FENCE, *body])
+
+
+def unstamped(content: str) -> str:
+    """`content` with the block's `modified` lines left out, and nothing else changed.
+
+    What a save's base is a hash of. Every save restamps `modified`, so a client
+    that sent a text and has not heard back cannot know the line that landed;
+    leaving it out lets that client name the note all the same.
+
+    A copy of `unstamped` in frontend/src/lib/held-text.ts, byte for byte, and
+    looser about the fence than `_split` on purpose: the two sides hash the
+    same text only while they cut it the same way.
+    """
+    if not content.startswith("---\n"):
+        return content
+    end = content.find("\n---", 4)
+    if end == -1:
+        return content
+    block = [line for line in content[4:end].split("\n") if not line.startswith("modified:")]
+    return "---\n" + "\n".join(block) + content[end:]

@@ -941,8 +941,20 @@ The write goes to a hidden temp file beside the target and is then renamed over
 it. The rename is atomic, so a crash halfway through leaves the old note whole
 rather than half a new one.
 
-The write detects no conflict of its own. One user, and a `PUT` whose base has
-moved is not refused, so at this layer the last write still wins.
+A body may also carry `base`, the hex SHA-256 of the text the client believes
+is on disk, with the frontmatter's `modified:` line set aside:
+
+```json
+{ "content": "# 2026-08-05\n\nEdited.\n", "base": "9f86d081…" }
+```
+
+When the note on disk, its `modified:` line set aside the same way, no longer
+hashes to `base`, the write is refused with `409` and `Changed on disk`, and
+the note stays as it was. `modified` is set aside because every `PUT` restamps
+it, so a client still waiting on its last answer can name the text it sent as
+the base of the next. The editor's autosave sends a base, so a quiet write in
+the air when somebody else wrote the note no longer lands over their text. A
+body without `base` is written whatever is on disk, and the last write wins.
 
 What a note edited by hand or by `git pull` costs is settled a layer up, over
 [the change stream](#get-apievents). The browser is told when the vault changes

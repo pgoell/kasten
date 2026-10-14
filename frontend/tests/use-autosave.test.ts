@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { heldText, holdText, resetHeld } from "@/lib/held-text";
+import { ChangedOnDisk } from "@/lib/api";
+import { heldText, holdText, moveHeld, resetHeld, unstamped } from "@/lib/held-text";
 import { useAutosave } from "@/lib/use-autosave";
 import { digestOf } from "@/lib/vault-events";
 
@@ -11,7 +12,11 @@ import { digestOf } from "@/lib/vault-events";
 const realTimeout = globalThis.setTimeout;
 
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ saveNote }));
+// The real refusal, which the hook tells apart from every other failure.
+vi.mock("@/lib/api", async (importOriginal) => ({
+  saveNote,
+  ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
+}));
 
 // The real digest behind a spy, so one test can hold a hash back and land it
 // after a later one.
@@ -31,6 +36,11 @@ vi.mock("@/lib/vault-events", async (importOriginal) => {
  */
 function written(content: string) {
   return { path: "index.md", content: `${content}\nmodified: now` };
+}
+
+/** The base a save names for `text` on disk: its sha256, `modified` set aside. */
+function baseOf(text: string): Promise<string> {
+  return real.digestOf(unstamped(text));
 }
 
 /** A save the test finishes by hand, so the in-flight state can be looked at. */
@@ -142,6 +152,18 @@ async function hashed() {
   });
 }
 
+/** Hold the next digest back until the returned call, the way a slow `crypto.subtle` would. */
+function holdDigest(): () => void {
+  let release: (() => void) | undefined;
+  vi.mocked(digestOf).mockImplementationOnce(
+    (text) =>
+      new Promise((resolve) => {
+        release = () => void real.digestOf(text).then(resolve);
+      }),
+  );
+  return () => release?.();
+}
+
 /** A reload or a closed tab, as the page hears it, and the write it starts. */
 async function pagehide() {
   await act(async () => {
@@ -163,10 +185,13 @@ describe("useAutosave", () => {
     saveNote.mockImplementation(async (_path: string, content: string) => written(content));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // By hand and first: unmounting flushes, so the automatic cleanup would
     // otherwise reach a mock that has already been reset.
     cleanup();
+    // A flush naming a base goes out once its hash lands, a real tick away,
+    // and would otherwise reach the next test's mock.
+    await hashed();
     vi.useRealTimers();
     saveNote.mockReset();
     // After the cleanup, whose flushes may hold text of their own.
@@ -425,8 +450,14 @@ describe("useAutosave", () => {
     // `Saved` while nothing at all reached the vault.
     note.change("# edited again");
     await idle();
+    await hashed();
 
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited again");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "# edited again",
+      false,
+      await baseOf(written("# edited").content),
+    );
     expect(note.status()).toBe("saved");
   });
 
@@ -676,9 +707,11 @@ describe("useAutosave", () => {
     await idle();
     expect(saveNote).not.toHaveBeenCalled();
 
+    const base = await baseOf(bookmark);
     await vi.waitFor(async () => {
       await idle();
-      expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
+      await hashed();
+      expect(saveNote).toHaveBeenCalledWith("index.md", "# edited", false, base);
     });
     expect(note.status()).not.toBe("conflict");
   });
@@ -1016,6 +1049,37 @@ describe("useAutosave", () => {
     });
   });
 
+  it("holds a write that fails after its note moved under the new path", async () => {
+    // The route follows a move with `moveHeld` and opens the note at its new
+    // path, both before the write in the air answers.
+    const note = renderAutosave("index.md");
+    const write = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    moveHeld((path) => (path === "index.md" ? "moved.md" : undefined));
+    note.open("moved.md");
+    await write.break();
+
+    expect(heldText("index.md")).toBeUndefined();
+    expect(heldText("moved.md")).toMatchObject({ content: "# edited" });
+  });
+
+  it("drops the held entry a move carried when the write in the air lands", async () => {
+    const note = renderAutosave("index.md");
+    const write = pendingSave();
+
+    // What a hide holds of a quiet write still in the air.
+    holdText("index.md", { content: "# edited", reason: "hidden", conflicted: false });
+    note.change("# edited");
+    await idle();
+    moveHeld((path) => (path === "index.md" ? "moved.md" : undefined));
+    note.open("moved.md");
+    await write.finish();
+
+    expect(heldText("moved.md")).toBeUndefined();
+  });
+
   it("holds a conflicted note as conflicted on leaving, with no flush to fail", async () => {
     // Leaving a conflicted note writes nothing over the vault: the text goes to
     // the held store, and the reader decides on return.
@@ -1092,6 +1156,57 @@ describe("useAutosave", () => {
     expect(note.status()).not.toBe("conflict");
     await idle();
     expect(saveNote).toHaveBeenCalledWith("daily/2026-08-05.md", "# daily");
+  });
+
+  it("writes the next note's text only to the next note when a held event settles as ours after the switch", async () => {
+    const note = renderAutosave("index.md");
+    const bookmark = "the index note\nreading: epubcfi(/6/4)";
+    const digest = await digestOf(bookmark);
+    const release = holdDigest();
+
+    note.change("# edited");
+    note.adopt("index.md", bookmark);
+    note.reconcile(digest);
+    note.open("daily/2026-08-05.md");
+    note.change("# daily");
+    await idle();
+    expect(saveNote).toHaveBeenCalledWith("daily/2026-08-05.md", "# daily");
+    await act(async () => release());
+    await hashed();
+    note.change("# daily more");
+    await idle();
+    await hashed();
+
+    expect(saveNote).not.toHaveBeenCalledWith("index.md", expect.anything());
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "daily/2026-08-05.md",
+      "# daily more",
+      false,
+      await baseOf(written("# daily").content),
+    );
+  });
+
+  it("neither conflicts nor holds the next note when a held event settles as not ours after the switch", async () => {
+    // `:e!` on the way out leaves nothing to hold, so the leave counts no
+    // write, and the settle would find the count it was held at unchanged.
+    const note = renderAutosave("index.md");
+    const other = await digestOf("somebody else's text");
+    const release = holdDigest();
+
+    note.change("# edited");
+    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
+    note.reconcile(other);
+    note.revert(true);
+    note.open("daily/2026-08-05.md");
+    note.change("# daily");
+    await idle();
+    expect(saveNote).toHaveBeenCalledWith("daily/2026-08-05.md", "# daily");
+    note.change("# daily more");
+    await act(async () => release());
+    await hashed();
+
+    expect(note.status()).toBe("unsaved");
+    expect(await note.saveFirst()).toBe(true);
   });
 
   it("reopens a conflicted note left behind as a conflict, and writes nothing on the quiet period", async () => {
@@ -1180,8 +1295,14 @@ describe("useAutosave", () => {
     expect(note.allowReload("the index note\nmore")).toBe(true);
     note.change("# typed after coming back");
     await idle();
+    await hashed();
 
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# typed after coming back");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "# typed after coming back",
+      false,
+      await baseOf("the index note\nmore"),
+    );
     expect(note.status()).toBe("saved");
     expect(heldText("index.md")?.content).toBe("# left behind");
   });
@@ -1214,7 +1335,12 @@ describe("useAutosave", () => {
 
     expect(note.status()).toBe("error");
     expect(await note.saved()).toBe(true);
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# held");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "# held",
+      false,
+      await baseOf("the index note"),
+    );
   });
 
   it("leaves held text listed when the focus moves to a pane showing the vault's text", async () => {
@@ -1227,9 +1353,15 @@ describe("useAutosave", () => {
     note.open("index.md");
     note.change("the index note!");
     await idle();
+    await hashed();
 
     expect(note.restored()).toBe(false);
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "the index note!");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "the index note!",
+      false,
+      await baseOf("the index note"),
+    );
     expect(heldText("index.md")?.content).toBe("# held");
   });
 
@@ -1489,12 +1621,15 @@ describe("useAutosave", () => {
   it("calls the note saved once a write in flight at a held hide lands", async () => {
     const note = renderAutosave("index.md");
     const other = await digestOf("somebody else's text");
+    // Still being placed when the save's base has hashed and it goes out.
+    holdDigest();
     note.change("# edited");
     note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
     note.reconcile(other);
     // `:w` while the event is still being placed, which sends regardless.
     const quiet = pendingSave();
     note.startSave();
+    await hashed();
 
     await background();
     expect(heldText("index.md")?.content).toBe("# edited");
@@ -1509,11 +1644,13 @@ describe("useAutosave", () => {
   it("keeps the text to write again when a write in flight at a held hide fails", async () => {
     const note = renderAutosave("index.md");
     const other = await digestOf("somebody else's text");
+    holdDigest();
     note.change("# edited");
     note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
     note.reconcile(other);
     const quiet = pendingSave();
     note.startSave();
+    await hashed();
 
     await background();
     await quiet.break();
@@ -1521,7 +1658,12 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("error");
     expect(heldText("index.md")?.content).toBe("# edited");
     await note.save();
-    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "# edited",
+      false,
+      await baseOf("the index note\nreading: epubcfi(/6/4)"),
+    );
   });
 
   it("writes nothing when the page is shown again", async () => {
@@ -1623,5 +1765,211 @@ describe("useAutosave", () => {
 
     expect(note.allowReload(bookmark)).toBe(false);
     expect(note.status()).toBe("conflict");
+  });
+
+  describe("the base a save names", () => {
+    it("names the vault's text under the buffer", async () => {
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+
+      expect(saveNote).toHaveBeenCalledWith(
+        "index.md",
+        "# edited",
+        false,
+        await baseOf("the index note"),
+      );
+    });
+
+    it("names its own landed text when the typing goes on through a save", async () => {
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      note.change("# edited more");
+      await idle();
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "# edited more",
+        false,
+        await baseOf(written("# edited").content),
+      );
+    });
+
+    it("names another writer's text once a reload took it into a clean buffer", async () => {
+      const note = renderAutosave();
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      expect(note.reconcile(await digestOf("somebody else's text"))).toBe(true);
+      expect(note.allowReload("somebody else's text")).toBe(true);
+      note.change("somebody else's text, and mine");
+      await idle();
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "somebody else's text, and mine",
+        false,
+        await baseOf("somebody else's text"),
+      );
+    });
+
+    it("names the vault's text read for :e! once the typing starts again", async () => {
+      // The route reads the vault into the cache, then throws the buffer away.
+      const note = renderAutosave();
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      note.change("# edited more");
+      note.seed("index.md", "somebody else's text");
+      note.revert(true);
+      note.change("somebody else's text, and mine");
+      await idle();
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "somebody else's text, and mine",
+        false,
+        await baseOf("somebody else's text"),
+      );
+    });
+
+    it("names a write the route made into the note once it is adopted", async () => {
+      const note = renderAutosave();
+      const bookmark = "the index note\nreading: epubcfi(/6/4)";
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      note.adopt("index.md", bookmark);
+      note.change(`${bookmark}\nmine`);
+      await idle();
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        `${bookmark}\nmine`,
+        false,
+        await baseOf(bookmark),
+      );
+    });
+
+    it("names the text in the air when :w goes out during a quiet write", async () => {
+      // The quiet write lands first, so that is what `:w` finds on disk.
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+      const quiet = pendingSave();
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      note.change("# edited more");
+      note.startSave();
+      await hashed();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "# edited more",
+        false,
+        await baseOf("# edited"),
+      );
+      await quiet.finish();
+      expect(note.status()).toBe("saved");
+    });
+
+    it("sends a write behind the one before it to the same note, whichever hash lands first", async () => {
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+      const release = holdDigest();
+
+      note.change("# edited");
+      await idle();
+      note.change("# edited more");
+      note.startSave();
+      await hashed();
+      expect(saveNote).not.toHaveBeenCalled();
+      await act(async () => release());
+      await hashed();
+
+      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["# edited", "# edited more"]);
+    });
+
+    it("reads a save the vault refused over its base as a conflict, and keeps the text", async () => {
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+      saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+
+      expect(note.status()).toBe("conflict");
+      expect(note.restored()).toBe(true);
+      expect(heldText("index.md")).toMatchObject({ content: "# edited", conflicted: true });
+      expect(note.cached("index.md")).toBe("the index note");
+      expect(await note.saveFirst()).toBe(false);
+      // Nothing more goes out on its own, and `:w` sends the kept text over
+      // whatever is there, naming no base.
+      await idle();
+      await hashed();
+      expect(saveNote).toHaveBeenCalledOnce();
+      await note.save();
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited");
+    });
+
+    it("only holds a refused write when a reload took the vault's text into the buffer meanwhile", async () => {
+      // The other writer's event found nothing waiting, so the editor took their
+      // text: the refused text is on screen nowhere, and `:w` must not send it.
+      let doc = "# edited";
+      const note = renderAutosave("index.md", () => doc);
+      note.seed("index.md", "the index note");
+      let refuse: (() => void) | undefined;
+      saveNote.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            refuse = () => reject(new ChangedOnDisk());
+          }),
+      );
+
+      note.change("# edited");
+      await idle();
+      await hashed();
+      expect(note.reconcile(await digestOf("somebody else's text"))).toBe(true);
+      expect(note.allowReload("somebody else's text")).toBe(true);
+      doc = "somebody else's text";
+      await act(async () => refuse?.());
+
+      expect(heldText("index.md")).toMatchObject({ content: "# edited", conflicted: true });
+      expect(note.restored()).toBe(false);
+      expect(note.status()).toBe("saved");
+      await note.save();
+      expect(saveNote).toHaveBeenCalledOnce();
+    });
+
+    it("holds a flush on leaving that the vault refused as conflicted, and reopens it as one", async () => {
+      const note = renderAutosave("index.md");
+      note.seed("index.md", "the index note");
+      saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+
+      note.change("# edited");
+      note.open("other.md");
+      await hashed();
+
+      expect(heldText("index.md")).toMatchObject({ content: "# edited", conflicted: true });
+      note.open("index.md");
+      expect(note.allowReload("somebody else's text")).toBe(false);
+      expect(note.status()).toBe("conflict");
+    });
   });
 });

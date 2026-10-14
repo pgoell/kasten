@@ -2441,7 +2441,12 @@ left it. A note holding unsaved edits keeps them instead: autosave stops, and
 the status bar wears the warning sign, labelled `Changed on disk`, and opens
 above itself with what differs: a line only the vault holds marked `-`, a line
 only your buffer holds marked `+`, runs of equal lines folded to a count, and
-the `modified` stamp left out.
+the `modified` stamp left out. The same happens when the other write lands
+while kasten's own is on its way: the vault refuses kasten's write, keeps the
+other writer's text, and the note reads `Changed on disk` with your text still
+in the buffer. If the editor had already taken the other writer's text in,
+having nothing newer of yours to keep, your refused text is kept in this
+browser's storage instead, and the bar lists the note until you settle it.
 
 The two readings that want you write their name beside the sign rather than
 leaving a 16px icon in the corner to be noticed, and hovering either one says
@@ -2469,8 +2474,11 @@ bar reads `Changed on disk: <note>` until you settle it, and opening the note
 shows the conflict again, your text in the buffer and what differs from the
 vault's newest text above the bar. If the vault has come to hold your text by
 then, the conflict is gone and the note opens clean. Moving the note, or a
-folder above it, in kasten carries the kept text to the new path; a delete, or
-a move made outside kasten, leaves it under the old one. If a write
+folder above it, in kasten carries the kept text to the new path, a write
+still on its way as you move included. A delete, or a move made outside
+kasten, leaves it under the old one: the bar still lists it, and the note
+offers it again when it is back at that path, by `<leader>du` or by creating
+it there. If a write
 fails as you leave a note, or leave the editor for another screen, kasten keeps
 that note's text in this browser's storage, and the status bar reads
 `Not saved: <note>` until it is written or dropped, whatever you save
