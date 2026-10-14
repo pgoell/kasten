@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ASSET_LIMIT_BYTES, fetchBook, uploadAsset } from "@/lib/api";
+import { ASSET_LIMIT_BYTES, fetchBook, importAnki, uploadAsset } from "@/lib/api";
 
 const FILES = readFileSync(
   path.join(import.meta.dirname, "../../backend/src/kasten_backend/files.py"),
@@ -135,6 +135,27 @@ describe("uploadAsset", () => {
     // An oversize body never reaches kasten in production: Cloudflare refuses
     // it first, with an HTML page a parse would throw on.
     expect(json).not.toHaveBeenCalled();
+  });
+});
+
+describe("importAnki", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("asks for Anki's schedule only when told to", async () => {
+    const posting = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", posting);
+    const deck = new Blob(["apkg"]);
+
+    await importAnki(deck, false);
+    expect(posting).toHaveBeenLastCalledWith("/api/anki", { method: "POST", body: deck });
+
+    await importAnki(deck, true);
+    expect(posting).toHaveBeenLastCalledWith("/api/anki?carry=true", {
+      method: "POST",
+      body: deck,
+    });
   });
 });
 

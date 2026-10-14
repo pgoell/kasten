@@ -89,6 +89,23 @@ export const SR = /<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
  */
 export const CLOZE_SR = /<!--SR:c(\d+)!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 
+/**
+ * The Anki note and template an imported card came from, `<!--anki:NID:ORD-->`.
+ *
+ * Written by the import at the end of the card's last line, so a second import
+ * of the same deck finds the card to update rather than adding it again. Whole
+ * and digits only, so an answer that merely mentions the comment keeps it.
+ */
+export const ANKI_ID = /<!--anki:\d+:\d+-->/;
+
+/** Every id on a side, with the space before it, for taking them off before it is shown. */
+const ANKI_IDS = new RegExp(`[ \\t]*${ANKI_ID.source}`, "g");
+
+/** `text` with the import's ids taken off, which are no part of either side. */
+export function withoutAnkiId(text: string): string {
+  return text.replace(ANKI_IDS, "");
+}
+
 /** Every cloze comment on a line, for taking them all off a side before it is shown. */
 const CLOZE_SRS = new RegExp(CLOZE_SR.source, "g");
 
@@ -129,9 +146,9 @@ export function holdsCloze(line: string | undefined): boolean {
   return line !== undefined && clozeNumbers(line).length > 0;
 }
 
-/** `line` with every schedule comment taken off, plain and labelled, and the token. */
+/** `line` with every schedule comment taken off, plain and labelled, the token and the id. */
 function bare(line: string): string {
-  return withoutToken(line.replace(CLOZE_SRS, "").replace(SR, "")).trim();
+  return withoutToken(withoutAnkiId(line.replace(CLOZE_SRS, "").replace(SR, ""))).trim();
 }
 
 /** `line` with one number's marks drawn by `hidden` and every other number's as its text. */
@@ -180,8 +197,8 @@ export interface Divided {
  * A card written on one line, split at its divider.
  *
  * The first `::` divides it, so an answer holding one of its own keeps it. The
- * schedule and the token come off the back, both being the format around the
- * card rather than part of the answer.
+ * schedule, the token and the Anki id come off the back, all being the format
+ * around the card rather than part of the answer.
  *
  * An empty back comes back empty rather than as null. A question with no answer
  * under it is a card somebody wrote to answer later, which is a state and not a
@@ -192,7 +209,7 @@ export function divide(line: string): Divided | null {
   const at = line.indexOf("::");
   if (at === -1) return null;
   return {
-    front: line.slice(0, at).trim(),
-    back: withoutToken(line.slice(at + 2).replace(SR, "")).trim(),
+    front: withoutAnkiId(line.slice(0, at)).trim(),
+    back: withoutToken(withoutAnkiId(line.slice(at + 2).replace(SR, ""))).trim(),
   };
 }

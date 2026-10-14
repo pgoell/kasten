@@ -58,6 +58,7 @@ import {
   SR,
   SUSPEND_TOKEN,
   suspended,
+  withoutAnkiId,
   withoutHeadToken,
   withoutToken,
 } from "@/lib/card-line";
@@ -266,7 +267,8 @@ export function parseCards(text: string, note = ""): Card[] {
     // readers take the `?` as the cloze's and read its dates under it.
     if (to === at && !cloze) continue;
 
-    const back = lines.slice(at + 1, to + 1);
+    // The import's id sits on the back's last line, and is no part of the answer.
+    const back = withoutAnkiId(lines.slice(at + 1, to + 1).join("\n")).trim();
     // The schedule sits on its own line under the back, where the plugin puts
     // it, and the token sits at the head of that same line. Either one takes
     // the line into the card's span, so `setSuspended` has a line to write on.
@@ -287,7 +289,7 @@ export function parseCards(text: string, note = ""): Card[] {
     for (let mark = from; mark <= to; mark++) taken[mark] = true;
 
     if (cloze) {
-      const asked = clozeCards(lines[from] ?? "", back.join("\n").trim(), lines[to] ?? "", {
+      const asked = clozeCards(lines[from] ?? "", back, lines[to] ?? "", {
         from,
         to,
         inline: false,
@@ -308,7 +310,7 @@ export function parseCards(text: string, note = ""): Card[] {
       // The card's own tags are part of the format and not part of the
       // question, so they come off the front before it is ever asked.
       front: withoutTags(lines.slice(from, at).join("\n")).trim(),
-      back: back.join("\n").trim(),
+      back,
       inline: false,
       decks: [],
       held: schedule,

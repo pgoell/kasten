@@ -132,19 +132,23 @@ export async function fetchTodos(archive = false): Promise<SearchHit[]> {
   return data;
 }
 
-/** What one imported `.apkg` turned into. */
+/** What one imported `.apkg` turned into, and what the merge did to the deck notes. */
 export type AnkiImport = components["schemas"]["AnkiImport"];
 
 /**
- * Turn an Anki export into notes in the vault.
+ * Turn an Anki export into notes in the vault, merged into the ones it made before.
  *
  * The file's own bytes as the body, not a form: the request carries one file
- * and nothing beside it, the way an asset upload does.
+ * and nothing beside it, the way an asset upload does. `carry` asks for Anki's
+ * schedule to come along with the cards.
  */
-export async function importAnki(file: Blob): Promise<AnkiImport> {
+export async function importAnki(file: Blob, carry: boolean): Promise<AnkiImport> {
   // Plain `fetch` for the reason `uploadAsset` uses one: the endpoint takes raw
   // bytes, so the generated client documents a body it will not let us send.
-  const response = await fetch("/api/anki", { method: "POST", body: file });
+  const response = await fetch(carry ? "/api/anki?carry=true" : "/api/anki", {
+    method: "POST",
+    body: file,
+  });
 
   if (!response.ok) {
     const detail =

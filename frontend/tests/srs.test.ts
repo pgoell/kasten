@@ -821,3 +821,86 @@ describe("setSuspended on a cloze", () => {
     }
   });
 });
+
+describe("an imported card carrying its anki id", () => {
+  const next = { due: "2026-09-01", interval: 7, ease: 250 };
+  const INLINE = "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0-->\nx::y\n";
+  const CLOZE = "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0-->\nx::y\n";
+  const MULTI = "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1-->\n\nx::y\n";
+
+  /** Rate it, park it, put it back: the three notes written along the way. */
+  function sit(text: string) {
+    const rated = writeSchedule(text, only(text), next);
+    const parked = setSuspended(rated, only(rated), true);
+    return { rated, parked, back: setSuspended(parked, only(parked), false) };
+  }
+
+  it("never shows the id on either side, and a typed answer matches without it", () => {
+    expect(only(INLINE)).toMatchObject({ front: "What is S3?", back: "Simple Storage" });
+    expect(sameAnswer("simple storage", only(INLINE).back)).toBe(true);
+
+    expect(only(CLOZE)).toMatchObject({
+      front: "The capital is \\[...\\].",
+      back: "The capital is ==Paris==.",
+      target: "Paris",
+    });
+    expect(sameAnswer("paris", only(CLOZE).target ?? "")).toBe(true);
+
+    expect(only(MULTI)).toMatchObject({ front: "Front", back: "Back line one\nBack line two" });
+    expect(sameAnswer("Back line one Back line two", only(MULTI).back)).toBe(true);
+
+    const extra = "#flashcards\n\n{{c1::a}}\n?\nextra <!--anki:9:0-->\n";
+    expect(only(extra).back).toBe("==a==\n\nextra");
+  });
+
+  it("keeps the id byte for byte through a rating and a park on a one-line card", () => {
+    const { rated, parked, back } = sit(INLINE);
+
+    expect(rated).toBe(
+      "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0--> <!--SR:!2026-09-01,7,250-->\nx::y\n",
+    );
+    expect(parked).toBe(
+      "#flashcards\n\nWhat is S3?::Simple Storage <!--anki:1700000000000:0--> !suspended <!--SR:!2026-09-01,7,250-->\nx::y\n",
+    );
+    expect(back).toBe(rated);
+    expect(only(parked)).toMatchObject({ back: "Simple Storage", held: next, parked: "suspended" });
+    expect(only(back)).toMatchObject({ back: "Simple Storage", held: next, parked: null });
+  });
+
+  it("keeps the id byte for byte through a rating and a park on a cloze line", () => {
+    const { rated, parked, back } = sit(CLOZE);
+
+    expect(rated).toBe(
+      "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0--> <!--SR:c1!2026-09-01,7,250-->\nx::y\n",
+    );
+    expect(parked).toBe(
+      "#flashcards\n\nThe capital is {{c1::Paris}}. <!--anki:5:0--> !suspended <!--SR:c1!2026-09-01,7,250-->\nx::y\n",
+    );
+    expect(back).toBe(rated);
+    expect(only(parked)).toMatchObject({
+      back: "The capital is ==Paris==.",
+      held: next,
+      parked: "suspended",
+    });
+    expect(only(back)).toMatchObject({
+      back: "The capital is ==Paris==.",
+      held: next,
+      parked: null,
+    });
+  });
+
+  it("keeps the id byte for byte through a rating and a park on a `?` card", () => {
+    const { rated, parked, back } = sit(MULTI);
+
+    expect(rated).toBe(
+      "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1-->\n<!--SR:!2026-09-01,7,250-->\n\nx::y\n",
+    );
+    expect(parked).toBe(
+      "#flashcards\n\nFront\n?\nBack line one\nBack line two <!--anki:7:1-->\n!suspended <!--SR:!2026-09-01,7,250-->\n\nx::y\n",
+    );
+    expect(back).toBe(rated);
+    const shown = { front: "Front", back: "Back line one\nBack line two", held: next };
+    expect(only(parked)).toMatchObject({ ...shown, parked: "suspended" });
+    expect(only(back)).toMatchObject({ ...shown, parked: null });
+  });
+});

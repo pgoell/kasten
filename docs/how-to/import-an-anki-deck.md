@@ -14,17 +14,19 @@ like everything else.
 ## Export from Anki
 
 In Anki, **File → Export**, choose **Anki Deck Package (\*.apkg)** and pick the
-deck. Leave scheduling out: kasten does not read Anki's schedules, and a fresh
-start is what the import gives you. Both the current export format and the older
-one are read, so no compatibility option needs setting.
+deck. Tick **Include scheduling information** if you want kasten to carry on
+from Anki's schedule; leave it out for a fresh start. Both the current export
+format and the older one are read, so no compatibility option needs setting.
 
 ## Import it
 
-Open `/review`, either on a phone or through `<leader>gs` in the app, and press
-**Import an Anki deck**. Pick the `.apkg`.
+Open `/review`, either on a phone or through `<leader>gs` in the app. To carry
+Anki's schedule, tick **Carry Anki's schedule** first; it is off by default.
+Press **Import an Anki deck** and pick the `.apkg`.
 
-The line beside the button says what arrived: how many decks, how many cards,
-and how many image and sound files came with them.
+The line under the button says what arrived: how many decks and cards, how many
+the import added, updated and kept, how many Anki no longer has, and how many
+image and sound files came with them.
 
 ## Where it lands
 
@@ -41,9 +43,13 @@ and holds one `front::back` line per card:
 ```markdown
 #flashcards/AWS-Certification
 
-What is a VPC?::A virtual private cloud
-Which region is cheapest?::us-east-1 usually
+What is a VPC?::A virtual private cloud <!--anki:1700000000001:0-->
+Which region is cheapest?::us-east-1 usually <!--anki:1700000000002:0-->
 ```
+
+The comment at the end of a card's last line is its Anki note id and template.
+It is how a later import of the same deck finds the card; the review never
+shows it, and a rating writes its schedule after it. Leave it in place.
 
 A question that holds `::` itself, such as `What does std::move do?`, would be
 cut at its first `::` on one line, so it is written
@@ -109,17 +115,31 @@ Japanese decks, is a card like any other. `.png`, `.jpg`, `.jpeg`, `.gif`,
 `.webp`, `.mp3`, `.m4a`, `.ogg` and `.wav` come through. A file two decks share
 is written into each deck's folder.
 
-If a file in that folder already exists, the whole import is refused, as it is
-for a note.
+On a first import, if a file in that folder already exists, the whole import is
+refused. A re-import keeps the files already there and writes the new ones.
 
-## Importing the same deck twice is refused
+## Import a newer version of a deck
 
-A deck whose note already exists answers 409 and writes nothing, not even the
-decks in the same file that would have been fine. The note it would land on may
-have fifty cards you have answered, and their schedules are in it.
+Export the deck from Anki again and import it the same way. The import merges
+into the deck's note, card by card, using the comment at the end of each card:
 
-To import a newer version of a deck, rename the old note first and merge by
-hand, or export the new cards to a deck under another name.
+* A card Anki has not changed stays as it is.
+* A card whose text Anki changed gets the new text and keeps the schedule and
+  the parking you gave it in kasten.
+* A card new in Anki goes on the end of the note.
+* A card you deleted in Anki stays in the note, schedule and all, and the
+  import counts it as removed. Delete the line yourself if you want it gone.
+* Every line without the comment, cards you wrote yourself and notes between
+  cards, stays as you left it.
+
+A re-import that changes nothing does not touch the note.
+
+**Carry Anki's schedule** applies only to the cards an import adds. A card
+already in the note keeps the schedule kasten has for it.
+
+A deck imported before kasten wrote the comment cannot be merged, because
+nothing in it says which card is which. Importing it again is refused and
+writes nothing. Rename the old note first and import into a fresh one.
 
 ## How a note becomes cards
 
@@ -226,10 +246,14 @@ its reading: `漢字` for `{{c1::<ruby>漢字<rt>かんじ</rt></ruby>}}`.
 
 ## What arrives ready to use
 
-Every imported card is new, so the deck shows its whole size under **new** in
-the overview and the first sitting starts at the top.
-[The schedule](/reference/flashcard-format.md#the-schedule-kasten-writes) starts
-from there.
+Without **Carry Anki's schedule**, every imported card is new, so the deck shows
+its whole size under **new** in the overview and the first sitting starts at
+the top. [The schedule](/reference/flashcard-format.md#the-schedule-kasten-writes)
+starts from there.
+
+With it, a card Anki has in review arrives with Anki's due date, interval and
+ease in its schedule comment, so a mature deck comes due as it would have in
+Anki. A card that is new or still in learning in Anki arrives new.
 
 ## See also
 

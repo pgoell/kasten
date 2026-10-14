@@ -20,7 +20,16 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from kasten_backend import main
-from kasten_backend.anki import Card, Deck, Template, as_note, card_count, plain, read_apkg
+from kasten_backend.anki import (
+    Card,
+    Deck,
+    Template,
+    as_note,
+    card_count,
+    merge,
+    plain,
+    read_apkg,
+)
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -121,6 +130,15 @@ MP3 = b"ID3\x04\x00 not really a sound"
 type Media = tuple[tuple[str, bytes | None], ...]
 """Files an export carries, by the name a field gives them; `None` is listed but not zipped."""
 
+CRT = 1767225600
+"""When the collection was made, `col.crt`: 2026-01-01 at midnight UTC, whence `due` counts."""
+
+NO_ROW = object()
+"""A `crt` that leaves the row of `col` out altogether."""
+
+type Review = tuple[int, int, int, int, int]
+"""A card row's schedule as the builder takes it: card id, type, ivl, factor, due."""
+
 
 def apkg(
     notes: tuple[tuple[int, int, str], ...] = NOTES,
@@ -131,24 +149,34 @@ def apkg(
     schema18: bool = False,
     member: str = "collection.anki2",
     media: Media = (),
+    reviews: tuple[Review, ...] = (),
+    crt: object = CRT,
 ) -> bytes:
     """The bytes of an export holding `notes` in `decks`, in one of the two schemas.
 
     `media` goes in the form the collection's member implies: beside
     `collection.anki21b`, the latest export's zstd protobuf map with every file
-    zstd-compressed, and otherwise the legacy JSON map with the files raw.
+    zstd-compressed, and otherwise the legacy JSON map with the files raw. A
+    card row `reviews` does not name is new. On schema 18, whose `col` holds
+    nothing else the reader needs, `crt` of `NO_ROW` leaves that row out.
     """
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "collection"
         with sqlite3.connect(path) as db:
             db.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, mid INTEGER, flds TEXT)")
             db.execute(
-                "CREATE TABLE cards (id INTEGER PRIMARY KEY, nid INTEGER, did INTEGER, ord INTEGER)"
+                "CREATE TABLE cards (id INTEGER PRIMARY KEY, nid INTEGER, did INTEGER, ord INTEGER,"
+                " type INTEGER DEFAULT 0, ivl INTEGER DEFAULT 0, factor INTEGER DEFAULT 0,"
+                " due INTEGER DEFAULT 0)"
             )
             db.executemany("INSERT INTO notes VALUES (?, ?, ?)", notes)
-            db.executemany("INSERT INTO cards VALUES (?, ?, ?, ?)", cards)
+            db.executemany("INSERT INTO cards (id, nid, did, ord) VALUES (?, ?, ?, ?)", cards)
+            db.executemany(
+                "UPDATE cards SET type = ?, ivl = ?, factor = ?, due = ? WHERE id = ?",
+                [(*review[1:], review[0]) for review in reviews],
+            )
             if schema18:
-                write_schema_18(db, decks, types)
+                write_schema_18(db, decks, types, crt)
             else:
                 write_legacy(db, decks, types)
         db.close()
@@ -191,18 +219,22 @@ def write_legacy(
         }
         for mid, name, kind, fields, templates in types
     }
-    db.execute("CREATE TABLE col (decks TEXT, models TEXT)")
-    db.execute("INSERT INTO col VALUES (?, ?)", (json.dumps(listing), json.dumps(models)))
+    db.execute("CREATE TABLE col (decks TEXT, models TEXT, crt INTEGER)")
+    db.execute("INSERT INTO col VALUES (?, ?, ?)", (json.dumps(listing), json.dumps(models), CRT))
 
 
 def write_schema_18(
-    db: sqlite3.Connection, decks: tuple[tuple[int, str], ...], types: tuple[NoteType, ...]
+    db: sqlite3.Connection,
+    decks: tuple[tuple[int, str], ...],
+    types: tuple[NoteType, ...],
+    crt: object = CRT,
 ) -> None:
     db.execute("CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT)")
     db.executemany("INSERT INTO decks VALUES (?, ?)", decks)
     # `col.models` is an empty string from schema 18, which is what Anki writes.
-    db.execute("CREATE TABLE col (decks TEXT, models TEXT)")
-    db.execute("INSERT INTO col VALUES ('', '')")
+    db.execute("CREATE TABLE col (decks TEXT, models TEXT, crt INTEGER)")
+    if crt is not NO_ROW:
+        db.execute("INSERT INTO col VALUES ('', '', ?)", (crt,))
     db.execute("CREATE TABLE notetypes (id INTEGER PRIMARY KEY, name TEXT, config BLOB)")
     db.execute("CREATE TABLE fields (ntid INTEGER, ord INTEGER, name TEXT, config BLOB)")
     db.execute("CREATE TABLE templates (ntid INTEGER, ord INTEGER, name TEXT, config BLOB)")
@@ -257,6 +289,21 @@ def one_deck(
 ) -> list[tuple[str, str]]:
     """The cards of an export whose every card row sits in the deck `French`."""
     return sides(read_apkg(apkg(notes, cards, ((100, "French"),), **layout)))["French"]
+
+
+def mark(nid: int, ord_: int = 0) -> str:
+    """The marker `as_note` writes after a card's last line, with the space before it."""
+    return f" <!--anki:{nid}:{ord_}-->"
+
+
+def basic_deck(*pairs: tuple[str, str]) -> Deck:
+    """A deck `x` of hand-built cards from `pairs`, each its own Anki note numbered from 1."""
+    template = Template("Card 1", "{{Front}}", "{{Back}}")
+    cards = [
+        Card(front, back, {}, template, "Basic", cloze=False, nid=nid, ord=0)
+        for nid, (front, back) in enumerate(pairs, 1)
+    ]
+    return Deck("x", cards, {})
 
 
 def test_plain_strips_a_tag_it_has_no_markdown_for() -> None:
@@ -413,6 +460,20 @@ def test_furigana_inside_a_cloze_mark_leaves_the_mark_whole() -> None:
     ]
 
 
+def test_a_literal_anki_marker_in_a_field_is_escaped() -> None:
+    # A re-import finds its cards by the marker, so one in the text would claim
+    # a card that is not there; the back of a hand-built `?` card is refused.
+    field = "the &lt;!--anki:7:0--&gt; comment"
+    notes = ((1, BASIC, f"What is a::b?\x1f{field}"), (2, CLOZE, f"{{{{c1::x}}}} {field}\x1f"))
+    deck = read_apkg(apkg(notes, ((11, 1, 100, 0), (21, 2, 100, 0)), ((100, "x"),)))[0]
+
+    assert plain(field) == r"the <!--anki\:7:0--> comment"
+    assert as_note(deck).count("<!--anki:") == 2
+    assert as_note(basic_deck(("What is a::b?", "the <!--anki:7:0--> comment"))) == (
+        "#flashcards/x\n\n"
+    )
+
+
 def test_plain_escapes_the_parking_token_anywhere_in_a_line() -> None:
     # `suspended()` in `card-line.ts` reads the token after any space, and
     # would park the card the answer only mentions it in.
@@ -443,21 +504,23 @@ def test_a_multi_line_side_takes_the_question_form() -> None:
     notes = ((1, BASIC, "Name three<br>colours\x1f<ul><li>red</li><li>green</li></ul>"),)
     decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == "#flashcards/x\n\nName three\ncolours\n?\n- red\n- green\n"
+    assert as_note(decks[0]) == (
+        f"#flashcards/x\n\nName three\ncolours\n?\n- red\n- green{mark(1)}\n"
+    )
 
 
 def test_a_multi_line_front_with_no_back_is_parked_on_one_line() -> None:
     # A `?` with nothing under it is no card, so the breaks become spaces.
     decks = read_apkg(apkg(((1, SOLO, "one<br>two"),), CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == "#flashcards/x\n\none two::\n"
+    assert as_note(decks[0]) == f"#flashcards/x\n\none two::{mark(1)}\n"
 
 
 def test_an_imported_side_that_would_end_the_card_is_kept_as_text() -> None:
     notes = ((1, BASIC, "Is a::b valid?\x1f?<br>```js"),)
     decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == "#flashcards/x\n\nIs a::b valid?\n?\n\\?\n\\`\\`\\`js\n"
+    assert as_note(decks[0]) == f"#flashcards/x\n\nIs a::b valid?\n?\n\\?\n\\`\\`\\`js{mark(1)}\n"
     assert card_count(decks[0]) == 1
 
 
@@ -466,7 +529,7 @@ def test_a_cloze_text_stays_one_line_and_its_extra_runs_over_lines() -> None:
     decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
 
     assert as_note(decks[0]) == (
-        "#flashcards/x\n\n{{c1::Paris}} is the capital\n?\nOn the\n**Seine**\n"
+        f"#flashcards/x\n\n{{{{c1::Paris}}}} is the capital\n?\nOn the\n**Seine**{mark(1)}\n"
     )
     assert card_count(decks[0]) == 1
 
@@ -477,21 +540,164 @@ Name three
 colours
 ?
 - red
-- green
+- green <!--anki:1:0-->
 
-漢字::<ruby>漢字<rt>かんじ</rt></ruby>
+漢字::<ruby>漢字<rt>かんじ</rt></ruby> <!--anki:2:0-->
 
 {{c1::Paris}} is in {{c2::France}}
 ?
 On the
-Seine
+Seine <!--anki:3:0-->
 
 What does std::size count?
 ?
 \\# of elements
-\\!suspended no
+\\!suspended no <!--anki:4:0-->
 """
 """The note `frontend/tests/srs.test.ts` reads back, holding five cards."""
+
+
+def test_each_card_carries_its_anki_note_and_template_on_its_last_line() -> None:
+    notes = (
+        (1, REVERSED, "Paris\x1fcapital"),
+        (2, CLOZE, "{{c1::H}} and {{c2::O}}\x1f"),
+        (3, BASIC, "What does std::move do?\x1fcasts"),
+        (4, CLOZE, "{{c1::Seine}} river\x1fin Paris"),
+    )
+    cards = ((11, 1, 100, 0), (12, 1, 100, 1), (21, 2, 100, 1), (22, 2, 100, 0))
+    cards += ((31, 3, 100, 0), (41, 4, 100, 0))
+    deck = read_apkg(apkg(notes, cards, ((100, "x"),)))[0]
+
+    assert as_note(deck) == (
+        f"#flashcards/x\n\nParis::capital{mark(1)}\ncapital::Paris{mark(1, 1)}\n"
+        f"{{{{c1::H}}}} and {{{{c2::O}}}}{mark(2)}\n\n"
+        f"What does std::move do?\n?\ncasts{mark(3)}\n\n"
+        f"{{{{c1::Seine}}}} river\n?\nin Paris{mark(4)}\n"
+    )
+
+
+def test_a_re_import_adds_the_cards_that_are_new() -> None:
+    old = as_note(basic_deck(("a", "b")))
+
+    merged = merge(old, basic_deck(("a", "b"), ("c", "d"), ("What is a::b?", "e")))
+
+    assert merged is not None
+    assert merged.text == (
+        f"#flashcards/x\n\na::b{mark(1)}\nc::d{mark(2)}\n\nWhat is a::b?\n?\ne{mark(3)}\n"
+    )
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (2, 0, 1, 0)
+
+
+def test_a_re_import_updates_the_text_of_cards_anki_changed() -> None:
+    old = as_note(basic_deck(("a", "b"), ("What is a::b?", "e"), ("c", "d")))
+
+    merged = merge(old, basic_deck(("a", "B"), ("What is a::b?", "e\nf"), ("c", "d")))
+
+    assert merged is not None
+    assert merged.text == (
+        f"#flashcards/x\n\na::B{mark(1)}\n\nWhat is a::b?\n?\ne\nf{mark(2)}\n\nc::d{mark(3)}\n"
+    )
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 2, 1, 0)
+
+
+SR1, SR2, SR3 = (f"<!--SR:!2026-10-2{day},{day},250-->" for day in (1, 2, 3))
+CLOZED = "<!--SR:c1!2026-10-24,4,250--> <!--SR:c2!2026-10-25,5,250-->"
+
+ANSWERED_NOTE = f"""---
+id: 1
+modified: 2026-10-01T00:00:00+00:00
+---
+#flashcards/x
+
+a::b{mark(1)} !suspended {SR1}
+c::d{mark(2)} {SR2}
+{{{{c1::H}}}} and {{{{c2::O}}}}{mark(3)} {CLOZED}
+
+What is a::b?
+?
+e{mark(4)}
+!suspended {SR3}
+
+What is c::d?
+?
+f{mark(5)}
+{SR1}
+
+What is e::f?
+?
+g{mark(6)}
+!suspended
+"""
+"""A deck's note after a few ratings and parkings, each in the shape `srs.ts` writes."""
+
+
+def answered_deck(*, changed: bool) -> Deck:
+    """The deck `ANSWERED_NOTE` came from, or the same with every card's text changed."""
+    end = "!" if changed else ""
+    template = Template("Cloze", "{{cloze:Text}}", "{{cloze:Text}}")
+    deck = basic_deck(
+        ("a", f"b{end}"),
+        ("c", f"d{end}"),
+        ("x", "x"),
+        ("What is a::b?", f"e{end}"),
+        ("What is c::d?", f"f{end}"),
+        ("What is e::f?", f"g{end}"),
+    )
+    cloze = Card(f"{{{{c1::H}}}} and {{{{c2::O}}}}{end}", "", {}, template, "Cloze", True, 3, 0)
+    return Deck("x", [*deck.cards[:2], cloze, *deck.cards[3:]], {})
+
+
+def test_a_re_import_keeps_the_schedule_and_park_of_every_answered_card() -> None:
+    kept = merge(ANSWERED_NOTE, answered_deck(changed=False))
+    updated = merge(ANSWERED_NOTE, answered_deck(changed=True))
+
+    assert kept is not None
+    assert updated is not None
+    assert kept.text == ANSWERED_NOTE
+    assert (kept.kept, kept.updated) == (6, 0)
+    assert (updated.kept, updated.updated) == (0, 6)
+    expected = ANSWERED_NOTE
+    for nid in range(1, 7):
+        expected = expected.replace(mark(nid), f"!{mark(nid)}")
+    assert updated.text == expected
+
+
+def test_cards_removed_in_anki_are_counted_and_stay_in_the_note() -> None:
+    kept = answered_deck(changed=False)
+
+    merged = merge(ANSWERED_NOTE, Deck("x", [kept.cards[0], kept.cards[5]], {}))
+
+    assert merged is not None
+    assert merged.text == ANSWERED_NOTE
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 0, 2, 4)
+
+
+def test_a_re_import_leaves_unmarked_lines_byte_for_byte() -> None:
+    # The user's own prose and cards, trailing spaces and all, and a `?` card of
+    # theirs at the end that an added card must not run into.
+    head = "---\nid: 1\n---\n#flashcards/x  \n\n# Mine\nSome prose  \t\n"
+    old = f"{head}a::b{mark(1)}\nmine::own\n\nMy q\n?\nmy a"
+
+    merged = merge(old, basic_deck(("a", "B"), ("c", "d")))
+
+    assert merged is not None
+    assert merged.text == f"{head}a::B{mark(1)}\nmine::own\n\nMy q\n?\nmy a\n\nc::d{mark(2)}\n"
+
+
+def test_a_shape_change_carries_the_schedule_into_the_new_shape() -> None:
+    old = (
+        f"#flashcards/x\n\na::b{mark(1)} !suspended {SR1}\nc::d{mark(2)}\n\n"
+        f"What is a::b?\n?\ne{mark(3)}\n{SR2}\n\nz::z{mark(4)}\n"
+    )
+
+    merged = merge(old, basic_deck(("a", "b\nmore"), ("c", "d"), ("What is a?", "e"), ("z", "z")))
+
+    assert merged is not None
+    assert merged.text == (
+        f"#flashcards/x\n\na\n?\nb\nmore{mark(1)}\n!suspended {SR1}\n\nc::d{mark(2)}\n\n"
+        f"What is a?::e{mark(3)} {SR2}\n\nz::z{mark(4)}\n"
+    )
+    assert merged.updated == 2
 
 
 def test_card_count_is_what_srs_reads_off_the_note() -> None:
@@ -532,6 +738,8 @@ def test_a_card_keeps_its_fields_template_and_note_type(layout: dict[str, Any]) 
         Template("Card 1", "{{Front}}", "{{FrontSide}}<hr id=answer>{{Back}}"),
         "Basic",
         cloze=False,
+        nid=1,
+        ord=0,
     )
 
 
@@ -674,7 +882,7 @@ def test_a_cloze_note_imports_as_one_cloze_line(layout: dict[str, Any]) -> None:
 
     assert sides(decks) == {"French": [("{{c1::Paris}} is in {{c2::France::a country}}", "")]}
     assert as_note(decks[0]) == (
-        "#flashcards/French\n\n{{c1::Paris}} is in {{c2::France::a country}}\n"
+        f"#flashcards/French\n\n{{{{c1::Paris}}}} is in {{{{c2::France::a country}}}}{mark(1)}\n"
     )
 
 
@@ -683,14 +891,16 @@ def test_a_cloze_without_back_extra_is_kept_on_a_line_of_its_own() -> None:
     deck = Deck(
         "x",
         [
-            Card("a", "b", {}, template, "Basic", cloze=False),
-            Card("Ratio {{c1::1}}:", "", {}, template, "Cloze", cloze=True),
-            Card("c", "d", {}, template, "Basic", cloze=False),
+            Card("a", "b", {}, template, "Basic", cloze=False, nid=1, ord=0),
+            Card("Ratio {{c1::1}}:", "", {}, template, "Cloze", cloze=True, nid=2, ord=0),
+            Card("c", "d", {}, template, "Basic", cloze=False, nid=3, ord=0),
         ],
         {},
     )
 
-    assert as_note(deck) == "#flashcards/x\n\na::b\nRatio {{c1::1}}:\nc::d\n"
+    assert as_note(deck) == (
+        f"#flashcards/x\n\na::b{mark(1)}\nRatio {{{{c1::1}}}}:{mark(2)}\nc::d{mark(3)}\n"
+    )
 
 
 def test_a_cloze_note_with_back_extra_imports_as_the_question_form() -> None:
@@ -704,8 +914,8 @@ def test_a_cloze_note_with_back_extra_imports_as_the_question_form() -> None:
     decks = read_apkg(apkg(notes, cards, ((100, "French"),)))
 
     assert as_note(decks[0]) == (
-        "#flashcards/French\n\nBonjour::hello\n\n"
-        "{{c1::Paris}} is the capital\n?\nOn the **Seine**\n\nOui::yes\n"
+        f"#flashcards/French\n\nBonjour::hello{mark(1)}\n\n"
+        f"{{{{c1::Paris}}}} is the capital\n?\nOn the **Seine**{mark(2)}\n\nOui::yes{mark(3)}\n"
     )
 
 
@@ -718,9 +928,10 @@ def test_a_cloze_whose_back_extra_would_end_the_card_keeps_the_cloze(extra: str)
     # Under a `?` these would end the card or count as one, and unlike a
     # question holding `::` a cloze has a line of its own to fall back on.
     template = Template("Cloze", "{{cloze:Text}}", "{{cloze:Text}}")
-    deck = Deck("x", [Card("{{c1::Paris}} is it", extra, {}, template, "Cloze", cloze=True)], {})
+    card = Card("{{c1::Paris}} is it", extra, {}, template, "Cloze", cloze=True, nid=1, ord=0)
+    deck = Deck("x", [card], {})
 
-    assert as_note(deck) == "#flashcards/x\n\n{{c1::Paris}} is it\n"
+    assert as_note(deck) == f"#flashcards/x\n\n{{{{c1::Paris}}}} is it{mark(1)}\n"
 
 
 @pytest.mark.parametrize(
@@ -738,7 +949,7 @@ def test_a_cloze_mark_kasten_cannot_read_imports_as_a_highlight(text: str, body:
     notes = ((1, CLOZE, f"{text}\x1fextra"),)
     deck = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))[0]
 
-    assert as_note(deck) == f"#flashcards/x\n\n{body}\n"
+    assert as_note(deck) == f"#flashcards/x\n\n{body}{mark(1)}\n"
     assert card_count(deck) == 1
 
 
@@ -747,7 +958,7 @@ def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # text is still worth a question.
     decks = read_apkg(apkg(((1, CLOZE, "Paris\x1fthe capital"),), CARDS[:1], ((100, "x"),)))
 
-    assert as_note(decks[0]) == "#flashcards/x\n\nParis::the capital\n"
+    assert as_note(decks[0]) == f"#flashcards/x\n\nParis::the capital{mark(1)}\n"
 
 
 def test_writes_a_deck_as_a_tagged_note() -> None:
@@ -755,24 +966,24 @@ def test_writes_a_deck_as_a_tagged_note() -> None:
     deck = Deck(
         "Certs/AWS",
         [
-            Card(front, back, {}, template, "Basic", cloze=False)
-            for front, back in (
-                ("Bonjour", "hello"),
-                ("", "orphan"),
-                ("Paris", "the capital"),
-                ("alone", ""),
+            Card(front, back, {}, template, "Basic", cloze=False, nid=nid, ord=0)
+            for nid, (front, back) in enumerate(
+                (("Bonjour", "hello"), ("", "orphan"), ("Paris", "the capital"), ("alone", "")), 1
             )
         ],
         {},
     )
 
-    assert as_note(deck) == "#flashcards/Certs/AWS\n\nBonjour::hello\nParis::the capital\nalone::\n"
+    assert as_note(deck) == (
+        f"#flashcards/Certs/AWS\n\nBonjour::hello{mark(1)}\nParis::the capital{mark(3)}\n"
+        f"alone::{mark(4)}\n"
+    )
 
 
 def test_parks_a_card_whose_back_adds_nothing() -> None:
     decks = read_apkg(apkg(((1, SOLO, "alone"),), ((11, 1, 100, 0),)))
 
-    assert as_note(decks[0]) == "#flashcards/French\n\nalone::\n"
+    assert as_note(decks[0]) == f"#flashcards/French\n\nalone::{mark(1)}\n"
 
 
 def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
@@ -782,17 +993,16 @@ def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
     decks = read_apkg(apkg(((1, BASIC, "What does std::move do?\x1fcasts to an rvalue"),)))
 
     assert as_note(decks[0]) == (
-        "#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue\n"
+        f"#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue{mark(1)}\n"
     )
 
 
 def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None:
-    template = Template("Card 1", "{{Front}}", "{{Back}}")
-    pairs = (("a", "b"), ("What does std::move do?", "casts std::move"), ("c", "d"))
-    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
+    deck = basic_deck(("a", "b"), ("What does std::move do?", "casts std::move"), ("c", "d"))
 
     assert as_note(deck) == (
-        "#flashcards/x\n\na::b\n\nWhat does std::move do?\n?\ncasts std::move\n\nc::d\n"
+        f"#flashcards/x\n\na::b{mark(1)}\n\n"
+        f"What does std::move do?\n?\ncasts std::move{mark(2)}\n\nc::d{mark(3)}\n"
     )
 
 
@@ -812,11 +1022,9 @@ def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str,
     # `srs.ts` would drop the `?` card and read the front at its first `::`, or,
     # for a `?` answer, `review.ts` would count the answer as a second card.
     # `frontend/tests/review.test.ts` reads the first case's text back.
-    template = Template("Card 1", "{{Front}}", "{{Back}}")
-    pairs = ((front, back), ("a", "b"))
-    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
+    deck = basic_deck((front, back), ("a", "b"))
 
-    assert as_note(deck) == "#flashcards/x\n\na::b\n"
+    assert as_note(deck) == f"#flashcards/x\n\na::b{mark(2)}\n"
 
 
 @pytest.mark.parametrize(
@@ -830,10 +1038,9 @@ def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str,
 def test_keeps_a_divider_question_holding_what_is_no_schedule_stop(front: str, back: str) -> None:
     # `srs.ts` stops a back only at a whole schedule comment, and a front at no
     # schedule at all, so neither of these ends the card.
-    template = Template("Card 1", "{{Front}}", "{{Back}}")
-    deck = Deck("x", [Card(front, back, {}, template, "Basic", cloze=False)], {})
+    deck = basic_deck((front, back))
 
-    assert as_note(deck) == f"#flashcards/x\n\n{front}\n?\n{back}\n"
+    assert as_note(deck) == f"#flashcards/x\n\n{front}\n?\n{back}{mark(1)}\n"
 
 
 def test_a_front_ending_in_a_colon_reads_back_whole() -> None:
@@ -841,7 +1048,7 @@ def test_a_front_ending_in_a_colon_reads_back_whole() -> None:
     # `divide` in `card-line.ts` trims the space the divider sits behind.
     decks = read_apkg(apkg(((1, BASIC, "Ratio 1:\x1f2"),), CARDS[:1], ((100, "x"),)))
 
-    line = as_note(decks[0]).splitlines()[-1]
+    line = as_note(decks[0]).splitlines()[-1].removesuffix(mark(1))
     front, back = line.split("::", 1)
 
     assert line == "Ratio 1: ::2"
@@ -851,22 +1058,21 @@ def test_a_front_ending_in_a_colon_reads_back_whole() -> None:
 def test_a_side_opening_a_fence_opens_none() -> None:
     # `fences()` in `card-line.ts` reads a line opening with three backticks as
     # a fence, and both readers would skip every card under it.
-    template = Template("Card 1", "{{Front}}", "{{Back}}")
-    pairs = (("```js x", "code"), ("```a::b", "```c"), ("a", "b"))
-    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
+    deck = basic_deck(("```js x", "code"), ("```a::b", "```c"), ("a", "b"))
 
     note = as_note(deck)
 
     assert not any(line.lstrip().startswith("```") for line in note.splitlines())
-    assert note == "#flashcards/x\n\n\\```js x::code\n\n\\```a::b\n?\n\\```c\n\na::b\n"
+    assert note == (
+        f"#flashcards/x\n\n\\```js x::code{mark(1)}\n\n\\```a::b\n?\n\\```c{mark(2)}\n\n"
+        f"a::b{mark(3)}\n"
+    )
 
 
 def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
-    template = Template("Card 1", "{{Front}}", "{{Back}}")
-    pairs = (("What does std::move do?", ""), ("a", "b"))
-    deck = Deck("x", [Card(f, b, {}, template, "Basic", cloze=False) for f, b in pairs], {})
+    deck = basic_deck(("What does std::move do?", ""), ("a", "b"))
 
-    assert as_note(deck) == "#flashcards/x\n\na::b\n"
+    assert as_note(deck) == f"#flashcards/x\n\na::b{mark(2)}\n"
 
 
 def test_script_and_style_add_no_text() -> None:
@@ -1107,7 +1313,8 @@ def test_a_front_of_only_a_sound_is_a_card() -> None:
 
     # The back's `<br>` is a line of it, so the card takes the `?` form.
     assert as_note(decks[0]) == (
-        "#flashcards/French\n\n![](French%20media/kanji.mp3)\n?\n漢字\nChinese characters\n"
+        "#flashcards/French\n\n![](French%20media/kanji.mp3)\n?\n漢字\n"
+        f"Chinese characters{mark(1)}\n"
     )
 
 
@@ -1151,6 +1358,10 @@ async def test_import_writes_one_note_per_deck(client: AsyncClient, vault: Path)
         "notes": ["03 Flashcards/AWS.md", "03 Flashcards/Terraform.md"],
         "cards": 2,
         "media": 0,
+        "added": 2,
+        "updated": 0,
+        "kept": 0,
+        "removed": 0,
     }
     written = (vault / "03 Flashcards" / "AWS.md").read_text(encoding="utf-8")
     # Stamped like every other note kasten writes, so the tag is under the block.
@@ -1225,7 +1436,7 @@ async def test_import_writes_media_beside_each_deck(client: AsyncClient, vault: 
         "![](03%20Flashcards/Cats%20media/cat.png) which cat?::"
         "the tabby ![](03%20Flashcards/Cats%20media/purr.mp3)"
     ) in cats
-    assert "![](03%20Flashcards/Pets/Cats%20media/cat.png) and here?::\n" in pets
+    assert f"![](03%20Flashcards/Pets/Cats%20media/cat.png) and here?::{mark(2)}\n" in pets
     served = await client.get("/api/assets/03%20Flashcards/Cats%20media/purr.mp3")
     assert served.content == MP3
 
@@ -1261,7 +1472,7 @@ async def test_import_skips_a_media_name_the_write_would_refuse(
     assert response.status_code == 201
     assert response.json()["media"] == 0
     note = (vault / "03 Flashcards" / "Cats.md").read_text(encoding="utf-8")
-    assert "\nwhich cat?::the tabby\n" in note
+    assert f"\nwhich cat?::the tabby{mark(1)}\n" in note
     assert not (vault / "03 Flashcards" / "Cats media").exists()
 
 
@@ -1287,14 +1498,164 @@ async def test_import_that_fails_partway_leaves_no_media_behind(
     assert [path for path in folder.rglob("*") if path.is_file()] == []
 
 
-async def test_import_refuses_a_deck_already_imported(client: AsyncClient, vault: Path) -> None:
+async def test_a_re_import_answers_with_what_it_added_updated_kept_and_removed(
+    client: AsyncClient, vault: Path
+) -> None:
+    first = apkg(
+        notes=((1, BASIC, "a\x1fb"), (2, BASIC, "c\x1fd"), (3, BASIC, "e\x1ff")),
+        cards=((1, 1, 10, 0), (2, 2, 10, 0), (3, 3, 10, 0)),
+        decks=((10, "AWS"),),
+    )
+    second = apkg(
+        notes=((1, BASIC, "a\x1fb"), (2, BASIC, "c\x1fD"), (4, BASIC, "g\x1fh")),
+        cards=((1, 1, 10, 0), (2, 2, 10, 0), (4, 4, 10, 0)),
+        decks=((10, "AWS"),),
+    )
+    await client.post("/api/anki", content=first)
+
+    again = await client.post("/api/anki", content=second)
+
+    assert again.status_code == 201
+    assert again.json() == {
+        "notes": ["03 Flashcards/AWS.md"],
+        "cards": 3,
+        "media": 0,
+        "added": 1,
+        "updated": 1,
+        "kept": 1,
+        "removed": 1,
+    }
+    note = (vault / "03 Flashcards" / "AWS.md").read_text(encoding="utf-8")
+    body = f"a::b{mark(1)}\nc::D{mark(2)}\ne::f{mark(3)}\ng::h{mark(4)}\n"
+    assert note.endswith(f"\n#flashcards/AWS\n\n{body}")
+
+
+async def test_an_unchanged_re_import_leaves_the_note_unwritten(
+    client: AsyncClient, vault: Path
+) -> None:
     export = apkg(notes=((1, BASIC, "a\x1fb"),), cards=((1, 1, 10, 0),), decks=((10, "AWS"),))
     await client.post("/api/anki", content=export)
+    note = vault / "03 Flashcards" / "AWS.md"
+    before = (note.read_bytes(), note.stat().st_mtime_ns)
 
     again = await client.post("/api/anki", content=export)
 
-    assert again.status_code == 409
-    assert "AWS" in again.json()["detail"]
+    assert again.status_code == 201
+    assert again.json()["kept"] == 1
+    assert (note.read_bytes(), note.stat().st_mtime_ns) == before
+
+
+async def test_a_deck_note_with_no_marker_is_refused_and_left_alone(
+    client: AsyncClient, vault: Path
+) -> None:
+    # Imported before the marker: nothing says which card is which.
+    note = vault / "03 Flashcards" / "AWS.md"
+    note.parent.mkdir()
+    note.write_text("#flashcards/AWS\n\na::b\n", encoding="utf-8")
+    export = apkg(notes=((1, BASIC, "a\x1fb"),), cards=((1, 1, 10, 0),), decks=((10, "AWS"),))
+
+    response = await client.post("/api/anki", content=export)
+
+    assert response.status_code == 409
+    assert "AWS" in response.json()["detail"]
+    assert note.read_text(encoding="utf-8") == "#flashcards/AWS\n\na::b\n"
+
+
+async def test_a_merge_keeps_media_already_there(client: AsyncClient, vault: Path) -> None:
+    await client.post("/api/anki", content=CAT_EXPORT)
+    taken = vault / "03 Flashcards" / "Cats media" / "cat.png"
+    taken.write_bytes(b"mine")
+
+    response = await client.post("/api/anki", content=CAT_EXPORT)
+
+    assert response.status_code == 201
+    assert response.json()["media"] == 0
+    assert taken.read_bytes() == b"mine"
+
+
+async def test_one_export_merges_an_existing_deck_and_creates_a_new_one(
+    client: AsyncClient, vault: Path
+) -> None:
+    first = apkg(notes=((1, BASIC, "a\x1fb"),), cards=((1, 1, 10, 0),), decks=((10, "AWS"),))
+    both = apkg(
+        notes=((1, BASIC, "a\x1fB"), (2, BASIC, "c\x1fd")),
+        cards=((1, 1, 10, 0), (2, 2, 20, 0)),
+        decks=((10, "AWS"), (20, "GCP")),
+    )
+    await client.post("/api/anki", content=first)
+
+    response = await client.post("/api/anki", content=both)
+
+    assert response.status_code == 201
+    assert response.json()["notes"] == ["03 Flashcards/AWS.md", "03 Flashcards/GCP.md"]
+    assert (response.json()["added"], response.json()["updated"]) == (1, 1)
+    folder = vault / "03 Flashcards"
+    assert f"\na::B{mark(1)}\n" in (folder / "AWS.md").read_text(encoding="utf-8")
+    assert f"\nc::d{mark(2)}\n" in (folder / "GCP.md").read_text(encoding="utf-8")
+
+
+def reviewed(deck: str, *, more: bool = False) -> bytes:
+    """An export of one deck whose cards Anki has in review, `more` adding one to it."""
+    notes = (
+        (1, BASIC, "a\x1fb"),
+        (2, BASIC, "What is a::b?\x1fc"),
+        (3, CLOZE, "{{c1::H}} {{c2::O}} {{c3::N}}\x1f"),
+    )
+    cards = ((1, 1, 10, 0), (2, 2, 10, 0), (3, 3, 10, 0), (4, 3, 10, 1), (5, 3, 10, 2))
+    reviews = ((1, 2, 4, 2500, 10), (2, 2, 9, 2300, 20), (3, 2, 3, 2500, 5), (5, 2, 7, 2700, 6))
+    if more:
+        notes += ((4, BASIC, "d\x1fe"),)
+        cards += ((6, 4, 10, 0),)
+        reviews += ((6, 2, 1, 2500, 2),)
+    return apkg(notes, cards, ((10, deck),), reviews=reviews)
+
+
+async def test_carry_writes_anki_schedules_and_is_off_by_default(
+    client: AsyncClient, vault: Path
+) -> None:
+    await client.post("/api/anki", content=reviewed("Off"))
+    await client.post("/api/anki", params={"carry": "true"}, content=reviewed("Off", more=True))
+    await client.post("/api/anki", params={"carry": "true"}, content=reviewed("On"))
+
+    folder = vault / "03 Flashcards"
+    off = (folder / "Off.md").read_text(encoding="utf-8")
+    on = (folder / "On.md").read_text(encoding="utf-8")
+    # A card already in the note keeps the schedule kasten gave it, none here;
+    # only the one the merge added takes Anki's.
+    assert off.count("<!--SR:") == 1
+    assert f"\nd::e{mark(4)} <!--SR:!2026-01-03,1,250-->\n" in off
+    assert on.endswith(
+        f"a::b{mark(1)} <!--SR:!2026-01-11,4,250-->\n\n"
+        f"What is a::b?\n?\nc{mark(2)}\n<!--SR:!2026-01-21,9,230-->\n\n"
+        f"{{{{c1::H}}}} {{{{c2::O}}}} {{{{c3::N}}}}{mark(3)}"
+        " <!--SR:c1!2026-01-06,3,250--> <!--SR:c3!2026-01-07,7,270-->\n"
+    )
+
+
+def test_carry_writes_nothing_for_a_card_new_learning_or_relearning() -> None:
+    notes = tuple((nid, BASIC, f"q{nid}\x1fa") for nid in (1, 2, 3, 4))
+    cards = tuple((nid, nid, 10, 0) for nid in (1, 2, 3, 4))
+    reviews = tuple((nid, kind, 4, 2500, 10) for nid, kind in ((1, 0), (2, 1), (3, 3), (4, 2)))
+
+    deck = read_apkg(apkg(notes, cards, ((10, "x"),), reviews=reviews), carry=True)[0]
+
+    assert as_note(deck) == (
+        f"#flashcards/x\n\nq1::a{mark(1)}\nq2::a{mark(2)}\nq3::a{mark(3)}\n"
+        f"q4::a{mark(4)} <!--SR:!2026-01-11,4,250-->\n"
+    )
+
+
+@pytest.mark.parametrize("crt", [NO_ROW, None, "soon", 1.5], ids=["no-row", "null", "text", "real"])
+async def test_carry_refuses_an_export_whose_creation_time_it_cannot_read(
+    client: AsyncClient, vault: Path, crt: object
+) -> None:
+    export = apkg(schema18=True, reviews=((11, 2, 4, 2500, 10),), crt=crt)
+
+    response = await client.post("/api/anki", params={"carry": "true"}, content=export)
+
+    assert response.status_code == 400
+    assert "unreadable" in response.json()["detail"]
+    assert not (vault / "03 Flashcards").exists()
 
 
 async def test_import_refuses_a_deck_name_that_climbs_out(client: AsyncClient, vault: Path) -> None:

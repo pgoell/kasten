@@ -33,6 +33,7 @@ interface ReviewDecksProps {
  */
 export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksProps) {
   const [imported, setImported] = useState<string | null>(null);
+  const [carry, setCarry] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: hits, isPending: scanning } = useQuery({
@@ -91,42 +92,57 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
         )}
       </header>
 
-      <label className="flex min-h-11 cursor-pointer items-center gap-3 border-one-line border-b px-3 text-[13px] text-one-muted hover:text-one-accent">
-        {/* A plain file input rather than a prompt of our own: the browser
-            already has a file picker, and this one has to work on a phone. */}
-        <input
-          type="file"
-          accept=".apkg"
-          className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            // The value is cleared so picking the same file twice fires twice,
-            // which is what a failed import wants to let you retry.
-            event.target.value = "";
-            if (file === undefined) return;
-            setImported("Importing…");
-            void importAnki(file).then(
-              (done) => {
-                setImported(
-                  `${done.notes.length} deck${done.notes.length === 1 ? "" : "s"}, ${done.cards} cards` +
-                    (done.media > 0
-                      ? `, ${done.media} media file${done.media === 1 ? "" : "s"}`
-                      : ""),
+      <div className="border-one-line border-b px-3 text-[13px] text-one-muted">
+        <div className="flex flex-wrap items-center gap-x-6">
+          <label className="flex min-h-11 cursor-pointer items-center hover:text-one-accent">
+            {/* A plain file input rather than a prompt of our own: the browser
+                already has a file picker, and this one has to work on a phone. */}
+            <input
+              type="file"
+              accept=".apkg"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                // The value is cleared so picking the same file twice fires twice,
+                // which is what a failed import wants to let you retry.
+                event.target.value = "";
+                if (file === undefined) return;
+                setImported("Importing…");
+                void importAnki(file, carry).then(
+                  (done) => {
+                    setImported(
+                      `${done.notes.length} deck${done.notes.length === 1 ? "" : "s"}, ${done.cards} cards: ` +
+                        `${done.added} added, ${done.updated} updated, ${done.kept} kept, ` +
+                        `${done.removed} removed in Anki` +
+                        (done.media > 0
+                          ? `, ${done.media} media file${done.media === 1 ? "" : "s"}`
+                          : ""),
+                    );
+                    void queryClient.invalidateQueries({ queryKey: ["cards"] });
+                    void queryClient.invalidateQueries({ queryKey: ["files"] });
+                  },
+                  (error: unknown) => {
+                    setImported(error instanceof Error ? error.message : "the import failed");
+                  },
                 );
-                void queryClient.invalidateQueries({ queryKey: ["cards"] });
-                void queryClient.invalidateQueries({ queryKey: ["files"] });
-              },
-              (error: unknown) => {
-                setImported(error instanceof Error ? error.message : "the import failed");
-              },
-            );
-          }}
-        />
-        <span>Import an Anki deck</span>
-        {imported !== null && (
-          <span className="min-w-0 flex-1 truncate text-one-fg">{imported}</span>
-        )}
-      </label>
+              }}
+            />
+            <span>Import an Anki deck</span>
+          </label>
+          {/* Off by default: a re-import keeps the schedule kasten has been
+              building unless you say Anki's is the one to trust. */}
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 hover:text-one-accent">
+            <input
+              type="checkbox"
+              checked={carry}
+              onChange={(event) => setCarry(event.target.checked)}
+              className="size-4 accent-one-accent"
+            />
+            <span>Carry Anki's schedule</span>
+          </label>
+        </div>
+        {imported !== null && <p className="truncate pb-2 text-one-fg">{imported}</p>}
+      </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {isPending && <p className="text-one-muted text-[13px]">Reading the vault…</p>}

@@ -675,9 +675,14 @@ export interface paths {
          *     `POST /api/assets/{path}` takes a book: one file, no fields beside it, and
          *     no dependency on a form parser for a request that carries nothing to parse.
          *
-         *     A deck already imported is refused rather than merged or overwritten. The
-         *     note it would land on is a note you may have answered fifty cards in, and
-         *     its schedules are in it; a second import is a thing to do into a fresh name.
+         *     A deck already imported is merged into its note by `merge`, which keeps
+         *     every schedule in it, since that is a note you may have answered fifty
+         *     cards in. One imported before the cards carried their Anki ids is refused
+         *     instead, there being no telling its cards apart.
+         *
+         *     `carry` writes Anki's schedule onto every card Anki has in review, as the
+         *     comment a rating would leave, so the review picks up where Anki left off.
+         *     Only on a card the import adds: one already in the note keeps kasten's.
          */
         post: operations["import_anki_api_anki_post"];
         delete?: never;
@@ -1179,6 +1184,14 @@ export interface components {
             cards: number;
             /** Media */
             media: number;
+            /** Added */
+            added: number;
+            /** Updated */
+            updated: number;
+            /** Kept */
+            kept: number;
+            /** Removed */
+            removed: number;
         };
         /**
          * Append
@@ -2308,7 +2321,9 @@ export interface operations {
     };
     import_anki_api_anki_post: {
         parameters: {
-            query?: never;
+            query?: {
+                carry?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2322,6 +2337,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnkiImport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

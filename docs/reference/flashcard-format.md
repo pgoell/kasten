@@ -393,6 +393,10 @@ it is.
   a second card.
 * **A daily limit on new cards.** Every new card in a deck is offered, except
   the ones [parked](#parking-a-card).
+* **An imported card's Anki id.** `<!--anki:1700000000001:0-->` at the end of
+  a card's last line is what [a re-import](/how-to/import-an-anki-deck.md#import-a-newer-version-of-a-deck)
+  finds the card by. The review takes it off both sides and never shows it,
+  and a rating writes its schedule after it.
 
 ## See also
 

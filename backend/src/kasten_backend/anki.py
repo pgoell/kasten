@@ -33,6 +33,7 @@ from collections import defaultdict
 from compression import zstd
 from contextlib import closing
 from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -139,6 +140,12 @@ _EMPTY = re.compile(r"(?:\s|</?(?:br|div) ?/?>)*", re.IGNORECASE)
 """Anki's own test for an empty field: an editor leaves `<br>` and `<div>` behind."""
 _SCHEDULE = re.compile(r"<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->")
 """`SR` in `card-line.ts`, the whole comment: `srs.ts` stops a back at nothing less."""
+_ANKI_ID = re.compile(r"<!--anki:(\d+):(\d+)-->")
+"""`ANKI_ID` in `card-line.ts`: the Anki note and template `as_note` writes after a card."""
+_STATE = re.compile(r"<!--SR:[^>]*?-->")
+"""A schedule comment of either kind, plain or a cloze number's, which a re-import carries over."""
+_TOKEN_WORD = re.compile(r"(?:^|\s)!suspended(?=\s|$)")
+"""The parking token whole, as `suspended()` in `card-line.ts` reads it."""
 _HEADING = re.compile(r"#{1,6}[ \t]")
 """`HEADING` in `srs.ts`."""
 _ONLY_TAGS = re.compile(r"(?:#[^\W\d][\w/-]*[ \t]*)+")
@@ -154,6 +161,21 @@ class Template:
     afmt: str
 
 
+REVIEW = 2
+"""A card row's `type` when Anki has it in review, the one kind with a schedule worth carrying."""
+
+
+@dataclass(frozen=True)
+class Review:
+    """One card row Anki has in review, as much of it as a schedule comment holds."""
+
+    ord: int
+    due: date
+    interval: int
+    ease: int
+    """Anki's `factor` in percent, which is what the comment holds: 2500 is 250."""
+
+
 @dataclass(frozen=True)
 class Card:
     """One Anki card as two sides of markdown, with what it was rendered from kept beside it."""
@@ -164,6 +186,12 @@ class Card:
     template: Template
     notetype: str
     cloze: bool
+    nid: int
+    """The Anki note the card came from, which a second import finds it by."""
+    ord: int
+    """Its template's ord, a cloze's lowest, since its numbers share a line."""
+    reviews: tuple[Review, ...] = ()
+    """Its rows in review, every number's for a cloze; read only when the import carries them."""
 
 
 @dataclass(frozen=True)
@@ -186,6 +214,9 @@ class _Rendered:
     fields: dict[str, str]
     template: Template
     kind: _NoteType
+    nid: int
+    ord: int
+    reviews: tuple[Review, ...]
 
 
 @dataclass(frozen=True)
@@ -280,13 +311,15 @@ def _flat(text: str) -> str:
     """`text` as one line, every tag but ruby's stripped: how a cloze mark is written.
 
     The token is escaped here as `_Markdown` escapes it in the rest of the
-    field, since `suspended()` in `card-line.ts` reads it inside a mark too.
+    field, since `suspended()` in `card-line.ts` reads it inside a mark too,
+    and so is the import's marker, as `_escaped` escapes it.
     """
     # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
     text = _RUBY_TAG.sub(lambda tag: f"{tag[1]}{tag[2].lower()}", text)
     text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text)))
     text = text.replace("", "<").replace("", ">")
-    return " ".join(text.split()).replace("!suspended", "\\!suspended")
+    text = " ".join(text.split()).replace("!suspended", "\\!suspended")
+    return text.replace("<!--anki:", "<!--anki\\:")
 
 
 def _escaped(line: str) -> str:
@@ -295,7 +328,8 @@ def _escaped(line: str) -> str:
     Each is a line `srs.ts` ends a `?` card on or reads as a divider, as
     `_ends_card` lists them. The schedule comment takes its backslash inside,
     since `SR` in `card-line.ts` matches anywhere on a line and a backslash
-    before the `<` would leave one whole.
+    before the `<` would leave one whole. The import's marker does the same,
+    or a re-import would take the text for a card it wrote.
     """
     if (
         line == "?"
@@ -304,7 +338,7 @@ def _escaped(line: str) -> str:
         or _ONLY_TAGS.fullmatch(line) is not None
     ):
         line = f"\\{line}"
-    return line.replace("<!--SR:", "<!--SR\\:")
+    return line.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:")
 
 
 def _ticks(code: str) -> str:
@@ -441,12 +475,13 @@ def media_path(folder: str, deck: str, name: str) -> str:
     return "/".join(part for part in (folder, f"{deck} media", name) if part)
 
 
-def read_apkg(data: bytes, folder: str = "") -> list[Deck]:
+def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Deck]:
     """Every deck `data` holds, sorted by name and without the empty ones.
 
     `folder` is where the deck notes go. A card links each image and sound it
     can carry at `media_path`, and its deck holds the bytes for the caller to
-    write there.
+    write there. With `carry`, a card holds its `reviews`, which `as_note` and
+    `merge` write as schedules.
 
     Raises:
         ValueError: `data` is not a zip, or holds no collection, or holds one
@@ -455,7 +490,7 @@ def read_apkg(data: bytes, folder: str = "") -> list[Deck]:
     """
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as bundle:
-            rendered = _rendered(_collection(bundle))
+            rendered = _rendered(_collection(bundle), carry=carry)
             index = _media_index(bundle)
             wanted = {name for card in rendered for name in _names(card.question, card.answer)}
             files = {name: found for name in wanted if (found := _media_file(bundle, index, name))}
@@ -481,6 +516,9 @@ def read_apkg(data: bytes, folder: str = "") -> list[Deck]:
                 card.template,
                 card.kind.name,
                 card.kind.cloze,
+                card.nid,
+                card.ord,
+                card.reviews,
             )
         )
 
@@ -502,8 +540,12 @@ def _name(match: re.Match[str]) -> str:
     return html.unescape(next(group for group in match.groups() if group is not None))
 
 
-def _rendered(blob: bytes) -> list[_Rendered]:
-    """Every card the collection `blob` makes, its sides rendered and not yet plain."""
+def _rendered(blob: bytes, *, carry: bool) -> list[_Rendered]:
+    """Every card the collection `blob` makes, its sides rendered and not yet plain.
+
+    The schedule columns are read only with `carry`, so an import that does
+    not want them does not depend on them.
+    """
     with tempfile.TemporaryDirectory() as folder:
         # sqlite3 opens a path rather than bytes, so the collection has to touch
         # a disk somewhere before it can be read.
@@ -520,6 +562,7 @@ def _rendered(blob: bytes) -> list[_Rendered]:
                 ).fetchall()
                 names = _deck_names(db)
                 types = _note_types(db)
+                reviews = _reviews(db) if carry else {}
             except sqlite3.Error as error:
                 raise ValueError(f"unreadable Anki collection: {error}") from error
 
@@ -547,9 +590,11 @@ def _rendered(blob: bytes) -> list[_Rendered]:
             if nid in clozed or not kind.templates:
                 continue
             clozed.add(nid)
-            template = kind.templates[min(kind.templates)]
+            which = min(kind.templates)
+            template = kind.templates[which]
             question, answer = values[0], values[1] if len(values) > 1 else ""
         else:
+            which = ord_
             template = kind.templates.get(ord_)
             if template is None:
                 continue
@@ -557,9 +602,35 @@ def _rendered(blob: bytes) -> list[_Rendered]:
             if not filled:
                 continue
             answer, _ = _render(_parse(template.afmt), fields, question=False)
-        rendered.append(_Rendered(name, question, answer, fields, template, kind))
+        # A cloze line holds every number's rows, the others their own.
+        held = tuple(r for r in reviews.get(nid, ()) if kind.cloze or r.ord == ord_)
+        rendered.append(_Rendered(name, question, answer, fields, template, kind, nid, which, held))
 
     return rendered
+
+
+def _reviews(db: sqlite3.Connection) -> dict[int, list[Review]]:
+    """Every card row in review, by its note, in template order.
+
+    A review card's `due` is a day counted from `col.crt`, when the collection
+    was made, in seconds since the epoch.
+
+    Raises:
+        ValueError: `col` has no row, or a `crt` that is not a whole number.
+    """
+    row = db.execute("SELECT crt FROM col").fetchone()
+    # sqlite keeps whatever type a row was written with, so a broken export
+    # can hold the time as text or nothing at all.
+    crt = row[0] if row else None
+    if not isinstance(crt, int):
+        raise ValueError(f"unreadable Anki export: the collection was made at {crt!r}")
+    start = datetime.fromtimestamp(crt, UTC).date()
+    held: defaultdict[int, list[Review]] = defaultdict(list)
+    for nid, ord_, ivl, factor, due in db.execute(
+        "SELECT nid, ord, ivl, factor, due FROM cards WHERE type = ? ORDER BY nid, ord", (REVIEW,)
+    ):
+        held[nid].append(Review(ord_, start + timedelta(days=due), ivl, factor // 10))
+    return held
 
 
 def as_note(deck: Deck) -> str:
@@ -594,6 +665,10 @@ def as_note(deck: Deck) -> str:
     over as many lines as it holds, it takes the `?` form; with none, or one
     that cannot, it is its line alone and the extra is lost, which is less than
     losing the card. A cloze note with no mark is a card like any other.
+
+    Every card ends in `<!--anki:NID:ORD-->`, its Anki note and template, after
+    its last line, which is how `merge` finds it when the deck comes again. A
+    card holding `reviews` takes their schedules as a rating would write them.
     """
     # A tag runs to the first space, so a deck called "AWS Certification" would
     # otherwise land in a deck called `AWS` with the rest of its name read as
@@ -601,25 +676,204 @@ def as_note(deck: Deck) -> str:
     head = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
     body: list[str] = []
     for card in note_cards(deck):
-        if _clozed(card) and not _divides(card):
-            # A cloze line holds no divider, so the colon gap has nothing to keep.
-            body.append(_unfenced(card.front))
-        elif _one_line(card):
-            front = _unfenced(card.front.replace("\n", " "))
-            # `divide` splits at the first `::`, so `Ratio 1:` before the divider
-            # would lose its colon to the back; it trims the space this adds.
-            gap = " " if front.endswith(":") else ""
-            body.append(f"{front}{gap}::{card.back}")
-        else:
-            if body and body[-1]:
-                body.append("")
-            fronts, backs = card.front.splitlines(), card.back.splitlines()
-            body += [*map(_unfenced, fronts), "?", *map(_unfenced, backs), ""]
+        _place(body, _with_state(_marked(card, _lines(card)), False, _carried(card)))
     # The blank a `?` card leaves under itself is a separator, not part of the
     # note, so the last one comes off rather than ending the note on two breaks.
     if body and not body[-1]:
         body.pop()
     return "\n".join(head + body) + "\n"
+
+
+def _lines(card: Card) -> list[str]:
+    """The lines `as_note` writes for `card`, unmarked: one, or the three parts of a `?` card.
+
+    The one place a card is rendered, since a re-import tells a card Anki
+    changed from one it did not by comparing these with what the note holds.
+    """
+    if _clozed(card) and not _divides(card):
+        # A cloze line holds no divider, so the colon gap has nothing to keep.
+        return [_unfenced(card.front)]
+    if _one_line(card):
+        front = _unfenced(card.front.replace("\n", " "))
+        # `divide` splits at the first `::`, so `Ratio 1:` before the divider
+        # would lose its colon to the back; it trims the space this adds.
+        gap = " " if front.endswith(":") else ""
+        return [f"{front}{gap}::{card.back}"]
+    fronts, backs = card.front.splitlines(), card.back.splitlines()
+    return [*map(_unfenced, fronts), "?", *map(_unfenced, backs)]
+
+
+def _marked(card: Card, lines: list[str]) -> list[str]:
+    """`lines` with the card's marker after the last, where no rating writes."""
+    return [*lines[:-1], f"{lines[-1]} <!--anki:{card.nid}:{card.ord}-->"]
+
+
+def _place(body: list[str], lines: list[str]) -> None:
+    """`lines` added to `body`, a `?` card with a blank line either side of it.
+
+    So the `?` card's front and back do not run into the lines next to it.
+    """
+    if len(lines) == 1:
+        body.append(lines[0])
+        return
+    if body and body[-1]:
+        body.append("")
+    body += [*lines, ""]
+
+
+@dataclass(frozen=True)
+class Merged:
+    """A deck's note after a re-import, and what came of its cards, counted a marker each."""
+
+    text: str
+    added: int
+    updated: int
+    kept: int
+    removed: int
+
+
+@dataclass(frozen=True)
+class _Span:
+    """One marked card of a note: lines `start` to `end`, its text, and what a rating left on it."""
+
+    start: int
+    end: int
+    text: list[str]
+    """The card's lines as `_lines` would write them, the marker and the state taken off."""
+    suspended: bool
+    comments: list[str]
+
+
+def merge(old: str, deck: Deck) -> Merged | None:
+    """The note `old` with `deck` imported into it again, or None when `old` holds no marker.
+
+    A card is found by its marker. One whose text is what `_lines` writes now
+    is kept as it stands, and one Anki changed is written anew, the parking
+    token and the schedules a rating left on it carried into its new shape. A
+    card the note lacks goes on the end in `as_note`'s layout. One the export
+    lacks stays, since its schedule is history worth more than tidiness, and is
+    only counted. Every line without a marker, the tag line and whatever the
+    user wrote, comes through byte for byte.
+
+    None for a note without a marker, which an import older than the marker
+    wrote: nothing in it says which card is which, so nothing can be merged.
+    """
+    lines = old.split("\n")
+    spans = _spans(lines)
+    if not spans:
+        return None
+
+    added: list[list[str]] = []
+    replaced: dict[int, tuple[_Span, list[str]]] = {}
+    kept = 0
+    for card in note_cards(deck):
+        span = spans.get((card.nid, card.ord))
+        if span is None:
+            added.append(_with_state(_marked(card, _lines(card)), False, _carried(card)))
+        elif span.text == _lines(card):
+            kept += 1
+        else:
+            card_lines = _with_state(_marked(card, _lines(card)), span.suspended, span.comments)
+            replaced[span.start] = (span, card_lines)
+
+    out = _replaced(lines, replaced)
+    if added:
+        while out and not out[-1]:
+            out.pop()
+        # A `?` card or the user's prose would run into a card added right under it.
+        if not any(s.start == s.end == len(out) - 1 for s in _spans(out).values()):
+            out.append("")
+        for card_lines in added:
+            _place(out, card_lines)
+        if not out[-1]:
+            out.pop()
+        out.append("")
+    removed = len(spans.keys() - {(card.nid, card.ord) for card in note_cards(deck)})
+    return Merged("\n".join(out), len(added), len(replaced), kept, removed)
+
+
+def _replaced(lines: list[str], replaced: dict[int, tuple[_Span, list[str]]]) -> list[str]:
+    """`lines` with each span in `replaced`, keyed by where it starts, swapped for its new lines."""
+    out: list[str] = []
+    at = 0
+    while at < len(lines):
+        if at not in replaced:
+            out.append(lines[at])
+            at += 1
+            continue
+        span, card_lines = replaced[at]
+        block = len(card_lines) > 1
+        # A card that turned into a `?` card needs the blank lines either side
+        # that `as_note` gives one, or it would run into its neighbours.
+        if block and out and out[-1].strip():
+            out.append("")
+        out += card_lines
+        at = span.end + 1
+        if block and at < len(lines) and lines[at].strip():
+            out.append("")
+    return out
+
+
+def _carried(card: Card) -> list[str]:
+    """The schedule comments `card`'s Anki reviews make, as `comment` in `srs.ts` writes them.
+
+    A cloze takes one per number it has a review of, Anki's ord being the
+    number less one; any other card has one row and so one review at most.
+    """
+    if _clozed(card):
+        return [
+            f"<!--SR:c{r.ord + 1}!{r.due.isoformat()},{r.interval},{r.ease}-->"
+            for r in card.reviews
+        ]
+    return [f"<!--SR:!{r.due.isoformat()},{r.interval},{r.ease}-->" for r in card.reviews[:1]]
+
+
+def _with_state(lines: list[str], suspended: bool, comments: list[str]) -> list[str]:
+    """A marked card's `lines` with the token and the schedules where a rating puts them.
+
+    After the marker on a card of one line, and on a line of their own under a
+    `?` card, the token first, as `setSuspended` in `srs.ts` writes them.
+    """
+    state = " ".join(["!suspended"] * suspended + comments)
+    if not state:
+        return lines
+    if len(lines) == 1:
+        return [f"{lines[0]} {state}"]
+    return [*lines, state]
+
+
+def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
+    """Every marked card in `lines`, by its Anki note and template.
+
+    A marker closes a `?` card when a `?` line stands between it and the blank
+    line above, and a card on its own line otherwise. A `?` card's state may
+    sit on the line under its marker, where `srs.ts` splices it.
+    """
+    spans: dict[tuple[int, int], _Span] = {}
+    for at, line in enumerate(lines):
+        found = _ANKI_ID.search(line)
+        if found is None:
+            continue
+        top = at
+        # Up to the blank line, or to the card above where nothing parts them.
+        while top > 0 and lines[top - 1].strip() and not _ANKI_ID.search(lines[top - 1]):
+            top -= 1
+        block = any(lines[row].strip() == "?" for row in range(top, at))
+        start, end, state = (top if block else at), at, line[found.end() :]
+        below = lines[at + 1] if at + 1 < len(lines) else ""
+        if block and below.startswith(("<!--SR:", "!suspended")):
+            end, state = at + 1, f"{state} {below}"
+        spans.setdefault(
+            (int(found[1]), int(found[2])),
+            _Span(
+                start,
+                end,
+                [*lines[start:at], line[: found.start()].removesuffix(" ")],
+                _TOKEN_WORD.search(state) is not None,
+                _STATE.findall(state),
+            ),
+        )
+    return spans
 
 
 def note_cards(deck: Deck) -> list[Card]:
@@ -658,10 +912,15 @@ def _clozed(card: Card) -> bool:
 
 
 def _divides(card: Card) -> bool:
-    """Whether `card` can stand as front, `?` and back, by `as_note`'s rules, line by line."""
+    """Whether `card` can stand as front, `?` and back, by `as_note`'s rules, line by line.
+
+    A back holding a marker cannot, since `merge` would read the card as ending there.
+    """
     lines = [*card.front.splitlines(), *card.back.splitlines()]
     return bool(card.back) and not (
-        any(_ends_card(line) or line == "?" for line in lines) or _SCHEDULE.search(card.back)
+        any(_ends_card(line) or line == "?" for line in lines)
+        or _SCHEDULE.search(card.back)
+        or _ANKI_ID.search(card.back)
     )
 
 

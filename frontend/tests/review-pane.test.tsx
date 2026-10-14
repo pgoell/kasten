@@ -445,4 +445,35 @@ describe("ReviewDecks reading the deck notes", () => {
     await screen.findByRole("button", { name: /alpha/ });
     expect(cards).toHaveBeenLastCalledWith(true);
   });
+
+  it("imports without Anki's schedule unless asked, and counts what the merge did", async () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    const imported = vi.spyOn(api, "importAnki").mockResolvedValue({
+      notes: ["Anki/AWS.md"],
+      cards: 120,
+      media: 2,
+      added: 5,
+      updated: 3,
+      kept: 110,
+      removed: 2,
+    });
+    renderDecks();
+    await screen.findByRole("button", { name: /alpha/ });
+    const deck = new File(["apkg"], "aws.apkg");
+    const carry = screen.getByRole("checkbox", { name: "Carry Anki's schedule" });
+
+    expect(carry).not.toBeChecked();
+    fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
+    expect(imported).toHaveBeenLastCalledWith(deck, false);
+    expect(
+      await screen.findByText(
+        "1 deck, 120 cards: 5 added, 3 updated, 110 kept, 2 removed in Anki, 2 media files",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(carry);
+    fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
+    expect(imported).toHaveBeenLastCalledWith(deck, true);
+  });
 });
