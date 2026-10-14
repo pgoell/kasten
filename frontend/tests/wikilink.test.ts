@@ -4,6 +4,8 @@ import { EditorState } from "@codemirror/state";
 import {
   outgoingLinks,
   plainLinks,
+  resolveIn,
+  splitTarget,
   vaultPaths,
   WikiLink,
   wikiLinkCompletions,
@@ -197,6 +199,54 @@ describe("wikiLinkCompletions", () => {
 
   it("offers nothing where the vault is not known, as in a preview pane", () => {
     expect(complete("see [[")).toBeNull();
+  });
+});
+
+describe("splitTarget", () => {
+  it("reads a bare name as the name alone", () => {
+    expect(splitTarget(" borges ")).toEqual({ name: "borges", heading: null, alias: null });
+  });
+
+  it("takes the heading off at the first hash", () => {
+    expect(splitTarget("borges # The Aleph #2")).toEqual({
+      name: "borges",
+      heading: "The Aleph #2",
+      alias: null,
+    });
+  });
+
+  it("takes the alias off at the first bar, before the heading", () => {
+    expect(splitTarget("borges|the man")).toEqual({
+      name: "borges",
+      heading: null,
+      alias: "the man",
+    });
+    expect(splitTarget("borges#Aleph|see #this|too")).toEqual({
+      name: "borges",
+      heading: "Aleph",
+      alias: "see #this|too",
+    });
+  });
+
+  it("calls an empty heading none", () => {
+    expect(splitTarget("borges#  ").heading).toBeNull();
+  });
+});
+
+describe("resolveIn", () => {
+  const IMAGES = ["99 Misc/images/Shot.png", "photos/cat.png"];
+
+  it("finds a file by its name wherever it sits, ignoring case", () => {
+    expect(resolveIn("shot.png", IMAGES)).toBe("99 Misc/images/Shot.png");
+  });
+
+  it("takes a path with a slash at its word", () => {
+    expect(resolveIn("photos/cat.png", IMAGES)).toBe("photos/cat.png");
+    expect(resolveIn("photos/dog.png", IMAGES)).toBe("photos/dog.png");
+  });
+
+  it("answers null for a bare name nothing holds", () => {
+    expect(resolveIn("dog.png", IMAGES)).toBeNull();
   });
 });
 

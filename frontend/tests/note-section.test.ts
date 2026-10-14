@@ -1,4 +1,4 @@
-import { appendUnder } from "@/lib/note-section";
+import { appendUnder, sectionOf } from "@/lib/note-section";
 
 /** Today's daily note as the vault holds it, log line and all. */
 const DAILY = [
@@ -47,5 +47,48 @@ describe("appendUnder", () => {
         "",
       ].join("\n"),
     );
+  });
+});
+
+/** A note with a section under a section, and one after both. */
+const BOOK = [
+  "# Borges",
+  "intro",
+  "## The Aleph",
+  "a point in space",
+  "### Notes",
+  "still the aleph",
+  "## Ficciones",
+  "labyrinths",
+].join("\n");
+
+describe("sectionOf", () => {
+  it("runs from the heading to the next one of the same level", () => {
+    expect(sectionOf(BOOK, "The Aleph")).toEqual({
+      text: "## The Aleph\na point in space\n### Notes\nstill the aleph",
+      line: 3,
+    });
+  });
+
+  it("keeps the lower headings inside and stops at a higher one", () => {
+    expect(sectionOf(BOOK, "Notes")).toEqual({ text: "### Notes\nstill the aleph", line: 5 });
+  });
+
+  it("runs the last section to the end of the note", () => {
+    expect(sectionOf(BOOK, "Ficciones")).toEqual({ text: "## Ficciones\nlabyrinths", line: 7 });
+    expect(sectionOf(BOOK, "Borges")?.text).toBe(BOOK);
+  });
+
+  it("matches the heading ignoring case and the space around it", () => {
+    expect(sectionOf(BOOK, "  the aleph ")?.line).toBe(3);
+  });
+
+  it("answers null for a heading the note does not hold", () => {
+    expect(sectionOf(BOOK, "Labyrinths")).toBeNull();
+  });
+
+  it("reads ATX headings only", () => {
+    expect(sectionOf("Setext\n======\nbody", "Setext")).toBeNull();
+    expect(sectionOf("#hashtag\nbody", "hashtag")).toBeNull();
   });
 });

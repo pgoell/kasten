@@ -11,11 +11,14 @@ import type { CompletionContext, CompletionResult } from "@codemirror/autocomple
 import { syntaxTree } from "@codemirror/language";
 import { type EditorState, Facet } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
-import type { MarkdownConfig } from "@lezer/markdown";
+import type { Element, InlineContext, MarkdownConfig } from "@lezer/markdown";
 import { INBOX } from "@/lib/layout";
 
 /** `[`, which the parser sees as a code point rather than a string. */
 const BRACKET = 91;
+
+/** `!`, which turns a link into an embed the way it turns one into an image. */
+const BANG = 33;
 
 /** How many characters open the link, and how many close it. */
 const MARK = 2;
@@ -25,44 +28,86 @@ const SUFFIX = ".md";
 /** A page of HTML in the vault, which a link names by its full file name. */
 const PAGE = ".html";
 
+/** The `[[name]]` opening at `pos`, as an element, or null where none does. */
+function wikiLinkElement(cx: InlineContext, pos: number): Element | null {
+  if (cx.char(pos) !== BRACKET || cx.char(pos + 1) !== BRACKET) return null;
+
+  const rest = cx.slice(pos + MARK, cx.end);
+  const end = rest.indexOf("]]");
+  if (end === -1) return null;
+
+  // A bracket or a line break before the close means the `[[` opened
+  // nothing: a link names one note, and it names it on one line. A name
+  // of only spaces is no name, and `[[]]` is a pair of empty brackets.
+  const target = rest.slice(0, end);
+  if (!target.trim() || /[[\]\n]/.test(target)) return null;
+
+  const to = pos + MARK + end + MARK;
+  return cx.elt("WikiLink", pos, to, [
+    cx.elt("WikiLinkMark", pos, pos + MARK),
+    cx.elt("WikiLinkMark", to - MARK, to),
+  ]);
+}
+
 /**
- * `[[note]]`, which no markdown flavour we load parses.
+ * `[[note]]`, which no markdown flavour we load parses, and `![[note]]`, the
+ * note drawn in place.
  *
  * One element rather than a delimiter pair: what sits between the brackets is
  * a note's name, not prose, so nothing inside it is parsed as markdown.
+ *
+ * The embed wraps a whole `WikiLink` rather than being a node of its own
+ * shape, so everything that reads a link under the cursor, `gf` first, reads
+ * the one inside an embed without being told embeds exist.
  */
 export const WikiLink: MarkdownConfig = {
-  defineNodes: ["WikiLink", "WikiLinkMark"],
+  defineNodes: ["WikiLink", "WikiLinkMark", "Embed", "EmbedMark"],
   parseInline: [
     {
       name: "WikiLink",
       parse(cx, next, pos) {
-        if (next !== BRACKET || cx.char(pos + 1) !== BRACKET) return -1;
-
-        const rest = cx.slice(pos + MARK, cx.end);
-        const end = rest.indexOf("]]");
-        if (end === -1) return -1;
-
-        // A bracket or a line break before the close means the `[[` opened
-        // nothing: a link names one note, and it names it on one line. A name
-        // of only spaces is no name, and `[[]]` is a pair of empty brackets.
-        const target = rest.slice(0, end);
-        if (!target.trim() || /[[\]\n]/.test(target)) return -1;
-
-        const to = pos + MARK + end + MARK;
-        return cx.addElement(
-          cx.elt("WikiLink", pos, to, [
-            cx.elt("WikiLinkMark", pos, pos + MARK),
-            cx.elt("WikiLinkMark", to - MARK, to),
-          ]),
-        );
+        if (next !== BRACKET) return -1;
+        const link = wikiLinkElement(cx, pos);
+        return link === null ? -1 : cx.addElement(link);
       },
       // Ahead of the built-in, which would otherwise take the first `[` for a
       // markdown link and leave this nothing to open on.
       before: "Link",
     },
+    {
+      name: "Embed",
+      parse(cx, next, pos) {
+        if (next !== BANG) return -1;
+        const link = wikiLinkElement(cx, pos + 1);
+        if (link === null) return -1;
+        return cx.addElement(
+          cx.elt("Embed", pos, link.to, [cx.elt("EmbedMark", pos, pos + 1), link]),
+        );
+      },
+      // Ahead of the image, which reads `![` as its own opening and holds the
+      // link it finds inside as an image's alt text.
+      before: "Image",
+    },
   ],
 };
+
+/**
+ * What `[[name#heading|alias]]` is made of: the note, the heading in it, and
+ * what to call the link. The bar is taken first, so an alias may carry a hash.
+ */
+export function splitTarget(target: string): {
+  name: string;
+  heading: string | null;
+  alias: string | null;
+} {
+  const bar = target.indexOf("|");
+  const named = bar === -1 ? target : target.slice(0, bar);
+  const alias = bar === -1 ? null : target.slice(bar + 1).trim() || null;
+  const hash = named.indexOf("#");
+  const name = (hash === -1 ? named : named.slice(0, hash)).trim();
+  const heading = hash === -1 ? null : named.slice(hash + 1).trim() || null;
+  return { name, heading, alias };
+}
 
 /**
  * Every note in the vault, carried on the editor state.
@@ -116,17 +161,26 @@ export function wikiLinkAt(state: EditorState, pos: number): string | null {
 export function wikiLinkPath(target: string, paths: string[]): string {
   const typed = target.trim();
   const path = typed.endsWith(SUFFIX) || typed.endsWith(PAGE) ? typed : `${typed}${SUFFIX}`;
+  // A name says which note, never where it belongs, so following a link to one
+  // nobody has written has to put it somewhere. The inbox is the folder for a
+  // note with nowhere to be yet; a target spelling a path was taken at its word.
+  return resolveIn(path, paths) ?? `${INBOX}/${path}`;
+}
+
+/**
+ * The file in `paths` a full file name answers to, or null where none does.
+ *
+ * The lookup half of `wikiLinkPath`, apart so `![[shot.png]]` finds its image
+ * by the same rule a link finds its note: exact first, a path with a slash at
+ * its word, and otherwise a file of that name in any folder, ignoring case.
+ */
+export function resolveIn(path: string, paths: string[]): string | null {
   if (paths.includes(path) || path.includes("/")) return path;
 
   const name = path.toLowerCase();
-  const found = paths.find(
-    (other) => other.slice(other.lastIndexOf("/") + 1).toLowerCase() === name,
+  return (
+    paths.find((other) => other.slice(other.lastIndexOf("/") + 1).toLowerCase() === name) ?? null
   );
-  // A name says which note, never where it belongs, so following a link to one
-  // nobody has written has to put it somewhere. The inbox is the folder for a
-  // note with nowhere to be yet; a target spelling a path was taken at its word
-  // above.
-  return found ?? `${INBOX}/${path}`;
 }
 
 /** Whether the vault holds the note `[[target]]` names. */

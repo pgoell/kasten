@@ -311,6 +311,37 @@ body {
   border-radius: 3px;
 }
 
+/* `![[note]]`, another note drawn in this one. The bar and the well make it read
+   as quoted rather than as more of this note, the bar matching the blockquote's.
+   The nested editor's own background goes, or oneDark would paint a second
+   panel over the well. */
+.cm-embed {
+  display: block;
+  max-width: 100%;
+  border-left: 3px solid var(--color-one-muted);
+  background: var(--color-one-well);
+  border-radius: 3px;
+  padding: 0.25em 0.75em;
+}
+
+.cm-embed .cm-editor {
+  background: transparent;
+}
+
+/* A note or heading the vault does not hold, and the embed past the depth cap:
+   a name in a box, muted, the box saying where the note would have been. */
+.cm-embed-missing,
+.cm-embed-stub {
+  color: var(--color-one-muted);
+  font-style: italic;
+}
+
+.cm-embed-stub {
+  display: block;
+  border-left: 3px dashed var(--color-one-muted);
+  padding: 0.25em 0.75em;
+}
+
 /* The day's weather under a daily note's title. The svg scales to the column,
    so the strip is as wide as the text; the tooltip sits over it rather than in
    the flow, or hovering would push the note down. */

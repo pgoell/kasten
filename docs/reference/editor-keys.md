@@ -1753,6 +1753,10 @@ relative one such as `[notes](notes.md)` does nothing. A tap on the markdown
 link the cursor is in moves the cursor, as on a wikilink. `gf` and Enter leave
 markdown links alone.
 
+Ctrl+click or a tap on an embed, `![[note]]`, opens the embedded note in the
+focused pane, at its heading for `![[note#heading]]`. A plain click does nothing
+to it. [Embed format](/reference/embed-format.md) says what an embed draws.
+
 A tap on a touch screen follows the link with no modifier. A finger that lands on a link and drags scrolls the note and follows
 nothing. A tap on the link the cursor is already in moves the cursor, so to
 edit a link, put the cursor beside it and move in with the arrow keys or

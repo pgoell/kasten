@@ -4,6 +4,7 @@ import { EditorView } from "@codemirror/view";
 import { waitFor } from "@testing-library/react";
 import { renderedMarkdown } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
+import { wikiLinkAt } from "@/lib/wikilink";
 
 /** Whether some decoration replaces the range with a widget. */
 function drawn(view: EditorView, from: number, to: number): boolean {
@@ -16,6 +17,37 @@ function drawn(view: EditorView, from: number, to: number): boolean {
   }
   return found;
 }
+
+/** The tree `doc` parses to, as lezer prints it. */
+function tree(doc: string): string {
+  return syntaxTree(EditorState.create({ doc, extensions: [noteLanguage()] })).toString();
+}
+
+describe("an embed", () => {
+  it("parses ![[note]] as an embed around the wikilink it holds", () => {
+    expect(tree("![[note#Heading|alias]]")).toContain(
+      "Embed(EmbedMark,WikiLink(WikiLinkMark,WikiLinkMark))",
+    );
+    expect(tree("![[note]]")).not.toContain("Image");
+  });
+
+  it("leaves the link under the embed readable to gf", () => {
+    const state = EditorState.create({ doc: "![[note]]", extensions: [noteLanguage()] });
+
+    expect(wikiLinkAt(state, 4)).toBe("note");
+  });
+
+  it("refuses what a wikilink refuses", () => {
+    expect(tree("![[note")).not.toContain("Embed");
+    expect(tree("![[  ]]")).not.toContain("Embed");
+    expect(tree("![[a\nb]]")).not.toContain("Embed");
+  });
+
+  it("leaves a markdown image an image", () => {
+    expect(tree("![alt](shot.png)")).toContain("Image");
+    expect(tree("![alt](shot.png)")).not.toContain("Embed");
+  });
+});
 
 describe("a note longer than the first parse", () => {
   it("draws what the parser reaches after the note has opened", async () => {

@@ -54,6 +54,7 @@ import {
 import { visible } from "@/lib/archive";
 import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
+import { queryEmbedSource } from "@/lib/embed";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import type { MoveMode } from "@/lib/move";
@@ -861,6 +862,19 @@ function Home() {
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst],
+  );
+
+  /**
+   * How an embed in any pane reads its note and opens it.
+   *
+   * Through the query cache, on the key the panes read their notes by, so the
+   * vault event handler above that refetches a written note and the autosave
+   * that stores what it wrote keep every embed of it current too. The line
+   * passes straight through: both sides count from one.
+   */
+  const embeds = useMemo(
+    () => queryEmbedSource(queryClient, (path, line) => void openInPane(path, line)),
+    [queryClient, openInPane],
   );
 
   /** Show an HTML page in the focused pane, the way `openImageInPane` shows an image. */
@@ -2047,6 +2061,7 @@ function Home() {
                     focusSignal={focused ? focusSignal : 0}
                     focused={focused}
                     onFollow={follow}
+                    embeds={embeds}
                   />
                 ) : (
                   // A column rather than the editor alone, so a person's note
@@ -2086,6 +2101,7 @@ function Home() {
                         onCycleTodo={logCycledTodo}
                         onOpenHighlight={openPassage}
                         onNotice={setNotice}
+                        embeds={embeds}
                       />
                     </div>
                     <PersonFooter

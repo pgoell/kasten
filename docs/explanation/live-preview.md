@@ -296,3 +296,50 @@ offset zero because nothing has moved it, so a note or a flashcard that opens
 with a table would otherwise be a pane full of pipes. The read-only facet is
 what tells the two apart, `EditorView.editable` being a view-level thing this
 code cannot see.
+
+## An embed is a note, read only
+
+`![[note]]` draws another note where the line was, and `![[note#heading]]` one
+section of it. [Embed format](/reference/embed-format.md) states every form and
+what each draws; this section says why it is built the way it is.
+
+**The box is the same rendering, nested.** The embed mounts a second editor
+inside the first, read only, with this live preview in it. A note drawn by
+anything else, a markdown library turned to HTML say, would bold, link and tag
+by rules of its own, and the same note would read one way in its pane and
+another inside the box. One renderer keeps the two the same, and every
+construct this page covers works in an embed with no code added for it. The
+frontmatter block is left out because it is the note's record of itself and not
+what you embed a note to read.
+
+**It is a widget that hides its source, as a picture is.** The box stands in for
+the `![[...]]` the way an image stands in for its `![](...)`, so it follows the
+same reveal rule: the line comes back as source in insert or visual mode with
+the cursor on it, or with vim off whenever the cursor is there, and the
+cursor-walking filter keeps the cursor out of the hidden brackets the rest of
+the time. Editing in place was left out. Text typed into the box would belong
+to another note, with its own save and its own conflicts, and opening that note
+is one gesture away.
+
+**A depth cap, not a cycle check.** A note that embeds itself, or two notes that
+embed each other, would draw without end. Tracking the paths on the way down
+would stop the loop, but not a long honest chain, each level of which mounts
+another editor and reads another note. A cap at three stops both, and needs only
+a number passed down rather than a list. Past it the embed draws a stub.
+
+**The click needs Ctrl or a tap, as a wikilink's does.** A plain click on a line
+is how the cursor gets there, and the cursor on the line is how the source
+comes back. If a plain click opened the note, the `![[...]]` could only be
+reached with the keys. So the gesture is the one a wikilink already answers to:
+Ctrl+click or Cmd+click with a mouse, a tap with a finger.
+
+**The embed listens to its note.** The decorations are rebuilt when the
+document being edited changes, and the embedded note is not that document. An
+agent's write, an edit in another pane or a save changes it without touching
+this one, so a box built once with the decorations would go stale and stay
+that way. Instead each box watches its note and redraws itself when the note
+changes, whatever changed it.
+
+The finder's preview pane is the exception. It is told nothing about how to
+read the vault, so it shows `![[...]]` as source rather than calling every
+target missing.

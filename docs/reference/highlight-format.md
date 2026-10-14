@@ -83,8 +83,8 @@ Storage and Retrieval ^hl-a3f9c1
 ```
 
 Above the quote because a book's caption sits under its figure, and the quote is
-usually that caption. A plain markdown image and not an embed: that is what the
-editor draws, and it is the same line a pasted screenshot writes.
+usually that caption. A plain markdown image and not an embed: it is the same
+line a pasted screenshot writes, and a reader other than Obsidian draws it too.
 
 The file lands in the images folder, `99 Misc/02 Assets/01 Images` unless
 [`KASTEN_IMAGES_PATH`](/reference/configuration.md#the-vaults-folders) names

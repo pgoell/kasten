@@ -9,6 +9,31 @@
 /** Any heading, which is what ends the section above it. */
 const HEADING = /^#{1,6} /;
 
+/** An ATX heading's level and its title. */
+const TITLED = /^(#{1,6})[ \t]+(.*)$/;
+
+/**
+ * The section `heading` opens in `text`, and the 1-based line it opens on.
+ *
+ * What `![[note#heading]]` draws: the heading and everything under it up to the
+ * next heading of its own level or higher, a lower one being part of it. The
+ * title is matched ignoring case and the space around it, because a link is
+ * typed from memory and Obsidian forgives both. Null where no heading matches.
+ */
+export function sectionOf(text: string, heading: string): { text: string; line: number } | null {
+  const lines = text.split("\n");
+  const wanted = heading.trim().toLowerCase();
+  const levelAt = (index: number) => TITLED.exec(lines[index] ?? "")?.[1]?.length ?? 0;
+
+  const at = lines.findIndex((line) => TITLED.exec(line)?.[2]?.trim().toLowerCase() === wanted);
+  if (at === -1) return null;
+
+  const level = levelAt(at);
+  let end = at + 1;
+  while (end < lines.length && !(levelAt(end) > 0 && levelAt(end) <= level)) end += 1;
+  return { text: lines.slice(at, end).join("\n"), line: at + 1 };
+}
+
 /** One edit as a range in the old text and what replaces it. */
 export interface Edit {
   from: number;

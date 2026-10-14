@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { memo } from "react";
 import { Editor } from "@/components/editor";
 import { fetchNote } from "@/lib/api";
+import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import type { TodoCycle } from "@/lib/todo-commands";
 
@@ -50,6 +51,8 @@ interface NoteEditorProps {
   onCycleTodo?: (path: string, cycle: TodoCycle) => void;
   /** Called with a sentence for the reader when a pasted image is refused. */
   onNotice?: (message: string) => void;
+  /** How a `![[note]]` in this one reads and opens its note. See `Editor`. */
+  embeds?: EmbedSource;
 }
 
 const MESSAGE = "flex h-full items-center justify-center px-4 text-sm text-one-muted";
@@ -86,6 +89,7 @@ export const NoteEditor = memo(function NoteEditor({
   onNotice,
   allowReload,
   onReload,
+  embeds,
 }: NoteEditorProps) {
   const { data, error, isPending } = useQuery({
     queryKey: ["note", path],
@@ -129,6 +133,7 @@ export const NoteEditor = memo(function NoteEditor({
       onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
       onNotice={onNotice}
       path={path}
+      embeds={embeds}
     />
   );
 });

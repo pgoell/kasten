@@ -19,6 +19,7 @@ import { useEffect, useRef } from "react";
 import { backticks } from "@/lib/backticks";
 import { toHtml, toSlack } from "@/lib/copy-as";
 import { editorCommands } from "@/lib/editor-commands";
+import { type EmbedSource, embedSource } from "@/lib/embed";
 import { toggleMark } from "@/lib/format-commands";
 import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
@@ -685,6 +686,14 @@ interface EditorProps {
   /** The note this holds, which tells today's own note from every other. */
   path?: string;
   /**
+   * How a `![[note]]` reads the note it draws and opens it.
+   *
+   * Absent draws every embed as its source, the way an absent `paths` calls no
+   * link dead: a view nobody told how to read the vault cannot say a note is
+   * missing. Read at mount for whether there is one, through the ref after.
+   */
+  embeds?: EmbedSource;
+  /**
    * Called with a sentence for the reader when a pasted image is refused.
    *
    * The one thing the editor does that the vault can refuse with no key having
@@ -722,6 +731,7 @@ export function Editor({
   onCycleTodo,
   path,
   onNotice,
+  embeds,
 }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -747,6 +757,7 @@ export function Editor({
   const onNoticeRef = useRef(onNotice);
   const allowReloadRef = useRef(allowReload);
   const onReloadRef = useRef(onReload);
+  const embedsRef = useRef(embeds);
 
   useEffect(() => {
     commandsRef.current = commands;
@@ -758,6 +769,7 @@ export function Editor({
     onNoticeRef.current = onNotice;
     allowReloadRef.current = allowReload;
     onReloadRef.current = onReload;
+    embedsRef.current = embeds;
   }, [
     commands,
     onChange,
@@ -768,6 +780,7 @@ export function Editor({
     onNotice,
     allowReload,
     onReload,
+    embeds,
   ]);
 
   useEffect(() => {
@@ -827,6 +840,18 @@ export function Editor({
           highlightHandler.of((quote) => onOpenHighlightRef.current?.(quote)),
           todoCycled.of((cycle) => onCycleTodoRef.current?.(cycle)),
           ...(path === undefined ? [] : [notePath.of(path)]),
+          // Outside every compartment, so a vim toggle or a new listing never
+          // takes it out. The ref and not the prop, for the reason the
+          // handlers above read theirs.
+          ...(embedsRef.current === undefined
+            ? []
+            : [
+                embedSource.of({
+                  watch: (target, listener) =>
+                    embedsRef.current?.watch(target, listener) ?? (() => {}),
+                  open: (target, line) => embedsRef.current?.open(target, line),
+                }),
+              ]),
           // A pane with nothing to reload answers the way a refusal does, so
           // `:e` in one is a key that does nothing rather than a key that
           // throws.

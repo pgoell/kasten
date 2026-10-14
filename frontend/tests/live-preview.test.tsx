@@ -1,7 +1,15 @@
+import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { vim } from "@replit/codemirror-vim";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
+import { EMBED_DEPTH, type EmbedSource, embedSource } from "@/lib/embed";
+import { imagePaths } from "@/lib/image";
+import { livePreview } from "@/lib/live-preview";
+import { noteLanguage } from "@/lib/note-language";
+import { vimKeys } from "@/lib/vim-mode";
+import { vaultPaths } from "@/lib/wikilink";
 
 function content(container: HTMLElement): string {
   return (container.querySelector(".cm-content") as HTMLElement).textContent ?? "";
@@ -599,5 +607,292 @@ describe("live preview", () => {
 
     expect(container.querySelector("iframe.cm-video")).toBeNull();
     expect(container.querySelector("img.cm-image")?.getAttribute("alt")).toBe("shot");
+  });
+});
+
+/**
+ * A vault the embed reads out of a map, answering at once.
+ *
+ * The listeners are kept so a test can change a note under an embed that is
+ * already on the screen, which is what a save from another pane does.
+ */
+function fakeVault(notes: Record<string, string>) {
+  const texts = new Map(Object.entries(notes));
+  const listeners = new Map<string, Set<(text: string | null) => void>>();
+  const watched: string[] = [];
+  const opened: [string, number | undefined][] = [];
+  const source: EmbedSource = {
+    watch(path, listener) {
+      watched.push(path);
+      const set = listeners.get(path) ?? new Set();
+      listeners.set(path, set);
+      set.add(listener);
+      listener(texts.get(path) ?? null);
+      return () => set.delete(listener);
+    },
+    open(path, line) {
+      opened.push([path, line]);
+    },
+  };
+  return {
+    source,
+    watched,
+    opened,
+    /** How many embeds are listening to the note right now. */
+    listening: (path: string) => listeners.get(path)?.size ?? 0,
+    push(path: string, text: string | null) {
+      if (text === null) texts.delete(path);
+      else texts.set(path, text);
+      for (const listener of listeners.get(path) ?? []) listener(text);
+    },
+  };
+}
+
+const mounted: EditorView[] = [];
+
+afterEach(() => {
+  for (const view of mounted.splice(0)) {
+    view.destroy();
+    view.dom.parentElement?.remove();
+  }
+});
+
+/** An editor in the document, the way the app mounts one, with `extra` on. */
+function mount(doc: string, extra: Extension[], anchor = 0): EditorView {
+  const parent = document.body.appendChild(document.createElement("div"));
+  const view = new EditorView({
+    state: EditorState.create({ doc, selection: { anchor }, extensions: [noteLanguage(), extra] }),
+    parent,
+  });
+  mounted.push(view);
+  return view;
+}
+
+/** Vim off, so the cursor's line alone shows the source, on a known vault. */
+function plain(source: EmbedSource | null, paths: string[] = ["b.md"]): Extension[] {
+  return [
+    vimKeys.of(false),
+    livePreview(),
+    vaultPaths.of(paths),
+    imagePaths.of(["99 Misc/my shot.png"]),
+    ...(source ? [embedSource.of(source)] : []),
+  ];
+}
+
+/** The text of the note the embed draws, read off its nested view. */
+function embedded(view: EditorView): string {
+  return view.dom.querySelector(".cm-embed .cm-content")?.textContent ?? "";
+}
+
+/** The first line is prose so the cursor, at offset zero, is off the embed. */
+const ABOVE = "intro\n\n";
+
+describe("an embed", () => {
+  it("draws the note's body in place, frontmatter left out", () => {
+    const vault = fakeVault({ "b.md": "---\nid: b1\n---\nbody of b" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+
+    expect(embedded(view)).toBe("body of b");
+    expect(view.contentDOM.textContent).not.toContain("![[");
+    expect(view.contentDOM.textContent).not.toContain("b1");
+  });
+
+  it("draws one section, through its lower headings, up to the next of its level", () => {
+    const note = "# B\nintro of b\n## Two\ntwo body\n### Sub\nsub body\n## Three\nthree body";
+    const vault = fakeVault({ "b.md": note });
+    const view = mount(`${ABOVE}![[b# two ]]`, plain(vault.source));
+
+    expect(embedded(view)).toContain("two body");
+    expect(embedded(view)).toContain("sub body");
+    expect(embedded(view)).not.toContain("intro of b");
+    expect(embedded(view)).not.toContain("three body");
+  });
+
+  it("finds its note by the wikilink rule", () => {
+    const vault = fakeVault({ "reading/borges.md": "the aleph" });
+    const view = mount(`${ABOVE}![[Borges]]`, plain(vault.source, ["reading/borges.md"]));
+
+    expect(vault.watched).toEqual(["reading/borges.md"]);
+    expect(embedded(view)).toBe("the aleph");
+  });
+
+  it("draws the same embed under an alias", () => {
+    const vault = fakeVault({ "b.md": "# B\ntop\n## Two\ntwo body" });
+
+    expect(embedded(mount(`${ABOVE}![[b|see b]]`, plain(vault.source)))).toBe("BtopTwotwo body");
+    expect(embedded(mount(`${ABOVE}![[b#Two|see b]]`, plain(vault.source)))).toBe(
+      embedded(mount(`${ABOVE}![[b#Two]]`, plain(vault.source))),
+    );
+  });
+
+  it("draws an image the vault holds as the picture", () => {
+    const vault = fakeVault({});
+    const view = mount(`${ABOVE}![[my shot.png]]`, plain(vault.source));
+
+    expect(view.dom.querySelector("img.cm-image")?.getAttribute("src")).toBe(
+      "/api/assets/99%20Misc/my%20shot.png",
+    );
+    expect(view.dom.querySelector(".cm-embed")).toBeNull();
+    expect(vault.watched).toEqual([]);
+  });
+
+  it("says so where the note or the heading is missing", () => {
+    const vault = fakeVault({ "b.md": "# B\nbody" });
+
+    const note = mount(`${ABOVE}![[nope]]`, plain(vault.source));
+    expect(note.dom.querySelector(".cm-embed-missing")?.textContent).toBe("Not found: nope");
+
+    const heading = mount(`${ABOVE}![[b#nope|alias]]`, plain(vault.source));
+    expect(heading.dom.querySelector(".cm-embed-missing")?.textContent).toBe("Not found: b#nope");
+  });
+
+  it("goes missing when the source stops answering", () => {
+    const vault = fakeVault({ "b.md": "body" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+
+    vault.push("b.md", null);
+
+    expect(view.dom.querySelector(".cm-embed-missing")?.textContent).toBe("Not found: b");
+    expect(view.dom.querySelector(".cm-embed .cm-content")).toBeNull();
+  });
+
+  it("redraws when its note changes, without remounting", () => {
+    const vault = fakeVault({ "b.md": "first" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    const box = view.dom.querySelector(".cm-embed");
+
+    view.dispatch({ changes: { from: 0, insert: "more " } });
+    vault.push("b.md", "second");
+
+    expect(view.dom.querySelector(".cm-embed")).toBe(box);
+    expect(embedded(view)).toBe("second");
+    expect(vault.watched).toEqual(["b.md"]);
+  });
+
+  it("opens its note on ctrl or cmd and a click, and not on a plain click", () => {
+    const vault = fakeVault({ "b.md": "body" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    const box = view.dom.querySelector(".cm-embed") as HTMLElement;
+
+    fireEvent.mouseDown(box);
+    fireEvent.click(box);
+    expect(vault.opened).toEqual([]);
+
+    fireEvent.mouseDown(box, { ctrlKey: true });
+    fireEvent.mouseDown(box, { metaKey: true });
+    expect(vault.opened).toEqual([
+      ["b.md", undefined],
+      ["b.md", undefined],
+    ]);
+  });
+
+  it("opens a section at its heading's line, counted with the frontmatter", () => {
+    const vault = fakeVault({ "b.md": "---\nid: b1\n---\n# B\n\n## Two\nbody" });
+    const view = mount(`${ABOVE}![[b#two]]`, plain(vault.source));
+
+    fireEvent.mouseDown(view.dom.querySelector(".cm-embed") as HTMLElement, { ctrlKey: true });
+
+    expect(vault.opened).toEqual([["b.md", 6]]);
+  });
+
+  it("opens its note on a tap, and not on a touch the browser took for a scroll", () => {
+    const vault = fakeVault({ "b.md": "body" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    const box = view.dom.querySelector(".cm-embed") as HTMLElement;
+
+    fireEvent.pointerDown(box, { pointerType: "touch" });
+    fireEvent.pointerCancel(box, { pointerType: "touch" });
+    fireEvent.click(box);
+    fireEvent.pointerDown(box, { pointerType: "mouse" });
+    fireEvent.click(box);
+    expect(vault.opened).toEqual([]);
+
+    fireEvent.pointerDown(box, { pointerType: "touch" });
+    fireEvent.click(box);
+    expect(vault.opened).toEqual([["b.md", undefined]]);
+  });
+
+  it("shows its source with the cursor on the line, vim off", () => {
+    const vault = fakeVault({ "b.md": "body" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    expect(view.dom.querySelector(".cm-embed")).not.toBeNull();
+
+    view.dispatch({ selection: EditorSelection.cursor(view.state.doc.length) });
+
+    expect(view.dom.querySelector(".cm-embed")).toBeNull();
+    expect(view.contentDOM.textContent).toContain("![[b]]");
+  });
+
+  it("shows its source in insert mode on the line, vim on", async () => {
+    const vault = fakeVault({ "b.md": "body" });
+    const view = mount("![[b]]\nplain", [
+      vim(),
+      livePreview(),
+      vaultPaths.of(["b.md"]),
+      embedSource.of(vault.source),
+    ]);
+    expect(view.dom.querySelector(".cm-embed")).not.toBeNull();
+
+    fireEvent.keyDown(view.contentDOM, { key: "i" });
+
+    await waitFor(() => expect(view.contentDOM.textContent).toContain("![[b]]"));
+    expect(view.dom.querySelector(".cm-embed")).toBeNull();
+  });
+
+  it("keeps the cursor out of the source it hides", () => {
+    const vault = fakeVault({ "b.md": "body" });
+    const view = mount("![[b]]\nplain", [vim(), livePreview(), embedSource.of(vault.source)], 7);
+
+    view.dispatch({ selection: EditorSelection.cursor(2) });
+
+    expect(view.state.selection.main.head).toBe("![[b]]".length);
+  });
+
+  it("stops at the depth cap where two notes embed each other", () => {
+    const vault = fakeVault({ "a.md": "![[b]]", "b.md": "![[a]]" });
+    const view = mount(`${ABOVE}![[a]]`, plain(vault.source, ["a.md", "b.md"]));
+
+    expect(view.dom.querySelectorAll(".cm-embed")).toHaveLength(EMBED_DEPTH);
+    expect(view.dom.querySelectorAll(".cm-embed-stub")).toHaveLength(1);
+  });
+
+  it("stops at the depth cap where a note embeds itself", () => {
+    const vault = fakeVault({ "a.md": "![[a]]" });
+    const view = mount(`${ABOVE}![[a]]`, plain(vault.source, ["a.md"]));
+
+    expect(view.dom.querySelectorAll(".cm-embed")).toHaveLength(EMBED_DEPTH);
+    expect(view.dom.querySelectorAll(".cm-embed-stub")).toHaveLength(1);
+  });
+
+  it("stays its source where nobody said how to read the vault", () => {
+    const view = mount(`${ABOVE}![[b]]`, plain(null));
+
+    expect(view.contentDOM.textContent).toContain("![[b]]");
+    expect(view.dom.querySelector(".cm-embed, .cm-embed-missing, .cm-embed-stub")).toBeNull();
+  });
+
+  it("draws the note read-only, rendered, and told what the vault holds", () => {
+    const vault = fakeVault({ "b.md": "# B\nsee [[ghost]]" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source));
+    const nested = view.dom.querySelector(".cm-embed .cm-content") as HTMLElement;
+
+    expect(nested.getAttribute("contenteditable")).toBe("false");
+    expect(nested.textContent).toBe("Bsee ghost");
+    expect(nested.querySelector(".cm-wikilink-dead")?.textContent).toBe("ghost");
+  });
+
+  it("stops listening when it leaves the screen", () => {
+    const vault = fakeVault({ "b.md": "body", "c.md": "other" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source, ["b.md", "c.md"]));
+
+    view.dispatch({
+      changes: { from: view.state.doc.length - 3, to: view.state.doc.length - 2, insert: "c" },
+    });
+    expect(vault.listening("b.md")).toBe(0);
+    expect(vault.listening("c.md")).toBe(1);
+
+    mounted.splice(mounted.indexOf(view), 1);
+    view.destroy();
+    expect(vault.listening("c.md")).toBe(0);
   });
 });
