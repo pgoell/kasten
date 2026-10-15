@@ -364,9 +364,14 @@ export function useAutosave(
           // moved past the held text's base, and a second pane would show the
           // older one. Not after a `:e!` or a reload, which put the vault's
           // text there since, nor for a conflicted note, whose base is stale.
+          // Nor for a keepalive, whose base is a guess at what the write ahead
+          // of it lands and not an answer, nor once the note moved: the count
+          // and the cache key are the old path's.
           const settle = () => {
             if (
               named !== undefined &&
+              !keepalive &&
+              movedTo(to, since) === to &&
               !refused &&
               !wasConflicted &&
               reverts.current === sent &&
