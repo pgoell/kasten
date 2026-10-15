@@ -248,13 +248,7 @@ describe("the reader over a real book", () => {
     sections.length = 0;
   });
 
-  afterEach(async () => {
-    // foliate schedules a `requestAnimationFrame` on every section load and
-    // reads its renderer inside it (`paginator.js:1113`), so tearing down
-    // within that same frame throws out of the library and vitest counts an
-    // unhandled error. Let the frame run first. The teardown itself is pinned
-    // in `tests/book-pane.test.tsx`, which is not racing a real renderer.
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+  afterEach(() => {
     mounted?.root.unmount();
     mounted?.container.remove();
     mounted = null;
@@ -276,6 +270,33 @@ describe("the reader over a real book", () => {
 
     await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
     expect(sections[0]?.title).toBe("Two");
+  }, 30_000);
+
+  it("closes in the frame a chapter landed in", async () => {
+    // foliate's paginator queues a frame on every section load that reads its
+    // view (`paginator.js:1113`), and closing nulls that view. A frame loop
+    // started before the book queues its next callback ahead of that one, so
+    // the close below always runs first in the frame the chapter landed in:
+    // the order #213 only met by chance at the end of a test.
+    const closed = new Promise<void>((resolve) => {
+      const tick = () => {
+        if (sections.length === 0) {
+          requestAnimationFrame(tick);
+          return;
+        }
+        mounted?.root.unmount();
+        mounted?.container.remove();
+        mounted = null;
+        resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+    await drawBook();
+    await closed;
+    // Two more frames, so a throw from the one queued behind the close lands
+    // inside this test rather than after it.
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
   }, 30_000);
 
   it("draws a chapter when the saved place names a spine item this book has not", async () => {
