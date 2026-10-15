@@ -299,6 +299,23 @@ describe("the reader over a real book", () => {
     await new Promise((resolve) => requestAnimationFrame(resolve));
   }, 30_000);
 
+  it("lays out nothing while a chapter's document has no root yet", async () => {
+    // The paginator's resize observer renders whatever view it holds, and it
+    // holds the next chapter's view before that document has parsed (#318).
+    // Taking the root off a loaded section is the same state on demand, and
+    // `render()` is what the observer calls.
+    const { container } = await drawBook();
+    await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+    await drawn();
+    const view = container.querySelector("foliate-view") as HTMLElement & {
+      renderer: { render: () => void };
+    };
+
+    sections.at(-1)?.documentElement.remove();
+
+    expect(() => view.renderer.render()).not.toThrow();
+  }, 30_000);
+
   it("draws a chapter when the saved place names a spine item this book has not", async () => {
     const { container } = await drawBook(noteAt(MISSING_SPINE));
 

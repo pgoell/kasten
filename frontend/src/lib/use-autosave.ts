@@ -1045,8 +1045,10 @@ export function useAutosave(
       // only, under the base it was typed on, so the page dying still keeps
       // it, and the quiet write landing drops it. Beside it the text the write
       // named, as the loop above keeps it: a write ahead of it that landed is
-      // the reader's own, no conflict on reopening.
-      if (pending.current === null && fresh !== undefined && !follows) {
+      // the reader's own, no conflict on reopening. Held as well when text was
+      // typed on the screen's text since: that goes out below on its own, and
+      // the page dying would cancel the write and keep its text nowhere (#317).
+      if (fresh !== undefined && !follows) {
         const out = fresh.sent?.loaded === fresh.loaded ? fresh.sent : undefined;
         const under =
           out === undefined
@@ -1063,7 +1065,7 @@ export function useAutosave(
         };
         holdText(path, entry);
         heldAt.current.set(entry, { seq: saves.current, visit: fresh.visit });
-        return;
+        if (pending.current === null) return;
       }
       const content = pending.current ?? fresh?.content;
       if (content === undefined) return;

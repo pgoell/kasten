@@ -3549,5 +3549,105 @@ describe("useAutosave", () => {
       expect(saveNote).toHaveBeenCalledTimes(1);
       expect(heldText("index.md")).toMatchObject({ content: "T1" });
     });
+
+    /** T1's quiet write in the air, the buffer reopened on "start" and typed on. */
+    function typedOnTheTextUnder() {
+      const vault = server("start");
+      const editor = withEditor("start");
+      editor.type("T1");
+      return {
+        vault,
+        editor,
+        reopenAndType: async () => {
+          await idle();
+          editor.note.seed("b.md", "b");
+          editor.note.open("b.md");
+          editor.show("start");
+          editor.note.open("index.md");
+          editor.type("start T2");
+        },
+      };
+    }
+
+    it("holds the write in the air off screen beside text typed on the text under it when the page dies at hide", async () => {
+      const { vault, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      await pagehide();
+      // W1 dies with the page; the keepalive names "start" and lands.
+      expect(vault.request(1)).toMatchObject({ content: "start T2", keepalive: true });
+      await vault.arrive(1);
+
+      expect(landedAs("start T2", vault.disk())).toBe(true);
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "start T2"]);
+      // The next page opens on T1, which the vault never got.
+      expect(heldText("index.md", vault.disk())).toMatchObject({ content: "T1" });
+      const again = reopen(vault.disk(), "T1");
+      expect(again.restored()).toBe(true);
+    });
+
+    it("holds the write in the air beside text typed on the text under it when a phone backgrounds the page and it dies", async () => {
+      const { vault, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      await background();
+      await vault.arrive(1);
+
+      expect(landedAs("start T2", vault.disk())).toBe(true);
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "start T2"]);
+    });
+
+    it("drops the copy of the write in the air once it lands after a hide with text typed on the text under it", async () => {
+      const { vault, editor, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      // The page lives on through the hide.
+      await pagehide();
+      await vault.land(0);
+      await vault.land(1);
+
+      expect(landedAs("T1", vault.disk())).toBe(true);
+      expect(heldTexts("index.md")).toEqual([
+        expect.objectContaining({ content: "start T2", conflicted: true }),
+      ]);
+      expect(editor.note.status()).toBe("conflict");
+    });
+
+    it("holds the write in the air once when the vault refuses it after the keepalive of text typed on the text under it", async () => {
+      const { vault, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      await pagehide();
+      await vault.land(1);
+      await vault.land(0);
+
+      expect(landedAs("start T2", vault.disk())).toBe(true);
+      expect(heldTexts("index.md")).toEqual([
+        expect.objectContaining({ content: "T1", conflicted: true }),
+      ]);
+    });
+
+    it("holds the write in the air once when it fails after a hide with text typed on the text under it", async () => {
+      const { vault, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      await pagehide();
+      await vault.fail(0);
+
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "start T2"]);
+      await vault.land(1);
+      expect(landedAs("start T2", vault.disk())).toBe(true);
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1"]);
+    });
+
+    it("drops the copy of the write in the air on reopening once it reached the vault before the page died", async () => {
+      const { vault, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      await pagehide();
+      // W1 reaches the vault, then the keepalive naming "start" is refused there.
+      await vault.arrive(0);
+      await vault.arrive(1);
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "start T2"]);
+
+      // The next page opens on the oldest entry, T1, which the vault holds.
+      reopen(vault.disk(), "T1");
+      expect(landedAs("T1", vault.disk())).toBe(true);
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["start T2"]);
+    });
   });
 });

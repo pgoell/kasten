@@ -254,7 +254,23 @@ function foliatePdfjs(): Plugin {
 const PAGINATOR_FRAME = `        requestAnimationFrame(() =>
             this.#background.style.background = getBackground(this.#view.document))`;
 
-/** Skip that frame's work when the paginator was destroyed before it ran. */
+/**
+ * The top of the paginator's own `render` (`paginator.js:754`).
+ *
+ * `#createView` holds the next chapter's view before its document has parsed,
+ * and the paginator's resize observer watches the box that view's element was
+ * just put in. A resize then renders a document with no root: `columnize`
+ * throws on the null `documentElement` (#318), and past it the scroll back to
+ * the anchor walks a null body. Matched literally for the reason the frame is.
+ */
+const PAGINATOR_RENDER = `    render() {
+        if (!this.#view) return`;
+
+/**
+ * Skip that frame's work when the paginator was destroyed before it ran, and
+ * render no view whose document has no body yet. The view's `load` renders it
+ * once parsed, so the skipped layout is not lost.
+ */
 function foliatePaginator(): Plugin {
   return {
     name: "kasten-foliate-paginator",
@@ -267,12 +283,21 @@ function foliatePaginator(): Plugin {
           "foliate's paginator no longer queues its background frame the way vite.config.ts expects",
         );
       }
-      return code.replace(
-        PAGINATOR_FRAME,
-        `        requestAnimationFrame(() => {
+      if (!code.includes(PAGINATOR_RENDER)) {
+        this.error("foliate's paginator no longer starts render the way vite.config.ts expects");
+      }
+      return code
+        .replace(
+          PAGINATOR_FRAME,
+          `        requestAnimationFrame(() => {
             if (this.#view) this.#background.style.background = getBackground(this.#view.document)
         })`,
-      );
+        )
+        .replace(
+          PAGINATOR_RENDER,
+          `    render() {
+        if (!this.#view?.document?.body) return`,
+        );
     },
   };
 }
@@ -376,26 +401,11 @@ export default defineConfig({
           // as a failed run. foliate's paginator columnises to the box it is
           // in and resizes inside its own observer, which is exactly what the
           // notice reports, and nothing has gone wrong. Named to the message,
-          // so every other unhandled error still fails.
-          //
-          // The second is an expected failure, not a fix (#213, follow-up
-          // #318). CI once saw the paginator's resize observer columnise a
-          // section whose document had no root element yet (`paginator.js:206`
-          // via `View.columnize`), likely a resize while a chapter loads. It
-          // never reproduced locally in 45 runs, so nothing in foliate or the
-          // pane is patched for it. Held to that one message thrown from that
-          // one file, so any other paginator error still fails the run.
+          // so every other unhandled error still fails. The null `el` CI once
+          // saw from the same observer (#318) is not here: `foliatePaginator`
+          // stops the paginator rendering a document that has not parsed.
           onUnhandledError: (error: unknown) =>
-            !(
-              error instanceof Error &&
-              (error.message.includes("ResizeObserver loop") ||
-                // `startsWith`, because V8 ends the message with a full stop
-                // the issue's copy of it dropped.
-                (error.message.startsWith(
-                  "Cannot destructure property 'style' of 'el' as it is null",
-                ) &&
-                  (error.stack ?? "").includes("foliate-js/paginator.js")))
-            ),
+            !(error instanceof Error && error.message.includes("ResizeObserver loop")),
           browser: {
             enabled: true,
             provider: playwright(),
