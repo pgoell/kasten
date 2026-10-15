@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
@@ -475,5 +475,61 @@ describe("ReviewDecks reading the deck notes", () => {
     fireEvent.click(carry);
     fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
     expect(imported).toHaveBeenLastCalledWith(deck, true);
+  });
+});
+
+describe("ReviewPane on a nested cloze", () => {
+  const NESTED = "#flashcards/capitals\n\n{{c1::Canberra was {{c2::founded}} in 1913}}\n";
+  const HITS = [
+    { path: "c.md", line: 1, text: "#flashcards/capitals" },
+    { path: "c.md", line: 3, text: "{{c1::Canberra was {{c2::founded}} in 1913}}" },
+  ];
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("A8 a nested cloze is asked as c1 then c2 and rated by key", async () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    vi.spyOn(api, "fetchNote").mockResolvedValue(NESTED);
+    // The vault answers with what was sent: the next rating starts from it.
+    const saved = vi
+      .spyOn(api, "saveNote")
+      .mockImplementation(async (path: string, content: string) => ({ path, content }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: /capitals/ });
+    const pane = screen.getByLabelText("review");
+
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+
+    // c1 hides the whole span, the inner mark with it.
+    expect(await shownCard()).toHaveTextContent(/^\[\.\.\.\]$/);
+    fireEvent.keyDown(pane, { key: " " });
+    expect(screen.getByTestId("review-back")).toHaveTextContent("Canberra was founded in 1913");
+    fireEvent.keyDown(pane, { key: "3" });
+
+    expect(saved.mock.calls[0]?.[1]).toMatch(
+      /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1![\d-]+,1,250-->\n$/,
+    );
+
+    // c2 hides the inner word alone.
+    await waitFor(() =>
+      expect(screen.getByTestId("review-card")).toHaveTextContent(
+        /^Canberra was \[\.\.\.\] in 1913$/,
+      ),
+    );
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "3" });
+
+    expect(saved.mock.calls[1]?.[1]).toMatch(
+      /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1![\d-]+,1,250--> <!--SR:c2![\d-]+,1,250-->\n$/,
+    );
+    expect(await screen.findByTestId("review-done")).toBeInTheDocument();
   });
 });

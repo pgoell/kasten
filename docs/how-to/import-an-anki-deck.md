@@ -191,10 +191,11 @@ its line breaks spaces, because a second line holding a mark would be another
 cloze. Marks in the Back Extra, and in a note
 of any other type, become highlights, `==Paris==`, since Anki shows them as
 typed there and asks no card of them. So does a mark kasten does not read, one
-holding a brace such as MathJax's `{{c1::\(x^{2}\)}}` or one with no text,
-`{{c1::}}`. A cloze note holding no mark kasten reads is written
-as `Text::Back Extra`. The count takes a cloze as one card per number, so the
-line above counts two.
+holding a lone brace such as MathJax's `{{c1::\(x^{2}\)}}` or one with no text,
+`{{c1::}}`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it. A cloze
+note holding no mark kasten reads is written as `Text::Back Extra`. The count
+takes a cloze as one card per number, nested marks among them, so the line
+above counts two.
 
 A conditional section, `{{#Field}}` or `{{^Field}}`, shows or hides as it does in
 Anki. A card whose front shows no field with text in it is not made, since Anki

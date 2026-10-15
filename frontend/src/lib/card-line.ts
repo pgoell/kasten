@@ -122,14 +122,87 @@ export function clozeComment(cloze: number): RegExp {
 }
 
 /**
- * One cloze mark, `{{c1::text}}` or `{{c1::text::hint}}`.
+ * One cloze mark, `{{c1::text}}` or `{{c1::text::hint}}`, holding no other.
  *
- * No brace inside, so a nested mark is not read as one long one; the doc says
- * nested marks are not read, and this is where that is true. Lazy, so the
- * second `::` is the hint's and a mark ends at the first `}}`. The hint may be
- * empty, so `{{c1::A::}}` hides `A` rather than `A::`, and asks it as `[...]`.
+ * No brace inside, so a lone `{` or `}` makes it no mark, which keeps MathJax's
+ * `{{c1::\(x^{2}\)}}` text. A nested mark is read by `parse`, innermost first,
+ * each one swapped for a `HOLE` this admits as text. Lazy, so the second `::`
+ * is the hint's and a mark ends at the first `}}`. The hint may be empty, so
+ * `{{c1::A::}}` hides `A` rather than `A::`, and asks it as `[...]`. It holds
+ * no hole, so `{{c1::a::{{c2::b}}}}` keeps `b` in the text where c2 can ask it.
  */
-const MARK = /\{\{c(\d+)::([^{}]+?)(?:::([^{}]*?))?\}\}/g;
+const MARK = /\{\{c(\d+)::([^{}]+?)(?:::([^{}]*?))?\}\}/g;
+
+/**
+ * Where a mark already read stood: its index between two private-use characters.
+ *
+ * Private use so no note types one by accident. One that does is read as text
+ * unless its index names a mark, and then it reads as that mark.
+ */
+const HOLE = /(\d+)/;
+
+/** A cloze mark and what it holds, text and marks in the order written. */
+interface Mark {
+  cloze: number;
+  body: Piece[];
+  hint: string | undefined;
+}
+
+type Piece = string | Mark;
+
+/** `text` cut at its holes, each hole the mark it stands for. */
+function pieces(text: string, marks: Mark[]): Piece[] {
+  // The split's group puts each index at an odd position, between two texts.
+  return text
+    .split(HOLE)
+    .map((part, at) => (at % 2 === 0 ? part : (marks[Number(part)] ?? `${part}`)));
+}
+
+/**
+ * The line as text and marks, a mark holding any marks nested in it.
+ *
+ * Innermost first: each pass reads the marks holding no unread one, as Anki
+ * 2.1.56 does, and an outer mark becomes one only once all inside it are. A
+ * line is then a cloze exactly when it was before nesting was read. Each pass
+ * shortens the line, so a deep line takes many passes and never hangs.
+ */
+function parse(line: string): Piece[] {
+  const marks: Mark[] = [];
+  let text = line;
+  for (;;) {
+    const read = text.replace(MARK, (_, number: string, body: string, hint?: string) => {
+      marks.push({ cloze: Number(number), body: pieces(body, marks), hint });
+      return `${marks.length - 1}`;
+    });
+    if (read === text) return pieces(text, marks);
+    text = read;
+  }
+}
+
+/** The pieces as their plain text, every mark its text and no hint. */
+function plain(found: Piece[]): string {
+  return found.map((piece) => (typeof piece === "string" ? piece : plain(piece.body))).join("");
+}
+
+/** Every mark at every depth, for the numbers a line asks. */
+function everyMark(found: Piece[]): Mark[] {
+  return found.flatMap((piece) =>
+    typeof piece === "string" ? [] : [piece, ...everyMark(piece.body)],
+  );
+}
+
+/**
+ * The outermost marks of one number, a mark inside one of them being part of its text.
+ *
+ * Outermost because Anki hides the whole span of the number asked, so a mark of
+ * the same number inside it is hidden with it rather than asked again.
+ */
+function asked(found: Piece[], cloze: number): Mark[] {
+  return found.flatMap((piece) => {
+    if (typeof piece === "string") return [];
+    return piece.cloze === cloze ? [piece] : asked(piece.body, cloze);
+  });
+}
 
 /**
  * The numbers the line's marks carry, ascending and each once.
@@ -139,7 +212,7 @@ const MARK = /\{\{c(\d+)::([^{}]+?)(?:::([^{}]*?))?\}\}/g;
  * pushed in is the order they keep, so it has to be the same on every read.
  */
 export function clozeNumbers(line: string): number[] {
-  const found = new Set([...line.matchAll(MARK)].map((mark) => Number(mark[1])));
+  const found = new Set(everyMark(parse(line)).map((mark) => mark.cloze));
   return [...found].sort((one, two) => one - two);
 }
 
@@ -153,11 +226,21 @@ function bare(line: string): string {
   return withoutToken(withoutAnkiId(line.replace(CLOZE_SRS, "").replace(SR, ""))).trim();
 }
 
-/** `line` with one number's marks drawn by `hidden` and every other number's as its text. */
+/**
+ * `line` with one number's marks drawn by `hidden` and every other number's as its text.
+ *
+ * A mark of another number is opened and drawn in turn, so c2 inside c1 is
+ * still asked on c2's card; one of this number is drawn whole, its text plain.
+ */
 function drawn(line: string, cloze: number, hidden: (text: string, hint?: string) => string) {
-  return bare(line).replace(MARK, (_, number: string, text: string, hint?: string) =>
-    Number(number) === cloze ? hidden(text, hint) : text,
-  );
+  const draw = (found: Piece[]): string =>
+    found
+      .map((piece) => {
+        if (typeof piece === "string") return piece;
+        return piece.cloze === cloze ? hidden(plain(piece.body), piece.hint) : draw(piece.body);
+      })
+      .join("");
+  return draw(parse(bare(line)));
 }
 
 /**
@@ -183,9 +266,8 @@ export function clozeAnswer(line: string, cloze: number): string {
 
 /** What typing the answer is compared against: this number's texts, joined. */
 export function clozeTarget(line: string, cloze: number): string {
-  return [...line.matchAll(MARK)]
-    .filter((mark) => Number(mark[1]) === cloze)
-    .map((mark) => mark[2] ?? "")
+  return asked(parse(line), cloze)
+    .map((mark) => plain(mark.body))
     .join(", ");
 }
 

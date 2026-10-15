@@ -702,6 +702,58 @@ describe("writeSchedule on a cloze", () => {
   });
 });
 
+describe("a nested cloze", () => {
+  const next = { due: "2026-09-01", interval: 7, ease: 250 };
+
+  it("A1 asks a nested line as two cards, each writing its own comment", () => {
+    const text = "#flashcards\n\n{{c1::Canberra was {{c2::founded}} in 1913}}\n";
+    const cards = parseCards(text);
+
+    expect(cards.map((card) => [card.cloze, card.front, card.target])).toEqual([
+      [1, "\\[...\\]", "Canberra was founded in 1913"],
+      [2, "Canberra was \\[...\\] in 1913", "founded"],
+    ]);
+
+    const once = writeSchedule(text, cards[1] as Card, next);
+    expect(once).toBe(
+      "#flashcards\n\n{{c1::Canberra was {{c2::founded}} in 1913}} <!--SR:c2!2026-09-01,7,250-->\n",
+    );
+    const twice = writeSchedule(once, parseCards(once)[0] as Card, {
+      due: "2026-09-02",
+      interval: 1,
+      ease: 230,
+    });
+    expect(twice).toBe(
+      "#flashcards\n\n{{c1::Canberra was {{c2::founded}} in 1913}} <!--SR:c2!2026-09-01,7,250--> <!--SR:c1!2026-09-02,1,230-->\n",
+    );
+    expect(parseCards(twice).map((card) => card.held)).toEqual([
+      { due: "2026-09-02", interval: 1, ease: 230 },
+      next,
+    ]);
+  });
+
+  it("A6 keeps a single-level line's two schedules as they were", () => {
+    const text =
+      "#flashcards\n\nThe capital of {{c1::France}} is {{c2::Paris::a city}}. <!--SR:c1!2026-08-20,4,270--> <!--SR:c2!2026-08-15,1,250-->\n";
+    const cards = parseCards(text);
+
+    expect(cards.map((card) => [card.cloze, card.front, card.back, card.held])).toEqual([
+      [
+        1,
+        "The capital of \\[...\\] is Paris.",
+        "The capital of ==France== is Paris.",
+        { due: "2026-08-20", interval: 4, ease: 270 },
+      ],
+      [
+        2,
+        "The capital of France is \\[a city\\].",
+        "The capital of France is ==Paris==.",
+        { due: "2026-08-15", interval: 1, ease: 250 },
+      ],
+    ]);
+  });
+});
+
 describe("a cloze beside the other card forms", () => {
   const next = { due: "2026-09-01", interval: 7, ease: 250 };
   const MIXED = `#flashcards

@@ -1075,6 +1075,49 @@ def test_a_cloze_mark_kasten_cannot_read_imports_as_a_highlight(text: str, body:
     assert card_count(deck) == 1
 
 
+@pytest.mark.parametrize(
+    ("text", "line", "count"),
+    [
+        (
+            "{{c1::Canberra was {{c2::founded}} in 1913}}",
+            "{{c1::Canberra was {{c2::founded}} in 1913}}",
+            2,
+        ),
+        ("foo {{c1::bar {{c2::baz::h2}}::h1}}", "foo {{c1::bar {{c2::baz::h2}}::h1}}", 2),
+        ("{{c1::outer {{c1::inner}}}}", "{{c1::outer {{c1::inner}}}}", 1),
+        ("{{c1::a {{c2::b {{c3::c}}}}}}", "{{c1::a {{c2::b {{c3::c}}}}}}", 3),
+        ("{{c1::<b>a</b> {{c2::<i>b</i>}}}}", "{{c1::a {{c2::b}}}}", 2),
+    ],
+    ids=["nested", "hints", "same", "three", "flat"],
+)
+def test_i1_a_nested_cloze_mark_imports_whole(text: str, line: str, count: int) -> None:
+    # Anki reads nested marks since 2.1.56, so the outer mark is a card of its
+    # own and not a highlight around the inner one (#254).
+    notes = ((1, CLOZE, f"{text}\x1f"),)
+    deck = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))[0]
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}{mark(1)}\n"
+    assert card_count(deck) == count
+
+
+@pytest.mark.parametrize(
+    ("text", "line"),
+    [
+        ("{{c1::a {{c2::b}}", "{{c1::a {{c2::b}}"),
+        (r"{{c1::\(x^{2}\) {{c2::y}}}}", r"==\(x^{2}\) {{c2::y}}=="),
+    ],
+    ids=["unclosed", "brace"],
+)
+def test_i1_a_broken_nested_mark_reads_as_before(text: str, line: str) -> None:
+    # An outer mark never closed is text, and one holding a lone brace is still
+    # no mark, so each line is a cloze of its inner mark alone.
+    notes = ((1, CLOZE, f"{text}\x1f"),)
+    deck = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))[0]
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
 def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # Anki will not save such a note, but a broken export can hold one; its
     # text is still worth a question.

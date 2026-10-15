@@ -64,6 +64,101 @@ describe("a cloze line", () => {
   });
 });
 
+describe("a nested cloze line", () => {
+  const CANBERRA = "{{c1::Canberra was {{c2::founded}} in 1913}}";
+  const HINTED = "foo {{c1::bar {{c2::baz::h2}}::h1}}";
+  const THREE = "{{c1::a {{c2::b {{c3::c}}}}}}";
+
+  it("A2 card c1 hides the whole nested span", () => {
+    expect(clozeNumbers(CANBERRA)).toEqual([1, 2]);
+    expect(clozeQuestion(CANBERRA, 1)).toBe("\\[...\\]");
+  });
+
+  it("A3 card c2 hides the inner text alone and shows the rest", () => {
+    expect(clozeQuestion(CANBERRA, 2)).toBe("Canberra was \\[...\\] in 1913");
+  });
+
+  it("A4 asks each level by its own hint, the outer one after the inner mark", () => {
+    expect(clozeQuestion(HINTED, 1)).toBe("foo \\[h1\\]");
+    expect(clozeQuestion(HINTED, 2)).toBe("foo bar \\[h2\\]");
+    // A hint holds no mark, so one after the `::` is the text's and still asked.
+    const late = "{{c1::a::{{c2::b}}}}";
+    expect(clozeNumbers(late)).toEqual([1, 2]);
+    expect(clozeQuestion(late, 1)).toBe("\\[...\\]");
+    expect(clozeQuestion(late, 2)).toBe("a::\\[...\\]");
+  });
+
+  it("A5 reads broken nesting as text, keeps a balanced inner mark, and never throws", () => {
+    const unclosed = "{{c1::a {{c2::b}}";
+    expect(clozeNumbers(unclosed)).toEqual([2]);
+    expect(clozeQuestion(unclosed, 2)).toBe("{{c1::a \\[...\\]");
+    expect(clozeAnswer(unclosed, 2)).toBe("{{c1::a ==b==");
+    expect(clozeTarget(unclosed, 2)).toBe("b");
+
+    // A stray close reads as it did before nesting was read.
+    const stray = "{{c1::a }} b}}";
+    expect(clozeNumbers(stray)).toEqual([1]);
+    expect(clozeQuestion(stray, 1)).toBe("\\[...\\] b}}");
+    expect(clozeAnswer(stray, 1)).toBe("==a == b}}");
+
+    const long = "{{c1::".repeat(834);
+    expect(long.length).toBeGreaterThanOrEqual(5000);
+    expect(clozeNumbers(long)).toEqual([]);
+    expect(clozePlain(long)).toBe(long);
+    const deep = `${"{{c1::x ".repeat(600)}y${"}}".repeat(600)}`;
+    expect(clozeNumbers(deep)).toEqual([1]);
+    expect(clozeTarget(deep, 1)).toBe(`${"x ".repeat(600)}y`);
+  });
+
+  it("I2 highlights the answer flat, the inner text plain inside", () => {
+    expect(clozeAnswer(CANBERRA, 1)).toBe("==Canberra was founded in 1913==");
+    expect(clozeAnswer(CANBERRA, 2)).toBe("Canberra was ==founded== in 1913");
+    expect(clozeAnswer(HINTED, 1)).toBe("foo ==bar baz==");
+    expect(clozeAnswer(HINTED, 2)).toBe("foo bar ==baz==");
+  });
+
+  it("I3 compares typing against each level's plain text, never a hint", () => {
+    expect(clozeTarget(CANBERRA, 1)).toBe("Canberra was founded in 1913");
+    expect(clozeTarget(CANBERRA, 2)).toBe("founded");
+    expect(clozeTarget(HINTED, 1)).toBe("bar baz");
+    expect(clozeTarget(HINTED, 2)).toBe("baz");
+  });
+
+  it("I4 asks one number nested in itself as one card", () => {
+    const same = "{{c1::outer {{c1::inner}}}}";
+    expect(clozeNumbers(same)).toEqual([1]);
+    expect(clozeQuestion(same, 1)).toBe("\\[...\\]");
+    expect(clozeAnswer(same, 1)).toBe("==outer inner==");
+    expect(clozeTarget(same, 1)).toBe("outer inner");
+  });
+
+  it("I5 still reads a lone brace inside a mark as no mark", () => {
+    expect(clozeNumbers("{{c1::\\(x^{2}\\)}}")).toEqual([]);
+    expect(clozeNumbers("{{c1::a {{c2::\\(x^{2}\\)}}}}")).toEqual([]);
+  });
+
+  it("I6 reads three levels", () => {
+    expect(clozeNumbers(THREE)).toEqual([1, 2, 3]);
+    expect([1, 2, 3].map((cloze) => clozeQuestion(THREE, cloze))).toEqual([
+      "\\[...\\]",
+      "a \\[...\\]",
+      "a b \\[...\\]",
+    ]);
+    expect([1, 2, 3].map((cloze) => clozeAnswer(THREE, cloze))).toEqual([
+      "==a b c==",
+      "a ==b c==",
+      "a b ==c==",
+    ]);
+    expect([1, 2, 3].map((cloze) => clozeTarget(THREE, cloze))).toEqual(["a b c", "b c", "c"]);
+  });
+
+  it("I7 reads a nested line as its plain sentence", () => {
+    expect(clozePlain(`${CANBERRA} <!--SR:c2!2026-08-20,4,270-->`)).toBe(
+      "Canberra was founded in 1913",
+    );
+  });
+});
+
 describe("fences", () => {
   it("marks the lines inside a fenced block and the markers themselves", () => {
     expect(fences(["a::b", "```", "c::d", "```", "e::f"])).toEqual([

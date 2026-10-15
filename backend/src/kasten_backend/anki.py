@@ -44,7 +44,7 @@ from kasten_backend.files import ASSET_LIMIT_BYTES, temporary_name
 from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits, legal_name
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
 SEPARATOR = "\x1f"
 """Anki's separator: it joins a note's fields, and from schema 18 the levels of a deck name."""
@@ -96,7 +96,9 @@ _MARK = re.compile(r"\{\{c([0-9]+)::([^{}]+?)(?:::([^{}]*?))?\}\}")
 
 Narrower than `_CLOZE`, taking no brace and no empty text, so a MathJax
 `{{c1::\\(x^{2}\\)}}` is a mark to Anki and not to kasten. `[0-9]` because
-Python's `\\d` takes digits JavaScript's does not.
+Python's `\\d` takes digits JavaScript's does not. A nested mark,
+`{{c1::a {{c2::b}}}}`, is read innermost first, each inner mark held by a
+placeholder the outer one's text takes, as `_marks` does.
 """
 _KEPT = re.compile("([0-9]+)")
 """The mark `plain` holds a cloze mark's place with, as `_HELD` does a link's."""
@@ -288,13 +290,15 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
             # which is what a typed answer is held against. Ruby stays, and
             # `srs.ts` takes the reading off before comparing.
             if pattern is _MARK:
-                kept.append(_flat(match[0]))
+                # A nested mark is flattened once, inside the mark holding it,
+                # and put back after.
+                kept.append(_KEPT.sub(lambda mark: kept[int(mark[1])], _flat(match[0])))
             else:
                 inner = _KEPT.sub(lambda mark: kept[int(mark[1])], match[1])
                 kept.append(f"=={_flat(inner)}==")
             return f"{len(kept) - 1}"
 
-        text = pattern.sub(keep, text)
+        text = _marks(text, keep) if pattern is _MARK else pattern.sub(keep, text)
 
     parser = _Markdown()
     parser.feed(text)
@@ -308,6 +312,19 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     text = "\n".join(_escaped(line) for line in lines)
     text = _KEPT.sub(lambda mark: kept[int(mark[1])], text)
     return _HELD.sub(lambda mark: held[int(mark[1])], text)
+
+
+def _marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
+    """`text` with every `_MARK` replaced by what `keep` makes of it, innermost first.
+
+    A replacement holds no brace, so an outer mark whose text held a whole
+    inner one now matches, as Anki reads nesting since 2.1.56 (#254). A lone
+    brace still stops it. Each pass shrinks the text, so the loop ends.
+    """
+    count = 1
+    while count:
+        text, count = _MARK.subn(keep, text)
+    return text
 
 
 def _flat(text: str) -> str:
@@ -957,11 +974,20 @@ def _one_line(card: Card) -> bool:
 
 def card_count(deck: Deck) -> int:
     """How many cards the note `as_note` writes holds: a cloze is one per number it marks."""
-    return sum(
-        # As numbers, since `c01` and `c1` are one card to Anki.
-        len({int(mark[1]) for mark in _MARK.finditer(card.front)}) if _clozed(card) else 1
-        for card in note_cards(deck)
-    )
+    return sum(_numbers(card.front) if _clozed(card) else 1 for card in note_cards(deck))
+
+
+def _numbers(text: str) -> int:
+    """How many numbers `text` marks, nested marks among them."""
+    # As numbers, since `c01` and `c1` are one card to Anki.
+    numbers: set[int] = set()
+
+    def take(match: re.Match[str]) -> str:
+        numbers.add(int(match[1]))
+        return "_"
+
+    _marks(text, take)
+    return len(numbers)
 
 
 def _clozed(card: Card) -> bool:

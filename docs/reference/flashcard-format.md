@@ -163,6 +163,25 @@ is one card per number: the line above asks twice, once as `c1` and once as
 * Typing the answer compares against the hidden text, two marks joined with
   `, `.
 
+A mark may hold another, as Anki reads them since 2.1.56:
+
+```markdown
+{{c1::Canberra was {{c2::founded}} in 1913}}
+```
+
+* `c1` hides the whole outer mark, inner mark and all, and asks `[...]`.
+* `c2` hides only its own text and shows the rest:
+  `Canberra was [...] in 1913`.
+* Each level takes its own hint, after its own text. In
+  `{{c1::bar {{c2::baz::h2}}::h1}}`, `c1` asks `[h1]` and `c2` asks `[h2]`.
+* An inner mark of the same number is one card with the outer:
+  `{{c1::outer {{c1::inner}}}}` asks one card.
+* Marks nest to any depth, each number one card.
+* An outer mark never closed is text: `{{c1::a {{c2::b}}` is a cloze of `c2`
+  alone, with `{{c1::a` shown as typed.
+* A lone brace inside a mark still makes it no mark, nested or not, so
+  `{{c1::\(x^{2}\)}}` is text.
+
 The cloze is read before the divider. `{{c1::Paris}}` holds a `::`, and a line
 holding a cloze mark is a cloze and never a card written on one line, so the
 `::` inside the braces divides nothing. A line holding a mark and a `::` outside
@@ -185,8 +204,7 @@ marks on a front line further up are read as their own one-line cloze.
 
 The marks are text everywhere else. Live preview and Obsidian show them as
 typed, and a line of `==Paris==` stays a highlight: it is a cloze in
-obsidian-spaced-repetition and prose here. Nested marks, `{{c1::a {{c2::b}}}}`,
-are not read.
+obsidian-spaced-repetition and prose here.
 
 ## The schedule
 
