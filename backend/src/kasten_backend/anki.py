@@ -305,11 +305,21 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         # test, so `&#123;` is the brace it shows and breaks the mark as one
         # typed does (#333); held inner marks are put back after.
         flat = _flat(_KEPT.sub(inside, match[0]))
+        answer = _flat(_KEPT.sub(inside, match[1]))
+        hint = match[0][match.end(1) - match.start() : -2]
+        if cloze and ("::" in answer or (hint and answer.endswith(":"))):
+            # Anki divides answer from hint only at a `::` typed in the field,
+            # so a decoded `&#58;&#58;` is answer to it and would be a hint to
+            # kasten (#335). Encoded before held inner marks go back, whose own
+            # `::` stays.
+            answer = answer.replace(":", "&#58;")
+            opener = match[0][: match.start(1) - match.start()]
+            flat = f"{opener}{answer}{_flat(_KEPT.sub(inside, hint))}}}}}"
         if cloze and _MARK.fullmatch(flat) is not None:
             kept.append(_KEPT.sub(lambda mark: kept[int(mark[1])], flat))
         else:
-            bare[len(kept)] = inner = _KEPT.sub(inside, match[1])
-            kept.append(f"=={_KEPT.sub(lambda mark: kept[int(mark[1])], _flat(inner))}==")
+            bare[len(kept)] = _KEPT.sub(inside, match[1])
+            kept.append(f"=={_KEPT.sub(lambda mark: kept[int(mark[1])], answer)}==")
         return f"{len(kept) - 1}"
 
     # Innermost first, so an outer mark holding a whole inner one is read as

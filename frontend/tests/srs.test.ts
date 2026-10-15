@@ -984,3 +984,45 @@ describe("an imported cloze with an entity brace or an empty inner mark", () => 
     expect(read("==a {== {{c3::c}}")).toEqual([[3, null]]);
   });
 });
+
+describe("an imported cloze whose answer holds an entity colon", () => {
+  const ID = " <!--anki:1:0:abcdef12-->";
+  const read = (line: string) => parseCards(`#flashcards/x\n\n${line}${ID}\n`);
+
+  it("asks an entity :: as the answer, with no hint", () => {
+    const cards = read("{{c1::a&#58;&#58;b}}");
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.front).toBe("\\[...\\]");
+    expect(sameAnswer("a::b", cards[0]?.target ?? "")).toBe(true);
+  });
+
+  it("asks an entity :: before a hint by that hint", () => {
+    const [card] = read("{{c1::a&#58;&#58;b::h}}");
+
+    expect(card?.front).toBe("\\[h\\]");
+    expect(sameAnswer("a::b", card?.target ?? "")).toBe(true);
+  });
+
+  it("asks an entity colon closing the answer before a hint", () => {
+    const [card] = read("{{c1::a&#58;::h}}");
+
+    expect(card?.front).toBe("\\[h\\]");
+    expect(sameAnswer("a:", card?.target ?? "")).toBe(true);
+  });
+
+  it("asks an entity :: inside an outer mark on its own card", () => {
+    const cards = read("{{c1::x {{c2::a&#58;&#58;b}}}}");
+
+    expect(cards.map((card) => card.cloze)).toEqual([1, 2]);
+    expect(cards[0]?.back).toBe("==x a::b==");
+    expect(sameAnswer("a::b", cards[1]?.target ?? "")).toBe(true);
+  });
+
+  it("shows an entity :: in a highlight the import wrote as colons", () => {
+    const [card] = read("=={&#58;&#58;b==::extra");
+
+    expect(card?.front).toBe("=={::b==");
+    expect(card?.back).toBe("extra");
+  });
+});

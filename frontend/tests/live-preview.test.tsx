@@ -12,6 +12,7 @@ import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/pdf-view";
+import { parseCards } from "@/lib/srs";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 
@@ -495,6 +496,14 @@ describe("live preview", () => {
 
     expect(container.querySelector(".cm-table-grid")).not.toBeNull();
     expect(content(container)).not.toContain("|");
+  });
+
+  it("shows an imported cloze answer's entity colons as colons", () => {
+    const [card] = parseCards("#flashcards/x\n\nx {{c1::a&#58;&#58;b}} y\n");
+    const { container } = render(<NotePreview text={card?.back ?? ""} />);
+
+    expect(content(container)).toContain("x a::b y");
+    expect(content(container)).not.toContain("&#58;");
   });
 
   it("draws a fenced block as one surface, top and bottom marked", () => {

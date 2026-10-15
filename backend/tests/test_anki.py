@@ -1241,6 +1241,98 @@ def test_i6_a_re_import_rewrites_a_line_main_wrote_with_an_entity_brace() -> Non
     assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
 
 
+@pytest.mark.parametrize(
+    ("back", "tail"), [("", ""), ("extra", "\n?\nextra")], ids=["no-extra", "extra"]
+)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "{{c1::a&#58;&#58;b}}",
+        "{{c1::a&#x3A;&#x3A;b}}",
+        "{{c1::a&colon;&colon;b}}",
+        "{{c1::a&#058;&#058;b}}",
+        "{{c1::a&#58;:b}}",
+        "{{c1::a:&#58;b}}",
+        "{{c1::a:<b>:</b>b}}",
+    ],
+    ids=["decimal", "hex", "named", "padded", "left", "right", "tag"],
+)
+def test_a1_an_entity_colon_pair_in_a_mark_stays_the_answer(
+    text: str, back: str, tail: str
+) -> None:
+    # Anki divides answer from hint only at a `::` typed in the field, so it
+    # shows `a::b` as the answer; decoded, kasten would ask `a` with hint `b` (#335).
+    deck = cloze_note(text, back)
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{{{{c1::a&#58;&#58;b}}}}{tail}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "line"),
+    [
+        ("{{c1::a&#58;&#58;b::h}}", "{{c1::a&#58;&#58;b::h}}"),
+        ("{{c1::a&#58;::h}}", "{{c1::a&#58;::h}}"),
+    ],
+    ids=["pair", "trailing"],
+)
+def test_i2_an_entity_colon_before_a_hint_stays_the_answer(text: str, line: str) -> None:
+    deck = cloze_note(text, "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "line"),
+    [
+        ("{{c1::a::h}}", "{{c1::a::h}}"),
+        ("{{c1::a:b}}", "{{c1::a:b}}"),
+        ("{{c1::Ratio 1:}}", "{{c1::Ratio 1:}}"),
+        ("{{c1::a&#58;b}}", "{{c1::a:b}}"),
+        ("{{c1::a::b&#58;&#58;c}}", "{{c1::a::b::c}}"),
+    ],
+    ids=["hint", "single", "trailing", "single-entity", "entity-in-hint"],
+)
+def test_i3_a_colon_that_cannot_move_the_hint_is_decoded(text: str, line: str) -> None:
+    deck = cloze_note(text, "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+def test_i5_an_entity_colon_pair_in_an_inner_mark_stays_its_answer() -> None:
+    deck = cloze_note("{{c1::x {{c2::a&#58;&#58;b}}}}", "")
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n{{{{c1::x {{{{c2::a&#58;&#58;b}}}}}}}}{mark(1)}\n"
+    )
+    assert card_count(deck) == 2
+
+
+def test_i6_an_entity_colon_pair_in_a_highlight_does_not_split_the_line() -> None:
+    # The brace leaves a mark kasten cannot read; decoded, its `::` split the
+    # line and with no Back Extra the card was left out.
+    deck = cloze_note("{{c1::{&#58;&#58;b}}", "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n=={{&#58;&#58;b==::{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+def test_i7_a_re_import_rewrites_a_line_main_wrote_with_an_entity_colon() -> None:
+    # The line before #335's fix, its hash as the import wrote it then.
+    line = "{{c1::a::b}}"
+    schedule = "<!--SR:c1!2026-10-20,3,250-->"
+    old = f"#flashcards/x\n\n{line}{marked(1, line)} {schedule}\n"
+
+    merged = merge(old, cloze_note("{{c1::a&#58;&#58;b}}", ""))
+
+    assert merged is not None
+    expected = f"#flashcards/x\n\n{{{{c1::a&#58;&#58;b}}}}{mark(1)} {schedule}\n"
+    assert unhashed(merged.text) == expected
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
+
+
 def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # Anki will not save such a note, but a broken export can hold one; its
     # text is still worth a question.

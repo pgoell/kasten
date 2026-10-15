@@ -189,9 +189,22 @@ const RUBY_TAG = /<\/?ruby\b[^>]*>/g;
 /**
  * `target` as somebody types it: an imported `<ruby>漢字<rt>かんじ</rt></ruby>`
  * is the word `漢字`, the reading drawn over it being a hint and not the answer.
+ *
+ * An imported `a&#58;&#58;b` is `a::b` too, as `colons` gives it.
  */
 function typedTarget(target: string): string {
-  return target.replace(READING, "").replace(RUBY_TAG, "");
+  return colons(target.replace(READING, "").replace(RUBY_TAG, ""));
+}
+
+/**
+ * `text` with an imported answer's `&#58;` read as the colon Anki shows.
+ *
+ * The import writes a cloze answer's colons as `&#58;` where a typed `::`
+ * would split the answer at a hint, and in no other form. The preview draws
+ * no entity, so the card decodes it before the preview sees it.
+ */
+function colons(text: string): string {
+  return text.replaceAll("&#58;", ":");
 }
 
 /**
@@ -210,10 +223,10 @@ function clozeCards(
   // The card's own tags are no part of the question, here as on any card.
   const text = withoutTags(line);
   return clozeNumbers(line).map((cloze) => {
-    const answer = clozeAnswer(text, cloze);
+    const answer = colons(clozeAnswer(text, cloze));
     return {
       ...card,
-      front: clozeQuestion(text, cloze),
+      front: colons(clozeQuestion(text, cloze)),
       back: extra === "" ? answer : `${answer}\n\n${extra}`,
       decks: [],
       held: readSchedule(schedule, clozeComment(cloze)),
@@ -348,7 +361,9 @@ export function parseCards(text: string, note = ""): Card[] {
     cards.push({
       from: at,
       to: at,
-      front: withoutTags(halves.front).trim(),
+      // A cloze mark the import could not keep is a highlight here, its
+      // colons still written as the mark wrote them.
+      front: colons(withoutTags(halves.front).trim()),
       back: halves.back,
       inline: true,
       decks: [],
