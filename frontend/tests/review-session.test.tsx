@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
+import { noteBase } from "@/lib/note-base";
 import type { Deck } from "@/lib/review";
 import { shownCard } from "./review-card";
 
@@ -316,6 +317,26 @@ describe("ReviewSession on a parked card", () => {
     expect(saved.mock.calls[0]?.[1]).toContain("What is Direct Connect?::A private link\n");
   });
 
+  it("names the text it read as the first save's base, and that save's answer as the next", async () => {
+    const saved = renderTwo();
+    // The vault's answer differs from what was sent, the way a stamp makes it.
+    saved.mockImplementation(async (path: string, content: string) => ({
+      path,
+      content: `${content}\nlanded\n`,
+    }));
+    await shownCard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
+    expect(saved.mock.calls[0]?.slice(2)).toEqual([false, noteBase(TWO)]);
+    expect(saved.mock.calls[1]?.[1]).toContain("landed");
+    expect(saved.mock.calls[1]?.[3]).toBe(noteBase(`${saved.mock.calls[0]?.[1]}\nlanded\n`));
+  });
+
   it("drops it from the queue and moves to the next card", async () => {
     renderTwo();
     await shownCard();
@@ -348,10 +369,10 @@ describe("ReviewSession on a cloze", () => {
 
   function renderCloze(text = CLOZE) {
     vi.spyOn(api, "fetchNote").mockResolvedValue(text);
-    const saved = vi.spyOn(api, "saveNote").mockResolvedValue({
-      path: "decks/aws.md",
-      content: text,
-    });
+    // The vault answers with what was sent: the next rating starts from it.
+    const saved = vi
+      .spyOn(api, "saveNote")
+      .mockImplementation(async (path: string, content: string) => ({ path, content }));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>

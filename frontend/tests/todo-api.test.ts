@@ -1,3 +1,5 @@
+import { noteBase } from "@/lib/note-base";
+import { periodicNote } from "@/lib/periodic";
 import {
   addSubtaskInVault,
   addTodoInVault,
@@ -7,15 +9,22 @@ import {
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
 // do: what this half owns is which notes it reads and what it sends back.
-const { createNote, fetchNote, fetchTodos, saveNote } = vi.hoisted(() => ({
+const { createNote, fetchNote, fetchTodos, saveNote, updateNote } = vi.hoisted(() => ({
   createNote: vi.fn(),
   fetchNote: vi.fn(),
   fetchTodos: vi.fn(),
   saveNote: vi.fn(),
+  updateNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ createNote, fetchNote, fetchTodos, saveNote }));
+vi.mock("@/lib/api", () => ({ createNote, fetchNote, fetchTodos, saveNote, updateNote }));
 
 beforeEach(() => {
+  // One try over the fakes above. The retries on a 409 are `update-note.test.ts`'s.
+  updateNote.mockImplementation(async (path: string, change: (text: string) => string | null) => {
+    const text = await fetchNote(path);
+    const next = change(text);
+    return next === null ? null : saveNote(path, next, false, noteBase(text));
+  });
   createNote.mockReset();
   createNote.mockResolvedValue(undefined);
   fetchNote.mockReset();
@@ -42,6 +51,8 @@ describe("editTodoInVault", () => {
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
       "projects/kasten.md",
       ["# Kasten", "", "  - [/] call the dentist 📅 2026-08-15 🆔 kt-3f9a2c", ""].join("\n"),
+      false,
+      noteBase(NOTE),
     );
   });
 
@@ -63,7 +74,12 @@ describe("editTodoInVault, on a blocked line", () => {
 
     await editTodoInVault(hit, "- [b] write the docs");
 
-    expect(saveNote).toHaveBeenCalledExactlyOnceWith("a.md", "- [ ] write the docs");
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "a.md",
+      "- [ ] write the docs",
+      false,
+      noteBase(hit.text),
+    );
   });
 });
 
@@ -92,6 +108,8 @@ describe("blockTodoInVault", () => {
     expect(saveNote).toHaveBeenLastCalledWith(
       "docs.md",
       ["# Docs", `- [b] write the docs ⛔ ${id}`].join("\n"),
+      false,
+      expect.any(String),
     );
   });
 
@@ -106,6 +124,8 @@ describe("blockTodoInVault", () => {
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
       "docs.md",
       ["# Docs", "- [b] write the docs ⛔ kt-c0ffee"].join("\n"),
+      false,
+      expect.any(String),
     );
   });
 
@@ -122,7 +142,18 @@ describe("blockTodoInVault", () => {
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
       "a.md",
       ["- [ ] ship the release 🆔 kt-c0ffee", "- [/] write the docs ⛔ kt-c0ffee"].join("\n"),
+      false,
+      noteBase(note),
     );
+  });
+
+  it("names the text it read of each note as that write's base", async () => {
+    await blockTodoInVault(DOCS, SHIP);
+
+    expect(saveNote.mock.calls.map((call) => call.slice(2))).toEqual([
+      [false, noteBase(NOTES["release.md"] ?? "")],
+      [false, noteBase(NOTES["docs.md"] ?? "")],
+    ]);
   });
 
   it("writes nothing, not even the id, where either note moved under its row", async () => {
@@ -148,6 +179,8 @@ describe("addSubtaskInVault", () => {
         "  - [ ] ring the practice 📅 2026-08-12 ⏫ ➕ 2026-08-10",
         "",
       ].join("\n"),
+      false,
+      noteBase(NOTE),
     );
   });
 
@@ -171,5 +204,19 @@ describe("addTodoInVault", () => {
 
     const [, text] = createNote.mock.calls[0] as [string, string];
     expect(text.split("\n").slice(0, 3)).toEqual(["---", "type: Periodic Note", "---"]);
+  });
+
+  it("names the daily note it read as the base of its write", async () => {
+    const daily = periodicNote("daily", new Date()).path;
+    fetchNote.mockResolvedValue("# Today\n");
+
+    await addTodoInVault("call the dentist", "2026-08-06", [daily]);
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      expect.stringContaining("call the dentist"),
+      false,
+      noteBase("# Today\n"),
+    );
   });
 });

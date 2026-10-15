@@ -1267,6 +1267,10 @@ async def save_file(
     land over that writer's text unasked. The base sets `modified` aside because
     every save restamps it, so a client that sent its text and has not heard
     back yet can still name that text as its base.
+
+    A stale base over a disk that already holds the text is a 200 with the note
+    as it stands, and nothing is written. A page-hide keepalive and the quiet
+    write it repeats can land in either order, and the second is no conflict.
     """
     async with vault_write():
         note = resolve_note(settings.vault_path, path)
@@ -1274,13 +1278,20 @@ async def save_file(
             raise HTTPException(status_code=404, detail="No such note")
 
         current = note.read_text(encoding="utf-8")
+        relative = relative_path(settings.vault_path, note)
         if (
             edit.base is not None
             and hashlib.sha256(unstamped(current).encode("utf-8")).hexdigest() != edit.base
         ):
-            raise HTTPException(status_code=409, detail="Changed on disk")
+            held = (
+                edit.content == current
+                if reserved(relative)
+                else unstamped(stamp(edit.content, current)) == unstamped(current)
+            )
+            if not held:
+                raise HTTPException(status_code=409, detail="Changed on disk")
+            return Note(path=path, content=current)
 
-        relative = relative_path(settings.vault_path, note)
         content = edit.content if reserved(relative) else stamp(edit.content, current)
 
         async with vault_change(settings.vault_path, relative):

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchCards, fetchNote, saveNote } from "@/lib/api";
 import { clozePlain } from "@/lib/card-line";
 import { withoutTags } from "@/lib/deck-tag";
+import { noteBase } from "@/lib/note-base";
 import { noteName } from "@/lib/note-path";
 import { parkedNotes } from "@/lib/review";
 import {
@@ -93,8 +94,14 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
     }
 
     setTexts((was) => new Map(was).set(row.note, next));
-    void saveNote(row.note, next).then(
-      () => {
+    // Over the text read, so a note somebody wrote since is refused rather than
+    // written over. The answer is the next put back's base, unless one has
+    // already moved the note on: the session's `write` does the same.
+    void saveNote(row.note, next, false, noteBase(text)).then(
+      (written) => {
+        setTexts((was) =>
+          was?.get(row.note) === next ? new Map(was).set(row.note, written.content) : was,
+        );
         void queryClient.invalidateQueries({ queryKey: ["cards"] });
       },
       (error: unknown) => {

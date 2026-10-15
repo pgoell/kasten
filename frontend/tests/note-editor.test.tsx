@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Editor } from "@/components/editor";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
+import { ChangedOnDisk } from "@/lib/api";
 import { resetHeld, unstamped } from "@/lib/held-text";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/use-autosave";
@@ -390,14 +391,17 @@ describe("an open note", () => {
     await waitFor(() => expect(note.text()).toBe("the index note"));
 
     fetchNote.mockResolvedValue("the index note, rewritten elsewhere");
+    // The quiet save after it names the base the buffer was typed on, which
+    // the vault has moved past.
+    saveNote.mockRejectedValueOnce(new ChangedOnDisk());
     // `x` deletes the character under the cursor, which opens at the top.
     note.press("x");
     await note.reread("index.md");
     await waitFor(() => expect(fetchNote).toHaveBeenCalledTimes(2));
 
     expect(note.text()).toBe("he index note");
-    // The refusal reaches the bar a render later than it reaches the document.
     await waitFor(() => expect(note.status()).toBe("Changed on disk"));
+    expect(note.text()).toBe("he index note");
   });
 
   it("takes a write from the vault when nothing is waiting, and says nothing about it", async () => {

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ReviewParked } from "@/components/review-parked";
 import * as api from "@/lib/api";
+import { noteBase } from "@/lib/note-base";
 
 /** One suspended card, one unanswered, one in an untagged note, one whole note. */
 const HITS = [
@@ -115,6 +116,16 @@ describe("ReviewParked putting a card back", () => {
       "What is a VPC?::A private cloud <!--SR:!2026-08-20,4,270-->",
     );
     expect(wrote.mock.calls[0]?.[1]).not.toContain("!suspended");
+  });
+
+  it("names the text it read as the base of the write", async () => {
+    const wrote = saved();
+    const { container } = renderParked();
+    await screen.findByText("What is a VPC?");
+
+    fireEvent.click(container.querySelector('button[data-unpark="a.md:0"]') as HTMLButtonElement);
+
+    expect(wrote.mock.calls[0]?.slice(2)).toEqual([false, noteBase(NOTES["a.md"] ?? "")]);
   });
 
   it("drops the row it put back", async () => {

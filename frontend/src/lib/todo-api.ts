@@ -13,7 +13,9 @@ import {
   type SearchHit,
   saveNote,
   searchNotes,
+  updateNote,
 } from "@/lib/api";
+import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 import {
   cycleLine,
@@ -63,13 +65,24 @@ async function dailyNote(
   return { path: daily.path, text };
 }
 
-/** Send each write, one note at a time. */
-async function send(writes: Write[], paths: string[]): Promise<void> {
+/**
+ * Send each write, one note at a time.
+ *
+ * `read` is the text each write was worked out from, and names its base: a
+ * note that moved since is refused with `ChangedOnDisk` rather than written
+ * over, and the press fails the way any other failed write does.
+ */
+async function send(writes: Write[], paths: string[], read: Record<string, string>): Promise<void> {
   for (const write of writes) {
     // A path the vault does not hold is only ever today's daily note, which a
     // create makes along with the folders on the way to it.
-    if (paths.includes(write.path)) await saveNote(write.path, write.text);
-    else await createNote(write.path, write.text);
+    if (!paths.includes(write.path)) {
+      await createNote(write.path, write.text);
+      continue;
+    }
+    const text = read[write.path];
+    if (text === undefined) throw new Error(`no read of ${write.path} to name as its base`);
+    await saveNote(write.path, write.text, false, noteBase(text));
   }
 }
 
@@ -81,7 +94,7 @@ export async function addTodoInVault(input: string, today: string, paths: string
     dailyText: daily.text,
     todo: expandShorthand(input, today),
   });
-  await send(writes, paths);
+  await send(writes, paths, { [daily.path]: daily.text });
 }
 
 /**
@@ -102,12 +115,13 @@ export async function addTodoInVault(input: string, today: string, paths: string
  * No `paths` and no `send`: the line came out of a note the vault holds.
  */
 export async function editTodoInVault(hit: SearchHit, line: string): Promise<void> {
-  const text = await fetchNote(hit.path);
-  const lines = text.split("\n");
-  if (lines[hit.line - 1] !== hit.text) return;
+  await updateNote(hit.path, (text) => {
+    const lines = text.split("\n");
+    if (lines[hit.line - 1] !== hit.text) return null;
 
-  lines[hit.line - 1] = unblockedEdit(hit.text, line);
-  await saveNote(hit.path, lines.join("\n"));
+    lines[hit.line - 1] = unblockedEdit(hit.text, line);
+    return lines.join("\n");
+  });
 }
 
 /**
@@ -122,14 +136,16 @@ export async function editTodoInVault(hit: SearchHit, line: string): Promise<voi
  * No `paths` and no `send`: both lines came out of notes the vault holds.
  */
 export async function blockTodoInVault(hit: SearchHit, blocker: SearchHit): Promise<void> {
-  const blockerLines = (await fetchNote(blocker.path)).split("\n");
+  const blockerText = await fetchNote(blocker.path);
+  const blockerLines = blockerText.split("\n");
   const named = parseTodo(blocker.text);
   if (named === null || blockerLines[blocker.line - 1] !== blocker.text) return;
 
   // One note holding both is read once and written once, the second read
   // being older than the first write otherwise.
   const same = hit.path === blocker.path;
-  const lines = same ? blockerLines : (await fetchNote(hit.path)).split("\n");
+  const text = same ? blockerText : await fetchNote(hit.path);
+  const lines = same ? blockerLines : text.split("\n");
   if (lines[hit.line - 1] !== hit.text) return;
 
   const id = named.id ?? newId();
@@ -141,10 +157,12 @@ export async function blockTodoInVault(hit: SearchHit, blocker: SearchHit): Prom
 
   if (named.id === undefined) {
     blockerLines[blocker.line - 1] = formatTodo({ ...named, id });
-    if (!same) await saveNote(blocker.path, blockerLines.join("\n"));
+    if (!same) await saveNote(blocker.path, blockerLines.join("\n"), false, noteBase(blockerText));
   }
   lines[hit.line - 1] = held;
-  await saveNote(hit.path, lines.join("\n"));
+  // Each write names the text it was read from, so a note that moved under
+  // either is refused rather than written over.
+  await saveNote(hit.path, lines.join("\n"), false, noteBase(text));
 }
 
 /**
@@ -163,11 +181,11 @@ export async function addSubtaskInVault(
   input: string,
   today: string,
 ): Promise<void> {
-  const text = await fetchNote(hit.path);
-  if (text.split("\n")[hit.line - 1] !== hit.text) return;
-
-  const moved = insertSubtask(text, hit.line, expandShorthand(input, today));
-  if (moved !== null) await saveNote(hit.path, moved);
+  await updateNote(hit.path, (text) =>
+    text.split("\n")[hit.line - 1] === hit.text
+      ? insertSubtask(text, hit.line, expandShorthand(input, today))
+      : null,
+  );
 }
 
 /**
@@ -200,10 +218,7 @@ async function writeBackBlocked(
       .map((hit) => hit.path),
   );
 
-  for (const path of dependents) {
-    const moved = applyBlocked(await fetchNote(path), closed);
-    if (moved !== null) await saveNote(path, moved);
-  }
+  for (const path of dependents) await updateNote(path, (text) => applyBlocked(text, closed));
 }
 
 /**
@@ -250,6 +265,7 @@ export async function cycleTodoAside(
     await send(
       writes.filter((write) => write.path !== path),
       paths,
+      { ...logged, [daily.path]: daily.text },
     );
   }
 
@@ -308,7 +324,7 @@ export async function cycleTodoInVault(
     state,
   });
 
-  await send(writes, paths);
+  await send(writes, paths, { ...logged, [hit.path]: text, [daily.path]: daily.text });
 
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
@@ -369,5 +385,5 @@ export async function toggleTimerInVault(
     id: newId(),
   });
 
-  await send(writes, paths);
+  await send(writes, paths, notes);
 }

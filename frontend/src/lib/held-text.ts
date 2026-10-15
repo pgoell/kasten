@@ -239,6 +239,44 @@ export function sameText(a: string, b: string): boolean {
   return unstamped(a) === unstamped(b);
 }
 
+/** The keys the backend's `stamp` writes into a block that lacks them. */
+const STAMPED = new Set(["id", "created", "type"]);
+
+/** The block's lines bar `modified`, and everything from the closing fence on. */
+function parts(text: string): { block: string[]; rest: string } | undefined {
+  if (!text.startsWith("---\n")) return undefined;
+  const end = text.indexOf("\n---", 4);
+  if (end === -1) return undefined;
+  const block = text
+    .slice(4, end)
+    .split("\n")
+    .filter((line) => !line.startsWith("modified:"));
+  return { block, rest: text.slice(end) };
+}
+
+/**
+ * Whether held text landed as the vault's `vault`: the same note once
+ * `modified` is set aside, or what `stamp` makes of it on the way in, which is
+ * an `id`, `created` or `type` line ahead of the block where it has none, and a
+ * whole block where there is none. One way only: a held copy that set one of
+ * those lines and finds another value there did not land.
+ */
+export function landedAs(held: string, vault: string): boolean {
+  if (sameText(held, vault)) return true;
+  const theirs = parts(vault);
+  if (theirs === undefined) return false;
+  const ours = parts(held) ?? { block: [], rest: `\n---\n${held}` };
+  const added = theirs.block.length - ours.block.length;
+  if (theirs.rest !== ours.rest || added < 0) return false;
+  if (theirs.block.slice(added).join("\n") !== ours.block.join("\n")) return false;
+  const keyOf = (line: string) => line.split(":")[0] ?? "";
+  const keys = new Set(ours.block.map(keyOf));
+  return theirs.block.slice(0, added).every((line) => {
+    const key = keyOf(line);
+    return STAMPED.has(key) && !keys.has(key);
+  });
+}
+
 /** `text` without its frontmatter's `modified` line, which every write restamps. */
 export function unstamped(text: string): string {
   if (!text.startsWith("---\n")) return text;

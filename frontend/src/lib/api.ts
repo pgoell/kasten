@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "@/lib/api-types";
 import { applyLayout, type Layout } from "@/lib/layout";
+import { noteBase } from "@/lib/note-base";
 
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
@@ -365,6 +366,32 @@ export async function saveNote(
   }
 
   return data;
+}
+
+/**
+ * Read one note, change it, and write it back over exactly the text read.
+ *
+ * The write names what it read as its base, so a save landing between the read
+ * and the write is refused rather than written over. On a refusal the note is
+ * read again and `change` runs again on the new text: it checks its own
+ * preconditions, and answers null where there is now nothing to write. Three
+ * tries, then the last `ChangedOnDisk` goes to the caller, a note somebody is
+ * typing into being one this write should not chase.
+ */
+export async function updateNote(
+  path: string,
+  change: (text: string) => string | null,
+): Promise<Note | null> {
+  for (let tries = 1; ; tries++) {
+    const text = await fetchNote(path);
+    const next = change(text);
+    if (next === null) return null;
+    try {
+      return await saveNote(path, next, false, noteBase(text));
+    } catch (error) {
+      if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
+    }
+  }
 }
 
 /**

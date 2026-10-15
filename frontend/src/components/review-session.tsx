@@ -5,6 +5,7 @@ import { fetchNote, saveNote } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
 import { readClock } from "@/lib/clock";
 import { inDeck } from "@/lib/deck-tag";
+import { noteBase } from "@/lib/note-base";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import type { Deck } from "@/lib/review";
@@ -251,6 +252,36 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   // Off with the sitting, so a sound never runs on over the deck list.
   useEffect(() => () => player.current?.pause(), []);
 
+  /**
+   * Write `next` over `text`, the note as this sitting last knew it.
+   *
+   * `text` names the base, so a note somebody wrote since the read is refused
+   * rather than written over, and that refusal is one more failed write. The
+   * vault's answer then stands in for `next`, stamp and all, so the next save
+   * names what landed. Only while `next` is still what the sitting holds: a
+   * rating made while this was out has moved the note on already.
+   */
+  const write = useCallback(
+    (note: string, text: string, next: string) => {
+      void saveNote(note, next, false, noteBase(text)).then(
+        (written) => {
+          setTexts((was) =>
+            was?.get(note) === next ? new Map(was).set(note, written.content) : was,
+          );
+          void queryClient.invalidateQueries({ queryKey: ["cards"] });
+        },
+        (error: unknown) => {
+          // The answer is not lost with the write. The session carries on and
+          // the bar says the note is the part that failed, because a rating
+          // that vanished silently would be a card you answer again tomorrow
+          // believing you had not.
+          setFailed(error instanceof Error ? error.message : "could not write the note");
+        },
+      );
+    },
+    [queryClient],
+  );
+
   const rate = useCallback(
     (rating: Rating) => {
       if (texts === null || seat === undefined) return;
@@ -274,20 +305,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
       play(following === undefined ? [] : soundsShowing(following, false));
 
-      void saveNote(seat.note, next).then(
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["cards"] });
-        },
-        (error: unknown) => {
-          // The answer is not lost with the write. The session carries on and
-          // the bar says the note is the part that failed, because a rating
-          // that vanished silently would be a card you answer again tomorrow
-          // believing you had not.
-          setFailed(error instanceof Error ? error.message : "could not write the note");
-        },
-      );
+      write(seat.note, text, next);
     },
-    [cards, deck, play, queryClient, queue, seat, texts, today],
+    [cards, deck, play, queue, seat, texts, today, write],
   );
 
   /**
@@ -322,18 +342,8 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
     play(following === undefined ? [] : soundsShowing(following, false));
 
-    void saveNote(seat.note, next).then(
-      () => {
-        void queryClient.invalidateQueries({ queryKey: ["cards"] });
-      },
-      (error: unknown) => {
-        // The same call `rate` makes, for the same reason: a write that failed
-        // silently would be a card you believe is parked and meet again
-        // tomorrow.
-        setFailed(error instanceof Error ? error.message : "could not write the note");
-      },
-    );
-  }, [cards, deck, play, queryClient, queue, seat, texts]);
+    write(seat.note, text, next);
+  }, [cards, deck, play, queue, seat, texts, write]);
 
   /**
    * Write what was jotted at the end of the note the card on screen came from.
@@ -351,15 +361,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     const next = appendStub(text, question.trim());
     setTexts((was) => new Map(was).set(seat.note, next));
     setJotting(null);
-
-    void saveNote(seat.note, next).then(
-      () => {
-        void queryClient.invalidateQueries({ queryKey: ["cards"] });
-      },
-      (error: unknown) => {
-        setFailed(error instanceof Error ? error.message : "could not write the note");
-      },
-    );
+    write(seat.note, text, next);
   }
 
   // A toggle, because the second press is the only way to shut the line

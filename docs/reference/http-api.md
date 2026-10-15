@@ -956,6 +956,11 @@ the base of the next. The editor's autosave sends a base, so a quiet write in
 the air when somebody else wrote the note no longer lands over their text. A
 body without `base` is written whatever is on disk, and the last write wins.
 
+A stale `base` is not refused when the disk already holds the text being sent,
+`modified` again set aside: the answer is `200` with the note as it stands, and
+nothing is written. A page-hide keepalive and the quiet write it repeats can
+land in either order, and the second one is no conflict.
+
 What a note edited by hand or by `git pull` costs is settled a layer up, over
 [the change stream](#get-apievents). The browser is told when the vault changes
 under it: a note nobody is typing into takes the new text, and a note holding

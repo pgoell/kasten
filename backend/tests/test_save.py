@@ -199,3 +199,47 @@ async def test_refuses_a_base_the_disk_has_moved_past(client: AsyncClient, vault
 
     assert response.status_code == 409
     assert (vault / "borges.md").read_text() == on_disk
+
+
+async def test_answers_a_stale_base_with_the_disk_when_the_disk_holds_the_text(
+    client: AsyncClient, vault: Path
+) -> None:
+    # A page-hide keepalive and the quiet write it repeats can land in either
+    # order. The second names a base the first moved past, yet the disk already
+    # holds its text, so there is nothing to refuse and nothing to write.
+    block = "id: kept\ncreated: 2020-01-01T00:00:00+00:00\ntype: note\n"
+    on_disk = f"---\n{block}modified: 2020-01-02T00:00:00+00:00\n---\n# borges\n\nMine.\n"
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={
+            "content": f"---\n{block}modified: 2020-01-03T00:00:00+00:00\n---\n# borges\n\nMine.\n",
+            "base": _base(f"---\n{block}---\n# borges\n"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["content"] == on_disk
+    assert (vault / "borges.md").read_text() == on_disk
+
+
+async def test_answers_a_stale_base_with_the_disk_when_it_stamped_the_text(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The client sent a note without a block, and the first write gave it one.
+    # The repeat sends the same unblocked text, which the disk holds once stamped.
+    on_disk = (
+        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\ntype: note\n"
+        "modified: 2020-01-01T00:00:00+00:00\n---\n# borges\n\nMine.\n"
+    )
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": "# borges\n\nMine.\n", "base": _base("# borges\n")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["content"] == on_disk
+    assert (vault / "borges.md").read_text() == on_disk

@@ -781,7 +781,8 @@ epub gets nothing, there being no such layer to hang one in.
 
 The write goes out whether or not the note is the pane you are typing in. It is
 a press, so you asked for it, and a buffer with unsaved text in it says
-`Changed on disk` and settles with `:w` or `:e!`, which is what ticking a todo
+`Changed on disk` once its next write is refused, and settles with `:w` or
+`:e!`, which is what ticking a todo
 in the pane already does.
 
 The line at the bottom of the pane says how far through the whole book you are,
@@ -2437,14 +2438,15 @@ for `:w`, `:e` and `:e!` everywhere this section names them.
 
 Something outside kasten writing the note is answered while it is open. A note
 you are not typing into simply takes the new text, with the cursor where you
-left it. A note holding unsaved edits keeps them instead: autosave stops, and
-the status bar wears the warning sign, labelled `Changed on disk`, and opens
-above itself with what differs: a line only the vault holds marked `-`, a line
-only your buffer holds marked `+`, runs of equal lines folded to a count, and
-the `modified` stamp left out. The same happens when the other write lands
-while kasten's own is on its way: the vault refuses kasten's write, keeps the
-other writer's text, and the note reads `Changed on disk` with your text still
-in the buffer. If the editor had already taken the other writer's text in,
+left it. A note holding unsaved edits keeps them, and the write alone marks
+nothing. Every write kasten makes names the vault's text your buffer was typed
+on, and the vault refuses one it has moved past, keeping the other writer's
+text. So the next write, a second after you stop typing, is refused, and only
+then does autosave stop and the status bar wear the warning sign, labelled
+`Changed on disk`, and open above itself with what differs: a line only the
+vault holds marked `-`, a line only your buffer holds marked `+`, runs of equal
+lines folded to a count, and the `modified` stamp left out. Your text stays in
+the buffer. If the editor had already taken the other writer's text in,
 having nothing newer of yours to keep, your refused text is kept in this
 browser's storage instead, and the bar lists the note until you settle it.
 
@@ -2465,7 +2467,8 @@ Without a prompt to type them at, which is a phone, click or tap the save sign:
 
 Text that has not reached the vault is not given up. Hiding the page, which is
 a reload, a closed tab or a phone sending the app to the background, writes
-what is waiting at once rather than after the pause. A note that reads
+what is waiting at once rather than after the pause, naming the vault's text it
+was typed on like any other write, so it lands over nobody's. A note that reads
 `Changed on disk` is not written then; its text is kept instead. Nor is it
 written when you leave it for another note, click into another pane or leave
 the editor for another screen: kasten keeps your text in this browser's storage
@@ -2486,7 +2489,9 @@ elsewhere meanwhile. Opening the note puts the text back in the buffer under
 `Could not save`: `:w` writes it, `:e!` drops it for the vault's. If something
 else wrote the note since, it opens under `Changed on disk` instead. Opening it
 writes nothing on its own. If the vault already holds that text, the write
-having landed after the page went away, kasten drops it without asking.
+having landed after the page went away, kasten drops it without asking: the
+`id`, `created` and `type` lines the vault adds to a note that lacks them do
+not count as a difference.
 
 `:e` without the bang is vim's own reread and behaves the way vim's does. It
 takes the note off the vault when nothing is waiting to be written, and

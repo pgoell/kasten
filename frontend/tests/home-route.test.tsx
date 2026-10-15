@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-libr
 import { ASSET_LIMIT_BYTES, ChangedOnDisk } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
+import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
@@ -50,6 +51,7 @@ const {
   fetchFiles,
   fetchNote,
   saveNote,
+  updateNote,
   searchNotes,
   createNote,
   renameNote,
@@ -84,11 +86,21 @@ const {
     blob: new Blob(["a book"]),
   });
 
+  const fetchNote = vi.fn();
+  const saveNote = vi.fn();
+
   return {
     beside,
     fetchFiles: vi.fn(),
-    fetchNote: vi.fn(),
-    saveNote: vi.fn(),
+    fetchNote,
+    saveNote,
+    // One try over the two fakes above, so a writer's read and write show up
+    // on them. The retries on a 409 are `update-note.test.ts`'s.
+    updateNote: vi.fn(async (path: string, change: (text: string) => string | null) => {
+      const text: string = await fetchNote(path);
+      const next = change(text);
+      return next === null ? null : saveNote(path, next, false, noteBase(text));
+    }),
     searchNotes: vi.fn(),
     createNote: vi.fn(),
     renameNote: vi.fn(),
@@ -125,6 +137,7 @@ vi.mock("@/lib/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,
+  updateNote,
   searchNotes,
   createNote,
   renameNote,
@@ -197,6 +210,13 @@ function stream(): FakeEventSource {
   return open;
 }
 
+/**
+ * What somebody else left on disk, by path, which the fake `saveNote` checks a
+ * save's base against the way the backend does. Only paths an outside write
+ * touched: a save to any other lands as it always has.
+ */
+const outside = new Map<string, string>();
+
 /** The running test's signal, which vitest aborts when the test times out. */
 let signal: AbortSignal;
 
@@ -209,6 +229,7 @@ beforeEach((context) => {
 afterEach(() => {
   localStorage.removeItem("kasten.held");
   resetHeld();
+  outside.clear();
 });
 
 // The route's component is split into a chunk of its own, so the first
@@ -445,7 +466,16 @@ describe("the route", () => {
     FakeEventSource.last = undefined;
     fetchFiles.mockResolvedValue(Object.keys(VAULT));
     fetchNote.mockImplementation(async (path: string) => VAULT[path]);
-    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    saveNote.mockImplementation(
+      async (path: string, content: string, _keepalive?: boolean, base?: string) => {
+        const disk = outside.get(path);
+        if (disk !== undefined && base !== undefined && base !== noteBase(disk)) {
+          throw new ChangedOnDisk();
+        }
+        if (disk !== undefined) outside.set(path, content);
+        return { path, content };
+      },
+    );
     // Reset with the rest, because `resetAllMocks` takes the answer above off
     // it and a query function answering undefined is an error rather than an
     // empty list.
@@ -484,9 +514,19 @@ describe("the route", () => {
     return app;
   }
 
-  /** What the vault says when somebody else writes the note that is open. */
+  /**
+   * Somebody else writing the note that is open, the event that says so, and
+   * the quiet save after it, which the vault refuses over its base: that
+   * refusal is what shows the conflict. The refused call is cleared, so a
+   * test's count of writes starts after it.
+   */
   function somebodyElseWrote() {
-    act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+    outside.set("index.md", "somebody else's note");
+    act(() => {
+      stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) });
+      vi.advanceTimersByTime(800);
+    });
+    saveNote.mockClear();
   }
 
   it("opens the note the tree was clicked on", async () => {
@@ -514,6 +554,29 @@ describe("the route", () => {
     expect(app.cached("index.md")).toBe("the index note");
     expect(app.text()).toBe("he index note");
     expect(app.status()).toBe("Changed on disk");
+  });
+
+  it("marks nothing on an outside write's event, and says changed on disk once the save is refused", async () => {
+    const app = await editing();
+
+    act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+    await settle();
+    expect(app.status()).toBe("Unsaved changes");
+
+    saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith(
+      "index.md",
+      "he index note",
+      false,
+      noteBase("the index note"),
+    );
+    expect(app.status()).toBe("Changed on disk");
+    expect(app.text()).toBe("he index note");
   });
 
   it("refuses to close a note that changed on disk", async () => {
@@ -589,6 +652,14 @@ describe("the route", () => {
     // was clean when the decision was made is dirty when it lands.
     app.press("x");
     answer?.();
+    await settle();
+    expect(app.text()).toBe("e index note");
+
+    // The quiet save names the reader's own last write as its base, which the
+    // vault has moved past.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
     await settle();
 
     expect(app.text()).toBe("e index note");
@@ -1030,7 +1101,13 @@ describe("the route", () => {
     });
     await settle();
 
-    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note", true);
+    // Naming its base, so a page going away cannot write over somebody else.
+    expect(saveNote).toHaveBeenCalledWith(
+      "index.md",
+      "he index note",
+      true,
+      noteBase("the index note"),
+    );
   });
 
   /** Text a page before this one held for index.md, as a reload finds it. */
@@ -1208,12 +1285,21 @@ describe("the route", () => {
   /** The text of the editor in the pane at `index`, in the order they are drawn. */
   const paneText = (index: number) => document.querySelectorAll(".cm-content")[index]?.textContent;
 
-  /** The vault's copy of index.md becoming `text`, with the event that says so. */
+  /**
+   * The vault's copy of index.md becoming `text`, with the event that says so,
+   * and the refusal of a quiet save from a dirty buffer on it (see
+   * `somebodyElseWrote`).
+   */
   function vaultNow(text: string, digest: string) {
+    outside.set("index.md", text);
     fetchNote.mockImplementation(async (path: string) =>
       path === "index.md" ? text : VAULT[path],
     );
-    act(() => stream().send({ path: "index.md", change: "written", digest: digest.repeat(64) }));
+    act(() => {
+      stream().send({ path: "index.md", change: "written", digest: digest.repeat(64) });
+      vi.advanceTimersByTime(800);
+    });
+    saveNote.mockClear();
   }
 
   it("lets a pane that never showed the kept text take later outside writes", async () => {
@@ -1867,6 +1953,8 @@ describe("the route", () => {
     expect(saveNote).toHaveBeenCalledWith(
       "projects/kasten.md",
       ["# Kasten", "", edited].join("\n"),
+      false,
+      expect.any(String),
     );
     // The row the input replaced is gone, redrawn under another heading by the
     // write, so the focus handed back to it landed on the body and the pane was
@@ -2503,7 +2591,26 @@ describe("a reader when the vault moves under it", () => {
 
       await waited();
 
-      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`reading: ${PLACE}`));
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringContaining(`reading: ${PLACE}`),
+        false,
+        expect.any(String),
+      );
+    });
+
+    it("names the note it read as the bookmark write's base", async () => {
+      await reading();
+
+      turnedTo(PLACE);
+      await waited();
+
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringContaining(`reading: ${PLACE}`),
+        false,
+        noteBase("# DDIA"),
+      );
     });
 
     it("puts the note the vault answered with in the cache", async () => {
@@ -2680,7 +2787,12 @@ describe("a reader when the vault moves under it", () => {
       app.leader("q");
       await settle();
 
-      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`reading: ${PLACE}`));
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringContaining(`reading: ${PLACE}`),
+        false,
+        expect.any(String),
+      );
     });
 
     /** The note as the vault holds it, with the block the case is about. */
@@ -2827,11 +2939,23 @@ describe("a reader when the vault moves under it", () => {
 
       await takes();
 
-      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`> ${PASSAGE}`));
-      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining("## Highlights"));
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringContaining(`> ${PASSAGE}`),
+        false,
+        expect.any(String),
+      );
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringContaining("## Highlights"),
+        false,
+        expect.any(String),
+      );
       expect(saveNote).toHaveBeenCalledWith(
         LIT,
         expect.stringMatching(/Section 1 \^hl-[0-9a-f]{6}/),
+        false,
+        expect.any(String),
       );
       // The invalidation, read as the reload it causes: what comes back is
       // read again, so a clean editor picks the highlight up and a dirty one
@@ -2853,7 +2977,12 @@ describe("a reader when the vault moves under it", () => {
 
       await takes();
 
-      expect(saveNote).toHaveBeenCalledWith(LIT, expect.stringContaining(`> ${PASSAGE}`));
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringContaining(`> ${PASSAGE}`),
+        false,
+        expect.any(String),
+      );
     });
 
     it("writes nothing into a note that has left the listing", async () => {
@@ -2868,6 +2997,29 @@ describe("a reader when the vault moves under it", () => {
       expect(fetchNote).not.toHaveBeenCalled();
       expect(saveNote).not.toHaveBeenCalled();
       expect(app.notice()).toBe("That note has left the vault");
+    });
+
+    it("names the note it read as the highlight write's base", async () => {
+      await reading();
+
+      await takes();
+
+      expect(saveNote).toHaveBeenCalledWith(
+        LIT,
+        expect.stringContaining(`> ${PASSAGE}`),
+        false,
+        noteBase("# DDIA"),
+      );
+    });
+
+    it("says the highlight was not written when the note changed on disk every time", async () => {
+      const app = await reading();
+      // What `updateNote` throws once its tries are spent.
+      saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+
+      await takes();
+
+      expect(app.notice()).toBe("The highlight was not written");
     });
 
     it("says so in the bar when the vault refuses the write", async () => {
@@ -3918,9 +4070,16 @@ describe("opening a highlight's book with gf", () => {
     await settle();
   }
 
-  /** The vault reports a write nobody in this tab made, which is the conflict. */
+  /**
+   * The vault reports a write nobody in this tab made, and refuses the quiet
+   * save after it over its base, which is the conflict.
+   */
   function somebodyElseWrote() {
-    act(() => stream().send({ path: LIT, change: "written", digest: "a".repeat(64) }));
+    saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+    act(() => {
+      stream().send({ path: LIT, change: "written", digest: "a".repeat(64) });
+      vi.advanceTimersByTime(800);
+    });
   }
 
   it("splits a reader beside the note and takes it to the passage", async () => {

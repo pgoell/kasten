@@ -3,6 +3,7 @@ import {
   dropText,
   heldText,
   holdText,
+  landedAs,
   moveHeld,
   resetHeld,
   sameText,
@@ -151,5 +152,26 @@ describe("held text", () => {
     expect(sameText(sent, `${landed} more`)).toBe(false);
     // A body line spelled like the stamp is the reader's, and counts.
     expect(sameText("# a\nmodified: x", "# a\nmodified: y")).toBe(false);
+  });
+
+  it("reads held text as landed when the vault gave it the block its write stamps", () => {
+    // A keepalive of a note with no block, landed after the page was gone.
+    const vault =
+      "---\nid: 0199\ncreated: 2026-10-14T10:00:00+00:00\ntype: Note\nmodified: 2026-10-14T10:00:00+00:00\n---\n# held";
+
+    expect(landedAs("# held", vault)).toBe(true);
+    expect(
+      landedAs("---\ntype: Book\n---\n# held", vault.replace("type: Note", "type: Book")),
+    ).toBe(true);
+    expect(landedAs("# held more", vault)).toBe(false);
+  });
+
+  it("does not read held text as landed when the vault differs in a line the held copy set", () => {
+    // `stamp` never argues with a type already there, so a different one is
+    // somebody else's, or the held edit never landed.
+    const held = "---\nid: 0199\ntype: Book\n---\n# held";
+
+    expect(landedAs(held, "---\nid: 0199\ntype: Note\nmodified: now\n---\n# held")).toBe(false);
+    expect(landedAs(held, "---\nid: 0199\ntype: Book\nstatus: done\n---\n# held")).toBe(false);
   });
 });

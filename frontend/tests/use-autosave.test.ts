@@ -2,13 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk } from "@/lib/api";
-import { heldText, holdText, moveHeld, resetHeld, unstamped } from "@/lib/held-text";
+import { heldText, holdText, moveHeld, resetHeld } from "@/lib/held-text";
+import { noteBase } from "@/lib/note-base";
 import { useAutosave } from "@/lib/use-autosave";
-import { digestOf } from "@/lib/vault-events";
-import { hashed } from "./digests";
-
-// crypto finishes a digest off the event loop, which no fake timer reaches.
-// `hashed` is what the tests wait on for the hashes of the writes to land.
 
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn() }));
 // The real refusal, which the hook tells apart from every other failure.
@@ -17,29 +13,23 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
 }));
 
-// The real digest behind a spy, so one test can hold a hash back and land it
-// after a later one.
-const { real } = vi.hoisted(() => ({ real: { digestOf: (_: string) => Promise.resolve("") } }));
-vi.mock("@/lib/vault-events", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/vault-events")>();
-  real.digestOf = actual.digestOf;
-  return { ...actual, digestOf: vi.fn(actual.digestOf) };
-});
-
 /**
  * The note as the vault holds it once `content` has been written to it.
  *
  * `PUT` stamps a fresh `modified` on the way through, so what lands on disk is
  * never the text that was sent. Every test here writes through that, because
- * the difference is what the cache and the digest are about.
+ * the difference is what the cache and the base are about.
  */
 function written(content: string) {
   return { path: "index.md", content: `${content}\nmodified: now` };
 }
 
-/** The base a save names for `text` on disk: its sha256, `modified` set aside. */
-function baseOf(text: string): Promise<string> {
-  return real.digestOf(unstamped(text));
+/**
+ * Let every promise in hand settle. A write behind another to the same note
+ * goes out once the one before answers, a microtask later.
+ */
+async function settled() {
+  await act(async () => {});
 }
 
 /** A save the test finishes by hand, so the in-flight state can be looked at. */
@@ -55,15 +45,14 @@ function pendingSave() {
       }),
   );
 
-  // A save naming a base asks only once its hash lands, which may not have
-  // happened yet on a loaded machine.
+  // A save queued behind another asks only once that one answers.
   return {
     finish: async () => {
-      if (!settle) await hashed();
+      if (!settle) await settled();
       await act(async () => settle?.());
     },
     break: async () => {
-      if (!fail) await hashed();
+      if (!fail) await settled();
       await act(async () => fail?.());
     },
   };
@@ -122,18 +111,17 @@ function renderAutosave(path = "index.md", shown?: () => string | undefined) {
     },
     /** Whether text for `of` is on its way to the vault, as the route asks. */
     isWriting: (of: string) => result.current.isWriting(of),
-    /** Tell the hook a write the route made was its own. */
-    adopt: (of: string, content: string) => act(() => result.current.adopt(of, content)),
     /** Throw the buffer away, which is what `:e!` does. */
     revert: (force: boolean) => {
       act(() => {
         result.current.revert(force);
       });
     },
-    reconcile: (digest: string | null) => {
+    /** The vault reporting a write to the open note, which is all an event says. */
+    reconcile: () => {
       let reload: boolean | undefined;
       act(() => {
-        reload = result.current.reconcile(digest);
+        reload = result.current.reconcile();
       });
       return reload;
     },
@@ -152,16 +140,13 @@ async function idle() {
   });
 }
 
-/** Hold the next digest back until the returned call, the way a slow `crypto.subtle` would. */
-function holdDigest(): () => void {
-  let release: (() => void) | undefined;
-  vi.mocked(digestOf).mockImplementationOnce(
-    (text) =>
-      new Promise((resolve) => {
-        release = () => void real.digestOf(text).then(resolve);
-      }),
-  );
-  return () => release?.();
+/**
+ * A quiet save the vault refuses over its base, which is the one way a note
+ * comes to stand conflicted. Wants text waiting.
+ */
+async function refused() {
+  saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+  await idle();
 }
 
 /** A reload or a closed tab, as the page hears it, and the write it starts. */
@@ -189,9 +174,9 @@ describe("useAutosave", () => {
     // By hand and first: unmounting flushes, so the automatic cleanup would
     // otherwise reach a mock that has already been reset.
     cleanup();
-    // A flush naming a base goes out once its hash lands, a real tick away,
-    // and would otherwise reach the next test's mock.
-    await hashed();
+    // A flush queued behind another goes out a microtask later, and would
+    // otherwise reach the reset mock.
+    await settled();
     vi.useRealTimers();
     saveNote.mockReset();
     // After the cleanup, whose flushes may hold text of their own.
@@ -378,34 +363,32 @@ describe("useAutosave", () => {
     expect(note.reason()).toBeUndefined();
   });
 
-  it("asks for no reload when the write the vault reports is its own", async () => {
-    // Every write comes back over the stream, this hook's included. Reading
-    // that as somebody else's would flag a false conflict on every autosave
-    // the typing carried on through.
+  it("marks nothing when its own write comes back while the typing goes on", async () => {
+    // Every write comes back over the stream, this hook's included. The buffer
+    // keeps its text, and the next save names what the last one landed as.
     const note = renderAutosave();
 
     note.change("# edited");
     await idle();
-    await hashed();
+    note.change("# edited more");
 
-    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
+    expect(note.reconcile()).toBe(false);
+    expect(note.status()).toBe("unsaved");
+    await idle();
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "# edited more",
+      false,
+      noteBase(written("# edited").content),
+    );
     expect(note.status()).toBe("saved");
   });
 
   it("asks for the reload when the buffer holds nothing unwritten", async () => {
     const note = renderAutosave();
 
-    expect(note.reconcile("0".repeat(64))).toBe(true);
+    expect(note.reconcile()).toBe(true);
     expect(note.status()).toBe("saved");
-  });
-
-  it("refuses the reload and says so when text is still waiting", async () => {
-    const note = renderAutosave();
-
-    note.change("# edited");
-
-    expect(note.reconcile("0".repeat(64))).toBe(false);
-    expect(note.status()).toBe("conflict");
   });
 
   it("keeps saying so while the note is typed into", async () => {
@@ -415,7 +398,7 @@ describe("useAutosave", () => {
     const note = renderAutosave();
 
     note.change("# edited");
-    note.reconcile("0".repeat(64));
+    await refused();
     note.change("# edited more");
 
     expect(note.status()).toBe("conflict");
@@ -425,11 +408,11 @@ describe("useAutosave", () => {
     const note = renderAutosave();
 
     note.change("# edited");
-    note.reconcile("0".repeat(64));
+    await refused();
     note.change("# edited more");
     await idle();
 
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
     expect(note.status()).toBe("conflict");
   });
 
@@ -439,10 +422,10 @@ describe("useAutosave", () => {
     const note = renderAutosave();
 
     note.change("# edited");
-    note.reconcile("0".repeat(64));
+    await refused();
     await act(async () => note.save());
 
-    expect(saveNote).toHaveBeenCalledWith("index.md", "# edited");
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited");
     expect(note.status()).toBe("saved");
 
     // And the quiet period writes again afterwards. A conflict left standing
@@ -450,13 +433,13 @@ describe("useAutosave", () => {
     // `Saved` while nothing at all reached the vault.
     note.change("# edited again");
     await idle();
-    await hashed();
+    await settled();
 
     expect(saveNote).toHaveBeenLastCalledWith(
       "index.md",
       "# edited again",
       false,
-      await baseOf(written("# edited").content),
+      noteBase(written("# edited").content),
     );
     expect(note.status()).toBe("saved");
   });
@@ -465,13 +448,14 @@ describe("useAutosave", () => {
     const note = renderAutosave();
 
     note.change("# edited");
-    note.reconcile("0".repeat(64));
+    await refused();
     expect(note.status()).toBe("conflict");
 
     expect(note.allowReload("# edited")).toBe(true);
     expect(note.status()).toBe("saved");
+    expect(heldText("index.md")).toBeUndefined();
     await idle();
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
   });
 
   it("keeps a held entry the buffer never showed when the vault comes to hold the buffer's text", async () => {
@@ -498,13 +482,13 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("saved");
   });
 
-  it("takes nothing from the vault while text is waiting, and says so", async () => {
+  it("takes nothing from the vault while text is waiting, and marks nothing", async () => {
     const note = renderAutosave();
 
     note.change("# edited");
 
     expect(note.allowReload("# somebody else wrote this")).toBe(false);
-    expect(note.status()).toBe("conflict");
+    expect(note.status()).toBe("unsaved");
   });
 
   it("says nothing when the text waiting to go out beat its own last write here", async () => {
@@ -537,10 +521,10 @@ describe("useAutosave", () => {
     const note = renderAutosave();
 
     note.change("# edited");
-    note.reconcile("0".repeat(64));
+    await refused();
 
     expect(await note.saveFirst()).toBe(false);
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
     expect(note.status()).toBe("conflict");
   });
   it("says a write is in the air for the note it was typed into", async () => {
@@ -572,7 +556,7 @@ describe("useAutosave", () => {
     note.startSave();
     await quiet.finish();
     // `:w` goes out once the quiet write lands, naming its hash.
-    await hashed();
+    await settled();
     expect(note.isWriting("index.md")).toBe(true);
 
     await asked.finish();
@@ -609,304 +593,10 @@ describe("useAutosave", () => {
 
     expect(note.isWriting("index.md")).toBe(false);
   });
-  it("takes a write the route made as one of its own", async () => {
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-    await hashed();
-
-    expect(note.reconcile(await digestOf(bookmark))).toBe(false);
-    expect(note.status()).toBe("unsaved");
-  });
-
-  it("takes the same write coming back through the editor", async () => {
-    // The other reader of it: the cache moves first, the editor's reload effect
-    // asks, and the adopted text is what makes it refuse without flagging.
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-    await hashed();
-
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("unsaved");
-  });
-
-  it("takes the write through the editor before its digest has landed", () => {
-    // The route moves the cache straight after `adopt`, and the cache notifies
-    // on a zero-delay timer, which on a loaded machine runs before
-    // `crypto.subtle` answers. The editor's question is about text, so nothing
-    // here waits on the digest.
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("unsaved");
-  });
-
-  it("takes the write off the stream before its digest has landed", async () => {
-    // The event carries a digest, which `adopt` only has once `crypto.subtle`
-    // answers. An event arriving inside that wait is answered when it does.
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-    const digest = await digestOf(bookmark);
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-
-    expect(note.reconcile(digest)).toBe(false);
-    expect(note.status()).toBe("unsaved");
-    // Queued behind adopt's own digest of the same text, so by now it is in.
-    await digestOf(bookmark);
-    await hashed();
-    expect(note.status()).toBe("unsaved");
-  });
-
-  it("still flags somebody else's write that arrives while a digest is out", async () => {
-    const note = renderAutosave();
-    // Taken before `adopt`, so its own digest is still out when the event lands.
-    const other = await digestOf("somebody else's text");
-
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-
-    expect(note.reconcile(other)).toBe(false);
-    expect(note.status()).toBe("unsaved");
-    await vi.waitFor(() => expect(note.status()).toBe("conflict"));
-  });
-
-  it("writes nothing over a write it cannot place yet", async () => {
-    // Until the digests are in, the event may be somebody else's, and a save
-    // now would overwrite it with no conflict ever shown. Held the way a
-    // conflict holds: a key that saves first refuses, and the timer waits.
-    const note = renderAutosave();
-    const other = await digestOf("somebody else's text");
-
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-    note.reconcile(other);
-
-    expect(await note.saveFirst()).toBe(false);
-    await idle();
-    expect(saveNote).not.toHaveBeenCalled();
-    await vi.waitFor(() => expect(note.status()).toBe("conflict"));
-  });
-
-  it("saves as it would have once the held write turns out to be its own", async () => {
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-    const digest = await digestOf(bookmark);
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-    note.reconcile(digest);
-    await idle();
-    expect(saveNote).not.toHaveBeenCalled();
-
-    const base = await baseOf(bookmark);
-    await vi.waitFor(async () => {
-      await idle();
-      await hashed();
-      expect(saveNote).toHaveBeenCalledWith("index.md", "# edited", false, base);
-    });
-    expect(note.status()).not.toBe("conflict");
-  });
-
-  it("still knows its own write when a bookmark lands between it and its event", async () => {
-    // What fails when the adopted write shares `lastWritten`: the hook reads
-    // its own save as somebody else's and locks the editor, which is the exact
-    // fault `adopt` exists to prevent, reached from the other side.
-    const note = renderAutosave();
-
-    note.change("# edited");
-    await idle();
-    await hashed();
-    note.change("# edited more");
-    note.adopt("index.md", "a bookmark landing in between");
-    await hashed();
-
-    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
-    expect(note.status()).toBe("unsaved");
-  });
-
-  it("takes nothing for a note it is not following", async () => {
-    const note = renderAutosave();
-    const bookmark = "another note\nreading: epubcfi(/6/4)";
-
-    note.change("# edited");
-    note.adopt("other.md", bookmark);
-    await hashed();
-
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("knows two adopted writes arriving in the order they were made", async () => {
-    // A list rather than one slot, which would rest on a promise about how far
-    // apart two bookmark writes can be that nothing here enforces.
-    const note = renderAutosave();
-
-    note.change("# edited");
-    note.adopt("index.md", "the first bookmark");
-    note.adopt("index.md", "the second bookmark");
-    await hashed();
-
-    expect(note.reconcile(await digestOf("the first bookmark"))).toBe(false);
-    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
-    expect(note.status()).toBe("unsaved");
-  });
-
-  it("flags an adopted text coming back after a later adopted write's event", async () => {
-    // The stream reports one note's writes in the order they landed, so the
-    // second bookmark's event means the first is on disk and its event is gone.
-    // That text coming back now is somebody restoring it, a `jj undo` say.
-    const note = renderAutosave();
-
-    note.change("# edited");
-    note.adopt("index.md", "the first bookmark");
-    note.adopt("index.md", "the second bookmark");
-    await hashed();
-
-    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
-    expect(note.status()).toBe("unsaved");
-    expect(note.reconcile(await digestOf("the first bookmark"))).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("flags the same restored text through the editor", async () => {
-    const note = renderAutosave();
-
-    note.change("# edited");
-    note.adopt("index.md", "the first bookmark");
-    note.adopt("index.md", "the second bookmark");
-    await hashed();
-    note.reconcile(await digestOf("the second bookmark"));
-
-    expect(note.allowReload("the first bookmark")).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("drops an adopted write whose event was lost once a later save of its own comes back", async () => {
-    // The save went out after the bookmark was on disk, so its event came after
-    // the bookmark's: that one is not coming any more.
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-    await idle();
-    await hashed();
-    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
-
-    note.change("# edited more");
-    expect(note.reconcile(await digestOf(bookmark))).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("drops adopted writes in the order they were made, not the order they hashed", async () => {
-    // `crypto.subtle` answers in any order. Held back here, the first digest
-    // lands after the second's event has already said the first is on disk.
-    const note = renderAutosave();
-    let release: (() => void) | undefined;
-    vi.mocked(digestOf).mockImplementationOnce(
-      (text) =>
-        new Promise((resolve) => {
-          release = () => void real.digestOf(text).then(resolve);
-        }),
-    );
-
-    note.change("# edited");
-    note.adopt("index.md", "the first bookmark");
-    note.adopt("index.md", "the second bookmark");
-    await hashed();
-    expect(note.reconcile(await digestOf("the second bookmark"))).toBe(false);
-    await act(async () => release?.());
-    await hashed();
-
-    expect(note.reconcile(await digestOf("the first bookmark"))).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("flags text it has not been told about yet", async () => {
-    // Why the route adopts before it moves the cache. Nothing is adopted here,
-    // so this passes before `adopt` exists and guards the other direction.
-    const note = renderAutosave();
-
-    note.change("# edited");
-
-    expect(note.allowReload("a bookmark nobody mentioned")).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("forgets an adopted write once the reader leaves the note and comes back", async () => {
-    // The route drops events for other notes, so the adopted write's event can
-    // be lost on the way to the other note. Kept, the entry would take somebody
-    // restoring that text, a `jj undo` say, for our own write.
-    const note = renderAutosave("index.md");
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-
-    note.adopt("index.md", bookmark);
-    await hashed();
-    note.open("daily/2026-08-05.md");
-    note.open("index.md");
-    note.change("# edited");
-
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("flags the adopted text off the stream after the reader left and came back", async () => {
-    const note = renderAutosave("index.md");
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-
-    note.adopt("index.md", bookmark);
-    await hashed();
-    note.open("daily/2026-08-05.md");
-    note.open("index.md");
-    note.change("# edited");
-
-    expect(note.reconcile(await digestOf(bookmark))).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("forgets its own save once the reader leaves the note and comes back", async () => {
-    const note = renderAutosave("index.md");
-
-    note.change("# edited");
-    await note.save();
-    await hashed();
-    note.open("daily/2026-08-05.md");
-    note.open("index.md");
-    note.change("# edited more");
-
-    expect(note.allowReload(written("# edited").content)).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("flags its own saved text off the stream after the reader left and came back", async () => {
-    const note = renderAutosave("index.md");
-
-    note.change("# edited");
-    await note.save();
-    await hashed();
-    note.open("daily/2026-08-05.md");
-    note.open("index.md");
-    note.change("# edited more");
-
-    expect(note.reconcile(await digestOf(written("# edited").content))).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("still knows the new note's save when the old note's flush answers late", async () => {
+  it("names the new note's own save as its base when the old note's flush answers late", async () => {
     // The flush of the note left behind answers with the closure of that note,
-    // after the hook already follows the next one. Taking the slots there would
-    // read the new note's own save as somebody else's write.
+    // after the hook already follows the next one. Taking `onDisk` there would
+    // name the old note's text as the new one's base, and the vault refuses.
     const note = renderAutosave("index.md");
     const flush = pendingSave();
 
@@ -914,14 +604,17 @@ describe("useAutosave", () => {
     note.open("daily/2026-08-05.md");
     note.change("# daily");
     await note.save();
-    await hashed();
     await flush.finish();
-    await hashed();
     note.change("# daily more");
+    await idle();
 
-    expect(note.reconcile(await digestOf(written("# daily").content))).toBe(false);
-    expect(note.allowReload(written("# daily").content)).toBe(false);
-    expect(note.status()).toBe("unsaved");
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "daily/2026-08-05.md",
+      "# daily more",
+      false,
+      noteBase(written("# daily").content),
+    );
+    expect(note.status()).toBe("saved");
   });
 
   it("leaves the next note alone when the old note's flush fails and it is left untouched", async () => {
@@ -1012,7 +705,7 @@ describe("useAutosave", () => {
     note.change("# left behind");
     note.open("daily/2026-08-05.md");
     note.change("# daily");
-    note.reconcile("0".repeat(64));
+    await refused();
     await flush.break();
 
     expect(note.status()).toBe("conflict");
@@ -1086,16 +779,16 @@ describe("useAutosave", () => {
     // Leaving a conflicted note writes nothing over the vault: the text goes to
     // the held store, and the reader decides on return.
     const note = renderAutosave("index.md");
-    saveNote.mockRejectedValueOnce(new Error("failed with 500"));
 
     note.change("# mine");
-    note.reconcile("0".repeat(64));
+    await refused();
+    note.change("# mine, more");
     note.open("daily/2026-08-05.md");
     await act(async () => {});
 
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
     expect(heldText("index.md")).toMatchObject({
-      content: "# mine",
+      content: "# mine, more",
       reason: "Changed on disk before the note was left",
       conflicted: true,
     });
@@ -1105,11 +798,11 @@ describe("useAutosave", () => {
     const note = renderAutosave("index.md");
 
     note.change("# mine");
-    note.reconcile("0".repeat(64));
+    await refused();
     note.open("daily/2026-08-05.md");
     await act(async () => {});
 
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
     expect(heldText("index.md")).toMatchObject({ content: "# mine", conflicted: true });
     expect(note.status()).toBe("saved");
   });
@@ -1118,97 +811,12 @@ describe("useAutosave", () => {
     const note = renderAutosave("index.md");
 
     note.change("# mine");
-    note.reconcile("0".repeat(64));
+    await refused();
     note.unmount();
     await act(async () => {});
 
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
     expect(heldText("index.md")).toMatchObject({ content: "# mine", conflicted: true });
-  });
-
-  it("holds and writes nothing when the note is left while an outside write is being placed", async () => {
-    // The event may yet turn out to be somebody else's write, so it is held the
-    // way a conflict is, and reopens as one.
-    const note = renderAutosave("index.md");
-    const other = await digestOf("somebody else's text");
-
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-    note.reconcile(other);
-    note.open("daily/2026-08-05.md");
-    await hashed();
-    await idle();
-
-    expect(saveNote).not.toHaveBeenCalled();
-    expect(heldText("index.md")).toMatchObject({ content: "# edited", conflicted: true });
-    expect(note.status()).toBe("saved");
-  });
-
-  it("leaving with an event still being placed does not mark the next note conflicted", async () => {
-    const note = renderAutosave("index.md");
-    const other = await digestOf("somebody else's text");
-
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-    note.reconcile(other);
-    note.open("daily/2026-08-05.md");
-    note.change("# daily");
-    await hashed();
-
-    expect(note.status()).not.toBe("conflict");
-    await idle();
-    expect(saveNote).toHaveBeenCalledWith("daily/2026-08-05.md", "# daily");
-  });
-
-  it("writes the next note's text only to the next note when a held event settles as ours after the switch", async () => {
-    const note = renderAutosave("index.md");
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-    const digest = await digestOf(bookmark);
-    const release = holdDigest();
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-    note.reconcile(digest);
-    note.open("daily/2026-08-05.md");
-    note.change("# daily");
-    await idle();
-    expect(saveNote).toHaveBeenCalledWith("daily/2026-08-05.md", "# daily");
-    await act(async () => release());
-    await hashed();
-    note.change("# daily more");
-    await idle();
-    await hashed();
-
-    expect(saveNote).not.toHaveBeenCalledWith("index.md", expect.anything());
-    expect(saveNote).toHaveBeenLastCalledWith(
-      "daily/2026-08-05.md",
-      "# daily more",
-      false,
-      await baseOf(written("# daily").content),
-    );
-  });
-
-  it("neither conflicts nor holds the next note when a held event settles as not ours after the switch", async () => {
-    // `:e!` on the way out leaves nothing to hold, so the leave counts no
-    // write, and the settle would find the count it was held at unchanged.
-    const note = renderAutosave("index.md");
-    const other = await digestOf("somebody else's text");
-    const release = holdDigest();
-
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-    note.reconcile(other);
-    note.revert(true);
-    note.open("daily/2026-08-05.md");
-    note.change("# daily");
-    await idle();
-    expect(saveNote).toHaveBeenCalledWith("daily/2026-08-05.md", "# daily");
-    note.change("# daily more");
-    await act(async () => release());
-    await hashed();
-
-    expect(note.status()).toBe("unsaved");
-    expect(await note.saveFirst()).toBe(true);
   });
 
   it("reopens a conflicted note left behind as a conflict, and writes nothing on the quiet period", async () => {
@@ -1216,13 +824,13 @@ describe("useAutosave", () => {
     note.seed("index.md", "the index note");
 
     note.change("# mine");
-    note.reconcile("0".repeat(64));
+    await refused();
     note.open("daily/2026-08-05.md");
     note.open("index.md");
     expect(note.allowReload("the index note")).toBe(false);
     await idle();
 
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
     expect(note.status()).toBe("conflict");
   });
 
@@ -1231,14 +839,14 @@ describe("useAutosave", () => {
     note.seed("index.md", "the index note");
 
     note.change("# mine");
-    note.reconcile("0".repeat(64));
+    await refused();
     note.open("daily/2026-08-05.md");
     note.open("index.md");
     note.allowReload("the index note");
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
 
     expect(await note.saved()).toBe(true);
-    expect(saveNote).toHaveBeenCalledWith("index.md", "# mine");
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# mine");
     expect(heldText("index.md")).toBeUndefined();
     expect(note.status()).toBe("saved");
   });
@@ -1250,7 +858,7 @@ describe("useAutosave", () => {
     note.seed("index.md", "the index note");
 
     note.change("# mine");
-    note.reconcile("0".repeat(64));
+    await refused();
     note.open("daily/2026-08-05.md");
     note.open("index.md");
     expect(note.allowReload("the index note")).toBe(false);
@@ -1260,7 +868,7 @@ describe("useAutosave", () => {
     expect(note.status()).toBe("saved");
     expect(heldText("index.md")).toBeUndefined();
     await idle();
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
   });
 
   it("puts held text back in the buffer when its note is reopened", async () => {
@@ -1297,13 +905,13 @@ describe("useAutosave", () => {
     expect(note.allowReload("the index note\nmore")).toBe(true);
     note.change("# typed after coming back");
     await idle();
-    await hashed();
+    await settled();
 
     expect(saveNote).toHaveBeenLastCalledWith(
       "index.md",
       "# typed after coming back",
       false,
-      await baseOf("the index note\nmore"),
+      noteBase("the index note\nmore"),
     );
     expect(note.status()).toBe("saved");
     expect(heldText("index.md")?.content).toBe("# left behind");
@@ -1341,7 +949,7 @@ describe("useAutosave", () => {
       "index.md",
       "# held",
       false,
-      await baseOf("the index note"),
+      noteBase("the index note"),
     );
   });
 
@@ -1355,14 +963,14 @@ describe("useAutosave", () => {
     note.open("index.md");
     note.change("the index note!");
     await idle();
-    await hashed();
+    await settled();
 
     expect(note.restored()).toBe(false);
     expect(saveNote).toHaveBeenLastCalledWith(
       "index.md",
       "the index note!",
       false,
-      await baseOf("the index note"),
+      noteBase("the index note"),
     );
     expect(heldText("index.md")?.content).toBe("# held");
   });
@@ -1489,12 +1097,17 @@ describe("useAutosave", () => {
     expect(heldText("index.md")).toBeUndefined();
   });
 
-  it("still flags an outside write after a held note is reopened", async () => {
+  it("still shows an outside write as a conflict after a held note is reopened", async () => {
     holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
     const note = renderAutosave("index.md");
+    note.seed("index.md", "the index note");
     note.allowReload("the index note");
 
-    expect(note.reconcile("0".repeat(64))).toBe(false);
+    expect(note.reconcile()).toBe(false);
+    saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+    await note.save();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# held", false, noteBase("the index note"));
     expect(note.status()).toBe("conflict");
   });
 
@@ -1620,54 +1233,6 @@ describe("useAutosave", () => {
     expect(saveNote).toHaveBeenCalledTimes(1);
   });
 
-  it("calls the note saved once a write in flight at a held hide lands", async () => {
-    const note = renderAutosave("index.md");
-    const other = await digestOf("somebody else's text");
-    // Still being placed when the save's base has hashed and it goes out.
-    holdDigest();
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-    note.reconcile(other);
-    // `:w` while the event is still being placed, which sends regardless.
-    const quiet = pendingSave();
-    note.startSave();
-    await hashed();
-
-    await background();
-    expect(heldText("index.md")?.content).toBe("# edited");
-    await quiet.finish();
-
-    expect(note.status()).toBe("saved");
-    expect(heldText("index.md")).toBeUndefined();
-    expect(note.restored()).toBe(false);
-    expect(saveNote).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps the text to write again when a write in flight at a held hide fails", async () => {
-    const note = renderAutosave("index.md");
-    const other = await digestOf("somebody else's text");
-    holdDigest();
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-    note.reconcile(other);
-    const quiet = pendingSave();
-    note.startSave();
-    await hashed();
-
-    await background();
-    await quiet.break();
-
-    expect(note.status()).toBe("error");
-    expect(heldText("index.md")?.content).toBe("# edited");
-    await note.save();
-    expect(saveNote).toHaveBeenLastCalledWith(
-      "index.md",
-      "# edited",
-      false,
-      await baseOf("the index note\nreading: epubcfi(/6/4)"),
-    );
-  });
-
   it("writes nothing when the page is shown again", async () => {
     const note = renderAutosave("index.md");
 
@@ -1695,28 +1260,16 @@ describe("useAutosave", () => {
     const note = renderAutosave("index.md");
 
     note.change("# mine");
-    note.reconcile("0".repeat(64));
+    await refused();
+    note.change("# mine, more");
     await pagehide();
 
-    expect(saveNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledOnce();
     expect(heldText("index.md")).toEqual({
-      content: "# mine",
+      content: "# mine, more",
       reason: "Not yet written when the page was hidden",
       conflicted: true,
     });
-  });
-
-  it("holds the text without writing when the page is hidden while an event is held", async () => {
-    const note = renderAutosave("index.md");
-    const other = await digestOf("somebody else's text");
-
-    note.change("# edited");
-    note.adopt("index.md", "the index note\nreading: epubcfi(/6/4)");
-    note.reconcile(other);
-    await pagehide();
-
-    expect(saveNote).not.toHaveBeenCalled();
-    expect(heldText("index.md")?.content).toBe("# edited");
   });
 
   it("does not call the next note saved when the old note's flush answers late", async () => {
@@ -1735,40 +1288,6 @@ describe("useAutosave", () => {
     await daily.finish();
   });
 
-  it("stops trusting an adopted text once its digest fails", async () => {
-    // Without `crypto.subtle` the entry never gets a digest, so no event ever
-    // takes it away, and it would take that text restored for good.
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-    vi.mocked(digestOf).mockRejectedValueOnce(new TypeError("crypto.subtle is undefined"));
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("unsaved");
-    await hashed();
-
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
-  it("takes the bookmark through the editor quietly when its digest failed first", async () => {
-    // The cache notifies the editor on a zero-delay timer and the rejection is
-    // a microtask, so in the route the failure lands before the editor asks.
-    const note = renderAutosave();
-    const bookmark = "the index note\nreading: epubcfi(/6/4)";
-    vi.mocked(digestOf).mockRejectedValueOnce(new TypeError("crypto.subtle is undefined"));
-
-    note.change("# edited");
-    note.adopt("index.md", bookmark);
-    await hashed();
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("unsaved");
-
-    expect(note.allowReload(bookmark)).toBe(false);
-    expect(note.status()).toBe("conflict");
-  });
-
   describe("the base a save names", () => {
     it("names the vault's text under the buffer", async () => {
       const note = renderAutosave();
@@ -1776,13 +1295,13 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenCalledWith(
         "index.md",
         "# edited",
         false,
-        await baseOf("the index note"),
+        noteBase("the index note"),
       );
     });
 
@@ -1792,16 +1311,16 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
+      await settled();
       note.change("# edited more");
       await idle();
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "# edited more",
         false,
-        await baseOf(written("# edited").content),
+        noteBase(written("# edited").content),
       );
     });
 
@@ -1810,18 +1329,18 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
-      expect(note.reconcile(await digestOf("somebody else's text"))).toBe(true);
+      await settled();
+      expect(note.reconcile()).toBe(true);
       expect(note.allowReload("somebody else's text")).toBe(true);
       note.change("somebody else's text, and mine");
       await idle();
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "somebody else's text, and mine",
         false,
-        await baseOf("somebody else's text"),
+        noteBase("somebody else's text"),
       );
     });
 
@@ -1831,39 +1350,19 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
+      await settled();
       note.change("# edited more");
       note.seed("index.md", "somebody else's text");
       note.revert(true);
       note.change("somebody else's text, and mine");
       await idle();
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "somebody else's text, and mine",
         false,
-        await baseOf("somebody else's text"),
-      );
-    });
-
-    it("names a write the route made into the note once it is adopted", async () => {
-      const note = renderAutosave();
-      const bookmark = "the index note\nreading: epubcfi(/6/4)";
-
-      note.change("# edited");
-      await idle();
-      await hashed();
-      note.adopt("index.md", bookmark);
-      note.change(`${bookmark}\nmine`);
-      await idle();
-      await hashed();
-
-      expect(saveNote).toHaveBeenLastCalledWith(
-        "index.md",
-        `${bookmark}\nmine`,
-        false,
-        await baseOf(bookmark),
+        noteBase("somebody else's text"),
       );
     });
 
@@ -1876,19 +1375,19 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
+      await settled();
       note.change("# edited more");
       note.startSave();
-      await hashed();
+      await settled();
       expect(saveNote).toHaveBeenCalledOnce();
       await quiet.finish();
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "# edited more",
         false,
-        await baseOf(written("# edited").content),
+        noteBase(written("# edited").content),
       );
       expect(note.status()).toBe("saved");
     });
@@ -1909,18 +1408,18 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
+      await settled();
       note.change("# edited more");
       note.startSave();
-      await hashed();
+      await settled();
       await act(async () => land?.());
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "# edited more",
         false,
-        await baseOf(stamped("# edited")),
+        noteBase(stamped("# edited")),
       );
     });
 
@@ -1934,20 +1433,20 @@ describe("useAutosave", () => {
 
       note.change("# T1");
       note.open("other.md");
-      await hashed();
+      await settled();
       note.open("index.md");
       expect(note.allowReload("the index note")).toBe(true);
       note.change("# T2");
       saveNote.mockRejectedValueOnce(new ChangedOnDisk());
       note.startSave();
       await flush.finish();
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "# T2",
         false,
-        await baseOf("the index note"),
+        noteBase("the index note"),
       );
       expect(note.status()).toBe("conflict");
       await note.save();
@@ -1961,36 +1460,19 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
+      await settled();
       note.change("# edited more");
       note.startSave();
-      await hashed();
+      await settled();
       await quiet.break();
-      await hashed();
+      await settled();
 
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
         "# edited more",
         false,
-        await baseOf("the index note"),
+        noteBase("the index note"),
       );
-    });
-
-    it("sends a write behind the one before it to the same note, whichever hash lands first", async () => {
-      const note = renderAutosave();
-      note.seed("index.md", "the index note");
-      const release = holdDigest();
-
-      note.change("# edited");
-      await idle();
-      note.change("# edited more");
-      note.startSave();
-      await hashed();
-      expect(saveNote).not.toHaveBeenCalled();
-      await act(async () => release());
-      await hashed();
-
-      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["# edited", "# edited more"]);
     });
 
     it("reads a save the vault refused over its base as a conflict, and keeps the text", async () => {
@@ -2000,7 +1482,7 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
+      await settled();
 
       expect(note.status()).toBe("conflict");
       expect(note.restored()).toBe(true);
@@ -2010,7 +1492,7 @@ describe("useAutosave", () => {
       // Nothing more goes out on its own, and `:w` sends the kept text over
       // whatever is there, naming no base.
       await idle();
-      await hashed();
+      await settled();
       expect(saveNote).toHaveBeenCalledOnce();
       await note.save();
       expect(saveNote).toHaveBeenLastCalledWith("index.md", "# edited");
@@ -2032,8 +1514,8 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       await idle();
-      await hashed();
-      expect(note.reconcile(await digestOf("somebody else's text"))).toBe(true);
+      await settled();
+      expect(note.reconcile()).toBe(true);
       expect(note.allowReload("somebody else's text")).toBe(true);
       doc = "somebody else's text";
       await act(async () => refuse?.());
@@ -2052,12 +1534,100 @@ describe("useAutosave", () => {
 
       note.change("# edited");
       note.open("other.md");
-      await hashed();
+      await settled();
 
       expect(heldText("index.md")).toMatchObject({ content: "# edited", conflicted: true });
       note.open("index.md");
       expect(note.allowReload("somebody else's text")).toBe(false);
       expect(note.status()).toBe("conflict");
     });
+
+    it("marks nothing on an outside write's event, and shows the conflict once the save is refused", async () => {
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+
+      note.change("# edited");
+      expect(note.reconcile()).toBe(false);
+      expect(note.status()).toBe("unsaved");
+
+      saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+      await idle();
+
+      expect(saveNote).toHaveBeenCalledWith(
+        "index.md",
+        "# edited",
+        false,
+        noteBase("the index note"),
+      );
+      expect(note.status()).toBe("conflict");
+    });
+
+    it("names the old base over a route write under a dirty buffer, so the vault refuses it", async () => {
+      // A bookmark landing in the open note reaches the editor through the
+      // cache. The buffer keeps its text, and the save that follows is what
+      // finds out, rather than writing over the bookmark.
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+
+      note.change("# edited");
+      expect(note.allowReload("the index note\nreading: epubcfi(/6/4)")).toBe(false);
+      expect(note.status()).toBe("unsaved");
+
+      saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+      await idle();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "# edited",
+        false,
+        noteBase("the index note"),
+      );
+      expect(note.status()).toBe("conflict");
+    });
+
+    it("names the vault's text under the buffer as the keepalive's base", async () => {
+      const note = renderAutosave();
+      note.seed("index.md", "the index note");
+
+      note.change("# typed just now");
+      await pagehide();
+
+      expect(saveNote).toHaveBeenCalledWith(
+        "index.md",
+        "# typed just now",
+        true,
+        noteBase("the index note"),
+      );
+    });
+  });
+
+  it("drops held text of a note with no block once the vault holds it stamped", async () => {
+    // The keepalive landed after the page was gone, and the vault gave the note
+    // the block every write of one without it gets.
+    holdText("index.md", { content: "# held", reason: "hidden", conflicted: false });
+    const note = renderAutosave("index.md");
+
+    expect(
+      note.allowReload(
+        "---\nid: 0199\ncreated: 2026-10-14T10:00:00+00:00\ntype: Note\nmodified: 2026-10-14T10:00:00+00:00\n---\n# held",
+      ),
+    ).toBe(true);
+
+    expect(heldText("index.md")).toBeUndefined();
+    expect(note.status()).toBe("saved");
+  });
+
+  it("keeps held text whose type the vault does not hold", async () => {
+    holdText("index.md", {
+      content: "---\nid: 0199\ntype: Book\n---\n# held",
+      reason: "hidden",
+      conflicted: false,
+    });
+    const note = renderAutosave("index.md");
+
+    expect(note.allowReload("---\nid: 0199\ntype: Note\nmodified: now\n---\n# held")).toBe(false);
+
+    expect(heldText("index.md")?.content).toBe("---\nid: 0199\ntype: Book\n---\n# held");
+    expect(note.restored()).toBe(true);
   });
 });

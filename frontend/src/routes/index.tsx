@@ -50,7 +50,7 @@ import {
   fetchVersion,
   restoreEntry,
   type SearchHit,
-  saveNote,
+  updateNote,
   uploadAsset,
 } from "@/lib/api";
 import { visible } from "@/lib/archive";
@@ -337,7 +337,6 @@ function Home() {
     revert,
     isConflicted,
     isWriting,
-    adopt,
     allowReload,
     reconcile,
   } = useAutosave(pane.path, focusedDoc);
@@ -386,11 +385,11 @@ function Home() {
   // event handler below to read. That handler lives in an effect that opens one
   // stream for the life of the page, so it cannot close over either: opening a
   // note would close the stream and open another.
-  // `isWriting` and `adopt` ride along for the bookmark write, which reads them
-  // at the moment its `PUT` answers rather than at the moment it started.
-  const focusedNote = useRef({ path: pane.path, reconcile, isWriting, adopt });
+  // `isWriting` rides along for the bookmark write, which reads it at the
+  // moment its `PUT` answers rather than at the moment it started.
+  const focusedNote = useRef({ path: pane.path, reconcile, isWriting });
   useEffect(() => {
-    focusedNote.current = { path: pane.path, reconcile, isWriting, adopt };
+    focusedNote.current = { path: pane.path, reconcile, isWriting };
   });
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
@@ -698,7 +697,7 @@ function Home() {
       // own edits are on screen and the reload would take them off it.
       if (event.change === "written") {
         const { path, reconcile } = focusedNote.current;
-        if (event.path !== path || reconcile(event.digest)) {
+        if (event.path !== path || reconcile()) {
           queryClient.invalidateQueries(
             { queryKey: ["note", event.path] },
             { cancelRefetch: false },
@@ -770,7 +769,9 @@ function Home() {
   }, [queryClient]);
 
   // Both whole-note writers the route owns go through this, so a bookmark
-  // cannot overtake a highlight into the same file. The editor's own save
+  // does not race a highlight into the same file. Each names its base, so the
+  // loser of such a race would be refused and read again rather than lost, but
+  // in line neither spends a try on the other. The editor's own save
   // stays outside it: `useAutosave` counts what is in the air already, and
   // holding a reader's save behind another writer's is worse than the race it
   // would end.
@@ -801,12 +802,10 @@ function Home() {
         // Skip while somebody could be typing into it: the note is the focused
         // pane's, or a write of its own text is already on its way to the vault.
         // Whether or not that pane is dirty, which tightens the master spec.
-        // `PUT` is last writer wins with no precondition, so a save landing
-        // between the read below and the write is overwritten by the older text
-        // plus one field, and the cache then hands that older text back to a
-        // buffer its own save has just emptied. The focused pane is the only pane
-        // that can be typed into, so refusing it outright shuts a window that is
-        // otherwise a whole round trip wide.
+        // `updateNote` names the text it read as the base, so a save landing
+        // between the read and the write is never written over. But each such
+        // refusal costs a round trip and a try, and a note being typed into
+        // would win every one of them, so the bookmark leaves it alone.
         //
         // Off the ref rather than out of the render, because a timer that fired
         // reads what is true now and not what was true when it was set.
@@ -822,34 +821,20 @@ function Home() {
         // do not know.
         if (!queryClient.getQueryData<string[]>(["files"])?.includes(note)) return false;
 
-        const text = await fetchNote(note).then(
-          (held) => held,
-          // Deleted or renamed since, which the write has no answer to.
-          () => null,
-        );
-        if (text === null) return false;
-
-        // Asked again, because the read took a round trip and the note can take
-        // the focus inside it. This is the reading that catches a save starting
-        // in the same tick as the write.
-        const now = focusedNote.current;
-        if (now.path === note || now.isWriting(note)) return false;
-
-        const written = await saveNote(note, apply(text)).then(
+        const written = await updateNote(note, (text) => {
+          // Asked again, because the read took a round trip and the note can
+          // take the focus inside it. This is the reading that catches a save
+          // starting in the same tick as the write.
+          const now = focusedNote.current;
+          return now.path === note || now.isWriting(note) ? null : apply(text);
+        }).then(
           (landed) => landed,
+          // Deleted or renamed since, which the write has no answer to, or
+          // refused over its base three times.
           () => null,
         );
         if (written === null) return false;
 
-        // Say it was ours, and say it before the cache moves. The order is load
-        // bearing: the cache is what the editor reloads off, and adopting after
-        // it would let that reload ask about a write the hook had not been told
-        // about yet. `use-autosave.test.ts` pins that reading one layer down.
-        //
-        // Off the ref again rather than off the read above, so this is the hook
-        // that follows the note now: the reader may have clicked into it while
-        // the write was out, which is the whole case `adopt` exists for.
-        focusedNote.current.adopt(note, written.content);
         // `setQueryData` and not an invalidation: what `PUT` answers is the note
         // as it landed, stamp included, so there is nothing to go and read again.
         // The stream invalidates a moment later anyway, which is the belt to
@@ -934,21 +919,18 @@ function Home() {
           return;
         }
 
-        const text = await fetchNote(note).then(
-          (held) => held,
-          () => null,
-        );
-        if (text === null) {
-          setNotice("The note could not be read");
-          return;
-        }
-
-        const written = await saveNote(note, addHighlight(text, passage, newId("hl-"))).then(
+        // Whether a read got as far as the change, which is what tells the two
+        // failures apart: `updateNote` rejects for either.
+        let read = false;
+        const written = await updateNote(note, (text) => {
+          read = true;
+          return addHighlight(text, passage, newId("hl-"));
+        }).then(
           (landed) => landed,
           () => null,
         );
         if (written === null) {
-          setNotice("The highlight was not written");
+          setNotice(read ? "The highlight was not written" : "The note could not be read");
           return;
         }
 
