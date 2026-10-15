@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChangedOnDisk, type Note, saveNote } from "@/lib/api";
+import { ChangedOnDisk, fetchNote, type Note, saveNote } from "@/lib/api";
 import {
   dropText,
   type Held,
@@ -29,6 +29,9 @@ function lower(counts: Map<string, number>, note: string): void {
   if (left > 0) counts.set(note, left);
   else counts.delete(note);
 }
+
+/** A queued write a `:e!` threw away before its turn came, never sent (#301). */
+class Skipped extends Error {}
 
 /** How many times a clean buffer of `note` took the vault's text in. */
 function reloadsOf(reloads: Map<string, number>, note: string): number {
@@ -93,6 +96,9 @@ export function useAutosave(
   // screen. Reverts are counted rather than flagged because a second `:e!`
   // during the same write has to read as another one.
   const reverts = useRef(0);
+  // The same count by note, which a write still queued reads as it would go
+  // out (#301): a `:e!` on the note opened next throws away none of this one.
+  const dropped = useRef(new Map<string, number>());
   // How many times a clean buffer took the vault's text in, which a failing
   // write compares against the reading it left with: after one, the screen
   // holds text not typed on the write's (#290). By note: a reload of the note
@@ -108,8 +114,17 @@ export function useAutosave(
   // write empties `pending` as it goes out, and a plain fetch is cancelled with
   // the page, so this is the only copy a hide can find of a quiet write's text.
   // With the `reloads` count it left with: after a reload, text typed on is
-  // typed on the reload's text, and not on this.
-  const inAir = useRef(new Map<string, { content: string; loaded: number }>());
+  // typed on the reload's text, and not on this. With the base it was typed on
+  // and the text it named once sent, so a hide after the note was left can
+  // hold and resend it for that note (#302). `stale` gathers the base and the
+  // named text of every write to the note still in the air, the earlier ones
+  // too: a read answering with one of them is from before a write (#304).
+  const inAir = useRef(
+    new Map<
+      string,
+      { content: string; loaded: number; base?: string; named?: string; stale: string[] }
+    >(),
+  );
   // The last write to each note still to answer, resolving with the text on
   // disk once it has, as far as this hook knows. The next write to that note
   // goes out behind it and names that text as its base: not the text the last
@@ -118,9 +133,14 @@ export function useAutosave(
   // the visit before lands text the buffer reopened without, and naming it
   // would let this buffer over it unasked. Nor after a reload into the clean
   // buffer since it went out: the next write was typed on the reload's text,
-  // and still goes out behind it, but names that text (#298).
+  // and still goes out behind it, but names that text (#298). A visit opened
+  // on the text the last write sent takes the link over (#303). `ok` answers
+  // whether every write in the queue so far landed, for `saveFirst` (#306).
   const queued = useRef(
-    new Map<string, { link: Promise<string | undefined>; visit: number; loaded: number }>(),
+    new Map<
+      string,
+      { link: Promise<string | undefined>; visit: number; loaded: number; ok: Promise<boolean> }
+    >(),
   );
   // The notes whose outside write `reconcile` declined while a write to them
   // was in the air, reloaded once the last of those writes answers (#296).
@@ -173,7 +193,7 @@ export function useAutosave(
    * otherwise cancel along with it.
    */
   const write = useCallback(
-    (keepalive: boolean): Promise<boolean> => {
+    (keepalive: boolean, leaving = false): Promise<boolean> => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = null;
 
@@ -194,6 +214,7 @@ export function useAutosave(
       setStatus("saving");
       setReason(undefined);
       const to = path;
+      const kept = dropped.current.get(to) ?? 0;
       // Whether this note's buffer took the vault's text in since this went out.
       const reloaded = () => reloadsOf(reloads.current, to) !== loaded;
       const opened = visit.current;
@@ -203,7 +224,6 @@ export function useAutosave(
       const air = inAir.current.get(to);
       const before = air?.loaded === loaded ? air.content : undefined;
       writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
-      inAir.current.set(to, { content, loaded });
       const answered = () => {
         lower(writing.current, to);
         if (writing.current.has(to)) return;
@@ -232,18 +252,47 @@ export function useAutosave(
       // the request goes out: a write queued behind another names what that
       // one landed, not what the buffer was on when this was asked for.
       let named = base;
+      const stale = [...(air?.stale ?? [])];
+      if (base !== undefined) stale.push(base);
+      const flying = { content, loaded, base, named: undefined as string | undefined, stale };
+      inAir.current.set(to, flying);
+      // The text leaving a note goes into the cache as it leaves, so a reopen
+      // or a second pane opens on it and not on what came before it (#303).
+      // A failure puts the base it named back (`settle`).
+      const prior = queryClient.getQueryData<string>(["note", to]);
+      if (leaving) queryClient.setQueryData(["note", to], content);
       // Held text is kept by path, and the note may move before this answers.
       const since = movesMade();
+      // A failure with no HTTP status may have come after the server wrote
+      // (#307), so the vault is read again before anything names a base. Once,
+      // shared by the link and the failure arm; the base named if that fails too.
+      let fresh: Promise<string | undefined> | undefined;
+      const reread = () => {
+        fresh ??= Promise.resolve(to)
+          .then(fetchNote)
+          .then(
+            (text) => text,
+            (_failure: unknown) => named,
+          );
+        return fresh;
+      };
 
       // No base for the overwrite `:w` makes of a conflict. Two arguments
       // unless it names one, which is the call every other writer makes.
       const send = (under: string | undefined): Promise<Note> => {
+        // Thrown away by `:e!` while it waited its turn (#301).
+        if ((dropped.current.get(to) ?? 0) !== kept) return Promise.reject(new Skipped());
         named = under;
+        flying.named = under;
+        // Onto whichever entry is newest now: a later write took this one's place.
+        if (under !== undefined) inAir.current.get(to)?.stale.push(under);
         return under === undefined || wasConflicted
           ? saveNote(to, content)
           : saveNote(to, content, false, noteBase(under));
       };
+      const ahead = queued.current.get(to);
       let request: Promise<Note>;
+      let link: Promise<string | undefined>;
       if (keepalive) {
         // Named too, so a page going away cannot write over somebody else.
         // Text typed behind a write in the air names that write, which left
@@ -252,26 +301,59 @@ export function useAutosave(
         // if it landed.
         const under = before !== undefined && before !== content ? before : base;
         named = under;
-        request =
+        flying.named = under;
+        if (under !== undefined) stale.push(under);
+        const first =
           under === undefined
             ? saveNote(to, content, true)
             : saveNote(to, content, true, noteBase(under));
+        // Refused while the write ahead failed: `under` was a guess at what
+        // that write lands, and it never did. The page lived on, so this goes
+        // again naming what the vault holds after it (#305). Not when that
+        // write landed: then somebody else's write since is the refusal.
+        request = first.then(
+          (note) => note,
+          async (failure: unknown) => {
+            if (!(failure instanceof ChangedOnDisk) || ahead === undefined || under === undefined) {
+              throw failure;
+            }
+            const landed = await ahead.link;
+            if (landed === undefined || landedAs(under, landed)) throw failure;
+            return send(landed);
+          },
+        );
+        // In the queue as well, though it cannot wait its turn: the next write
+        // names its answer, and goes out after the write ahead of it too.
+        link = Promise.all([
+          ahead?.link,
+          request.then(
+            (note) => note.content,
+            (_failure: unknown) => (ahead === undefined ? base : ahead.link),
+          ),
+        ]).then(([, text]) => text);
       } else {
-        const queue = queued.current.get(to);
         const under =
-          queue?.visit === opened && queue.loaded === loaded ? queue.link : Promise.resolve(base);
-        request = queue === undefined ? send(base) : queue.link.then(() => under).then(send);
+          ahead?.visit === opened && ahead.loaded === loaded ? ahead.link : Promise.resolve(base);
+        request = ahead === undefined ? send(base) : ahead.link.then(() => under).then(send);
         // Never rejects, so a failed write still lets the next one go: the vault
         // did not move, as far as this hook knows.
-        const link = request.then(
+        link = request.then(
           (note) => note.content,
-          () => under,
+          (failure: unknown) => (failure instanceof TypeError ? reread() : under),
         );
-        queued.current.set(to, { link, visit: opened, loaded });
-        void link.then(() => {
-          if (queued.current.get(to)?.link === link) queued.current.delete(to);
-        });
       }
+      // A write `:e!` threw away before it went out is no failure of the queue.
+      const ok = Promise.all([
+        ahead?.ok ?? true,
+        request.then(
+          () => true,
+          (failure: unknown) => failure instanceof Skipped,
+        ),
+      ]).then(([all, mine]) => all && mine);
+      queued.current.set(to, { link, visit: opened, loaded, ok });
+      void link.then(() => {
+        if (queued.current.get(to)?.link === link) queued.current.delete(to);
+      });
       return request.then(
         (note) => {
           answered();
@@ -330,6 +412,8 @@ export function useAutosave(
           // lowered under it would leak for the life of the page, leaving that
           // note reading as busy and never written to again.
           answered();
+          // Never sent: the buffer holds the vault's text, and this was thrown away.
+          if (failure instanceof Skipped) return false;
           const message = failure instanceof Error ? failure.message : String(failure);
           // Somebody else wrote the note since the base this named, and the
           // vault kept their text: a conflict, which only `:w` settles.
@@ -367,9 +451,9 @@ export function useAutosave(
           // Nor for a keepalive, whose base is a guess at what the write ahead
           // of it lands and not an answer, nor once the note moved: the count
           // and the cache key are the old path's.
-          const settle = () => {
+          const put = (text: string | undefined) => {
             if (
-              named !== undefined &&
+              text !== undefined &&
               !keepalive &&
               movedTo(to, since) === to &&
               !refused &&
@@ -378,8 +462,38 @@ export function useAutosave(
               !reloaded() &&
               !writing.current.has(to)
             ) {
-              queryClient.setQueryData(["note", to], named);
+              queryClient.setQueryData(["note", to], text);
             }
+          };
+          // With no HTTP status the vault may hold this text after all, so
+          // its read stands in for the base named, here and in `onDisk` (#307).
+          const settle = () => {
+            // The leave's own text is not the vault's after all: what was there
+            // goes back, unless a later write or the checks below put more.
+            if (
+              leaving &&
+              !writing.current.has(to) &&
+              queryClient.getQueryData(["note", to]) === content
+            ) {
+              if (prior === undefined)
+                queryClient.removeQueries({ queryKey: ["note", to], exact: true });
+              else queryClient.setQueryData(["note", to], prior);
+            }
+            if (!(failure instanceof TypeError) || keepalive) {
+              put(named);
+              return;
+            }
+            void reread().then((text) => {
+              if (
+                here() &&
+                text !== undefined &&
+                (dropped.current.get(to) ?? 0) === kept &&
+                !reloaded()
+              ) {
+                onDisk.current = text;
+              }
+              put(text);
+            });
           };
           // Its own send count: a write sent after this one and failing first
           // holds newer text, which this must not replace either.
@@ -458,10 +572,15 @@ export function useAutosave(
    * that was pressed for something else does not get to make that call on the
    * reader's behalf. `false` leaves the command undone.
    */
-  const saveFirst = useCallback(
-    (): Promise<boolean> => (conflicted.current ? Promise.resolve(false) : save()),
-    [save],
-  );
+  const saveFirst = useCallback((): Promise<boolean> => {
+    if (conflicted.current) return Promise.resolve(false);
+    const mine = save();
+    // Rename and delete must not race a write in the air (#306): the key
+    // waits for the note's queue, the write just made included, and refuses
+    // when any write in it did not land.
+    const queue = path === undefined ? undefined : queued.current.get(path);
+    return Promise.all([mine, queue?.ok ?? true]).then(([landed, all]) => landed && all);
+  }, [save, path]);
 
   /**
    * Throw away what is waiting and take the note off conflict, which is what
@@ -487,6 +606,7 @@ export function useAutosave(
       pending.current = null;
       conflicted.current = false;
       reverts.current += 1;
+      if (path !== undefined) dropped.current.set(path, (dropped.current.get(path) ?? 0) + 1);
       // The caller put the vault's text in the cache before asking, and that is
       // what the buffer holds now. Kept here and not read off the cache later,
       // which a route write's refetch moves under a buffer that declined it.
@@ -615,6 +735,25 @@ export function useAutosave(
       const restored = path === undefined ? undefined : restore(path, text);
       if (restored !== undefined) return restored;
 
+      // While a write to the note is in the air, a read answering with the
+      // text under it is from before the write, a step behind the screen
+      // (#304): declined, and the note reloads once the write answers. A
+      // buffer that takes the sent text was typed on it, so its next write
+      // names the write's answer (#303). Other text is somebody else's, and
+      // goes in as a reload (#297, #298). Not after `:e!`, which took the note
+      // out of the air.
+      const air = path === undefined ? undefined : inAir.current.get(path);
+      if (pending.current === null && path !== undefined && air !== undefined) {
+        if (landedAs(air.content, text)) {
+          const queue = queued.current.get(path);
+          if (queue !== undefined) queue.visit = visit.current;
+          return true;
+        }
+        if (air.stale.some((each) => landedAs(each, text))) {
+          missed.current.add(path);
+          return false;
+        }
+      }
       // Taken into the buffer, so the vault under it is this text now, and the
       // next write names it as its base.
       if (pending.current === null) {
@@ -691,7 +830,7 @@ export function useAutosave(
   useEffect(
     () => () => {
       if (path === undefined || pending.current === null || !conflicted.current) {
-        void save();
+        void write(false, true);
       } else {
         const entry = {
           content: pending.current,
@@ -710,7 +849,7 @@ export function useAutosave(
       opening.current = true;
       take(null);
     },
-    [path, pane, save, take, lastBase],
+    [path, pane, write, take, lastBase],
   );
 
   // A reload or a closed tab unmounts nothing, so the flush above never runs
@@ -729,13 +868,44 @@ export function useAutosave(
   // not said to write it, and the entry already holds it, with the reason the
   // vault gave.
   useEffect(() => {
-    if (path === undefined) return;
     const hide = () => {
+      // The flush to a note already left is in the air too, and dies with the
+      // page as well (#302). Held for its own note under the base it was typed
+      // on, and sent again with keepalive naming what it named; landing, the
+      // copy goes. Not after a reload of that note since it went out: the
+      // screen holds text this was not typed on (#306).
+      for (const [note, air] of [...inAir.current]) {
+        if (note === path || air.loaded !== reloadsOf(reloads.current, note)) continue;
+        const entry: Held = {
+          content: air.content,
+          reason: "Not yet written when the page was hidden",
+          conflicted: false,
+          base: air.base,
+          after: air.named !== air.base ? air.named : undefined,
+        };
+        holdText(note, entry);
+        heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
+        const under = air.named ?? air.base;
+        void (
+          under === undefined
+            ? saveNote(note, air.content, true)
+            : saveNote(note, air.content, true, noteBase(under))
+        ).then(
+          (written) => {
+            if (landedAs(air.content, written.content)) dropText(note, entry);
+          },
+          // Refused or cut off: the held copy is what the next opening offers.
+          (_failure: unknown) => undefined,
+        );
+      }
+      if (path === undefined) return;
       // Nothing waiting, but a quiet write may still be in the air, and the page
       // going away cancels it. Its text is held and sent again with keepalive,
-      // and the quiet write landing after all drops the held copy.
+      // and the quiet write landing after all drops the held copy. Not after a
+      // reload since it went out: that text is on screen nowhere (#306).
       const air = inAir.current.get(path);
-      const content = pending.current ?? air?.content;
+      const fresh = air?.loaded === reloadsOf(reloads.current, path) ? air : undefined;
+      const content = pending.current ?? fresh?.content;
       if (content === undefined) return;
       if (content === taken.current?.content) return;
       // Text typed behind a write in the air is typed on that write's text,
@@ -792,11 +962,30 @@ export function useAutosave(
     // That editor shows the cached text, and asks nothing that would say so,
     // so it is the base now: read later, a route write's refetch may have
     // moved the cache under a buffer that declined it.
-    onDisk.current = cached ?? null;
+    // Not the text a write still in the air sent, which the leave put there:
+    // a buffer that never took it was typed on the text under it, and names
+    // that. One that takes it follows the write's answer (`allowReload`, #303).
+    const air = path === undefined ? undefined : inAir.current.get(path);
+    onDisk.current =
+      air !== undefined && cached !== undefined && sameText(cached, air.content)
+        ? (air.base ?? null)
+        : (cached ?? null);
     // Against the cached text, as the editor's `held` reads it, so both mean
     // the entry typed into this note and pass over another note's.
     const held = path === undefined ? undefined : heldText(path, cached);
     const doc = shownRef.current?.();
+    // A standby pane took the sent text through the route's own reload and
+    // asks this hook nothing on the way in, so the follow `allowReload` makes
+    // is made here for it: its writes name the write's answer (#303).
+    if (
+      path !== undefined &&
+      air !== undefined &&
+      doc !== undefined &&
+      sameText(doc, air.content)
+    ) {
+      const queue = queued.current.get(path);
+      if (queue !== undefined) queue.visit = visit.current;
+    }
     if (path !== undefined && cached !== undefined && held && doc !== undefined) {
       if (sameText(doc, held.content)) restore(path, cached);
     }

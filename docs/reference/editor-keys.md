@@ -291,7 +291,9 @@ A rename can change the whole path, so it moves a note between folders as well
 as renaming it in place, making folders on the way and taking away the ones it
 emptied. The note you are writing follows into the URL; renaming any other note
 leaves the editor where it is. Text still waiting to be written is saved before
-the prompt opens, so a rename never strands a keystroke at the old path.
+the prompt opens, and every save still on its way must answer first, so a rename
+never strands a keystroke at the old path. A save that failed keeps the prompt
+shut.
 
 A rename also moves the links. Every `[[link]]` in the vault that named the note
 is rewritten to name it at its new path, and it keeps the spelling it had: a

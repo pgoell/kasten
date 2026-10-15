@@ -1072,7 +1072,8 @@ describe("the route", () => {
 
   it("lists a flush that fails after the note was reopened, and keeps it through a save there", async () => {
     // Back on the route and in the note before the flush answers: the buffer
-    // opened on the vault's text, so the refused text is still only held.
+    // opens on the flush's text (#303), and its failure puts the vault's text
+    // back, so the refused text is only held.
     const app = await editing();
     let fail: (() => void) | undefined;
     saveNote.mockImplementationOnce(
@@ -1089,10 +1090,11 @@ describe("the route", () => {
     await settle();
     app.click("index.md");
     await settle();
-    expect(app.text()).toBe("the index note");
+    expect(app.text()).toBe("he index note");
     await act(async () => fail?.());
     await settle();
 
+    expect(app.text()).toBe("the index note");
     expect(app.held()?.label).toBe("Not saved: index");
     app.press("x");
     app.press("x");

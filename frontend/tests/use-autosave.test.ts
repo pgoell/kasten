@@ -1192,9 +1192,10 @@ describe("useAutosave", () => {
 
     note.change("# T1");
     note.open("other.md");
-    // Back before the flush answers, so the buffer opens on the vault's text.
+    // Back before the flush answers, on a buffer still holding the vault's
+    // text. The read of that text is from before the flush, and declined (#304).
     note.open("index.md");
-    expect(note.allowReload("the index note")).toBe(true);
+    expect(note.allowReload("the index note")).toBe(false);
     await refuseFlush();
     note.change("# T2");
     saveNote.mockRejectedValueOnce(new ChangedOnDisk());
@@ -1214,7 +1215,8 @@ describe("useAutosave", () => {
     note.change("# T1");
     note.open("other.md");
     note.open("index.md");
-    expect(note.allowReload("the index note")).toBe(true);
+    // Declined as a read from before the flush (#304); the buffer keeps it.
+    expect(note.allowReload("the index note")).toBe(false);
     note.change("# T2");
     saveNote.mockImplementationOnce(() => new Promise(() => {}));
     await pagehide();
@@ -1827,7 +1829,9 @@ describe("useAutosave", () => {
       note.open("other.md");
       await settled();
       note.open("index.md");
-      expect(note.allowReload("the index note")).toBe(true);
+      // A buffer still on the old text; the read of it is from before the
+      // flush, and declined (#304).
+      expect(note.allowReload("the index note")).toBe(false);
       note.change("# T2");
       saveNote.mockRejectedValueOnce(new ChangedOnDisk());
       note.startSave();
@@ -2657,7 +2661,8 @@ describe("useAutosave", () => {
       await idle();
       await flush.finish();
 
-      expect(note.cached("index.md")).toBe("start");
+      // The text the leave sent, put there as it went (#303), not its answer.
+      expect(note.cached("index.md")).toBe("from pane a");
       await second.finish();
       expect(note.cached("index.md")).toBe(written("from pane b").content);
     });
@@ -2827,11 +2832,33 @@ describe("useAutosave", () => {
       const flush = pendingSave();
 
       type("A1");
-      note.focus("b");
-      // Pane b's own buffer, opened before A1 was typed. It takes the cache
-      // the way a standby pane does.
+      // Pane b's own buffer, opened before A1 was typed, holds its text before
+      // the focus moves. It takes the cache the way a standby pane does.
       show("start");
+      note.focus("b");
       look();
+      type(`${shown()}, B`);
+      await idle();
+      await flush.finish();
+      await settled();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "A1, B",
+        false,
+        noteBase(written("A1").content),
+      );
+      expect(note.status()).not.toBe("conflict");
+    });
+
+    it("follows the queue in a second pane that took the first pane's text before it got the focus", async () => {
+      const { note, type, shown } = withEditor("start");
+      const flush = pendingSave();
+
+      type("A1");
+      // Pane b took A1 through the route's standby reload while unfocused, so
+      // it shows A1 at the opening and asks the hook nothing.
+      note.focus("b");
       type(`${shown()}, B`);
       await idle();
       await flush.finish();
@@ -2852,10 +2879,11 @@ describe("useAutosave", () => {
       const refuse = refusedLater();
 
       type("A1");
-      note.focus("b");
       // Pane b still shows the text from before A1 and took nothing since:
-      // typed on that, its write must name it, and the vault refuse it.
+      // typed on that, its write must name it, and the vault refuse it. The
+      // view holds that text before the focus moves.
       show("start");
+      note.focus("b");
       type("start, B");
       await idle();
       await flush.finish();
