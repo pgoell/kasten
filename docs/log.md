@@ -402,4 +402,4 @@
 
 ## 2026-10-16
 
-* **Correction**: The hosted dev frontend installs again whenever `bun.lock` changes and then restarts vite, so a package added while it runs no longer fails to resolve (#328). A failed install stops the container. [Two environments](/explanation/environments.md), [Run the checks](/how-to/run-the-checks.md), [Deploy to the VPS](/how-to/deploy-to-the-vps.md) and [mise tasks](/reference/mise-tasks.md) say `dev:restart` is still needed after a change to `uv.lock`, but not after one to `bun.lock`.
+* **Correction**: The hosted dev frontend installs again whenever `bun.lock` changes and then restarts vite, so a package added while it runs no longer fails to resolve (#328). A failed install serves no page, and the logs repeat bun's error. [Two environments](/explanation/environments.md), [Run the checks](/how-to/run-the-checks.md), [Deploy to the VPS](/how-to/deploy-to-the-vps.md) and [mise tasks](/reference/mise-tasks.md) say `dev:restart` is still needed after a change to `uv.lock`, but not after one to `bun.lock`.

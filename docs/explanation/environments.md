@@ -123,8 +123,9 @@ consequence is that `.container/node_modules` outlives a restart, and nothing
 that only restarts vite installs a package new to `bun.lock`. So the frontend
 container runs `frontend/dev-server.sh`, which installs at start, checks the
 mtime of `bun.lock` every two seconds, and on a change installs again and
-restarts vite. A failed install stops the container, so the logs end on bun's
-error. The backend container has no such watch: it runs `uv sync` only at
+restarts vite. A failed install exits the script and serves no page; Docker
+starts it again, it fails again, and the logs repeat bun's error until the lock
+is right. The backend container has no such watch: it runs `uv sync` only at
 start, so a change to `uv.lock` still needs `dev:restart`.
 
 An install adds and removes packages but cannot clear a stale tree: after the
