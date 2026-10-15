@@ -956,6 +956,14 @@ the base of the next. The editor's autosave sends a base, so a quiet write in
 the air when somebody else wrote the note no longer lands over their text. A
 body without `base` is written whatever is on disk, and the last write wins.
 
+The base may also name the text before the server stamped it: the note on disk
+with the `id:`, `created:` and `type:` lines the stamp wrote at the head of the
+block set aside, or with the whole block set aside when it holds nothing else
+but `modified:`. A page-hide keepalive typed behind a quiet write names the text
+that write sent, and the stamp it landed with is no other writer's change. The
+body and every block line the stamp did not write must match exactly, or the
+answer is `409`.
+
 A stale `base` is not refused when the disk already holds the text being sent,
 `modified` again set aside: the answer is `200` with the note as it stands, and
 nothing is written. A page-hide keepalive and the quiet write it repeats can

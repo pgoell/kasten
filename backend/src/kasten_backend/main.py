@@ -42,7 +42,7 @@ from kasten_backend.files import (
     open_public,
     store,
 )
-from kasten_backend.frontmatter import reserved, stamp, unstamped
+from kasten_backend.frontmatter import bases, reserved, stamp, unstamped
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError, query_graph
 from kasten_backend.guide import write_guide
 from kasten_backend.indexes import carries, drop_entries, rehome_entry
@@ -1268,6 +1268,12 @@ async def save_file(
     every save restamps it, so a client that sent its text and has not heard
     back yet can still name that text as its base.
 
+    For the same reason the base may name the text with the lines `stamp` added
+    set aside: an id, a creation date or a type at the head of the block, or the
+    whole block on a note sent without one. A page-hide keepalive typed behind a
+    quiet write names the text that write sent, and the stamp it landed with is
+    no other writer's. The body must match exactly, and anything else is a 409.
+
     A stale base over a disk that already holds the text is a 200 with the note
     as it stands, and nothing is written. A page-hide keepalive and the quiet
     write it repeats can land in either order, and the second is no conflict.
@@ -1279,10 +1285,10 @@ async def save_file(
 
         current = note.read_text(encoding="utf-8")
         relative = relative_path(settings.vault_path, note)
-        if (
-            edit.base is not None
-            and hashlib.sha256(unstamped(current).encode("utf-8")).hexdigest() != edit.base
-        ):
+        candidates = [unstamped(current)] if reserved(relative) else bases(current)
+        if edit.base is not None and edit.base not in {
+            hashlib.sha256(text.encode("utf-8")).hexdigest() for text in candidates
+        }:
             held = (
                 edit.content == current
                 if reserved(relative)

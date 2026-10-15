@@ -134,12 +134,16 @@ type Opened = "notice" | "save" | "held" | "conflicts";
 
 type HeldNote = { path: string; reason: string; conflicted?: boolean };
 
-/** One note by name, or how many, after what is wrong with them. */
+/**
+ * One note by name, or how many, after what is wrong with them. Counted by
+ * path: a note can hold two texts, and is still one note.
+ */
 function heldLabel(prefix: string, notes: readonly HeldNote[]) {
-  const [only] = notes;
-  return notes.length === 1 && only
-    ? `${prefix}: ${noteName(only.path)}`
-    : `${prefix}: ${notes.length} notes`;
+  const paths = new Set(notes.map(({ path }) => path));
+  const [only] = paths;
+  return paths.size === 1 && only
+    ? `${prefix}: ${noteName(only)}`
+    : `${prefix}: ${paths.size} notes`;
 }
 
 /** The note's name as the finder shows it, without the folders or `.md`. */

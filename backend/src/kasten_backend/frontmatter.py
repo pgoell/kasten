@@ -152,3 +152,32 @@ def unstamped(content: str) -> str:
         return content
     block = [line for line in content[4:end].split("\n") if not line.startswith("modified:")]
     return "---\n" + "\n".join(block) + content[end:]
+
+
+_OPENING = ("id", "created", "type")
+"""The fields `stamp` writes at the head of the block, in the order it writes them."""
+
+
+def bases(content: str) -> list[str]:
+    """Every text a save's base may hash to over `content`, `unstamped(content)` first.
+
+    A client that sent a text and has not heard back names that text, not the
+    one `stamp` made of it. Where the sent text lacked an id, a creation date or
+    a type, the disk holds those lines at the head of the block, and where it
+    had no block at all, the disk holds one. So the candidates set aside each
+    run of leading lines `stamp` could have written, and the whole block when
+    nothing but `modified` stays. The body is never set aside.
+    """
+    found = [unstamped(content)]
+    block, body = _split(content)
+    left = list(_OPENING)
+    for count, line in enumerate(block[: len(_OPENING)], 1):
+        key = _key(line)
+        if key not in left:
+            break
+        del left[: left.index(key) + 1]
+        rest = block[count:]
+        found.append(unstamped("\n".join([FENCE, *rest, FENCE, *body])))
+        if count == len(_OPENING) and [_key(field) for field in rest] == ["modified"]:
+            found.append("\n".join(body))
+    return found

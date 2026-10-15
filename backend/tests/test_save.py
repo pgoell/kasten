@@ -243,3 +243,89 @@ async def test_answers_a_stale_base_with_the_disk_when_it_stamped_the_text(
     assert response.status_code == 200
     assert response.json()["content"] == on_disk
     assert (vault / "borges.md").read_text() == on_disk
+
+
+async def test_writes_over_a_base_the_disk_only_stamped(client: AsyncClient, vault: Path) -> None:
+    # The quiet write sent a note without a block and the first write gave it
+    # one. The keepalive typed behind it names the unblocked text as its base,
+    # and the disk holds that text under the block `stamp` wrote: no conflict.
+    on_disk = (
+        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\ntype: Note\n"
+        "modified: 2020-01-01T00:00:00+00:00\n---\n# borges\n\nMine.\n"
+    )
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": "# borges\n\nMine, and more.\n", "base": _base("# borges\n\nMine.\n")},
+    )
+
+    assert response.status_code == 200
+    written = (vault / "borges.md").read_text()
+    assert response.json()["content"] == written
+    assert "\nid: kept\n" in written
+    assert written.endswith("\n---\n# borges\n\nMine, and more.\n")
+
+
+async def test_refuses_a_stamped_base_whose_body_the_disk_has_moved_past(
+    client: AsyncClient, vault: Path
+) -> None:
+    # Setting the stamped lines aside forgives the block, never the body.
+    on_disk = (
+        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\ntype: Note\n"
+        "modified: 2020-01-01T00:00:00+00:00\n---\n# borges\n\nTheirs.\n"
+    )
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": "# borges\n\nMine, and more.\n", "base": _base("# borges\n\nMine.\n")},
+    )
+
+    assert response.status_code == 409
+    assert (vault / "borges.md").read_text() == on_disk
+
+
+async def test_refuses_a_stamped_base_when_the_block_holds_a_line_stamp_never_writes(
+    client: AsyncClient, vault: Path
+) -> None:
+    # `tags` is the user's. A block holding it was not stamped onto a note
+    # without one, so the unblocked base names another text.
+    on_disk = (
+        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\ntype: Note\ntags: x\n"
+        "modified: 2020-01-01T00:00:00+00:00\n---\n# borges\n\nMine.\n"
+    )
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": "# borges\n\nMine, and more.\n", "base": _base("# borges\n\nMine.\n")},
+    )
+
+    assert response.status_code == 409
+    assert (vault / "borges.md").read_text() == on_disk
+
+
+async def test_writes_over_a_base_the_disk_gave_an_id_and_a_creation_date(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The sent block had a type and nothing else, so `stamp` wrote the id and
+    # the creation date at its head and the type stayed where it was.
+    on_disk = (
+        "---\nid: kept\ncreated: 2020-01-01T00:00:00+00:00\ntype: Paper\n"
+        "modified: 2020-01-01T00:00:00+00:00\n---\n# borges\n\nMine.\n"
+    )
+    (vault / "borges.md").write_text(on_disk)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={
+            "content": "---\ntype: Paper\n---\n# borges\n\nMine, and more.\n",
+            "base": _base("---\ntype: Paper\n---\n# borges\n\nMine.\n"),
+        },
+    )
+
+    assert response.status_code == 200
+    written = (vault / "borges.md").read_text()
+    assert "\nid: kept\n" in written
+    assert written.endswith("\n---\n# borges\n\nMine, and more.\n")

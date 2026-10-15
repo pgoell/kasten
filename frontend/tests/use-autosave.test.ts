@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk } from "@/lib/api";
-import { heldText, holdText, moveHeld, resetHeld } from "@/lib/held-text";
+import { heldText, holdText, moveHeld, resetHeld, useHeld } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { useAutosave } from "@/lib/use-autosave";
 
@@ -99,7 +99,7 @@ function renderAutosave(path = "index.md", shown?: () => string | undefined) {
     },
     status: () => result.current.status,
     /** Whether the buffer holds text taken from the held store. */
-    restored: () => result.current.restored,
+    restored: () => result.current.restored !== null,
     reason: () => result.current.reason,
     /** Ask the way the editor asks, with the text it is about to put in. */
     allowReload: (text: string) => {
@@ -149,6 +149,23 @@ async function refused() {
   await idle();
 }
 
+/** The bar's list of held texts as it stands, one row per entry. */
+function heldRows() {
+  return renderHook(() => useHeld()).result.current;
+}
+
+/** A save the test refuses by hand, the vault having moved past its base. */
+function refusedLater() {
+  let refuse: (() => void) | undefined;
+  saveNote.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        refuse = () => reject(new ChangedOnDisk());
+      }),
+  );
+  return () => act(async () => refuse?.());
+}
+
 /** A reload or a closed tab, as the page hears it, and the write it starts. */
 async function pagehide() {
   await act(async () => {
@@ -181,6 +198,7 @@ describe("useAutosave", () => {
     saveNote.mockReset();
     // After the cleanup, whose flushes may hold text of their own.
     localStorage.removeItem("kasten.held");
+    localStorage.removeItem("kasten.held.2");
     resetHeld();
     // The own property a backgrounding test put over jsdom's getter.
     Reflect.deleteProperty(document, "visibilityState");
@@ -1055,6 +1073,150 @@ describe("useAutosave", () => {
     expect(saveNote).not.toHaveBeenLastCalledWith("index.md", "c1");
   });
 
+  it("keeps both texts when a flush refused after the reopen is followed by a refused save", async () => {
+    const note = renderAutosave("index.md");
+    note.seed("index.md", "the index note");
+    const refuseFlush = refusedLater();
+
+    note.change("# T1");
+    note.open("other.md");
+    // Back before the flush answers, so the buffer opens on the vault's text.
+    note.open("index.md");
+    expect(note.allowReload("the index note")).toBe(true);
+    await refuseFlush();
+    note.change("# T2");
+    saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+    await note.save();
+
+    expect(heldText("index.md")?.content).toBe("# T1");
+    expect(heldRows()).toHaveLength(2);
+  });
+
+  it("keeps a flush refused after the reopen beside text the hide held there", async () => {
+    // The hide's text was typed on the vault's, not on the flush's, so it is
+    // no newer version of that text.
+    const note = renderAutosave("index.md");
+    note.seed("index.md", "the index note");
+    const refuseFlush = refusedLater();
+
+    note.change("# T1");
+    note.open("other.md");
+    note.open("index.md");
+    expect(note.allowReload("the index note")).toBe(true);
+    note.change("# T2");
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+    await pagehide();
+    await refuseFlush();
+
+    expect(heldRows()).toHaveLength(2);
+  });
+
+  it("keeps held text a pane never showed beside that pane's failed save", async () => {
+    const note = renderAutosave("daily/2026-08-05.md", () => "the index note");
+    note.seed("index.md", "the index note");
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+
+    note.open("index.md");
+    note.change("the index note!");
+    saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await idle();
+
+    expect(heldText("index.md")?.content).toBe("# held");
+    expect(heldRows()).toHaveLength(2);
+  });
+
+  it("keeps held text a pane never showed beside that pane's refused save", async () => {
+    const note = renderAutosave("daily/2026-08-05.md", () => "the index note");
+    note.seed("index.md", "the index note");
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+
+    note.open("index.md");
+    note.change("the index note!");
+    saveNote.mockRejectedValueOnce(new ChangedOnDisk());
+    await idle();
+
+    expect(heldText("index.md")?.content).toBe("# held");
+    expect(heldRows()).toHaveLength(2);
+  });
+
+  it("keeps every text when a write fails after its note moved onto a path holding text", async () => {
+    // Text left from a note deleted at the new path, and text of the note moved.
+    holdText("moved.md", { content: "# stale", reason: "failed with 500", conflicted: false });
+    holdText("index.md", { content: "# hidden", reason: "hidden", conflicted: false });
+    const note = renderAutosave("index.md");
+    const write = pendingSave();
+
+    note.change("# edited");
+    await idle();
+    moveHeld((path) => (path === "index.md" ? "moved.md" : undefined));
+    note.open("moved.md");
+    await write.break();
+
+    expect(heldText("index.md")).toBeUndefined();
+    expect(heldText("moved.md")?.content).toBe("# stale");
+    expect(heldRows().map(({ path }) => path)).toEqual(["moved.md", "moved.md", "moved.md"]);
+  });
+
+  it("drops only the taken entry when it is saved, and offers the next on the next opening", async () => {
+    holdText("index.md", { content: "# first", reason: "failed with 500", conflicted: false });
+    holdText("index.md", { content: "# second", reason: "failed with 502", conflicted: false });
+    const note = renderAutosave("index.md");
+
+    expect(note.allowReload("the index note")).toBe(false);
+    expect(await note.saved()).toBe(true);
+    expect(saveNote).toHaveBeenLastCalledWith("index.md", "# first");
+    expect(heldText("index.md")?.content).toBe("# second");
+
+    note.open("other.md");
+    note.open("index.md");
+    expect(note.allowReload(written("# first").content)).toBe(false);
+    expect(note.reason()).toBe("failed with 502");
+  });
+
+  it("drops only the entry the buffer showed on :e!", async () => {
+    holdText("index.md", { content: "# first", reason: "failed with 500", conflicted: false });
+    holdText("index.md", { content: "# second", reason: "failed with 502", conflicted: false });
+    const note = renderAutosave("index.md");
+    note.allowReload("the index note");
+
+    note.revert(true);
+    expect(heldText("index.md")?.content).toBe("# second");
+    // A buffer that took no held text throws none away.
+    note.revert(true);
+    expect(heldText("index.md")?.content).toBe("# second");
+  });
+
+  it("holds one entry for the hide and the failure of the same write", async () => {
+    const note = renderAutosave("index.md");
+    const quiet = pendingSave();
+    note.change("# sent quietly");
+    await idle();
+    saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await pagehide();
+    await quiet.break();
+
+    expect(heldRows()).toHaveLength(1);
+  });
+
+  it("keeps text another tab held for the note through this tab's failed write", async () => {
+    const note = renderAutosave("index.md");
+    // A tab of the old build, still open after the deploy.
+    localStorage.setItem(
+      "kasten.held",
+      JSON.stringify({
+        "index.md": { content: "# theirs", reason: "failed with 500", conflicted: false },
+      }),
+    );
+
+    note.change("# mine");
+    saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await idle();
+
+    expect(heldText("index.md")?.content).toBe("# theirs");
+    expect(heldRows()).toHaveLength(2);
+  });
+
   it("reopens held text as conflicted when the vault moved since it was held", async () => {
     saveNote.mockRejectedValue(new TypeError("Failed to fetch"));
     const left = renderAutosave("index.md");
@@ -1672,6 +1834,52 @@ describe("useAutosave", () => {
       expect(server.disk()).toBe("---\nid: a\nmodified: now\n---\ntwo");
       expect(note.cached("index.md")).toBe("---\nid: a\nmodified: now\n---\ntwo");
       expect(heldText("index.md")).toBeUndefined();
+    });
+
+    it("holds a queued write that fails against what the write ahead of it landed", async () => {
+      const note = renderAutosave();
+      const server = vault("---\nid: a\n---\nzero");
+      note.seed("index.md", "---\nid: a\n---\nzero");
+      const first = server.held();
+      saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+      note.change("---\nid: a\n---\none");
+      await idle();
+      note.change("---\nid: a\n---\ntwo");
+      note.startSave();
+      await first();
+      await settled();
+
+      expect(heldText("index.md")?.base).toBe(server.disk());
+      // The next page, opening the note on what the vault holds.
+      const again = renderAutosave("index.md");
+      expect(again.allowReload(server.disk())).toBe(false);
+      expect(again.status()).toBe("error");
+    });
+
+    it("holds text typed behind a write in the air at hide against that write's text", async () => {
+      const note = renderAutosave();
+      const server = vault("---\nid: a\n---\nzero");
+      note.seed("index.md", "---\nid: a\n---\nzero");
+      const first = server.held();
+      let drop: (() => void) | undefined;
+      saveNote.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            drop = () => reject(new TypeError("Failed to fetch"));
+          }),
+      );
+
+      note.change("---\nid: a\n---\none");
+      await idle();
+      note.change("---\nid: a\n---\ntwo");
+      await pagehide();
+      await first();
+      await act(async () => drop?.());
+
+      const again = renderAutosave("index.md");
+      expect(again.allowReload(server.disk())).toBe(false);
+      expect(again.status()).toBe("error");
     });
 
     it("names the text read for :e! as its base after the cache moves under a dirty buffer", async () => {

@@ -2282,10 +2282,10 @@ function Home() {
       <StatusBar
         status={pane.path === undefined ? undefined : status}
         reason={reason}
-        // Every note but the open one while its held text is in its buffer and
-        // read by `status`. Text held after the note was reopened is not in the
-        // buffer, so the open note is listed then too.
-        held={held.filter((each) => !(restored && each.path === pane.path))}
+        // Every held entry but the one in the open buffer, which `status`
+        // reads for. Any other entry of that note is not in the buffer, so it
+        // is listed too.
+        held={held.filter((each) => each.entry !== restored)}
         flash={refused}
         archive={archive}
         notice={notice}

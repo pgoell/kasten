@@ -192,6 +192,7 @@ describe("an open note", () => {
     // A failed write holds its text past the test that made it, and the next
     // test's note would open on it.
     localStorage.removeItem("kasten.held");
+    localStorage.removeItem("kasten.held.2");
     resetHeld();
   });
 

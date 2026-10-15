@@ -2478,7 +2478,8 @@ shows the conflict again, your text in the buffer and what differs from the
 vault's newest text above the bar. If the vault has come to hold your text by
 then, the conflict is gone and the note opens clean. Moving the note, or a
 folder above it, in kasten carries the kept text to the new path, a write
-still on its way as you move included. A delete, or a move made outside
+still on its way as you move included, and keeps it beside any text already
+kept there. A delete, or a move made outside
 kasten, leaves it under the old one: the bar still lists it, and the note
 offers it again when it is back at that path, by `<leader>du` or by creating
 it there. If a write
@@ -2487,7 +2488,11 @@ that note's text in this browser's storage, and the status bar reads
 `Not saved: <note>` until it is written or dropped, whatever you save
 elsewhere meanwhile. Opening the note puts the text back in the buffer under
 `Could not save`: `:w` writes it, `:e!` drops it for the vault's. If something
-else wrote the note since, it opens under `Changed on disk` instead. Opening it
+else wrote the note since, it opens under `Changed on disk` instead. A note can
+hold more than one kept text, say when a save fails again after you came back
+to it: kasten keeps each one, opening the note puts back the oldest, and the
+bar lists the rest until a later opening offers them. `:w` and `:e!` settle
+only the text in the buffer. Opening it
 writes nothing on its own. If the vault already holds that text, the write
 having landed after the page went away, kasten drops it without asking: the
 `id`, `created` and `type` lines the vault adds to a note that lacks them do

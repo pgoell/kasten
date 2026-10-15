@@ -16,7 +16,62 @@ describe("held text", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.removeItem("kasten.held");
+    localStorage.removeItem("kasten.held.2");
     resetHeld();
+  });
+
+  it("keeps two texts held for one note, and lists both", () => {
+    const { result } = renderHook(() => useHeld());
+    const second = { ...entry, content: "# typed later" };
+
+    act(() => {
+      holdText("index.md", entry);
+      holdText("index.md", second);
+    });
+
+    expect(result.current).toHaveLength(2);
+    // The oldest is the one offered.
+    expect(heldText("index.md")).toEqual(entry);
+  });
+
+  it("holds one entry for two holds of the same text", () => {
+    const { result } = renderHook(() => useHeld());
+
+    act(() => {
+      holdText("index.md", entry);
+      holdText("index.md", { ...entry, reason: "failed with 502" });
+    });
+
+    expect(result.current).toHaveLength(1);
+    expect(heldText("index.md")?.reason).toBe("failed with 502");
+  });
+
+  it("offers text the old build held, and moves it to the new key", () => {
+    localStorage.setItem("kasten.held", JSON.stringify({ "index.md": entry }));
+
+    expect(heldText("index.md")).toEqual(entry);
+    holdText("other.md", entry);
+
+    expect(localStorage.getItem("kasten.held")).toBeNull();
+    resetHeld();
+    expect(heldText("index.md")).toEqual(entry);
+    expect(heldText("other.md")).toEqual(entry);
+  });
+
+  it("keeps text another tab held for a note when this tab holds text for it", () => {
+    const theirs = { ...entry, content: "# theirs" };
+    const { result } = renderHook(() => useHeld());
+
+    act(() => {
+      // A tab of the old build, still open after the deploy.
+      localStorage.setItem("kasten.held", JSON.stringify({ "index.md": theirs }));
+      window.dispatchEvent(new StorageEvent("storage", { key: "kasten.held" }));
+    });
+    act(() => holdText("index.md", entry));
+    resetHeld();
+
+    expect(result.current).toHaveLength(2);
+    expect(heldText("index.md")).toEqual(theirs);
   });
 
   it("keeps held text across a reload of the page", () => {
@@ -54,6 +109,25 @@ describe("held text", () => {
     expect(heldText("index.md")).toBeUndefined();
   });
 
+  it("keeps the texts another tab of this build held, list and all", () => {
+    const theirs = { ...entry, content: "# theirs" };
+    const { result } = renderHook(() => useHeld());
+    act(() => holdText("index.md", entry));
+
+    act(() => {
+      localStorage.setItem(
+        "kasten.held.2",
+        JSON.stringify({ "index.md": [entry], "other.md": [theirs, entry] }),
+      );
+      window.dispatchEvent(new StorageEvent("storage", { key: "kasten.held.2" }));
+    });
+    act(() => holdText("daily.md", entry));
+    resetHeld();
+
+    expect(result.current).toHaveLength(4);
+    expect(heldText("other.md")).toEqual(theirs);
+  });
+
   it("follows another tab's held text in the list", () => {
     const { result } = renderHook(() => useHeld());
 
@@ -63,7 +137,7 @@ describe("held text", () => {
     });
 
     expect(result.current).toEqual([
-      { path: "other.md", reason: "failed with 500", conflicted: false },
+      { path: "other.md", reason: "failed with 500", conflicted: false, entry },
     ]);
   });
 
@@ -79,28 +153,33 @@ describe("held text", () => {
     expect(heldText("Other/b.md")).toEqual(entry);
   });
 
-  it("leaves held text where it is when the new path already holds some", () => {
+  it("carries held text onto a path that already holds some, keeping both", () => {
     const theirs = { ...entry, content: "# already held there" };
-    holdText("a.md", entry);
-    holdText("b.md", theirs);
+    const { result } = renderHook(() => useHeld());
+    act(() => {
+      holdText("a.md", entry);
+      holdText("b.md", theirs);
+    });
 
-    moveHeld((path) => (path === "a.md" ? "b.md" : undefined));
+    act(() => moveHeld((path) => (path === "a.md" ? "b.md" : undefined)));
 
-    expect(heldText("a.md")).toEqual(entry);
+    expect(heldText("a.md")).toBeUndefined();
     expect(heldText("b.md")).toEqual(theirs);
+    expect(result.current.map(({ path }) => path)).toEqual(["b.md", "b.md"]);
   });
 
   it("lists whether each held note stands conflicted", () => {
     const { result } = renderHook(() => useHeld());
+    const conflict = { ...entry, reason: "Changed on disk", conflicted: true };
 
     act(() => {
       holdText("a.md", entry);
-      holdText("b.md", { ...entry, reason: "Changed on disk", conflicted: true });
+      holdText("b.md", conflict);
     });
 
     expect(result.current).toEqual([
-      { path: "a.md", reason: "failed with 500", conflicted: false },
-      { path: "b.md", reason: "Changed on disk", conflicted: true },
+      { path: "a.md", reason: "failed with 500", conflicted: false, entry },
+      { path: "b.md", reason: "Changed on disk", conflicted: true, entry: conflict },
     ]);
   });
 
@@ -140,7 +219,9 @@ describe("held text", () => {
     const after = result.current;
 
     expect(before).toEqual([]);
-    expect(after).toEqual([{ path: "index.md", reason: "failed with 500", conflicted: false }]);
+    expect(after).toEqual([
+      { path: "index.md", reason: "failed with 500", conflicted: false, entry },
+    ]);
     expect(result.current).toBe(after);
   });
 

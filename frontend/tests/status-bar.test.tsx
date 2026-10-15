@@ -102,6 +102,22 @@ describe("StatusBar", () => {
     expect(screen.queryByTestId("held")).toBeNull();
   });
 
+  it("names a note holding two texts once, and lists both", () => {
+    render(
+      <StatusBar
+        held={[
+          { path: "a.md", reason: "PUT failed with 500" },
+          { path: "a.md", reason: "PUT failed with 502" },
+        ]}
+      />,
+    );
+
+    const held = screen.getByTestId("held");
+    expect(held).toHaveTextContent("Not saved: a");
+    expect(held.getAttribute("title")).toContain("a.md: PUT failed with 500");
+    expect(held.getAttribute("title")).toContain("a.md: PUT failed with 502");
+  });
+
   it("opens the held list out on a tap, a finger having no hover", () => {
     render(<StatusBar held={[{ path: "a.md", reason: "PUT failed with 500" }]} />);
 

@@ -228,6 +228,7 @@ beforeEach((context) => {
 // can hold text of their own. Held text outlives a mount by design.
 afterEach(() => {
   localStorage.removeItem("kasten.held");
+  localStorage.removeItem("kasten.held.2");
   resetHeld();
   outside.clear();
 });
@@ -1173,6 +1174,26 @@ describe("the route", () => {
 
     expect(saveNote).not.toHaveBeenCalled();
     expect(heldText("index.md")).toBeUndefined();
+  });
+
+  it("lists a second held text of the open note, and leaves out only the one in the buffer", async () => {
+    heldBeforeReload();
+    holdText("index.md", {
+      content: "the index note!",
+      reason: "PUT failed with 502",
+      conflicted: false,
+    });
+    resetHeld();
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Could not save");
+    expect(app.held()?.label).toBe("Not saved: index");
+    expect(app.held()?.title).toContain("index.md: PUT failed with 502");
+    expect(app.held()?.title).not.toContain("hidden");
   });
 
   it("drops held text the vault already holds when the note is opened", async () => {

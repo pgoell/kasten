@@ -5,6 +5,7 @@ import {
   dropText,
   type Held,
   heldText,
+  heldTexts,
   holdText,
   landedAs,
   movedTo,
@@ -101,19 +102,20 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // was made in is still the one on screen.
   const visit = useRef(0);
   // The held entry the buffer holds, by identity, and the same as state for
-  // the bar, which lists the open note's held text only while it is not on
-  // screen. Identity rather than path: a flush that fails after its note was
-  // reopened holds a second entry the buffer never saw, and a save of the
-  // buffer must not take that one with it.
+  // the bar, which leaves out that entry alone while it is on screen.
+  // Identity rather than path: a flush that fails after its note was reopened
+  // holds a second entry the buffer never saw, and a save of the buffer must
+  // not take that one with it.
   const taken = useRef<Held | null>(null);
-  const [restored, setRestored] = useState(false);
-  // The `saves` count when this hook held each entry, so a failing write can
-  // tell an entry held after it went out (newer text, the hide's) from one it
-  // may replace. In memory: the store keeps an unchanged entry's object.
-  const heldAt = useRef(new WeakMap<Held, number>());
+  const [restored, setRestored] = useState<Held | null>(null);
+  // The `saves` count and the visit when this hook held each entry, so a
+  // failing write can tell an entry held after it went out on the same buffer
+  // (newer text, the hide's) from one typed on other text. In memory: the
+  // store keeps an unchanged entry's object.
+  const heldAt = useRef(new WeakMap<Held, { seq: number; visit: number }>());
   const take = useCallback((entry: Held | null) => {
     taken.current = entry;
-    setRestored(entry !== null);
+    setRestored(entry);
   }, []);
   // Whether this visit's own effect is still to run, and the entry held for the
   // note when it did. Held text is offered once, at opening: an entry held
@@ -180,18 +182,24 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // and an entry held while this was in the air is newer text it never
       // carried.
       const carried = taken.current;
-      // What the vault held under the buffer, which a held copy of this text
-      // keeps to tell on reopening whether somebody else wrote the note since.
+      // What the vault held under the buffer as far as this visit knows now.
       const base = lastBase(to);
+      // The text the request names, which a held copy of this text keeps to
+      // tell on reopening whether somebody else wrote the note since. Set as
+      // the request goes out: a write queued behind another names what that
+      // one landed, not what the buffer was on when this was asked for.
+      let named = base;
       // Held text is kept by path, and the note may move before this answers.
       const since = movesMade();
 
       // No base for the overwrite `:w` makes of a conflict. Two arguments
       // unless it names one, which is the call every other writer makes.
-      const send = (under: string | undefined): Promise<Note> =>
-        under === undefined || wasConflicted
+      const send = (under: string | undefined): Promise<Note> => {
+        named = under;
+        return under === undefined || wasConflicted
           ? saveNote(to, content)
           : saveNote(to, content, false, noteBase(under));
+      };
       let request: Promise<Note>;
       if (keepalive) {
         // Named too, so a page going away cannot write over somebody else.
@@ -200,6 +208,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
         // it lands if the page cancelled that write, and is the server's no-op
         // if it landed.
         const under = before !== undefined && before !== content ? before : base;
+        named = under;
         request =
           under === undefined
             ? saveNote(to, content, true)
@@ -222,20 +231,20 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       return request.then(
         (note) => {
           answered();
-          // The held entry goes when this write carried it: its own text, or
+          // A held entry goes when this write carried it: its own text, or
           // text typed on top of the entry the buffer had taken when this was
           // sent. An entry the buffer never showed, held by a flush that failed
           // after the note was reopened, is still nowhere else, and stays; so
           // does one held while this was in the air.
           const now = movedTo(to, since);
-          const entry = heldText(now);
-          if (
-            entry &&
-            (entry.content === content ||
-              landedAs(entry.content, note.content) ||
-              (carried !== null && entry === carried))
-          ) {
-            dropText(now);
+          for (const entry of heldTexts(now)) {
+            if (
+              entry === carried ||
+              entry.content === content ||
+              landedAs(entry.content, note.content)
+            ) {
+              dropText(now, entry);
+            }
           }
           // What the buffer took is written now, so nothing on screen is held
           // text any more, and a second entry, if any, goes on the bar. Not when
@@ -273,18 +282,28 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // Somebody else wrote the note since the base this named, and the
           // vault kept their text: a conflict, which only `:w` settles.
           const refused = failure instanceof ChangedOnDisk;
-          const held = { content, reason: message, conflicted: wasConflicted || refused, base };
-          // An entry held after this went out holds newer text, the hide's,
-          // which is on screen and on its own way out: this older text replaces
-          // neither it nor `pending`. An entry of this same text is the hide
-          // holding this write while it was in the air, and is its own.
+          const held = {
+            content,
+            reason: message,
+            conflicted: wasConflicted || refused,
+            base: named,
+          };
+          // An entry held after this went out, on this visit's buffer, holds
+          // newer text typed on top of this, the hide's, which is on screen
+          // and on its own way out: this older text is dropped, and goes into
+          // neither the store nor `pending`. An entry of this same text is the
+          // hide holding this write while it was in the air, and is its own.
+          // One held on another visit was typed on other text, and stays
+          // beside this.
           const now = movedTo(to, since);
-          const existing = heldText(now);
-          const newer = existing && existing.content !== content;
-          if (newer && (heldAt.current.get(existing) ?? -1) >= seq) return false;
+          const newer = heldTexts(now).some((entry) => {
+            const at = heldAt.current.get(entry);
+            return entry.content !== content && at?.visit === opened && at.seq >= seq;
+          });
+          if (newer) return false;
           // Its own send count: a write sent after this one and failing first
           // holds newer text, which this must not replace either.
-          heldAt.current.set(held, seq);
+          heldAt.current.set(held, { seq, visit: opened });
           // The flush of a note already left: `pending` now holds the next note's
           // text, and a retry would write this one's into it. So the text is held
           // for its own note, which takes it back when it is opened again, and
@@ -292,7 +311,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // reading. Ahead of the revert check, because a `:e!` since then was on
           // the next note and threw away that one's text, not this.
           if (!here()) {
-            holdText(now, held);
+            holdText(now, held, carried);
             return false;
           }
           // Nothing to hold and nothing to warn about once the reader has thrown
@@ -302,7 +321,8 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
 
           // Held as well as kept, because `here()` is also true for the flush
           // as the route unmounts, when this hook is gone and `pending` with it.
-          holdText(now, held);
+          // In the place of the entry this was typed on, and of no other.
+          holdText(now, held, carried);
           // Refused after the other writer's event found nothing waiting and the
           // editor took their text in: this text is on screen nowhere, so it is
           // only held, for the bar to list and the next opening to offer. Kept
@@ -374,8 +394,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // The other way held text ends: the reader chose the vault's. A write
       // still in the air carries text thrown away too, which a hide must not
       // hold or send again.
+      // Only the entry on screen: one the buffer never showed was not looked
+      // at, let alone thrown away.
       if (path !== undefined) {
-        dropText(path);
+        if (taken.current) dropText(path, taken.current);
         inAir.current.delete(path);
       }
       take(null);
@@ -435,8 +457,13 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       const held = heldText(note);
       if (!held || pending.current !== null || writing.current.has(note)) return undefined;
       if (!opening.current && held !== offered.current) return undefined;
+      // Every entry the vault holds by now has landed, whichever write it was.
+      for (const entry of heldTexts(note)) {
+        if (landedAs(entry.content, text)) dropText(note, entry);
+      }
+      // The editor opened on the oldest, so only that one can be taken. When
+      // it landed, the next waits on the bar for the next opening.
       if (landedAs(held.content, text)) {
-        dropText(note);
         onDisk.current = text;
         return true;
       }
@@ -444,7 +471,9 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       take(held);
       // A vault moved past the text the buffer was based on is somebody
       // else's write since, and the held text must not go over it unasked.
-      const moved = held.base !== undefined && !sameText(held.base, text);
+      // `landedAs`, because a base can be text a write sent, which the vault
+      // then stamped.
+      const moved = held.base !== undefined && !landedAs(held.base, text);
       conflicted.current = held.conflicted || moved;
       setStatus(conflicted.current ? "conflict" : "error");
       setReason(held.reason);
@@ -488,13 +517,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
         conflicted.current = false;
         if (timer.current) clearTimeout(timer.current);
         timer.current = null;
-        const entry = path === undefined ? undefined : heldText(path);
-        if (
-          path !== undefined &&
-          entry &&
-          (entry === taken.current || landedAs(entry.content, text))
-        ) {
-          dropText(path);
+        if (path !== undefined) {
+          for (const entry of heldTexts(path)) {
+            if (entry === taken.current || landedAs(entry.content, text)) dropText(path, entry);
+          }
         }
         take(null);
         setStatus("saved");
@@ -539,8 +565,8 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           conflicted: true,
           base: lastBase(path),
         };
-        holdText(path, entry);
-        heldAt.current.set(entry, saves.current);
+        holdText(path, entry, taken.current);
+        heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
         if (timer.current) clearTimeout(timer.current);
         timer.current = null;
         pending.current = null;
@@ -577,15 +603,18 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       const content = pending.current ?? inAir.current.get(path);
       if (content === undefined) return;
       if (content === taken.current?.content) return;
+      // The base the keepalive below names: text typed behind a write in the
+      // air is typed on that write's text, which lands first.
+      const before = inAir.current.get(path);
       const entry = {
         content,
         reason: "Not yet written when the page was hidden",
         conflicted: conflicted.current,
-        base: lastBase(path),
+        base: before !== undefined && before !== content ? before : lastBase(path),
       };
-      holdText(path, entry);
+      holdText(path, entry, taken.current);
       // After every write already in the air, which a failing one reads.
-      heldAt.current.set(entry, saves.current);
+      heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
       take(entry);
       if (conflicted.current) return;
       // In `pending` only to be sent: a held in-flight text put there would
