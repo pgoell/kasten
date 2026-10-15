@@ -1127,12 +1127,16 @@ class FakeObserver {
     this.observed.clear();
   }
 
-  static reveal(target: Element) {
+  static reveal(target: Element, isIntersecting = true) {
     for (const observer of FakeObserver.all) {
       if (!observer.observed.has(target)) continue;
-      const entry = { isIntersecting: true, target } as IntersectionObserverEntry;
+      const entry = { isIntersecting, target } as IntersectionObserverEntry;
       observer.callback([entry], observer as unknown as IntersectionObserver);
     }
+  }
+
+  static hide(target: Element) {
+    FakeObserver.reveal(target, false);
   }
 }
 
@@ -1271,6 +1275,57 @@ describe("a pdf embed", () => {
     view.dispatch({ changes: { from: view.state.doc.length - 2, insert: "x" } });
     expect(view.dom.querySelector(".cm-embed-pdf")).toBeNull();
     expect(pdfs.freed()).toBe(1);
+  });
+
+  it("frees a page's drawing when it leaves view, and draws it again on return", async () => {
+    const pdfs = fakePdfs({ [PLAN]: 2 });
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(fakeVault({}).source, pdfs));
+    const [slot] = (await slotsOf(view)) as [HTMLElement];
+
+    FakeObserver.reveal(slot);
+    await waitFor(() => expect(slot.querySelector("canvas")).not.toBeNull());
+    const canvas = slot.querySelector("canvas") as HTMLCanvasElement;
+
+    FakeObserver.hide(slot);
+    expect(slot.querySelector("canvas")).toBeNull();
+    expect(canvas.width).toBe(0);
+    // The slot keeps the page's shape, so the box does not jump.
+    expect(slot.style.aspectRatio).toBe("600 / 800");
+
+    FakeObserver.reveal(slot);
+    await waitFor(() => expect(slot.querySelector("canvas")).not.toBeNull());
+    expect(pdfs.drawn).toEqual([
+      [1, window.devicePixelRatio],
+      [1, window.devicePixelRatio],
+    ]);
+  });
+
+  it("frees every page's drawing when it leaves the screen", async () => {
+    const pdfs = fakePdfs({ [PLAN]: 1 });
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(fakeVault({}).source, pdfs));
+    const [slot] = (await slotsOf(view)) as [HTMLElement];
+    FakeObserver.reveal(slot);
+    await waitFor(() => expect(slot.querySelector("canvas")).not.toBeNull());
+    const canvas = slot.querySelector("canvas") as HTMLCanvasElement;
+
+    view.dispatch({ changes: { from: view.state.doc.length - 2, insert: "x" } });
+
+    expect(canvas.width).toBe(0);
+  });
+
+  it("opens only the pdf, not the note around it, from inside a note embed", () => {
+    const vault = fakeVault({ "b.md": "![[plan.pdf]]" });
+    const view = mount(`${ABOVE}![[b]]`, withPdfs(vault.source, fakePdfs({ [PLAN]: 1 })));
+    const box = view.dom.querySelector(".cm-embed .cm-embed-pdf") as HTMLElement;
+
+    fireEvent.mouseDown(box, { ctrlKey: true });
+    fireEvent.pointerDown(box, { pointerType: "touch" });
+    fireEvent.click(box);
+
+    expect(vault.opened).toEqual([
+      ["docs/plan.pdf", undefined],
+      ["docs/plan.pdf", undefined],
+    ]);
   });
 
   it("shows its source with the cursor on the line, vim off", () => {

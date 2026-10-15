@@ -128,8 +128,8 @@ export const pdfRenderer = Facet.define<PdfRenderer, PdfRenderer>({
  *
  * Every page gets a slot the shape of the first page at once, so the box
  * scrolls its whole length before anything is drawn, and a page is drawn when
- * its slot scrolls into view: a hundred-page pdf in a note costs the pages
- * somebody looks at. The canvas is as wide as the box when the page is drawn,
+ * its slot scrolls into view and freed when it scrolls out: a hundred-page pdf
+ * in a note costs the pages somebody is looking at. The canvas is as wide as the box when the page is drawn,
  * times the pixel ratio, and its style holds it to the box, so a phone gets a
  * page it can read across without scrolling sideways.
  *
@@ -154,13 +154,36 @@ export function showPdf(
     measured();
   };
 
+  // The canvas of every slot drawn or drawing, by slot. A page that leaves view
+  // gives its canvas up: at the box's width times the pixel ratio one is some
+  // megabytes, and Safari on a phone stops drawing canvases at all once a long
+  // pdf scrolled end to end holds every page.
+  const canvases = new Map<Element, HTMLCanvasElement>();
+
+  const free = (slot: Element) => {
+    const canvas = canvases.get(slot);
+    if (canvas === undefined) return;
+    canvases.delete(slot);
+    // Shrunk and not only dropped, which is what hands the bitmap back at once
+    // rather than whenever the collector gets to it.
+    canvas.width = 0;
+    canvas.height = 0;
+    // The slot keeps its aspect ratio, so the box does not jump.
+    slot.replaceChildren();
+  };
+
   const draw = (file: PdfFile, slot: HTMLElement, number: number) => {
+    if (canvases.has(slot)) return;
     const canvas = document.createElement("canvas");
     canvas.style.width = "100%";
+    canvases.set(slot, canvas);
+    // Whether the slot still wants this canvas, which a page scrolled past
+    // while it drew does not.
+    const wanted = () => !gone && canvases.get(slot) === canvas;
     file
       .page(number)
       .then((page) => {
-        if (gone) return;
+        if (!wanted()) return;
         // jsdom and a box not yet laid out have no width; the page's own
         // keeps the scale off zero.
         const scale = ((box.clientWidth || page.width) / page.width) * window.devicePixelRatio;
@@ -169,7 +192,11 @@ export function showPdf(
       })
       // Its own `then`, so a page that fails to draw lands in `failed` too.
       .then(() => {
-        if (!gone) slot.replaceChildren(canvas);
+        if (wanted()) slot.replaceChildren(canvas);
+        else {
+          canvas.width = 0;
+          canvas.height = 0;
+        }
       }, failed);
   };
 
@@ -183,9 +210,9 @@ export function showPdf(
         (entries) => {
           for (const entry of entries) {
             const number = slots.get(entry.target);
-            if (!entry.isIntersecting || number === undefined) continue;
-            observer?.unobserve(entry.target);
-            draw(file, entry.target as HTMLElement, number);
+            if (number === undefined) continue;
+            if (entry.isIntersecting) draw(file, entry.target as HTMLElement, number);
+            else free(entry.target);
           }
         },
         // A screen ahead, so the next page is drawn before it is scrolled to.
@@ -205,6 +232,7 @@ export function showPdf(
   return () => {
     gone = true;
     observer?.disconnect();
+    for (const slot of [...canvases.keys()]) free(slot);
     opening.destroy();
   };
 }

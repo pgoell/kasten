@@ -473,11 +473,16 @@ class PdfEmbed extends WidgetType {
     box.className = "cm-embed cm-embed-pdf";
 
     let tapped = false;
-    const follow = () => this.source.open(path);
+    // Stopped where it follows: in a note embed the event would bubble on to
+    // that note's box, and the note would open beside the pdf.
+    const follow = (event: Event) => {
+      event.stopPropagation();
+      this.source.open(path);
+    };
     box.addEventListener("mousedown", (event) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      follow();
+      follow(event);
     });
     box.addEventListener("pointerdown", (event) => {
       tapped = event.pointerType === "touch";
@@ -485,8 +490,8 @@ class PdfEmbed extends WidgetType {
     box.addEventListener("pointercancel", () => {
       tapped = false;
     });
-    box.addEventListener("click", () => {
-      if (tapped) follow();
+    box.addEventListener("click", (event) => {
+      if (tapped) follow(event);
       tapped = false;
     });
 
