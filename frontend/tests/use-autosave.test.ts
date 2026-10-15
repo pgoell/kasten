@@ -3181,6 +3181,11 @@ describe("useAutosave", () => {
           doc = text;
           seen = text;
         },
+        /** What the focused editor shows, set by hand. */
+        show: (text: string) => {
+          doc = text;
+          seen = text;
+        },
         shown: () => doc,
       };
     }
@@ -3379,6 +3384,54 @@ describe("useAutosave", () => {
       await settled();
 
       expect(saveNote).not.toHaveBeenCalled();
+    });
+
+    it("holds and sends nothing on hide while the write after :e! waits its turn", async () => {
+      const vault = server("start");
+      const { note, type, outside, discard, shown } = withEditor("start");
+
+      type("T1");
+      await idle();
+      discard("start");
+      // The page lives on through the hide.
+      await background();
+      await vault.land(0);
+      vault.write("X");
+      if (note.reconcile()) outside("X");
+      await vault.land(1);
+      await vault.land(2);
+      // The refetch the declined event left for once nothing is in the air.
+      outside(vault.disk());
+
+      expect(vault.disk()).toBe("X");
+      expect(shown()).toBe("X");
+      expect(heldTexts("index.md")).toEqual([]);
+      expect(note.status()).toBe("saved");
+    });
+
+    it("names the base on hide when the buffer reopened on the text under a write in the air", async () => {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T1");
+      await idle();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      // The quiet write put nothing in the cache: the editor reopens on "start".
+      show("start");
+      note.open("index.md");
+      type("start T2");
+      await pagehide();
+      await vault.land(0);
+      const first = vault.disk();
+      await vault.land(1);
+      await vault.land(2);
+
+      // Typed on "start" and not on T1: the vault refuses it, and T1 stands.
+      expect(vault.disk()).toBe(first);
+      expect(landedAs("T1", vault.disk())).toBe(true);
+      expect(heldText("index.md")).toMatchObject({ content: "start T2", conflicted: true });
+      expect(note.status()).toBe("conflict");
     });
   });
 });
