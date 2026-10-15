@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.46.0"
+    "version": "0.46.1"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -1480,7 +1480,7 @@
       },
       "put": {
         "summary": "Save File",
-        "description": "Write one note back to the vault.\n\nOnly over a note that is already there. Everything the read refuses is\nrefused here too, and for the same reason, so a note you cannot open is a\nnote you cannot overwrite.\n\nThe text is stamped on the way through, which dates the note and gives one\nwritten before kasten its id. The note on disk is read for that, so the id\nit already has outlives a client that sends the note back without one. What\ncomes back is therefore what landed on disk rather than what arrived, and it\nis the only thing the client may believe: its own copy is a save behind from\nthe moment it sends it.\n\nThe jj change is started before the write and the snapshot taken after, so\nthe edit is bracketed by the history rather than trailing it. A vault that\nis not a jj repo skips both.\n\nA `base` makes the write conditional, a 409 when the disk no longer holds\nthat text. An autosave in the air when another writer wrote would otherwise\nland over that writer's text unasked. The base sets `modified` aside because\nevery save restamps it, so a client that sent its text and has not heard\nback yet can still name that text as its base.\n\nA stale base over a disk that already holds the text is a 200 with the note\nas it stands, and nothing is written. A page-hide keepalive and the quiet\nwrite it repeats can land in either order, and the second is no conflict.",
+        "description": "Write one note back to the vault.\n\nOnly over a note that is already there. Everything the read refuses is\nrefused here too, and for the same reason, so a note you cannot open is a\nnote you cannot overwrite.\n\nThe text is stamped on the way through, which dates the note and gives one\nwritten before kasten its id. The note on disk is read for that, so the id\nit already has outlives a client that sends the note back without one. What\ncomes back is therefore what landed on disk rather than what arrived, and it\nis the only thing the client may believe: its own copy is a save behind from\nthe moment it sends it.\n\nThe jj change is started before the write and the snapshot taken after, so\nthe edit is bracketed by the history rather than trailing it. A vault that\nis not a jj repo skips both.\n\nA `base` makes the write conditional, a 409 when the disk no longer holds\nthat text. An autosave in the air when another writer wrote would otherwise\nland over that writer's text unasked. The base sets `modified` aside because\nevery save restamps it, so a client that sent its text and has not heard\nback yet can still name that text as its base.\n\nFor the same reason the base may name the text with the lines `stamp` added\nset aside: an id, a creation date or a type at the head of the block, or the\nwhole block on a note sent without one. A page-hide keepalive typed behind a\nquiet write names the text that write sent, and the stamp it landed with is\nno other writer's. The body must match exactly, and anything else is a 409.\n\nA stale base over a disk that already holds the text is a 200 with the note\nas it stands, and nothing is written. A page-hide keepalive and the quiet\nwrite it repeats can land in either order, and the second is no conflict.",
         "operationId": "save_file_api_files__path__put",
         "parameters": [
           {

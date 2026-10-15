@@ -929,6 +929,12 @@ export interface paths {
          *     every save restamps it, so a client that sent its text and has not heard
          *     back yet can still name that text as its base.
          *
+         *     For the same reason the base may name the text with the lines `stamp` added
+         *     set aside: an id, a creation date or a type at the head of the block, or the
+         *     whole block on a note sent without one. A page-hide keepalive typed behind a
+         *     quiet write names the text that write sent, and the stamp it landed with is
+         *     no other writer's. The body must match exactly, and anything else is a 409.
+         *
          *     A stale base over a disk that already holds the text is a 200 with the note
          *     as it stands, and nothing is written. A page-hide keepalive and the quiet
          *     write it repeats can land in either order, and the second is no conflict.
