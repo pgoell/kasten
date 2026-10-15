@@ -2524,6 +2524,21 @@ describe("useAutosave", () => {
       expect(saveNote).toHaveBeenLastCalledWith("index.md", "E, and mine", false, noteBase("E"));
     });
 
+    it("names a reload's text typed while the older write was in the air, once that write lands", async () => {
+      const { type, outside } = withEditor("start");
+      const first = pendingSave();
+
+      type("T1");
+      await idle();
+      outside("E");
+      type("E, and mine");
+      await first.finish();
+      await idle();
+      await settled();
+
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "E, and mine", false, noteBase("E"));
+    });
+
     it("holds an older write that fails after a reload beside the hide's text", async () => {
       const { type, outside } = withEditor("start");
       const first = pendingSave();
