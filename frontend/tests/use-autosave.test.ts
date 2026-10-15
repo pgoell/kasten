@@ -2946,8 +2946,10 @@ describe("useAutosave", () => {
 
     it("reads the note before naming a base after a write failed with no answer", async () => {
       const { type } = withEditor("start");
-      // The server wrote T2 and the response was lost on the way back.
-      fetchNote.mockResolvedValue(written("T2").content);
+      // The server wrote T2 and the response was lost on the way back. With a
+      // real stamp, which the hook checks the read against.
+      const stamped = "---\nmodified: now\n---\nT2";
+      fetchNote.mockResolvedValue(stamped);
 
       type("T1");
       await idle();
@@ -2960,12 +2962,104 @@ describe("useAutosave", () => {
       await settled();
 
       expect(fetchNote).toHaveBeenCalledWith("index.md");
-      expect(saveNote).toHaveBeenLastCalledWith(
-        "index.md",
-        "T2, T3",
-        false,
-        noteBase(written("T2").content),
-      );
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "T2, T3", false, noteBase(stamped));
+    });
+
+    it("keeps the old base after a write lost on the network when somebody else wrote meanwhile", async () => {
+      const { type } = withEditor("start");
+      // Somebody else wrote X, and W1 never reached the server.
+      fetchNote.mockResolvedValue("X");
+
+      type("T1");
+      saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      await idle();
+      await settled();
+      type("T1, T2");
+      await idle();
+      await settled();
+
+      // X is not our text: naming it would land T2 over X unasked.
+      expect(fetchNote).toHaveBeenCalledWith("index.md");
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "T1, T2", false, noteBase("start"));
+    });
+
+    it("keeps a failed flush's text on the screen it reopened on", async () => {
+      const { note, type, look, show, shown } = withEditor("start");
+      const flush = pendingSave();
+
+      type("T1");
+      note.seed("other.md", "other");
+      note.open("other.md");
+      note.open("index.md");
+      show(String(note.cached("index.md")));
+      note.allowReload("T1");
+      await flush.break();
+      await settled();
+      look();
+
+      // The clean screen showed T1 and nothing else holds it: it stays there,
+      // unwritten, and not only on the bar.
+      expect(shown()).toBe("T1");
+      expect(note.status()).toBe("error");
+      expect(note.restored()).toBe(true);
+    });
+
+    it("drops an older write to a left note refused behind the hide's keepalive", async () => {
+      const { note, type } = withEditor("start");
+      const refuse = refusedLater();
+      const keepalive = pendingSave();
+
+      type("T1");
+      await idle();
+      type("T2");
+      note.seed("b.md", "b");
+      note.open("b.md");
+      // The page lives on: the keepalive of T2 lands before W1, which the
+      // vault then refuses. T1 is older text T2 was typed on, not a conflict.
+      await background();
+      await keepalive.finish();
+      await refuse();
+      await settled();
+
+      expect(heldTexts("index.md").map((entry) => entry.content)).not.toContain("T1");
+    });
+
+    it("lets a rename go when a later write landed after a failed one", async () => {
+      const { note, type } = withEditor("start");
+      const first = pendingSave();
+
+      type("T1");
+      await idle();
+      type("T1, T2");
+      note.startSave();
+      let outcome: boolean | undefined;
+      void note.askSaveFirst().then((answer) => {
+        outcome = answer;
+      });
+      await first.break();
+      await settled();
+
+      // The second write carried T1 and landed: the vault holds the buffer.
+      expect(outcome).toBe(true);
+    });
+
+    it("drops a failed flush's text that a later write in another visit carries", async () => {
+      const { note, type, shown } = withEditor("start");
+      const first = pendingSave();
+
+      type("T1");
+      await idle();
+      // Pane b shows T1 at the opening, and types on it behind W1.
+      note.focus("b");
+      type(`${shown()}, T2`);
+      await idle();
+      await first.break();
+      await settled();
+
+      // T2 landed with T1 in it: held, T1 would be offered as a conflict with
+      // it, and `:w` there would lose T2.
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "T1, T2", false, expect.anything());
+      expect(heldTexts("index.md").map((entry) => entry.content)).not.toContain("T1");
     });
   });
 });

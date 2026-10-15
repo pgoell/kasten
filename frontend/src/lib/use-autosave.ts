@@ -70,6 +70,10 @@ export function useAutosave(
   // else.
   const shownRef = useRef(shown);
   shownRef.current = shown;
+  // The note followed now, for a flush answering with the closure of the
+  // visit it left: that note may be open again by then.
+  const openRef = useRef(path);
+  openRef.current = path;
   // What the vault answered the failed write with, kept for the bar to show on
   // hover. `error` says a write did not land; only this says whether that was
   // the proxy, the disk or a bad path, which is what decides the next move.
@@ -122,7 +126,14 @@ export function useAutosave(
   const inAir = useRef(
     new Map<
       string,
-      { content: string; loaded: number; base?: string; named?: string; stale: string[] }
+      {
+        content: string;
+        loaded: number;
+        base?: string;
+        named?: string;
+        stale: string[];
+        visit: number;
+      }
     >(),
   );
   // The last write to each note still to answer, resolving with the text on
@@ -139,7 +150,14 @@ export function useAutosave(
   const queued = useRef(
     new Map<
       string,
-      { link: Promise<string | undefined>; visit: number; loaded: number; ok: Promise<boolean> }
+      {
+        link: Promise<string | undefined>;
+        visit: number;
+        loaded: number;
+        ok: Promise<boolean>;
+        // A later write names this one's link: typed on this text, it carries it.
+        followed: boolean;
+      }
     >(),
   );
   // The notes whose outside write `reconcile` declined while a write to them
@@ -254,7 +272,14 @@ export function useAutosave(
       let named = base;
       const stale = [...(air?.stale ?? [])];
       if (base !== undefined) stale.push(base);
-      const flying = { content, loaded, base, named: undefined as string | undefined, stale };
+      const flying = {
+        content,
+        loaded,
+        base,
+        named: undefined as string | undefined,
+        stale,
+        visit: opened,
+      };
       inAir.current.set(to, flying);
       // The text leaving a note goes into the cache as it leaves, so a reopen
       // or a second pane opens on it and not on what came before it (#303).
@@ -266,14 +291,17 @@ export function useAutosave(
       // A failure with no HTTP status may have come after the server wrote
       // (#307), so the vault is read again before anything names a base. Once,
       // shared by the link and the failure arm; the base named if that fails too.
+      // Taken only when it holds this text: other text is somebody else's write,
+      // and the next write naming it would land over it unasked.
       let fresh: Promise<string | undefined> | undefined;
       const reread = () => {
         fresh ??= Promise.resolve(to)
           .then(fetchNote)
           .then(
             (text) => text,
-            (_failure: unknown) => named,
-          );
+            (_failure: unknown) => undefined,
+          )
+          .then((text) => (text !== undefined && landedAs(content, text) ? text : named));
         return fresh;
       };
 
@@ -332,8 +360,9 @@ export function useAutosave(
           ),
         ]).then(([, text]) => text);
       } else {
-        const under =
-          ahead?.visit === opened && ahead.loaded === loaded ? ahead.link : Promise.resolve(base);
+        const follows = ahead?.visit === opened && ahead.loaded === loaded;
+        if (follows) ahead.followed = true;
+        const under = follows ? ahead.link : Promise.resolve(base);
         request = ahead === undefined ? send(base) : ahead.link.then(() => under).then(send);
         // Never rejects, so a failed write still lets the next one go: the vault
         // did not move, as far as this hook knows.
@@ -342,15 +371,18 @@ export function useAutosave(
           (failure: unknown) => (failure instanceof TypeError ? reread() : under),
         );
       }
-      // A write `:e!` threw away before it went out is no failure of the queue.
+      // The last write's outcome is the queue's: a later write carries the text
+      // of the ones before it, so its landing settles their failures. A write
+      // `:e!` threw away before it went out leaves the outcome to those.
       const ok = Promise.all([
         ahead?.ok ?? true,
         request.then(
           () => true,
-          (failure: unknown) => failure instanceof Skipped,
+          (failure: unknown) => (failure instanceof Skipped ? undefined : false),
         ),
-      ]).then(([all, mine]) => all && mine);
-      queued.current.set(to, { link, visit: opened, loaded, ok });
+      ]).then(([before, mine]) => mine ?? before);
+      const mine = { link, visit: opened, loaded, ok, followed: false };
+      queued.current.set(to, mine);
       void link.then(() => {
         if (queued.current.get(to)?.link === link) queued.current.delete(to);
       });
@@ -498,6 +530,11 @@ export function useAutosave(
           // Its own send count: a write sent after this one and failing first
           // holds newer text, which this must not replace either.
           heldAt.current.set(held, { seq, visit: opened });
+          // A later write, of another visit too, was typed on this text and
+          // carries it: held, this older text would be offered as a conflict
+          // with it, and `:w` there would lose the newer. That write's own
+          // failure holds its text, as the #290 rule does on one visit.
+          if (mine.followed) return false;
           // The flush of a note already left: `pending` now holds the next note's
           // text, and a retry would write this one's into it. So the text is held
           // for its own note, which takes it back when it is opened again, and
@@ -506,6 +543,25 @@ export function useAutosave(
           // the next note and threw away that one's text, not this.
           if (!here()) {
             holdText(now, held, carried);
+            // Reopened on this very text in a clean buffer, which nothing else
+            // is writing: the screen keeps it, taken as a failed write is,
+            // and the cache keeps it too. Put back, the clean screen would
+            // take the old text and leave this on the bar alone (#303).
+            const doc = shownRef.current?.();
+            if (
+              openRef.current === now &&
+              pending.current === null &&
+              !writing.current.has(now) &&
+              doc !== undefined &&
+              sameText(doc, content)
+            ) {
+              take(held);
+              pending.current = content;
+              conflicted.current ||= refused || wasConflicted;
+              setStatus(conflicted.current ? "conflict" : "error");
+              setReason(message);
+              return false;
+            }
             settle();
             return false;
           }
@@ -884,7 +940,10 @@ export function useAutosave(
           after: air.named !== air.base ? air.named : undefined,
         };
         holdText(note, entry);
-        heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
+        // On the visit the text was typed in, as that visit's hide would have
+        // held it: an older write of that visit failing behind it then reads
+        // this as newer text typed on its own, and drops itself (#290).
+        heldAt.current.set(entry, { seq: saves.current, visit: air.visit });
         const under = air.named ?? air.base;
         void (
           under === undefined
