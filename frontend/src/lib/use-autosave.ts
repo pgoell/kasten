@@ -291,8 +291,10 @@ export function useAutosave(
           }
           // The note that came back and never the text that was sent: the two
           // differ by the `modified` stamp `PUT` writes, and the next save names
-          // what is on disk.
-          if (here()) onDisk.current = note.content;
+          // what is on disk. Not after a reload since this went out: the
+          // reload's text came after this answer on disk, and the buffer was
+          // typed on it, so the next save names that (#298).
+          if (here() && reloads.current === loaded) onDisk.current = note.content;
           // Typing during the write leaves newer text behind us, and that is not
           // saved however this one went. The cache waits on the same test: the
           // editor reloads from it, so writing the text that was in the air would
