@@ -2572,6 +2572,25 @@ describe("useAutosave", () => {
       expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1x"]);
     });
 
+    it("keeps the base in the cache when a keepalive behind a failed write fails too", async () => {
+      let doc = "start";
+      const note = renderAutosave("index.md", () => doc);
+      note.seed("index.md", "start");
+      const first = pendingSave();
+      const keepalive = pendingSave();
+
+      doc = "T1";
+      note.change("T1");
+      await idle();
+      doc = "T1x";
+      note.change("T1x");
+      await pagehide();
+      await first.break();
+      await keepalive.break();
+
+      expect(note.cached("index.md")).toBe("start");
+    });
+
     it("names a reload's text typed while the older write was in the air, once that write lands", async () => {
       const { type, outside } = withEditor("start");
       const first = pendingSave();
