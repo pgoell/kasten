@@ -3433,5 +3433,97 @@ describe("useAutosave", () => {
       expect(heldText("index.md")).toMatchObject({ content: "start T2", conflicted: true });
       expect(note.status()).toBe("conflict");
     });
+
+    it("holds without sending on hide when the buffer reopened on the text under a write in the air", async () => {
+      server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T1");
+      await idle();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      await pagehide();
+
+      // The screen shows "start": a keepalive would land T1 over it unseen.
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      // W1 dies with the page, so its text is held where the screen is not.
+      expect(heldText("index.md")).toMatchObject({ content: "T1", conflicted: false });
+      expect(note.restored()).toBe(false);
+    });
+
+    it("holds without sending when a phone backgrounds the page reopened on the text under a write in the air", async () => {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T1");
+      await idle();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      await background();
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(heldText("index.md")).toMatchObject({ content: "T1", conflicted: false });
+      expect(note.restored()).toBe(false);
+      await vault.land(0);
+    });
+
+    it("drops the copy held off screen at hide once the write in the air lands", async () => {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T1");
+      await idle();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      // The page lives on through the hide.
+      await background();
+      expect(heldText("index.md")).toMatchObject({ content: "T1" });
+      await vault.land(0);
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(landedAs("T1", vault.disk())).toBe(true);
+      expect(heldTexts("index.md")).toEqual([]);
+      expect(note.status()).not.toBe("error");
+    });
+
+    it("holds and resends on hide once the reopened buffer took the text of the write in the air", async () => {
+      const vault = server("start");
+      const { note, type, show, outside } = withEditor("start");
+
+      type("T1");
+      await idle();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      // The buffer takes the write's text: it follows that write now.
+      outside("T1");
+      await pagehide();
+
+      expect(vault.request(1)).toMatchObject({ content: "T1", keepalive: true });
+      expect(heldText("index.md")).toMatchObject({ content: "T1" });
+    });
+
+    it("keeps a quiet write's text when it fails after the buffer reopened on the text under it", async () => {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T1");
+      await idle();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      await vault.fail(0);
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(heldText("index.md")).toMatchObject({ content: "T1" });
+    });
   });
 });
