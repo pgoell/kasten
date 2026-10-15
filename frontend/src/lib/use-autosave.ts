@@ -33,6 +33,31 @@ function lower(counts: Map<string, number>, note: string): void {
 /** A queued write a `:e!` threw away before its turn came, never sent (#301). */
 class Skipped extends Error {}
 
+/** A note's newest write still to answer; see `inAir` in the hook. */
+interface InAir {
+  content: string;
+  loaded: number;
+  base?: string;
+  named?: string;
+  stale: string[];
+  visit: number;
+  sent?: { content: string; loaded: number };
+  restoring: boolean;
+  unseen?: InAir;
+}
+
+/**
+ * The text the newest write to a note sent, which text typed behind it was
+ * typed on. Not after a reload since, nor while that write is one the buffer
+ * never took: nothing of this buffer went out since, and naming it would land
+ * over it unasked (#317).
+ */
+function sentUnder(air: InAir | undefined, loaded: number): string | undefined {
+  if (air?.sent?.loaded !== loaded) return undefined;
+  if (air.sent.content === air.unseen?.content) return undefined;
+  return air.sent.content;
+}
+
 /** How many times a clean buffer of `note` took the vault's text in. */
 function reloadsOf(reloads: Map<string, number>, note: string): number {
   return reloads.get(note) ?? 0;
@@ -128,21 +153,10 @@ export function useAutosave(
   // typed behind the queue finds that text on disk, not the queued one's
   // (#310). `restoring` marks the write `:e!` queued with the vault's own
   // text, which nobody typed and a hide neither holds nor sends (#311).
-  const inAir = useRef(
-    new Map<
-      string,
-      {
-        content: string;
-        loaded: number;
-        base?: string;
-        named?: string;
-        stale: string[];
-        visit: number;
-        sent?: { content: string; loaded: number };
-        restoring: boolean;
-      }
-    >(),
-  );
+  // `unseen` is the write ahead that a buffer reopened on the text under it
+  // never took: a write of that buffer replaces it here and inherits its
+  // `sent`, which is then text the buffer was not typed on (#317).
+  const inAir = useRef(new Map<string, InAir>());
   // The last write to each note still to answer, resolving with the text on
   // disk once it has, as far as this hook knows. The next write to that note
   // goes out behind it and names that text as its base: not the text the last
@@ -254,7 +268,7 @@ export function useAutosave(
       const air = inAir.current.get(to);
       const ahead = queued.current.get(to);
       const follows = ahead?.visit === opened && ahead.loaded === loaded;
-      const before = follows && air?.sent?.loaded === loaded ? air.sent.content : undefined;
+      const before = follows ? sentUnder(air, loaded) : undefined;
       writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
       const answered = () => {
         lower(writing.current, to);
@@ -286,15 +300,16 @@ export function useAutosave(
       let named = base;
       const stale = [...(air?.stale ?? [])];
       if (base !== undefined) stale.push(base);
-      const flying = {
+      const flying: InAir = {
         content,
         loaded,
         base,
-        named: undefined as string | undefined,
+        named: undefined,
         stale,
         visit: opened,
         sent: air?.sent,
         restoring,
+        unseen: follows ? air?.unseen : air?.loaded === loaded && !air.restoring ? air : undefined,
       };
       inAir.current.set(to, flying);
       // The text leaving a note goes into the cache as it leaves, so a reopen
@@ -1048,24 +1063,31 @@ export function useAutosave(
       // the reader's own, no conflict on reopening. Held as well when text was
       // typed on the screen's text since: that goes out below on its own, and
       // the page dying would cancel the write and keep its text nowhere (#317).
-      if (fresh !== undefined && !follows) {
-        const out = fresh.sent?.loaded === fresh.loaded ? fresh.sent : undefined;
+      // So too when that text already went to the queue and the buffer follows
+      // its own write, still waiting behind the one it never took.
+      const unseen =
+        follows && fresh?.unseen !== undefined && fresh.sent?.content === fresh.unseen.content
+          ? fresh.unseen
+          : undefined;
+      const offScreen = follows ? unseen : fresh;
+      if (offScreen !== undefined) {
+        const out = offScreen.sent?.loaded === offScreen.loaded ? offScreen.sent : undefined;
         const under =
           out === undefined
-            ? fresh.base
-            : out.content === fresh.content
-              ? (fresh.named ?? fresh.base)
+            ? offScreen.base
+            : out.content === offScreen.content
+              ? (offScreen.named ?? offScreen.base)
               : out.content;
         const entry: Held = {
-          content: fresh.content,
+          content: offScreen.content,
           reason: "Not yet written when the page was hidden",
           conflicted: conflicted.current,
-          base: fresh.base,
-          after: under !== fresh.base ? under : undefined,
+          base: offScreen.base,
+          after: under !== offScreen.base ? under : undefined,
         };
         holdText(path, entry);
-        heldAt.current.set(entry, { seq: saves.current, visit: fresh.visit });
-        if (pending.current === null) return;
+        heldAt.current.set(entry, { seq: saves.current, visit: offScreen.visit });
+        if (!follows && pending.current === null) return;
       }
       const content = pending.current ?? fresh?.content;
       if (content === undefined) return;
@@ -1076,7 +1098,7 @@ export function useAutosave(
       // the page may die before that write arrives. Not after a reload since
       // that write went out, which the text was typed on instead, nor when the
       // buffer does not follow the queue, `write`'s own test.
-      const before = follows && air?.sent?.loaded === loaded ? air.sent.content : undefined;
+      const before = follows ? sentUnder(air, loaded) : undefined;
       const entry = {
         content,
         reason: "Not yet written when the page was hidden",

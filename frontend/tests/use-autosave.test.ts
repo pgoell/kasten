@@ -3649,5 +3649,54 @@ describe("useAutosave", () => {
       expect(landedAs("T1", vault.disk())).toBe(true);
       expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["start T2"]);
     });
+
+    it("holds the write in the air off screen when the page dies with a quiet write of the reopened buffer queued behind it", async () => {
+      const { vault, editor, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      // W2 of "start T2" waits behind W1; the keepalive follows W2, not W1.
+      await idle();
+      editor.type("start T2b");
+      await pagehide();
+      expect(vault.request(1)).toMatchObject({
+        content: "start T2b",
+        keepalive: true,
+        base: noteBase("start"),
+      });
+      await vault.arrive(1);
+
+      expect(landedAs("start T2b", vault.disk())).toBe(true);
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "start T2b"]);
+    });
+
+    it("holds the write in the air off screen when a phone backgrounds the page with a quiet write of the reopened buffer queued behind it", async () => {
+      const { vault, editor, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      await idle();
+      editor.type("start T2b");
+      await background();
+      await vault.arrive(1);
+
+      expect(landedAs("start T2b", vault.disk())).toBe(true);
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "start T2b"]);
+    });
+
+    it("keeps the write in the air on disk when it lands after a hide with a quiet write of the reopened buffer queued behind it", async () => {
+      const { vault, editor, reopenAndType } = typedOnTheTextUnder();
+      await reopenAndType();
+      await idle();
+      editor.type("start T2b");
+      // The page lives on through the hide.
+      await pagehide();
+      await vault.land(0);
+      await vault.land(1);
+      await vault.land(2);
+
+      // Typed on "start" and not on T1: the vault refuses both, and T1 stands.
+      expect(landedAs("T1", vault.disk())).toBe(true);
+      expect(heldTexts("index.md")).toEqual([
+        expect.objectContaining({ content: "start T2b", conflicted: true }),
+      ]);
+      expect(editor.note.status()).toBe("conflict");
+    });
   });
 });
