@@ -281,7 +281,8 @@ export function heldText(path: string, vault?: string): Held | undefined {
  * answer too. Text with no id on either side says nothing, and belongs.
  */
 function belongsTo(entry: Held, vault: string): boolean {
-  const mine = idOf(entry.content) ?? (entry.base === undefined ? undefined : idOf(entry.base));
+  // The base first: the reader may have edited the `id` line in the text.
+  const mine = (entry.base === undefined ? undefined : idOf(entry.base)) ?? idOf(entry.content);
   const theirs = idOf(vault);
   return mine === undefined || theirs === undefined || mine === theirs;
 }

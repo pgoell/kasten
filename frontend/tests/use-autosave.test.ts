@@ -1314,6 +1314,20 @@ describe("useAutosave", () => {
       expect(note.restored()).toBe(true);
       expect(note.status()).toBe("error");
     });
+
+    it("offers a note its own entry when the reader edited its id line", () => {
+      holdText("Y.md", {
+        content: "---\nid: edited\n---\n# held",
+        reason: "failed with 500",
+        conflicted: false,
+        base: "---\nid: x\n---\n# start",
+      });
+      const note = renderAutosave("Y.md");
+
+      expect(note.allowReload("---\nid: x\nmodified: now\n---\n# start")).toBe(false);
+
+      expect(note.restored()).toBe(true);
+    });
   });
 
   it("offers no entry a pane does not show after its shown entry was found landed", async () => {
@@ -2237,6 +2251,26 @@ describe("useAutosave", () => {
 
       expect(saveNote).toHaveBeenLastCalledWith("index.md", "X typed", false, noteBase("X"));
       expect(heldText("index.md")?.content).toBe("A");
+    });
+
+    it("holds a failed write's text when a write typed on other text the buffer took is queued behind it", async () => {
+      let screen = "start";
+      const note = renderAutosave("index.md", () => screen);
+      note.seed("index.md", "start");
+      const first = pendingSave();
+      screen = "A";
+      note.change("A");
+      await idle();
+      expect(note.allowReload("X")).toBe(true);
+      const second = pendingSave();
+      screen = "X typed";
+      note.change("X typed");
+      await idle();
+
+      await first.break();
+
+      expect(heldText("index.md")?.content).toBe("A");
+      await second.finish();
     });
   });
 

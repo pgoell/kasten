@@ -340,7 +340,9 @@ export function useAutosave(
           // typed on top of this, which is on screen and on its own way out
           // (#290). This older text goes into neither the store nor `pending`:
           // kept in `pending`, a leave or `:w` would write it over the newer.
-          if (saves.current !== seq) return false;
+          // Not when the buffer took other text since: the later write was
+          // typed on that, and this text is on screen nowhere.
+          if (saves.current !== seq && reloads.current === loaded) return false;
 
           // Held as well as kept, because `here()` is also true for the flush
           // as the route unmounts, when this hook is gone and `pending` with it.

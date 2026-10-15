@@ -1975,6 +1975,10 @@ function Home() {
     async (force: boolean): Promise<string | null> => {
       const path = pane.path;
       if (path === undefined) return null;
+      // Before the read and not after: the read fills the cache, and a clean
+      // buffer takes what the cache holds, so a refusal after it would still
+      // put the vault's older text on screen under a save on its way (#291).
+      if (!force && isWriting(path)) return refuse();
 
       const text = await queryClient.fetchQuery({
         queryKey: ["note", path],
@@ -1987,7 +1991,7 @@ function Home() {
       // rather than left saying nothing about a command that did nothing.
       return revert(force) ? text : refuse();
     },
-    [pane.path, queryClient, revert, refuse],
+    [pane.path, queryClient, revert, refuse, isWriting],
   );
 
   /**

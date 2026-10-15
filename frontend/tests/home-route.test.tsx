@@ -868,6 +868,24 @@ describe("the route", () => {
     expect(app.status()).toBe("Unsaved changes");
   });
 
+  it("refuses :e while a save is on its way, leaving the screen and the cache alone", async () => {
+    // The read `:e` makes fills the cache, and a clean buffer takes what the
+    // cache holds: read before the refusal, the vault's older text would land
+    // on screen under a write still carrying the newer (#291).
+    const app = await editing();
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    fetchNote.mockClear();
+
+    app.ex("e");
+    await settle();
+
+    expect(fetchNote).not.toHaveBeenCalled();
+    expect(app.text()).toBe("he index note");
+  });
+
   it("refuses to start a tab while the note stands conflicted", async () => {
     const app = await editing();
     somebodyElseWrote();
