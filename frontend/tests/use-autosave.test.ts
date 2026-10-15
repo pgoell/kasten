@@ -2736,7 +2736,8 @@ describe("useAutosave", () => {
       await first.finish();
       await settled();
 
-      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["T1"]);
+      // T2 never goes; "start" is the write `:e!` queues behind T1 (#311).
+      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["T1", "start"]);
       expect(note.cached("index.md")).not.toBe(written("T2").content);
       expect(shown()).toBe("start");
     });

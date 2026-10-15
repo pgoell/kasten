@@ -772,7 +772,15 @@ describe("the route", () => {
     expect(app.status()).toBe("Saved");
     app.ex("w");
     await settle();
-    expect(saveNote).toHaveBeenCalledTimes(1);
+    // The second write is the vault's own text, which `:e!` queues behind the
+    // one in the air (#311); `:w` sends nothing more.
+    expect(saveNote).toHaveBeenCalledTimes(2);
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "the vault's own text",
+      false,
+      expect.any(String),
+    );
   });
 
   it("reads the bang past a space, and answers no other argument", async () => {
