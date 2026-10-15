@@ -1118,6 +1118,109 @@ def test_i1_a_broken_nested_mark_reads_as_before(text: str, line: str) -> None:
     assert card_count(deck) == 1
 
 
+def cloze_note(text: str, back: str) -> Deck:
+    """The deck `x` of one cloze note whose text is `text` and whose Back Extra is `back`."""
+    return read_apkg(apkg(((1, CLOZE, f"{text}\x1f{back}"),), CARDS[:1], ((100, "x"),)))[0]
+
+
+@pytest.mark.parametrize("back", ["", "extra"], ids=["no-extra", "extra"])
+@pytest.mark.parametrize(
+    ("text", "line"),
+    [
+        ("{{c1::&#123;}}", "=={=="),
+        ("{{c1::&#x7B;}}", "=={=="),
+        ("{{c1::&lbrace;}}", "=={=="),
+        ("{{c1::&#125;}}", "==}=="),
+        ("{{c1::{}}", "=={=="),
+    ],
+    ids=["decimal", "hex", "named", "closing", "literal"],
+)
+def test_a1_an_entity_brace_in_a_mark_imports_as_a_literal_brace_does(
+    text: str, line: str, back: str
+) -> None:
+    # The brace is decoded after the mark is read, so it once kept a mark
+    # kasten cannot read, and with no Back Extra the card was left out (#333).
+    deck = cloze_note(text, back)
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}::{back}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+@pytest.mark.parametrize("back", ["", "extra"], ids=["no-extra", "extra"])
+def test_i1_an_entity_brace_in_a_hint_imports_as_a_highlight(back: str) -> None:
+    deck = cloze_note("{{c1::a::&#123;}}", back)
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n==a==::{back}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+@pytest.mark.parametrize(
+    ("back", "tail"), [("", ""), ("extra", "\n?\nextra")], ids=["no-extra", "extra"]
+)
+def test_a2_an_entity_brace_in_an_outer_mark_leaves_the_inner_one(back: str, tail: str) -> None:
+    deck = cloze_note("{{c1::a &#123; {{c2::b}}}}", back)
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n==a {{ {{{{c2::b}}}}=={tail}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+@pytest.mark.parametrize(
+    ("back", "tail"), [("", ""), ("extra", "\n?\nextra")], ids=["no-extra", "extra"]
+)
+@pytest.mark.parametrize(
+    ("text", "line", "count"),
+    [
+        ("{{c1::a {{c2::}}}}", "{{c1::a }}", 1),
+        ("{{c1::a {{c2::&#123;}}}} {{c3::c}}", "==a {== {{c3::c}}", 1),
+    ],
+    ids=["empty", "brace"],
+)
+def test_a3_an_inner_mark_kasten_cannot_read_is_its_text(
+    text: str, line: str, count: int, back: str, tail: str
+) -> None:
+    # Inside a mark the inner one is the text Anki shows for it, not a
+    # highlight: `====` would be part of the answer, and a highlight's brace
+    # would leave the outer mark one kasten cannot read.
+    deck = cloze_note(text, back)
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}{tail}{mark(1)}\n"
+    assert card_count(deck) == count
+
+
+def test_i2_an_entity_that_is_no_brace_keeps_its_mark() -> None:
+    deck = cloze_note("{{c1::a &amp; b}}", "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{{{{c1::a & b}}}}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        ("{{c1::a {{c2::b}}}}", "==a b=="),
+        ("{{c1::a {{c2::}}}}", "==a=="),
+        ("{{c1::a\nb}}", "==a b=="),
+    ],
+    ids=["nested", "empty", "newline"],
+)
+def test_i3_a_nested_mark_outside_a_cloze_is_one_highlight(field: str, expected: str) -> None:
+    assert plain(field) == expected
+
+
+def test_i6_a_re_import_rewrites_a_line_main_wrote_with_an_entity_brace() -> None:
+    # The line before #333's fix, its hash as the import wrote it then.
+    line = "{{c1::a { {{c2::b}}}}"
+    schedule = "<!--SR:c2!2026-10-20,3,250-->"
+    old = f"#flashcards/x\n\n{line}{marked(1, line)} {schedule}\n"
+
+    merged = merge(old, cloze_note("{{c1::a &#123; {{c2::b}}}}", ""))
+
+    assert merged is not None
+    expected = f"#flashcards/x\n\n==a {{ {{{{c2::b}}}}=={mark(1)} {schedule}\n"
+    assert unhashed(merged.text) == expected
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
+
+
 def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # Anki will not save such a note, but a broken export can hold one; its
     # text is still worth a question.

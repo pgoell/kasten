@@ -958,3 +958,29 @@ describe("an imported card carrying its anki id", () => {
     expect(only(back)).toMatchObject({ ...shown, parked: null });
   });
 });
+
+describe("an imported cloze with an entity brace or an empty inner mark", () => {
+  const ID = " <!--anki:1:0:abcdef12-->";
+  const read = (line: string) =>
+    parseCards(`#flashcards/x\n\n${line}${ID}\n`).map((card) => [card.cloze, card.parked]);
+
+  it("reads a brace highlight with no Back Extra as one unanswered card", () => {
+    expect(read("=={==::")).toEqual([[null, "unanswered"]]);
+  });
+
+  it("reads a brace highlight with a Back Extra as one card", () => {
+    expect(read("=={==\n?\nextra")).toEqual([[null, null]]);
+  });
+
+  it("reads a brace beside a cloze as the cloze's one card", () => {
+    expect(read("==a { {{c2::b}}==")).toEqual([[2, null]]);
+  });
+
+  it("reads a cloze whose empty inner mark was dropped as one card", () => {
+    expect(read("{{c1::a }}")).toEqual([[1, null]]);
+  });
+
+  it("reads a brace highlight beside a later cloze as that cloze's one card", () => {
+    expect(read("==a {== {{c3::c}}")).toEqual([[3, null]]);
+  });
+});

@@ -84,12 +84,15 @@ _NAME_LIMIT_BYTES = 255
 CLOZE_KIND = 1
 """A note type's kind when it is a cloze type, in `col.models` and in its protobuf config alike."""
 
-_CLOZE = re.compile(r"\{\{c\d+::(.*?)(?:::.*?)?\}\}")
-"""One cloze deletion, with the hint the author may have written after it.
+_CLOZE = re.compile(r"\{\{c\d+::((?:(?!\{\{c\d+::).)*?)(?:::(?:(?!\{\{c\d+::).)*?)?\}\}", re.DOTALL)
+"""One cloze deletion holding no other, with the hint the author may have written after it.
 
 The hint is part of the match and not of the group, so the highlight a note of
 another type gets drops it: Anki shows marks there as typed, and a mark kept
-would make kasten ask a card Anki never did.
+would make kasten ask a card Anki never did. Holding no opener, it is the
+innermost mark, so an empty `{{c2::}}` inside `{{c1::a {{c2::}}}}` cannot end
+the outer one at its `}}` (#333); a lone brace it takes, as `_MARK` does not.
+Across lines too, or a mark over two would keep its `::` in a Basic field.
 """
 _MARK = re.compile(r"\{\{c([0-9]+)::([^{}]+?)(?:::([^{}]*?))?\}\}")
 """A cloze mark kasten reads: `MARK` in `card-line.ts`, character for character.
@@ -261,7 +264,10 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     A cloze mark stays as it is with its hint where `cloze` says the field is a
     cloze note's text and kasten reads the mark, and is otherwise a
     `==highlight==`: a mark kasten does not read would leave its `::` to split
-    the line as a card. A cloze note's text is one line whatever it holds,
+    the line as a card. Whether kasten reads it is decided on the text as it
+    shows, so an entity brace such as `&#123;` breaks a mark as a typed one
+    does. Inside another mark, one kasten does not read is its text alone. A
+    cloze note's text is one line whatever it holds,
     since `srs.ts` reads the line over a `?` as the cloze and a line above it
     holding a mark as another.
     """
@@ -281,24 +287,34 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     # Before the parse, which would leave a script's code behind as prose.
     text = _CODE.sub("", text)
     kept: list[str] = []
-    # Readable marks first where they are kept, so the highlight cannot swallow
-    # one inside a mark kasten does not read.
-    for pattern in (_MARK, _CLOZE) if cloze else (_CLOZE,):
+    # The raw text of each kept mark kasten does not read, by its place in `kept`.
+    bare: dict[int, str] = {}
 
-        def keep(match: re.Match[str], pattern: re.Pattern[str] = pattern) -> str:
-            # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
-            # which is what a typed answer is held against. Ruby stays, and
-            # `srs.ts` takes the reading off before comparing.
-            if pattern is _MARK:
-                # A nested mark is flattened once, inside the mark holding it,
-                # and put back after.
-                kept.append(_KEPT.sub(lambda mark: kept[int(mark[1])], _flat(match[0])))
-            else:
-                inner = _KEPT.sub(lambda mark: kept[int(mark[1])], match[1])
-                kept.append(f"=={_flat(inner)}==")
-            return f"{len(kept) - 1}"
+    def inside(mark: re.Match[str]) -> str:
+        # An inner mark kasten reads stays held, and holds no brace; one it
+        # does not is the text Anki shows, since a highlight's `====` would be
+        # part of the outer answer and its brace would leave no mark.
+        return bare.get(int(mark[1]), mark[0])
 
-        text = _marks(text, keep) if pattern is _MARK else pattern.sub(keep, text)
+    def keep(match: re.Match[str]) -> str:
+        # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
+        # which is what a typed answer is held against. Ruby stays, and
+        # `srs.ts` takes the reading off before comparing. Flat before the
+        # test, so `&#123;` is the brace it shows and breaks the mark as one
+        # typed does (#333); held inner marks are put back after.
+        flat = _flat(_KEPT.sub(inside, match[0]))
+        if cloze and _MARK.fullmatch(flat) is not None:
+            kept.append(_KEPT.sub(lambda mark: kept[int(mark[1])], flat))
+        else:
+            bare[len(kept)] = inner = _KEPT.sub(inside, match[1])
+            kept.append(f"=={_KEPT.sub(lambda mark: kept[int(mark[1])], _flat(inner))}==")
+        return f"{len(kept) - 1}"
+
+    # Innermost first, so an outer mark holding a whole inner one is read as
+    # Anki reads nesting since 2.1.56 (#254). Each pass shrinks the text.
+    count = 1
+    while count:
+        text, count = _CLOZE.subn(keep, text)
 
     parser = _Markdown()
     parser.feed(text)

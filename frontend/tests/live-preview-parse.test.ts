@@ -1,7 +1,6 @@
-import { syntaxTree } from "@codemirror/language";
+import { forceParsing, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { waitFor } from "@testing-library/react";
 import { renderedMarkdown } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { wikiLinkAt } from "@/lib/wikilink";
@@ -50,7 +49,7 @@ describe("an embed", () => {
 });
 
 describe("a note longer than the first parse", () => {
-  it("draws what the parser reaches after the note has opened", async () => {
+  it("draws what the parser reaches after the note has opened", () => {
     // The first parse stops a few thousand characters in and the rest lands
     // later in slices, each a transaction that changes nothing else. A long
     // clipped article's later pictures sat as text until the cursor moved.
@@ -62,7 +61,10 @@ describe("a note longer than the first parse", () => {
     const from = doc.length - image.length;
 
     expect(syntaxTree(view.state).length).toBeLessThan(from);
-    await waitFor(() => expect(drawn(view, from, doc.length)).toBe(true), { timeout: 3000 });
+    // The worker parses 3 s per 30 s in idle slices, so a busy box outlasts
+    // any wait; this lands the tree as the empty transaction a slice sends.
+    forceParsing(view, doc.length, 10_000);
+    expect(drawn(view, from, doc.length)).toBe(true);
     view.destroy();
   });
 });

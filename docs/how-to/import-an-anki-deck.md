@@ -192,7 +192,11 @@ cloze. Marks in the Back Extra, and in a note
 of any other type, become highlights, `==Paris==`, since Anki shows them as
 typed there and asks no card of them. So does a mark kasten does not read, one
 holding a lone brace such as MathJax's `{{c1::\(x^{2}\)}}` or one with no text,
-`{{c1::}}`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it. A cloze
+`{{c1::}}`. A brace written as an entity, `&#123;` or `&lbrace;`, counts as the
+brace it shows, so `{{c1::&#123;}}` becomes `=={==` as `{{c1::{}}` does. A
+nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
+kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
+`{{c1::a }}`. A cloze
 note holding no mark kasten reads is written as `Text::Back Extra`. The count
 takes a cloze as one card per number, nested marks among them, so the line
 above counts two.
