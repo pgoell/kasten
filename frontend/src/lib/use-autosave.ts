@@ -44,11 +44,22 @@ function lower(counts: Map<string, number>, note: string): void {
  *
  * `shown` reads the document the focused editor has on screen, or undefined
  * when there is none. See the effect run on each opening.
+ *
+ * `pane` names the focused pane. One hook follows whichever pane has the
+ * focus, and two panes on one note hold two buffers: a move between them is
+ * a leave and an opening, as a move to another note is, or the second pane's
+ * typing would replace the first's text in `pending` and drop held text the
+ * first showed as written.
  */
-export function useAutosave(path: string | undefined, shown?: () => string | undefined) {
+export function useAutosave(
+  path: string | undefined,
+  shown?: () => string | undefined,
+  pane?: string,
+) {
   const [status, setStatus] = useState<SaveStatus>("saved");
   // Read in an effect and never a dependency: the route builds a new one per
-  // pane, and the effect it is read in must run on a new path and nothing else.
+  // render, and the effect it is read in must run on an opening and nothing
+  // else.
   const shownRef = useRef(shown);
   shownRef.current = shown;
   // What the vault answered the failed write with, kept for the bar to show on
@@ -77,6 +88,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // screen. Reverts are counted rather than flagged because a second `:e!`
   // during the same write has to read as another one.
   const reverts = useRef(0);
+  // How many times a clean buffer took the vault's text in, which a failing
+  // write compares against the reading it left with: after one, the screen
+  // holds text not typed on the write's (#290).
+  const reloads = useRef(0);
   // The notes a write is on its way to, counted rather than flagged: `:w`
   // during a quiet write puts two in the air for one note, and the first to
   // answer must not read as the last. By path, because the tail this answers is
@@ -160,6 +175,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       saves.current += 1;
       const seq = saves.current;
       const sent = reverts.current;
+      const loaded = reloads.current;
       setStatus("saving");
       setReason(undefined);
       const to = path;
@@ -320,18 +336,29 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
           // this text away: the buffer holds the vault's version, and the retry
           // would be a retry of an edit that no longer exists anywhere.
           if (reverts.current !== sent) return false;
+          // A write that went out after this one on this visit carries text
+          // typed on top of this, which is on screen and on its own way out
+          // (#290). This older text goes into neither the store nor `pending`:
+          // kept in `pending`, a leave or `:w` would write it over the newer.
+          if (saves.current !== seq) return false;
 
           // Held as well as kept, because `here()` is also true for the flush
           // as the route unmounts, when this hook is gone and `pending` with it.
           // In the place of the entry this was typed on, and of no other.
           holdText(now, held, carried);
-          // Refused after the other writer's event found nothing waiting and the
-          // editor took their text in: this text is on screen nowhere, so it is
-          // only held, for the bar to list and the next opening to offer. Kept
-          // in `pending`, `:w` would send it unseen.
+          // Failed, refused or not, after the editor took other text into a clean
+          // buffer: somebody's write since, or the vault's text read back. This
+          // text is on screen nowhere, so it is only held, for the bar to list
+          // and the next opening to offer. Kept in `pending`, `:w` would send it
+          // unseen; taken, a save of what the screen shows would drop it as
+          // carried (#290). Counted as well as compared: text typed on top of
+          // the reload no longer reads as either.
           const doc = shownRef.current?.();
-          if (refused && pending.current === null && doc !== undefined && !sameText(doc, content)) {
-            setStatus("saved");
+          const elsewhere =
+            reloads.current !== loaded ||
+            (pending.current === null && doc !== undefined && !sameText(doc, content));
+          if (elsewhere) {
+            if (pending.current === null && !writing.current.has(to)) setStatus("saved");
             return false;
           }
           // The buffer holds this text, so it is the entry the bar leaves out.
@@ -383,7 +410,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
    */
   const revert = useCallback(
     (force: boolean): boolean => {
-      if (pending.current !== null && !force) return false;
+      // A write in the air counts as unwritten text too (#291): `write` empties
+      // `pending` as it goes out, and once thrown away here its failure would
+      // hold nothing.
+      const busy = path !== undefined && writing.current.has(path);
+      if ((pending.current !== null || busy) && !force) return false;
 
       pending.current = null;
       conflicted.current = false;
@@ -453,19 +484,30 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
    * stays until the write lands, and that write's echo would take it again.
    * Nothing is written on the take; the bar says why the text is unwritten and
    * `:w` sends it. Once the opening is over, only the entry held at opening.
+   * Only an entry typed into the note `text` is, too: another note's, left at
+   * this path, stays held and listed (`heldText`).
    */
   const restore = useCallback(
     (note: string, text: string): boolean | undefined => {
-      const held = heldText(note);
+      const held = heldText(note, text);
       if (!held || pending.current !== null || writing.current.has(note)) return undefined;
       if (!opening.current && held !== offered.current) return undefined;
       // Every entry the vault holds by now has landed, whichever write it was.
       for (const entry of heldTexts(note)) {
         if (landedAs(entry.content, text)) dropText(note, entry);
       }
-      // The editor opened on the oldest, so only that one can be taken. When
-      // it landed, the next waits on the bar for the next opening.
+      // The editor opened on the note's oldest, so only that one can be taken.
+      // When it landed, the next waits on the bar for the next opening.
       if (landedAs(held.content, text)) {
+        onDisk.current = text;
+        return true;
+      }
+      // The editor opened before the vault's text came, on the oldest entry of
+      // all, and that one belongs to another note. Taken, this entry would sit
+      // in `pending` under a screen that does not show it. So the editor takes
+      // the vault's text, and the entry waits for the next opening.
+      const doc = shownRef.current?.();
+      if (doc !== undefined && !sameText(doc, held.content)) {
         onDisk.current = text;
         return true;
       }
@@ -509,6 +551,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // next write names it as its base.
       if (pending.current === null) {
         onDisk.current = text;
+        // Only text the screen lacks: the editor asks with the text it already
+        // shows as well, and that replaces nothing.
+        const doc = shownRef.current?.();
+        if (doc !== undefined && !sameText(doc, text)) reloads.current += 1;
         return true;
       }
       // The vault holds what the buffer holds, whoever wrote it there, so
@@ -558,7 +604,9 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // clear `pending` and the flag on its way out; nothing goes out here, so
   // they are cleared by hand, or the next note inherits them: `restore`
   // refuses while `pending` is set, and so does the opening's reset of the
-  // status. A cleanup re-run on a new `path` is exactly the leave.
+  // status. A cleanup re-run on a new `path` is exactly the leave, and so is
+  // one on a new `pane`: the pane left holds its own buffer of the note.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `pane` is the trigger, and is not read.
   useEffect(
     () => () => {
       if (path === undefined || pending.current === null || !conflicted.current) {
@@ -581,7 +629,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       opening.current = true;
       take(null);
     },
-    [path, save, take, lastBase],
+    [path, pane, save, take, lastBase],
   );
 
   // A reload or a closed tab unmounts nothing, so the flush above never runs
@@ -642,7 +690,9 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
 
   // The flush above still counts as the visit it leaves: React runs the old
   // render's cleanups before any of the new render's setups.
-  // Runs on each opening: `queryClient` and `restore` never change.
+  // Runs on each opening, a new pane on the same note included: `queryClient`
+  // and `restore` never change.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `pane` is the trigger, and is not read.
   useEffect(() => {
     visit.current += 1;
     // A note whose editor stayed mounted while the focus was in another pane
@@ -660,7 +710,9 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
     // so it is the base now: read later, a route write's refetch may have
     // moved the cache under a buffer that declined it.
     onDisk.current = cached ?? null;
-    const held = path === undefined ? undefined : heldText(path);
+    // Against the cached text, as the editor's `held` reads it, so both mean
+    // the entry typed into this note and pass over another note's.
+    const held = path === undefined ? undefined : heldText(path, cached);
     const doc = shownRef.current?.();
     if (path !== undefined && cached !== undefined && held && doc !== undefined) {
       if (sameText(doc, held.content)) restore(path, cached);
@@ -670,7 +722,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
     // text never takes it this visit: a later reload would put it in `pending`
     // under a screen that does not show it. Read again after the take above,
     // which drops an entry found landed and leaves the next one first.
-    const next = path === undefined ? undefined : heldText(path);
+    const next = path === undefined ? undefined : heldText(path, cached);
     const shownOther = doc !== undefined && next !== undefined && !sameText(doc, next.content);
     offered.current = shownOther ? undefined : next;
     opening.current = false;
@@ -681,7 +733,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       setStatus("saved");
       setReason(undefined);
     }
-  }, [path, queryClient, restore]);
+  }, [path, pane, queryClient, restore]);
 
   return {
     status,

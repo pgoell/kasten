@@ -259,12 +259,37 @@ export function movedTo(path: string, since: number): string {
 }
 
 /**
- * The entry a note offers, the oldest. One answer for the autosave, the editor
- * opening on it and the pane deciding about a reload, so all three mean the
- * same text.
+ * The entry a note offers: the oldest of those typed into the note whose
+ * vault text is `vault`, or the oldest of all while that text is not known.
+ * One answer for the autosave, the editor opening on it and the pane deciding
+ * about a reload, so all three mean the same text.
+ *
+ * Held text is kept by path, and a path outlives its note: an entry of a note
+ * deleted, or moved away by a build that carried no held text, waits there for
+ * whatever note comes to hold the path next. Offered to that note, it would
+ * read as a conflict with the note's own text and `:w` would write it over.
  */
-export function heldText(path: string): Held | undefined {
-  return load().get(path)?.[0];
+export function heldText(path: string, vault?: string): Held | undefined {
+  const entries = heldTexts(path);
+  return vault === undefined ? entries[0] : entries.find((entry) => belongsTo(entry, vault));
+}
+
+/**
+ * Whether `entry` was typed into the note whose vault text is `vault`, by the
+ * frontmatter `id` each carries, which a move keeps and a new note gets new.
+ * From the text and not a field, so entries stored before this was asked
+ * answer too. Text with no id on either side says nothing, and belongs.
+ */
+function belongsTo(entry: Held, vault: string): boolean {
+  const mine = idOf(entry.content) ?? (entry.base === undefined ? undefined : idOf(entry.base));
+  const theirs = idOf(vault);
+  return mine === undefined || theirs === undefined || mine === theirs;
+}
+
+/** The frontmatter's `id`, or undefined where the text has none. */
+function idOf(text: string): string | undefined {
+  const line = parts(text)?.block.find((each) => each.startsWith("id:"));
+  return line?.slice("id:".length).trim() || undefined;
 }
 
 /** Every entry `path` holds, oldest first. */

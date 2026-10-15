@@ -59,18 +59,19 @@ function pendingSave() {
 }
 
 /**
- * The hook, following `path`. `shown` stands in for the focused editor's
- * document, which the route reads off the view.
+ * The hook, following `path` in pane `a`. `shown` stands in for the focused
+ * editor's document, which the route reads off the view.
  */
 function renderAutosave(path = "index.md", shown?: () => string | undefined) {
   const queryClient = new QueryClient();
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children);
 
-  const { result, rerender, unmount } = renderHook(({ open }) => useAutosave(open, shown), {
-    initialProps: { open: path },
-    wrapper,
-  });
+  let props = { open: path, pane: "a" };
+  const { result, rerender, unmount } = renderHook(
+    ({ open, pane }) => useAutosave(open, shown, pane),
+    { initialProps: props, wrapper },
+  );
 
   return {
     change: (doc: string) => act(() => result.current.change(doc)),
@@ -113,9 +114,11 @@ function renderAutosave(path = "index.md", shown?: () => string | undefined) {
     isWriting: (of: string) => result.current.isWriting(of),
     /** Throw the buffer away, which is what `:e!` does. */
     revert: (force: boolean) => {
+      let done: boolean | undefined;
       act(() => {
-        result.current.revert(force);
+        done = result.current.revert(force);
       });
+      return done;
     },
     /** The vault reporting a write to the open note, which is all an event says. */
     reconcile: () => {
@@ -125,7 +128,15 @@ function renderAutosave(path = "index.md", shown?: () => string | undefined) {
       });
       return reload;
     },
-    open: (next: string) => act(() => rerender({ open: next })),
+    open: (next: string) => {
+      props = { ...props, open: next };
+      act(() => rerender(props));
+    },
+    /** Move the focus to pane `id`, which holds the same note. */
+    focus: (id: string) => {
+      props = { ...props, pane: id };
+      act(() => rerender(props));
+    },
     unmount: () => act(() => unmount()),
     cached: (of: string) => queryClient.getQueryData(["note", of]),
     /** Put a note in the cache, which is what an editor already open was opened on. */
@@ -1007,6 +1018,96 @@ describe("useAutosave", () => {
     expect(heldText("index.md")?.content).toBe("# held");
   });
 
+  /** Pane `a` showing text held for index.md, taken into the buffer. */
+  function showingHeld() {
+    const screen = { doc: "# held" };
+    holdText("index.md", { content: "# held", reason: "failed with 500", conflicted: false });
+    const note = renderAutosave("index.md", () => screen.doc);
+    note.seed("index.md", "the index note");
+    expect(note.allowReload("the index note")).toBe(false);
+    expect(note.restored()).toBe(true);
+    // Pane `b` on the same note shows the vault's text.
+    screen.doc = "the index note";
+    return note;
+  }
+
+  it("keeps held text one pane showed when the reader types in a second pane on the same note", async () => {
+    const note = showingHeld();
+
+    note.focus("b");
+    note.change("the index note!");
+    await idle();
+    await settled();
+
+    // The switch is a leave: pane `a`'s text goes out with it.
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# held", false, noteBase("the index note"));
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "the index note!",
+      false,
+      noteBase("the index note"),
+    );
+  });
+
+  it("keeps held text one pane showed when the reader saves in a second pane on the same note", async () => {
+    const note = showingHeld();
+
+    note.focus("b");
+    note.change("the index note!");
+    await note.save();
+    await settled();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "# held", false, noteBase("the index note"));
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "the index note!",
+      false,
+      noteBase("the index note"),
+    );
+  });
+
+  it("writes a first pane's unsaved text before a second pane on the same note types", async () => {
+    const screen = { doc: "the index note" };
+    const note = renderAutosave("index.md", () => screen.doc);
+    note.seed("index.md", "the index note");
+    expect(note.allowReload("the index note")).toBe(true);
+
+    note.change("pane a's text");
+    // Inside the quiet period.
+    note.focus("b");
+    note.change("pane b's text");
+    await idle();
+    await settled();
+
+    expect(saveNote).toHaveBeenCalledWith(
+      "index.md",
+      "pane a's text",
+      false,
+      noteBase("the index note"),
+    );
+    // Typed on the vault's text, which pane `a`'s write has moved past: the
+    // vault's refusal decides.
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "pane b's text",
+      false,
+      noteBase("the index note"),
+    );
+  });
+
+  it("sends nothing on a pane switch on the same note with nothing waiting", async () => {
+    const note = renderAutosave("index.md", () => "the index note");
+    note.seed("index.md", "the index note");
+    expect(note.allowReload("the index note")).toBe(true);
+
+    note.focus("b");
+    await idle();
+    await settled();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(note.status()).toBe("saved");
+  });
+
   it("reopens held text as an error, not a conflict, when the last write landed while typing went on", async () => {
     const left = renderAutosave("index.md");
     left.seed("index.md", "the index note");
@@ -1155,6 +1256,64 @@ describe("useAutosave", () => {
     expect(heldText("index.md")).toBeUndefined();
     expect(heldText("moved.md")?.content).toBe("# stale");
     expect(heldRows().map(({ path }) => path)).toEqual(["moved.md", "moved.md", "moved.md"]);
+  });
+
+  describe("held text of another note at the path", () => {
+    // Left by a note deleted at Y.md; the note there now was moved onto it.
+    const theirs = "---\nid: y\n---\nthe deleted note's text";
+    const mine = "---\nid: x\n---\nthe moved note's text";
+    const vault = "---\nid: x\n---\nthe moved note";
+
+    it("offers no held text of a deleted note to a note moved onto its path", async () => {
+      holdText("Y.md", { content: theirs, reason: "failed with 500", conflicted: false });
+      const note = renderAutosave("Y.md");
+
+      expect(note.allowReload(vault)).toBe(true);
+
+      expect(note.status()).toBe("saved");
+      expect(note.restored()).toBe(false);
+      expect(heldText("Y.md")?.content).toBe(theirs);
+      expect(await note.saved()).toBe(true);
+      expect(saveNote).not.toHaveBeenCalled();
+    });
+
+    it("offers a note its own entry behind a foreign one at its path", async () => {
+      holdText("Y.md", { content: theirs, reason: "failed with 500", conflicted: false });
+      holdText("Y.md", { content: mine, reason: "failed with 502", conflicted: false });
+      const note = renderAutosave("other.md");
+      note.seed("Y.md", vault);
+      note.open("Y.md");
+
+      expect(note.allowReload(vault)).toBe(false);
+
+      expect(note.status()).toBe("error");
+      expect(await note.saved()).toBe(true);
+      expect(saveNote).toHaveBeenLastCalledWith("Y.md", mine, false, noteBase(vault));
+      expect(heldText("Y.md")?.content).toBe(theirs);
+    });
+
+    it("loads the vault's text over a foreign entry the editor opened on", async () => {
+      // The vault's text was not cached, so the editor opened on the oldest.
+      holdText("Y.md", { content: theirs, reason: "failed with 500", conflicted: false });
+      holdText("Y.md", { content: mine, reason: "failed with 502", conflicted: false });
+      const note = renderAutosave("Y.md", () => theirs);
+
+      expect(note.allowReload(vault)).toBe(true);
+
+      expect(note.status()).toBe("saved");
+      expect(note.restored()).toBe(false);
+      expect(heldRows()).toHaveLength(2);
+    });
+
+    it("offers an entry with no id as before", () => {
+      holdText("Y.md", { content: "# held", reason: "failed with 500", conflicted: false });
+      const note = renderAutosave("Y.md");
+
+      expect(note.allowReload(vault)).toBe(false);
+
+      expect(note.restored()).toBe(true);
+      expect(note.status()).toBe("error");
+    });
   });
 
   it("offers no entry a pane does not show after its shown entry was found landed", async () => {
@@ -1989,5 +2148,135 @@ describe("useAutosave", () => {
 
     expect(heldText("index.md")?.content).toBe("---\nid: 0199\ntype: Book\n---\n# held");
     expect(note.restored()).toBe(true);
+  });
+
+  describe("a failed write under newer text (#290)", () => {
+    it("never writes a failed write's text over newer text that landed behind it", async () => {
+      let screen = "start";
+      const note = renderAutosave("index.md", () => screen);
+      note.seed("index.md", "start");
+      const first = pendingSave();
+      screen = "A";
+      note.change("A");
+      await idle();
+      const second = pendingSave();
+      screen = "B";
+      note.change("B");
+      await idle();
+
+      await first.break();
+      await second.finish();
+
+      expect(note.status()).toBe("saved");
+      saveNote.mockClear();
+      await note.save();
+      note.open("other.md");
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(heldText("index.md")).toBeUndefined();
+    });
+
+    it("keeps the newer text waiting when the write behind a failed one fails too", async () => {
+      let screen = "start";
+      const note = renderAutosave("index.md", () => screen);
+      note.seed("index.md", "start");
+      const first = pendingSave();
+      screen = "A";
+      note.change("A");
+      await idle();
+      const second = pendingSave();
+      screen = "B";
+      note.change("B");
+      await idle();
+
+      await first.break();
+      await second.break();
+
+      expect(heldRows().map((row) => row.entry.content)).toEqual(["B"]);
+      saveNote.mockClear();
+      await note.save();
+      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["B"]);
+    });
+
+    it("holds a failed write's text when the buffer took other text while it was in the air", async () => {
+      let screen = "start";
+      const note = renderAutosave("index.md", () => screen);
+      note.seed("index.md", "start");
+      const first = pendingSave();
+      screen = "A";
+      note.change("A");
+      await idle();
+      // Somebody else writes the note, and the clean buffer takes their text.
+      expect(note.allowReload("X")).toBe(true);
+      screen = "X";
+
+      await first.break();
+
+      expect(heldText("index.md")?.content).toBe("A");
+      expect(note.status()).toBe("saved");
+      screen = "X typed";
+      note.change("X typed");
+      await idle();
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "X typed", false, noteBase("X"));
+      expect(heldText("index.md")?.content).toBe("A");
+    });
+
+    it("holds a failed write's text when the reader typed on other text the buffer took", async () => {
+      let screen = "start";
+      const note = renderAutosave("index.md", () => screen);
+      note.seed("index.md", "start");
+      const first = pendingSave();
+      screen = "A";
+      note.change("A");
+      await idle();
+      expect(note.allowReload("X")).toBe(true);
+      screen = "X typed";
+      note.change("X typed");
+
+      await first.break();
+      await idle();
+
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "X typed", false, noteBase("X"));
+      expect(heldText("index.md")?.content).toBe("A");
+    });
+  });
+
+  describe(":e during a write (#291)", () => {
+    it("refuses :e without the bang while a write is in the air, and holds that write's text when it fails", async () => {
+      const note = renderAutosave("index.md", () => "A");
+      note.seed("index.md", "start");
+      const write = pendingSave();
+      note.change("A");
+      await idle();
+
+      expect(note.revert(false)).toBe(false);
+      await write.break();
+
+      expect(heldText("index.md")?.content).toBe("A");
+    });
+
+    it("lets :e through once the write has answered", async () => {
+      const note = renderAutosave("index.md", () => "A");
+      note.seed("index.md", "start");
+      const write = pendingSave();
+      note.change("A");
+      await idle();
+      await write.finish();
+
+      expect(note.revert(false)).toBe(true);
+    });
+
+    it("still throws the buffer away on :e! while a write is in the air", async () => {
+      const note = renderAutosave("index.md", () => "A");
+      note.seed("index.md", "start");
+      const write = pendingSave();
+      note.change("A");
+      await idle();
+
+      expect(note.revert(true)).toBe(true);
+      await write.break();
+
+      expect(heldText("index.md")).toBeUndefined();
+      expect(note.status()).toBe("saved");
+    });
   });
 });

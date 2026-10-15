@@ -317,9 +317,10 @@ function Home() {
   const standbyReload = (id: string) => {
     let call = standby.current.get(id);
     if (!call) {
-      call = () => {
+      call = (text) => {
         const path = tabPanes(layoutNow.current).find((each) => each.id === id)?.path;
-        const entry = path === undefined ? undefined : heldText(path);
+        // Only an entry of the note `text` is: another note's never refuses.
+        const entry = path === undefined ? undefined : heldText(path, text);
         const doc = docIn(id);
         return !(entry?.conflicted && doc !== undefined && sameText(doc, entry.content));
       };
@@ -339,7 +340,7 @@ function Home() {
     isWriting,
     allowReload,
     reconcile,
-  } = useAutosave(pane.path, focusedDoc);
+  } = useAutosave(pane.path, focusedDoc, pane.id);
   // Text the vault refused, kept by note. Read here so a note held or let go
   // re-renders the bar, and the focused editor opens on its held text.
   const held = useHeld();
@@ -2251,10 +2252,14 @@ function Home() {
                         // The focused pane alone again: the autosave takes held
                         // text through `allowReload`, which only this pane asks.
                         // `held` is read for the re-render, `heldText` for the
-                        // content, which the list does not carry.
+                        // content, which the list does not carry. Against the
+                        // cached text, the entry the autosave would take.
                         held={
                           focused && held.some((each) => each.path === shown.path)
-                            ? heldText(shown.path)?.content
+                            ? heldText(
+                                shown.path,
+                                queryClient.getQueryData<string>(["note", shown.path]),
+                              )?.content
                             : undefined
                         }
                         mark={mark?.note === shown.path ? mark : undefined}
