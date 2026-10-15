@@ -2491,7 +2491,9 @@ fails as you leave a note, or leave the editor for another screen, kasten keeps
 that note's text in this browser's storage, and the status bar reads
 `Not saved: <note>` until it is written or dropped, whatever you save
 elsewhere meanwhile. Opening the note puts the text back in the buffer under
-`Could not save`: `:w` writes it, `:e!` drops it for the vault's. If something
+`Could not save`: `:w` writes it, `:e!` drops it for the vault's. A `:e!`
+while a save is on its way writes the vault's text back behind that save, so
+what you threw away does not come back once the save lands. If something
 else wrote the note since, it opens under `Changed on disk` instead. A note can
 hold more than one kept text, say when a save fails again after you came back
 to it: kasten keeps each one, opening the note puts back the oldest, and the
