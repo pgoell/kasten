@@ -2,7 +2,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk } from "@/lib/api";
-import { heldText, heldTexts, holdText, moveHeld, resetHeld, useHeld } from "@/lib/held-text";
+import {
+  heldText,
+  heldTexts,
+  holdText,
+  landedAs,
+  moveHeld,
+  resetHeld,
+  useHeld,
+} from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { useAutosave } from "@/lib/use-autosave";
 
@@ -3060,6 +3068,316 @@ describe("useAutosave", () => {
       // it, and `:w` there would lose T2.
       expect(saveNote).toHaveBeenLastCalledWith("index.md", "T1, T2", false, expect.anything());
       expect(heldTexts("index.md").map((entry) => entry.content)).not.toContain("T1");
+    });
+  });
+
+  describe("a keepalive behind a queued write, and :e! during a write (#310, #311)", () => {
+    /**
+     * A vault that keeps every write apart in two steps: reaching the server,
+     * which lands it or refuses it there and then, and its answer reaching the
+     * page, which a page gone away never hears. Each write lands with a block
+     * stamped on, as `PUT` stamps it, and a base may name the text with that
+     * block set aside. A stale base over a disk that already holds the text is
+     * a 200, as the backend answers it.
+     */
+    function server(start: string) {
+      let disk = start;
+      let stamps = 0;
+      const body = (text: string) => text.replace(/^---\n[\s\S]*?\n---\n/, "");
+      const requests: {
+        content: string;
+        keepalive: boolean;
+        base?: string;
+        arrive: () => void;
+        answer: () => void;
+        fail: () => void;
+      }[] = [];
+      saveNote.mockImplementation(
+        (_path: string, content: string, keepalive = false, base?: string) =>
+          new Promise((resolve, reject) => {
+            let outcome: (() => void) | undefined;
+            requests.push({
+              content,
+              keepalive,
+              base,
+              arrive: () => {
+                if (
+                  base !== undefined &&
+                  base !== noteBase(disk) &&
+                  base !== noteBase(body(disk))
+                ) {
+                  const now = disk;
+                  outcome = landedAs(content, now)
+                    ? () => resolve({ path: "index.md", content: now })
+                    : () => reject(new ChangedOnDisk());
+                  return;
+                }
+                stamps += 1;
+                disk = `---\nmodified: ${stamps}\n---\n${content}`;
+                const now = disk;
+                outcome = () => resolve({ path: "index.md", content: now });
+              },
+              answer: () => outcome?.(),
+              fail: () => reject(new Error("PUT /api/files/index.md failed with 500")),
+            });
+          }),
+      );
+      return {
+        disk: () => disk,
+        /** Somebody else's write. */
+        write: (text: string) => {
+          disk = text;
+        },
+        request: (at: number) => requests[at],
+        /** The write reaches the server, and the page hears nothing back. */
+        arrive: async (at: number) => {
+          await settled();
+          requests[at]?.arrive();
+        },
+        /** The write reaches the server and its answer reaches the page. */
+        land: async (at: number) => {
+          await settled();
+          requests[at]?.arrive();
+          await act(async () => requests[at]?.answer());
+          await settled();
+        },
+        /** The write fails on the way with no word from the vault. */
+        fail: async (at: number) => {
+          await settled();
+          await act(async () => requests[at]?.fail());
+          await settled();
+        },
+      };
+    }
+
+    /** The hook with an editor on `index.md`, as in the blocks above. */
+    function withEditor(seed: string) {
+      let doc = seed;
+      const note = renderAutosave("index.md", () => doc);
+      note.seed("index.md", seed);
+      let seen: unknown = seed;
+      return {
+        note,
+        type: (text: string) => {
+          doc = text;
+          note.change(text);
+        },
+        look: () => {
+          const now = note.cached("index.md");
+          if (now === seen || typeof now !== "string") return;
+          seen = now;
+          if (note.allowReload(now)) doc = now;
+        },
+        outside: (text: string) => {
+          note.seed("index.md", text);
+          seen = text;
+          if (note.allowReload(text)) doc = text;
+        },
+        /** `:e!`: the route reads the vault into the cache, then asks. */
+        discard: (text: string) => {
+          note.seed("index.md", text);
+          note.revert(true);
+          doc = text;
+          seen = text;
+        },
+        shown: () => doc,
+      };
+    }
+
+    /** The note opened again on a new page, its editor showing `doc`. */
+    function reopen(text: string, doc: string) {
+      const again = renderAutosave("index.md", () => doc);
+      again.seed("index.md", text);
+      again.allowReload(text);
+      return again;
+    }
+
+    it("names the last write sent on hide behind a queued write, and lands over it", async () => {
+      const vault = server("start");
+      const { note, type } = withEditor("start");
+
+      type("T1");
+      await idle();
+      type("T2");
+      note.startSave();
+      await pagehide();
+      // W2 waits behind W1 and never left: on disk after W1 is T1, not the base.
+      expect(vault.request(1)).toMatchObject({
+        content: "T2",
+        keepalive: true,
+        base: noteBase("T1"),
+      });
+      // The page is gone: W1 and the keepalive reach the vault, unheard.
+      await vault.arrive(0);
+      await vault.arrive(1);
+      expect(landedAs("T2", vault.disk())).toBe(true);
+
+      const again = reopen(vault.disk(), "T2");
+      expect(heldText("index.md")).toBeUndefined();
+      expect(again.status()).toBe("saved");
+    });
+
+    it("names the last write sent for a left note whose newest write is still queued", async () => {
+      const vault = server("start");
+      const { note, type } = withEditor("start");
+
+      type("T1");
+      await idle();
+      type("T2");
+      note.startSave();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      await pagehide();
+      expect(vault.request(1)).toMatchObject({
+        content: "T2",
+        keepalive: true,
+        base: noteBase("T1"),
+      });
+      await vault.arrive(0);
+      await vault.arrive(1);
+      expect(landedAs("T2", vault.disk())).toBe(true);
+
+      const again = reopen(vault.disk(), "T2");
+      expect(heldText("index.md")).toBeUndefined();
+      expect(again.status()).toBe("saved");
+    });
+
+    it("resends a keepalive that overtook the write ahead of it, naming that write's answer", async () => {
+      const vault = server("start");
+      const { note, type } = withEditor("start");
+
+      type("T1");
+      await idle();
+      type("T2");
+      await pagehide();
+      // The keepalive reaches the vault first, which still holds "start".
+      await vault.land(1);
+      await vault.land(0);
+      const first = vault.disk();
+      await settled();
+
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "T2", false, noteBase(first));
+      await vault.land(2);
+      expect(landedAs("T2", vault.disk())).toBe(true);
+      expect(heldTexts("index.md")).toEqual([]);
+      expect(note.status()).not.toBe("conflict");
+    });
+
+    it("holds a keepalive refused after the write ahead landed as a conflict", async () => {
+      const vault = server("start");
+      const { note, type } = withEditor("start");
+
+      type("T1");
+      await idle();
+      type("T2");
+      await pagehide();
+      await vault.land(0);
+      // Somebody else writes between W1 and the keepalive: a true conflict.
+      vault.write("X");
+      await vault.land(1);
+
+      expect(saveNote).toHaveBeenCalledTimes(2);
+      expect(vault.disk()).toBe("X");
+      expect(heldText("index.md")).toMatchObject({ content: "T2", conflicted: true });
+      expect(note.status()).toBe("conflict");
+    });
+
+    it("keeps what :e! threw away out of the vault and off the screen when its write lands after", async () => {
+      const vault = server("start");
+      const { note, type, look, outside, discard, shown } = withEditor("start");
+
+      type("T1");
+      await idle();
+      discard("start");
+      await vault.land(0);
+      // W1's event, and a refetch answering with what W1 landed.
+      const echo = vault.disk();
+      if (note.reconcile()) outside(echo);
+      outside(echo);
+      expect(shown()).toBe("start");
+      expect(note.status()).toBe("saving");
+
+      await vault.land(1);
+      look();
+      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["T1", "start"]);
+      expect(landedAs("start", vault.disk())).toBe(true);
+      expect(landedAs("start", shown())).toBe(true);
+      expect(note.status()).toBe("saved");
+    });
+
+    it("reloads somebody else's text when the write after :e! is refused, holding nothing", async () => {
+      const vault = server("start");
+      const { note, type, outside, discard, shown } = withEditor("start");
+
+      type("T1");
+      await idle();
+      discard("start");
+      await vault.land(0);
+      vault.write("X");
+      if (note.reconcile()) outside("X");
+      await vault.land(1);
+      // The refetch the declined event left for once nothing is in the air.
+      outside(vault.disk());
+
+      expect(vault.disk()).toBe("X");
+      expect(shown()).toBe("X");
+      expect(heldTexts("index.md")).toEqual([]);
+      expect(note.status()).toBe("saved");
+    });
+
+    it("sends keys typed after :e! behind its write, naming that write's answer", async () => {
+      const vault = server("start");
+      const { note, type, discard } = withEditor("start");
+
+      type("T1");
+      await idle();
+      discard("start");
+      type("start, more");
+      await idle();
+      await vault.land(0);
+      await vault.land(1);
+      const restored = vault.disk();
+      await vault.land(2);
+
+      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["T1", "start", "start, more"]);
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "start, more",
+        false,
+        noteBase(restored),
+      );
+      expect(landedAs("start, more", vault.disk())).toBe(true);
+      expect(note.status()).toBe("saved");
+    });
+
+    it("holds nothing when the write after :e! fails", async () => {
+      const vault = server("start");
+      const { note, type, discard } = withEditor("start");
+
+      type("T1");
+      await idle();
+      discard("start");
+      await vault.land(0);
+      await vault.fail(1);
+
+      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["T1", "start"]);
+      expect(heldTexts("index.md")).toEqual([]);
+      expect(note.status()).toBe("saved");
+      // Nothing waits to go out: a save writes nothing.
+      expect(await note.saved()).toBe(true);
+      expect(saveNote).toHaveBeenCalledTimes(2);
+    });
+
+    it("writes nothing on :e! with no write in the air", async () => {
+      server("start");
+      const { type, discard } = withEditor("start");
+
+      type("T1");
+      discard("start");
+      await idle();
+      await settled();
+
+      expect(saveNote).not.toHaveBeenCalled();
     });
   });
 });
