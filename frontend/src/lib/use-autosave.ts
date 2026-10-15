@@ -195,7 +195,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       let request: Promise<Note>;
       if (keepalive) {
         // Named too, so a page going away cannot write over somebody else.
-        const under = before ?? base;
+        // Text typed behind a write in the air names that write, which left
+        // first and lands first. The same text as that write names its base:
+        // it lands if the page cancelled that write, and is the server's no-op
+        // if it landed.
+        const under = before !== undefined && before !== content ? before : base;
         request =
           under === undefined
             ? saveNote(to, content, true)

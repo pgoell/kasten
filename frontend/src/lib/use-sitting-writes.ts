@@ -7,46 +7,35 @@ import { noteBase } from "@/lib/note-base";
  * Writes for a screen that reads its notes once and then saves the same note
  * many times: the review sitting and the parked list.
  *
- * Writes to one note go out one after another, each naming as its base what
- * the write before it landed, and the text read for the first. Sent at once,
- * the second would name the text the first sent, which a note the first write
- * stamped an `id` or a `created` into refuses.
+ * Each write names as its base the text its change was made against, `prev`,
+ * or what the vault answered where `prev` is a text this screen sent and saw
+ * land. Sending `prev` itself would fail on a note the write stamped an `id`
+ * or a `created` into. Writes to one note go out one after another, so that
+ * answer is in before the write after it leaves.
  *
- * A failed write drops the writes queued behind it for that note, each having
- * been worked out from the text it sent, and reads the note again: the screen
- * then holds the vault's text, and the next change names it as its base.
- * Without that, one refusal would leave every later change refused too.
+ * Nothing is dropped. A change made against a write that failed names text
+ * that never landed, the vault refuses it, and it fails out loud like the one
+ * before it. A failure also reads the note again, so the screen holds the
+ * vault's text and the next change is made against that.
  */
 export function useSittingWrites(
   setTexts: Dispatch<SetStateAction<Map<string, string> | null>>,
   setFailed: (message: string) => void,
-): { seed: (read: Map<string, string>) => void; write: (note: string, next: string) => void } {
+): (note: string, prev: string, next: string) => void {
   const queryClient = useQueryClient();
-  /** What each note holds as far as this screen knows: the read, then each answer. */
-  const landed = useRef(new Map<string, string>());
+  /** Per note, each text sent and seen to land, and what the vault answered for it. */
+  const landed = useRef(new Map<string, Map<string, string>>());
   /** The last write queued for each note, settled whatever came of it. */
   const chains = useRef(new Map<string, Promise<void>>());
-  /** Failures per note, so a write queued before one knows to drop. */
-  const failures = useRef(new Map<string, number>());
 
-  const seed = useCallback((read: Map<string, string>) => {
-    landed.current = new Map(read);
-  }, []);
-
-  const write = useCallback(
-    (note: string, next: string) => {
-      const failed = () => failures.current.get(note) ?? 0;
-      const epoch = failed();
-
+  return useCallback(
+    (note: string, prev: string, next: string) => {
       const send = async () => {
-        // The re-read after the failure has already put the vault's text on
-        // screen, which this change was never made against.
-        if (failed() !== epoch) return;
-        const base = landed.current.get(note);
-        if (base === undefined) throw new Error(`${note} was never read`);
+        const answers = landed.current.get(note) ?? new Map<string, string>();
+        landed.current.set(note, answers);
 
-        const written = await saveNote(note, next, false, noteBase(base));
-        landed.current.set(note, written.content);
+        const written = await saveNote(note, next, false, noteBase(answers.get(prev) ?? prev));
+        answers.set(next, written.content);
         // Only while `next` is still what the screen holds: a change made while
         // this was out has moved the note on already.
         setTexts((was) =>
@@ -56,17 +45,14 @@ export function useSittingWrites(
       };
 
       const fail = async (error: unknown) => {
-        failures.current.set(note, failed() + 1);
         setFailed(error instanceof Error ? error.message : "could not write the note");
-        // A read that fails too leaves the old base, and the next change is
-        // refused and reads again.
+        // A read that fails too leaves the screen as it is, and the next change
+        // is refused and reads again.
         const fresh = await fetchNote(note).then(
           (text) => text,
           () => null,
         );
-        if (fresh === null) return;
-        landed.current.set(note, fresh);
-        setTexts((was) => (was === null ? was : new Map(was).set(note, fresh)));
+        if (fresh !== null) setTexts((was) => (was === null ? was : new Map(was).set(note, fresh)));
       };
 
       // At once where nothing is queued, so the write leaves with the tap.
@@ -81,6 +67,4 @@ export function useSittingWrites(
     },
     [queryClient, setFailed, setTexts],
   );
-
-  return { seed, write };
 }

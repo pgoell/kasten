@@ -1166,6 +1166,7 @@ describe("useAutosave", () => {
 
   it("holds and resends a quiet write still in flight when the page is hidden", async () => {
     const note = renderAutosave("index.md");
+    note.allowReload("# on disk");
     pendingSave();
     note.change("# sent quietly");
     await idle();
@@ -1175,18 +1176,16 @@ describe("useAutosave", () => {
     await pagehide();
 
     expect(heldText("index.md")?.content).toBe("# sent quietly");
-    // Naming the write in the air, which is what it finds on disk if that lands.
-    expect(saveNote).toHaveBeenNthCalledWith(
-      2,
-      "index.md",
-      "# sent quietly",
-      true,
-      noteBase("# sent quietly"),
-    );
+    // The same text as the write in the air, so the same base: it lands if
+    // that write was cancelled, and is the server's no-op if that write landed.
+    const quietBase = saveNote.mock.calls[0]?.[3];
+    expect(quietBase).toBeDefined();
+    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# sent quietly", true, quietBase);
   });
 
   it("holds and resends a quiet write still in flight when a phone backgrounds the page", async () => {
     const note = renderAutosave("index.md");
+    note.allowReload("# on disk");
     pendingSave();
     note.change("# sent quietly");
     await idle();
@@ -1195,14 +1194,9 @@ describe("useAutosave", () => {
     await background();
 
     expect(heldText("index.md")?.content).toBe("# sent quietly");
-    // Naming the write in the air, which is what it finds on disk if that lands.
-    expect(saveNote).toHaveBeenNthCalledWith(
-      2,
-      "index.md",
-      "# sent quietly",
-      true,
-      noteBase("# sent quietly"),
-    );
+    const quietBase = saveNote.mock.calls[0]?.[3];
+    expect(quietBase).toBeDefined();
+    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# sent quietly", true, quietBase);
   });
 
   it("drops the copy held at hide time once the quiet write lands", async () => {

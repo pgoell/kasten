@@ -130,7 +130,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   // A failed write puts its message in the bar and the session carries on,
   // because a rating that vanished silently would be a card you answer again
   // tomorrow believing you had not.
-  const { seed, write } = useSittingWrites(setTexts, setFailed);
+  const write = useSittingWrites(setTexts, setFailed);
 
   const today = useMemo(() => readClock(new Date()).date, []);
 
@@ -145,7 +145,6 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         if (!live) return;
         const texts = new Map(read);
         setTexts(texts);
-        seed(texts);
         // Due first, then the ones nobody has answered, each in its note's
         // order and the notes in the order the deck names them. Nothing is
         // shuffled: a deck written in an order was written in that order on
@@ -171,7 +170,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     return () => {
       live = false;
     };
-  }, [deck, today, seed]);
+  }, [deck, today]);
 
   const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
   const seat = queue[0];
@@ -278,7 +277,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
       play(following === undefined ? [] : soundsShowing(following, false));
 
-      write(seat.note, next);
+      write(seat.note, text, next);
     },
     [cards, deck, play, queue, seat, texts, today, write],
   );
@@ -315,7 +314,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
     play(following === undefined ? [] : soundsShowing(following, false));
 
-    write(seat.note, next);
+    write(seat.note, text, next);
   }, [cards, deck, play, queue, seat, texts, write]);
 
   /**
@@ -334,7 +333,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     const next = appendStub(text, question.trim());
     setTexts((was) => new Map(was).set(seat.note, next));
     setJotting(null);
-    write(seat.note, next);
+    write(seat.note, text, next);
   }
 
   // A toggle, because the second press is the only way to shut the line

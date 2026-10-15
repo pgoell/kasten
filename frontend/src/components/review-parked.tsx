@@ -47,7 +47,7 @@ interface ReviewParkedProps {
 export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedProps) {
   const [texts, setTexts] = useState<Map<string, string> | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const { seed, write } = useSittingWrites(setTexts, setFailed);
+  const write = useSittingWrites(setTexts, setFailed);
 
   // The same key the overview holds, so opening this screen reads no cards the
   // list behind it has not already fetched.
@@ -62,9 +62,7 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
     let live = true;
     void Promise.all(notes.map(async (note) => [note, await fetchNote(note)] as const)).then(
       (read) => {
-        if (!live) return;
-        setTexts(new Map(read));
-        seed(new Map(read));
+        if (live) setTexts(new Map(read));
       },
       (error: unknown) => {
         if (live) setFailed(error instanceof Error ? error.message : "could not read the note");
@@ -73,7 +71,7 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
     return () => {
       live = false;
     };
-  }, [notes, seed]);
+  }, [notes]);
 
   const rows = useMemo(() => rowsOf(texts ?? new Map()), [texts]);
 
@@ -96,7 +94,7 @@ export function ReviewParked({ onLeave, onOpen, archive = false }: ReviewParkedP
     }
 
     setTexts((was) => new Map(was).set(row.note, next));
-    write(row.note, next);
+    write(row.note, text, next);
   }
 
   return (
