@@ -6,10 +6,11 @@ import { heldText, heldTexts, holdText, moveHeld, resetHeld, useHeld } from "@/l
 import { noteBase } from "@/lib/note-base";
 import { useAutosave } from "@/lib/use-autosave";
 
-const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn() }));
+const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));
 // The real refusal, which the hook tells apart from every other failure.
 vi.mock("@/lib/api", async (importOriginal) => ({
   saveNote,
+  fetchNote,
   ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
 }));
 
@@ -89,6 +90,14 @@ function renderAutosave(path = "index.md", shown?: () => string | undefined) {
         outcome = await result.current.saveFirst();
       });
       return outcome;
+    },
+    /** The same, left in flight, for a test that looks before it answers. */
+    askSaveFirst: () => {
+      let asked: Promise<boolean> = Promise.resolve(false);
+      act(() => {
+        asked = result.current.saveFirst();
+      });
+      return asked;
     },
     /** Save, and report whether the vault ended up holding the text. */
     saved: async () => {
@@ -2651,6 +2660,284 @@ describe("useAutosave", () => {
       expect(note.cached("index.md")).toBe("start");
       await second.finish();
       expect(note.cached("index.md")).toBe(written("from pane b").content);
+    });
+  });
+
+  describe("save queue (#301-#307)", () => {
+    afterEach(() => {
+      fetchNote.mockReset();
+    });
+
+    /**
+     * The hook with an editor on `index.md`, as in the block above, plus a way
+     * to put text on screen by hand: a reopen or a second pane shows what its
+     * own buffer holds, not what the cache moved to.
+     */
+    function withEditor(seed: string) {
+      let doc = seed;
+      const note = renderAutosave("index.md", () => doc);
+      note.seed("index.md", seed);
+      let seen: unknown = seed;
+      return {
+        note,
+        type: (text: string) => {
+          doc = text;
+          note.change(text);
+        },
+        look: () => {
+          const now = note.cached("index.md");
+          if (now === seen || typeof now !== "string") return;
+          seen = now;
+          if (note.allowReload(now)) doc = now;
+        },
+        outside: (text: string) => {
+          note.seed("index.md", text);
+          seen = text;
+          if (note.allowReload(text)) doc = text;
+        },
+        /** What the focused editor shows, set by hand. */
+        show: (text: string) => {
+          doc = text;
+          seen = text;
+        },
+        /** `:e!`: the route reads the vault into the cache, then asks. */
+        discard: (text: string) => {
+          note.seed("index.md", text);
+          note.revert(true);
+          doc = text;
+          seen = text;
+        },
+        shown: () => doc,
+      };
+    }
+
+    it("never sends a write still queued at :e!", async () => {
+      const { note, type, discard, shown } = withEditor("start");
+      const first = pendingSave();
+
+      type("T1");
+      await idle();
+      type("T2");
+      note.startSave();
+      discard("start");
+      await first.finish();
+      await settled();
+
+      expect(saveNote.mock.calls.map((call) => call[1])).toEqual(["T1"]);
+      expect(note.cached("index.md")).not.toBe(written("T2").content);
+      expect(shown()).toBe("start");
+    });
+
+    it("lets a rename wait for the write in the air, and refuses when it fails", async () => {
+      const { note, type } = withEditor("start");
+      const first = pendingSave();
+
+      type("T1");
+      await idle();
+      let outcome: boolean | undefined;
+      void note.askSaveFirst().then((answer) => {
+        outcome = answer;
+      });
+      await settled();
+
+      // Nothing is pending, but the note's write is still on its way: a rename
+      // now would move the path under it.
+      expect(outcome).toBeUndefined();
+      await first.break();
+      await settled();
+      expect(outcome).toBe(false);
+    });
+
+    it("sends nothing on hide when the note reloaded since its write went out", async () => {
+      const { type, outside } = withEditor("start");
+      pendingSave();
+
+      type("T1");
+      await idle();
+      outside("R");
+      await pagehide();
+
+      // T1 was typed on "start", and the screen holds R now: a keepalive of it
+      // named R would land it over another writer's text unasked.
+      expect(saveNote.mock.calls.filter((call) => call[2] === true)).toEqual([]);
+    });
+
+    it("declines a refetch answering while a write is in the air, and reloads once it lands", async () => {
+      const { note, type } = withEditor("start");
+      const first = pendingSave();
+      const invalidate = vi.spyOn(note.client, "invalidateQueries");
+
+      type("T1");
+      await idle();
+      // A refetch that started before T1 went out, answering with the text
+      // under it. `pending` is empty, but the screen holds newer text.
+      expect(note.allowReload("start")).toBe(false);
+      await first.finish();
+      expect(invalidate).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["note", "index.md"] }),
+        expect.anything(),
+      );
+    });
+
+    it("holds and resends the flush to a note just left when the page is hidden", async () => {
+      const { note, type } = withEditor("start");
+      pendingSave();
+
+      type("A text");
+      note.seed("b.md", "b text");
+      note.open("b.md");
+      await pagehide();
+
+      // The hook follows b.md now, and the flush to index.md is the only copy
+      // of A's text, which the page going away cancels.
+      expect(heldText("index.md")).toMatchObject({ content: "A text" });
+      expect(saveNote).toHaveBeenCalledWith("index.md", "A text", true, expect.anything());
+    });
+
+    it("reopens a note on the flush's text and names its answer behind it", async () => {
+      const { note, type, look, show } = withEditor("start");
+      const flush = pendingSave();
+
+      type("T1");
+      note.seed("other.md", "other");
+      note.open("other.md");
+      // The flush's text goes into the cache as it goes out, so the editor
+      // opened next reads the reader's newest text and not the text under it.
+      expect(note.cached("index.md")).toBe("T1");
+      note.open("index.md");
+      show(String(note.cached("index.md")));
+      note.allowReload(String(note.cached("index.md")));
+      type("T1, T2");
+      await idle();
+      await flush.finish();
+      await settled();
+      look();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "T1, T2",
+        false,
+        noteBase(written("T1").content),
+      );
+      expect(note.status()).not.toBe("conflict");
+    });
+
+    it("lets a second pane type on the first pane's text while its write is in the air", async () => {
+      const { note, type, look, show, shown } = withEditor("start");
+      const flush = pendingSave();
+
+      type("A1");
+      note.focus("b");
+      // Pane b's own buffer, opened before A1 was typed. It takes the cache
+      // the way a standby pane does.
+      show("start");
+      look();
+      type(`${shown()}, B`);
+      await idle();
+      await flush.finish();
+      await settled();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "A1, B",
+        false,
+        noteBase(written("A1").content),
+      );
+      expect(note.status()).not.toBe("conflict");
+    });
+
+    it("names the old text from a pane that never took the first pane's, and holds the refusal", async () => {
+      const { note, type, show } = withEditor("start");
+      const flush = pendingSave();
+      const refuse = refusedLater();
+
+      type("A1");
+      note.focus("b");
+      // Pane b still shows the text from before A1 and took nothing since:
+      // typed on that, its write must name it, and the vault refuse it.
+      show("start");
+      type("start, B");
+      await idle();
+      await flush.finish();
+      await settled();
+      await refuse();
+
+      expect(saveNote).toHaveBeenLastCalledWith("index.md", "start, B", false, noteBase("start"));
+      expect(note.status()).toBe("conflict");
+      expect(heldText("index.md")).toMatchObject({ content: "start, B", conflicted: true });
+      expect(saveNote).not.toHaveBeenCalledWith("index.md", "start, B");
+    });
+
+    it("names the keepalive's answer on the next write when the page lives on", async () => {
+      const { type } = withEditor("start");
+      const first = pendingSave();
+      const keepalive = pendingSave();
+
+      type("T1");
+      await idle();
+      type("T2");
+      await background();
+      type("T2, T3");
+      await idle();
+      await first.finish();
+      await keepalive.finish();
+      await settled();
+
+      // The keepalive left after W1 and lands after it: T2 is on disk when T3
+      // goes out.
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "T2, T3",
+        false,
+        noteBase(written("T2").content),
+      );
+    });
+
+    it("resends a refused keepalive naming the base when the write ahead of it failed", async () => {
+      const { note, type } = withEditor("start");
+      const first = pendingSave();
+      const refuse = refusedLater();
+
+      type("A");
+      await idle();
+      type("B");
+      await pagehide();
+      await first.break();
+      // The keepalive named A, which never landed: its refusal is no conflict.
+      await refuse();
+      await settled();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "B",
+        expect.any(Boolean),
+        noteBase("start"),
+      );
+      expect(note.status()).not.toBe("conflict");
+    });
+
+    it("reads the note before naming a base after a write failed with no answer", async () => {
+      const { type } = withEditor("start");
+      // The server wrote T2 and the response was lost on the way back.
+      fetchNote.mockResolvedValue(written("T2").content);
+
+      type("T1");
+      await idle();
+      type("T2");
+      saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      await idle();
+      await settled();
+      type("T2, T3");
+      await idle();
+      await settled();
+
+      expect(fetchNote).toHaveBeenCalledWith("index.md");
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "T2, T3",
+        false,
+        noteBase(written("T2").content),
+      );
     });
   });
 });
