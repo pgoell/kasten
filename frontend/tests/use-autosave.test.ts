@@ -1175,7 +1175,14 @@ describe("useAutosave", () => {
     await pagehide();
 
     expect(heldText("index.md")?.content).toBe("# sent quietly");
-    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# sent quietly", true);
+    // Naming the write in the air, which is what it finds on disk if that lands.
+    expect(saveNote).toHaveBeenNthCalledWith(
+      2,
+      "index.md",
+      "# sent quietly",
+      true,
+      noteBase("# sent quietly"),
+    );
   });
 
   it("holds and resends a quiet write still in flight when a phone backgrounds the page", async () => {
@@ -1188,7 +1195,14 @@ describe("useAutosave", () => {
     await background();
 
     expect(heldText("index.md")?.content).toBe("# sent quietly");
-    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# sent quietly", true);
+    // Naming the write in the air, which is what it finds on disk if that lands.
+    expect(saveNote).toHaveBeenNthCalledWith(
+      2,
+      "index.md",
+      "# sent quietly",
+      true,
+      noteBase("# sent quietly"),
+    );
   });
 
   it("drops the copy held at hide time once the quiet write lands", async () => {
@@ -1217,7 +1231,13 @@ describe("useAutosave", () => {
 
     expect(heldText("index.md")?.content).toBe("# typed after");
     expect(saveNote).toHaveBeenCalledTimes(2);
-    expect(saveNote).toHaveBeenNthCalledWith(2, "index.md", "# typed after", true);
+    expect(saveNote).toHaveBeenNthCalledWith(
+      2,
+      "index.md",
+      "# typed after",
+      true,
+      noteBase("# sent quietly"),
+    );
   });
 
   it("holds and sends nothing on hide when the quiet write in flight was thrown away", async () => {
@@ -1598,6 +1618,112 @@ describe("useAutosave", () => {
         true,
         noteBase("the index note"),
       );
+    });
+
+    /**
+     * A vault that refuses a stale base, landing each write as the text with
+     * its `modified` line restamped. Returns the text on disk, read live.
+     */
+    function vault(start: string) {
+      let disk = start;
+      const land = (content: string, base?: string) => {
+        if (base !== undefined && base !== noteBase(disk)) throw new ChangedOnDisk();
+        disk = content.replace(/\n---\n/, "\nmodified: now\n---\n");
+        return { path: "index.md", content: disk };
+      };
+      saveNote.mockImplementation(
+        async (_path: string, content: string, _k?: boolean, base?: string) => land(content, base),
+      );
+      /** The next write, held until the returned call lets it reach the vault. */
+      const held = () => {
+        let release: (() => Promise<void>) | undefined;
+        saveNote.mockImplementationOnce(
+          (_path: string, content: string, _k?: boolean, base?: string) =>
+            new Promise((resolve, reject) => {
+              release = async () => {
+                try {
+                  resolve(land(content, base));
+                } catch (error) {
+                  if (!(error instanceof ChangedOnDisk)) throw error;
+                  reject(error);
+                }
+              };
+            }),
+        );
+        return () => act(async () => release?.());
+      };
+      return { held, disk: () => disk };
+    }
+
+    it("names the write in the air as the keepalive's base, so text typed behind it lands", async () => {
+      const note = renderAutosave();
+      const server = vault("---\nid: a\n---\nzero");
+      note.seed("index.md", "---\nid: a\n---\nzero");
+      const first = server.held();
+      const keepalive = server.held();
+
+      note.change("---\nid: a\n---\none");
+      await idle();
+      note.change("---\nid: a\n---\ntwo");
+      await pagehide();
+      await first();
+      await keepalive();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "---\nid: a\n---\ntwo",
+        true,
+        noteBase("---\nid: a\n---\none"),
+      );
+      expect(server.disk()).toBe("---\nid: a\nmodified: now\n---\ntwo");
+      expect(note.cached("index.md")).toBe("---\nid: a\nmodified: now\n---\ntwo");
+      expect(heldText("index.md")).toBeUndefined();
+    });
+
+    it("names the text read for :e! as its base after the cache moves under a dirty buffer", async () => {
+      const note = renderAutosave();
+      const server = vault("the index note");
+      note.seed("index.md", "the index note");
+
+      note.change("# edited");
+      await idle();
+      // The route reads the vault into the cache, then throws the buffer away.
+      note.seed("index.md", server.disk());
+      note.revert(true);
+      note.change("# typed after :e!");
+      // A highlight lands, and the cache follows it; the dirty editor declines it.
+      note.seed("index.md", "a highlight");
+      vault("a highlight");
+      await idle();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "# typed after :e!",
+        false,
+        noteBase("# edited"),
+      );
+      expect(note.status()).toBe("conflict");
+    });
+
+    it("names the cached text as its base on returning to a pane whose editor stayed mounted", async () => {
+      let doc = "the index note";
+      const note = renderAutosave("other.md", () => doc);
+      note.seed("index.md", "the index note");
+
+      note.open("index.md");
+      doc = "the index note!";
+      note.change(doc);
+      note.seed("index.md", "a highlight");
+      vault("a highlight");
+      await idle();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "index.md",
+        "the index note!",
+        false,
+        noteBase("the index note"),
+      );
+      expect(note.status()).toBe("conflict");
     });
   });
 

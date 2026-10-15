@@ -162,6 +162,9 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       setReason(undefined);
       const to = path;
       const opened = visit.current;
+      // Read before the line below replaces it: the keepalive names the write
+      // still in the air, which lands first and is what it finds on disk.
+      const before = inAir.current.get(to);
       writing.current.set(to, (writing.current.get(to) ?? 0) + 1);
       inAir.current.set(to, content);
       const answered = () => {
@@ -192,10 +195,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       let request: Promise<Note>;
       if (keepalive) {
         // Named too, so a page going away cannot write over somebody else.
+        const under = before ?? base;
         request =
-          base === undefined
+          under === undefined
             ? saveNote(to, content, true)
-            : saveNote(to, content, true, noteBase(base));
+            : saveNote(to, content, true, noteBase(under));
       } else {
         const queue = queued.current.get(to);
         const under = queue?.visit === opened ? queue.link : Promise.resolve(base);
@@ -359,8 +363,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       conflicted.current = false;
       reverts.current += 1;
       // The caller put the vault's text in the cache before asking, and that is
-      // what the buffer holds now, not the last write of this visit.
-      onDisk.current = null;
+      // what the buffer holds now. Kept here and not read off the cache later,
+      // which a route write's refetch moves under a buffer that declined it.
+      onDisk.current =
+        path === undefined ? null : (queryClient.getQueryData<string>(["note", path]) ?? null);
       // The other way held text ends: the reader chose the vault's. A write
       // still in the air carries text thrown away too, which a hide must not
       // hold or send again.
@@ -373,7 +379,7 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       setReason(undefined);
       return true;
     },
-    [path, take],
+    [path, take, queryClient],
   );
 
   /**
@@ -599,7 +605,6 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
   // Runs on each opening: `queryClient` and `restore` never change.
   useEffect(() => {
     visit.current += 1;
-    onDisk.current = null;
     // A note whose editor stayed mounted while the focus was in another pane
     // asks nothing on the way back, so `allowReload` never sees its held text.
     // Taken here against the note the cache holds, and only when that editor
@@ -611,6 +616,10 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
     // and `pending` says so.
     const cached =
       path === undefined ? undefined : queryClient.getQueryData<string>(["note", path]);
+    // That editor shows the cached text, and asks nothing that would say so,
+    // so it is the base now: read later, a route write's refetch may have
+    // moved the cache under a buffer that declined it.
+    onDisk.current = cached ?? null;
     const held = path === undefined ? undefined : heldText(path);
     const doc = shownRef.current?.();
     if (path !== undefined && cached !== undefined && held && doc !== undefined) {

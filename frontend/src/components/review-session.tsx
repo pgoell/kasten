@@ -1,11 +1,9 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
-import { fetchNote, saveNote } from "@/lib/api";
+import { fetchNote } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
 import { readClock } from "@/lib/clock";
 import { inDeck } from "@/lib/deck-tag";
-import { noteBase } from "@/lib/note-base";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import type { Deck } from "@/lib/review";
@@ -23,6 +21,7 @@ import {
   writeNoteSuspended,
   writeSchedule,
 } from "@/lib/srs";
+import { useSittingWrites } from "@/lib/use-sitting-writes";
 
 /**
  * Where the typing toggle is kept, which is the browser and not the vault.
@@ -128,7 +127,10 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   const [jotting, setJotting] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+  // A failed write puts its message in the bar and the session carries on,
+  // because a rating that vanished silently would be a card you answer again
+  // tomorrow believing you had not.
+  const { seed, write } = useSittingWrites(setTexts, setFailed);
 
   const today = useMemo(() => readClock(new Date()).date, []);
 
@@ -143,6 +145,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         if (!live) return;
         const texts = new Map(read);
         setTexts(texts);
+        seed(texts);
         // Due first, then the ones nobody has answered, each in its note's
         // order and the notes in the order the deck names them. Nothing is
         // shuffled: a deck written in an order was written in that order on
@@ -168,7 +171,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     return () => {
       live = false;
     };
-  }, [deck, today]);
+  }, [deck, today, seed]);
 
   const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
   const seat = queue[0];
@@ -252,36 +255,6 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   // Off with the sitting, so a sound never runs on over the deck list.
   useEffect(() => () => player.current?.pause(), []);
 
-  /**
-   * Write `next` over `text`, the note as this sitting last knew it.
-   *
-   * `text` names the base, so a note somebody wrote since the read is refused
-   * rather than written over, and that refusal is one more failed write. The
-   * vault's answer then stands in for `next`, stamp and all, so the next save
-   * names what landed. Only while `next` is still what the sitting holds: a
-   * rating made while this was out has moved the note on already.
-   */
-  const write = useCallback(
-    (note: string, text: string, next: string) => {
-      void saveNote(note, next, false, noteBase(text)).then(
-        (written) => {
-          setTexts((was) =>
-            was?.get(note) === next ? new Map(was).set(note, written.content) : was,
-          );
-          void queryClient.invalidateQueries({ queryKey: ["cards"] });
-        },
-        (error: unknown) => {
-          // The answer is not lost with the write. The session carries on and
-          // the bar says the note is the part that failed, because a rating
-          // that vanished silently would be a card you answer again tomorrow
-          // believing you had not.
-          setFailed(error instanceof Error ? error.message : "could not write the note");
-        },
-      );
-    },
-    [queryClient],
-  );
-
   const rate = useCallback(
     (rating: Rating) => {
       if (texts === null || seat === undefined) return;
@@ -305,7 +278,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
       play(following === undefined ? [] : soundsShowing(following, false));
 
-      write(seat.note, text, next);
+      write(seat.note, next);
     },
     [cards, deck, play, queue, seat, texts, today, write],
   );
@@ -342,7 +315,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
     play(following === undefined ? [] : soundsShowing(following, false));
 
-    write(seat.note, text, next);
+    write(seat.note, next);
   }, [cards, deck, play, queue, seat, texts, write]);
 
   /**
@@ -361,7 +334,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     const next = appendStub(text, question.trim());
     setTexts((was) => new Map(was).set(seat.note, next));
     setJotting(null);
-    write(seat.note, text, next);
+    write(seat.note, next);
   }
 
   // A toggle, because the second press is the only way to shut the line

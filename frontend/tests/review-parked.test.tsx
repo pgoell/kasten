@@ -128,6 +128,22 @@ describe("ReviewParked putting a card back", () => {
     expect(wrote.mock.calls[0]?.slice(2)).toEqual([false, noteBase(NOTES["a.md"] ?? "")]);
   });
 
+  it("reads the note again after a refused put back, and names that text next", async () => {
+    const wrote = saved();
+    wrote.mockRejectedValueOnce(new api.ChangedOnDisk());
+    const { container } = renderParked();
+    await screen.findByText("What is a VPC?");
+    const reread = `${NOTES["a.md"]}\nsomebody else's line\n`;
+    vi.mocked(api.fetchNote).mockResolvedValue(reread);
+
+    fireEvent.click(container.querySelector('button[data-unpark="a.md:0"]') as HTMLButtonElement);
+    // Back, because the vault still holds it parked.
+    await screen.findByText("What is a VPC?");
+    fireEvent.click(container.querySelector('button[data-unpark="a.md:0"]') as HTMLButtonElement);
+
+    expect(wrote.mock.calls[1]?.[3]).toBe(noteBase(reread));
+  });
+
   it("drops the row it put back", async () => {
     saved();
     const { container } = renderParked();

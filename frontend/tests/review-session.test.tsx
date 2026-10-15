@@ -337,6 +337,51 @@ describe("ReviewSession on a parked card", () => {
     expect(saved.mock.calls[1]?.[3]).toBe(noteBase(`${saved.mock.calls[0]?.[1]}\nlanded\n`));
   });
 
+  it("holds a second rating's write until the first answers, and names that answer", async () => {
+    const saved = renderTwo();
+    let answer: (() => void) | undefined;
+    saved.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          // The stamped block a note without one comes back with.
+          answer = () => resolve({ path, content: `---\nid: x\n---\n${content}` });
+        }),
+    );
+    saved.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    await shownCard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await act(async () => {});
+    expect(saved).toHaveBeenCalledTimes(1);
+
+    await act(async () => answer?.());
+
+    expect(saved).toHaveBeenCalledTimes(2);
+    expect(saved.mock.calls[1]?.[3]).toBe(noteBase(`---\nid: x\n---\n${saved.mock.calls[0]?.[1]}`));
+  });
+
+  it("reads the note again after a refused rating, and names that text next", async () => {
+    const saved = renderTwo();
+    saved.mockRejectedValueOnce(new api.ChangedOnDisk());
+    const reread = `${TWO}\nsomebody else's line\n`;
+    await shownCard();
+    vi.mocked(api.fetchNote).mockResolvedValue(reread);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await act(async () => {});
+
+    expect(saved).toHaveBeenCalledTimes(2);
+    expect(saved.mock.calls[1]?.[3]).toBe(noteBase(reread));
+    expect(screen.getByText(/could not be written: Changed on disk/)).toBeInTheDocument();
+  });
+
   it("drops it from the queue and moves to the next card", async () => {
     renderTwo();
     await shownCard();
