@@ -83,7 +83,9 @@ is done. The branch ends when the pull request lands.
   Python. Catch the error you can handle and let the rest propagate.
 - **No dynamic imports.** Keep the dependency graph analyzable. The ban is on
   kasten's own code; SHA-pinned third-party source may use them, which foliate
-  does to pick a book's format.
+  does to pick a book's format. One exception: a heavy third-party bundle
+  loaded on demand, as pdf.js is for a pdf embed (#327), with a comment at the
+  import saying why.
 - **Comments explain why.** The code already says what it does. A comment earns
   its place by recording the constraint, the surprise or the reason for a
   choice that looks odd. Match the density of the surrounding file.

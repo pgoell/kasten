@@ -399,3 +399,7 @@
 * **Correction**: The book reader's foliate paginator no longer draws a chapter that is still loading (#318).
 * **Correction**: [Saving](/reference/editor-keys.md#saving): a note that reads `Changed on disk` clears by itself when another writer then puts your buffer's own text in the vault, with no `:w` or `:e!`, and drops the text kept for it (#269). [Save path orderings](/reference/save-path-orderings.md) gained rows 92 to 95.
 * **Update**: [Embed format](/reference/embed-format.md): `![[plan.pdf]]` draws the pdf's pages in a box that scrolls, drawn with pdf.js so a phone shows them too, where before it read `Not found` (#223). Ctrl+click or a tap opens the pdf in a tab, as `gf` does. [Live preview](/explanation/live-preview.md) says why it is not an `<iframe>`.
+
+## 2026-10-16
+
+* **Correction**: The hosted dev frontend installs again whenever `bun.lock` changes and then restarts vite, so a package added while it runs no longer fails to resolve (#328). A failed install stops the container. [Two environments](/explanation/environments.md), [Run the checks](/how-to/run-the-checks.md), [Deploy to the VPS](/how-to/deploy-to-the-vps.md) and [mise tasks](/reference/mise-tasks.md) say `dev:restart` is still needed after a change to `uv.lock`, but not after one to `bun.lock`.

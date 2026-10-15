@@ -119,11 +119,18 @@ would otherwise create them as root and leave the containers unable to write.
 Those container dependency trees live in `.container/`, deliberately separate
 from the host's `.venv` and `frontend/node_modules`. Sharing them breaks both,
 because a venv holds absolute paths that are wrong inside the container. The
-consequence is that `.container/node_modules` outlives a restart, so
-`dev:restart` cannot clear a stale one: after the move from pnpm to bun it held
-both layouts at once and dev served the page with a 500 on the stylesheet,
-`ENOENT` on a path under `node_modules/.pnpm/`. [Run the
-checks](/how-to/run-the-checks.md) has the commands to wipe it.
+consequence is that `.container/node_modules` outlives a restart, and nothing
+that only restarts vite installs a package new to `bun.lock`. So the frontend
+container runs `frontend/dev-server.sh`, which installs at start, checks the
+mtime of `bun.lock` every two seconds, and on a change installs again and
+restarts vite. A failed install stops the container, so the logs end on bun's
+error. The backend container has no such watch: it runs `uv sync` only at
+start, so a change to `uv.lock` still needs `dev:restart`.
+
+An install adds and removes packages but cannot clear a stale tree: after the
+move from pnpm to bun it held both layouts at once and dev served the page with
+a 500 on the stylesheet, `ENOENT` on a path under `node_modules/.pnpm/`. [Run
+the checks](/how-to/run-the-checks.md) has the commands to wipe it.
 
 **`/api/events` must not be compressed.** It is a server-sent event stream that
 stays open and pushes vault changes as they happen. A reverse proxy that gzips

@@ -936,6 +936,57 @@ describe("an embed", () => {
     expect(vault.opened).toEqual([["b.md", undefined]]);
   });
 
+  it("opens only the inner note on ctrl or cmd and a click inside a note embed", () => {
+    const vault = fakeVault({ "b.md": "![[c]]", "c.md": "body of c" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source, ["b.md", "c.md"]));
+    const inner = view.dom.querySelector(".cm-embed .cm-embed") as HTMLElement;
+
+    fireEvent.mouseDown(inner, { ctrlKey: true });
+    fireEvent.mouseDown(inner, { metaKey: true });
+
+    expect(vault.opened).toEqual([
+      ["c.md", undefined],
+      ["c.md", undefined],
+    ]);
+  });
+
+  it("opens only the inner note on a tap inside a note embed", () => {
+    const vault = fakeVault({ "b.md": "![[c]]", "c.md": "body of c" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source, ["b.md", "c.md"]));
+    const inner = view.dom.querySelector(".cm-embed .cm-embed") as HTMLElement;
+
+    fireEvent.pointerDown(inner, { pointerType: "touch" });
+    fireEvent.click(inner);
+
+    expect(vault.opened).toEqual([["c.md", undefined]]);
+  });
+
+  it("opens only the inner note on ctrl and a click inside a note embed, vim on", () => {
+    const vault = fakeVault({ "b.md": "![[c]]", "c.md": "body of c" });
+    const view = mount(`${ABOVE}![[b]]`, [
+      vim(),
+      livePreview(),
+      vaultPaths.of(["b.md", "c.md"]),
+      imagePaths.of([]),
+      embedSource.of(vault.source),
+    ]);
+    const inner = view.dom.querySelector(".cm-embed .cm-embed") as HTMLElement;
+
+    fireEvent.mouseDown(inner, { ctrlKey: true });
+
+    expect(vault.opened).toEqual([["c.md", undefined]]);
+  });
+
+  it("still opens the outer note on ctrl and a click outside the inner one", () => {
+    const vault = fakeVault({ "b.md": "above c\n\n![[c]]", "c.md": "body of c" });
+    const view = mount(`${ABOVE}![[b]]`, plain(vault.source, ["b.md", "c.md"]));
+    const outer = view.dom.querySelector(".cm-embed") as HTMLElement;
+
+    fireEvent.mouseDown(outer, { ctrlKey: true });
+
+    expect(vault.opened).toEqual([["b.md", undefined]]);
+  });
+
   it("shows its source with the cursor on the line, vim off", () => {
     const vault = fakeVault({ "b.md": "body" });
     const view = mount(`${ABOVE}![[b]]`, plain(vault.source));

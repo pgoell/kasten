@@ -74,7 +74,7 @@ description = "Stop the hosted dev environment (keeps the db volume)"
 run = "docker compose -f compose.yaml -f compose.dev.yml down"
 
 [tasks."dev:restart"]
-description = "Restart the dev reload servers (after a dependency change)"
+description = "Restart the dev reload servers (after a uv.lock change; bun.lock installs by itself)"
 run = "docker compose -f compose.yaml -f compose.dev.yml restart backend-dev frontend-dev"
 
 [tasks."dev:status"]

@@ -381,11 +381,17 @@ class Embed extends WidgetType {
 
     let line: number | undefined;
     let tapped = false;
-    const follow = () => this.source.open(this.path, line);
+    // Stopped where it follows: a box drawn inside another note's box would
+    // hand the event on, and that note would open too. Pointerdown still
+    // bubbles, so the outer box's own tap state stays current.
+    const follow = (event: Event) => {
+      event.stopPropagation();
+      this.source.open(this.path, line);
+    };
     box.addEventListener("mousedown", (event) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      follow();
+      follow(event);
     });
     // A tap is a touch that ends in a click. A finger the browser takes for a
     // scroll cancels instead, and must not leave the next click armed.
@@ -395,8 +401,8 @@ class Embed extends WidgetType {
     box.addEventListener("pointercancel", () => {
       tapped = false;
     });
-    box.addEventListener("click", () => {
-      if (tapped) follow();
+    box.addEventListener("click", (event) => {
+      if (tapped) follow(event);
       tapped = false;
     });
 

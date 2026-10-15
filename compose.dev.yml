@@ -116,10 +116,9 @@ services:
     container_name: kasten-frontend-dev
     working_dir: /app/frontend
     user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
-    command:
-      - sh
-      - -c
-      - "bun install --frozen-lockfile && exec bun run dev"
+    # Installs, runs vite, and installs again when bun.lock changes. See the
+    # script for why.
+    command: ["sh", "dev-server.sh"]
     environment:
       HOME: /tmp
       # Keep the package cache beside the container's node_modules. It defaults

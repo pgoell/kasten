@@ -166,8 +166,9 @@ mise run dev:up
 ## Day to day
 
 **Dev.** Edit files. uvicorn and vite reload on their own, because the working
-tree is bind-mounted into both containers. `mise run dev:restart` after a
-dependency change, `mise run dev:logs` when something looks wrong,
+tree is bind-mounted into both containers. The frontend installs again by
+itself when `bun.lock` changes; `mise run dev:restart` after a change to
+`uv.lock`, `mise run dev:logs` when something looks wrong,
 `mise run dev:status` to see what is up.
 
 **Prod.** Cut a GitHub release, following [Cut a release](cut-a-release.md):

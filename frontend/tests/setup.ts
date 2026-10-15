@@ -1,8 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 
-// pdf.js throws at load in jsdom, which has no canvas to sniff. Every module
-// that reaches the editor imports it through `pdf-view.ts`, so it goes for all
-// of them; a test of a pdf embed hands the widget a fake renderer instead.
+// pdf.js throws at load in jsdom, which has no canvas to sniff. `pdf-view.ts`
+// loads it only when a pdf embed opens its file, but a test that draws one
+// with the default renderer would load it, so it goes for all of them; a test
+// of a pdf embed hands the widget a fake renderer instead.
 vi.mock("foliate-pdfjs", () => ({}));
 
 // jsdom does no layout, so a Range has none of the rect methods CodeMirror

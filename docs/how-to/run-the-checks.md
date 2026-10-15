@@ -64,8 +64,10 @@ mise run fe:install
 ```
 
 **The container's tree, `.container/node_modules`.** The hosted dev environment
-mounts this instead of yours, and it persists across restarts, so a stale one
-outlives every `dev:restart` you throw at it. The symptom is the page loading
+mounts this instead of yours, and it persists across restarts. The container
+installs again whenever `bun.lock` changes, so a package added there needs
+nothing from you. A stale tree is another matter: no install clears it, and it
+outlives every `dev:restart`. The symptom is the page loading
 while the stylesheet 500s, with `ENOENT` on a path under
 `node_modules/.pnpm/tailwindcss@x.y.z/` in the logs.
 

@@ -39,7 +39,7 @@ the other two services run stock images and rebuild nothing.
 |---|---|
 | `dev:up` | Start the hosted dev environment, database included, rebuilding the shell image |
 | `dev:down` | Stop it, keeping the database volume |
-| `dev:restart` | Restart the reload servers, after a dependency change |
+| `dev:restart` | Restart the reload servers, after a change to `uv.lock` (the frontend installs on a `bun.lock` change by itself) |
 | `dev:status` | Show container status |
 | `dev:logs` | Follow the reload server logs |
 

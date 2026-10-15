@@ -8,11 +8,6 @@
  */
 
 import { Facet } from "@codemirror/state";
-// For its side effect, which is `globalThis.pdfjsLib`: the vendored build sets
-// the global and exports nothing. The same file foliate's own `pdf.js` imports,
-// through the alias in `vite.config.ts`, so the reader and this share one copy.
-// jsdom cannot load it, and `tests/setup.ts` mocks it away.
-import "foliate-pdfjs";
 
 /**
  * Where the pdf.js files sit, which `vite.config.ts` decides and stages.
@@ -74,25 +69,39 @@ interface Pdfjs {
 /**
  * pdf.js, opened the way foliate opens its own (`pdf.js:120-127`).
  *
- * The global is read here and not at load, because the module that sets it is
- * mocked away in jsdom. The worker is set the way foliate sets it, once,
- * against the same staged file, so whichever of the two opens a pdf first the
- * worker resolves in the build. A URL rather than the bytes, so pdf.js asks
+ * The worker is set the way foliate sets it, once, against the same staged
+ * file, so whichever of the two opens a pdf first the worker resolves in the
+ * build. A URL rather than the bytes, so pdf.js asks
  * for the ranges it needs and a long pdf's first page does not wait on its last.
  * `isEvalSupported` is off because the policy in `csp.ts` has no `'unsafe-eval'`.
  */
 const pdfjsRenderer: PdfRenderer = {
   open(url) {
-    const pdfjs = (globalThis as { pdfjsLib?: Pdfjs }).pdfjsLib as Pdfjs;
-    pdfjs.GlobalWorkerOptions.workerSrc ||= `${PDFJS_BASE}pdf.worker.mjs`;
-    const task = pdfjs.getDocument({
-      url,
-      cMapUrl: `${PDFJS_BASE}cmaps/`,
-      standardFontDataUrl: `${PDFJS_BASE}standard_fonts/`,
-      isEvalSupported: false,
-    });
+    let task: ReturnType<Pdfjs["getDocument"]> | null = null;
+    let gone = false;
+    const file = (async () => {
+      // The one dynamic import in kasten's own code, which `.claude/CLAUDE.md`
+      // allows: a static one put pdf.js, 118 kB gzipped, on every editor page
+      // whether or not a note held a pdf (#327). Loaded for its side effect,
+      // `globalThis.pdfjsLib`; the vendored build exports nothing. The same
+      // file foliate's own `pdf.js` imports, through the alias in
+      // `vite.config.ts`, so the reader and this share one copy.
+      await import("foliate-pdfjs");
+      // An embed that left while pdf.js loaded opens nothing, so no task is
+      // left behind with nobody to free it.
+      if (gone) throw new Error("pdf embed closed before pdf.js loaded");
+      const pdfjs = (globalThis as { pdfjsLib?: Pdfjs }).pdfjsLib as Pdfjs;
+      pdfjs.GlobalWorkerOptions.workerSrc ||= `${PDFJS_BASE}pdf.worker.mjs`;
+      task = pdfjs.getDocument({
+        url,
+        cMapUrl: `${PDFJS_BASE}cmaps/`,
+        standardFontDataUrl: `${PDFJS_BASE}standard_fonts/`,
+        isEvalSupported: false,
+      });
+      return task.promise;
+    })();
     return {
-      file: task.promise.then((pdf) => ({
+      file: file.then((pdf) => ({
         pages: pdf.numPages,
         async page(number) {
           const page = await pdf.getPage(number);
@@ -113,7 +122,10 @@ const pdfjsRenderer: PdfRenderer = {
       })),
       // The task and not the document: the document's own `destroy` is this
       // one, and a task freed before its document landed takes its worker with it.
-      destroy: () => void task.destroy(),
+      destroy: () => {
+        gone = true;
+        void task?.destroy();
+      },
     };
   },
 };
