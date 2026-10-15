@@ -15,6 +15,8 @@ import {
   type QueryObserverResult,
 } from "@tanstack/react-query";
 import { fetchNote } from "@/lib/api";
+import { encodePath } from "@/lib/note-path";
+import { namesAFile } from "@/lib/wikilink";
 
 /** Hands an embed the text of its note, now and on every later change. */
 export interface EmbedSource {
@@ -120,6 +122,11 @@ export function queryEmbedSource(
         stopCache();
       };
     },
-    open,
+    // A pdf goes where `gf` sends one, a tab of its own: the route's `open`
+    // reads every path as a note and would open the pdf's bytes as text.
+    open(path, line) {
+      if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
+      else open(path, line);
+    },
   };
 }

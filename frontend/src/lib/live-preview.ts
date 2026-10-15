@@ -12,6 +12,7 @@ import { noteBody } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
+import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/pdf-view";
 import { readRelation } from "@/lib/relation";
 import { type Align, alignsOf, isRow } from "@/lib/table";
 import { parseTodo } from "@/lib/todo";
@@ -318,6 +319,7 @@ function nestedView(state: EditorState, text: string, parent: HTMLElement): Edit
         paths === null ? [] : vaultPaths.of(paths),
         images === null ? [] : imagePaths.of(images),
         source === null ? [] : embedSource.of(source),
+        pdfRenderer.of(state.facet(pdfRenderer)),
       ],
     }),
     parent,
@@ -428,6 +430,77 @@ class Embed extends WidgetType {
     const mounted = held.get(dom);
     mounted?.stop();
     mounted?.nested?.destroy();
+  }
+}
+
+/** What frees each drawn pdf, by its box, for the reason `held` keeps a note's. */
+const pdfs = new WeakMap<HTMLElement, () => void>();
+
+/**
+ * `![[plan.pdf]]`, the pdf drawn where it is named, or `Not found` for a path
+ * of null.
+ *
+ * Followed the way `Embed` is, ctrl or cmd and a click or a tap, with the same
+ * listeners for the same reason: a plain click in here is someone reading.
+ * `eq` compares the path alone, so a keystroke elsewhere never reopens the pdf.
+ */
+class PdfEmbed extends WidgetType {
+  private readonly renderer: PdfRenderer;
+  private readonly source: EmbedSource;
+  private readonly path: string | null;
+  private readonly name: string;
+
+  constructor(renderer: PdfRenderer, source: EmbedSource, path: string | null, name: string) {
+    super();
+    this.renderer = renderer;
+    this.source = source;
+    this.path = path;
+    this.name = name;
+  }
+
+  override eq(other: PdfEmbed): boolean {
+    return other.path === this.path && other.name === this.name;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const box = document.createElement("div");
+    const { path } = this;
+    if (path === null) {
+      box.className = "cm-embed cm-embed-missing";
+      box.textContent = `Not found: ${this.name}`;
+      return box;
+    }
+    box.className = "cm-embed cm-embed-pdf";
+
+    let tapped = false;
+    const follow = () => this.source.open(path);
+    box.addEventListener("mousedown", (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      follow();
+    });
+    box.addEventListener("pointerdown", (event) => {
+      tapped = event.pointerType === "touch";
+    });
+    box.addEventListener("pointercancel", () => {
+      tapped = false;
+    });
+    box.addEventListener("click", () => {
+      if (tapped) follow();
+      tapped = false;
+    });
+
+    // The URL `gf` opens a pdf at, and the book pane reads one from.
+    const url = `/api/assets/${encodePath(path)}`;
+    pdfs.set(
+      box,
+      showPdf(box, this.renderer, url, this.name, () => view.requestMeasure()),
+    );
+    return box;
+  }
+
+  override destroy(dom: HTMLElement): void {
+    pdfs.get(dom)?.();
   }
 }
 
@@ -888,6 +961,20 @@ function build(state: EditorState): Live {
         const paths = state.facet(vaultPaths);
         const images = state.facet(imagePaths);
         if (paths === null) return false;
+        const source = state.facet(embedSource);
+
+        // A pdf is found among the paths a link lands on, which hold the
+        // vault's assets beside its notes; the image listing holds none. Ahead
+        // of the depth cap, a pdf drawing nothing that could embed it back.
+        if (name.toLowerCase().endsWith(".pdf")) {
+          if (source === null) return false;
+          const found = resolveIn(name, paths);
+          const path = found !== null && paths.includes(found) ? found : null;
+          const widget = new PdfEmbed(state.facet(pdfRenderer), source, path, name);
+          decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
+          hidden.push(HIDDEN.range(node.from, node.to));
+          return false;
+        }
         if (images === null && /\.\w+$/.test(name) && !name.endsWith(".md")) return false;
 
         // An image the vault holds is drawn as one, found by the rule a link
@@ -896,7 +983,6 @@ function build(state: EditorState): Live {
         const picture =
           image !== null && images?.includes(image) ? imageSource(encodePath(image)) : null;
 
-        const source = state.facet(embedSource);
         const label = heading === null ? name : `${name}#${heading}`;
         let widget: WidgetType;
         if (picture !== null) widget = new Picture(picture, alias ?? "");

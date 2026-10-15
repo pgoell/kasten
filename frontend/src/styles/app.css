@@ -336,6 +336,26 @@ body {
   background: transparent;
 }
 
+/* `![[plan.pdf]]`: a box of fixed height that scrolls through the pages, the
+   way Obsidian draws one, so a long pdf does not push the note off the screen.
+   Each page is as wide as the box, which is what fits it to a phone. */
+.cm-embed-pdf {
+  height: 32rem;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 0.25em;
+}
+
+.cm-pdf-page {
+  width: 100%;
+  margin-bottom: 0.25em;
+  background: white;
+}
+
+.cm-pdf-page canvas {
+  display: block;
+}
+
 /* A note or heading the vault does not hold, and the embed past the depth cap:
    a name in a box, muted, the box saying where the note would have been. */
 .cm-embed-missing,

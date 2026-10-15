@@ -9,6 +9,7 @@ import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-binding
 import { readField } from "@/lib/note-frontmatter";
 import { BOOK_SUFFIXES } from "@/lib/note-path";
 import { STATUS } from "@/lib/overlay-styles";
+import { PDFJS_BASE } from "@/lib/pdf-view";
 import { useViewport } from "@/lib/use-viewport";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
@@ -298,17 +299,6 @@ interface Pdfjs {
     destroy(): Promise<void>;
   };
 }
-
-/**
- * Where the pdf.js files sit, which `vite.config.ts` decides and stages.
- *
- * The one copy outside that file, and it has to agree with it. Named here
- * because a second reading of a pdf has to be opened the way foliate opens the
- * first: without these two a document whose fonts need predefined character
- * maps, which is most CJK, hands back text that is not what the page shows, and
- * `gf` would answer that a passage you can see is not in the book.
- */
-const PDFJS_BASE = "/pdfjs/";
 
 /**
  * Which page of `bytes` holds `quote`, counting from zero, or -1.

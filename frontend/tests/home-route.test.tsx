@@ -1599,6 +1599,24 @@ describe("the route", () => {
     expect(saveNote).not.toHaveBeenCalled();
   });
 
+  it("clears a live conflict by itself once the vault comes to hold the buffer's text", async () => {
+    const app = await editing();
+    somebodyElseWrote();
+    await settle();
+    expect(app.status()).toBe("Changed on disk");
+
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "he index note" : VAULT[path],
+    );
+    act(() => stream().send({ path: "index.md", change: "written", digest: "b".repeat(64) }));
+    await settle();
+
+    expect(app.status()).toBe("Saved");
+    expect(app.text()).toBe("he index note");
+    expect(app.heldConflict()).toBeNull();
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
   it("keeps mine with :w after reopening a conflicted note", async () => {
     const app = await reopenedConflicted();
 

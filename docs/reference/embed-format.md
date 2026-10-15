@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Embed format
-description: The forms an embed is written in, how each part is read, how the target resolves, what is drawn for a note, a section, an image, a missing target and the depth stub, how to open one, and what it does not do.
+description: The forms an embed is written in, how each part is read, how the target resolves, what is drawn for a note, a section, an image, a pdf, a missing target and the depth stub, how to open one, and what it does not do.
 resource: frontend/src/lib/embed.ts
 tags: [vault, links, format, frontend, editor]
 status: stable
@@ -18,6 +18,7 @@ same embeds.
 ![[Plan#Risks]]
 ![[Plan#Risks|the risks]]
 ![[screenshot.png]]
+![[plan.pdf]]
 ```
 
 ## The forms
@@ -29,6 +30,7 @@ same embeds.
 | `![[note\|alias]]` | the whole note; the alias is ignored |
 | `![[note#heading\|alias]]` | one section; the alias is ignored |
 | `![[image.png]]` | the picture |
+| `![[file.pdf]]` | the pdf's pages, in a box that scrolls |
 
 ## How each part is read
 
@@ -60,8 +62,12 @@ The embed takes the place of its line, in a box.
 * **An image** draws the picture, as `![](path)` does, when the target names a
   file of one of the types the vault takes: `.png`, `.jpg`, `.jpeg`, `.gif` and
   `.webp`.
-* **A missing target**, a note or a heading the vault does not hold, draws a
-  plain box saying `Not found`.
+* **A pdf** draws its pages in a box of fixed height that scrolls, each page as
+  wide as the box, so a phone gets pages it can read across. A page is drawn
+  when it scrolls into view, not before. A pdf that will not load reads
+  `Could not read plan.pdf` in the box. The heading and the alias are ignored.
+* **A missing target**, a note, a heading or a pdf the vault does not hold,
+  draws a plain box saying `Not found`.
 * **The depth stub.** Embeds nest, and stop at a depth of three. At that cap an
   embed draws a stub box in place of its note, so a note that embeds itself, or
   embeds a note that embeds it, stops there rather than drawing without end.
@@ -84,7 +90,8 @@ as source for that moment too, since a name cannot be resolved without it.
 | Ctrl+click, Cmd+click on a Mac | Open the embedded note in the focused pane |
 | Tap, on a phone | The same |
 
-A section embed opens the note at its heading. A plain click does nothing to the
+A section embed opens the note at its heading. A pdf opens in a browser tab of
+its own, as `gf` on `[[plan.pdf]]` does. A plain click does nothing to the
 embed.
 
 ## Out of scope
@@ -92,5 +99,7 @@ embed.
 * **Block references**, `![[note#^id]]`.
 * **Editing in place.** The embedded text is read only; open the note to change
   it.
-* **Other files.** A PDF, an epub or any file that is not one of the image types
-  above is not drawn.
+* **Other files.** An epub, or any file that is neither a pdf nor one of the
+  image types above, is not drawn.
+* **A page of a pdf.** `![[plan.pdf#page=3]]` draws the whole pdf from its
+  first page.

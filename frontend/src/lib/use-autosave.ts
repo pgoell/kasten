@@ -941,13 +941,18 @@ export function useAutosave(
    * still come back older than the text the event reports, or be the event
    * itself, a step behind a write queued after it. The note is reloaded once
    * its last write answers instead.
+   *
+   * Yes for a conflicted buffer as well (#269): the other writer may have
+   * written the buffer's own text, which settles the conflict, and only the
+   * read can say so. `allowReload` takes that text and nothing else, so the
+   * buffer keeps its words over any other.
    */
   const reconcile = useCallback((): boolean => {
     if (path !== undefined && writing.current.has(path)) {
       missed.current.add(path);
       return false;
     }
-    return pending.current === null;
+    return pending.current === null || conflicted.current;
   }, [path]);
 
   // React runs a cleanup with the render's own closure, so opening another

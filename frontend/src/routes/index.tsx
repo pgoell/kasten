@@ -388,9 +388,9 @@ function Home() {
   // note would close the stream and open another.
   // `isWriting` rides along for the bookmark write, which reads it at the
   // moment its `PUT` answers rather than at the moment it started.
-  const focusedNote = useRef({ path: pane.path, reconcile, isWriting });
+  const focusedNote = useRef({ path: pane.path, reconcile, isWriting, isConflicted });
   useEffect(() => {
-    focusedNote.current = { path: pane.path, reconcile, isWriting };
+    focusedNote.current = { path: pane.path, reconcile, isWriting, isConflicted };
   });
   // Chrome the leader keys reach. It lives up here rather than in the panel
   // because the key that toggles it is pressed inside the editor.
@@ -497,9 +497,11 @@ function Home() {
   // and the buttons under it still settle the conflict.
   const [vaultSide, setVaultSide] = useState<{ path: string; text: string }>();
   // Raised by the stream for each write to the focused note it declined to
-  // reload. A second outside write keeps the status at "conflict", and without
-  // this the diff would stay on the first: a merge made from it, then `:w`,
-  // would put the reader's text over a write they were never shown.
+  // reload, and for each while the note stands conflicted, which is reloaded
+  // in case the vault came to hold the buffer's text (#269). A second outside
+  // write keeps the status at "conflict", and without this the diff would
+  // stay on the first: a merge made from it, then `:w`, would put the
+  // reader's text over a write they were never shown.
   const [declined, setDeclined] = useState(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `declined` is the trigger, and is not read.
   useEffect(() => {
@@ -697,12 +699,16 @@ function Home() {
       // holding text nobody has written yet. A refusal there means the reader's
       // own edits are on screen and the reload would take them off it.
       if (event.change === "written") {
-        const { path, reconcile } = focusedNote.current;
+        const { path, reconcile, isConflicted } = focusedNote.current;
+        // `reconcile` says yes to a conflicted note too (#269), whose bar's
+        // diff still wants the vault read again.
+        const conflicted = event.path === path && isConflicted();
         if (event.path !== path || reconcile()) {
           queryClient.invalidateQueries(
             { queryKey: ["note", event.path] },
             { cancelRefetch: false },
           );
+          if (conflicted) setDeclined((previous) => previous + 1);
         } else {
           setDeclined((previous) => previous + 1);
         }

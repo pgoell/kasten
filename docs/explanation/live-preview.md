@@ -321,6 +321,13 @@ the time. Editing in place was left out. Text typed into the box would belong
 to another note, with its own save and its own conflicts, and opening that note
 is one gesture away.
 
+**A pdf is drawn by pdf.js, not by the browser.** `![[plan.pdf]]` draws the
+pages onto canvases in a box that scrolls. An `<iframe>` would have been less
+code, but a phone browser draws no pdf in a frame: Android Chrome shows a
+button that downloads it. pdf.js is the copy the book reader already ships, and
+it draws only the pages scrolled into view, so a long pdf costs the pages you
+read.
+
 **A depth cap, not a cycle check.** A note that embeds itself, or two notes that
 embed each other, would draw without end. Tracking the paths on the way down
 would stop the loop, but not a long honest chain, each level of which mounts

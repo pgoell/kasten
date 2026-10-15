@@ -232,9 +232,9 @@ function foliatePdfjs(): Plugin {
       if (!code.includes(PDFJS_PATH)) {
         this.error("foliate's pdf.js no longer builds its paths the way vite.config.ts expects");
       }
-      // `PDFJS_BASE` in `book-pane.tsx` is the other copy of this base, the
-      // pdf the seek opens having to be opened with the same character maps and
-      // fonts as the one on screen. Two literals rather than one import,
+      // `PDFJS_BASE` in `pdf-view.ts` is the other copy of this base, the pdf
+      // the seek opens and the one a note embeds having to be opened with the
+      // same character maps and fonts as the one on screen. Two literals rather than one import,
       // because nginx and the browser cannot read this file either.
       return code.replace(PDFJS_PATH, "const pdfjsPath = path => (`/pdfjs/` + path)");
     },
@@ -315,6 +315,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
+      // foliate's vendored pdf.js, which its `exports` field does not reach.
+      // The same file foliate's own `pdf.js` imports, so one copy ships and
+      // `![[x.pdf]]` draws with the build the reader reads with.
+      "foliate-pdfjs": path.join(PDFJS, "pdf.mjs"),
     },
   },
   // Development pre-bundles a dependency with esbuild before any plugin sees
@@ -323,7 +327,8 @@ export default defineConfig({
   // server down with `Invalid glob: "vendor/pdfjs/*"` before the reader opens
   // anything. foliate is plain ESM with no CommonJS in it, so there is nothing
   // the optimiser was buying here.
-  optimizeDeps: { exclude: ["foliate-js"] },
+  // The pdf.js alias goes with it, so development keeps the one copy the build has.
+  optimizeDeps: { exclude: ["foliate-js", "foliate-pdfjs"] },
   server: {
     // Defaults to loopback. compose.dev.yml sets 0.0.0.0 because inside a
     // container the only route in is Caddy on the `web` network; no port is

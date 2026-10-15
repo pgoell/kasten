@@ -1,3 +1,6 @@
+/// <reference types="node" />
+
+import { readFileSync } from "node:fs";
 import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
@@ -8,6 +11,7 @@ import { EMBED_DEPTH, type EmbedSource, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
+import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/pdf-view";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 
@@ -1063,5 +1067,242 @@ describe("an embed", () => {
     mounted.splice(mounted.indexOf(view), 1);
     view.destroy();
     expect(vault.listening("c.md")).toBe(0);
+  });
+});
+
+/** Pdfs by URL and page count; a URL not listed fails to load. */
+function fakePdfs(files: Record<string, number>) {
+  const opened: string[] = [];
+  /** Each page drawn, as its number and the scale it was drawn at. */
+  const drawn: [number, number][] = [];
+  let freed = 0;
+  const renderer: PdfRenderer = {
+    open(url) {
+      opened.push(url);
+      const pages = files[url];
+      const file: PdfFile | undefined =
+        pages === undefined
+          ? undefined
+          : {
+              pages,
+              page: async (number) => ({
+                width: 600,
+                height: 800,
+                draw: async (_canvas, scale) => {
+                  drawn.push([number, scale]);
+                },
+              }),
+            };
+      return {
+        file: file === undefined ? Promise.reject(new Error("Invalid PDF")) : Promise.resolve(file),
+        destroy: () => {
+          freed += 1;
+        },
+      };
+    },
+  };
+  return { renderer, opened, drawn, freed: () => freed };
+}
+
+/** An `IntersectionObserver` that sees nothing until a test says a slot came into view. */
+class FakeObserver {
+  static all: FakeObserver[] = [];
+  readonly observed = new Set<Element>();
+  private readonly callback: IntersectionObserverCallback;
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    FakeObserver.all.push(this);
+  }
+
+  observe(target: Element) {
+    this.observed.add(target);
+  }
+
+  unobserve(target: Element) {
+    this.observed.delete(target);
+  }
+
+  disconnect() {
+    this.observed.clear();
+  }
+
+  static reveal(target: Element) {
+    for (const observer of FakeObserver.all) {
+      if (!observer.observed.has(target)) continue;
+      const entry = { isIntersecting: true, target } as IntersectionObserverEntry;
+      observer.callback([entry], observer as unknown as IntersectionObserver);
+    }
+  }
+}
+
+const PLAN = "/api/assets/docs/plan.pdf";
+
+/** Vim off on a vault holding `docs/plan.pdf`, drawn by `pdfs`. */
+function withPdfs(source: EmbedSource, pdfs: ReturnType<typeof fakePdfs>): Extension[] {
+  return [pdfRenderer.of(pdfs.renderer), ...plain(source, ["b.md", "docs/plan.pdf"])];
+}
+
+/** The page slots of the first pdf box, once the pdf has landed. */
+async function slotsOf(view: EditorView): Promise<HTMLElement[]> {
+  await waitFor(() => expect(view.dom.querySelector(".cm-pdf-page")).not.toBeNull());
+  return [...view.dom.querySelectorAll<HTMLElement>(".cm-embed-pdf .cm-pdf-page")];
+}
+
+describe("a pdf embed", () => {
+  beforeEach(() => {
+    FakeObserver.all = [];
+    vi.stubGlobal("IntersectionObserver", FakeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("draws the pdf's pages in place in a viewer box", async () => {
+    const pdfs = fakePdfs({ [PLAN]: 3 });
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(fakeVault({}).source, pdfs));
+
+    const slots = await slotsOf(view);
+    expect(slots).toHaveLength(3);
+    FakeObserver.reveal(slots[0] as HTMLElement);
+
+    await waitFor(() => expect(slots[0]?.querySelector("canvas")).not.toBeNull());
+    expect(view.contentDOM.textContent).not.toContain("![[");
+  });
+
+  it("finds docs/plan.pdf by the wikilink rule", () => {
+    const vault = fakeVault({});
+    const pdfs = fakePdfs({ [PLAN]: 1 });
+    mount(`${ABOVE}![[Plan.pdf]]`, withPdfs(vault.source, pdfs));
+
+    expect(pdfs.opened).toEqual([PLAN]);
+    expect(vault.watched).toEqual([]);
+  });
+
+  it("keeps the pdf in a fixed-height box that scrolls", () => {
+    const css = readFileSync("src/styles/app.css", "utf8");
+
+    expect(css).toMatch(/\.cm-embed-pdf\s*{[^}]*\bheight:\s*\d/s);
+    expect(css).toMatch(/\.cm-embed-pdf\s*{[^}]*overflow-y:\s*auto/s);
+  });
+
+  it("draws pages as they come into view, not all at once", async () => {
+    const pdfs = fakePdfs({ [PLAN]: 3 });
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(fakeVault({}).source, pdfs));
+    const slots = await slotsOf(view);
+    expect(pdfs.drawn).toEqual([]);
+
+    FakeObserver.reveal(slots[1] as HTMLElement);
+
+    await waitFor(() => expect(pdfs.drawn.map(([page]) => page)).toEqual([2]));
+  });
+
+  it("opens the pdf on ctrl or cmd and a click", () => {
+    const vault = fakeVault({});
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(vault.source, fakePdfs({ [PLAN]: 1 })));
+    const box = view.dom.querySelector(".cm-embed-pdf") as HTMLElement;
+
+    fireEvent.mouseDown(box, { ctrlKey: true });
+    fireEvent.mouseDown(box, { metaKey: true });
+
+    expect(vault.opened).toEqual([
+      ["docs/plan.pdf", undefined],
+      ["docs/plan.pdf", undefined],
+    ]);
+  });
+
+  it("does nothing on a plain click", () => {
+    const vault = fakeVault({});
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(vault.source, fakePdfs({ [PLAN]: 1 })));
+    const box = view.dom.querySelector(".cm-embed-pdf") as HTMLElement;
+
+    fireEvent.pointerDown(box, { pointerType: "mouse" });
+    fireEvent.mouseDown(box);
+    fireEvent.click(box);
+
+    expect(vault.opened).toEqual([]);
+  });
+
+  it("opens the pdf on a tap, and fits its pages to a phone-width box", async () => {
+    const vault = fakeVault({});
+    const pdfs = fakePdfs({ [PLAN]: 1 });
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(vault.source, pdfs));
+    const box = view.dom.querySelector(".cm-embed-pdf") as HTMLElement;
+
+    fireEvent.pointerDown(box, { pointerType: "touch" });
+    fireEvent.click(box);
+    expect(vault.opened).toEqual([["docs/plan.pdf", undefined]]);
+
+    Object.defineProperty(box, "clientWidth", { value: 360 });
+    const [slot] = await slotsOf(view);
+    FakeObserver.reveal(slot as HTMLElement);
+    await waitFor(() => expect(pdfs.drawn).toEqual([[1, (360 / 600) * window.devicePixelRatio]]));
+    await waitFor(() => expect(slot?.querySelector("canvas")?.style.width).toBe("100%"));
+  });
+
+  it("reads Not found where the vault holds no such pdf", () => {
+    const vault = fakeVault({});
+    const pdfs = fakePdfs({});
+    const view = mount(`${ABOVE}![[x.pdf]]`, withPdfs(vault.source, pdfs));
+
+    expect(view.dom.querySelector(".cm-embed-missing")?.textContent).toBe("Not found: x.pdf");
+    expect(vault.watched).toEqual([]);
+    expect(pdfs.opened).toEqual([]);
+  });
+
+  it("reads an error in the box where the pdf will not load", async () => {
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(fakeVault({}).source, fakePdfs({})));
+
+    await waitFor(() =>
+      expect(view.dom.querySelector(".cm-embed-pdf")?.textContent).toBe("Could not read plan.pdf"),
+    );
+  });
+
+  it("frees its pdf when it leaves the screen, and not on a keystroke", async () => {
+    const pdfs = fakePdfs({ [PLAN]: 1 });
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(fakeVault({}).source, pdfs));
+    const box = view.dom.querySelector(".cm-embed-pdf");
+
+    view.dispatch({ changes: { from: 0, insert: "more " } });
+    expect(view.dom.querySelector(".cm-embed-pdf")).toBe(box);
+    expect(pdfs.freed()).toBe(0);
+
+    view.dispatch({ changes: { from: view.state.doc.length - 2, insert: "x" } });
+    expect(view.dom.querySelector(".cm-embed-pdf")).toBeNull();
+    expect(pdfs.freed()).toBe(1);
+  });
+
+  it("shows its source with the cursor on the line, vim off", () => {
+    const pdfs = fakePdfs({ [PLAN]: 1 });
+    const view = mount(`${ABOVE}![[plan.pdf]]`, withPdfs(fakeVault({}).source, pdfs));
+    expect(view.dom.querySelector(".cm-embed-pdf")).not.toBeNull();
+
+    view.dispatch({ selection: EditorSelection.cursor(view.state.doc.length) });
+
+    expect(view.dom.querySelector(".cm-embed-pdf")).toBeNull();
+    expect(view.contentDOM.textContent).toContain("![[plan.pdf]]");
+  });
+
+  it("keeps the cursor out of the source it hides, vim on", () => {
+    const pdfs = fakePdfs({ [PLAN]: 1 });
+    const doc = "![[plan.pdf]]\nplain";
+    const view = mount(
+      doc,
+      [
+        vim(),
+        livePreview(),
+        vaultPaths.of(["docs/plan.pdf"]),
+        imagePaths.of([]),
+        embedSource.of(fakeVault({}).source),
+        pdfRenderer.of(pdfs.renderer),
+      ],
+      doc.indexOf("plain"),
+    );
+    expect(view.dom.querySelector(".cm-embed-pdf")).not.toBeNull();
+
+    view.dispatch({ selection: EditorSelection.cursor(2) });
+
+    expect(view.state.selection.main.head).toBe("![[plan.pdf]]".length);
   });
 });

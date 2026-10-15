@@ -1779,8 +1779,9 @@ link the cursor is in moves the cursor, as on a wikilink. `gf` and Enter leave
 markdown links alone.
 
 Ctrl+click or a tap on an embed, `![[note]]`, opens the embedded note in the
-focused pane, at its heading for `![[note#heading]]`. A plain click does nothing
-to it. [Embed format](/reference/embed-format.md) says what an embed draws.
+focused pane, at its heading for `![[note#heading]]`. On a pdf, `![[plan.pdf]]`,
+it opens the pdf in a browser tab, as `gf` does. A plain click does nothing to
+it. [Embed format](/reference/embed-format.md) says what an embed draws.
 
 A tap on a touch screen follows the link with no modifier. A finger that lands on a link and drags scrolls the note and follows
 nothing. A tap on the link the cursor is already in moves the cursor, so to
@@ -2463,8 +2464,11 @@ reminder that your text is still here and `:w` sends it again.
 Two commands end that state, and they are the two answers to the one question
 it asks, which writer wins. `:w` writes your buffer over the vault and keeps
 what you typed. `:e!` throws your buffer away and takes what the vault holds.
-Nothing else settles it: until one of them is pressed, nothing you typed
-reaches the vault and nothing the other writer left reaches your screen.
+Until one of them is pressed, nothing you typed reaches the vault and nothing
+the other writer left reaches your screen. The one exception is a writer that
+puts your buffer's own text in the vault: then nobody's text is lost, the
+conflict clears by itself, the bar reads saved, and the next key you type is
+written as usual.
 
 Without a prompt to type them at, which is a phone, click or tap the save sign:
 `Write my text` is `:w` and `Take the vault's` is `:e!`.

@@ -127,4 +127,15 @@ describe("queryEmbedSource", () => {
 
     expect(open).toHaveBeenCalledWith("a.md", 7);
   });
+
+  it("opens a pdf in a tab of its own, the way gf opens one", () => {
+    const open = vi.fn();
+    const tab = vi.spyOn(window, "open").mockReturnValue(null);
+
+    queryEmbedSource(new QueryClient(), open).open("my docs/plan.pdf");
+
+    expect(tab).toHaveBeenCalledWith("/api/assets/my%20docs/plan.pdf", "_blank");
+    expect(open).not.toHaveBeenCalled();
+    tab.mockRestore();
+  });
 });
