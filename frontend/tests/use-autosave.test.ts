@@ -2397,7 +2397,7 @@ describe("useAutosave", () => {
     });
 
     it("keeps the second write's text in pending when it fails after the first landed", async () => {
-      const { note, type, look } = withEditor("start");
+      const { note, type, look, shown } = withEditor("start");
       const first = pendingSave();
       const second = pendingSave();
 
@@ -2412,7 +2412,10 @@ describe("useAutosave", () => {
 
       expect(note.status()).toBe("error");
       expect(note.restored()).toBe(true);
-      expect(note.cached("index.md")).toBe("start");
+      // The vault's text, which the first write left there; the screen keeps
+      // the second's.
+      expect(note.cached("index.md")).toBe(written("T1").content);
+      expect(shown()).toBe("T2");
       await note.save();
       expect(saveNote).toHaveBeenLastCalledWith(
         "index.md",
@@ -2522,6 +2525,51 @@ describe("useAutosave", () => {
       expect(note.cached("index.md")).toBe("E");
       await second.finish();
       expect(saveNote).toHaveBeenLastCalledWith("index.md", "E, and mine", false, noteBase("E"));
+    });
+
+    it("reopens without a conflict after the second write and the flush fail behind a landed first", async () => {
+      const { note, type, look } = withEditor("start");
+      const first = pendingSave();
+      const second = pendingSave();
+
+      type("T1");
+      await idle();
+      type("T2");
+      await idle();
+      await first.finish();
+      look();
+      await second.break();
+      look();
+      saveNote.mockRejectedValueOnce(new Error("PUT /api/files/index.md failed with 500"));
+      note.open("other.md");
+      await settled();
+      note.open("index.md");
+      // The editor opens on what the cache holds, and asks about it.
+      note.allowReload(String(note.cached("index.md")));
+
+      expect(note.status()).toBe("error");
+    });
+
+    it("drops an older write that fails behind the hide's text when another note reloaded", async () => {
+      let doc = "start";
+      const note = renderAutosave("index.md", () => doc);
+      note.seed("index.md", "start");
+      const first = pendingSave();
+      pendingSave();
+
+      doc = "T1";
+      note.change("T1");
+      await idle();
+      doc = "T1x";
+      note.change("T1x");
+      await pagehide();
+      note.seed("b.md", "b text");
+      doc = "b text";
+      note.open("b.md");
+      note.allowReload("somebody else's b");
+      await first.break();
+
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1x"]);
     });
 
     it("names a reload's text typed while the older write was in the air, once that write lands", async () => {
