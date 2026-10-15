@@ -1207,6 +1207,26 @@ def test_i3_a_nested_mark_outside_a_cloze_is_one_highlight(field: str, expected:
     assert plain(field) == expected
 
 
+@pytest.mark.parametrize(
+    ("text", "cloze", "line"),
+    [
+        ("{{c1::a {{c2::b}}", False, "==a b=="),
+        ("x {{c1::a {{c2::b}} y", False, "x ==a b y=="),
+        ("{{c1::a {{c2::&#123;}}", True, "==a {=="),
+    ],
+    ids=["basic", "basic-around", "cloze-no-mark"],
+)
+def test_an_outer_mark_never_closed_keeps_its_card(text: str, cloze: bool, line: str) -> None:
+    # Its `::` would divide a line that is no cloze, and with no back that
+    # card has no `?` form to fall back on.
+    template = Template("Card 1", "{{Front}}", "{{Back}}")
+    card = Card(plain(text, cloze=cloze), "", {}, template, "Basic", cloze, nid=1, ord=0)
+    deck = Deck("x", [card], {})
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}::{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
 def test_i6_a_re_import_rewrites_a_line_main_wrote_with_an_entity_brace() -> None:
     # The line before #333's fix, its hash as the import wrote it then.
     line = "{{c1::a { {{c2::b}}}}"

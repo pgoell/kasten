@@ -196,7 +196,8 @@ holding a lone brace such as MathJax's `{{c1::\(x^{2}\)}}` or one with no text,
 brace it shows, so `{{c1::&#123;}}` becomes `=={==` as `{{c1::{}}` does. A
 nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
 kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
-`{{c1::a }}`. A cloze
+`{{c1::a }}`. Where no mark is kept, a mark never closed runs to the end of the
+field, so its `::` cannot split the line. A cloze
 note holding no mark kasten reads is written as `Text::Back Extra`. The count
 takes a cloze as one card per number, nested marks among them, so the line
 above counts two.

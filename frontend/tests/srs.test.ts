@@ -969,7 +969,7 @@ describe("an imported cloze with an entity brace or an empty inner mark", () => 
   });
 
   it("reads a brace highlight with a Back Extra as one card", () => {
-    expect(read("=={==\n?\nextra")).toEqual([[null, null]]);
+    expect(read("=={==::extra")).toEqual([[null, null]]);
   });
 
   it("reads a brace beside a cloze as the cloze's one card", () => {

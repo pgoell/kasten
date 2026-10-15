@@ -94,6 +94,8 @@ innermost mark, so an empty `{{c2::}}` inside `{{c1::a {{c2::}}}}` cannot end
 the outer one at its `}}` (#333); a lone brace it takes, as `_MARK` does not.
 Across lines too, or a mark over two would keep its `::` in a Basic field.
 """
+_OPEN = re.compile(r"\{\{c\d+::")
+"""A cloze mark's opener, which `plain` closes when the field never does."""
 _MARK = re.compile(r"\{\{c([0-9]+)::([^{}]+?)(?:::([^{}]*?))?\}\}")
 """A cloze mark kasten reads: `MARK` in `card-line.ts`, character for character.
 
@@ -315,6 +317,10 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     count = 1
     while count:
         text, count = _CLOZE.subn(keep, text)
+        # An opener never closed leaves its `::` to divide a line that is no
+        # cloze, and drop a card with no back, so it closes at the field's end.
+        if not count and _OPEN.search(text) and not (cloze and any(map(_MARK.search, kept))):
+            text, count = text + "}}", 1
 
     parser = _Markdown()
     parser.feed(text)
