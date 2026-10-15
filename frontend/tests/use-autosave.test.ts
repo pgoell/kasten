@@ -3698,5 +3698,57 @@ describe("useAutosave", () => {
       ]);
       expect(editor.note.status()).toBe("conflict");
     });
+
+    it("names the reopened buffer's own write on hide once it went out with the text of the write it never took", async () => {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T1");
+      await idle();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      // The same text typed again on "start": W2 waits behind W1.
+      type("T1");
+      await idle();
+      await vault.land(0);
+      expect(vault.request(1)).toMatchObject({ content: "T1", keepalive: false });
+      type("T1 more");
+      await pagehide();
+      expect(vault.request(2)).toMatchObject({ content: "T1 more", keepalive: true });
+      await vault.land(1);
+      await vault.land(2);
+
+      expect(landedAs("T1 more", vault.disk())).toBe(true);
+      expect(heldTexts("index.md")).toEqual([]);
+      expect(note.status()).toBe("saved");
+    });
+
+    it("holds a queued write off screen when the page dies with the reopened buffer's write queued behind it", async () => {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T0");
+      await idle();
+      type("T1");
+      note.startSave();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      type("start T2");
+      await idle();
+      type("start T2b");
+      await pagehide();
+      // W0 is the only write that went out; the keepalive names the base.
+      expect(vault.request(1)).toMatchObject({
+        content: "start T2b",
+        keepalive: true,
+        base: noteBase("start"),
+      });
+
+      expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "start T2b"]);
+    });
   });
 });

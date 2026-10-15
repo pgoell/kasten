@@ -41,20 +41,28 @@ interface InAir {
   named?: string;
   stale: string[];
   visit: number;
-  sent?: { content: string; loaded: number };
+  sent?: { content: string; loaded: number; visit: number };
   restoring: boolean;
   unseen?: InAir;
 }
 
 /**
+ * The write ahead that the buffer never took, while no write of this buffer
+ * went out since: the newest sent is still of that write's visit. By visit and
+ * not by text, which the buffer may have typed again (#317).
+ */
+function unseenOf(air: InAir | undefined): InAir | undefined {
+  const unseen = air?.unseen;
+  return unseen !== undefined && air?.sent?.visit === unseen.visit ? unseen : undefined;
+}
+
+/**
  * The text the newest write to a note sent, which text typed behind it was
- * typed on. Not after a reload since, nor while that write is one the buffer
- * never took: nothing of this buffer went out since, and naming it would land
- * over it unasked (#317).
+ * typed on. Not after a reload since, nor while that write is of a visit the
+ * buffer never took: naming it would land over it unasked (#317).
  */
 function sentUnder(air: InAir | undefined, loaded: number): string | undefined {
-  if (air?.sent?.loaded !== loaded) return undefined;
-  if (air.sent.content === air.unseen?.content) return undefined;
+  if (air?.sent?.loaded !== loaded || unseenOf(air) !== undefined) return undefined;
   return air.sent.content;
 }
 
@@ -346,7 +354,7 @@ export function useAutosave(
         // Onto whichever entry is newest now: a later write took this one's place.
         const newest = inAir.current.get(to);
         if (under !== undefined) newest?.stale.push(under);
-        if (newest !== undefined) newest.sent = { content, loaded };
+        if (newest !== undefined) newest.sent = { content, loaded, visit: opened };
         return under === undefined || wasConflicted
           ? saveNote(to, content)
           : saveNote(to, content, false, noteBase(under));
@@ -362,7 +370,7 @@ export function useAutosave(
         const under = before !== undefined && before !== content ? before : base;
         named = under;
         flying.named = under;
-        flying.sent = { content, loaded };
+        flying.sent = { content, loaded, visit: opened };
         if (under !== undefined) stale.push(under);
         // Whether the write ahead answered, read when the refusal comes.
         let answeredAhead = false;
@@ -1065,11 +1073,7 @@ export function useAutosave(
       // the page dying would cancel the write and keep its text nowhere (#317).
       // So too when that text already went to the queue and the buffer follows
       // its own write, still waiting behind the one it never took.
-      const unseen =
-        follows && fresh?.unseen !== undefined && fresh.sent?.content === fresh.unseen.content
-          ? fresh.unseen
-          : undefined;
-      const offScreen = follows ? unseen : fresh;
+      const offScreen = follows ? unseenOf(fresh) : fresh;
       if (offScreen !== undefined) {
         const out = offScreen.sent?.loaded === offScreen.loaded ? offScreen.sent : undefined;
         const under =
