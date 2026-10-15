@@ -2438,7 +2438,9 @@ for `:w`, `:e` and `:e!` everywhere this section names them.
 
 Something outside kasten writing the note is answered while it is open. A note
 you are not typing into simply takes the new text, with the cursor where you
-left it. A note holding unsaved edits keeps them, and the write alone marks
+left it, once any save of yours still on its way has answered: until then the
+screen keeps what you typed, and never shows an older save's text over a newer
+one. A note holding unsaved edits keeps them, and the write alone marks
 nothing. Every write kasten makes names the vault's text your buffer was typed
 on, and the vault refuses one it has moved past, keeping the other writer's
 text. So the next write, a second after you stop typing, is refused, and only
