@@ -182,10 +182,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       // and an entry held while this was in the air is newer text it never
       // carried.
       const carried = taken.current;
-      // What the vault held under the buffer as far as this visit knows now.
+      // What the vault held under the buffer as far as this visit knows now,
+      // which a held copy of this text keeps to tell on reopening whether
+      // somebody else wrote the note since.
       const base = lastBase(to);
-      // The text the request names, which a held copy of this text keeps to
-      // tell on reopening whether somebody else wrote the note since. Set as
+      // The text the request names, kept beside `base` when it differs. Set as
       // the request goes out: a write queued behind another names what that
       // one landed, not what the buffer was on when this was asked for.
       let named = base;
@@ -286,7 +287,8 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
             content,
             reason: message,
             conflicted: wasConflicted || refused,
-            base: named,
+            base,
+            after: named === base ? undefined : named,
           };
           // An entry held after this went out, on this visit's buffer, holds
           // newer text typed on top of this, the hide's, which is on screen
@@ -471,9 +473,12 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       take(held);
       // A vault moved past the text the buffer was based on is somebody
       // else's write since, and the held text must not go over it unasked.
-      // `landedAs`, because a base can be text a write sent, which the vault
+      // `landedAs`, because `after` is text a write sent, which the vault
       // then stamped.
-      const moved = held.base !== undefined && !landedAs(held.base, text);
+      const moved =
+        held.base !== undefined &&
+        !landedAs(held.base, text) &&
+        !(held.after !== undefined && landedAs(held.after, text));
       conflicted.current = held.conflicted || moved;
       setStatus(conflicted.current ? "conflict" : "error");
       setReason(held.reason);
@@ -603,14 +608,16 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
       const content = pending.current ?? inAir.current.get(path);
       if (content === undefined) return;
       if (content === taken.current?.content) return;
-      // The base the keepalive below names: text typed behind a write in the
-      // air is typed on that write's text, which lands first.
+      // Text typed behind a write in the air is typed on that write's text,
+      // which the keepalive below names. Kept beside the base and not in its
+      // place: the page may die before that write arrives.
       const before = inAir.current.get(path);
       const entry = {
         content,
         reason: "Not yet written when the page was hidden",
         conflicted: conflicted.current,
-        base: before !== undefined && before !== content ? before : lastBase(path),
+        base: lastBase(path),
+        after: before !== undefined && before !== content ? before : undefined,
       };
       holdText(path, entry, taken.current);
       // After every write already in the air, which a failing one reads.
@@ -661,9 +668,11 @@ export function useAutosave(path: string | undefined, shown?: () => string | und
     // An editor still to mount opens on the entry held now, and only that one
     // is taken when it asks. See `opening`. An editor already showing other
     // text never takes it this visit: a later reload would put it in `pending`
-    // under a screen that does not show it.
-    const shownOther = doc !== undefined && held !== undefined && !sameText(doc, held.content);
-    offered.current = path === undefined || shownOther ? undefined : heldText(path);
+    // under a screen that does not show it. Read again after the take above,
+    // which drops an entry found landed and leaves the next one first.
+    const next = path === undefined ? undefined : heldText(path);
+    const shownOther = doc !== undefined && next !== undefined && !sameText(doc, next.content);
+    offered.current = shownOther ? undefined : next;
     opening.current = false;
     // The flush of the note left set `saving` on its way out and never answers
     // here, so the reading starts again for the note opened, unless it holds

@@ -1157,6 +1157,38 @@ describe("useAutosave", () => {
     expect(heldRows().map(({ path }) => path)).toEqual(["moved.md", "moved.md", "moved.md"]);
   });
 
+  it("offers no entry a pane does not show after its shown entry was found landed", async () => {
+    // The pane stayed mounted on the oldest entry, which the vault came to hold.
+    const note = renderAutosave("daily/2026-08-05.md", () => "# first");
+    note.seed("index.md", "# first");
+    holdText("index.md", { content: "# first", reason: "failed with 500", conflicted: false });
+    holdText("index.md", { content: "# second", reason: "failed with 502", conflicted: false });
+
+    note.open("index.md");
+    expect(note.allowReload("somebody else's note")).toBe(true);
+
+    expect(note.restored()).toBe(false);
+    expect(heldText("index.md")?.content).toBe("# second");
+  });
+
+  it("reopens text held at hide as not saved when the write in the air never reached the vault", async () => {
+    const note = renderAutosave("index.md");
+    note.seed("index.md", "the index note");
+    // The page dies under both: the quiet write never arrives, and nobody
+    // hears how the keepalive went.
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+    saveNote.mockImplementationOnce(() => new Promise(() => {}));
+
+    note.change("# one");
+    await idle();
+    note.change("# two");
+    await pagehide();
+
+    const again = renderAutosave("index.md");
+    expect(again.allowReload("the index note")).toBe(false);
+    expect(again.status()).toBe("error");
+  });
+
   it("drops only the taken entry when it is saved, and offers the next on the next opening", async () => {
     holdText("index.md", { content: "# first", reason: "failed with 500", conflicted: false });
     holdText("index.md", { content: "# second", reason: "failed with 502", conflicted: false });
@@ -1850,7 +1882,7 @@ describe("useAutosave", () => {
       await first();
       await settled();
 
-      expect(heldText("index.md")?.base).toBe(server.disk());
+      expect(heldText("index.md")?.after).toBe(server.disk());
       // The next page, opening the note on what the vault holds.
       const again = renderAutosave("index.md");
       expect(again.allowReload(server.disk())).toBe(false);

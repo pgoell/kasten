@@ -22,6 +22,13 @@ export interface Held {
    * meanwhile. Absent from entries stored before this was kept.
    */
   base?: string;
+  /**
+   * The text of a write still in the air that the held text was typed behind,
+   * and which its own write named. Either that write landed and the vault
+   * holds this, or it never arrived and the vault still holds `base`: both
+   * mean nobody else wrote. Absent where no such write was in the air.
+   */
+  after?: string;
 }
 
 /** One held entry as the bar lists it, the entry itself carried by identity. */
@@ -96,7 +103,8 @@ function same(a: Held, b: Held): boolean {
     a.content === b.content &&
     a.reason === b.reason &&
     a.conflicted === b.conflicted &&
-    a.base === b.base
+    a.base === b.base &&
+    a.after === b.after
   );
 }
 
