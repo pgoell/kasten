@@ -3453,6 +3453,30 @@ describe("useAutosave", () => {
       expect(note.restored()).toBe(false);
     });
 
+    it("holds the write in the air off screen against the write it named, so reopening reads no conflict", async () => {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+
+      type("T0");
+      await idle();
+      type("T1");
+      note.startSave();
+      note.seed("b.md", "b");
+      note.open("b.md");
+      show("start");
+      note.open("index.md");
+      // W1 goes out behind W0, naming what W0 landed, and never answers.
+      await vault.land(0);
+      expect(vault.request(1)).toMatchObject({ content: "T1", base: noteBase(vault.disk()) });
+      await pagehide();
+      expect(saveNote).toHaveBeenCalledTimes(2);
+
+      // The vault holds W0's text, the reader's own: T1 was typed on it.
+      const again = reopen(vault.disk(), "T1");
+      expect(heldText("index.md")).toMatchObject({ content: "T1" });
+      expect(again.status()).not.toBe("conflict");
+    });
+
     it("holds without sending when a phone backgrounds the page reopened on the text under a write in the air", async () => {
       const vault = server("start");
       const { note, type, show } = withEditor("start");

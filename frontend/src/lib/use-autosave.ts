@@ -1043,13 +1043,23 @@ export function useAutosave(
       // A buffer reopened on the text under that write, which it does not
       // follow, shows other text: a keepalive would land this unseen (#314). Held
       // only, under the base it was typed on, so the page dying still keeps
-      // it, and the quiet write landing drops it.
+      // it, and the quiet write landing drops it. Beside it the text the write
+      // named, as the loop above keeps it: a write ahead of it that landed is
+      // the reader's own, no conflict on reopening.
       if (pending.current === null && fresh !== undefined && !follows) {
+        const out = fresh.sent?.loaded === fresh.loaded ? fresh.sent : undefined;
+        const under =
+          out === undefined
+            ? fresh.base
+            : out.content === fresh.content
+              ? (fresh.named ?? fresh.base)
+              : out.content;
         const entry: Held = {
           content: fresh.content,
           reason: "Not yet written when the page was hidden",
-          conflicted: false,
+          conflicted: conflicted.current,
           base: fresh.base,
+          after: under !== fresh.base ? under : undefined,
         };
         holdText(path, entry);
         heldAt.current.set(entry, { seq: saves.current, visit: fresh.visit });
