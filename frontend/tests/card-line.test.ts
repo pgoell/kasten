@@ -290,6 +290,15 @@ describe("a code span is code (#346, #347)", () => {
     expect(clozeNumbers("`{{c1::x}}` {{c2::y}}")).toEqual([2]);
   });
 
+  it("B1 reads a line of many code spans after an open mark in linear time", () => {
+    // Nested quantifiers took 3 seconds at 14 spans, doubling with each one more.
+    const line = `Use {{c1::${" `x`".repeat(30)}`;
+    const start = performance.now();
+
+    expect(clozeNumbers(line)).toEqual([]);
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+
   it("A3 finds no token inside a code span", () => {
     expect(suspended("`a !suspended b`::c")).toBe(false);
     expect(suspended("`a` !suspended")).toBe(true);

@@ -159,10 +159,13 @@ export function clozeComment(cloze: number): RegExp {
  * no hole, so `{{c1::a::{{c2::b}}}}` keeps `b` in the text where c2 can ask it.
  * A code span in the answer or hint is read whole, so `{{c1::`a::b`}}` hides
  * `` `a::b` `` rather than splitting it at a hint (#346); a lone backtick is
- * text. The import's `_MARK` is the same, less the hole.
+ * text. The import's `_MARK` is the same, less the hole. Each item, a span, a
+ * backtick run or a character, is taken whole through a lookahead's capture,
+ * which JavaScript never backtracks into: a line of many spans after an open
+ * mark would otherwise take time doubling with each span.
  */
 const MARK =
-  /\{\{c(\d+)::((?:(`+)(?!`)[^{}]*?(?<!`)\3(?!`)|[^{}])+?)(?:::((?:(`+)(?!`)[^{}]*?(?<!`)\5(?!`)|[^{}])*?))?\}\}/g;
+  /\{\{c(\d+)::((?:(?=((`+)(?!`)[^{}]*?(?<!`)\4(?!`)|`+|[^{}`]))\3)+?)(?:::((?:(?=((`+)(?!`)[^{}]*?(?<!`)\7(?!`)|`+|[^{}`]))\6)*?))?\}\}/g;
 
 /**
  * Where a mark already read stood: its index between two private-use characters.
@@ -209,8 +212,10 @@ function parse(line: string): Piece[] {
         whole: string,
         number: string,
         body: string,
+        _item: string,
         _ticks: string | undefined,
         hint: string | undefined,
+        _hintItem: string | undefined,
         _hintTicks: string | undefined,
         at: number,
       ) => {
