@@ -1119,7 +1119,8 @@ describe("an escape the import writes (#342, #343)", () => {
   it("A4 takes markdown's escapes off the typed target, and not inside code", () => {
     const [card] = read("{{c1::\\*a\\* `\\*`}}");
 
-    expect(card?.target).toBe("*a* `\\*`");
+    // The backticks go, as nobody types them (#346); the escape inside stays.
+    expect(card?.target).toBe("*a* \\*");
   });
 });
 
@@ -1145,6 +1146,18 @@ describe("a code span is code (#346, #347)", () => {
   it("A3 parks no cloze for a token inside a code span", () => {
     expect(read("{{c1::x}} `a !suspended b`")[0]?.parked).toBeNull();
     expect(read("{{c1::`!suspended`}}")[0]?.parked).toBeNull();
+  });
+
+  it("B3 types a nested mark from code without backticks", () => {
+    const [c1, c2] = read("{{c1::`a` {{c2::`b`}}}}");
+
+    expect(c1?.target).toBe("a b");
+    expect(c2?.target).toBe("b");
+  });
+
+  it("B2 asks no card for a 0.49.x line with a mark in code", () => {
+    expect(parseCards("`{{c1::a&#58;&#58;b}}` <!--SR:c1!2026-10-20,3,250-->")).toEqual([]);
+    expect(parseCards("`{{c1::x}}`")).toEqual([]);
   });
 
   it("I4 keeps a token inside a code span on the back", () => {
