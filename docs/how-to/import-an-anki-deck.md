@@ -205,7 +205,11 @@ no hint. A field whose text shows `&#58;` itself, written `&amp;#58;`, is
 written `\&#58;` on any side outside code, which kasten shows as the text
 `&#58;` as Anki does. That holds where a tag splits it too: `a&amp;#<b></b>58;b`
 shows `a&#58;b` and is written `a\&#58;b`. A backslash in a cloze answer is doubled as anywhere
-else, so an answer Anki shows as `a\::b` is written `{{c1::a\\&#58;&#58;b}}`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
+else, so an answer Anki shows as `a\::b` is written `{{c1::a\\&#58;&#58;b}}`. A
+schedule comment in a cloze answer or hint takes its backslash as on any line,
+in code too, so `{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}` is written
+`{{c1::<!--SR\:c1!2026-01-01,1,250-->}}`: review asks it as the text Anki shows
+and never reads it as the schedule of `c1`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
 kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
 `{{c1::a }}`. Where no mark is kept, a mark never closed runs to the end of the
 field, so its `::` cannot split the line. A cloze
@@ -241,8 +245,9 @@ Text that markdown would read as formatting gets a backslash, so it reads as
 text: `2\*3`, `snake\_case`, `` \` ``, `\[note]` and `\=\=`. A backslash the
 field shows is written `\\`, so `a\-b` stays `a\-b` and is no escape. A line
 opening with three backticks is written `` \`\`\` ``, so it opens no code block.
-Inside code, `<code>` or a line of a `<pre>`, nothing gets a backslash, since
-kasten shows a code span as written: `<code>a\-b</code>` is `` `a\-b` `` and a
+Inside code, `<code>` or a line of a `<pre>`, only a schedule comment and the
+import's own marker get a backslash, because kasten reads those in code too.
+Nothing else does, since kasten shows a code span as written: `<code>a\-b</code>` is `` `a\-b` `` and a
 `<code>` showing `&#58;` is `` `&#58;` ``. Every entity but that one colon
 arrives as the text Anki shows, `&copy;` as `&copy;`.
 

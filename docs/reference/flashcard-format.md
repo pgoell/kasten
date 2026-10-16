@@ -253,6 +253,10 @@ number rewrites its own comment and no other. The name is what makes the order
 free, and it is kasten's: obsidian-spaced-repetition's `<!--SR:!` does not
 match these comments.
 
+A comment written with a backslash, `<!--SR\:c1!2026-01-01,1,250-->`, is text
+and no schedule, wherever it sits on the line, a cloze answer or a code span
+included. The schedule is only a comment without one.
+
 ## Parking a card
 
 A parked card stays in the note and leaves the queue. Nothing asks it, and the
