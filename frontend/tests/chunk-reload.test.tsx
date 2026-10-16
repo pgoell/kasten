@@ -29,6 +29,19 @@ describe("RouteError", () => {
     expect(screen.getByText("Something went wrong!")).toBeInTheDocument();
   });
 
+  it("leaves a gone JS chunk to the router and does not reload itself", () => {
+    const error = new Error("Failed to fetch dynamically imported module: /assets/x.js");
+    render(<RouteError error={error} reset={() => {}} />);
+    expect(reload).not.toHaveBeenCalled();
+    expect(screen.getByText("Something went wrong!")).toBeInTheDocument();
+  });
+
+  it("shows a thrown value that is not an Error as before", () => {
+    render(<RouteError error={"boom" as unknown as Error} reset={() => {}} />);
+    expect(reload).not.toHaveBeenCalled();
+    expect(screen.getByText("Something went wrong!")).toBeInTheDocument();
+  });
+
   it("shows any other error as before without reloading", () => {
     render(<RouteError error={new Error("boom")} reset={() => {}} />);
     expect(reload).not.toHaveBeenCalled();
