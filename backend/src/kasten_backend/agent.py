@@ -170,8 +170,8 @@ months of them, so an id that has fallen off is one no phone still holds.
 def _receipts(store: Path) -> list[str]:
     """Every capture id written so far, oldest first, or none when there is no file.
 
-    A file that is not JSON, or not a list of strings, reads as none too, with a
-    warning. Refusing would answer every capture with an id with a 500, and a
+    A file that cannot be read, is not JSON, or is not a list of strings reads
+    as none too, with a warning. Refusing would answer every capture with an id with a 500, and a
     phone's queue would stall behind it for good. Reading it as empty risks one
     duplicate paragraph at worst, and the next receipt write replaces the file.
     """
@@ -179,7 +179,9 @@ def _receipts(store: Path) -> list[str]:
         ids = json.loads(store.read_text("utf-8"))
     except FileNotFoundError:
         return []
-    except json.JSONDecodeError:
+    # A permission error or a directory standing at the path, bytes that are
+    # not UTF-8, text that is not JSON: each would stall the queue the same way.
+    except OSError, UnicodeDecodeError, json.JSONDecodeError:
         ids = None
 
     if not isinstance(ids, list) or not all(isinstance(each, str) for each in ids):

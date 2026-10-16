@@ -82,6 +82,9 @@ function Capture() {
   const navigate = useNavigate();
   // A share is what the user came to send, so it wins over an old draft.
   const [draft, setDraft] = useState(() => sharedDraft(shared) || storedDraft());
+  // While a share fills the box the stored draft is someone else's text, so
+  // nothing here writes or clears it until the share has gone.
+  const fromShare = useRef(sharedDraft(shared) !== "");
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [sent, setSent] = useState<Sent[]>([]);
@@ -136,8 +139,15 @@ function Capture() {
 
   /** Empty the box once what it held is safe, and drop the share it came from. */
   function cleared() {
-    setDraft("");
-    storeDraft("");
+    if (fromShare.current) {
+      // The share is sent and the page is the plain one again, so the draft
+      // it stood in front of comes back.
+      fromShare.current = false;
+      setDraft(storedDraft());
+    } else {
+      setDraft("");
+      storeDraft("");
+    }
     setSending(false);
     // The share is spent, so a reload must not put it back in the box.
     void navigate({ to: "/capture", search: {}, replace: true });
@@ -202,7 +212,7 @@ function Capture() {
           value={draft}
           onChange={(event) => {
             setDraft(event.target.value);
-            storeDraft(event.target.value);
+            if (!fromShare.current) storeDraft(event.target.value);
           }}
           aria-label="What is on your mind"
           rows={6}

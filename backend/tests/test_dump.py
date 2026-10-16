@@ -243,6 +243,30 @@ async def test_a_corrupt_receipts_file_reads_as_none(
     assert kept(receipts) == [ID]
 
 
+def unreadable(receipts: Path, kind: str) -> None:
+    """Leave a receipts path that cannot be read as text: bytes not UTF-8, or a directory."""
+    if kind == "bytes":
+        receipts.write_bytes(b"\xff\xfe[]")
+    else:
+        receipts.mkdir()
+
+
+@pytest.mark.parametrize("kind", ["bytes", "directory"])
+async def test_an_unreadable_receipts_file_reads_as_none(
+    client: AsyncClient, vault: Path, receipts: Path, kind: str
+) -> None:
+    unreadable(receipts, kind)
+
+    response = await client.post(
+        "/api/dump", json={"text": "call Jonas", "date": "2026-09-29", "id": ID}
+    )
+
+    # A directory cannot be replaced by the receipt write either, and the guard
+    # around that write keeps the answer a 200.
+    assert response.status_code == 200
+    assert paragraphs(vault, "call Jonas") == 1
+
+
 async def test_a_failed_receipt_write_still_answers_with_the_note(
     client: AsyncClient, vault: Path, receipts: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

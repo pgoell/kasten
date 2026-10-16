@@ -38,7 +38,8 @@ thought stays under **Waiting**, while the ones after it still go. If the
 server itself is down, every thought waits so they keep their order.
 
 Text still in the box when the app closes is there again when you open
-`/capture` next, unless you arrive through a share.
+`/capture` next. A share fills the box without touching it, and it comes back
+once the share is sent.
 
 ## Put it on the home screen
 

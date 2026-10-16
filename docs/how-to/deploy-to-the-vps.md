@@ -398,8 +398,11 @@ box: `KASTEN_NETWORK` (`web`) for the external network, and `KASTEN_DB_PORT`
 
 The frontend ships `/sw.js`, a worker that opens the installed app with no
 signal. To remove it, ship a worker that removes itself. Put this in
-`frontend/sw/sw.js` and cut a release. Each phone fetches it on its next start
-while online. It takes over at once, deletes every cache, unregisters, and
+`frontend/sw/sw.js`, delete the line `import "./lib/service-worker";` from
+`frontend/src/main.tsx` in the same release (or every load registers the
+self-removing worker again), and cut the release. The browser fetches `/sw.js`
+through oauth2-proxy, so a phone picks it up only when it opens the app online
+with a live session: sign in first if it has expired. It takes over at once, deletes every cache, unregisters, and
 reloads every open window, which then loads from the network with no worker:
 
 ```js

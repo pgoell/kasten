@@ -95,6 +95,24 @@ describe("the capture route", () => {
     expect((await renderRoute()).field).toHaveValue("");
   });
 
+  it("leaves a stored draft alone while a share is in the box, and brings it back after", async () => {
+    const first = await renderRoute();
+    fireEvent.change(first.field, { target: { value: "half thought" } });
+    cleanup();
+
+    answering(ok);
+    const { field } = await renderRoute("/capture?text=https%3A%2F%2Fx");
+    expect(field).toHaveValue("https://x");
+    fireEvent.change(field, { target: { value: "https://x edited" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(field).toHaveValue("half thought"));
+    expect(localStorage.getItem("kasten-capture-draft")).toBe("half thought");
+    cleanup();
+
+    expect((await renderRoute()).field).toHaveValue("half thought");
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });
