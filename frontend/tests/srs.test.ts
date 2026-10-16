@@ -1025,4 +1025,18 @@ describe("an imported cloze whose answer holds an entity colon", () => {
     expect(card?.front).toBe("=={::b==");
     expect(card?.back).toBe("extra");
   });
+
+  it("shows an entity :: in a ? card's highlight as colons", () => {
+    const [card] = read("=={&#58;&#58;b==\n?\ne1\ne2");
+
+    expect(card?.front).toBe("=={::b==");
+    expect(card?.back).toBe("e1\ne2");
+  });
+
+  it("shows &#58; as a colon on both sides of a hand-written card, as markdown does", () => {
+    const [card] = parseCards("Is &#58; a colon?::a&#58;b\n");
+
+    expect(card?.front).toBe("Is : a colon?");
+    expect(card?.back).toBe("a:b");
+  });
 });

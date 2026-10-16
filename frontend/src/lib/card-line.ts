@@ -256,7 +256,18 @@ export function clozeQuestion(line: string, cloze: number): string {
 
 /** The line as its sentence, every mark its plain text, which names a cloze as a whole. */
 export function clozePlain(line: string): string {
-  return drawn(line, 0, (text) => text);
+  return colons(drawn(line, 0, (text) => text));
+}
+
+/**
+ * `text` with `&#58;` read as the colon markdown shows for it.
+ *
+ * The import writes a cloze answer's colons as `&#58;` where a typed `::`
+ * would split the answer at a hint (#335). The preview draws no entity, so a
+ * card decodes it before the preview sees it, a hand-written one too.
+ */
+export function colons(text: string): string {
+  return text.replaceAll("&#58;", ":");
 }
 
 /** The answer: the whole line, with this number's text highlighted. */

@@ -51,6 +51,7 @@ import {
   clozeNumbers,
   clozeQuestion,
   clozeTarget,
+  colons,
   divide,
   fences,
   holdsCloze,
@@ -197,17 +198,6 @@ function typedTarget(target: string): string {
 }
 
 /**
- * `text` with an imported answer's `&#58;` read as the colon Anki shows.
- *
- * The import writes a cloze answer's colons as `&#58;` where a typed `::`
- * would split the answer at a hint, and in no other form. The preview draws
- * no entity, so the card decodes it before the preview sees it.
- */
-function colons(text: string): string {
-  return text.replaceAll("&#58;", ":");
-}
-
-/**
  * One card per number the cloze `line` holds, in ascending order.
  *
  * Pushed in that order and sorted by line alone, so the ordinals the session
@@ -322,8 +312,8 @@ export function parseCards(text: string, note = ""): Card[] {
       to,
       // The card's own tags are part of the format and not part of the
       // question, so they come off the front before it is ever asked.
-      front: withoutTags(lines.slice(from, at).join("\n")).trim(),
-      back,
+      front: colons(withoutTags(lines.slice(from, at).join("\n")).trim()),
+      back: colons(back),
       inline: false,
       decks: [],
       held: schedule,
@@ -361,10 +351,8 @@ export function parseCards(text: string, note = ""): Card[] {
     cards.push({
       from: at,
       to: at,
-      // A cloze mark the import could not keep is a highlight here, its
-      // colons still written as the mark wrote them.
       front: colons(withoutTags(halves.front).trim()),
-      back: halves.back,
+      back: colons(halves.back),
       inline: true,
       decks: [],
       held: readSchedule(line),

@@ -110,6 +110,10 @@ describe("a nested cloze line", () => {
     expect(clozeTarget(deep, 1)).toBe(`${"x ".repeat(600)}y`);
   });
 
+  it("names a cloze whose answer the import wrote with &#58; by its colons", () => {
+    expect(clozePlain("{{c1::a&#58;&#58;b}} x")).toBe("a::b x");
+  });
+
   it("I2 highlights the answer flat, the inner text plain inside", () => {
     expect(clozeAnswer(CANBERRA, 1)).toBe("==Canberra was founded in 1913==");
     expect(clozeAnswer(CANBERRA, 2)).toBe("Canberra was ==founded== in 1913");
