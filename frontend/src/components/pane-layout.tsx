@@ -128,6 +128,14 @@ function tabLabel(tab: Tab): string {
   if (focused?.pdf !== undefined) return baseName(focused.pdf.path);
   if (focused?.image !== undefined) return baseName(focused.image);
   if (focused?.html !== undefined) return baseName(focused.html);
+  // An exam and a card are each about one note, and are named by it (#363).
+  if (focused?.exam !== undefined) return noteName(focused.exam);
+  if (focused?.person !== undefined) return noteName(focused.person);
+  if (focused?.graph !== undefined) {
+    const { around } = focused.graph;
+    return around === undefined ? "graph view" : `graph of ${noteName(around)}`;
+  }
+  if (focused?.review === true) return "review";
   return focused?.path === undefined ? "empty" : noteName(focused.path);
 }
 

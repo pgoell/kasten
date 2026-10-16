@@ -187,6 +187,41 @@ describe("the safe area on a phone", () => {
     expect([footer.left, footer.right, footer.bottom, footer.height]).toEqual([0, 1280, 800, 24]);
   });
 
+  // A guard, green before #364's fix as well: Chromium on a desktop draws no
+  // system bars, so the edge-to-edge sums that made a Galaxy S22 Ultra scroll
+  // cannot be had here. It holds the frame's own arithmetic to the viewport.
+  // The S22 Ultra is 1440x3088 at a DPR of 3.75, so 384x823; an installed app
+  // there keeps the 24px status bar and the 48px three-button bar, leaving
+  // 751. Its insets are zero, which is what Android has without cover. The
+  // size stands in for the installed app: headless Chromium (151) ignores a
+  // `display-mode` passed to Emulation.setEmulatedMedia, and no style here
+  // reads display-mode anyway.
+  it.each([
+    { device: "an S22 Ultra, installed", width: 384, height: 751, insets: NONE },
+    { device: "an iPhone", ...PORTRAIT },
+  ])("the document never scrolls on $device", async ({ width, height, insets }) => {
+    await device(width, height, insets);
+    // The home route's frame and then the review's, each in a root as tall as
+    // the page, the way `#root` holds them.
+    for (const frame of [
+      <Frame key="home" phone={true} />,
+      <main key="review" className="safe-frame safe-foot h-dvh w-full">
+        <div className="h-full" />
+      </main>,
+    ]) {
+      await mount(frame);
+      container?.classList.add("h-full");
+      const html = document.documentElement;
+      expect(html.scrollHeight).toBeLessThanOrEqual(html.clientHeight);
+      const main = (document.querySelector("main") as HTMLElement).getBoundingClientRect();
+      expect(main.bottom).toBe(window.innerHeight);
+      const toolbar = document.querySelector('[role="toolbar"]');
+      if (toolbar) expect(toolbar.getBoundingClientRect().bottom).toBe(window.innerHeight);
+      await act(async () => root?.unmount());
+      container?.remove();
+    }
+  });
+
   it("the file tree drawer and the overlays stay inside the safe area", async () => {
     for (const { width, height, insets } of [PORTRAIT, LANDSCAPE]) {
       await device(width, height, insets);

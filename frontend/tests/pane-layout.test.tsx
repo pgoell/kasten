@@ -8,10 +8,15 @@ import {
   goToTab,
   type Layout,
   openBookBeside,
+  openExamInFocused,
+  openGraphBeside,
+  openGraphInFocused,
   openHtmlInFocused,
   openImageInFocused,
   openInFocused,
   openPdfBeside,
+  openPersonBeside,
+  openReviewInFocused,
   splitFocused,
   tabPanes,
   toggleZoom,
@@ -138,6 +143,59 @@ describe("TabStrip", () => {
 
     expect(screen.getByRole("tab", { name: /borges/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /empty/ })).toBeInTheDocument();
+  });
+
+  it("names a tab sitting an exam by the exam's note", () => {
+    render(
+      <TabStrip
+        layout={openExamInFocused(addTab(emptyLayout()), "borges.md")}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 borges");
+  });
+
+  it("names a tab showing a person card by the person", () => {
+    render(
+      <TabStrip layout={openPersonBeside(addTab(emptyLayout()), "ada.md")} onSelect={() => {}} />,
+    );
+
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 ada");
+  });
+
+  it("names a tab drawing the whole vault graph view", () => {
+    render(<TabStrip layout={openGraphInFocused(addTab(emptyLayout()))} onSelect={() => {}} />);
+
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 graph view");
+  });
+
+  it("names a tab holding the review review", () => {
+    render(<TabStrip layout={openReviewInFocused(addTab(emptyLayout()))} onSelect={() => {}} />);
+
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 review");
+  });
+
+  it("names a tab drawing the graph around a note by that note", () => {
+    render(
+      <TabStrip
+        layout={openGraphBeside(addTab(emptyLayout()), "ideas/borges.md")}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("2 graph of borges");
+  });
+
+  it("names a person or exam tab without the folder or the suffix", () => {
+    const person = openPersonBeside(addTab(emptyLayout()), "people/Ada Lovelace.md");
+    const exam = openExamInFocused(addTab(person), "notes/Borges.md");
+
+    render(<TabStrip layout={exam} onSelect={() => {}} />);
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs[1]).toHaveTextContent("2 Ada Lovelace");
+    expect(tabs[2]).toHaveTextContent("3 Borges");
   });
 
   // jsdom applies no media query, so this reads the class that carries one.

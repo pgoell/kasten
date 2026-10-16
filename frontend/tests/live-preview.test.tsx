@@ -1,10 +1,12 @@
 /// <reference types="node" />
 
 import { readFileSync } from "node:fs";
+import { forceParsing } from "@codemirror/language";
 import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, type RenderResult, render, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
 import { EMBED_DEPTH, type EmbedSource, embedSource } from "@/lib/embed";
@@ -20,16 +22,38 @@ function content(container: HTMLElement): string {
   return (container.querySelector(".cm-content") as HTMLElement).textContent ?? "";
 }
 
+/**
+ * Parses the whole note before a test reads the first draw.
+ *
+ * CodeMirror gives the parse at state creation 20ms of wall clock and leaves the
+ * rest to an idle callback. On a loaded machine the tree, and so the drawing
+ * built from it, can stop partway (#365). A partial first draw is fine in the
+ * app; a test that counts bullets at once needs the whole tree.
+ */
+function parsed(view: EditorView): void {
+  act(() => {
+    forceParsing(view, view.state.doc.length, 5000);
+  });
+}
+
+/** `render` for an `Editor`, its note parsed to the end. */
+function renderEditor(ui: ReactElement): RenderResult {
+  const result = render(ui);
+  const dom = result.container.querySelector(".cm-editor") as HTMLElement;
+  parsed(EditorView.findFromDOM(dom) as EditorView);
+  return result;
+}
+
 describe("live preview", () => {
   it("hides heading marks in normal mode", () => {
-    const { container } = render(<Editor initialDoc={"## Notes\n\nplain"} />);
+    const { container } = renderEditor(<Editor initialDoc={"## Notes\n\nplain"} />);
 
     expect(content(container)).toContain("Notes");
     expect(content(container)).not.toContain("##");
   });
 
   it("reveals the cursor's line on entering insert mode", async () => {
-    const { container } = render(<Editor initialDoc={"## Notes\n\nplain"} />);
+    const { container } = renderEditor(<Editor initialDoc={"## Notes\n\nplain"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -37,7 +61,7 @@ describe("live preview", () => {
   });
 
   it("re-hides the marks on escape back to normal", async () => {
-    const { container } = render(<Editor initialDoc={"## Notes\n\nplain"} />);
+    const { container } = renderEditor(<Editor initialDoc={"## Notes\n\nplain"} />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     // Waited for on the way in as well, so the re-hide is a round trip rather
@@ -51,7 +75,7 @@ describe("live preview", () => {
   });
 
   it("renders inline emphasis with the marks hidden", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc="**bold** and *italic* and `code` and ~~gone~~" />,
     );
 
@@ -59,13 +83,13 @@ describe("live preview", () => {
   });
 
   it("renders a highlight with its equals signs hidden", () => {
-    const { container } = render(<Editor initialDoc="a ==marked== word" />);
+    const { container } = renderEditor(<Editor initialDoc="a ==marked== word" />);
 
     expect(content(container)).toBe("a marked word");
   });
 
   it("reveals the inline marks of the construct the cursor is in", async () => {
-    const { container } = render(<Editor initialDoc="**bold**" />);
+    const { container } = renderEditor(<Editor initialDoc="**bold**" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -73,7 +97,7 @@ describe("live preview", () => {
   });
 
   it("reveals inline marks in visual mode", async () => {
-    const { container } = render(<Editor initialDoc="**bold**" />);
+    const { container } = renderEditor(<Editor initialDoc="**bold**" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "v" });
 
@@ -81,13 +105,17 @@ describe("live preview", () => {
   });
 
   it("renders a link as its text alone", () => {
-    const { container } = render(<Editor initialDoc="see [the docs](https://example.com) now" />);
+    const { container } = renderEditor(
+      <Editor initialDoc="see [the docs](https://example.com) now" />,
+    );
 
     expect(content(container)).toBe("see the docs now");
   });
 
   it("reveals the whole link with the cursor in it in insert mode", async () => {
-    const { container } = render(<Editor initialDoc="see [the docs](https://example.com) now" />);
+    const { container } = renderEditor(
+      <Editor initialDoc="see [the docs](https://example.com) now" />,
+    );
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     // `w` off the first word lands on the link's `[`, which is hidden, so the
@@ -99,7 +127,7 @@ describe("live preview", () => {
   });
 
   it("leaves the constructs the cursor is not in rendered", async () => {
-    const { container } = render(<Editor initialDoc="**bold** and *italic*" />);
+    const { container } = renderEditor(<Editor initialDoc="**bold** and *italic*" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -107,14 +135,14 @@ describe("live preview", () => {
   });
 
   it("renders a wikilink as the note it names", () => {
-    const { container } = render(<Editor initialDoc="see [[reading/borges]] now" />);
+    const { container } = renderEditor(<Editor initialDoc="see [[reading/borges]] now" />);
 
     expect(content(container)).toBe("see reading/borges now");
     expect(container.querySelector(".cm-wikilink")?.textContent).toBe("reading/borges");
   });
 
   it("reveals the brackets with the cursor in the wikilink in insert mode", async () => {
-    const { container } = render(<Editor initialDoc="see [[borges]] now" />);
+    const { container } = renderEditor(<Editor initialDoc="see [[borges]] now" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(editor, { key: "w" });
@@ -124,7 +152,7 @@ describe("live preview", () => {
   });
 
   it("marks a link to a note the vault does not hold", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc="[[borges]] and [[ficciones]]" paths={["reading/borges.md"]} />,
     );
 
@@ -135,14 +163,14 @@ describe("live preview", () => {
   it("marks nothing dead where the vault is not known, as in a preview pane", () => {
     // No listing is not an empty listing: a view that was told nothing must not
     // call every link in the note broken.
-    const { container } = render(<Editor initialDoc="[[borges]]" />);
+    const { container } = renderEditor(<Editor initialDoc="[[borges]]" />);
 
     expect(container.querySelector(".cm-wikilink")).not.toBeNull();
     expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
   });
 
   it("draws a link with an alias as the alias", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor
         initialDoc="see [[reading/borges#The Aleph|the story]] now"
         paths={["reading/borges.md"]}
@@ -155,14 +183,14 @@ describe("live preview", () => {
   });
 
   it("draws a link to a heading of its own note as alive", () => {
-    const { container } = render(<Editor initialDoc="see [[#The Aleph]]" paths={["a.md"]} />);
+    const { container } = renderEditor(<Editor initialDoc="see [[#The Aleph]]" paths={["a.md"]} />);
 
     expect(container.querySelector(".cm-wikilink")?.textContent).toBe("#The Aleph");
     expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
   });
 
   it("marks an alias dead by the note behind it", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc="[[borges|Jorge]] and [[cortazar|Julio]]" paths={["borges.md"]} />,
     );
 
@@ -170,7 +198,7 @@ describe("live preview", () => {
   });
 
   it("shows the whole link again with the cursor in it in insert mode", async () => {
-    const { container } = render(<Editor initialDoc="see [[borges|Jorge]] now" />);
+    const { container } = renderEditor(<Editor initialDoc="see [[borges|Jorge]] now" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(editor, { key: "w" });
@@ -180,7 +208,7 @@ describe("live preview", () => {
   });
 
   it("brings a link back to life when the note it names arrives", () => {
-    const { container, rerender } = render(<Editor initialDoc="[[borges]]" paths={[]} />);
+    const { container, rerender } = renderEditor(<Editor initialDoc="[[borges]]" paths={[]} />);
     expect(container.querySelector(".cm-wikilink-dead")).not.toBeNull();
 
     rerender(<Editor initialDoc="[[borges]]" paths={["borges.md"]} />);
@@ -193,38 +221,38 @@ describe("live preview", () => {
   // hiding those brackets is what this file has always done. What is being
   // asked here is only whether a wikilink opened, and none of the three is one.
   it("makes no wikilink of a bracket pair with no note in it", () => {
-    const { container } = render(<Editor initialDoc="[[]] and [[ ]]" />);
+    const { container } = renderEditor(<Editor initialDoc="[[]] and [[ ]]" />);
 
     expect(container.querySelector(".cm-wikilink")).toBeNull();
   });
 
   it("leaves an unclosed wikilink alone", () => {
-    const { container } = render(<Editor initialDoc="[[borges and more" />);
+    const { container } = renderEditor(<Editor initialDoc="[[borges and more" />);
 
     expect(content(container)).toBe("[[borges and more");
   });
 
   it("does not carry a wikilink across a line break", () => {
-    const { container } = render(<Editor initialDoc={"[[borges\nand]] more"} />);
+    const { container } = renderEditor(<Editor initialDoc={"[[borges\nand]] more"} />);
 
     expect(container.querySelector(".cm-wikilink")).toBeNull();
   });
 
   it("labels the name in front of a relation", () => {
-    const { container } = render(<Editor initialDoc="depends-on:: [[borges]]" />);
+    const { container } = renderEditor(<Editor initialDoc="depends-on:: [[borges]]" />);
 
     expect(container.querySelector(".cm-relation")?.textContent).toBe("depends-on::");
   });
 
   it("draws the relation's target as it draws any other wikilink", () => {
-    const { container } = render(<Editor initialDoc="depends-on:: [[borges]]" />);
+    const { container } = renderEditor(<Editor initialDoc="depends-on:: [[borges]]" />);
 
     expect(container.querySelector(".cm-wikilink")?.textContent).toBe("borges");
     expect(content(container)).toBe("depends-on:: borges");
   });
 
   it("labels nothing on a line that is not a relation", () => {
-    const { container } = render(<Editor initialDoc="see [[borges]] and [[ficciones]]" />);
+    const { container } = renderEditor(<Editor initialDoc="see [[borges]] and [[ficciones]]" />);
 
     expect(container.querySelector(".cm-relation")).toBeNull();
   });
@@ -233,7 +261,7 @@ describe("live preview", () => {
     // vim signals this mode change from inside its own dispatch, so answering
     // it synchronously re-enters the update, CodeMirror kills the plugin that
     // did it, and the editor is left with no vim at all.
-    const { container } = render(<Editor initialDoc={"## Notes\nbeta"} />);
+    const { container } = renderEditor(<Editor initialDoc={"## Notes\nbeta"} />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(editor, { key: "v" });
@@ -248,13 +276,13 @@ describe("live preview", () => {
   });
 
   it("renders blockquotes and list bullets", () => {
-    const { container } = render(<Editor initialDoc={"> quoted\n\n- first\n- second"} />);
+    const { container } = renderEditor(<Editor initialDoc={"> quoted\n\n- first\n- second"} />);
 
     expect(content(container)).toBe("quotedfirstsecond");
   });
 
   it("stops drawing the bullet on the line that shows its dash", async () => {
-    const { container } = render(<Editor initialDoc={"- first\n- second"} />);
+    const { container } = renderEditor(<Editor initialDoc={"- first\n- second"} />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     expect(container.querySelectorAll(".cm-bullet")).toHaveLength(2);
@@ -267,8 +295,24 @@ describe("live preview", () => {
     expect(content(container)).toContain("- first");
   });
 
+  it("draws every bullet once the parse that ran out of time is forced to the end", () => {
+    // A clock that leaps a second each read spends the first parse's 20ms after
+    // one step, the way a starved machine does (#365).
+    let now = 0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += 1000));
+    const { container } = render(<Editor initialDoc={"- first\n- second"} />);
+    clock.mockRestore();
+    expect(container.querySelectorAll(".cm-bullet").length).toBeLessThan(2);
+
+    parsed(
+      EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement) as EditorView,
+    );
+
+    expect(container.querySelectorAll(".cm-bullet")).toHaveLength(2);
+  });
+
   it("hides the whitespace that nests a list item", () => {
-    const { container } = render(<Editor initialDoc={"- first\n  - nested"} />);
+    const { container } = renderEditor(<Editor initialDoc={"- first\n  - nested"} />);
 
     expect(content(container)).toBe("firstnested");
   });
@@ -276,7 +320,7 @@ describe("live preview", () => {
   it("indents a nested bullet past its parent", () => {
     // The spaces that nest the item are hidden with the dash, so the indent
     // has to be drawn or the nesting disappears from the render.
-    const { container } = render(<Editor initialDoc={"- first\n  - nested"} />);
+    const { container } = renderEditor(<Editor initialDoc={"- first\n  - nested"} />);
     const [parent, nested] = container.querySelectorAll<HTMLElement>(".cm-bullet");
 
     expect(parent?.style.paddingLeft).toBe("1.6em");
@@ -293,7 +337,7 @@ describe("live preview", () => {
       ["b", "blocked"],
       ["-", "rejected"],
     ]) {
-      const { container, unmount } = render(<Editor initialDoc={`- [${box}] task`} />);
+      const { container, unmount } = renderEditor(<Editor initialDoc={`- [${box}] task`} />);
 
       expect(content(container)).toBe("task");
       expect(container.querySelector(`.cm-todo-${state}`)).not.toBeNull();
@@ -302,14 +346,14 @@ describe("live preview", () => {
   });
 
   it("draws a bullet holding a wikilink as a bullet, that being no todo", () => {
-    const { container } = render(<Editor initialDoc="- [[borges]]" />);
+    const { container } = renderEditor(<Editor initialDoc="- [[borges]]" />);
 
     expect(container.querySelector("[class*='cm-todo']")).toBeNull();
     expect(container.querySelector(".cm-bullet")).not.toBeNull();
   });
 
   it("hands the box back on the line being edited", async () => {
-    const { container } = render(<Editor initialDoc={"- [/] task"} />);
+    const { container } = renderEditor(<Editor initialDoc={"- [/] task"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -322,7 +366,7 @@ describe("live preview", () => {
     // `- [/] task` parses `[/]` as a link. The box is the bullet's to draw, and
     // a revealed line showed the box back without its brackets while the link
     // rendering had them.
-    const { container } = render(<Editor initialDoc={"- [/] task"} />);
+    const { container } = renderEditor(<Editor initialDoc={"- [/] task"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -332,7 +376,7 @@ describe("live preview", () => {
   it("keeps the cursor out of the box it hid", () => {
     // The hidden run on a todo is six characters rather than the bullet's two,
     // so the walk that keeps a cursor off them has further to go.
-    const { container } = render(<Editor initialDoc="- [ ] task" />);
+    const { container } = renderEditor(<Editor initialDoc="- [ ] task" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(editor, { key: "0" });
@@ -350,7 +394,7 @@ describe("live preview", () => {
       "    - [x] four",
       "    - [ ] five",
     ];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
 
     const counts = container.querySelectorAll(".cm-todo-progress");
     expect(counts).toHaveLength(2);
@@ -361,7 +405,7 @@ describe("live preview", () => {
 
   it("counts nothing on a list of todos that nest under nothing", () => {
     const lines = ["- [ ] one", "- [x] two", "- [ ] three"];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
 
     expect(container.querySelectorAll(".cm-todo-progress")).toHaveLength(0);
   });
@@ -369,7 +413,7 @@ describe("live preview", () => {
   it("colours a due date that has passed", () => {
     // Two dates nothing can reach, so the assertion holds on any day the suite
     // runs: one before every possible today and one after.
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc={"- [ ] late 📅 1970-01-01\n- [ ] soon 📅 2999-01-01"} />,
     );
 
@@ -381,7 +425,7 @@ describe("live preview", () => {
   it("keeps the overdue colour on the line being edited", async () => {
     // Unlike the symbol, the red stands in for nothing: it is colour on text
     // that is on the screen whether the line shows its source or not.
-    const { container } = render(<Editor initialDoc={"- [ ] late 📅 1970-01-01"} />);
+    const { container } = renderEditor(<Editor initialDoc={"- [ ] late 📅 1970-01-01"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -391,7 +435,7 @@ describe("live preview", () => {
 
   it("hides a fence's backticks and language, code and all", () => {
     const lines = ["```js", "const x = 1;", "```"];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
 
     expect(content(container)).toBe("const x = 1;");
   });
@@ -401,7 +445,7 @@ describe("live preview", () => {
     // construct here works: a hidden fence line is a line the cursor cannot
     // reach, so a rule waiting for it there would never fire.
     const lines = ["```js", "const x = 1;", "```"];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -411,7 +455,7 @@ describe("live preview", () => {
   it("keeps the backticks of a fence with no code in it", () => {
     // Hiding both would leave no line on the screen to put the cursor back on,
     // and the block a third backtick writes starts out empty.
-    const { container } = render(<Editor initialDoc={"```\n```"} />);
+    const { container } = renderEditor(<Editor initialDoc={"```\n```"} />);
 
     expect(content(container)).toBe("``````");
     // Knocked back off the code, the way a revealed fence is.
@@ -419,7 +463,7 @@ describe("live preview", () => {
   });
 
   it("keeps the backticks of an unclosed fence", () => {
-    const { container } = render(<Editor initialDoc={"```js\nconst x = 1;"} />);
+    const { container } = renderEditor(<Editor initialDoc={"```js\nconst x = 1;"} />);
 
     expect(content(container)).toContain("```js");
   });
@@ -428,7 +472,7 @@ describe("live preview", () => {
     // A line above it, the cursor starting at the top of the note and a cursor
     // in a table being what shows its source.
     const lines = ["before", "", "| a | **b** | c |", "| :-- | :-: | --: |", "| 1 |  | 3 |"];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
 
     const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
     expect(table).not.toBeNull();
@@ -450,7 +494,9 @@ describe("live preview", () => {
   it("draws a link with an alias in a cell as the alias", () => {
     // A bare bar would end the cell, so a table escapes it, as Obsidian does.
     const lines = ["before", "", "| who |", "| --- |", "| [[borges#Life\\|Jorge]] |"];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} paths={["borges.md"]} />);
+    const { container } = renderEditor(
+      <Editor initialDoc={lines.join("\n")} paths={["borges.md"]} />,
+    );
 
     const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
     expect(table.querySelector("tbody .cm-wikilink")?.textContent).toBe("Jorge");
@@ -480,7 +526,7 @@ describe("live preview", () => {
     // mode. `j` and `k` step over the widget, so waiting for insert mode would
     // leave a table nothing could open.
     const lines = ["| a | b |", "| - | - |", "| 1 | 2 |"];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
 
     await waitFor(() => expect(content(container)).toContain("| a | b |"));
     expect(container.querySelector(".cm-table-grid")).toBeNull();
@@ -508,7 +554,7 @@ describe("live preview", () => {
 
   it("draws a fenced block as one surface, top and bottom marked", () => {
     const lines = ["before", "```js", "const x = 1;", "const y = 2;", "```", "after"];
-    const { container } = render(<Editor initialDoc={lines.join("\n")} />);
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
 
     // Two rows on the screen, each backtick line having fallen into the line
     // of code beside it.
@@ -519,7 +565,7 @@ describe("live preview", () => {
   });
 
   it("draws a divider in place of the three dashes", () => {
-    const { container } = render(<Editor initialDoc={"above\n\n---\n\nbelow"} />);
+    const { container } = renderEditor(<Editor initialDoc={"above\n\n---\n\nbelow"} />);
 
     expect(container.querySelectorAll(".cm-rule")).toHaveLength(1);
     // Drawn rather than typed, so the dashes themselves are off the screen.
@@ -527,7 +573,7 @@ describe("live preview", () => {
   });
 
   it("hands the dashes back on the line being edited", async () => {
-    const { container } = render(<Editor initialDoc={"---\n\nbelow"} />);
+    const { container } = renderEditor(<Editor initialDoc={"---\n\nbelow"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -537,13 +583,13 @@ describe("live preview", () => {
   });
 
   it("leaves a setext underline alone, that being a heading and not a rule", () => {
-    const { container } = render(<Editor initialDoc={"Title\n---\n\nbody"} />);
+    const { container } = renderEditor(<Editor initialDoc={"Title\n---\n\nbody"} />);
 
     expect(container.querySelectorAll(".cm-rule")).toHaveLength(0);
   });
 
   it("leaves prose outside the fence alone", () => {
-    const { container } = render(<Editor initialDoc={"prose\n```\ncode\n```"} />);
+    const { container } = renderEditor(<Editor initialDoc={"prose\n```\ncode\n```"} />);
     const first = container.querySelector(".cm-line");
 
     expect(first?.textContent).toBe("prose");
@@ -553,7 +599,7 @@ describe("live preview", () => {
   it("settles rather than bouncing between two touching hidden ranges", () => {
     // The heading mark ends at 3 and the bold mark starts there, so a cursor
     // pushed out of the first lands straight inside the second.
-    const { container } = render(<Editor initialDoc="## **bold**" />);
+    const { container } = renderEditor(<Editor initialDoc="## **bold**" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(editor, { key: "0" });
@@ -563,7 +609,7 @@ describe("live preview", () => {
   });
 
   it("deletes a visible character, never a hidden mark", () => {
-    const { container } = render(<Editor initialDoc="## Notes" />);
+    const { container } = renderEditor(<Editor initialDoc="## Notes" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     // `0` goes to the real column zero, which sits inside the hidden `##`.
@@ -577,7 +623,7 @@ describe("live preview", () => {
   it("yanks the marks it hides along with the text", () => {
     // `yy` selects the line to read it, and walking that selection's start
     // out of the hidden `## ` yanked the heading without its hashes.
-    const { container } = render(<Editor initialDoc={"## Notes\nbeta"} />);
+    const { container } = renderEditor(<Editor initialDoc={"## Notes\nbeta"} />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(editor, { key: "y" });
@@ -593,7 +639,7 @@ describe("live preview", () => {
   });
 
   it("leaves other lines rendered while one is revealed", async () => {
-    const { container } = render(<Editor initialDoc={"## One\n\n## Two"} />);
+    const { container } = renderEditor(<Editor initialDoc={"## One\n\n## Two"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -601,14 +647,14 @@ describe("live preview", () => {
     expect(content(container)).not.toContain("## Two");
   });
   it("colours a tag and leaves its hash on screen", () => {
-    const { container } = render(<Editor initialDoc="read this #reading/borges today" />);
+    const { container } = renderEditor(<Editor initialDoc="read this #reading/borges today" />);
 
     expect(container.querySelector(".cm-tag")?.textContent).toBe("#reading/borges");
     expect(content(container)).toBe("read this #reading/borges today");
   });
 
   it("keeps the tag colour while the line shows its source", async () => {
-    const { container } = render(<Editor initialDoc="a #tag here" />);
+    const { container } = renderEditor(<Editor initialDoc="a #tag here" />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -618,7 +664,7 @@ describe("live preview", () => {
   it("reads no tag out of a hash that is not one", () => {
     // A heading's mark, a fragment inside a word, a shebang in a fenced block
     // and a bare number: four hashes a looser pattern would have coloured.
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc={"# Notes\n\nissue#12 and #1\n\n```sh\n#!/bin/sh\n```"} />,
     );
 
@@ -626,7 +672,7 @@ describe("live preview", () => {
   });
 
   it("leaves the fragment of a URL alone", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc="see https://example.com/#anchor and [docs](https://example.com/#top)" />,
     );
 
@@ -637,12 +683,12 @@ describe("live preview", () => {
     // Without a parser for the block, the opening fence is a horizontal rule
     // and the closing one underlines the fields above it into a heading: every
     // note in the vault would open on three lines of dates drawn as a title.
-    const { container } = render(<Editor initialDoc={"---\nid: 1\n---\n# Notes"} />);
+    const { container } = renderEditor(<Editor initialDoc={"---\nid: 1\n---\n# Notes"} />);
 
     expect(content(container)).toBe("---id: 1---Notes");
   });
   it("draws a note's youtube ![](link) as a player", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc={"notes\n\n![](https://youtu.be/iDulhoQ2pro)\n"} />,
     );
 
@@ -654,7 +700,7 @@ describe("live preview", () => {
   });
 
   it("opens the player where the note says the video got to", async () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor
         initialDoc={"---\nwatching: {iDulhoQ2pro: 312}\n---\n\n![](https://youtu.be/iDulhoQ2pro)\n"}
       />,
@@ -671,20 +717,20 @@ describe("live preview", () => {
   });
 
   it("leaves a picture a picture", () => {
-    const { container } = render(<Editor initialDoc={"![shot](99 Misc/shot.png)\n"} />);
+    const { container } = renderEditor(<Editor initialDoc={"![shot](99 Misc/shot.png)\n"} />);
 
     expect(container.querySelector("iframe.cm-video")).toBeNull();
     expect(container.querySelector("img.cm-image")?.getAttribute("alt")).toBe("shot");
   });
 
   it("hides the backslash of an escape, which a card side opening with a fence carries", () => {
-    const { container } = render(<Editor initialDoc={"\\```js\n\nplain"} />);
+    const { container } = renderEditor(<Editor initialDoc={"\\```js\n\nplain"} />);
 
     expect(content(container)).toBe("```jsplain");
   });
 
   it("shows the escape's backslash on the cursor's line in insert mode", async () => {
-    const { container } = render(<Editor initialDoc={"\\```js\n\nplain"} />);
+    const { container } = renderEditor(<Editor initialDoc={"\\```js\n\nplain"} />);
 
     fireEvent.keyDown(container.querySelector(".cm-content") as HTMLElement, { key: "i" });
 
@@ -692,7 +738,7 @@ describe("live preview", () => {
   });
 
   it("draws an imported ruby as ruby, its reading over its base", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc={"漢字::<ruby>漢字<rt>かんじ</rt></ruby>\n"} />,
     );
 
@@ -716,7 +762,7 @@ describe("live preview", () => {
   });
 
   it("draws a sound's ![](path) as a player rather than a broken picture", () => {
-    const { container } = render(
+    const { container } = renderEditor(
       <Editor initialDoc={"word\n\n![](Flashcards/Japanese%20media/kana.MP3)\n"} />,
     );
 
@@ -785,6 +831,7 @@ function mount(doc: string, extra: Extension[], anchor = 0): EditorView {
     parent,
   });
   mounted.push(view);
+  parsed(view);
   return view;
 }
 

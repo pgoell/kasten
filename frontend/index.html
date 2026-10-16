@@ -7,6 +7,9 @@
          anything but zero. The frame and the bars pad themselves clear by
          those insets (#355). -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content, viewport-fit=cover" />
+    <!-- Right after the meta and not deferred: it takes cover back off on
+         Android before the first layout (#364). -->
+    <script src="/viewport-fit.js"></script>
     <title>kasten</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#282c34" />

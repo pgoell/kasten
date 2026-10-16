@@ -442,7 +442,11 @@ once there is more than one, and each tab is named for the note in the pane it
 left focused, for the herdr session when that pane holds a terminal, and
 `todos` when it holds the todo list. A pane holding a pdf, an image or an HTML
 page names its tab for the file, without the folder or the suffix, so
-`x/my plan.pdf` reads `my plan`. More tabs than the window is wide scroll
+`x/my plan.pdf` reads `my plan`. An exam and a person card name the tab for
+their note, again without the folder or `.md`, so `people/Ada Lovelace.md`
+reads `Ada Lovelace`. The graph of the whole vault reads `graph view`, the
+graph around a note reads `graph of` and the note's name, and the review reads
+`review`. More tabs than the window is wide scroll
 sideways, and the strip keeps the tab on screen in view.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
