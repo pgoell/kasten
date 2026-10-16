@@ -1220,7 +1220,9 @@ that is still open, so a `⛔` on another line has something to point at.
 
 The editor draws each state as a symbol in place of its box, `☐ ◐ ☑ ⊘ ☒`, and
 mutes and strikes through a line that is done or rejected. A due date that has
-passed is drawn in red. A todo with todos indented under it carries `1/3` after
+passed is drawn in red, behind any of `📅 📆 🗓`, with or without the variation
+selector. A date inside a code span or a link is not the todo's due date, so it
+stays uncoloured. A todo with todos indented under it carries `1/3` after
 its words, counting every descendant. The whole drawing comes off the line the cursor is on,
 in insert and visual mode, the way every other construct does, so `i` hands the
 `- [x] ` back. The red is the one part that stays, because it colours text that

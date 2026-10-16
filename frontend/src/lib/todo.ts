@@ -118,7 +118,7 @@ const PLAIN = /^([ \t]*)(?:- )?(.*)$/;
 // typed with the variation selector after it, as many keyboards do, so it may
 // follow every one, and a write over one keeps it: see `patchLine`. It sits
 // outside the priority's capture, which is looked up by the glyph alone.
-const DUE = /(?:📅|📆|🗓)️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
+export const DUE = /(?:📅|📆|🗓)️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const SCHEDULED = /⏳️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const START = /🛫️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const CREATED = /➕️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
@@ -186,7 +186,7 @@ const BLOCK_ID = /\^[\w-]+[ \t]*$/;
  * and neither `\S` nor `[ \t]` takes it, so a marker straight before a span has
  * no value and stays words rather than reading the span's first word.
  */
-function masked(text: string): string {
+export function masked(text: string): string {
   return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "\u00A0"));
 }
 

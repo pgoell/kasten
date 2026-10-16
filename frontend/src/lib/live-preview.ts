@@ -15,7 +15,7 @@ import { noteSectionOf } from "@/lib/note-section";
 import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/pdf-view";
 import { readRelation } from "@/lib/relation";
 import { type Align, alignsOf, isRow } from "@/lib/table";
-import { parseTodo } from "@/lib/todo";
+import { DUE, masked, parseTodo } from "@/lib/todo";
 import { descendants, type Placed, progressOf, treeOf } from "@/lib/todo-view";
 import { playerUrl, videoId, watchedAt } from "@/lib/video";
 import {
@@ -42,12 +42,6 @@ const HEADING = /^ATXHeading([1-6])$/;
 
 /** How far one level of list nesting shifts a rendered item, in `em`. */
 const BULLET_INDENT = 1.6;
-
-/**
- * A todo's due date and the marker in front of it, which is what turns red,
- * with the variation selector the marker may be typed with.
- */
-const DUE = /📅️?[ \t]+(\d{4}-\d{2}-\d{2})/;
 
 /**
  * Today, read once when the module loads.
@@ -1076,7 +1070,10 @@ function build(state: EditorState): Live {
         // through `parseTodo` is also what stops the drawing and the writes
         // disagreeing about what counts as a todo.
         const todo = parseTodo(line.text);
-        const due = todo === null ? null : DUE.exec(line.text);
+        // `parseTodo`'s own regex on its own mask, so the red cannot drift from
+        // what counts as due again (#414) or read one inside a link or code
+        // span (#415). The mask keeps the length, so the offsets fit the line.
+        const due = todo === null ? null : DUE.exec(masked(line.text));
 
         // Inside the branch that already parsed the line, so no line is read
         // twice and no second pass over the document is added.

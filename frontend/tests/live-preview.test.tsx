@@ -433,6 +433,67 @@ describe("live preview", () => {
     expect(overdue[0]?.textContent).toBe("📅️ 1970-01-01");
   });
 
+  /**
+   * The red marks on `doc`, the cursor on an `intro` line above it so no todo
+   * shows its source. Mounted bare rather than through `Editor`, so vim is on
+   * or off for certain and not left to the stored setting.
+   */
+  function overdueIn(doc: string, vimOn: boolean): string[] {
+    const view = mount(
+      `intro\n\n${doc}`,
+      vimOn ? [vim(), livePreview(), vaultPaths.of([]), imagePaths.of([])] : plain(null),
+    );
+    return [...view.contentDOM.querySelectorAll(".cm-todo-overdue")].map(
+      (m) => m.textContent ?? "",
+    );
+  }
+
+  const VIM = [
+    ["vim on", true],
+    ["vim off", false],
+  ] as const;
+
+  it.each(
+    VIM.flatMap(([mode, vimOn]) => [
+      ["📆", mode, vimOn],
+      ["🗓", mode, vimOn],
+    ]),
+  )("reds a passed 📆 or 🗓 due: %s, %s", (glyph, _, vimOn) => {
+    expect(overdueIn(`- [ ] zork ${glyph} 1970-01-01`, vimOn)).toEqual([`${glyph} 1970-01-01`]);
+  });
+
+  it.each(
+    VIM.flatMap(([mode, vimOn]) => [
+      ["📆️", mode, vimOn],
+      ["🗓️", mode, vimOn],
+    ]),
+  )("reds a selector-typed passed due: %s, %s", (glyph, _, vimOn) => {
+    expect(overdueIn(`- [ ] zork ${glyph} 1970-01-01`, vimOn)).toEqual([`${glyph} 1970-01-01`]);
+  });
+
+  it.each(VIM)("leaves a due inside a code span uncoloured, %s", (_, vimOn) => {
+    expect(overdueIn("- [ ] zork `📅 1970-01-01`", vimOn)).toEqual([]);
+  });
+
+  it("leaves a todo inside a fence uncoloured", () => {
+    expect(overdueIn("```\n- [ ] zork 📅 1970-01-01\n```", false)).toEqual([]);
+  });
+
+  it("reds the due after a code span holding one, the span's not", () => {
+    expect(overdueIn("- [ ] zork `📅 1970-01-01` 📅 1970-01-02", false)).toEqual(["📅 1970-01-02"]);
+  });
+
+  it.each([
+    ["wikilink", "- [ ] zork [[note 📅 1970-01-01]]"],
+    ["markdown link", "- [ ] zork [a 📅 1970-01-01](x)"],
+  ])("leaves a due inside a %s uncoloured", (_, doc) => {
+    expect(overdueIn(doc, false)).toEqual([]);
+  });
+
+  it.each([["📆"], ["🗓"]])("leaves a future %s due uncoloured", (glyph) => {
+    expect(overdueIn(`- [ ] zork ${glyph} 2999-01-01`, false)).toEqual([]);
+  });
+
   it("keeps the overdue colour on the line being edited", async () => {
     // Unlike the symbol, the red stands in for nothing: it is colour on text
     // that is on the screen whether the line shows its source or not.
