@@ -96,15 +96,30 @@ Across lines too, or a mark over two would keep its `::` in a Basic field.
 """
 _OPEN = re.compile(r"\{\{c\d+::")
 """A cloze mark's opener, which `plain` closes when the field never does."""
-_MARK = re.compile(r"\{\{c([0-9]+)::([^{}]+?)(?:::([^{}]*?))?\}\}")
+_MARK = re.compile(
+    r"\{\{c([0-9]+)::((?:(`+)(?!`)[^{}]*?(?<!`)\3(?!`)|[^{}])+?)"
+    r"(?:::((?:(`+)(?!`)[^{}]*?(?<!`)\5(?!`)|[^{}])*?))?\}\}"
+)
 """A cloze mark kasten reads: `MARK` in `card-line.ts`, character for character.
 
-Narrower than `_CLOZE`, taking no brace and no empty text, so a MathJax
-`{{c1::\\(x^{2}\\)}}` is a mark to Anki and not to kasten. `[0-9]` because
-Python's `\\d` takes digits JavaScript's does not. A nested mark,
+Groups 1, 2 and 4 are the number, the answer and the hint. Narrower than
+`_CLOZE`, taking no brace and no empty text, so a MathJax `{{c1::\\(x^{2}\\)}}`
+is a mark to Anki and not to kasten. A code span in the answer or hint is read
+whole, so a `::` inside it is no hint (#346); a lone backtick is text. `[0-9]`
+because Python's `\\d` takes digits JavaScript's does not. A nested mark,
 `{{c1::a {{c2::b}}}}`, is read innermost first, each inner mark held by a
-placeholder the outer one's text takes, as `_marks` does.
+placeholder the outer one's text takes, as `_marks` does. A match opening
+inside a code span is no mark, which `_read` sees to.
 """
+_SPANS = re.compile(r"\\.|(`+)(?!`).*?(?<!`)\1(?!`)|`+", re.DOTALL)
+"""An escape pair, a code span, or a backtick run that closes none, leftmost first.
+
+`ESCAPES` in `card-line.ts` less its `&#58;`: a code span runs to the next run
+of its own length, as CommonMark reads one, an unclosed run is text, and `` \\` ``
+opens nothing.
+"""
+_COLON = re.compile(rf"{_SPANS.pattern}|&#58;", re.DOTALL)
+"""`_SPANS` and the text `&#58;`, which `_Markdown` escapes outside code once it is whole."""
 _KEPT = re.compile("([0-9]+)")
 """The mark `plain` holds a cloze mark's place with, as `_HELD` does a link's."""
 _SPACE = ""
@@ -289,6 +304,8 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     # Before the parse, which would leave a script's code behind as prose.
     text = _CODE.sub("", text)
     kept: list[str] = []
+    # Each kept mark's form where it sat in code, by the same place.
+    coded: list[str] = []
     # The raw text of each kept mark kasten does not read, by its place in `kept`.
     bare: dict[int, str] = {}
 
@@ -297,6 +314,10 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         # does not is the text Anki shows, since a highlight's `====` would be
         # part of the outer answer and its brace would leave no mark.
         return bare.get(int(mark[1]), mark[0])
+
+    def verbatim(text: str) -> str:
+        # The import's marker keeps its backslash in code too, as `_escaped` gives it.
+        return _ticked(_shown(_KEPT.sub(inside, text)).replace("<!--anki:", "<!--anki\\:"))
 
     def keep(match: re.Match[str]) -> str:
         # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
@@ -315,6 +336,16 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
             answer = answer.replace(":", "&#58;")
             opener = match[0][: match.start(1) - match.start()]
             flat = f"{opener}{answer}{_flat(_KEPT.sub(inside, hint))}}}}}"
+        # The form the mark takes where it sat in code: its text in code of
+        # its own and verbatim, so no `&#58;` either, since `_MARK` reads a
+        # code span whole and a `::` in it is no hint (#346).
+        opener = match[0][: match.start(1) - match.start()]
+        shown = verbatim(match[1])
+        code = f"{opener}{shown}{hint and '::' + verbatim(hint[2:])}}}}}"
+        if cloze and _MARK.fullmatch(code) is not None:
+            coded.append(_KEPT.sub(lambda mark: coded[int(mark[1])], code))
+        else:
+            coded.append(f"=={_KEPT.sub(lambda mark: coded[int(mark[1])], shown)}==")
         if cloze and _MARK.fullmatch(flat) is not None:
             kept.append(_KEPT.sub(lambda mark: kept[int(mark[1])], flat))
         else:
@@ -341,9 +372,22 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
     lines = [line for line in lines if line]
     if cloze:
         lines = [" ".join(lines)]
-    text = "\n".join(_escaped(line) for line in lines)
-    text = _KEPT.sub(lambda mark: kept[int(mark[1])], text)
+    text = "\n".join(_escaped(_COLON.sub(_colon, line)) for line in lines)
+    forms = [coded[at] if at in parser.coded else mark for at, mark in enumerate(kept)]
+    text = _KEPT.sub(lambda mark: forms[int(mark[1])], text)
     return _HELD.sub(lambda mark: held[int(mark[1])], text)
+
+
+def _colon(found: re.Match[str]) -> str:
+    """A `_COLON` match as written: the text `&#58;` escaped, the rest as it stands.
+
+    Anki shows a field's `&amp;#58;` as the text `&#58;`, which a card shows as
+    a colon (#335) unless the backslash says it is text (#340). Over the parsed
+    line rather than each run of text, so one a tag splits is whole (#348),
+    and past code spans, which a reader leaves alone (#343). The import's own
+    `&#58;` is held in a mark until after.
+    """
+    return "\\&#58;" if found[0] == "&#58;" else found[0]
 
 
 def _marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
@@ -355,8 +399,42 @@ def _marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
     """
     count = 1
     while count:
-        text, count = _MARK.subn(keep, text)
+        # Read again each pass, since a replacement can end or open a span.
+        spans = _code(text)
+        count = 0
+
+        def take(match: re.Match[str], spans: list[tuple[int, int]] = spans) -> str:
+            nonlocal count
+            if _in_code(match.start(), spans):
+                return match[0]
+            count += 1
+            return keep(match)
+
+        text = _MARK.sub(take, text)
     return text
+
+
+def _read(text: str) -> bool:
+    """Whether `text` holds a mark kasten reads: a `_MARK` opening outside every code span."""
+    spans = _code(text)
+    return any(not _in_code(match.start(), spans) for match in _MARK.finditer(text))
+
+
+def _code(text: str) -> list[tuple[int, int]]:
+    """Where each code span of `text` starts and ends, as `_SPANS` reads them."""
+    return [found.span() for found in _SPANS.finditer(text) if found[1]]
+
+
+def _in_code(at: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start <= at < end for start, end in spans)
+
+
+def _shown(text: str) -> str:
+    """`_flat` with none of its escapes: how a cloze mark's text is written in code, verbatim."""
+    # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
+    text = _RUBY_TAG.sub(lambda tag: f"{tag[1]}{tag[2].lower()}", text)
+    text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text)))
+    return " ".join(text.replace("", "<").replace("", ">").split())
 
 
 def _flat(text: str) -> str:
@@ -366,7 +444,7 @@ def _flat(text: str) -> str:
     written here. The token is escaped here as `_Markdown` escapes it in the
     rest of the field, since `suspended()` in `card-line.ts` reads it inside a
     mark too, and so is the import's marker, as `_escaped` escapes it. So is
-    the text `&#58;`, as `_Markdown` escapes it, before `plain` writes its own
+    the text `&#58;`, as `_colon` escapes it, before `plain` writes its own
     colons so.
     """
     # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
@@ -403,6 +481,27 @@ def _ticks(code: str) -> str:
     return f"{'`' * (longest + 1)}{pad}{code}{pad}{'`' * (longest + 1)}"
 
 
+def _ticked(line: str) -> str:
+    """`line` as inline code, a span either side of each cloze mark `plain` holds.
+
+    The mark stays out of the code, since kasten reads no mark inside a code
+    span, and goes in as its code form, its text in code of its own (#346).
+    The spaces at either end of a piece stay outside its span.
+    """
+    parts = _KEPT.split(line)
+    if len(parts) == 1:
+        return _ticks(line) if line.strip() else line
+    for at in range(0, len(parts), 2):
+        piece = parts[at]
+        core = piece.strip(f" {_SPACE}")
+        if core:
+            start = piece.index(core)
+            parts[at] = f"{piece[:start]}{_ticks(core)}{piece[start + len(core) :]}"
+    for at in range(1, len(parts), 2):
+        parts[at] = f"{parts[at]}"
+    return "".join(parts)
+
+
 class _Markdown(HTMLParser):
     """A field's HTML as markdown, a line break apart, and not yet tidied.
 
@@ -424,6 +523,8 @@ class _Markdown(HTMLParser):
         """The open lists, innermost last: the next number of an `<ol>`, None for a `<ul>`."""
         self.links: list[tuple[int, str | None]] = []
         self.code: list[int] = []
+        self.coded: set[int] = set()
+        """The cloze marks `plain` holds that sat in code, which it writes in their code form."""
         self.pre: int | None = None
         self.skip = 0
         self.ruby = 0
@@ -481,12 +582,15 @@ class _Markdown(HTMLParser):
                 self.out[at:] = [f"[{inner.strip()}]({address})"]
         elif tag == "code" and self.code:
             at = self.code.pop()
-            lines = "".join(self.out[at:]).split("\n")
-            self.out[at:] = ["\n".join(_ticks(line) if line.strip() else line for line in lines)]
+            inner = "".join(self.out[at:])
+            self.coded.update(map(int, _KEPT.findall(inner)))
+            lines = inner.split("\n")
+            self.out[at:] = ["\n".join(_ticked(line) if line.strip() else line for line in lines)]
         elif tag == "pre" and self.pre is not None:
             inner = "".join(self.out[self.pre :]).replace(" ", _SPACE).replace("\t", _SPACE)
+            self.coded.update(map(int, _KEPT.findall(inner)))
             lines = [line for line in inner.split("\n") if line.replace(_SPACE, "").strip()]
-            self.out[self.pre :] = ["\n", *(f"{_ticks(line)}\n" for line in lines)]
+            self.out[self.pre :] = ["\n", *(f"{_ticked(line)}\n" for line in lines)]
             self.pre = None
         elif tag == "rp" and self.skip:
             self.skip -= 1
@@ -513,10 +617,6 @@ class _Markdown(HTMLParser):
             # Anywhere, since `suspended()` in `card-line.ts` reads the token
             # after any space and would park a card that only names it.
             data = data.replace("!suspended", "\\!suspended")
-            # Anki shows a field's `&amp;#58;` as the text `&#58;`, which a
-            # card shows as a colon (#335) unless the backslash says it is
-            # text (#340). After the backslashes, or this one would be doubled.
-            data = data.replace("&#58;", "\\&#58;")
         self.out.append(data)
 
     def _wrap(self, at: int, marker: str) -> None:
@@ -1036,7 +1136,7 @@ def _numbers(text: str) -> int:
 
 def _clozed(card: Card) -> bool:
     """Whether `card` is written as a cloze: a cloze note's text holding a mark kasten reads."""
-    return card.cloze and _MARK.search(card.front) is not None
+    return card.cloze and _read(card.front)
 
 
 def _divides(card: Card) -> bool:

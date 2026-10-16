@@ -23,6 +23,7 @@ import pytest
 
 from kasten_backend import main
 from kasten_backend.anki import (
+    _MARK,
     Card,
     Deck,
     Template,
@@ -1444,6 +1445,89 @@ def test_i5_a_re_import_rewrites_a_line_main_wrote_with_a_backslash() -> None:
 
     assert merged is not None
     expected = f"#flashcards/x\n\n{{{{c1::a\\\\&#58;&#58;b}}}}{mark(1)} {schedule}\n"
+    assert unhashed(merged.text) == expected
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
+
+
+def test_a1_a_cloze_mark_in_code_moves_the_code_inside_the_mark() -> None:
+    # A code span is code to kasten, so a mark inside one is no mark (#346).
+    deck = cloze_note("<code>{{c1::a&#58;&#58;b}}</code>", "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{{{{c1::`a::b`}}}}{mark(1)}\n"
+    assert card_count(deck) == 1
+
+
+def test_a2_a_backslash_in_a_cloze_mark_in_code_stays_one() -> None:
+    deck = cloze_note("<code>{{c1::a\\b}}</code>", "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{{{{c1::`a\\b`}}}}{mark(1)}\n"
+
+
+def test_a4_an_entity_colon_split_by_a_tag_stays_text() -> None:
+    # Anki shows `a&#58;b`, which a card would show as `a:b` (#348).
+    assert plain("a&amp;#<b></b>58;b") == "a\\&#58;b"
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        ("a&amp;#<span>58;</span>b", "a\\&#58;b"),
+        ("<code>a&amp;#<b></b>58;b</code>", "`a&#58;b`"),
+    ],
+    ids=["prose", "code"],
+)
+def test_i5_an_entity_colon_split_by_a_tag_is_escaped_outside_code(
+    field: str, expected: str
+) -> None:
+    assert plain(field) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "answer", "hint"),
+    [
+        ("{{c1::`a::b`}}", "`a::b`", None),
+        ("{{c1::`a::b`::h}}", "`a::b`", "h"),
+        ("{{c1::a`b}}", "a`b", None),
+        ("{{c1::a`b::h}}", "a`b", "h"),
+    ],
+    ids=["span", "hint", "lone", "lone-hint"],
+)
+def test_i1_a_code_span_in_a_mark_is_read_whole(text: str, answer: str, hint: str | None) -> None:
+    found = _MARK.fullmatch(text)
+
+    assert found is not None
+    assert (found[2], found[4]) == (answer, hint)
+
+
+def test_i2_a_mark_inside_a_code_span_is_no_cloze() -> None:
+    # As 0.49.x wrote one: kasten reads no mark in code, so the line is no
+    # cloze, and with no back and a `::` it is no card either.
+    template = Template("Cloze", "{{cloze:Text}}", "{{cloze:Text}}")
+    card = Card("`{{c1::x}}`", "", {}, template, "Cloze", cloze=True, nid=1, ord=0)
+    deck = Deck("x", [card], {})
+
+    assert as_note(deck) == "#flashcards/x\n\n"
+    assert card_count(deck) == 0
+
+
+def test_i2_a_mark_inside_a_code_span_counts_no_card() -> None:
+    template = Template("Cloze", "{{cloze:Text}}", "{{cloze:Text}}")
+    card = Card("{{c1::a}} `{{c2::b}}`", "", {}, template, "Cloze", cloze=True, nid=1, ord=0)
+
+    assert card_count(Deck("x", [card], {})) == 1
+
+
+def test_i3_a_re_import_rewrites_a_line_main_wrote_with_a_mark_in_code() -> None:
+    # The line 0.49.x wrote, its hash as the import wrote it then; no cloze to
+    # kasten now, but its marker still finds it.
+    line = "`{{c1::a&#58;&#58;b}}`"
+    schedule = "<!--SR:c1!2026-10-20,3,250-->"
+    old = f"#flashcards/x\n\n{line}{marked(1, line)} {schedule}\n"
+
+    merged = merge(old, cloze_note("<code>{{c1::a&#58;&#58;b}}</code>", ""))
+
+    assert merged is not None
+    expected = f"#flashcards/x\n\n{{{{c1::`a::b`}}}}{mark(1)} {schedule}\n"
     assert unhashed(merged.text) == expected
     assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
 
