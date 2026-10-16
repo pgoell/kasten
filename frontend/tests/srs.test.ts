@@ -1080,3 +1080,44 @@ describe("a literal &#58; the import wrote escaped (#340)", () => {
     expect(card?.back).toBe("no, : is");
   });
 });
+
+describe("an escape the import writes (#342, #343)", () => {
+  const ID = " <!--anki:1:0:abcdef12-->";
+  const read = (line: string) => parseCards(`#flashcards/x\n\n${line}${ID}\n`);
+
+  it("A2 shows a code span holding &#58; as written on both sides", () => {
+    const [card] = read("What is `&#58;`?::`&#58;`");
+
+    expect(card?.front).toBe("What is `&#58;`?");
+    expect(card?.back).toBe("`&#58;`");
+  });
+
+  it("A2 asks a code span holding &#58; in a cloze answer as written", () => {
+    const [card] = read("{{c1::`&#58;`}}");
+
+    expect(card?.back).toBe("==`&#58;`==");
+    expect(card?.target).toBe("`&#58;`");
+  });
+
+  it("A3 hands an escaped backslash to the preview on both sides", () => {
+    const [card] = read("a\\\\-b::a\\\\-b");
+
+    expect(card?.front).toBe("a\\\\-b");
+    expect(card?.back).toBe("a\\\\-b");
+  });
+
+  it("A4 asks a\\\\&#58;&#58;b as a backslash before ::", () => {
+    const [card] = read("{{c1::a\\\\&#58;&#58;b}}");
+
+    expect(card?.front).toBe("\\[...\\]");
+    expect(card?.back).toBe("==a\\\\::b==");
+    expect(card?.target).toBe("a\\::b");
+    expect(sameAnswer("a\\::b", card?.target ?? "")).toBe(true);
+  });
+
+  it("A4 takes markdown's escapes off the typed target, and not inside code", () => {
+    const [card] = read("{{c1::\\*a\\* `\\*`}}");
+
+    expect(card?.target).toBe("*a* `\\*`");
+  });
+});

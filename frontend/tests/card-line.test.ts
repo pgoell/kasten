@@ -6,6 +6,7 @@ import {
   clozePlain,
   clozeQuestion,
   clozeTarget,
+  colons,
   divide,
   fences,
   SR,
@@ -235,5 +236,28 @@ describe("the anki id", () => {
     expect(divide("Q::A <!--anki:5:0:1-->")?.back).toBe("A <!--anki:5:0:1-->");
     expect(divide("Q::A <!--anki:5:0:0A1B2C3D-->")?.back).toBe("A <!--anki:5:0:0A1B2C3D-->");
     expect(divide("Q::A <!--anki::-->")?.back).toBe("A <!--anki::-->");
+  });
+});
+
+describe("colons", () => {
+  it("I3 leaves a code span alone and decodes &#58; beside it", () => {
+    expect(colons("`&#58;` and a&#58;b")).toBe("`&#58;` and a:b");
+  });
+
+  it("I3 closes a code span at a run of its own length", () => {
+    expect(colons("``a`&#58;`` &#58;")).toBe("``a`&#58;`` :");
+  });
+
+  it("I3 reads an unclosed backtick as no code span", () => {
+    expect(colons("`a&#58;b")).toBe("`a:b");
+    expect(colons("``a&#58;`")).toBe("``a:`");
+  });
+
+  it("I3 reads an escaped backtick as no code span", () => {
+    expect(colons("\\`&#58;\\`")).toBe("\\`:\\`");
+  });
+
+  it("reads \\\\&#58; as an escaped backslash before a colon", () => {
+    expect(colons("a\\\\&#58;b")).toBe("a\\\\:b");
   });
 });

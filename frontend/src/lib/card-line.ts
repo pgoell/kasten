@@ -260,15 +260,46 @@ export function clozePlain(line: string): string {
 }
 
 /**
+ * What `colons` and `typed` read, leftmost first: `\&#58;`, any other escape
+ * pair, a code span, a backtick run that closes none, and a bare `&#58;`.
+ *
+ * One pass, so an escape pair is read before what follows it: `\\&#58;` is an
+ * escaped backslash and then a colon, and `` \` `` opens no code span. A code
+ * span runs to the next backtick run of its own length, as CommonMark reads
+ * one, and an unclosed run is taken whole so it is never read again shorter.
+ */
+const ESCAPES = /\\&#58;|\\[\s\S]|(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)|`+|&#58;/g;
+
+/** An escape markdown reads, before ASCII punctuation, or the `\&#58;` of #340. */
+const ESCAPED = /^\\(?:&#58;|[!-/:-@[-`{-~])$/;
+
+/**
  * `text` with `&#58;` read as the colon markdown shows for it, and `\&#58;` as the text `&#58;`.
  *
  * The import writes a cloze answer's colons as `&#58;` where a typed `::`
  * would split the answer at a hint (#335). The preview draws no entity, so a
  * card decodes it before the preview sees it, a hand-written one too. A field
  * whose text was `&#58;` the import writes `\&#58;`, markdown's escape (#340).
+ * Every other escape stays for the preview to read, and a code span stays as
+ * written, since the preview draws it verbatim (#342, #343).
  */
 export function colons(text: string): string {
-  return text.replace(/\\?&#58;/g, (found) => (found === "&#58;" ? ":" : "&#58;"));
+  return text.replace(ESCAPES, (found) =>
+    found === "&#58;" ? ":" : found === "\\&#58;" ? "&#58;" : found,
+  );
+}
+
+/**
+ * `text` as somebody types it: `colons`, and markdown's escapes taken off.
+ *
+ * A typed answer is compared as text and never drawn, so nothing else reads
+ * the `\\` or `\*` the import writes; a code span keeps its backslashes, as
+ * the preview shows them.
+ */
+export function typed(text: string): string {
+  return text.replace(ESCAPES, (found) =>
+    found === "&#58;" ? ":" : ESCAPED.test(found) ? found.slice(1) : found,
+  );
 }
 
 /** The answer: the whole line, with this number's text highlighted. */
