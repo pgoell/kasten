@@ -26,7 +26,7 @@ export interface EmbedSource {
    * changes. Returns what stops the calls.
    */
   watch(path: string, listener: (text: string | null) => void): () => void;
-  /** Opens the note in the focused pane, at a 1-based line when given. */
+  /** Opens the note in the focused pane, at a 1-based line when given; a pdf at that page. */
   open(path: string, line?: number): void;
 }
 
@@ -124,8 +124,10 @@ export function queryEmbedSource(
     },
     // A pdf goes where `gf` sends one, a tab of its own: the route's `open`
     // reads every path as a note and would open the pdf's bytes as text.
+    // The page goes after the encoding, which would turn its `#` into `%23`.
     open(path, line) {
-      if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
+      const page = line === undefined ? "" : `#page=${line}`;
+      if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}${page}`, "_blank");
       else open(path, line);
     },
   };

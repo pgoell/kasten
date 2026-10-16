@@ -260,14 +260,15 @@ export function clozePlain(line: string): string {
 }
 
 /**
- * `text` with `&#58;` read as the colon markdown shows for it.
+ * `text` with `&#58;` read as the colon markdown shows for it, and `\&#58;` as the text `&#58;`.
  *
  * The import writes a cloze answer's colons as `&#58;` where a typed `::`
  * would split the answer at a hint (#335). The preview draws no entity, so a
- * card decodes it before the preview sees it, a hand-written one too.
+ * card decodes it before the preview sees it, a hand-written one too. A field
+ * whose text was `&#58;` the import writes `\&#58;`, markdown's escape (#340).
  */
 export function colons(text: string): string {
-  return text.replaceAll("&#58;", ":");
+  return text.replace(/\\?&#58;/g, (found) => (found === "&#58;" ? ":" : "&#58;"));
 }
 
 /** The answer: the whole line, with this number's text highlighted. */

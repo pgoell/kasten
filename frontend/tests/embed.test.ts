@@ -138,4 +138,13 @@ describe("queryEmbedSource", () => {
     expect(open).not.toHaveBeenCalled();
     tab.mockRestore();
   });
+
+  it("opens a pdf at the page it was given", () => {
+    const tab = vi.spyOn(window, "open").mockReturnValue(null);
+
+    queryEmbedSource(new QueryClient(), vi.fn()).open("my docs/plan.pdf", 3);
+
+    expect(tab).toHaveBeenCalledWith("/api/assets/my%20docs/plan.pdf#page=3", "_blank");
+    tab.mockRestore();
+  });
 });

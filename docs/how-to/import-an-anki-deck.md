@@ -199,7 +199,9 @@ colon is the other way round: Anki divides the answer from the hint only at a
 a tag is part of the answer. Where such an answer holds `::`, or ends in a
 colon before its hint, its colons are written `&#58;`, which kasten shows and
 takes from a typed answer as `:`, so `{{c1::a&#58;&#58;b}}` asks `a::b` with
-no hint. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
+no hint. A field whose text shows `&#58;` itself, written `&amp;#58;`, is
+written `\&#58;` on any side, which kasten shows as the text `&#58;` as Anki
+does. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
 kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
 `{{c1::a }}`. Where no mark is kept, a mark never closed runs to the end of the
 field, so its `::` cannot split the line. A cloze

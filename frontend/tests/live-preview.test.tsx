@@ -1420,6 +1420,172 @@ describe("a pdf embed", () => {
 
     expect(view.state.selection.main.head).toBe("![[plan.pdf]]".length);
   });
+
+  describe("at a #page", () => {
+    beforeEach(() => {
+      // jsdom lays nothing out, so every offsetTop is 0. Here a slot sits 800
+      // below the one before it, as a 600 by 800 page would.
+      vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return [...(this.parentElement?.children ?? [])].indexOf(this) * 800;
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /** Vim on, the cursor on the line above, on the vault `withPdfs` holds. */
+    function withPdfsVim(source: EmbedSource, pdfs: ReturnType<typeof fakePdfs>): Extension[] {
+      return [
+        vim(),
+        livePreview(),
+        vaultPaths.of(["b.md", "docs/plan.pdf"]),
+        imagePaths.of([]),
+        embedSource.of(source),
+        pdfRenderer.of(pdfs.renderer),
+      ];
+    }
+
+    const modes = [
+      ["vim off", withPdfs],
+      ["vim on", withPdfsVim],
+    ] as const;
+
+    /** The pdf box, with a scrollTop that reads back what was set, which jsdom's does not. */
+    function boxOf(view: EditorView): HTMLElement {
+      const box = view.dom.querySelector(".cm-embed-pdf") as HTMLElement;
+      Object.defineProperty(box, "scrollTop", { value: 0, writable: true, configurable: true });
+      return box;
+    }
+
+    it.each(modes)("A1 draws page 3 at the top of the box, %s", async (_, extra) => {
+      const pdfs = fakePdfs({ [PLAN]: 3 });
+      const view = mount(`${ABOVE}![[plan.pdf#page=3]]`, extra(fakeVault({}).source, pdfs));
+      const box = boxOf(view);
+
+      const slots = await slotsOf(view);
+      expect(box.scrollTop).toBe(1600);
+      FakeObserver.reveal(slots[2] as HTMLElement);
+
+      await waitFor(() => expect(pdfs.drawn.map(([page]) => page)).toEqual([3]));
+    });
+
+    it.each(modes)(
+      "A2 opens the pdf at page 3 on ctrl or cmd and a click, %s",
+      async (_, extra) => {
+        const vault = fakeVault({});
+        const view = mount(
+          `${ABOVE}![[plan.pdf#page=3]]`,
+          extra(vault.source, fakePdfs({ [PLAN]: 3 })),
+        );
+        const box = boxOf(view);
+        await slotsOf(view);
+
+        fireEvent.mouseDown(box, { ctrlKey: true });
+        fireEvent.mouseDown(box, { metaKey: true });
+
+        expect(vault.opened).toEqual([
+          ["docs/plan.pdf", 3],
+          ["docs/plan.pdf", 3],
+        ]);
+      },
+    );
+
+    it.each(modes)(
+      "A3 opens the pdf at page 3 on a tap, in a phone-width box, %s",
+      async (_, extra) => {
+        const vault = fakeVault({});
+        const pdfs = fakePdfs({ [PLAN]: 3 });
+        const view = mount(`${ABOVE}![[plan.pdf#page=3]]`, extra(vault.source, pdfs));
+        const box = boxOf(view);
+        Object.defineProperty(box, "clientWidth", { value: 360 });
+
+        const slots = await slotsOf(view);
+        fireEvent.pointerDown(box, { pointerType: "touch" });
+        fireEvent.click(box);
+        expect(vault.opened).toEqual([["docs/plan.pdf", 3]]);
+
+        expect(box.scrollTop).toBe(1600);
+        FakeObserver.reveal(slots[2] as HTMLElement);
+        await waitFor(() =>
+          expect(pdfs.drawn).toEqual([[3, (360 / 600) * window.devicePixelRatio]]),
+        );
+      },
+    );
+
+    it.each(["#page=9", "#page=0", "#page=-1", "#page=abc", "#page=2.5", "#page=", "#", "#intro"])(
+      "A4 draws and opens page 1 for %s",
+      async (fragment) => {
+        const vault = fakeVault({});
+        const view = mount(
+          `${ABOVE}![[plan.pdf${fragment}]]`,
+          withPdfs(vault.source, fakePdfs({ [PLAN]: 3 })),
+        );
+        const box = boxOf(view);
+
+        await slotsOf(view);
+        fireEvent.mouseDown(box, { ctrlKey: true });
+
+        expect(box.scrollTop).toBe(0);
+        expect(vault.opened).toEqual([["docs/plan.pdf", undefined]]);
+      },
+    );
+
+    it("I1 redraws at page 4 when the source says 4, and not on a keystroke elsewhere", async () => {
+      const pdfs = fakePdfs({ [PLAN]: 4 });
+      const view = mount(`${ABOVE}![[plan.pdf#page=3]]`, withPdfs(fakeVault({}).source, pdfs));
+      const first = boxOf(view);
+      await slotsOf(view);
+      expect(first.scrollTop).toBe(1600);
+
+      const at = view.state.doc.toString().indexOf("page=3") + 5;
+      view.dispatch({ changes: { from: at, to: at + 1, insert: "4" } });
+      const second = boxOf(view);
+      expect(second).not.toBe(first);
+      expect(pdfs.opened).toHaveLength(2);
+      await waitFor(() => expect(second.querySelectorAll(".cm-pdf-page")).toHaveLength(4));
+      expect(second.scrollTop).toBe(2400);
+
+      view.dispatch({ changes: { from: 0, insert: "more " } });
+      expect(view.dom.querySelector(".cm-embed-pdf")).toBe(second);
+      expect(pdfs.opened).toHaveLength(2);
+    });
+
+    it.each(["![[plan.pdf#page=3|the plan]]", "![[Plan.pdf#page=3]]"])(
+      "I2 draws and opens %s at page 3",
+      async (embed) => {
+        const vault = fakeVault({});
+        const view = mount(`${ABOVE}${embed}`, withPdfs(vault.source, fakePdfs({ [PLAN]: 3 })));
+        const box = boxOf(view);
+
+        await slotsOf(view);
+        fireEvent.mouseDown(box, { ctrlKey: true });
+
+        expect(box.scrollTop).toBe(1600);
+        expect(vault.opened).toEqual([["docs/plan.pdf", 3]]);
+      },
+    );
+
+    it.each([
+      ["#page=3", 3],
+      ["#page=9", 9],
+      ["#page=abc", undefined],
+    ])("I3 opens %s before the pdf lands at %s", (fragment, page) => {
+      const vault = fakeVault({});
+      const view = mount(
+        `${ABOVE}![[plan.pdf${fragment}]]`,
+        withPdfs(vault.source, fakePdfs({ [PLAN]: 3 })),
+      );
+      const box = view.dom.querySelector(".cm-embed-pdf") as HTMLElement;
+
+      fireEvent.mouseDown(box, { ctrlKey: true });
+
+      expect(box.querySelector(".cm-pdf-page")).toBeNull();
+      expect(vault.opened).toEqual([["docs/plan.pdf", page]]);
+    });
+  });
 });
 
 describe("a nested cloze", () => {

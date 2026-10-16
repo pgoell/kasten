@@ -1040,3 +1040,43 @@ describe("an imported cloze whose answer holds an entity colon", () => {
     expect(card?.back).toBe("a:b");
   });
 });
+
+describe("a literal &#58; the import wrote escaped (#340)", () => {
+  const ID = " <!--anki:1:0:abcdef12-->";
+  const read = (line: string) => parseCards(`#flashcards/x\n\n${line}${ID}\n`);
+
+  it("shows \\&#58; as the text &#58; on both sides of an imported card", () => {
+    const [card] = read("What is \\&#58;?::a\\&#58;b");
+
+    expect(card?.front).toBe("What is &#58;?");
+    expect(card?.back).toBe("a&#58;b");
+  });
+
+  it("asks \\&#58; in a cloze answer as the text &#58;", () => {
+    const [card] = read("{{c1::a\\&#58;b}}");
+
+    expect(card?.front).toBe("\\[...\\]");
+    expect(card?.back).toBe("==a&#58;b==");
+    expect(card?.target).toBe("a&#58;b");
+  });
+
+  it("shows \\&#58; in a highlight as the text &#58;", () => {
+    const [card] = read("=={\\&#58;==::");
+
+    expect(card?.front).toBe("=={&#58;==");
+  });
+
+  it("keeps the import's own &#58; a colon beside a literal one", () => {
+    const [card] = read("{{c1::a&#58;&#58;b\\&#58;}}");
+
+    expect(card?.back).toBe("==a::b&#58;==");
+    expect(card?.target).toBe("a::b&#58;");
+  });
+
+  it("shows a hand-written \\&#58; as the text &#58;", () => {
+    const [card] = parseCards("Is \\&#58; a colon?::no, &#58; is\n");
+
+    expect(card?.front).toBe("Is &#58; a colon?");
+    expect(card?.back).toBe("no, : is");
+  });
+});

@@ -118,7 +118,7 @@ import { useNoteWrites } from "@/lib/use-note-writes";
 import { useViewport } from "@/lib/use-viewport";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { setWatched } from "@/lib/video";
-import { namesAFile, outgoingLinks, splitTarget, wikiLinkPath } from "@/lib/wikilink";
+import { namesAFile, outgoingLinks, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
@@ -1081,8 +1081,11 @@ function Home() {
       // made stays a dead link rather than turning into a note named `.pdf.md`.
       // One the vault holds opens in a tab of its own, the browser being what
       // reads a pdf or a picture.
+      // A pdf opens at the page `#page=3` names, which the browser's viewer reads.
       if (namesAFile(name)) {
-        if (assets?.includes(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
+        const page = pdfPage(heading);
+        const at = page === undefined ? "" : `#page=${page}`;
+        if (assets?.includes(path)) window.open(`/api/assets/${encodePath(path)}${at}`, "_blank");
         return;
       }
 

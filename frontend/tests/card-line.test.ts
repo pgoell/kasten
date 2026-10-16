@@ -114,6 +114,10 @@ describe("a nested cloze line", () => {
     expect(clozePlain("{{c1::a&#58;&#58;b}} x")).toBe("a::b x");
   });
 
+  it("names a cloze holding an escaped \\&#58; by the text &#58;", () => {
+    expect(clozePlain("{{c1::a&#58;&#58;b\\&#58;}} x")).toBe("a::b&#58; x");
+  });
+
   it("I2 highlights the answer flat, the inner text plain inside", () => {
     expect(clozeAnswer(CANBERRA, 1)).toBe("==Canberra was founded in 1913==");
     expect(clozeAnswer(CANBERRA, 2)).toBe("Canberra was ==founded== in 1913");

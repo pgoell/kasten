@@ -31,6 +31,7 @@ same embeds.
 | `![[note#heading\|alias]]` | one section; the alias is ignored |
 | `![[image.png]]` | the picture |
 | `![[file.pdf]]` | the pdf's pages, in a box that scrolls |
+| `![[file.pdf#page=3]]` | the same, scrolled to page 3 |
 
 ## How each part is read
 
@@ -65,7 +66,9 @@ The embed takes the place of its line, in a box.
 * **A pdf** draws its pages in a box of fixed height that scrolls, each page as
   wide as the box, so a phone gets pages it can read across. A page is drawn
   when it scrolls into view, not before. A pdf that will not load reads
-  `Could not read plan.pdf` in the box. The heading and the alias are ignored.
+  `Could not read plan.pdf` in the box. `![[plan.pdf#page=3]]` scrolls the box
+  so page 3 is at its top; a page the pdf lacks, or any other heading, leaves
+  page 1 there. The alias is ignored.
 * **A missing target**, a note, a heading or a pdf the vault does not hold,
   draws a plain box saying `Not found`.
 * **The depth stub.** Embeds nest, and stop at a depth of three. At that cap an
@@ -91,8 +94,8 @@ as source for that moment too, since a name cannot be resolved without it.
 | Tap, on a phone | The same |
 
 A section embed opens the note at its heading. A pdf opens in a browser tab of
-its own, as `gf` on `[[plan.pdf]]` does. A plain click does nothing to the
-embed.
+its own, as `gf` on `[[plan.pdf]]` does, at page 3 for `![[plan.pdf#page=3]]`.
+A plain click does nothing to the embed.
 
 ## Out of scope
 
@@ -101,5 +104,3 @@ embed.
   it.
 * **Other files.** An epub, or any file that is neither a pdf nor one of the
   image types above, is not drawn.
-* **A page of a pdf.** `![[plan.pdf#page=3]]` draws the whole pdf from its
-  first page.

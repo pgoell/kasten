@@ -364,14 +364,15 @@ def _flat(text: str) -> str:
 
     The token is escaped here as `_Markdown` escapes it in the rest of the
     field, since `suspended()` in `card-line.ts` reads it inside a mark too,
-    and so is the import's marker, as `_escaped` escapes it.
+    and so is the import's marker, as `_escaped` escapes it. So is the text
+    `&#58;`, as `_Markdown` escapes it, before `plain` writes its own colons so.
     """
     # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
     text = _RUBY_TAG.sub(lambda tag: f"{tag[1]}{tag[2].lower()}", text)
     text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text)))
     text = text.replace("", "<").replace("", ">")
     text = " ".join(text.split()).replace("!suspended", "\\!suspended")
-    return text.replace("<!--anki:", "<!--anki\\:")
+    return text.replace("<!--anki:", "<!--anki\\:").replace("&#58;", "\\&#58;")
 
 
 def _escaped(line: str) -> str:
@@ -497,6 +498,9 @@ class _Markdown(HTMLParser):
     def handle_data(self, data: str) -> None:
         if self.skip:
             return
+        # Anki shows a field's `&amp;#58;` as the text `&#58;`, which a card
+        # shows as a colon (#335) unless the backslash says it is text (#340).
+        data = data.replace("&#58;", "\\&#58;")
         if self.pre is None:
             data = re.sub(r"\s+", " ", data)
         if self.pre is None and not self.code:

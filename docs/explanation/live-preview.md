@@ -326,7 +326,10 @@ pages onto canvases in a box that scrolls. An `<iframe>` would have been less
 code, but a phone browser draws no pdf in a frame: Android Chrome shows a
 button that downloads it. pdf.js is the copy the book reader already ships, and
 it draws only the pages scrolled into view, so a long pdf costs the pages you
-read.
+read. `![[plan.pdf#page=3]]` sets the box's own scroll so page 3 is at its top,
+and so page 3 is the one drawn. It does not use `scrollIntoView`, which
+scrolls every box around the page as well and would jump the note you are
+editing.
 
 **A depth cap, not a cycle check.** A note that embeds itself, or two notes that
 embed each other, would draw without end. Tracking the paths on the way down

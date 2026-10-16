@@ -146,7 +146,8 @@ export const pdfRenderer = Facet.define<PdfRenderer, PdfRenderer>({
  * page it can read across without scrolling sideways.
  *
  * `measured` is called whenever the box changes height under a line the editor
- * has already measured.
+ * has already measured. `page` is scrolled to the top of the box, and a page
+ * the pdf does not have leaves the first there.
  */
 export function showPdf(
   box: HTMLElement,
@@ -154,6 +155,7 @@ export function showPdf(
   url: string,
   name: string,
   measured: () => void,
+  page?: number,
 ): () => void {
   const opening = renderer.open(url);
   let observer: IntersectionObserver | null = null;
@@ -237,6 +239,13 @@ export function showPdf(
         box.append(slot);
         slots.set(slot, number);
         observer.observe(slot);
+      }
+      // The box's own scroll and not `scrollIntoView`, which scrolls every
+      // box around it too and would jump the editor. Measured from the first
+      // slot, so whatever the slots are placed against drops out.
+      const top = box.children[(page ?? 1) - 1];
+      if (top instanceof HTMLElement && box.firstElementChild instanceof HTMLElement) {
+        box.scrollTop = top.offsetTop - box.firstElementChild.offsetTop;
       }
       measured();
     }, failed);

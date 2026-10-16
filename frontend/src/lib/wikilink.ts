@@ -141,6 +141,16 @@ export function splitTarget(target: string): {
 }
 
 /**
+ * The page `[[plan.pdf#page=3]]` names, as Obsidian reads it, from the heading
+ * `splitTarget` hands back. Undefined for anything but a whole number from 1,
+ * which opens the pdf at its first page.
+ */
+export function pdfPage(heading: string | null): number | undefined {
+  const page = Number(/^page=(\d+)$/.exec(heading ?? "")?.[1]);
+  return page >= 1 ? page : undefined;
+}
+
+/**
  * Every note in the vault, carried on the editor state.
  *
  * A link is only a name until something says what the vault holds, and two

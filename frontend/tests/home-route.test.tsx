@@ -3857,6 +3857,26 @@ describe("following a link to an asset", () => {
     expect(createNote).not.toHaveBeenCalled();
   });
 
+  it("I8 opens a pdf at its #page with gf", async () => {
+    await follow("my plan.pdf#page=3");
+
+    expect(window.open).toHaveBeenCalledWith(`/api/assets/${encodeURI(PLAN)}#page=3`, "_blank");
+  });
+
+  it("I8 opens an embedded pdf at its #page with gf on its source", async () => {
+    fetchNote.mockResolvedValue("![[my plan.pdf#page=3]]\n");
+    const app = await renderApp();
+    await settle();
+    app.click(NOTE);
+    await settle();
+    app.press("l");
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    expect(window.open).toHaveBeenCalledWith(`/api/assets/${encodeURI(PLAN)}#page=3`, "_blank");
+  });
+
   it("opens an asset whose name holds ? with gf", async () => {
     fetchAssets.mockResolvedValue(["plan?.pdf"]);
     await follow("plan?.pdf");

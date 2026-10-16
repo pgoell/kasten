@@ -1333,6 +1333,59 @@ def test_i7_a_re_import_rewrites_a_line_main_wrote_with_an_entity_colon() -> Non
     assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
 
 
+def test_a7_a_literal_entity_colon_on_a_basic_side_stays_text() -> None:
+    # Anki shows `&amp;#58;` as the text `&#58;`, which kasten would show as
+    # a colon unless the backslash says it is text (#340).
+    notes = ((1, BASIC, "What is &amp;#58;?\x1fa&amp;#58;b"),)
+    decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
+
+    assert unhashed(as_note(decks[0])) == f"#flashcards/x\n\nWhat is \\&#58;?::a\\&#58;b{mark(1)}\n"
+
+
+@pytest.mark.parametrize(
+    ("text", "line"),
+    [
+        ("{{c1::a&amp;#58;b}}", "{{c1::a\\&#58;b}}"),
+        ("{{c1::a::h&amp;#58;}}", "{{c1::a::h\\&#58;}}"),
+        ("x &amp;#58; {{c1::a}}", "x \\&#58; {{c1::a}}"),
+    ],
+    ids=["answer", "hint", "prose"],
+)
+def test_a7_a_literal_entity_colon_in_a_cloze_stays_text(text: str, line: str) -> None:
+    deck = cloze_note(text, "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}{mark(1)}\n"
+
+
+@pytest.mark.parametrize(
+    ("text", "line"),
+    [
+        ("{{c1::{&amp;#58;}}", "=={\\&#58;==::"),
+        ("{{c1::a&#58;&#58;b}}", "{{c1::a&#58;&#58;b}}"),
+        ("{{c1::a&#58;&#58;b&amp;#58;}}", "{{c1::a&#58;&#58;b\\&#58;}}"),
+    ],
+    ids=["highlight", "colon", "both"],
+)
+def test_i4_a_literal_entity_colon_is_kept_apart_from_the_imports_own(text: str, line: str) -> None:
+    deck = cloze_note(text, "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{line}{mark(1)}\n"
+
+
+def test_i6_a_re_import_rewrites_a_line_main_wrote_with_a_literal_entity_colon() -> None:
+    # The line before #340's fix, its hash as the import wrote it then.
+    line = "{{c1::a&#58;b}}"
+    schedule = "<!--SR:c1!2026-10-20,3,250-->"
+    old = f"#flashcards/x\n\n{line}{marked(1, line)} {schedule}\n"
+
+    merged = merge(old, cloze_note("{{c1::a&amp;#58;b}}", ""))
+
+    assert merged is not None
+    expected = f"#flashcards/x\n\n{{{{c1::a\\&#58;b}}}}{mark(1)} {schedule}\n"
+    assert unhashed(merged.text) == expected
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
+
+
 def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # Anki will not save such a note, but a broken export can hold one; its
     # text is still worth a question.

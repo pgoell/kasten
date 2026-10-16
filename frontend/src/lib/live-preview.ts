@@ -26,7 +26,14 @@ import {
   vimModeField,
   vimModeState,
 } from "@/lib/vim-mode";
-import { resolveIn, splitTarget, vaultPaths, wikiLinkLands, wikiLinkPath } from "@/lib/wikilink";
+import {
+  pdfPage,
+  resolveIn,
+  splitTarget,
+  vaultPaths,
+  wikiLinkLands,
+  wikiLinkPath,
+} from "@/lib/wikilink";
 
 /** An empty replacement: the range is in the document but not on the screen. */
 const HIDDEN = Decoration.replace({});
@@ -448,24 +455,33 @@ const pdfs = new WeakMap<HTMLElement, () => void>();
  *
  * Followed the way `Embed` is, ctrl or cmd and a click or a tap, with the same
  * listeners for the same reason: a plain click in here is someone reading.
- * `eq` compares the path alone, so a keystroke elsewhere never reopens the pdf.
+ * `eq` compares what the source names, so a keystroke elsewhere never reopens
+ * the pdf. `page` is the one `#page=3` names, undefined for the first.
  */
 class PdfEmbed extends WidgetType {
   private readonly renderer: PdfRenderer;
   private readonly source: EmbedSource;
   private readonly path: string | null;
   private readonly name: string;
+  private readonly page: number | undefined;
 
-  constructor(renderer: PdfRenderer, source: EmbedSource, path: string | null, name: string) {
+  constructor(
+    renderer: PdfRenderer,
+    source: EmbedSource,
+    path: string | null,
+    name: string,
+    page: number | undefined,
+  ) {
     super();
     this.renderer = renderer;
     this.source = source;
     this.path = path;
     this.name = name;
+    this.page = page;
   }
 
   override eq(other: PdfEmbed): boolean {
-    return other.path === this.path && other.name === this.name;
+    return other.path === this.path && other.name === this.name && other.page === this.page;
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -483,7 +499,11 @@ class PdfEmbed extends WidgetType {
     // that note's box, and the note would open beside the pdf.
     const follow = (event: Event) => {
       event.stopPropagation();
-      this.source.open(path);
+      // Its slots are its pages once it lands, and a page past them opens the
+      // first, the page drawn at the top. Before then the page goes as written.
+      const pages = box.querySelectorAll(".cm-pdf-page").length;
+      const { page } = this;
+      this.source.open(path, page !== undefined && pages > 0 && page > pages ? undefined : page);
     };
     box.addEventListener("mousedown", (event) => {
       if (!event.ctrlKey && !event.metaKey) return;
@@ -505,7 +525,7 @@ class PdfEmbed extends WidgetType {
     const url = `/api/assets/${encodePath(path)}`;
     pdfs.set(
       box,
-      showPdf(box, this.renderer, url, this.name, () => view.requestMeasure()),
+      showPdf(box, this.renderer, url, this.name, () => view.requestMeasure(), this.page),
     );
     return box;
   }
@@ -981,7 +1001,8 @@ function build(state: EditorState): Live {
           if (source === null) return false;
           const found = resolveIn(name, paths);
           const path = found !== null && paths.includes(found) ? found : null;
-          const widget = new PdfEmbed(state.facet(pdfRenderer), source, path, name);
+          const renderer = state.facet(pdfRenderer);
+          const widget = new PdfEmbed(renderer, source, path, name, pdfPage(heading));
           decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
           hidden.push(HIDDEN.range(node.from, node.to));
           return false;
