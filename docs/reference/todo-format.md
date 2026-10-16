@@ -715,6 +715,24 @@ under it, and a press writes the term and then offers the days or the durations
 that follow it. [Writing a field](#writing-a-field) says where else that
 happens.
 
+## Projects
+
+The [board](/reference/editor-keys.md#the-board) files each todo under a project
+by four steps, the first that answers winning:
+
+1. The note sits in a project folder: a folder directly under `02 Projects` or
+   `03 Areas`, at any depth below it. A todo in `02 Projects/FDE/plan.md`
+   belongs to `02 Projects/FDE`.
+2. Else the first `[[link]]` on the line that lands on a note in a folder under
+   `02 Projects`. `- [ ] send the deck [[02 Projects/FDE/index|FDE]]` in a
+   daily note belongs to FDE. A link to a note that is not there counts for
+   nothing.
+3. Else the project of the todo it is a part of.
+4. Else no project.
+
+Nothing moves: the link is one Obsidian reads and obsidian-tasks leaves alone.
+[The todo board](/explanation/the-todo-board.md) says why.
+
 ## Related
 
 * [Editor keys](/reference/editor-keys.md#todos): the keys that make a todo, walk it and list it

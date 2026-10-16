@@ -1,0 +1,182 @@
+import { parseTodo, type Todo } from "@/lib/todo";
+import {
+  COLUMNS,
+  columnOf,
+  folderProject,
+  kindOf,
+  laneName,
+  onBoard,
+  projectChoices,
+  projectOf,
+  withProjectLink,
+} from "@/lib/todo-board";
+
+/** The day every test below is written against, so no assertion expires. */
+const TODAY = "2026-10-16";
+
+/** A todo out of a line, for the tests that want a record rather than a string. */
+function todo(line: string): Todo {
+  const found = parseTodo(line);
+  if (found === null) throw new Error(`not a todo: ${line}`);
+  return found;
+}
+
+/** A vault with two projects, one folder without an index, and a person. */
+const PATHS = [
+  "02 Projects/FDE/index.md",
+  "02 Projects/FDE/notes/2026/kickoff.md",
+  "02 Projects/Atlas/index.md",
+  "02 Projects/Loose/plan.md",
+  "02 Projects/readme.md",
+  "03 Areas/08 People/Louise.md",
+  "01 Periodic/2026-10-16.md",
+];
+
+const DAILY = "01 Periodic/2026-10-16.md";
+
+describe("folderProject", () => {
+  it("names the project folder of a note three folders deep", () => {
+    expect(folderProject("02 Projects/FDE/notes/2026/kickoff.md")).toBe("02 Projects/FDE");
+  });
+
+  it("counts a folder under the areas root as a project", () => {
+    expect(folderProject("03 Areas/06 Allianz Direct/plan.md")).toBe("03 Areas/06 Allianz Direct");
+  });
+
+  it("gives a note at the vault root no project", () => {
+    expect(folderProject("todo.md")).toBeNull();
+  });
+
+  it("gives a note directly in a root no project", () => {
+    expect(folderProject("02 Projects/readme.md")).toBeNull();
+  });
+
+  it("gives a note outside the roots no project", () => {
+    expect(folderProject("04 Ressources/03 Workshops/a.md")).toBeNull();
+  });
+});
+
+describe("projectOf", () => {
+  it("takes the folder over any link on the line", () => {
+    const line = todo("- [ ] send [[02 Projects/Atlas/index|Atlas]]");
+    expect(projectOf("02 Projects/FDE/index.md", line, PATHS, null)).toBe("02 Projects/FDE");
+  });
+
+  it("files a daily todo under the project its link lands in", () => {
+    const line = todo("- [ ] send the deck [[02 Projects/FDE/index|FDE]]");
+    expect(projectOf(DAILY, line, PATHS, null)).toBe("02 Projects/FDE");
+  });
+
+  it("reads a link with a heading and an alias", () => {
+    const line = todo("- [ ] send the deck [[02 Projects/FDE/index#x|FDE]]");
+    expect(projectOf(DAILY, line, PATHS, null)).toBe("02 Projects/FDE");
+  });
+
+  it("files nothing under a person in the areas", () => {
+    const line = todo("- [ ] ask [[Louise]]");
+    expect(projectOf(DAILY, line, PATHS, null)).toBeNull();
+  });
+
+  it("skips a link to a note that is not there", () => {
+    const line = todo("- [ ] ask [[02 Projects/Ghost/index]] then [[02 Projects/Atlas/index]]");
+    expect(projectOf(DAILY, line, PATHS, null)).toBe("02 Projects/Atlas");
+  });
+
+  it("falls back to the parent's project", () => {
+    const line = todo("  - [ ] a part");
+    expect(projectOf(DAILY, line, PATHS, "02 Projects/FDE")).toBe("02 Projects/FDE");
+  });
+});
+
+describe("kindOf", () => {
+  it("takes the todo's own first kind tag", () => {
+    expect(kindOf(todo("- [ ] a #next #internal #client"), [])).toBe("#internal");
+  });
+
+  it("wins over an ancestor's", () => {
+    expect(kindOf(todo("- [ ] a #private"), [todo("- [ ] b #client")])).toBe("#private");
+  });
+
+  it("takes the nearest ancestor's when it has none", () => {
+    const ancestors = [
+      todo("- [ ] parent"),
+      todo("- [ ] grand #internal"),
+      todo("- [ ] top #client"),
+    ];
+    expect(kindOf(todo("- [ ] a"), ancestors)).toBe("#internal");
+  });
+
+  it("is null with no kind anywhere", () => {
+    expect(kindOf(todo("- [ ] a #next"), [todo("- [ ] b")])).toBeNull();
+  });
+});
+
+describe("onBoard", () => {
+  it("shows every open state", () => {
+    for (const box of [" ", "/", "w", "b"]) expect(onBoard(todo(`- [${box}] a`), TODAY)).toBe(true);
+  });
+
+  it("shows done from six days back and not seven", () => {
+    expect(onBoard(todo("- [x] a ✅ 2026-10-10"), TODAY)).toBe(true);
+    expect(onBoard(todo("- [x] a ✅ 2026-10-09"), TODAY)).toBe(false);
+  });
+
+  it("shows rejected from six days back and not seven", () => {
+    expect(onBoard(todo("- [-] a ❌ 2026-10-10"), TODAY)).toBe(true);
+    expect(onBoard(todo("- [-] a ❌ 2026-10-09"), TODAY)).toBe(false);
+  });
+
+  it("leaves out done and rejected with no stamp", () => {
+    expect(onBoard(todo("- [x] a"), TODAY)).toBe(false);
+    expect(onBoard(todo("- [-] a"), TODAY)).toBe(false);
+  });
+});
+
+describe("columnOf", () => {
+  it("puts a todo in the column of its state", () => {
+    expect(columnOf(todo("- [w] a"))).toBe("waiting");
+    expect(COLUMNS).toEqual(["open", "doing", "waiting", "blocked", "done", "rejected"]);
+  });
+});
+
+describe("projectChoices", () => {
+  it("lists the folders under the link root with an index, by name", () => {
+    expect(projectChoices(PATHS)).toEqual([
+      { folder: "02 Projects/Atlas", name: "Atlas", index: "02 Projects/Atlas/index.md" },
+      { folder: "02 Projects/FDE", name: "FDE", index: "02 Projects/FDE/index.md" },
+    ]);
+  });
+});
+
+describe("withProjectLink", () => {
+  const FDE = { folder: "02 Projects/FDE", name: "FDE", index: "02 Projects/FDE/index.md" };
+
+  it("adds the link to the words, ahead of the fields", () => {
+    expect(withProjectLink("- [ ] send deck #client 📅 2026-10-20 🆔 kt-abcdef", FDE, PATHS)).toBe(
+      "- [ ] send deck #client [[02 Projects/FDE/index|FDE]] 📅 2026-10-20 🆔 kt-abcdef",
+    );
+  });
+
+  it("keeps the indent and the state", () => {
+    expect(withProjectLink("    - [/] a part", FDE, PATHS)).toBe(
+      "    - [/] a part [[02 Projects/FDE/index|FDE]]",
+    );
+  });
+
+  it("is null when a link already lands in the folder", () => {
+    expect(
+      withProjectLink("- [ ] see [[02 Projects/FDE/notes/2026/kickoff]]", FDE, PATHS),
+    ).toBeNull();
+  });
+
+  it("is null on a line that is not a todo", () => {
+    expect(withProjectLink("- send deck", FDE, PATHS)).toBeNull();
+  });
+});
+
+describe("laneName", () => {
+  it("names a lane by the project's folder, or as no project", () => {
+    expect(laneName("02 Projects/FDE")).toBe("FDE");
+    expect(laneName(null)).toBe("No project");
+  });
+});

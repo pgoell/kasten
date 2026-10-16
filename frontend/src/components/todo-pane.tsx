@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type BoardKeys, TodoBoard } from "@/components/todo-board";
 import { TodoHints } from "@/components/todo-hints";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
@@ -18,6 +19,7 @@ import {
   type TodoPriority,
   type TodoState,
 } from "@/lib/todo";
+import { onBoard } from "@/lib/todo-board";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import { lineSuggestions } from "@/lib/todo-suggest";
 import { parseSession, type Session } from "@/lib/todo-time";
@@ -151,6 +153,24 @@ const SET: Record<string, TodoState> = {
 
 function rowKey(hit: SearchHit): string {
   return `${hit.path}:${hit.line}`;
+}
+
+/** The rows the filter line keeps, the list's and the board's alike. */
+function narrow(rows: Row[], line: string, today: string): Row[] {
+  const terms = parseFilter(line);
+  const kept = rows.filter(({ todo }) => matchesFilter(todo, terms, today));
+  if (terms.text === "") return kept;
+  // Whatever was not a term ranks as text, the way it does everywhere else.
+  // Here the ranking only decides membership: the sections set the order.
+  const reads = new Set(
+    rankLines(
+      // The name a todo waits on is off its words and on its row, so it is
+      // ranked with them: typing a name finds what waits on that person.
+      kept.map(({ todo }) => `${todo.text} ${todo.waitingOn ?? ""}`),
+      terms.text,
+    ),
+  );
+  return kept.filter((_, index) => reads.has(index));
 }
 
 /**
@@ -287,6 +307,10 @@ export function TodoPane({
   const [active, setActive] = useState(0);
   /** Which list is drawn: the open todos, `d`'s finished ones, or `n`'s actions. */
   const [mode, setMode] = useState<Mode>("open");
+  /** `c`: the todos drawn as a board rather than as the list. */
+  const [board, setBoard] = useState(false);
+  /** The board's keys, which the handler below hands it in board mode. */
+  const boardKeys = useRef<BoardKeys>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
   /**
@@ -563,22 +587,24 @@ export function TodoPane({
   const listed: Mode = picking === null ? mode : "open";
 
   const shown = useMemo(() => {
-    const terms = parseFilter(line);
     const lists: Record<Mode, Row[]> = { open, done: finished, next };
-    const kept = lists[listed].filter(({ todo }) => matchesFilter(todo, terms, today));
-    if (terms.text === "") return kept;
-    // Whatever was not a term ranks as text, the way it does everywhere else.
-    // Here the ranking only decides membership: the sections set the order.
-    const reads = new Set(
-      rankLines(
-        // The name a todo waits on is off its words and on its row, so it is
-        // ranked with them: typing a name finds what waits on that person.
-        kept.map(({ todo }) => `${todo.text} ${todo.waitingOn ?? ""}`),
-        terms.text,
-      ),
-    );
-    return kept.filter((_, index) => reads.has(index));
+    return narrow(lists[listed], line, today);
   }, [open, finished, next, listed, line, today]);
+
+  // What `c` draws: the open todos and the ones finished lately, rejected too,
+  // each as the tree left it. A todo whose `🛫` has not arrived stays off, as
+  // it does in the list.
+  const cards = useMemo(() => {
+    if (!board) return [];
+    const found: Row[] = [];
+    for (const { hit, todo } of parsed) {
+      const full = forest.todos.get(rowKey(hit)) ?? todo;
+      if (full === null || !onBoard(full, today)) continue;
+      if (isOpen(full) && waiting(full, today)) continue;
+      found.push({ hit, todo: full });
+    }
+    return narrow(found, line, today);
+  }, [board, parsed, forest, line, today]);
 
   // The heading is the group's name here, not a lookup at the draw, because
   // `d` groups on a date and there is no table of every day there has been.
@@ -649,7 +675,8 @@ export function TodoPane({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `rows` is the trigger and not a value this reads. That the list redrew is exactly what says the row holding the focus may be gone.
   useEffect(() => {
     const element = panel.current;
-    if (!element) return;
+    // The board keeps its own cursor, and its own copy of this.
+    if (!element || board) return;
     const dropped = held.current && document.activeElement === document.body;
     if (!dropped && !element.contains(document.activeElement)) return;
     // An input holding the keys keeps them. Both are typed into while the list
@@ -658,7 +685,7 @@ export function TodoPane({
     if (document.activeElement === filter.current) return;
     if (document.activeElement === draft.current) return;
     (element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`) ?? element).focus();
-  }, [cursorKey, rows]);
+  }, [cursorKey, rows, board]);
 
   // The row that has become an input, or nothing while every row is a row. Its
   // own name because the effect below turns on which row it is: typing is not a
@@ -769,7 +796,20 @@ export function TodoPane({
     // act on a row that is here to be chosen.
     if (picking !== null && !["j", "k", "/", "Enter", "Escape"].includes(key)) return;
 
+    // The board takes what it binds. Of the rest only the keys every mode
+    // shares go on: the others name a list row the board does not draw.
+    if (board) {
+      if (boardKeys.current?.onKey(key)) {
+        event.preventDefault();
+        return;
+      }
+      if (![" ", "/", "q", "v", "c", "Escape"].includes(key)) return;
+    }
+
     switch (key) {
+      case "c":
+        setBoard(!board);
+        break;
       case "j":
         setActive(Math.min(cursor + 1, rows.length - 1));
         break;
@@ -976,281 +1016,313 @@ export function TodoPane({
           <button type="button" tabIndex={-1} onClick={nextView} className="min-h-11 px-3">
             view
           </button>
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setBoard(!board)}
+            aria-pressed={board}
+            className={`min-h-11 px-3 ${board ? "text-one-fg" : ""}`}
+          >
+            board
+          </button>
         </div>
       )}
 
-      {/* A list that moves under the finger has moved the armed row with it. */}
-      <div className="flex-1 overflow-auto py-1" onScroll={() => setArmed(null)}>
-        {rows.length === 0 ? (
-          <p className="px-3 py-1 text-[13px] text-one-muted">
-            {listed === "done" ? "nothing finished" : "nothing to do"}
-          </p>
-        ) : (
-          groups.map(({ heading, rows: group }) => (
-            <div key={heading}>
-              <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
-                {heading}
-              </h3>
-              {group.map(({ hit, todo, under, depth }) => {
-                const key = rowKey(hit);
-                const mark = timerMark(
-                  todo.id === undefined ? undefined : running.get(todo.id),
-                  today,
-                );
-                const time = clocks(todo);
-                const wait = waitOf(todo, today);
-                const blockers = waitsFor(todo, links.named);
-                const dependents =
-                  todo.id !== undefined && isOpen(todo) ? links.dependents.get(todo.id) : undefined;
-                const held = todo.state === "blocked" || todo.state === "waiting";
-                // One tab stop for the whole pane: tab reaches the cursor, and
-                // the vim keys move it from there.
-                const tabIndex = key === cursorKey ? 0 : -1;
-                // A step in per level of nesting, so the list reads the way the
-                // note does. `ROW` carries the first one as padding.
-                const indent = { paddingLeft: `${GUTTER + (depth ?? 0) * STEP}rem` };
-
-                // The whole row, because the whole line is what is edited: the
-                // box and every field are on it, and the symbols this draws in
-                // their place are a reading of the line rather than the line.
-                if (key === editing?.key) {
-                  return (
-                    <div key={key}>
-                      <input
-                        ref={draft}
-                        value={editing.line}
-                        onChange={(event) => setEditing({ key, line: event.target.value })}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter" && event.key !== "Escape") return;
-                          event.preventDefault();
-                          // Nothing left in it is nothing to write. Deleting a
-                          // todo is not what this key is.
-                          if (event.key === "Enter" && editing.line.trim() !== "") {
-                            onEdit(hit, editing.line);
-                          }
-                          setEditing(null);
-                        }}
-                        aria-label="edit line"
-                        autoComplete="off"
-                        spellCheck={false}
-                        style={indent}
-                        // Its own classes rather than `ROW` and `INPUT`: the
-                        // overlay input is written to disappear into a panel,
-                        // `outline-none` and `bg-transparent`, and both of those
-                        // win over the two things this row has to say. It is a
-                        // row of the list, at the list's size, wearing the
-                        // keyboard cursor's own outline, because this row is
-                        // where the keys are going.
-                        className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor pointer-coarse:text-base"
-                      />
-                      <TodoHints
-                        found={lineSuggestions(editing.line, today, true)}
-                        line={editing.line}
-                        onTake={(edited) => {
-                          setEditing({ key, line: edited });
-                          // Back to the line, so the next thing typed carries on
-                          // where the hint left off rather than into a button.
-                          draft.current?.focus();
-                        }}
-                      />
-                    </div>
+      {board ? (
+        <TodoBoard
+          ref={boardKeys}
+          cards={cards}
+          parents={forest.parents}
+          named={links.named}
+          progress={progress}
+          files={files ?? []}
+          today={today}
+          coarse={coarse}
+          held={held}
+          onOpen={onOpen}
+          onCycle={onCycle}
+          onEdit={onEdit}
+        />
+      ) : (
+        /* A list that moves under the finger has moved the armed row with it. */
+        <div className="flex-1 overflow-auto py-1" onScroll={() => setArmed(null)}>
+          {rows.length === 0 ? (
+            <p className="px-3 py-1 text-[13px] text-one-muted">
+              {listed === "done" ? "nothing finished" : "nothing to do"}
+            </p>
+          ) : (
+            groups.map(({ heading, rows: group }) => (
+              <div key={heading}>
+                <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
+                  {heading}
+                </h3>
+                {group.map(({ hit, todo, under, depth }) => {
+                  const key = rowKey(hit);
+                  const mark = timerMark(
+                    todo.id === undefined ? undefined : running.get(todo.id),
+                    today,
                   );
-                }
+                  const time = clocks(todo);
+                  const wait = waitOf(todo, today);
+                  const blockers = waitsFor(todo, links.named);
+                  const dependents =
+                    todo.id !== undefined && isOpen(todo)
+                      ? links.dependents.get(todo.id)
+                      : undefined;
+                  const held = todo.state === "blocked" || todo.state === "waiting";
+                  // One tab stop for the whole pane: tab reaches the cursor, and
+                  // the vim keys move it from there.
+                  const tabIndex = key === cursorKey ? 0 : -1;
+                  // A step in per level of nesting, so the list reads the way the
+                  // note does. `ROW` carries the first one as padding.
+                  const indent = { paddingLeft: `${GUTTER + (depth ?? 0) * STEP}rem` };
 
-                const row = (
-                  <button
-                    key={key}
-                    type="button"
-                    data-row={key}
-                    tabIndex={tabIndex}
-                    // A tap is Enter by finger, and takes the row as Enter does.
-                    onClick={() => (picking === null ? onOpen(hit.path, hit.line) : pick(hit))}
-                    title={key}
-                    // The state button in front carries the indent on touch.
-                    style={coarse ? { paddingLeft: 0 } : indent}
-                    // A blocked row is drawn muted rather than gathered under a
-                    // heading of its own: its state is written on the line, and
-                    // the date group is still where the work belongs. A waiting
-                    // row is held the same way, by a person rather than a todo.
-                    className={`${ROW} flex gap-2 ${held ? "text-one-muted" : "text-one-fg"} ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
-                  >
-                    {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
-                    {/* Leftmost of what a row carries beyond its state, so
+                  // The whole row, because the whole line is what is edited: the
+                  // box and every field are on it, and the symbols this draws in
+                  // their place are a reading of the line rather than the line.
+                  if (key === editing?.key) {
+                    return (
+                      <div key={key}>
+                        <input
+                          ref={draft}
+                          value={editing.line}
+                          onChange={(event) => setEditing({ key, line: event.target.value })}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== "Escape") return;
+                            event.preventDefault();
+                            // Nothing left in it is nothing to write. Deleting a
+                            // todo is not what this key is.
+                            if (event.key === "Enter" && editing.line.trim() !== "") {
+                              onEdit(hit, editing.line);
+                            }
+                            setEditing(null);
+                          }}
+                          aria-label="edit line"
+                          autoComplete="off"
+                          spellCheck={false}
+                          style={indent}
+                          // Its own classes rather than `ROW` and `INPUT`: the
+                          // overlay input is written to disappear into a panel,
+                          // `outline-none` and `bg-transparent`, and both of those
+                          // win over the two things this row has to say. It is a
+                          // row of the list, at the list's size, wearing the
+                          // keyboard cursor's own outline, because this row is
+                          // where the keys are going.
+                          className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor pointer-coarse:text-base"
+                        />
+                        <TodoHints
+                          found={lineSuggestions(editing.line, today, true)}
+                          line={editing.line}
+                          onTake={(edited) => {
+                            setEditing({ key, line: edited });
+                            // Back to the line, so the next thing typed carries on
+                            // where the hint left off rather than into a button.
+                            draft.current?.focus();
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  const row = (
+                    <button
+                      key={key}
+                      type="button"
+                      data-row={key}
+                      tabIndex={tabIndex}
+                      // A tap is Enter by finger, and takes the row as Enter does.
+                      onClick={() => (picking === null ? onOpen(hit.path, hit.line) : pick(hit))}
+                      title={key}
+                      // The state button in front carries the indent on touch.
+                      style={coarse ? { paddingLeft: 0 } : indent}
+                      // A blocked row is drawn muted rather than gathered under a
+                      // heading of its own: its state is written on the line, and
+                      // the date group is still where the work belongs. A waiting
+                      // row is held the same way, by a person rather than a todo.
+                      className={`${ROW} flex gap-2 ${held ? "text-one-muted" : "text-one-fg"} ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
+                    >
+                      {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
+                      {/* Leftmost of what a row carries beyond its state, so
                         scanning the list finds what is going. */}
-                    {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
-                    {/* Between the state and the words, where the spec's mock
+                      {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
+                      {/* Between the state and the words, where the spec's mock
                         puts it, and absent rather than blank on a row that
                         carries none. */}
-                    {todo.priority !== undefined && (
-                      <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
-                    )}
-                    {/* Drawn as well as left in the words, because a part takes
+                      {todo.priority !== undefined && (
+                        <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
+                      )}
+                      {/* Drawn as well as left in the words, because a part takes
                         the mark off its parent and has no tag to show. */}
-                    {isClient(todo) && (
-                      <span title="client work" className="shrink-0 text-one-accent">
-                        {CLIENT_MARK}
-                      </span>
-                    )}
-                    {/* What this is a part of, in front of the part itself, so
+                      {isClient(todo) && (
+                        <span title="client work" className="shrink-0 text-one-accent">
+                          {CLIENT_MARK}
+                        </span>
+                      )}
+                      {/* What this is a part of, in front of the part itself, so
                         a next action reads as work on something. Muted: the row
                         is about the action, and this says where it sits. */}
-                    {under !== undefined && (
-                      <span className="max-w-[40%] shrink-0 truncate text-one-muted">{under}</span>
-                    )}
-                    <span className="min-w-0 flex-1 truncate">{todo.text}</span>
-                    {/* Between the words and the date, where the spec's mock
+                      {under !== undefined && (
+                        <span className="max-w-[40%] shrink-0 truncate text-one-muted">
+                          {under}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{todo.text}</span>
+                      {/* Between the words and the date, where the spec's mock
                         puts it, and out of the truncation for the reason the
                         date is: it is the shortest thing on the row. */}
-                    {progress.has(key) && (
-                      <span className="shrink-0 text-one-muted">{progress.get(key)}</span>
-                    )}
-                    {/* What the row waits for: the blocker's words where there
+                      {progress.has(key) && (
+                        <span className="shrink-0 text-one-muted">{progress.get(key)}</span>
+                      )}
+                      {/* What the row waits for: the blocker's words where there
                         is one, a count where there are more, and every one of
                         them in the title. Nothing for a blocker already closed. */}
-                    {blockers.length > 0 && (
-                      <span
-                        title={`waits for:\n${blockers.join("\n")}`}
-                        className="max-w-[40%] shrink-0 truncate text-one-muted"
-                      >
-                        ⛔ {blockers.length === 1 ? blockers[0] : blockers.length}
-                      </span>
-                    )}
-                    {/* And what waits for it, as a count: the words are on the
+                      {blockers.length > 0 && (
+                        <span
+                          title={`waits for:\n${blockers.join("\n")}`}
+                          className="max-w-[40%] shrink-0 truncate text-one-muted"
+                        >
+                          ⛔ {blockers.length === 1 ? blockers[0] : blockers.length}
+                        </span>
+                      )}
+                      {/* And what waits for it, as a count: the words are on the
                         rows that wait. */}
-                    {dependents !== undefined && (
-                      <span
-                        title={`blocks:\n${dependents.map((one) => one.text).join("\n")}`}
-                        className="shrink-0 text-one-muted"
-                      >
-                        → {dependents.length}
-                      </span>
-                    )}
-                    {/* Who a waiting row is on and for how many days, taken off
+                      {dependents !== undefined && (
+                        <span
+                          title={`blocks:\n${dependents.map((one) => one.text).join("\n")}`}
+                          className="shrink-0 text-one-muted"
+                        >
+                          → {dependents.length}
+                        </span>
+                      )}
+                      {/* Who a waiting row is on and for how many days, taken off
                         the line's `👤`. */}
-                    {wait !== null && (
-                      <span className="max-w-[40%] shrink-0 truncate text-one-muted">{wait}</span>
-                    )}
-                    {/* Out of the truncation for the reason the date is. What
+                      {wait !== null && (
+                        <span className="max-w-[40%] shrink-0 truncate text-one-muted">{wait}</span>
+                      )}
+                      {/* Out of the truncation for the reason the date is. What
                         is on the line, not a sum: a running session lands here
                         when it is stopped. */}
-                    {time !== null && <span className="shrink-0 text-one-muted">{time}</span>}
-                    {/* Out of the truncation, so a long todo loses its words
+                      {time !== null && <span className="shrink-0 text-one-muted">{time}</span>}
+                      {/* Out of the truncation, so a long todo loses its words
                         rather than the date they are due on. The year is cut
                         from a date inside this one, where every row shares it,
                         and kept on any other: `Later` reaches years out, and
                         two rows reading `01-01` say nothing about which is
                         sooner. */}
-                    {todo.due !== undefined && (
-                      <span className="shrink-0 text-one-muted">
-                        {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
-                      </span>
-                    )}
-                  </button>
-                );
-                if (!coarse) return row;
+                      {todo.due !== undefined && (
+                        <span className="shrink-0 text-one-muted">
+                          {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
+                        </span>
+                      )}
+                    </button>
+                  );
+                  if (!coarse) return row;
 
-                // The state drawn as a button of its own, beside the row
-                // rather than inside it: a tap on the row opens the note, and
-                // a button cannot hold another. Out of the tab order, so the
-                // row is still the pane's one stop. `⋯` trails it for the
-                // same reason, and holds every key that has no button yet.
-                // One key for the question and for the strip: the row's own
-                // and its text, so neither is carried onto another todo that a
-                // write from elsewhere has put on this line.
-                const arming = `${key}\n${hit.text}`;
-                const asking = armed === arming;
-                const opened = more === arming;
-                // What the second tap would leave, drawn so the question says
-                // what it is asking. Nothing where the cycle leaves no todo.
-                const next = asking ? parseTodo(cycleLine(hit.text, today, ""))?.state : undefined;
-                // A state picked out of an open strip is meant, so one tap
-                // sets it, as the shifted keys do, with no question asked.
-                const actions: [string, () => void][] = [
-                  ...Object.values(SET).map((state): [string, () => void] => [
-                    state,
-                    () => onCycle(hit, state),
-                  ]),
-                  ["timer", () => onTimer(hit)],
-                  ["part", () => onSubtask(hit)],
-                  ["edit", () => edit(hit)],
-                  ["blocked by", () => block(hit)],
-                ];
-                return (
-                  <div key={key}>
-                    <div className="flex">
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        onClick={() => {
-                          // A row in the picker is there to be chosen.
-                          if (picking !== null) return;
-                          setArmed(asking ? null : arming);
-                          // Two ways to change a state do not both stand
-                          // open: the question shuts a strip, as a strip
-                          // takes the question back.
-                          setMore(null);
-                          if (asking) onCycle(hit);
-                        }}
-                        aria-label={`cycle ${todo.text}`}
-                        aria-pressed={asking}
-                        data-armed={asking ? "" : undefined}
-                        style={indent}
-                        className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
-                          asking ? "text-one-accent" : held ? "text-one-muted" : "text-one-fg"
-                        }`}
-                      >
-                        {asking
-                          ? `${next === undefined ? "" : STATE_SYMBOL[next]}?`
-                          : STATE_SYMBOL[todo.state]}
-                      </button>
-                      {row}
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        // The question on a state button, this row's or
-                        // another's, is taken back as the strip opens.
-                        onClick={() => {
-                          if (picking !== null) return;
-                          setArmed(null);
-                          setMore(opened ? null : arming);
-                        }}
-                        aria-label={`more for ${todo.text}`}
-                        aria-expanded={opened}
-                        className="min-h-11 min-w-11 shrink-0 text-one-muted"
-                      >
-                        ⋯
-                      </button>
-                    </div>
-                    {/* Wrapping, because eight words do not fit one line of a
+                  // The state drawn as a button of its own, beside the row
+                  // rather than inside it: a tap on the row opens the note, and
+                  // a button cannot hold another. Out of the tab order, so the
+                  // row is still the pane's one stop. `⋯` trails it for the
+                  // same reason, and holds every key that has no button yet.
+                  // One key for the question and for the strip: the row's own
+                  // and its text, so neither is carried onto another todo that a
+                  // write from elsewhere has put on this line.
+                  const arming = `${key}\n${hit.text}`;
+                  const asking = armed === arming;
+                  const opened = more === arming;
+                  // What the second tap would leave, drawn so the question says
+                  // what it is asking. Nothing where the cycle leaves no todo.
+                  const next = asking
+                    ? parseTodo(cycleLine(hit.text, today, ""))?.state
+                    : undefined;
+                  // A state picked out of an open strip is meant, so one tap
+                  // sets it, as the shifted keys do, with no question asked.
+                  const actions: [string, () => void][] = [
+                    ...Object.values(SET).map((state): [string, () => void] => [
+                      state,
+                      () => onCycle(hit, state),
+                    ]),
+                    ["timer", () => onTimer(hit)],
+                    ["part", () => onSubtask(hit)],
+                    ["edit", () => edit(hit)],
+                    ["blocked by", () => block(hit)],
+                  ];
+                  return (
+                    <div key={key}>
+                      <div className="flex">
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => {
+                            // A row in the picker is there to be chosen.
+                            if (picking !== null) return;
+                            setArmed(asking ? null : arming);
+                            // Two ways to change a state do not both stand
+                            // open: the question shuts a strip, as a strip
+                            // takes the question back.
+                            setMore(null);
+                            if (asking) onCycle(hit);
+                          }}
+                          aria-label={`cycle ${todo.text}`}
+                          aria-pressed={asking}
+                          data-armed={asking ? "" : undefined}
+                          style={indent}
+                          className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
+                            asking ? "text-one-accent" : held ? "text-one-muted" : "text-one-fg"
+                          }`}
+                        >
+                          {asking
+                            ? `${next === undefined ? "" : STATE_SYMBOL[next]}?`
+                            : STATE_SYMBOL[todo.state]}
+                        </button>
+                        {row}
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          // The question on a state button, this row's or
+                          // another's, is taken back as the strip opens.
+                          onClick={() => {
+                            if (picking !== null) return;
+                            setArmed(null);
+                            setMore(opened ? null : arming);
+                          }}
+                          aria-label={`more for ${todo.text}`}
+                          aria-expanded={opened}
+                          className="min-h-11 min-w-11 shrink-0 text-one-muted"
+                        >
+                          ⋯
+                        </button>
+                      </div>
+                      {/* Wrapping, because eight words do not fit one line of a
                         phone. Each named with its todo, so `done` here and
                         `done` above the list are two different buttons to a
                         screen reader. */}
-                    {opened && (
-                      <div className="flex flex-wrap px-1 text-[11px] text-one-muted">
-                        {actions.map(([label, run]) => (
-                          <button
-                            key={label}
-                            type="button"
-                            tabIndex={-1}
-                            onClick={() => {
-                              setMore(null);
-                              run();
-                            }}
-                            aria-label={`${label} ${todo.text}`}
-                            className="min-h-11 px-3"
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))
-        )}
-      </div>
+                      {opened && (
+                        <div className="flex flex-wrap px-1 text-[11px] text-one-muted">
+                          {actions.map(([label, run]) => (
+                            <button
+                              key={label}
+                              type="button"
+                              tabIndex={-1}
+                              onClick={() => {
+                                setMore(null);
+                                run();
+                              }}
+                              aria-label={`${label} ${todo.text}`}
+                              className="min-h-11 px-3"
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Only the keys this phase binds. A footer offering one that does
           nothing is worse than a short one. */}
@@ -1259,7 +1331,9 @@ export function TodoPane({
         className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
       >
         <span>
-          {listed === "done" ? (
+          {board ? (
+            `${cards.length} on the board`
+          ) : listed === "done" ? (
             `${shown.length} finished`
           ) : (
             <>
@@ -1271,6 +1345,12 @@ export function TodoPane({
         </span>
         {picking !== null ? (
           <span>j k move&ensp;&ensp;/ filter&ensp;&ensp;Enter pick&ensp;&ensp;Escape cancel</span>
+        ) : board ? (
+          <span>
+            h l column&ensp;&ensp;j k card&ensp;&ensp;x cycle&ensp;&ensp;O P X B W R
+            state&ensp;&ensp;p project&ensp;&ensp;g lanes&ensp;&ensp;c list&ensp;&ensp;v
+            view&ensp;&ensp;/ filter&ensp;&ensp;q close
+          </span>
         ) : (
           <span>
             x cycle&ensp;&ensp;O P X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
