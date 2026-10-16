@@ -715,6 +715,10 @@ the leader would cost you the space bar for nothing.
 | `Ctrl+Shift+H` `J` `K` `L` `O` | Walk the panes, as in a terminal |
 | `Ctrl+Shift+Q` | Take the book out of the pane |
 
+An `h` or `l` pressed while the book is still opening turns the page once the
+first page has landed. Held down, either key turns a page about every tenth of
+a second however fast the key repeats.
+
 `w` hands the file that is actually there to the browser under its own name, so
 `20 Literature/DDIA.epub` arrives in your downloads as `DDIA.epub` and
 `20 Literature/Attention.pdf` as `Attention.pdf`. It is vim's own key for

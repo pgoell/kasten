@@ -362,6 +362,32 @@ describe("the reader over a real book", () => {
     await vi.waitFor(() => expect(commands.paneRight).toHaveBeenCalled(), { timeout: 10_000 });
   }, 30_000);
 
+  it("turns the page on l pressed while the book is still opening", async () => {
+    // `init` opens a book with no bookmark through the paginator's own `next()`,
+    // which holds its turn lock for 100ms after the first page has already
+    // reported (`paginator.js:1060-1071`). A key in that window was dropped
+    // without a word (#370). Pressed inside that first `relocate` so the press
+    // lands in the window on every run rather than on a slow one.
+    // The renderer's reasons and not the view's count: the resize renders that
+    // follow a load report again as `anchor`, and those are no turn.
+    const reasons: string[] = [];
+    const press = (event: Event) => {
+      // The load-time expand reports before the section's `load` has gone out,
+      // and so before the pane listens on its document.
+      if (sections.length === 0) return;
+      document.removeEventListener("relocate", press, true);
+      const { renderer } = event.target as unknown as { renderer: EventTarget };
+      renderer.addEventListener("relocate", (moved) =>
+        reasons.push((moved as CustomEvent<{ reason: string }>).detail.reason),
+      );
+      sections[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
+    };
+    document.addEventListener("relocate", press, true);
+    await drawBook();
+
+    await vi.waitFor(() => expect(reasons).toContain("page"), { timeout: 10_000 });
+  }, 30_000);
+
   it("takes what a selection over two paragraphs says, on a click of its button", async () => {
     // The case that fails when somebody reads `range.toString()`, which runs
     // the paragraphs together and reads almost right. The text is asserted

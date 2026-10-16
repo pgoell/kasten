@@ -705,9 +705,11 @@ export function BookPane({
 
       // No leader: the pane holds a document you page with the space bar in every
       // other reader, and the chords already carry the way out.
-      if (event.key === "l") viewRef.current?.next();
-      else if (event.key === "h") viewRef.current?.prev();
-      else if (event.key === "q") commandsRef.current.closeNote();
+      if (event.key === "l" || event.key === "h") {
+        const turn = event.key === "l" ? "next" : "prev";
+        if (ready.current) viewRef.current?.[turn]();
+        else parkedTurn.current = turn;
+      } else if (event.key === "q") commandsRef.current.closeNote();
       // vim's own key for writing what you are looking at out to a file, said
       // bare for the reason `q` is: this pane has no leader.
       else if (event.key === "w") commandsRef.current.exportNote();
@@ -809,6 +811,16 @@ export function BookPane({
    * `init` land the bookmark on top of the passage.
    */
   const ready = useRef(false);
+  /**
+   * The turn `h` or `l` asked for before the book was ready, made once it is.
+   *
+   * `init` opens a book with no bookmark through the paginator's own `next()`,
+   * which holds its turn lock for 100ms after the first page has drawn
+   * (`paginator.js:1060-1071`), and a turn asked for under that lock returns
+   * having done nothing and said nothing (#370). One and not a queue: the same
+   * lock is what keeps a held key from turning a page per repeat.
+   */
+  const parkedTurn = useRef<"next" | "prev" | null>(null);
 
   /**
    * Draw `blocks` on what is on screen, in one walk of each document.
@@ -1352,6 +1364,12 @@ export function BookPane({
         ready.current = true;
         const parked = wanted.current;
         if (parked !== null) void goToQuote(parked);
+        // `init` has let go of the lock by now, its `next()` having waited the
+        // 100ms out. A parked passage wins over a parked turn: it is where the
+        // reader asked to be taken, and the turn's lock would drop its `goTo`.
+        const turn = parkedTurn.current;
+        parkedTurn.current = null;
+        if (turn !== null && parked === null) view[turn]();
       } catch (error_) {
         // Every way a book fails to open arrives as an error: a `NotFoundError`
         // from foliate, a throw from the zip reader for a file that is not an
@@ -1380,6 +1398,7 @@ export function BookPane({
       // The next view opens a book of its own, so a passage the last one was
       // ready for is not a passage this one is.
       ready.current = false;
+      parkedTurn.current = null;
       closeView(view);
       view.remove();
     };
