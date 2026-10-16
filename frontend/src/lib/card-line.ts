@@ -260,7 +260,7 @@ export function clozePlain(line: string): string {
 }
 
 /**
- * What `colons` and `typed` read, leftmost first: `\&#58;`, any other escape
+ * What `colons` and `asTyped` read, leftmost first: `\&#58;`, any other escape
  * pair, a code span, a backtick run that closes none, and a bare `&#58;`.
  *
  * One pass, so an escape pair is read before what follows it: `\\&#58;` is an
@@ -296,7 +296,7 @@ export function colons(text: string): string {
  * the `\\` or `\*` the import writes; a code span keeps its backslashes, as
  * the preview shows them.
  */
-export function typed(text: string): string {
+export function asTyped(text: string): string {
   return text.replace(ESCAPES, (found) =>
     found === "&#58;" ? ":" : ESCAPED.test(found) ? found.slice(1) : found,
   );
