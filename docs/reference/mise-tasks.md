@@ -64,6 +64,7 @@ the other two services run stock images and rebuild nothing.
 | `shell:test` | The chat runner's tests, on node's own test runner against a scripted session |
 | `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. `fe:dev` proxies `/chat` to it |
 | `fe:frame` | The end-to-end frame gates, in Chromium |
+| `fe:e2e` | Build, then prove offline capture in Chromium against `dist/`: the shell offline, dumps waiting and sent in order, a resend with the same id, a sign-in redirect kept out of the cache. Prints PASS or FAIL per step |
 | `fe:bench` | Record the frontend benchmark numbers on this machine |
 
 `fe:test` names its two projects rather than running every project, because the
