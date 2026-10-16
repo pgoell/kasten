@@ -37,6 +37,18 @@ describe("parseSession", () => {
     });
   });
 
+  it("reads the last link as the session's own, leaving an earlier one in the words", () => {
+    const line = "\t- 09:00-      call [[ada]] about zork-qux [[projects/x]] kt-1 ^blk9";
+
+    expect(parseSession(line)).toEqual({
+      start: "09:00",
+      end: undefined,
+      text: "call [[ada]] about zork-qux ^blk9",
+      link: "projects/x",
+      id: "kt-1",
+    });
+  });
+
   it("reads a line at any indent", () => {
     expect(parseSession("  - 08:00-      a part")?.start).toBe("08:00");
   });

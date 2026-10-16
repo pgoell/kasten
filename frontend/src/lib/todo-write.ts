@@ -503,7 +503,14 @@ export function sessionOf(todo: Todo, notePath: string, dailyPath: string, start
   };
 }
 
-/** Close every open session naming `id`, at `end`. Null where none moved. */
+/**
+ * Close every open session naming `id`, at `end`. Null where none moved.
+ *
+ * The end clock goes into the line in place, over the running pad, rather than
+ * the line being rebuilt from its reading: a rebuild loses the indent, a block
+ * id and anything typed after the id, and moves a link out of the words. The
+ * pad is the clock's width plus the space after it, so the words stay put.
+ */
 export function closeSessions(text: string, id: string, end: string): string | null {
   const lines = text.split("\n");
   let moved = false;
@@ -511,7 +518,7 @@ export function closeSessions(text: string, id: string, end: string): string | n
   for (const [index, line] of lines.entries()) {
     const session = parseSession(line);
     if (session === null || session.end !== undefined || session.id !== id) continue;
-    lines[index] = formatSession({ ...session, end });
+    lines[index] = line.replace(/^([ \t]*- \d{2}:\d{2}-)[ \t]*/, `$1${end} `);
     moved = true;
   }
 

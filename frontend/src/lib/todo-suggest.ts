@@ -122,8 +122,11 @@ const WHEN = [
 /** Round numbers, so the common estimate is a keystroke and the rest is typed. */
 const HOW_LONG = ["15m", "30m", "45m", "1h", "2h", "4h"];
 
-/** A marker at the end of a todo line, with whatever has been typed after it. */
-const VALUE = /(📅|⏳|🛫|⏲)[ \t]*([\w-]*)$/;
+/**
+ * A marker at the end of a todo line, with the variation selector it may be
+ * typed with and whatever has been typed after it.
+ */
+const VALUE = /(📅|⏳|🛫|⏲)(️?)[ \t]*([\w-]*)$/;
 
 /** The same at the end of the shorthand, where the colon is the marker's own. */
 const TERM = /(due|sched|start|est):(\S*)$/;
@@ -132,7 +135,7 @@ const TERM = /(due|sched|start|est):(\S*)$/;
  * A `🔁` at the end of a todo line, with whatever has been typed after it. A
  * rule is several words, so this runs over spaces where a date stops at one.
  */
-const RULE = /🔁[ \t]*([\w, \t]*)$/;
+const RULE = /🔁(️?)[ \t]*([\w, \t]*)$/;
 
 /** The same at the end of the shorthand, where a rule is one word. */
 const EVERY_TERM = /every:(\S*)$/;
@@ -210,11 +213,13 @@ export function lineSuggestions(
 
   const value = VALUE.exec(before);
   const glyph = value?.[1] ?? "";
-  const typed = value?.[2] ?? "";
+  const marker = glyph + (value?.[2] ?? "");
+  const typed = value?.[3] ?? "";
   if (value !== null && !written(glyph === "⏲", typed)) {
     // From the end of the marker rather than from the word, so the spaces
     // between the two are this answer's to write and there is exactly one.
-    const days = narrow(value.index + glyph.length, values(glyph === "⏲", today, " "), typed);
+    // The selector is the marker's, so the answer goes after it.
+    const days = narrow(value.index + marker.length, values(glyph === "⏲", today, " "), typed);
     // Nothing answering to a part-written value is not nothing to offer: the
     // fields are still there, and a caller drawing them always would otherwise
     // draw an empty row for the length of a date being typed out by hand.
@@ -222,12 +227,12 @@ export function lineSuggestions(
   }
 
   const rule = RULE.exec(before);
-  const begun = rule?.[1]?.trim() ?? "";
+  const begun = rule?.[2]?.trim() ?? "";
   if (rule !== null && parseRecurrence(begun) === null) {
     const options = rules(todo, today, begun, (text) => text);
     if (options.length > 0) {
       return {
-        from: rule.index + "🔁".length,
+        from: rule.index + "🔁".length + (rule[1] ?? "").length,
         options: options.map((option) => ({ ...option, text: ` ${option.text}` })),
       };
     }

@@ -5,6 +5,7 @@ import {
   nameAt,
   newId,
   parseTodo,
+  patchLine,
   setStateOn,
   type Todo,
   type TodoState,
@@ -175,6 +176,45 @@ describe("parseTodo", () => {
       text: "a zzq ^blk1",
       estimate: "2h",
     });
+  });
+
+  it("reads ⏳ typed with the variation selector as scheduled", () => {
+    expect(parsed("\t- [ ] call zork-qux ⏳️ 2026-10-20 ^blk9")).toMatchObject({
+      text: "call zork-qux ^blk9",
+      scheduled: "2026-10-20",
+    });
+  });
+
+  it("reads every field marker the same with the variation selector after it", () => {
+    const fields = [
+      "📅 2026-10-20",
+      "📆 2026-10-20",
+      "🗓 2026-10-20",
+      "🛫 2026-10-20",
+      "➕ 2026-10-20",
+      "✅ 2026-10-20",
+      "❌ 2026-10-20",
+      "🔺",
+      "⏫",
+      "🔼",
+      "🔽",
+      "⏬",
+      "🔁 every week",
+      "🏁 keep",
+      "🆔 kt-1",
+      "⛔ a",
+      "⏲ 2h",
+      "⏱ 1h",
+      "👤 2026-10-01 ada",
+    ];
+    for (const field of fields) {
+      const glyph = [...field][0] ?? "";
+      const selected = `${glyph}️${field.slice(glyph.length)}`;
+      const plain = parsed(`\t- [ ] call zork-qux ${field} ^blk9`);
+
+      expect(parsed(`\t- [ ] call zork-qux ${selected} ^blk9`), selected).toEqual(plain);
+      expect(plain.text, field).toBe("call zork-qux ^blk9");
+    }
   });
 
   it("counts what the line is indented by, and writes it back", () => {
@@ -436,6 +476,12 @@ describe("a todo waiting on somebody", () => {
     expect(nameAt("- [w] decision record")).toBeNull();
   });
 
+  it("says where the name goes after a 👤 typed with the variation selector", () => {
+    const line = "\t- [w] decision zork-qux 👤️ 2026-08-10 📅 2026-08-14 ^blk9";
+
+    expect(line.slice(0, nameAt(line) ?? 0)).toBe("\t- [w] decision zork-qux 👤️ 2026-08-10");
+  });
+
   it("stamps the day on entering, and keeps one the line already carries", () => {
     expect(set("- [ ] decision record", "waiting")).toBe("- [w] decision record 👤 2026-08-10");
     expect(set("- [ ] decision record 📅 2026-08-14", "waiting")).toBe(
@@ -473,6 +519,39 @@ describe("a todo waiting on somebody", () => {
 
   it("is open work", () => {
     expect(isOpen(parsed("- [w] decision record"))).toBe(true);
+  });
+});
+
+describe("a marker typed with the variation selector", () => {
+  function set(line: string, state: TodoState): string {
+    return setStateOn(line, state, TODAY, FRESH);
+  }
+
+  it("keeps the marker as typed when a value is written over it", () => {
+    const line = "\t- [/] call zork-qux ⏱️ 1h ^blk9";
+    expect(patchLine(line, { ...parsed(line), worked: "2h" })).toBe(
+      "\t- [/] call zork-qux ⏱️ 2h ^blk9",
+    );
+    expect(set("\t- [/] call zork-qux 👤️ ada ^blk9", "waiting")).toBe(
+      `\t- [w] call zork-qux 👤️ ${TODAY} ada ^blk9`,
+    );
+  });
+
+  it("adds a picked blocker after one typed with the selector, and reads both", () => {
+    const line = "\t- [b] call zork-qux ⛔️ a ^blk9";
+    const written = patchLine(line, { ...parsed(line), blockedBy: ["a", "b"] });
+
+    expect(written).toBe("\t- [b] call zork-qux ⛔️ a ⛔ b ^blk9");
+    expect(parsed(written).blockedBy).toEqual(["a", "b"]);
+  });
+
+  it("takes the selector off with a stamp it takes off", () => {
+    const done = "\t- [x] call zork-qux ✅️ 2026-10-01 🆔 kt-1 ^blk9";
+    expect(set(done, "open")).toBe("\t- [ ] call zork-qux 🆔 kt-1 ^blk9");
+    expect(press(done)).toBe("\tcall zork-qux 🆔 kt-1 ^blk9");
+    expect(set("\t- [w] call zork-qux 👤️ 2026-10-01 ada ^blk9", "open")).toBe(
+      "\t- [ ] call zork-qux ^blk9",
+    );
   });
 });
 

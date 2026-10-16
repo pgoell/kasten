@@ -109,6 +109,30 @@ describe("lineSuggestions", () => {
     expect(names("- [ ] call bob ⏲ 45m", true)).not.toContain("30m");
   });
 
+  it("offers a marker's values after the variation selector", () => {
+    // The cursor sits before the block id, as it does when a value is typed in.
+    const at = (line: string) => line.slice(0, line.indexOf(" ^blk9"));
+
+    const plain = lineSuggestions(at("\t- [ ] call zork-qux ⏲ 2 ^blk9"), TODAY);
+    const before = at("\t- [ ] call zork-qux ⏲️ 2 ^blk9");
+    const selected = lineSuggestions(before, TODAY);
+    expect(selected?.options).toEqual(plain?.options);
+    expect(selected?.options.map(({ name }) => name)).toEqual(["2h"]);
+    // Past the selector, so the answer never lands between it and its glyph.
+    expect(before.slice(selected?.from)).toBe(" 2");
+
+    for (const [line, first] of [
+      ["\t- [ ] call zork-qux 📅️ ^blk9", "today"],
+      ["\t- [ ] call zork-qux ⏳️ ^blk9", "today"],
+      ["\t- [ ] call zork-qux 🛫️ ^blk9", "today"],
+      ["\t- [ ] call zork-qux 🔁️ ^blk9", "every day"],
+    ] as const) {
+      const found = lineSuggestions(at(line), TODAY);
+      expect(found?.options[0]?.name, line).toBe(first);
+      expect(at(line).slice(found?.from), line).toBe("");
+    }
+  });
+
   it("offers the scheduled date its own days", () => {
     expect(lineSuggestions("- [ ] call bob ⏳", TODAY)?.options[0]?.text).toBe(" 2026-08-10");
   });

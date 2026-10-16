@@ -27,7 +27,7 @@ export interface Session {
 /** The bullet, both clocks, and everything after them. */
 const LINE = /^[ \t]*- (\d{2}:\d{2})-(\d{2}:\d{2})?[ \t]*(.*)$/;
 
-const LINK = /\[\[([^\]]+)\]\]/;
+const LINK = /\[\[([^\]]+)\]\]/g;
 
 /**
  * How wide the two clocks are written, which is `09:12-10:32`.
@@ -43,8 +43,13 @@ export function parseSession(line: string): Session | null {
 
   let rest = found[3] ?? "";
 
-  const link = LINK.exec(rest);
-  if (link !== null) rest = rest.slice(0, link.index) + rest.slice(link.index + link[0].length);
+  // Last rather than first: `formatSession` writes the link after the words,
+  // and a `[[link]]` in the words is something the todo said rather than the
+  // note it lives in. A stop no longer rebuilds the line from this reading, so
+  // a link written after the id is not worth chasing.
+  const link = [...rest.matchAll(LINK)].at(-1);
+  if (link !== undefined)
+    rest = rest.slice(0, link.index) + rest.slice(link.index + link[0].length);
 
   const words = rest.split(/\s+/).filter((word) => word !== "");
   // Last rather than first: the id is written last, and a `kt-` in the words is

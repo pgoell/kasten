@@ -114,20 +114,21 @@ const PLAIN = /^([ \t]*)(?:- )?(.*)$/;
 // `d` on every one, because a value is read off the words by its offsets: the
 // match runs on a masked copy, where a link's own text is filler.
 //
-// `📆` and `🗓` are obsidian-tasks' other spellings of due. `🗓`, `⏲` and `⏱`
-// are often typed with the variation selector after them, which is why it may
-// follow those three, and a write over one takes it off with the match.
+// `📆` and `🗓` are obsidian-tasks' other spellings of due. Any marker may be
+// typed with the variation selector after it, as many keyboards do, so it may
+// follow every one, and a write over one keeps it: see `patchLine`. It sits
+// outside the priority's capture, which is looked up by the glyph alone.
 const DUE = /(?:📅|📆|🗓)️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
-const SCHEDULED = /⏳[ \t]+(\d{4}-\d{2}-\d{2})/d;
-const START = /🛫[ \t]+(\d{4}-\d{2}-\d{2})/d;
-const CREATED = /➕[ \t]+(\d{4}-\d{2}-\d{2})/d;
-const DONE = /✅[ \t]+(\d{4}-\d{2}-\d{2})/d;
-const CANCELLED = /❌[ \t]+(\d{4}-\d{2}-\d{2})/d;
-const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)/d;
+const SCHEDULED = /⏳️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const START = /🛫️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const CREATED = /➕️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const DONE = /✅️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const CANCELLED = /❌️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)️?/d;
 // Ends at a space or the line's end, so `🏁 keep-it` stays words.
-const ON_COMPLETION = /🏁[ \t]+(keep|delete)(?=[ \t]|$)/d;
-const ID = /🆔[ \t]+(\S+)/d;
-const BLOCKED_BY = /⛔[ \t]+(\S+)/d;
+const ON_COMPLETION = /🏁️?[ \t]+(keep|delete)(?=[ \t]|$)/d;
+const ID = /🆔️?[ \t]+(\S+)/d;
+const BLOCKED_BY = /⛔️?[ \t]+(\S+)/d;
 const ESTIMATE = /⏲️?[ \t]+(\S+)/d;
 const WORKED = /⏱️?[ \t]+(\S+)/d;
 
@@ -135,7 +136,7 @@ const WORKED = /⏱️?[ \t]+(\S+)/d;
 // than to the next space. A tag ends it too: a recurrence never carries one,
 // and a tag belongs to the words, as does a `^block` id that ends the line.
 const RECURRENCE =
-  /🔁[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$)/d;
+  /🔁️?[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$)/d;
 
 // Who a todo waits on and since when, both optional and the date first. The
 // name is free text as a rule is, so it runs to the next marker or tag. It
@@ -144,7 +145,7 @@ const RECURRENCE =
 // stamped in front of one would read the id as who the todo waits on. The name
 // is tried last for the same reason, `??` rather than `?`.
 const WAITING =
-  /👤(?:[ \t]+(\d{4}-\d{2}-\d{2}))?(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
+  /👤️?(?:[ \t]+(\d{4}-\d{2}-\d{2}))?(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
 
 /** Every field in the order `tail` writes them, which is where a stamp is added. */
 const ORDER = [
@@ -466,8 +467,11 @@ export function patchLine(line: string, want: Todo, boxed = true): string {
       rest = rest.slice(0, from) + rest.slice(to);
     } else if (was !== undefined && found !== null) {
       // A changed value is written over the old one, so a name typed after a
-      // `👤` stays where it was.
-      rest = rest.slice(0, found.from) + now + rest.slice(found.to);
+      // `👤` stays where it was, and so does a variation selector typed after
+      // the marker: the line is the user's spelling, not ours.
+      const typed = /^.️/u.test(rest.slice(found.from, found.to));
+      const over = typed ? now.replace(/^./u, "$&️") : now;
+      rest = rest.slice(0, found.from) + over + rest.slice(found.to);
     } else {
       const step = { ...had, ...Object.fromEntries(keys.map((key) => [key, fields[key]])) };
       const written = withStamp(rest, now, ORDER.indexOf(pattern), step);
@@ -507,9 +511,10 @@ export function nameAt(line: string): number | null {
   const todo = parseTodo(line);
   if (todo?.state !== "waiting" || todo.waitingOn !== undefined) return null;
 
-  const stamp = `👤 ${todo.waitingSince}`;
-  const at = line.indexOf(stamp);
-  return todo.waitingSince === undefined || at === -1 ? null : at + stamp.length;
+  if (todo.waitingSince === undefined) return null;
+  // The marker as typed, with or without the variation selector after it.
+  const stamp = new RegExp(`👤️?[ \\t]+${todo.waitingSince}`).exec(line);
+  return stamp === null ? null : stamp.index + stamp[0].length;
 }
 
 /** Neither done nor rejected, which is what both views show by default. */

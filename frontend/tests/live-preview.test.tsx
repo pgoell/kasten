@@ -422,6 +422,17 @@ describe("live preview", () => {
     expect(overdue[0]?.textContent).toBe("📅 1970-01-01");
   });
 
+  it("colours a passed due date typed with the variation selector", () => {
+    // Under a parent, so the tab nests the todo rather than opening a code block.
+    const { container } = renderEditor(
+      <Editor initialDoc={"- [ ] zork\n\t- [ ] call zork-qux 📅️ 1970-01-01 ^blk9"} />,
+    );
+
+    const overdue = container.querySelectorAll(".cm-todo-overdue");
+    expect(overdue).toHaveLength(1);
+    expect(overdue[0]?.textContent).toBe("📅️ 1970-01-01");
+  });
+
   it("keeps the overdue colour on the line being edited", async () => {
     // Unlike the symbol, the red stands in for nothing: it is colour on text
     // that is on the screen whether the line shows its source or not.

@@ -6,6 +6,7 @@ import {
   blockLine,
   type Closed,
   type CycleInput,
+  closeSessions,
   cycleLines,
   cycleTodoWrites,
   doneLine,
@@ -926,6 +927,32 @@ describe("timerWrites, stopping", () => {
   });
 });
 
+describe("closeSessions", () => {
+  it("keeps the words and both links as written when the words hold a link", () => {
+    const open = "\t- 09:00-      call [[ada]] about zork-qux [[projects/x]] kt-1 ^blk9";
+
+    expect(closeSessions(open, "kt-1", "10:00")).toBe(
+      "\t- 09:00-10:00 call [[ada]] about zork-qux [[projects/x]] kt-1 ^blk9",
+    );
+  });
+
+  it("keeps a tab indent, a block id and unknown text, and the words' column", () => {
+    const open = "\t- 09:00-      zork-qux words [[projects/x]] kt-1 ^blk9";
+    const closed = closeSessions(open, "kt-1", "10:00");
+
+    expect(closed).toBe("\t- 09:00-10:00 zork-qux words [[projects/x]] kt-1 ^blk9");
+    expect(closed?.indexOf("zork-qux")).toBe(open.indexOf("zork-qux"));
+  });
+
+  it("closes a line with no own link and words ending in a link byte for byte but the end", () => {
+    const open = "\t- 09:00-      call about zork-qux [[ada]] kt-1 ^blk9";
+
+    expect(closeSessions(open, "kt-1", "10:00")).toBe(
+      "\t- 09:00-10:00 call about zork-qux [[ada]] kt-1 ^blk9",
+    );
+  });
+});
+
 const YESTERDAY_PATH = "01 Periodic/00 Daily/2026-08-09.md";
 
 /** Yesterday's note, with whatever the log holds left open in it. */
@@ -1109,6 +1136,6 @@ describe("field reads before a code span and with the variation selector", () =>
       },
     });
 
-    expect(writes[1]?.text).toBe("\t- [/] part zork ⏱ 1h20m 🆔 kt-3f9a2c ^blk1");
+    expect(writes[1]?.text).toBe("\t- [/] part zork ⏱️ 1h20m 🆔 kt-3f9a2c ^blk1");
   });
 });

@@ -79,9 +79,9 @@ tag rather than to the next space.
 Both clocks take a duration, written `2h`, `45m` or `1h20m`. Nothing else is
 one: `90`, `1h30` and `two hours` are words, not times.
 
-`⏲`, `⏱` and `🗓` may carry the variation selector (U+FE0F) after the glyph, as
-many keyboards type them. They read the same either way, and a value kasten
-writes over one, such as a stop's `⏱` total, is spelled without it.
+Every field marker may carry the variation selector (U+FE0F) after the glyph,
+as many keyboards type them, and reads the same either way. A value kasten
+writes over one, such as a stop's `⏱` total, keeps the marker as typed.
 
 Only the two clocks and the `👤` are ours. Everything else is what the
 obsidian-tasks plugin already reads, so the vault opened in Obsidian shows
@@ -524,7 +524,9 @@ already lives in the note being written, exactly as the done log leaves it off.
 
 A start stamps an `🆔` where the todo carries none, so the session line has
 something to name. A second `t` on that row closes every session the todo has
-running and rewrites its `⏱`.
+running and rewrites its `⏱`. A stop writes the end clock into the session line
+and leaves the rest of the line as it stands: the words, every link in them, the
+indent and anything typed after the id.
 
 Timers run in parallel and `t` touches one todo. Three going is three rows
 marked `▶` in the pane and `3 running` in its footer. A day's total is the sum

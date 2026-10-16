@@ -43,8 +43,11 @@ const HEADING = /^ATXHeading([1-6])$/;
 /** How far one level of list nesting shifts a rendered item, in `em`. */
 const BULLET_INDENT = 1.6;
 
-/** A todo's due date and the marker in front of it, which is what turns red. */
-const DUE = /📅[ \t]+(\d{4}-\d{2}-\d{2})/;
+/**
+ * A todo's due date and the marker in front of it, which is what turns red,
+ * with the variation selector the marker may be typed with.
+ */
+const DUE = /📅️?[ \t]+(\d{4}-\d{2}-\d{2})/;
 
 /**
  * Today, read once when the module loads.
