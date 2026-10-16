@@ -104,6 +104,22 @@ describe("doneLine", () => {
       "- ✅ 2026-08-10 wire up the pane kt-3f9a2c",
     );
   });
+
+  it("leaves a block id off and keeps unknown words, link and id", () => {
+    const line = todo("\t- [x] part zzq-unknown 🆔 kt-3f9a2c ^blk1");
+
+    expect(doneLine(line, NOTE_PATH, DAILY_PATH, TODAY)).toBe(
+      "- ✅ 2026-08-10 part zzq-unknown [[projects/kasten]] kt-3f9a2c",
+    );
+  });
+
+  it("keeps a caret inside the words and a block id that does not end them", () => {
+    const line = todo("- [x] a^b then ^blk1 more 🆔 kt-3f9a2c");
+
+    expect(doneLine(line, NOTE_PATH, DAILY_PATH, TODAY)).toBe(
+      "- ✅ 2026-08-10 a^b then ^blk1 more [[projects/kasten]] kt-3f9a2c",
+    );
+  });
 });
 
 describe("dropDone", () => {
@@ -779,6 +795,15 @@ describe("timerWrites, starting", () => {
       text: ["- [ ] parent", "\t- [ ] part zork 🜲 words 🆔 kt-3f9a2c ^blk1", ""].join("\n"),
     });
   });
+
+  it("leaves the block id off the session line", () => {
+    const note = ["- [ ] parent", "\t- [ ] part zzq-unknown ^blk1", ""].join("\n");
+    const writes = timerWrites(timer({ line: 2, notes: { [NOTE_PATH]: note } }));
+
+    expect(writes[1]?.text).toContain(
+      "- 14:03-      part zzq-unknown [[projects/kasten]] kt-3f9a2c\n",
+    );
+  });
 });
 
 const SESSION_OPEN = "- 09:12-      wire up the pane #kasten [[projects/kasten]] kt-3f9a2c";
@@ -1065,5 +1090,25 @@ describe("unblockedEdit", () => {
     expect(unblockedEdit("- [b] write the docs ⛔ kt-c0ffee", "- [/] write the docs")).toBe(
       "- [/] write the docs",
     );
+  });
+});
+
+describe("field reads before a code span and with the variation selector", () => {
+  it("adds a blocker at its place and leaves a code span after a bare ⛔ whole", () => {
+    expect(blockLine("\t- [ ] a zzq ⛔ `c d` x ^blk1", "c", () => false)).toBe(
+      "\t- [b] a zzq ⛔ `c d` x ⛔ c ^blk1",
+    );
+  });
+
+  it("writes a stop's total over a ⏱ typed with the variation selector", () => {
+    const writes = stop([SESSION_OPEN], {
+      line: 1,
+      notes: {
+        [NOTE_PATH]: "\t- [/] part zork ⏱️ 1h 🆔 kt-3f9a2c ^blk1",
+        [DAILY_PATH]: timeLog(SESSION_OPEN),
+      },
+    });
+
+    expect(writes[1]?.text).toBe("\t- [/] part zork ⏱ 1h20m 🆔 kt-3f9a2c ^blk1");
   });
 });

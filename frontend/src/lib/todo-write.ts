@@ -80,6 +80,14 @@ const LAST_MINUTE = "23:59";
 const LOGGED = "- ✅";
 
 /**
+ * A todo's words without the `^block` id ending them. An id names one line, so
+ * a copy that kept it would make a second block or leave stray text.
+ */
+function withoutBlockId(text: string): string {
+  return text.replace(/(?:^|[ \t]+)\^[\w-]+$/, "");
+}
+
+/**
  * The line the done log carries: what was finished, where it lives, and its id.
  *
  * Not a checkbox, and that is the whole reason it is spelled this way:
@@ -88,7 +96,7 @@ const LOGGED = "- ✅";
  * its own log entry, with nothing on either line to tell them apart.
  */
 export function doneLine(todo: Todo, notePath: string, dailyPath: string, today: string): string {
-  const parts = [LOGGED, today, todo.text];
+  const parts = [LOGGED, today, withoutBlockId(todo.text)];
   // A note pointing at itself records nothing.
   if (notePath !== dailyPath) parts.push(`[[${notePath.replace(/\.md$/, "")}]]`);
   if (todo.id !== undefined) parts.push(todo.id);
@@ -407,10 +415,10 @@ export function cycleLines({
   if (was !== null && was.state !== "done" && now?.state === "done") {
     const fresh = nextOccurrence(was, today);
     // A new line, so written in the field order, but at the indent the ticked
-    // one carries as typed. A block id names one line, and the copy is not it.
+    // one carries as typed.
     if (fresh !== null) {
       const indent = /^[ \t]*/.exec(before)?.[0] ?? "";
-      const text = fresh.text.replace(/(?:^|[ \t]+)\^[\w-]+$/, "");
+      const text = withoutBlockId(fresh.text);
       moved.set(line, `${indent}${formatTodo({ ...fresh, indent: 0, text })}\n${cycled}`);
     }
   }
@@ -488,7 +496,7 @@ export interface TimerInput {
 export function sessionOf(todo: Todo, notePath: string, dailyPath: string, start: string): Session {
   return {
     start,
-    text: todo.text,
+    text: withoutBlockId(todo.text),
     // A note pointing at itself records nothing, the way `doneLine` has it.
     link: notePath === dailyPath ? undefined : notePath.replace(/\.md$/, ""),
     id: todo.id,

@@ -145,6 +145,38 @@ describe("parseTodo", () => {
     });
   });
 
+  it("leaves a ⛔ whose value would start a code span in the words", () => {
+    expect(parsed("\t- [ ] a zzq ⛔ `c d` x ^blk1")).toMatchObject({
+      text: "a zzq ⛔ `c d` x ^blk1",
+      blockedBy: [],
+    });
+  });
+
+  it("reads a later ⛔ past one that stands before a code span", () => {
+    expect(parsed("\t- [ ] a zzq ⛔ `c d` x ⛔ e ^blk1")).toMatchObject({
+      text: "a zzq ⛔ `c d` x ^blk1",
+      blockedBy: ["e"],
+    });
+  });
+
+  it("reads a blocker with an underscore in it", () => {
+    expect(parsed("\t- [ ] a zzq ⛔ a_b ^blk1").blockedBy).toEqual(["a_b"]);
+  });
+
+  it("reads ⏱ typed with the variation selector", () => {
+    expect(parsed("\t- [ ] a zzq ⏱️ 1h ^blk1")).toMatchObject({
+      text: "a zzq ^blk1",
+      worked: "1h",
+    });
+  });
+
+  it("reads ⏲ typed with the variation selector", () => {
+    expect(parsed("\t- [ ] a zzq ⏲️ 2h ^blk1")).toMatchObject({
+      text: "a zzq ^blk1",
+      estimate: "2h",
+    });
+  });
+
   it("counts what the line is indented by, and writes it back", () => {
     expect(parsed("    - [ ] nested").indent).toBe(4);
     expect(formatTodo(parsed("    - [ ] nested"))).toBe("    - [ ] nested");

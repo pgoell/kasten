@@ -44,7 +44,10 @@ kept bytes.
 A marker kasten does not know, and one whose value does not parse, stays in the
 words where the person who typed it can see it. So does a marker inside a
 `[[wikilink]]`, a markdown link or a code span: `[[notes 📅 2026-10-20]]` gives
-the todo no due date.
+the todo no due date. A marker whose value would start a link or a code span
+has no value either, so in ``⛔ `c d` `` the `⛔` stays words, a later `⛔` on
+the line still reads, and a blocker picked for the line goes in at its place
+and leaves the span whole.
 
 ## The fields
 
@@ -75,6 +78,10 @@ tag rather than to the next space.
 
 Both clocks take a duration, written `2h`, `45m` or `1h20m`. Nothing else is
 one: `90`, `1h30` and `two hours` are words, not times.
+
+`⏲`, `⏱` and `🗓` may carry the variation selector (U+FE0F) after the glyph, as
+many keyboards type them. They read the same either way, and a value kasten
+writes over one, such as a stop's `⏱` total, is spelled without it.
 
 Only the two clocks and the `👤` are ours. Everything else is what the
 obsidian-tasks plugin already reads, so the vault opened in Obsidian shows
@@ -479,6 +486,11 @@ its id. The link is left off when the todo already lives in the daily note being
 written, because a note pointing at itself records nothing. The line itself is
 still written there: the daily note is where most todos are, so skipping it
 would leave `## Done` empty for the commonest way of working.
+
+The words leave off a `^block` id that ends the todo's line, since that id
+names the todo's own line and a second copy would make links to it ambiguous.
+The session line in [the time log](#the-time-log) and
+[the recurring copy](#recurrence) leave it off the same way.
 
 It is deliberately not a checkbox. `GET /api/todos` matches the shape of a
 checkbox line, so a `- [x]` here would put every finished todo in the pane

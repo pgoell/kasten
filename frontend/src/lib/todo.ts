@@ -114,8 +114,9 @@ const PLAIN = /^([ \t]*)(?:- )?(.*)$/;
 // `d` on every one, because a value is read off the words by its offsets: the
 // match runs on a masked copy, where a link's own text is filler.
 //
-// `📆` and `🗓` are obsidian-tasks' other spellings of due. `🗓` is often typed
-// with the variation selector after it, which is why that one may follow.
+// `📆` and `🗓` are obsidian-tasks' other spellings of due. `🗓`, `⏲` and `⏱`
+// are often typed with the variation selector after them, which is why it may
+// follow those three, and a write over one takes it off with the match.
 const DUE = /(?:📅|📆|🗓)️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const SCHEDULED = /⏳[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const START = /🛫[ \t]+(\d{4}-\d{2}-\d{2})/d;
@@ -127,8 +128,8 @@ const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)/d;
 const ON_COMPLETION = /🏁[ \t]+(keep|delete)(?=[ \t]|$)/d;
 const ID = /🆔[ \t]+(\S+)/d;
 const BLOCKED_BY = /⛔[ \t]+(\S+)/d;
-const ESTIMATE = /⏲[ \t]+(\S+)/d;
-const WORKED = /⏱[ \t]+(\S+)/d;
+const ESTIMATE = /⏲️?[ \t]+(\S+)/d;
+const WORKED = /⏱️?[ \t]+(\S+)/d;
 
 // The one field whose value is free text, so it runs to the next marker rather
 // than to the next space. A tag ends it too: a recurrence never carries one,
@@ -180,10 +181,12 @@ const BLOCK_ID = /\^[\w-]+[ \t]*$/;
 /**
  * `text` with every span blanked to the same length, so a marker inside one
  * matches nothing and every offset still lines up with the text. The filler
- * keeps the spaces and is a character no field, tag or block id reads.
+ * keeps the spaces and is a no-break space: no field, tag or block id reads it,
+ * and neither `\S` nor `[ \t]` takes it, so a marker straight before a span has
+ * no value and stays words rather than reading the span's first word.
  */
 function masked(text: string): string {
-  return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "_"));
+  return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "\u00A0"));
 }
 
 /** A field found on the mask: where it sits in the text, and its values read off the text. */
