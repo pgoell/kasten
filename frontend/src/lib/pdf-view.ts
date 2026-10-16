@@ -261,6 +261,10 @@ export function showPdf(
       };
       scroll();
       box.addEventListener("scroll", () => {
+        // At the end the browser may have cut the scroll short, a last page
+        // shorter than the box stopping it inside the page before: that is
+        // not a place anyone chose, and the one before it is kept.
+        if (box.scrollTop >= box.scrollHeight - box.clientHeight) return;
         const y = box.scrollTop + head.offsetTop;
         let at = 0;
         while (at + 1 < pages.length && (pages[at + 1] as HTMLElement).offsetTop <= y) at += 1;

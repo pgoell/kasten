@@ -1560,6 +1560,8 @@ describe("a pdf embed", () => {
         return index(this) * tall;
       });
       vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => tall);
+      Object.defineProperty(box, "scrollHeight", { get: () => 3 * tall });
+      Object.defineProperty(box, "clientHeight", { value: 512 });
       await slotsOf(view);
       expect(box.scrollTop).toBe(1600);
 
@@ -1585,6 +1587,35 @@ describe("a pdf embed", () => {
       tall = 800;
       FakeResizer.resize(box);
       expect(box.scrollTop).toBe(1200);
+    });
+
+    it("A1 keeps the last page at the top through a scroll the browser cut short", async () => {
+      const view = mount(
+        `${ABOVE}![[plan.pdf#page=3]]`,
+        withPdfs(fakeVault({}).source, fakePdfs({ [PLAN]: 3 })),
+      );
+      const box = boxOf(view);
+      let tall = 400;
+      const index = (slot: HTMLElement) => [...(slot.parentElement?.children ?? [])].indexOf(slot);
+      vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return index(this) * tall;
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => tall);
+      Object.defineProperty(box, "scrollHeight", { get: () => 3 * tall });
+      Object.defineProperty(box, "clientHeight", { value: 512 });
+      await slotsOf(view);
+
+      // A phone held upright: the last page is shorter than the box, so the
+      // browser stops the scroll at its end, inside page 2, and says so.
+      box.scrollTop = 3 * 400 - 512;
+      fireEvent.scroll(box);
+
+      // Turned, the pages are taller than the box, and page 3 fits at its top.
+      tall = 800;
+      FakeResizer.resize(box);
+      expect(box.scrollTop).toBe(1600);
     });
 
     it.each(["#page=9", "#page=0", "#page=-1", "#page=abc", "#page=2.5", "#page=", "#", "#intro"])(
