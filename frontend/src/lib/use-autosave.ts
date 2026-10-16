@@ -30,6 +30,14 @@ function lower(counts: Map<string, number>, note: string): void {
   else counts.delete(note);
 }
 
+/**
+ * The entries held as the editor route unmounted, of writes then in the air.
+ * Module-level, because the route mounted again has a new hook that knows
+ * none of the old one's writes, and the cache the leave filled reads to it as
+ * the vault's text (#382). Each leaves the store when its write answers.
+ */
+const leftAloft = new WeakSet<Held>();
+
 /** A queued write a `:e!` threw away before its turn came, never sent (#301). */
 class Skipped extends Error {}
 
@@ -787,6 +795,80 @@ export function useAutosave(
    */
   const isWriting = useCallback((note: string) => writing.current.has(note), []);
 
+  /**
+   * Hold the text of `note`'s buffer that the page going away would lose: a
+   * quiet write in the air, and what is waiting. Answers the entry held for
+   * what is waiting, or of the write in the air when nothing is, which a hide
+   * then sends; undefined when that text is held already or there is none.
+   *
+   * Nothing waiting, but a quiet write may still be in the air, and the page
+   * going away cancels it. Not after a reload since it went out: that text is
+   * on screen nowhere (#306). Nor the write `:e!` queued with the vault's
+   * text, which nobody typed: held, it would read as the reader's and stand as
+   * a conflict with whoever wrote since (#311).
+   */
+  const holdOwn = useCallback(
+    (note: string, reason: string): Held | undefined => {
+      const loaded = reloadsOf(reloads.current, note);
+      const queue = queued.current.get(note);
+      const follows = queue?.visit === visit.current && queue.loaded === loaded;
+      const air = inAir.current.get(note);
+      const fresh = air?.loaded === loaded && !air.restoring ? air : undefined;
+      // A buffer reopened on the text under that write, which it does not
+      // follow, shows other text: a keepalive would land this unseen (#314). Held
+      // only, under the base it was typed on, so the page dying still keeps
+      // it, and the quiet write landing drops it. Beside it the text the write
+      // named, as the hide's loop keeps it: a write ahead of it that landed is
+      // the reader's own, no conflict on reopening. Held as well when text was
+      // typed on the screen's text since: that goes out on its own, and the
+      // page dying would cancel the write and keep its text nowhere (#317).
+      // So too when that text already went to the queue and the buffer follows
+      // its own write, still waiting behind the one it never took.
+      const offScreen = follows ? unseenOf(fresh) : fresh;
+      if (offScreen !== undefined) {
+        const out = offScreen.sent?.loaded === offScreen.loaded ? offScreen.sent : undefined;
+        const under =
+          out === undefined
+            ? offScreen.base
+            : out.content === offScreen.content
+              ? (offScreen.named ?? offScreen.base)
+              : out.content;
+        const entry: Held = {
+          content: offScreen.content,
+          reason,
+          conflicted: conflicted.current,
+          base: offScreen.base,
+          after: under !== offScreen.base ? under : undefined,
+        };
+        holdText(note, entry);
+        heldAt.current.set(entry, { seq: saves.current, visit: offScreen.visit });
+        if (!follows && pending.current === null) return undefined;
+      }
+      const content = pending.current ?? fresh?.content;
+      if (content === undefined) return undefined;
+      if (content === taken.current?.content) return undefined;
+      // Text typed behind a write in the air is typed on that write's text,
+      // which the keepalive names: the last one sent, a queued one never
+      // reaching the vault (#310). Kept beside the base and not in its place:
+      // the page may die before that write arrives. Not after a reload since
+      // that write went out, which the text was typed on instead, nor when the
+      // buffer does not follow the queue, `write`'s own test.
+      const before = follows ? sentUnder(air, loaded) : undefined;
+      const entry = {
+        content,
+        reason,
+        conflicted: conflicted.current,
+        base: lastBase(note),
+        after: before !== undefined && before !== content ? before : undefined,
+      };
+      holdText(note, entry, taken.current);
+      // After every write already in the air, which a failing one reads.
+      heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
+      return entry;
+    },
+    [lastBase],
+  );
+
   const change = useCallback(
     (doc: string) => {
       pending.current = doc;
@@ -819,6 +901,15 @@ export function useAutosave(
       const held = heldText(note, text);
       if (!held || pending.current !== null || writing.current.has(note)) return undefined;
       if (!opening.current && held !== offered.current) return undefined;
+      // The text of a write another hook still has in the air, which the leave
+      // put in the cache: not landed yet, and the page closing would cancel
+      // it. Taken, so the bar leaves it out and a hide holds it as it is; that
+      // write landing drops it, or failing holds it again.
+      if (leftAloft.has(held) && landedAs(held.content, text)) {
+        onDisk.current = text;
+        take(held);
+        return true;
+      }
       // Every entry the vault holds by now has landed, whichever write it was.
       for (const entry of heldTexts(note)) {
         if (landedAs(entry.content, text)) dropText(note, entry);
@@ -955,6 +1046,22 @@ export function useAutosave(
     return pending.current === null || conflicted.current;
   }, [path]);
 
+  // Leaving the route takes the `pagehide` listener below with it, so a page
+  // closed before the flush answers cancels it unheard, and the quiet write
+  // in the air too (#382). Their text is held first, as a hide holds it, and
+  // each one landing drops its copy. Only on unmount: a note left within the
+  // route is still the hide's to hold, and holding it here would list it on
+  // the bar until its flush lands. Ahead of the flush, which empties `pending`,
+  // because React runs an unmount's cleanups in order.
+  useEffect(
+    () => () => {
+      if (openRef.current === undefined) return;
+      const entry = holdOwn(openRef.current, "Not yet written when the note was left");
+      if (entry !== undefined) leftAloft.add(entry);
+    },
+    [holdOwn],
+  );
+
   // React runs a cleanup with the render's own closure, so opening another
   // note writes what is pending to the note it was typed into, not to the one
   // that just replaced it. Unmounting flushes for the same reason. Nobody is
@@ -1056,73 +1163,15 @@ export function useAutosave(
         );
       }
       if (path === undefined) return;
-      // Nothing waiting, but a quiet write may still be in the air, and the page
-      // going away cancels it. Its text is held and sent again with keepalive,
-      // and the quiet write landing after all drops the held copy. Not after a
-      // reload since it went out: that text is on screen nowhere (#306). Nor
-      // the write `:e!` queued with the vault's text, which nobody typed: held,
-      // it would read as the reader's and stand as a conflict with whoever
-      // wrote since (#311).
-      const loaded = reloadsOf(reloads.current, path);
-      const queue = queued.current.get(path);
-      const follows = queue?.visit === visit.current && queue.loaded === loaded;
-      const air = inAir.current.get(path);
-      const fresh = air?.loaded === loaded && !air.restoring ? air : undefined;
-      // A buffer reopened on the text under that write, which it does not
-      // follow, shows other text: a keepalive would land this unseen (#314). Held
-      // only, under the base it was typed on, so the page dying still keeps
-      // it, and the quiet write landing drops it. Beside it the text the write
-      // named, as the loop above keeps it: a write ahead of it that landed is
-      // the reader's own, no conflict on reopening. Held as well when text was
-      // typed on the screen's text since: that goes out below on its own, and
-      // the page dying would cancel the write and keep its text nowhere (#317).
-      // So too when that text already went to the queue and the buffer follows
-      // its own write, still waiting behind the one it never took.
-      const offScreen = follows ? unseenOf(fresh) : fresh;
-      if (offScreen !== undefined) {
-        const out = offScreen.sent?.loaded === offScreen.loaded ? offScreen.sent : undefined;
-        const under =
-          out === undefined
-            ? offScreen.base
-            : out.content === offScreen.content
-              ? (offScreen.named ?? offScreen.base)
-              : out.content;
-        const entry: Held = {
-          content: offScreen.content,
-          reason: "Not yet written when the page was hidden",
-          conflicted: conflicted.current,
-          base: offScreen.base,
-          after: under !== offScreen.base ? under : undefined,
-        };
-        holdText(path, entry);
-        heldAt.current.set(entry, { seq: saves.current, visit: offScreen.visit });
-        if (!follows && pending.current === null) return;
-      }
-      const content = pending.current ?? fresh?.content;
-      if (content === undefined) return;
-      if (content === taken.current?.content) return;
-      // Text typed behind a write in the air is typed on that write's text,
-      // which the keepalive below names: the last one sent, a queued one never
-      // reaching the vault (#310). Kept beside the base and not in its place:
-      // the page may die before that write arrives. Not after a reload since
-      // that write went out, which the text was typed on instead, nor when the
-      // buffer does not follow the queue, `write`'s own test.
-      const before = follows ? sentUnder(air, loaded) : undefined;
-      const entry = {
-        content,
-        reason: "Not yet written when the page was hidden",
-        conflicted: conflicted.current,
-        base: lastBase(path),
-        after: before !== undefined && before !== content ? before : undefined,
-      };
-      holdText(path, entry, taken.current);
-      // After every write already in the air, which a failing one reads.
-      heldAt.current.set(entry, { seq: saves.current, visit: visit.current });
+      // The text held is sent again with keepalive, and the quiet write
+      // landing after all drops the held copy.
+      const entry = holdOwn(path, "Not yet written when the page was hidden");
+      if (entry === undefined) return;
       take(entry);
       if (conflicted.current) return;
       // In `pending` only to be sent: a held in-flight text put there would
       // outlive its own write landing, and leave the note reading unsaved.
-      pending.current = content;
+      pending.current = entry.content;
       void write(true);
     };
     const hidden = () => {
@@ -1134,7 +1183,7 @@ export function useAutosave(
       window.removeEventListener("pagehide", hide);
       document.removeEventListener("visibilitychange", hidden);
     };
-  }, [path, write, take, lastBase]);
+  }, [path, write, take, holdOwn]);
 
   // The flush above still counts as the visit it leaves: React runs the old
   // render's cleanups before any of the new render's setups.

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { RouteError } from "./lib/chunk-reload";
+import { forgetSpentReloads, RouteError } from "./lib/chunk-reload";
 import { start as startOutbox } from "./lib/outbox";
 import "./lib/service-worker";
 import { routeTree } from "./routeTree.gen";
@@ -17,6 +17,11 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// The entry chunk's hashed URL, which names the release: any chunk that
+// changes renames every chunk importing it, up to this one. Before the router,
+// so a route's lazy chunk finds its reload guard already reset.
+forgetSpentReloads(import.meta.url);
 
 const router = createRouter({
   routeTree,
