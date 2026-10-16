@@ -1522,12 +1522,13 @@ function Home() {
     setDumpPrompt(false);
     void keep(text, readClock(new Date()).date).then(
       async (dump) => {
-        const { waiting } = await flushOutbox();
-        setNotice(
-          waiting.some((each) => each.id === dump.id)
-            ? `Captured, waiting to send (${waiting.length} waiting)`
-            : "Captured into today's dump",
-        );
+        // A pass that began after the keep, so its answer is about this dump.
+        const { waiting, failure } = await flushOutbox();
+        const mine = waiting.find((each) => each.id === dump.id);
+        if (mine === undefined) setNotice("Captured into today's dump");
+        else if (mine.refused !== undefined) setNotice(mine.refused);
+        else if (failure?.kind === "sign-in") setNotice("Captured, waiting to send: sign in again");
+        else setNotice(`Captured, waiting to send (${waiting.length} waiting)`);
       },
       (error: unknown) =>
         setNotice(error instanceof Error ? error.message : "The capture was not kept"),

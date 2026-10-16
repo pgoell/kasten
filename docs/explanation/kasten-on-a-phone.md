@@ -193,9 +193,10 @@ one.
 ## The app opens with no signal
 
 A service worker, `/sw.js`, keeps a copy of the app on the phone. When a
-release installs it, it stores the shell, `index.html`, and every hashed file
-under `/assets/`. It also keeps a copy of each public file the app asks for,
-such as the manifest, the icons and pdf.js. It never touches `/api/`, the
+release installs it, it stores the shell, `index.html`, every hashed file
+under `/assets/`, and the small public files the first start needs:
+`viewport-fit.js`, the manifest, the favicon and the icons. pdf.js is too large
+for that, so it keeps a copy when a PDF first asks for it. It never touches `/api/`, the
 sign-in under `/oauth2/`, the chat, the terminal or the agent door: those reach
 the server or fail.
 

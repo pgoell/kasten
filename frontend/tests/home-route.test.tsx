@@ -4831,6 +4831,33 @@ describe("capturing into today's dump", () => {
     expect(app.notice()).toBe("Captured, waiting to send (2 waiting)");
   });
 
+  it.each([
+    [
+      "the vault's refusal when it refused the thought",
+      {
+        waiting: [{ id: "kept", text: "t", date: "d", typedAt: 1, refused: "Nothing to capture" }],
+        failure: null,
+      },
+      "Nothing to capture",
+    ],
+    [
+      "to sign in again when the proxy turned it away",
+      { waiting: [{ id: "kept", text: "t", date: "d", typedAt: 1 }], failure: { kind: "sign-in" } },
+      "Captured, waiting to send: sign in again",
+    ],
+  ])("says %s", async (_name, state, notice) => {
+    outbox.flush.mockResolvedValue(state);
+    const app = await renderApp();
+    await settle();
+
+    app.leader("c", "d");
+    fireEvent.change(field(), { target: { value: "a thought" } });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await settle();
+
+    expect(app.notice()).toBe(notice);
+  });
+
   it("puts the reason where the confirmation would have been when the thought cannot be kept", async () => {
     outbox.keep.mockRejectedValue(new Error("The quota has been exceeded"));
     const app = await renderApp();

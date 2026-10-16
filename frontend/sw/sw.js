@@ -11,7 +11,7 @@
 // to its sign-in page: only a plain 200 from this origin is ever cached, so
 // that page is never stored as the app.
 
-/** "/" and every file under `/assets/`, written in by `sw/plugin.ts`. */
+/** "/", every file under `/assets/` and the small public files, written in by `sw/plugin.ts`. */
 const PRECACHE = __PRECACHE__;
 /** A short hash of that list, which names this release's cache. */
 const VERSION = __VERSION__;
@@ -91,7 +91,10 @@ async function navigate(request) {
     if (!(error instanceof TypeError)) throw error;
     return (await cache.match("/")) ?? Response.error();
   }
-  if (usable(response)) await cache.put("/", response.clone());
+  // Html alone: a navigation to /favicon.svg or /sw.js is a 200 from this
+  // origin too, and stored as "/" it would be what the app starts as offline.
+  const html = (response.headers.get("Content-Type") ?? "").startsWith("text/html");
+  if (usable(response) && html) await cache.put("/", response.clone());
   return response;
 }
 

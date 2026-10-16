@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import * as api from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { reset } from "@/lib/outbox";
@@ -73,8 +73,26 @@ const offline = () => {
 describe("the capture route", () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    localStorage.clear();
     await reset();
     await dropped();
+  });
+
+  it("brings back a draft the app was closed on, and drops it once sent", async () => {
+    const first = await renderRoute();
+    fireEvent.change(first.field, { target: { value: "half a thought" } });
+    cleanup();
+
+    const { field } = await renderRoute();
+    expect(field).toHaveValue("half a thought");
+
+    answering(ok);
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(field).toHaveValue(""));
+    expect(localStorage.getItem("kasten-capture-draft")).toBeNull();
+    cleanup();
+
+    expect((await renderRoute()).field).toHaveValue("");
   });
 
   afterEach(() => {

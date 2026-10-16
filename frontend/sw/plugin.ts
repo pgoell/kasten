@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Plugin } from "vite";
 
@@ -26,22 +26,50 @@ export function renderServiceWorker(assets: string[]): string {
 }
 
 /**
+ * The files `public/` holds at its top and in `icons/`, as the paths they are served at.
+ *
+ * The first offline start needs them before it has ever asked for one:
+ * viewport-fit.js is a blocking script in the head (#364), and the manifest
+ * and icons are what the installed app shows. `pdfjs/` is left out, being
+ * megabytes a PDF fetches on first use, and so are dotfiles such as its stamp.
+ */
+function publicFiles(publicDir: string): string[] {
+  const listed = (folder: string) => {
+    const full = path.join(publicDir, folder);
+    if (!existsSync(full)) return [];
+    return readdirSync(full, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && !entry.name.startsWith("."))
+      .map((entry) => `/${path.posix.join(folder, entry.name)}`);
+  };
+  return [...listed(""), ...listed("icons")];
+}
+
+/**
  * Emit `/sw.js` beside `index.html`.
  *
  * Not in `public/`, which is copied as it stands and so could not carry the
  * list of hashed files only the bundle knows. `generateBundle` is the first
- * hook that sees every emitted name. The files `public/` holds are not in the
- * bundle and so not precached; the worker caches them on first use instead.
+ * hook that sees every emitted name. `public/` never enters the bundle, so its
+ * files are read from the folder itself.
  */
 export function serviceWorker(): Plugin {
+  let publicDir = "";
   return {
     name: "kasten-service-worker",
     apply: "build",
+    configResolved(config) {
+      publicDir = config.publicDir;
+    },
     generateBundle(_options, bundle) {
       const assets = Object.keys(bundle)
         .filter((name) => name.startsWith("assets/"))
         .map((name) => `/${name}`);
-      this.emitFile({ type: "asset", fileName: "sw.js", source: renderServiceWorker(assets) });
+      const files = publicDir === "" ? [] : publicFiles(publicDir);
+      this.emitFile({
+        type: "asset",
+        fileName: "sw.js",
+        source: renderServiceWorker([...assets, ...files]),
+      });
     },
   };
 }

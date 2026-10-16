@@ -33,8 +33,12 @@ send that was cut off halfway never writes the same thought twice.
 
 If the page shows **Waiting: sign in again**, your login has run out. Tap
 **sign in again**, sign in, and open `/capture` once more; the waiting thoughts
-go then. Should the vault refuse a thought, the page shows its reason, and that
-thought and the ones after it wait.
+go then. Should the vault refuse a thought, the page shows its reason and the
+thought stays under **Waiting**, while the ones after it still go. If the
+server itself is down, every thought waits so they keep their order.
+
+Text still in the box when the app closes is there again when you open
+`/capture` next, unless you arrive through a share.
 
 ## Put it on the home screen
 

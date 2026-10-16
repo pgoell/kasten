@@ -11,8 +11,11 @@
  * writing a second paragraph. It also carries the date read at typing, so a
  * dump typed before midnight and sent after lands in the day it belongs to.
  *
- * The sends go one at a time, oldest first, and stop at the first that fails,
- * so the dump keeps the order it was typed in.
+ * The sends go one at a time, oldest first, and stop at the first that fails
+ * in a way a later try can pass, so the dump keeps the order it was typed in.
+ * A dump the vault itself refuses stays, with the vault's reason, and the ones
+ * after it go on: no later try will change that answer, and holding every
+ * later thought behind it would be the loss this exists to prevent.
  */
 
 export interface Dump {
@@ -23,19 +26,26 @@ export interface Dump {
   date: string;
   /** The order key. Milliseconds, bumped past the last one kept in this page. */
   typedAt: number;
+  /**
+   * The vault's reason, where its last answer was a 4xx no retry will change.
+   * Held by this page alone and never stored, so a reload forgets it until the
+   * next send asks again.
+   */
+  refused?: string;
 }
 
 /**
- * Why the last send stopped.
+ * Why the last pass stopped.
  *
  * `sign-in` is oauth2-proxy: its 302 to the login page, which `redirect:
  * "manual"` turns into an opaque redirect, or its 401 once a cookie has gone.
- * Neither reaches kasten, so neither is the vault refusing anything.
+ * Neither reaches kasten, so neither is the vault refusing anything. `server`
+ * is a 5xx, a 408 or a 429, which a later try may well get past.
  */
 export type Failure =
   | { kind: "offline" }
   | { kind: "sign-in" }
-  | { kind: "refused"; message: string };
+  | { kind: "server"; message: string };
 
 export interface State {
   waiting: Dump[];
@@ -49,8 +59,9 @@ const RETRY_MS = 30_000;
 
 let connection: Promise<IDBDatabase> | null = null;
 let running: Promise<State> | null = null;
-let again = false;
+let queued: Promise<State> | null = null;
 let failure: Failure | null = null;
+const refusals = new Map<string, string>();
 let lastTyped = 0;
 let retry: ReturnType<typeof setTimeout> | null = null;
 let started: (() => void) | null = null;
@@ -82,7 +93,12 @@ export async function waiting(): Promise<Dump[]> {
   const transaction = (await open()).transaction(STORE, "readonly");
   const request = transaction.objectStore(STORE).getAll();
   await committed(transaction);
-  return (request.result as Dump[]).sort((a, b) => a.typedAt - b.typedAt);
+  return (request.result as Dump[])
+    .sort((a, b) => a.typedAt - b.typedAt)
+    .map((dump) => {
+      const refused = refusals.get(dump.id);
+      return refused === undefined ? dump : { ...dump, refused };
+    });
 }
 
 async function remove(id: string): Promise<void> {
@@ -153,51 +169,69 @@ async function pass(): Promise<void> {
       return;
     }
 
-    if (!response.ok) {
-      failure =
-        response.type === "opaqueredirect" || response.status === 401
-          ? { kind: "sign-in" }
-          : { kind: "refused", message: await message(response) };
+    if (response.type === "opaqueredirect" || response.status === 401) {
+      failure = { kind: "sign-in" };
       return;
     }
+    const { status } = response;
+    if (status === 408 || status === 429 || status >= 500) {
+      failure = { kind: "server", message: await message(response) };
+      return;
+    }
+    if (!response.ok) {
+      // Kept, never deleted: the thought is still the user's to rescue.
+      refusals.set(dump.id, await message(response));
+      await announce();
+      continue;
+    }
 
+    refusals.delete(dump.id);
     await remove(dump.id);
     await announce();
   }
-  // Reached with nothing left, which another tab's flush can also cause, so
-  // an old failure no longer describes anything.
+  // Reached with nothing left to try, which another tab's flush can also
+  // cause, so an old failure no longer describes anything.
   failure = null;
+}
+
+/** One pass, the state after it, and the next try armed if anything waits. */
+async function sweep(): Promise<State> {
+  await pass();
+  const state = await announce();
+  if (state.waiting.length > 0 && retry === null) {
+    retry = setTimeout(() => {
+      retry = null;
+      void flush();
+    }, RETRY_MS);
+  }
+  return state;
+}
+
+/** The pass owed to every caller who asked while one ran. */
+function rerun(): Promise<State> {
+  queued = null;
+  return flush();
 }
 
 /**
  * Send every waiting dump, one sender per page.
  *
- * A call while a flush runs gets that flush, with one more pass owed at its
- * end: a dump kept after the running pass read the store is in none of its
- * sends, and the caller is waiting to hear whether it went.
+ * A call while a flush runs gets the next pass, which starts once the running
+ * one has ended, never the running one itself: a dump kept after that pass
+ * read the store is in none of its sends, and the caller is waiting to hear
+ * whether it went. Every call made during one run shares that next pass.
  */
 export function flush(): Promise<State> {
-  if (running !== null) {
-    again = true;
+  if (running === null) {
+    running = sweep().finally(() => {
+      running = null;
+    });
     return running;
   }
-  running = (async () => {
-    do {
-      again = false;
-      await pass();
-    } while (again);
-    const state = await announce();
-    if (state.waiting.length > 0 && retry === null) {
-      retry = setTimeout(() => {
-        retry = null;
-        void flush();
-      }, RETRY_MS);
-    }
-    return state;
-  })().finally(() => {
-    running = null;
-  });
-  return running;
+  // On a rejection too: the error reaches whoever awaited the running pass,
+  // and the dumps still owe a pass of their own.
+  queued ??= running.then(rerun, rerun);
+  return queued;
 }
 
 /**
@@ -240,12 +274,13 @@ export function start(): void {
 /** Forget this page's state and let go of the database, as a reload would. For tests. */
 export async function reset(): Promise<void> {
   await running;
+  await queued;
   started?.();
   started = null;
   if (retry !== null) clearTimeout(retry);
   retry = null;
-  again = false;
   failure = null;
+  refusals.clear();
   lastTyped = 0;
   listeners.clear();
   if (connection !== null) (await connection).close();

@@ -397,17 +397,10 @@ box: `KASTEN_NETWORK` (`web`) for the external network, and `KASTEN_DB_PORT`
 ## Remove the service worker
 
 The frontend ships `/sw.js`, a worker that opens the installed app with no
-signal. If a release breaks it, there are two ways out.
-
-**The slow way.** Revert the change and cut a release. A build without the
-worker has no `/sw.js`, and nginx answers that path with `404`, never the
-shell. A browser checks the worker on the next start, gets the `404` and drops
-the registration.
-
-**The fast way.** Ship a worker that removes itself. Put this in
-`frontend/sw/sw.js` and cut a release. It takes over at once, deletes every
-cache, unregisters, and reloads every open window, which then loads from the
-network with no worker:
+signal. To remove it, ship a worker that removes itself. Put this in
+`frontend/sw/sw.js` and cut a release. Each phone fetches it on its next start
+while online. It takes over at once, deletes every cache, unregisters, and
+reloads every open window, which then loads from the network with no worker:
 
 ```js
 self.addEventListener("install", () => self.skipWaiting());
@@ -429,6 +422,12 @@ The build plugin expects the `__PRECACHE__` and `__VERSION__` placeholders and
 stops with an error without them, so keep both in a comment at the top of that
 file.
 
+A plain revert does not remove the worker. A build without it has no
+`/sw.js`, and nginx answers that path with `404`, but a `404` does not
+unregister a worker: checked in Chromium, the update fails and the old worker
+stays in control. It does little harm there, as it fetches every page from the
+network first and so serves the new release, but it keeps its cache.
+
 Check what prod serves:
 
 ```sh
@@ -436,7 +435,8 @@ docker exec kasten-frontend-prod wget -S -O- http://127.0.0.1:3000/sw.js
 ```
 
 `200` with `Content-Type: application/javascript` and the worker's code is a
-live worker. `404` is the slow way taking effect.
+live worker, or the one that removes itself. `404` means no worker ships,
+and phones that had one keep it.
 
 ## Related
 

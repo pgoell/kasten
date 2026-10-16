@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { readClock } from "@/lib/clock";
-import { flush, keep, reset, waiting } from "@/lib/outbox";
+import { flush, keep, reset, type State, subscribe, waiting } from "@/lib/outbox";
 
 /**
  * The outbox a dump waits in until the vault has it.
@@ -131,20 +131,77 @@ describe("the outbox", () => {
     expect((await waiting()).map((dump) => dump.text)).toEqual(["behind the proxy"]);
   });
 
-  it("keeps a dump the server refuses and passes on the server's words", async () => {
-    answering(
-      () =>
-        new Response(JSON.stringify({ detail: "Nothing to capture" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }),
-    );
-
+  it("keeps a dump the server refuses with its words, and sends the next one", async () => {
+    offline();
     await keep("refused", "2026-10-16");
+    await keep("fine", "2026-10-16");
+
+    let calls = 0;
+    const sent = answering(() =>
+      ++calls === 1
+        ? new Response(JSON.stringify({ detail: "Nothing to capture" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          })
+        : ok(),
+    );
     const state = await flush();
 
-    expect(state.failure).toEqual({ kind: "refused", message: "Nothing to capture" });
-    expect(state.waiting.map((dump) => dump.text)).toEqual(["refused"]);
+    expect(bodies(sent).map((body) => body.text)).toEqual(["refused", "fine"]);
+    expect(state.waiting.map((dump) => [dump.text, dump.refused])).toEqual([
+      ["refused", "Nothing to capture"],
+    ]);
+  });
+
+  it("stops at a 500 so the dumps after it keep their order", async () => {
+    offline();
+    await keep("first", "2026-10-16");
+    await keep("second", "2026-10-16");
+
+    const sent = answering(() => new Response("", { status: 500 }));
+    const state = await flush();
+
+    expect(bodies(sent).map((body) => body.text)).toEqual(["first"]);
+    expect(state.failure).toEqual({ kind: "server", message: "POST /api/dump failed with 500" });
+    expect(state.waiting.map((dump) => dump.text)).toEqual(["first", "second"]);
+  });
+
+  it("gives a flush asked for as the last one ends a pass of its own", async () => {
+    // A second connection, open before anything starts, so the listener below
+    // can write a dump without waiting on an open.
+    const side = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("kasten-outbox", 1);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore("dumps", { keyPath: "id" });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await keep("first", "2026-10-16");
+    const sent = answering(ok);
+
+    // The running flush's last announce, the one after the store read empty:
+    // a dump lands then and a flush is asked for, after the read that ends it.
+    let empties = 0;
+    let late: Promise<State> | undefined;
+    subscribe((state) => {
+      if (state.waiting.length > 0 || late !== undefined) return;
+      empties += 1;
+      if (empties < 2) return;
+      side
+        .transaction("dumps", "readwrite")
+        .objectStore("dumps")
+        .add({ id: "late", text: "late", date: "2026-10-16", typedAt: Date.now() + 1 });
+      late = flush();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await flush();
+    const state = await late;
+    side.close();
+
+    expect(bodies(sent).map((body) => body.text)).toEqual(["first", "late"]);
+    expect(state?.waiting).toEqual([]);
   });
 
   it("still holds the waiting dumps after the app is closed and opened again", async () => {

@@ -19,6 +19,7 @@ The shell container keeps the knife.
 
 import hashlib
 import json
+import logging
 import os
 import tempfile
 from datetime import date  # noqa: TC003  pydantic reads the annotation at runtime
@@ -45,6 +46,8 @@ from kasten_backend.vault import (
 
 if TYPE_CHECKING:
     from kasten_backend.config import Settings
+
+logger = logging.getLogger(__name__)
 
 
 class NoteRead(BaseModel):
@@ -165,11 +168,25 @@ months of them, so an id that has fallen off is one no phone still holds.
 
 
 def _receipts(store: Path) -> list[str]:
-    """Every capture id written so far, oldest first, or none when there is no file."""
+    """Every capture id written so far, oldest first, or none when there is no file.
+
+    A file that is not JSON, or not a list of strings, reads as none too, with a
+    warning. Refusing would answer every capture with an id with a 500, and a
+    phone's queue would stall behind it for good. Reading it as empty risks one
+    duplicate paragraph at worst, and the next receipt write replaces the file.
+    """
     try:
-        return json.loads(store.read_text("utf-8"))
+        ids = json.loads(store.read_text("utf-8"))
     except FileNotFoundError:
         return []
+    except json.JSONDecodeError:
+        ids = None
+
+    if not isinstance(ids, list) or not all(isinstance(each, str) for each in ids):
+        logger.warning("%s is not a list of capture ids, so it reads as none", store)
+        return []
+
+    return ids
 
 
 def _receipt(store: Path, ids: list[str]) -> None:
@@ -439,6 +456,12 @@ async def dump(
                 write_note(note, content)
 
         if sent is not None and str(sent) not in written:
-            _receipt(store, [*written, str(sent)])
+            # The paragraph has landed, so the answer is the note whatever
+            # happens here. A 500 would keep the capture in the phone's queue,
+            # and every retry would write the paragraph again.
+            try:
+                _receipt(store, [*written, str(sent)])
+            except OSError:
+                logger.exception("Could not record capture %s in %s", sent, store)
 
         return _read(settings.vault_path, note)

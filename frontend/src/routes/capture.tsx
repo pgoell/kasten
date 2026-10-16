@@ -31,6 +31,37 @@ interface Sent {
 const KEPT = 5;
 
 /**
+ * Where the box's text waits between keystrokes and Send.
+ *
+ * A phone closes a backgrounded app without asking, and a half-typed thought
+ * is as much the user's as a sent one. localStorage and not the outbox: it is
+ * one string, wanted back synchronously on the first render.
+ */
+const DRAFT_KEY = "kasten-capture-draft";
+
+/** The draft left from last time, or nothing where storage is off. */
+function storedDraft(): string {
+  try {
+    return localStorage.getItem(DRAFT_KEY) ?? "";
+  } catch (error) {
+    // Safari's private mode and blocked site data throw a SecurityError.
+    if (!(error instanceof DOMException)) throw error;
+    return "";
+  }
+}
+
+/** Hold the draft, or let it go once it is empty. */
+function storeDraft(text: string) {
+  try {
+    if (text === "") localStorage.removeItem(DRAFT_KEY);
+    else localStorage.setItem(DRAFT_KEY, text);
+  } catch (error) {
+    // A SecurityError as above, or a QuotaExceededError: the box still works.
+    if (!(error instanceof DOMException)) throw error;
+  }
+}
+
+/**
  * Today's dump, on a page of its own, sized for a phone.
  *
  * A route rather than a pane, on the `/review` precedent: a phone has no
@@ -49,7 +80,8 @@ const KEPT = 5;
 function Capture() {
   const shared = Route.useSearch();
   const navigate = useNavigate();
-  const [draft, setDraft] = useState(() => sharedDraft(shared));
+  // A share is what the user came to send, so it wins over an old draft.
+  const [draft, setDraft] = useState(() => sharedDraft(shared) || storedDraft());
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [sent, setSent] = useState<Sent[]>([]);
@@ -65,7 +97,11 @@ function Capture() {
   const address = firstAddress(typed);
   // The vault's refusal of a waiting dump reads here as a failed clip would.
   // No signal says nothing: the rows saying "waiting" are the whole message.
-  const alert = failed ?? (outbox.failure?.kind === "refused" ? outbox.failure.message : null);
+  const alert =
+    failed ??
+    (outbox.failure?.kind === "server" ? outbox.failure.message : null) ??
+    outbox.waiting.find((dump) => dump.refused !== undefined)?.refused ??
+    null;
 
   // `autoFocus` alone is not enough on Android, where a page opened from the
   // share sheet mounts before the window has the focus to give.
@@ -101,6 +137,7 @@ function Capture() {
   /** Empty the box once what it held is safe, and drop the share it came from. */
   function cleared() {
     setDraft("");
+    storeDraft("");
     setSending(false);
     // The share is spent, so a reload must not put it back in the box.
     void navigate({ to: "/capture", search: {}, replace: true });
@@ -163,7 +200,10 @@ function Capture() {
         <textarea
           ref={field}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            storeDraft(event.target.value);
+          }}
           aria-label="What is on your mind"
           rows={6}
           // 16px, because iOS zooms the page into any field set smaller.

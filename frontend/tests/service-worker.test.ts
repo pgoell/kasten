@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import type { Mock } from "vitest";
 import { registerServiceWorker } from "@/lib/service-worker";
 import { renderServiceWorker, serviceWorker } from "../sw/plugin";
@@ -35,8 +38,8 @@ function fakeCaches() {
 }
 
 /** A Response the way a same-origin fetch hands it to a worker: `new Response` says `default`. */
-function basic(body: string, status = 200): Response {
-  const response = new Response(body, { status });
+function basic(body: string, status = 200, type = "text/html"): Response {
+  const response = new Response(body, { status, headers: { "Content-Type": type } });
   Object.defineProperty(response, "type", { value: "basic" });
   return response;
 }
@@ -171,6 +174,15 @@ describe("the service worker", () => {
     expect(await (await sw.cached("/"))?.text()).toBe("old shell");
   });
 
+  it("a navigation to a file that is not html is not cached as the shell", async () => {
+    // Opening /favicon.svg or /sw.js as a page would otherwise make it the app.
+    const sw = await installed();
+    sw.fetch.mockResolvedValue(basic("<svg/>", 200, "image/svg+xml"));
+    const answer = await sw.request(navigation("/favicon.svg"));
+    expect(await answer?.text()).toBe("<svg/>");
+    expect(await (await sw.cached("/"))?.text()).toBe("old shell");
+  });
+
   it("a navigation answered 401 goes through and is not cached", async () => {
     const sw = await installed();
     sw.fetch.mockResolvedValue(basic("unauthorized", 401));
@@ -246,6 +258,39 @@ describe("the service worker plugin", () => {
     const source: string = emitFile.mock.lastCall?.[0]?.source ?? "";
     const list = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
     expect(list.sort()).toEqual(["/", ...ASSETS].sort());
+  });
+
+  it("lists the public files a first offline start needs, and not pdf.js", () => {
+    const publicDir = mkdtempSync(path.join(tmpdir(), "kasten-public-"));
+    for (const name of [
+      "viewport-fit.js",
+      "manifest.webmanifest",
+      "favicon.svg",
+      "icons/app-192.png",
+      "pdfjs/pdf.worker.mjs",
+      "pdfjs/.stamp",
+    ]) {
+      mkdirSync(path.dirname(path.join(publicDir, name)), { recursive: true });
+      writeFileSync(path.join(publicDir, name), "");
+    }
+    const plugin = serviceWorker();
+    const emitFile = vi.fn();
+    // biome-ignore lint/complexity/noBannedTypes: rollup's hooks, called the way vite calls them
+    (plugin.configResolved as Function)({ publicDir });
+    // biome-ignore lint/complexity/noBannedTypes: as above
+    (plugin.generateBundle as Function).call({ emitFile }, {}, { "assets/index-abc.js": {} });
+    const source: string = emitFile.mock.lastCall?.[0]?.source ?? "";
+    const list = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
+    expect(list.sort()).toEqual(
+      [
+        "/",
+        "/assets/index-abc.js",
+        "/favicon.svg",
+        "/icons/app-192.png",
+        "/manifest.webmanifest",
+        "/viewport-fit.js",
+      ].sort(),
+    );
   });
 
   it("changes the version when the asset list changes", () => {

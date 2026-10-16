@@ -222,6 +222,45 @@ async def test_a_failed_write_leaves_no_receipt(
     assert kept(receipts) == [ID]
 
 
+def spoil(receipts: Path, text: str) -> None:
+    """Leave `text` in the receipts file, which no receipt write would have left."""
+    receipts.write_text(text)
+
+
+@pytest.mark.parametrize("text", ["{", "{}", "[1, 2]"])
+async def test_a_corrupt_receipts_file_reads_as_none(
+    client: AsyncClient, vault: Path, receipts: Path, text: str
+) -> None:
+    spoil(receipts, text)
+
+    response = await client.post(
+        "/api/dump", json={"text": "call Jonas", "date": "2026-09-29", "id": ID}
+    )
+
+    assert response.status_code == 200
+    assert paragraphs(vault, "call Jonas") == 1
+    # The next receipt write replaces what could not be read.
+    assert kept(receipts) == [ID]
+
+
+async def test_a_failed_receipt_write_still_answers_with_the_note(
+    client: AsyncClient, vault: Path, receipts: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(*_: object) -> None:
+        raise OSError("read-only")
+
+    monkeypatch.setattr(agent, "_receipt", refuse)
+
+    response = await client.post(
+        "/api/dump", json={"text": "call Jonas", "date": "2026-09-29", "id": ID}
+    )
+
+    # The paragraph landed, so the phone must hear so and drop the record.
+    assert response.status_code == 200
+    assert response.json() == {"path": DAY, "content": (vault / DAY).read_text()}
+    assert paragraphs(vault, "call Jonas") == 1
+
+
 async def test_only_the_browser_capture_takes_an_id(client: AsyncClient) -> None:
     schema = (await client.get("/openapi.json")).json()
 
