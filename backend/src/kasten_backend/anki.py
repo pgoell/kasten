@@ -337,8 +337,10 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
             # Anki divides answer from hint only at a `::` typed in the field,
             # so a decoded `&#58;&#58;` is answer to it and would be a hint to
             # kasten (#335). Encoded before held inner marks go back, whose own
-            # `::` stays.
-            answer = answer.replace(":", "&#58;")
+            # `::` stays. A schedule comment loses `_flat`'s backslash first:
+            # its `&#58;` already keeps `srs.ts` from reading it, and `\&#58;`
+            # would show as the text `&#58;` (#351).
+            answer = answer.replace("<!--SR\\:", "<!--SR:").replace(":", "&#58;")
             opener = match[0][: match.start(1) - match.start()]
             flat = f"{opener}{answer}{_flat(_KEPT.sub(inside, hint))}}}}}"
         # The form the mark takes where it sat in code: its text in code of

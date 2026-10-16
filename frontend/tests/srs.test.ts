@@ -1189,6 +1189,13 @@ describe("a schedule comment in a cloze answer (#351)", () => {
     expect(cards[0]?.held).toBeNull();
   });
 
+  it("B1 types a comment beside :: as Anki shows it", () => {
+    const card = read("{{c1::<!--SR&#58;c1!2026-01-01,1,250--> a&#58;&#58;b}}")[0];
+
+    expect(card?.held).toBeNull();
+    expect(card?.target).toBe("<!--SR:c1!2026-01-01,1,250--> a::b");
+  });
+
   it("I1 reads the line's own schedule, not the one in the answer", () => {
     const line = "{{c1::<!--SR\\:c1!2026-01-01,1,250-->}}";
     const cards = parseCards(`#flashcards/x\n\n${line}${ID} <!--SR:c1!2026-10-20,3,250-->\n`);

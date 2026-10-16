@@ -208,8 +208,9 @@ shows `a&#58;b` and is written `a\&#58;b`. A backslash in a cloze answer is doub
 else, so an answer Anki shows as `a\::b` is written `{{c1::a\\&#58;&#58;b}}`. A
 schedule comment in a cloze answer or hint takes its backslash as on any line,
 in code too, so `{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}` is written
-`{{c1::<!--SR\:c1!2026-01-01,1,250-->}}`: review asks it as the text Anki shows
-and never reads it as the schedule of `c1`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
+`{{c1::<!--SR\:c1!2026-01-01,1,250-->}}`, and review never reads it as the
+schedule of `c1`. In an answer whose colons are written `&#58;`, the comment's
+colon is too, `<!--SR&#58;c1!…-->`, with no backslash. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
 kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
 `{{c1::a }}`. Where no mark is kept, a mark never closed runs to the end of the
 field, so its `::` cannot split the line. A cloze

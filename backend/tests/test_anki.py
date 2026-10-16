@@ -1594,6 +1594,14 @@ def test_i4_a_schedule_comment_in_a_highlight_is_escaped() -> None:
     assert plain(field) == r"==<!--SR\:c1!2026-01-01,1,250-->=="
 
 
+def test_b1_a_schedule_comment_beside_an_encoded_colon_is_written_as_main_wrote_it() -> None:
+    # The `&#58;` already keeps the comment from reading as a schedule; a
+    # backslash before it would show the text `&#58;`.
+    field = "{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt; a&#58;&#58;b}}"
+
+    assert plain(field, cloze=True) == "{{c1::<!--SR&#58;c1!2026-01-01,1,250--> a&#58;&#58;b}}"
+
+
 def test_i5_a_re_import_rewrites_a_line_main_wrote_with_a_comment_in_the_answer() -> None:
     # The line 0.49.2 wrote, its hash as the import wrote it then, and the
     # real schedule after the marker, where a rating puts it.
