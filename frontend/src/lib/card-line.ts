@@ -30,11 +30,36 @@ export const SUSPEND_TOKEN = "!suspended";
  * end in the literal text is the one false positive left, and it is one the
  * author typed on purpose.
  */
-const TOKEN = /(?:^|\s)!suspended(?!\S)/;
+const TOKEN = /(?:^|\s)!suspended(?!\S)/g;
+
+/**
+ * Where each code span in `text` starts and ends, as `ESCAPES` reads them.
+ *
+ * A code span is code everywhere (#346, #347): nothing inside one is read as
+ * a mark or the token, as the preview draws it verbatim.
+ */
+function codeSpans(text: string): [number, number][] {
+  return [...text.matchAll(ESCAPES)]
+    .filter((found) => found[1] !== undefined)
+    .map((found) => [found.index, found.index + found[0].length]);
+}
+
+/** Whether `at` sits inside one of `spans`. */
+function inCode(spans: [number, number][], at: number): boolean {
+  return spans.some(([from, to]) => at >= from && at < to);
+}
+
+/** The first token outside a code span, or undefined where there is none. */
+function token(text: string): RegExpExecArray | undefined {
+  const spans = codeSpans(text);
+  return [...text.matchAll(TOKEN)].find(
+    (found) => !inCode(spans, found.index + found[0].indexOf("!")),
+  );
+}
 
 /** Whether this text carries the token that parks a card. */
 export function suspended(text: string): boolean {
-  return TOKEN.test(text);
+  return token(text) !== undefined;
 }
 
 /**
@@ -65,7 +90,9 @@ export function withoutHeadToken(line: string): string {
 
 /** `text` with the token taken off, which is how a parked card is shown. */
 export function withoutToken(text: string): string {
-  return text.replace(TOKEN, "").trimEnd();
+  const found = token(text);
+  if (found === undefined) return text.trimEnd();
+  return (text.slice(0, found.index) + text.slice(found.index + found[0].length)).trimEnd();
 }
 
 /**
@@ -130,8 +157,12 @@ export function clozeComment(cloze: number): RegExp {
  * is the hint's and a mark ends at the first `}}`. The hint may be empty, so
  * `{{c1::A::}}` hides `A` rather than `A::`, and asks it as `[...]`. It holds
  * no hole, so `{{c1::a::{{c2::b}}}}` keeps `b` in the text where c2 can ask it.
+ * A code span in the answer or hint is read whole, so `{{c1::`a::b`}}` hides
+ * `` `a::b` `` rather than splitting it at a hint (#346); a lone backtick is
+ * text. The import's `_MARK` is the same, less the hole.
  */
-const MARK = /\{\{c(\d+)::([^{}]+?)(?:::([^{}]*?))?\}\}/g;
+const MARK =
+  /\{\{c(\d+)::((?:(`+)(?!`)[^{}]*?(?<!`)\3(?!`)|[^{}])+?)(?:::((?:(`+)(?!`)[^{}]*?(?<!`)\5(?!`)|[^{}])*?))?\}\}/g;
 
 /**
  * Where a mark already read stood: its index between two private-use characters.
@@ -170,10 +201,25 @@ function parse(line: string): Piece[] {
   const marks: Mark[] = [];
   let text = line;
   for (;;) {
-    const read = text.replace(MARK, (_, number: string, body: string, hint?: string) => {
-      marks.push({ cloze: Number(number), body: pieces(body, marks), hint });
-      return `${marks.length - 1}`;
-    });
+    // Per pass, as the holes a pass leaves move every span after them.
+    const spans = codeSpans(text);
+    const read = text.replace(
+      MARK,
+      (
+        whole: string,
+        number: string,
+        body: string,
+        _ticks: string | undefined,
+        hint: string | undefined,
+        _hintTicks: string | undefined,
+        at: number,
+      ) => {
+        // A mark opened inside a code span is code, and stays as written.
+        if (inCode(spans, at)) return whole;
+        marks.push({ cloze: Number(number), body: pieces(body, marks), hint });
+        return `${marks.length - 1}`;
+      },
+    );
     if (read === text) return pieces(text, marks);
     text = read;
   }

@@ -9,6 +9,7 @@ import {
   colons,
   divide,
   fences,
+  holdsCloze,
   SR,
   suspended,
   withoutToken,
@@ -259,5 +260,43 @@ describe("colons", () => {
 
   it("reads \\\\&#58; as an escaped backslash before a colon", () => {
     expect(colons("a\\\\&#58;b")).toBe("a\\\\:b");
+  });
+});
+
+describe("a code span is code (#346, #347)", () => {
+  it("A1 reads a code span inside a mark as its answer, :: and all", () => {
+    const line = "{{c1::`a::b`}}";
+
+    expect(clozeNumbers(line)).toEqual([1]);
+    expect(clozeQuestion(line, 1)).toBe("\\[...\\]");
+    expect(colons(clozeAnswer(line, 1))).toBe("==`a::b`==");
+  });
+
+  it("I1 splits no hint at a :: inside a code span", () => {
+    const line = "{{c1::`a::b`::h}}";
+
+    expect(clozeQuestion(line, 1)).toBe("\\[h\\]");
+    expect(clozeTarget(line, 1)).toBe("`a::b`");
+  });
+
+  it("I1 still reads a mark holding a lone backtick", () => {
+    expect(clozeNumbers("{{c1::a`b}}")).toEqual([1]);
+    expect(clozeTarget("{{c1::a`b}}", 1)).toBe("a`b");
+  });
+
+  it("I2 reads no mark whose opener sits inside a code span", () => {
+    expect(holdsCloze("`{{c1::x}}`")).toBe(false);
+    expect(clozeNumbers("`{{c1::x}}`")).toEqual([]);
+    expect(clozeNumbers("`{{c1::x}}` {{c2::y}}")).toEqual([2]);
+  });
+
+  it("A3 finds no token inside a code span", () => {
+    expect(suspended("`a !suspended b`::c")).toBe(false);
+    expect(suspended("`a` !suspended")).toBe(true);
+  });
+
+  it("I4 takes off only a token outside code", () => {
+    expect(withoutToken("`a !suspended b`")).toBe("`a !suspended b`");
+    expect(withoutToken("`a !suspended b` !suspended")).toBe("`a !suspended b`");
   });
 });

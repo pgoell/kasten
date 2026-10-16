@@ -1096,7 +1096,8 @@ describe("an escape the import writes (#342, #343)", () => {
     const [card] = read("{{c1::`&#58;`}}");
 
     expect(card?.back).toBe("==`&#58;`==");
-    expect(card?.target).toBe("`&#58;`");
+    // Nobody types the backticks (#346).
+    expect(card?.target).toBe("&#58;");
   });
 
   it("A3 hands an escaped backslash to the preview on both sides", () => {
@@ -1119,5 +1120,34 @@ describe("an escape the import writes (#342, #343)", () => {
     const [card] = read("{{c1::\\*a\\* `\\*`}}");
 
     expect(card?.target).toBe("*a* `\\*`");
+  });
+});
+
+describe("a code span is code (#346, #347)", () => {
+  const ID = " <!--anki:1:0:abcdef12-->";
+  const read = (line: string) => parseCards(`#flashcards/x\n\n${line}${ID}\n`);
+
+  it("A1 asks {{c1::`a::b`}} as one card, typed without the backticks", () => {
+    const cards = read("{{c1::`a::b`}}");
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.front).toBe("\\[...\\]");
+    expect(cards[0]?.back).toBe("==`a::b`==");
+    expect(cards[0]?.target).toBe("a::b");
+    expect(sameAnswer("a::b", cards[0]?.target ?? "")).toBe(true);
+  });
+
+  it("A3 parks no card for a token inside a code span on its front", () => {
+    expect(only("`a !suspended b`::c").parked).toBeNull();
+    expect(only("`a !suspended b`\n?\nc").parked).toBeNull();
+  });
+
+  it("A3 parks no cloze for a token inside a code span", () => {
+    expect(read("{{c1::x}} `a !suspended b`")[0]?.parked).toBeNull();
+    expect(read("{{c1::`!suspended`}}")[0]?.parked).toBeNull();
+  });
+
+  it("I4 keeps a token inside a code span on the back", () => {
+    expect(only("q::`a !suspended b`").back).toBe("`a !suspended b`");
   });
 });
