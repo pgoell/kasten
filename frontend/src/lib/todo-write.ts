@@ -17,6 +17,7 @@ import {
   formatTodo,
   isOpen,
   parseTodo,
+  patchLine,
   setStateOn,
   type Todo,
   type TodoState,
@@ -250,7 +251,7 @@ export function blockedLines(lines: string[], closed: Closed): Map<number, strin
     // Every blocker has to be closed, and one this cannot see reads as open.
     const held = todo.blockedBy.some((blocker) => closed(blocker) !== true);
     const state = held ? "blocked" : "open";
-    if (todo.state !== state) moved.set(index + 1, formatTodo({ ...todo, state }));
+    if (todo.state !== state) moved.set(index + 1, patchLine(text, { ...todo, state }));
   }
 
   return moved;
@@ -373,7 +374,10 @@ export function cycleLines({
           part.todo.state === "waiting"
             ? { ...part.todo, waitingSince: undefined, waitingOn: undefined }
             : part.todo;
-        moved.set(part.line, formatTodo({ ...freed, state: "done", done: today }));
+        moved.set(
+          part.line,
+          patchLine(lines[part.line - 1] ?? "", { ...freed, state: "done", done: today }),
+        );
       }
     }
   }
@@ -402,7 +406,13 @@ export function cycleLines({
   // where it is with its `✅`, and the note carries the history in place.
   if (was !== null && was.state !== "done" && now?.state === "done") {
     const fresh = nextOccurrence(was, today);
-    if (fresh !== null) moved.set(line, `${formatTodo(fresh)}\n${cycled}`);
+    // A new line, so written in the field order, but at the indent the ticked
+    // one carries as typed. A block id names one line, and the copy is not it.
+    if (fresh !== null) {
+      const indent = /^[ \t]*/.exec(before)?.[0] ?? "";
+      const text = fresh.text.replace(/(?:^|[ \t]+)\^[\w-]+$/, "");
+      moved.set(line, `${indent}${formatTodo({ ...fresh, indent: 0, text })}\n${cycled}`);
+    }
   }
 
   return moved;

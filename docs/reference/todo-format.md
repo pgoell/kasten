@@ -20,28 +20,38 @@ is held anywhere else, so a vault read by Obsidian, by another editor or by
 ```
 
 A markdown list item, a checkbox, the words, then the fields. Every field is
-optional and the bullet and the box are not. The indent is kept, and written
-back as spaces, so a todo nested under another stays nested.
+optional and the bullet and the box are not. The indent is kept as typed, a
+tab staying a tab, so a todo nested under another stays nested.
 
 Two things that look like a todo are not. `1. [ ] ordered` is an ordered list
 item, and `- [[borges]]` is a bullet holding a wikilink. Neither is a todo here
 or to `GET /api/todos`.
 
-kasten rebuilds the line rather than patching it, so a line whose fields sit in
-another order is written back in [the order below](#the-field-order) the first
-time anything touches it. A marker kasten does not know, and one whose value
-does not parse, stays in the words where the person who typed it can see it.
+A state change patches the line rather than rebuilding it. The box changes, and
+the stamps the change adds or drops (`✅`, `❌`, `🆔`, `👤`, `➕`) go in or come
+out; every other byte stays where it was typed. That keeps a tab indent, a
+`^block` id at the end of the line where links find it, the spacing in the
+words, and fields that sit out of [the order below](#the-field-order). A stamp
+goes in at its place in that order. If no place reads back right, kasten writes
+the whole line in the field order instead, since correct fields matter more than
+kept bytes.
+
+A marker kasten does not know, and one whose value does not parse, stays in the
+words where the person who typed it can see it. So does a marker inside a
+`[[wikilink]]`, a markdown link or a code span: `[[notes 📅 2026-10-20]]` gives
+the todo no due date.
 
 ## The fields
 
 | Field | Spelling | From |
 | --- | --- | --- |
 | state | `[ ]` `[/]` `[x]` `[b]` `[w]` `[-]` | ours |
-| due | `📅 2026-08-14` | obsidian-tasks |
+| due | `📅 2026-08-14`, also `📆` or `🗓` | obsidian-tasks |
 | scheduled | `⏳ 2026-08-12` | obsidian-tasks |
 | start | `🛫 2026-08-11` | obsidian-tasks |
 | priority | `🔺 ⏫ 🔼 🔽 ⏬` | obsidian-tasks |
 | recurrence | `🔁 every week` | obsidian-tasks |
+| on completion | `🏁 keep` or `🏁 delete` | obsidian-tasks |
 | created | `➕ 2026-08-09` | obsidian-tasks |
 | done | `✅ 2026-08-10` | obsidian-tasks |
 | cancelled | `❌ 2026-08-10` | obsidian-tasks |
@@ -72,9 +82,8 @@ ahead of every field the plugin reads. `⏲` and `⏱` do not: on a line carryin
 either, Obsidian reads the `🆔` and the `⛔` after them and takes the dates
 before them for words.
 
-Tags are the one field left where it was typed. `call the #health dentist` keeps
-its tag mid-sentence, because moving it to the end would rewrite the note every
-time somebody ticked something.
+Tags stay where they were typed, even on a line kasten writes new: `call the
+#health dentist` keeps its tag mid-sentence, because a tag belongs to the words.
 
 `⛔` may appear more than once, each naming another todo's id, and every one is
 kept in the order it was written. Every other field appears once.
@@ -154,8 +163,8 @@ box standing in for it.
 
 Either step out drops the bullet, the box and the stamp its own state wrote, and
 keeps every other field, so three more presses give the todo back with its
-dates. It rebuilds the line the way every other step does, which is why the tags
-come back in front of the fields:
+dates. It patches the line the way every other step does, so the tag stays
+where it was typed:
 
 ```markdown
 - [-] call the dentist 📅 2026-08-14 ⏫ ➕ 2026-08-09 ❌ 2026-08-10 #health
@@ -164,7 +173,7 @@ come back in front of the fields:
 becomes
 
 ```markdown
-call the dentist #health 📅 2026-08-14 ⏫ ➕ 2026-08-09
+call the dentist 📅 2026-08-14 ⏫ ➕ 2026-08-09 #health
 ```
 
 An id is stamped when something first needs to name the todo: on entering done,
@@ -203,11 +212,12 @@ parts, a recurring todo set to done writes its next copy, and a todo carrying an
 The words come first, then every field the line carries, in this order:
 
 ```
-👤 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
+👤 📅 ⏳ 🛫 priority 🔁 🏁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
 ```
 
-One decision made in one place, so a note stays consistent however it was
-edited. A line already in this order comes back byte for byte.
+A line kasten writes new, from the add prompt or as a recurring copy, comes out
+in this order. A line already there keeps the order it has: a state change puts
+each stamp it adds at its place in the order and moves nothing else.
 
 ## Writing a field
 
@@ -408,7 +418,8 @@ what you typed and does not respell it.
 
 Ticking a recurring todo done leaves the completed line where it is with its
 `✅` and puts the fresh copy above it, so the note carries the history of the
-recurrence in place:
+recurrence in place. The copy takes the ticked line's indent as typed and leaves
+off its `^block` id, which names the ticked line alone:
 
 ```markdown
 - [ ] water the plants 📅 2026-08-17 🔁 every week

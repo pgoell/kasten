@@ -7,7 +7,7 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { parseTodo, type Todo } from "@/lib/todo";
+import { endsOfWords, parseTodo, type Todo } from "@/lib/todo";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type Column = "open" | "doing" | "waiting" | "blocked" | "done" | "rejected";
@@ -163,6 +163,10 @@ export function withProjectLink(
 
   const link = `[[${choice.index.slice(0, -".md".length)}|${choice.name}]]`;
 
+  // Inserted into the line rather than rebuilt through `formatTodo`, which
+  // would turn a tab indent into a space and un-nest a part, move a block id
+  // off the end, and collapse the spacing somebody typed.
+  //
   // Each place the words might end, tried in order and kept only when
   // `parseTodo` agrees: a marker whose value does not parse, `📅 friday`, is
   // still words, and the parser is the one judge of that rather than a second
@@ -177,40 +181,6 @@ export function withProjectLink(
   }
   return written;
 }
-
-/**
- * Where the link may go: before each field marker outside a link or a code
- * span, before a trailing `^blockid`, and at the end of the line.
- *
- * Inserted into the line rather than rebuilt through `formatTodo`, which would
- * turn a tab indent into a space and un-nest a part, move a block id off the
- * end, and collapse the spacing somebody typed.
- */
-function endsOfWords(line: string): number[] {
-  const spans = [...line.matchAll(SPANS)].map((m) => [m.index, m.index + m[0].length]);
-  const outside = (at: number) => spans.every(([from = 0, to = 0]) => at < from || at >= to);
-  // Back over the spaces before the marker, so the link sits after the words
-  // and not after the gap; never back into a span.
-  const back = (at: number) => {
-    let from = at;
-    while (from > 0 && /[ \t]/.test(line[from - 1] ?? "") && outside(from - 1)) from -= 1;
-    return from;
-  };
-
-  const ends = [...line.matchAll(MARKER)].filter((m) => outside(m.index)).map((m) => back(m.index));
-  const block = BLOCK_ID.exec(line);
-  if (block !== null) ends.push(back(block.index));
-  ends.push(back(line.length));
-  return ends;
-}
-
-/** A link, a markdown link and a code span: a marker inside one is not a field. */
-const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`/g;
-
-/** `👤` too: its name runs to the next marker, so a link after it would be who the todo waits on. */
-const MARKER = /📅|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|➕|✅|❌|⏲|⏱|🆔|⛔|👤/gu;
-
-const BLOCK_ID = /\^[\w-]+[ \t]*$/;
 
 /**
  * Whether the line as written reads as the original with the link at the end

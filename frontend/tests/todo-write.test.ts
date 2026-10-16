@@ -257,7 +257,7 @@ describe("cycleLines", () => {
           1,
           [
             "- [ ] water the plants 📅 2026-08-17 🔁 every week",
-            `- [x] water the plants 📅 2026-08-10 🔁 every week ✅ ${TODAY} 🆔 kt-3f9a2c`,
+            `- [x] water the plants 🔁 every week 📅 2026-08-10 ✅ ${TODAY} 🆔 kt-3f9a2c`,
           ].join("\n"),
         ],
       ]),
@@ -268,7 +268,7 @@ describe("cycleLines", () => {
     const note = [`- [x] water the plants 🔁 every week 📅 2026-08-10 ✅ ${TODAY} 🆔 kt-000001`];
 
     expect(set(note, 1, "blocked").get(1)).toBe(
-      "- [b] water the plants 📅 2026-08-10 🔁 every week 🆔 kt-000001",
+      "- [b] water the plants 🔁 every week 📅 2026-08-10 🆔 kt-000001",
     );
   });
 
@@ -286,6 +286,33 @@ describe("cycleLines", () => {
     const note = ["- [/] ship it 🆔 kt-000001", "  - [b] write the docs ⛔ kt-000001"];
 
     expect(cycle(note, 1).get(2)).toBe(`  - [x] write the docs ✅ ${TODAY} ⛔ kt-000001`);
+  });
+
+  it("keeps the lines of parts it ticks and dependents it moves byte for byte", () => {
+    const note = [
+      "- [/] ship it 🆔 kt-000001",
+      "\t- [ ] part 📅 2026-10-20 ^blk1",
+      "\t- [w] wait 👤 2026-08-03 [[Ada]] ^blk2",
+      "- [b] write  the docs ⛔ kt-000001 ^blk3",
+    ];
+
+    expect(cycle(note, 1)).toEqual(
+      new Map([
+        [1, `- [x] ship it ✅ ${TODAY} 🆔 kt-000001`],
+        [2, `\t- [x] part 📅 2026-10-20 ✅ ${TODAY} ^blk1`],
+        [3, `\t- [x] wait ✅ ${TODAY} ^blk2`],
+        [4, "- [ ] write  the docs ⛔ kt-000001 ^blk3"],
+      ]),
+    );
+  });
+
+  it("writes the recurring copy at the ticked line's indent, without its block id", () => {
+    const note = ["- [/] chores", "\t- [/] water the plants 📅 2026-08-10 🔁 every week ^blk1"];
+
+    expect(cycle(note, 2).get(2)?.split("\n")).toEqual([
+      "\t- [ ] water the plants 📅 2026-08-17 🔁 every week",
+      `\t- [x] water the plants 📅 2026-08-10 🔁 every week ✅ ${TODAY} 🆔 kt-3f9a2c ^blk1`,
+    ]);
   });
 
   it("leaves the parent alone when the last part is ticked", () => {
@@ -307,6 +334,21 @@ describe("cycleTodoWrites", () => {
     ]);
   });
 
+  it("keeps a tab indent, a block id and the field order, as the board's press does", () => {
+    const text = [
+      "- [ ] parent",
+      "\t- [/] part ⏫ 📅 2026-10-20 #kasten",
+      "- [ ] a 📅 2026-10-20 ^blk1",
+      "",
+    ].join("\n");
+    const own = (line: number, state?: TodoState) =>
+      cycleTodoWrites(press({ text, line, state }))[0]?.text.split("\n")[line - 1];
+
+    expect(own(2)).toBe(`\t- [x] part ⏫ 📅 2026-10-20 ✅ ${TODAY} 🆔 kt-3f9a2c #kasten`);
+    expect(own(2, "blocked")).toBe("\t- [b] part ⏫ 📅 2026-10-20 #kasten");
+    expect(own(3, "done")).toBe(`- [x] a 📅 2026-10-20 ✅ ${TODAY} 🆔 kt-3f9a2c ^blk1`);
+  });
+
   it("logs a todo entering done under today's Done heading", () => {
     const writes = cycleTodoWrites(press());
 
@@ -315,7 +357,7 @@ describe("cycleTodoWrites", () => {
       path: NOTE_PATH,
       text: NOTE.replace(
         "- [/] wire up the pane 📅 2026-08-14 ⏫ #kasten",
-        "- [x] wire up the pane #kasten 📅 2026-08-14 ⏫ ✅ 2026-08-10 🆔 kt-3f9a2c",
+        "- [x] wire up the pane 📅 2026-08-14 ⏫ ✅ 2026-08-10 🆔 kt-3f9a2c #kasten",
       ),
     });
     expect(writes[1]).toEqual({

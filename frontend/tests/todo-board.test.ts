@@ -209,6 +209,12 @@ describe("withProjectLink", () => {
     );
   });
 
+  it("goes ahead of 🏁, which obsidian-tasks reads as a field", () => {
+    expect(withProjectLink("- [ ] a 🏁 delete 📅 2026-10-20", FDE, PATHS)).toBe(
+      "- [ ] a [[02 Projects/FDE/index|FDE]] 🏁 delete 📅 2026-10-20",
+    );
+  });
+
   it("goes ahead of who the todo waits on", () => {
     expect(withProjectLink("- [w] ask 👤 2026-10-14 Louise 📅 2026-10-20", FDE, PATHS)).toBe(
       "- [w] ask [[02 Projects/FDE/index|FDE]] 👤 2026-10-14 Louise 📅 2026-10-20",

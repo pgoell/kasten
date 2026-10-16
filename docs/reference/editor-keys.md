@@ -1509,9 +1509,9 @@ The key is vim's: `i` starts typing where the cursor is, here as in a buffer.
 While the line is open the list's keys are its: `x` is a letter in there, not a
 cycle. Escape puts the row back and writes nothing, Enter writes and puts it
 back, and an input left empty writes nothing either, deleting a todo not being
-what this key is. What kasten writes on a line it writes in one order; a line
-edited here keeps whatever order you leave it in until the next press rebuilds
-it.
+what this key is. A new line kasten writes in one order; a line edited here
+keeps whatever order you leave it in, and a press that changes its state moves
+none of it.
 
 The note is read again first and the old line checked against the row, so an
 edit onto a row that has gone stale writes nothing rather than replacing

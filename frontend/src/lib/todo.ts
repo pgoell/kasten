@@ -6,8 +6,10 @@
  * vocabulary the obsidian-tasks plugin already reads. A field this does not
  * know stays in the words, where the person who typed it can see it.
  *
- * The line is rebuilt rather than patched, so the field order is one decision
- * made in one place and a note stays consistent however it was edited.
+ * A new line is written in the one field order `tail` keeps. A line that is
+ * already there is patched rather than rebuilt when its state changes: the box
+ * and the stamps the change adds or drops move, and every other byte stays,
+ * so a tab indent still nests a part and a `^block` id stays where links find it.
  */
 
 export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "rejected";
@@ -30,6 +32,8 @@ export interface Todo {
   priority?: TodoPriority;
   /** `every week`, as written. Phase 2 reads it; phase 1 carries it. */
   recurrence?: string;
+  /** `keep` or `delete`, what obsidian-tasks does with a done copy. Carried, never acted on. */
+  onCompletion?: string;
   /** `kt-3f9a2c`, without the `🆔`. */
   id?: string;
   /** Every `⛔` on the line, each an id. Empty rather than absent. */
@@ -106,71 +110,137 @@ const PLAIN = /^([ \t]*)(?:- )?(.*)$/;
 
 // Each field as it is written. The value has to parse or the marker stays in
 // the words, which is what makes a mistyped date visible rather than lost.
-const DUE = /📅[ \t]+(\d{4}-\d{2}-\d{2})/;
-const SCHEDULED = /⏳[ \t]+(\d{4}-\d{2}-\d{2})/;
-const START = /🛫[ \t]+(\d{4}-\d{2}-\d{2})/;
-const CREATED = /➕[ \t]+(\d{4}-\d{2}-\d{2})/;
-const DONE = /✅[ \t]+(\d{4}-\d{2}-\d{2})/;
-const CANCELLED = /❌[ \t]+(\d{4}-\d{2}-\d{2})/;
-const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)/;
-const ID = /🆔[ \t]+(\S+)/;
-const BLOCKED_BY = /⛔[ \t]+(\S+)/;
-const ESTIMATE = /⏲[ \t]+(\S+)/;
-const WORKED = /⏱[ \t]+(\S+)/;
+// `d` on every one, because a value is read off the words by its offsets: the
+// match runs on a masked copy, where a link's own text is filler.
+//
+// `📆` and `🗓` are obsidian-tasks' other spellings of due. `🗓` is often typed
+// with the variation selector after it, which is why that one may follow.
+const DUE = /(?:📅|📆|🗓)️?[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const SCHEDULED = /⏳[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const START = /🛫[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const CREATED = /➕[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const DONE = /✅[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const CANCELLED = /❌[ \t]+(\d{4}-\d{2}-\d{2})/d;
+const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)/d;
+const ON_COMPLETION = /🏁[ \t]+(keep|delete)\b/d;
+const ID = /🆔[ \t]+(\S+)/d;
+const BLOCKED_BY = /⛔[ \t]+(\S+)/d;
+const ESTIMATE = /⏲[ \t]+(\S+)/d;
+const WORKED = /⏱[ \t]+(\S+)/d;
 
 // The one field whose value is free text, so it runs to the next marker rather
 // than to the next space. A tag ends it too: a recurrence never carries one,
-// and a tag belongs to the words.
+// and a tag belongs to the words, as does a `^block` id that ends the line.
 const RECURRENCE =
-  /🔁[ \t]+(.+?)(?=[ \t]*(?:📅|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🆔|⛔|⏲|⏱|👤|#)|[ \t]*$)/;
+  /🔁[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$)/d;
 
 // Who a todo waits on and since when, both optional and the date first. The
 // name is free text as a rule is, so it runs to the next marker or tag. It
 // needs a space before either, which is what lets `[[ada#notes]]` keep its
-// anchor.
+// anchor. A `^block` id at the end of the line ends it as well, or the date
+// stamped in front of one would read the id as who the todo waits on. The name
+// is tried last for the same reason, `??` rather than `?`.
 const WAITING =
-  /👤(?:[ \t]+(\d{4}-\d{2}-\d{2}))?(?:[ \t]+(.+?))?(?=[ \t]+(?:📅|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🆔|⛔|⏲|⏱|#)|[ \t]*$)/;
+  /👤(?:[ \t]+(\d{4}-\d{2}-\d{2}))?(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|#|\^[\w-]+[ \t]*$)|[ \t]*$)/d;
+
+/** Every field in the order `tail` writes them, which is where a stamp is added. */
+const ORDER = [
+  WAITING,
+  DUE,
+  SCHEDULED,
+  START,
+  PRIORITY,
+  RECURRENCE,
+  ON_COMPLETION,
+  CREATED,
+  DONE,
+  CANCELLED,
+  ESTIMATE,
+  WORKED,
+  ID,
+  BLOCKED_BY,
+];
 
 /** Exported because `todo-shorthand.ts` fills the same `Todo.tags` from it. */
 export const TAG = /#[^\s#]+/g;
+
+/**
+ * A link, a markdown link and a code span: a marker inside one is not a field.
+ * Global, so use it through `matchAll` or `replace` only, never `exec`.
+ */
+export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`/g;
+
+/** `👤` too: its name runs to the next marker, so words after it would be who the todo waits on. */
+const MARKER = /📅|📆|🗓|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|🏁|➕|✅|❌|⏲|⏱|🆔|⛔|👤/gu;
+
+const BLOCK_ID = /\^[\w-]+[ \t]*$/;
+
+/**
+ * `text` with every span blanked to the same length, so a marker inside one
+ * matches nothing and every offset still lines up with the text. The filler
+ * keeps the spaces and is a character no field, tag or block id reads.
+ */
+function masked(text: string): string {
+  return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "_"));
+}
+
+/** A field found on the mask: where it sits in the text, and its values read off the text. */
+interface Found {
+  from: number;
+  to: number;
+  values: (string | undefined)[];
+}
+
+/**
+ * The first match of `pattern` on `mask` that carries a value. A `👤` with
+ * neither a date nor a name says nothing, and is words like any other marker
+ * whose value does not parse.
+ */
+function find(pattern: RegExp, text: string, mask: string): Found | null {
+  const found = pattern.exec(mask);
+  if (found === null) return null;
+  const values = (found.indices ?? [])
+    .slice(1)
+    .map((at: [number, number] | undefined) => (at === undefined ? undefined : text.slice(...at)));
+  if (values.every((value) => value === undefined)) return null;
+  return { from: found.index, to: found.index + found[0].length, values };
+}
 
 type Fields = Omit<Todo, "indent" | "state">;
 
 /** Every field written after the box, taken off the words that carried them. */
 function readFields(rest: string): Fields {
   let text = rest;
+  let mask = masked(rest);
 
-  function take(pattern: RegExp): string | undefined {
-    const found = pattern.exec(text);
-    if (found === null) return undefined;
-    text = text.slice(0, found.index) + text.slice(found.index + found[0].length);
-    return found[1];
+  // The mask is cut with the text, so the two stay in step.
+  function take(pattern: RegExp): (string | undefined)[] {
+    const found = find(pattern, text, mask);
+    if (found === null) return [];
+    text = text.slice(0, found.from) + text.slice(found.to);
+    mask = mask.slice(0, found.from) + mask.slice(found.to);
+    return found.values;
   }
 
-  const due = take(DUE);
-  const scheduled = take(SCHEDULED);
-  const start = take(START);
-  const glyph = take(PRIORITY);
-  const recurrence = take(RECURRENCE);
-  const created = take(CREATED);
-  const done = take(DONE);
-  const cancelled = take(CANCELLED);
-  const estimate = take(ESTIMATE);
-  const worked = take(WORKED);
-  const id = take(ID);
+  const [due] = take(DUE);
+  const [scheduled] = take(SCHEDULED);
+  const [start] = take(START);
+  const [glyph] = take(PRIORITY);
+  const [recurrence] = take(RECURRENCE);
+  const [onCompletion] = take(ON_COMPLETION);
+  const [created] = take(CREATED);
+  const [done] = take(DONE);
+  const [cancelled] = take(CANCELLED);
+  const [estimate] = take(ESTIMATE);
+  const [worked] = take(WORKED);
+  const [id] = take(ID);
 
   const blockedBy: string[] = [];
-  for (let blocker = take(BLOCKED_BY); blocker !== undefined; blocker = take(BLOCKED_BY)) {
+  for (let [blocker] = take(BLOCKED_BY); blocker !== undefined; [blocker] = take(BLOCKED_BY)) {
     blockedBy.push(blocker);
   }
 
-  // A `👤` with neither a date nor a name after it says nothing, and stays in
-  // the words like any other marker whose value does not parse.
-  const waiting = WAITING.exec(text);
-  const [, waitingSince, waitingOn] = waiting ?? [];
-  if (waiting !== null && (waitingSince !== undefined || waitingOn !== undefined)) {
-    text = text.slice(0, waiting.index) + text.slice(waiting.index + waiting[0].length);
-  }
+  const [waitingSince, waitingOn] = take(WAITING);
 
   // Taking a field out of the middle leaves two spaces where there was one.
   text = text.replace(/[ \t]+/g, " ").trim();
@@ -186,6 +256,7 @@ function readFields(rest: string): Fields {
     cancelled,
     priority: glyph === undefined ? undefined : PRIORITY_OF[glyph],
     recurrence,
+    onCompletion,
     id,
     blockedBy,
     estimate,
@@ -222,6 +293,7 @@ function tail(todo: Todo): string {
   if (todo.start !== undefined) parts.push(`🛫 ${todo.start}`);
   if (todo.priority !== undefined) parts.push(PRIORITY_SYMBOL[todo.priority]);
   if (todo.recurrence !== undefined) parts.push(`🔁 ${todo.recurrence}`);
+  if (todo.onCompletion !== undefined) parts.push(`🏁 ${todo.onCompletion}`);
   if (todo.created !== undefined) parts.push(`➕ ${todo.created}`);
   if (todo.done !== undefined) parts.push(`✅ ${todo.done}`);
   if (todo.cancelled !== undefined) parts.push(`❌ ${todo.cancelled}`);
@@ -236,6 +308,140 @@ function tail(todo: Todo): string {
 export function formatTodo(todo: Todo): string {
   const rest = tail(todo);
   return `${" ".repeat(todo.indent)}- [${BOX[todo.state]}]${rest === "" ? "" : ` ${rest}`}`;
+}
+
+/**
+ * Where words may end on a line: before each field marker outside a span,
+ * before a trailing `^blockid`, and at the end of the line.
+ *
+ * Exported for the board, whose `p` puts a link there. A stamp tries the same
+ * places, so both writes leave a line's fields where they were.
+ */
+export function endsOfWords(line: string): number[] {
+  const spans = [...line.matchAll(SPANS)].map((m) => [m.index, m.index + m[0].length]);
+  const outside = (at: number) => spans.every(([from = 0, to = 0]) => at < from || at >= to);
+  // Back over the spaces before the marker, so the insert sits after the words
+  // and not after the gap; never back into a span.
+  const back = (at: number) => {
+    let from = at;
+    while (from > 0 && /[ \t]/.test(line[from - 1] ?? "") && outside(from - 1)) from -= 1;
+    return from;
+  };
+
+  const ends = [...line.matchAll(MARKER)].filter((m) => outside(m.index)).map((m) => back(m.index));
+  const block = BLOCK_ID.exec(line);
+  if (block !== null) ends.push(back(block.index));
+  ends.push(back(line.length));
+  return ends;
+}
+
+/** The fields a state change writes or takes off, each spelled as `tail` spells it. */
+const STAMPS: {
+  pattern: RegExp;
+  keys: (keyof Fields)[];
+  write: (todo: Fields) => string | undefined;
+}[] = [
+  {
+    pattern: WAITING,
+    keys: ["waitingSince", "waitingOn"],
+    write: (todo) =>
+      todo.waitingSince === undefined && todo.waitingOn === undefined
+        ? undefined
+        : ["👤", todo.waitingSince, todo.waitingOn].filter(Boolean).join(" "),
+  },
+  { pattern: CREATED, keys: ["created"], write: (todo) => todo.created && `➕ ${todo.created}` },
+  { pattern: DONE, keys: ["done"], write: (todo) => todo.done && `✅ ${todo.done}` },
+  {
+    pattern: CANCELLED,
+    keys: ["cancelled"],
+    write: (todo) => todo.cancelled && `❌ ${todo.cancelled}`,
+  },
+  { pattern: ID, keys: ["id"], write: (todo) => todo.id && `🆔 ${todo.id}` },
+];
+
+/** Whether two readings carry the same words and fields, however they were spelled. */
+function sameFields(a: Fields, b: Fields): boolean {
+  const key = (fields: Fields) =>
+    JSON.stringify(
+      Object.entries(fields)
+        .filter(([, value]) => value !== undefined)
+        .sort(([x], [y]) => x.localeCompare(y)),
+    );
+  return key(a) === key(b);
+}
+
+/** `rest` with `stamp` added where it reads as `want` asks, or null where no place does. */
+function withStamp(rest: string, stamp: string, rank: number, want: Fields): string | null {
+  const mask = masked(rest);
+  // Straight after the field that comes before it in the order, where the line
+  // carries one; else the first place the words end.
+  const before = ORDER.slice(0, rank).flatMap((pattern) => {
+    const found = find(pattern, rest, mask);
+    return found === null ? [] : [found.to];
+  });
+  const places = [...(before.length === 0 ? [] : [Math.max(...before)]), ...endsOfWords(rest)];
+
+  for (const at of places) {
+    const written =
+      at === 0
+        ? `${stamp}${rest === "" ? "" : " "}${rest}`
+        : `${rest.slice(0, at)} ${stamp}${rest.slice(at)}`;
+    if (sameFields(readFields(written), want)) return written;
+  }
+  return null;
+}
+
+/**
+ * `line` in the state and with the stamps `want` carries, every other byte
+ * kept: the indent as typed, the words, a `^block` id at the end and each field
+ * where it sits. `boxed` false writes the line out of the cycle, with neither
+ * bullet nor box.
+ *
+ * Exported for `todo-write.ts`, whose cascade and dependents change state the
+ * way a press does.
+ */
+export function patchLine(line: string, want: Todo, boxed = true): string {
+  const todo = LINE.exec(line);
+  const plain = PLAIN.exec(line);
+  const indent = (todo ?? plain)?.[1] ?? "";
+  // The one character between the box and the words, a tab where one was typed.
+  const gap = todo?.[3] === undefined ? " " : (line[indent.length + 5] ?? " ");
+  const { indent: _indent, state: _state, ...fields } = want;
+
+  let rest = todo === null ? (plain?.[2] ?? "") : (todo[3] ?? "");
+  for (const { pattern, keys, write } of STAMPS) {
+    const had = readFields(rest);
+    const was = write(had);
+    const now = write(fields);
+    if (was === now) continue;
+
+    const found = find(pattern, rest, masked(rest));
+    if (now === undefined) {
+      if (found === null) continue;
+      // The stamp and one space beside it, so the words close up as they were.
+      let { from, to } = found;
+      if (/[ \t]/.test(rest[from - 1] ?? "")) from -= 1;
+      else if (/[ \t]/.test(rest[to] ?? "")) to += 1;
+      rest = rest.slice(0, from) + rest.slice(to);
+    } else if (was !== undefined && found !== null) {
+      // A changed value is written over the old one, so a name typed after a
+      // `👤` stays where it was.
+      rest = rest.slice(0, found.from) + now + rest.slice(found.to);
+    } else {
+      const step = { ...had, ...Object.fromEntries(keys.map((key) => [key, fields[key]])) };
+      const written = withStamp(rest, now, ORDER.indexOf(pattern), step);
+      if (written === null) break;
+      rest = written;
+    }
+  }
+
+  // Correct fields beat kept bytes: a line no place parses right on is
+  // rebuilt in the field order, keeping only its indent.
+  if (!sameFields(readFields(rest), fields)) rest = tail(want);
+
+  if (!boxed) return `${indent}${rest}`;
+  const box = todo?.[2] !== undefined && STATES[todo[2]] === want.state ? todo[2] : BOX[want.state];
+  return `${indent}- [${box}]${rest === "" ? "" : `${gap}${rest}`}`;
 }
 
 /**
@@ -273,8 +479,8 @@ function todoOf(line: string, today: string): Todo {
 }
 
 /** Out of the cycle: the bullet and the box go, and the fields stay. */
-function proseOf(todo: Todo): string {
-  return `${" ".repeat(todo.indent)}${tail(todo)}`;
+function proseOf(line: string, todo: Todo): string {
+  return patchLine(line, todo, false);
 }
 
 /**
@@ -297,32 +503,32 @@ export function cycleLine(line: string, today: string, id: string): string {
   // A plain line becomes an open todo, keeping whatever fields were written on
   // it. Its bullet goes: the box stands in for one, and the step out of the
   // cycle writes no bullet back.
-  if (todo === null) return formatTodo(todoOf(line, today));
+  if (todo === null) return patchLine(line, todoOf(line, today));
 
   switch (todo.state) {
     case "open":
-      return formatTodo({ ...todo, state: "doing" });
+      return patchLine(line, { ...todo, state: "doing" });
     // Picked up where the work left off, rather than at the start of it: a
     // blocked todo is one somebody had already begun.
     case "blocked":
-      return formatTodo({ ...todo, state: "doing" });
+      return patchLine(line, { ...todo, state: "doing" });
     // The same step for the same reason, and the `👤` goes with the wait it
     // recorded: the answer has come, which is what moved the todo on.
     case "waiting":
-      return formatTodo({
+      return patchLine(line, {
         ...todo,
         state: "doing",
         waitingSince: undefined,
         waitingOn: undefined,
       });
     case "doing":
-      return formatTodo({ ...todo, state: "done", done: today, id: todo.id ?? id });
+      return patchLine(line, { ...todo, state: "done", done: today, id: todo.id ?? id });
     // Both ways out, each dropping the stamp its own state wrote. Every other
     // field stays, so three more presses give the todo back with its dates.
     case "done":
-      return proseOf({ ...todo, done: undefined });
+      return proseOf(line, { ...todo, done: undefined });
     case "rejected":
-      return proseOf({ ...todo, cancelled: undefined });
+      return proseOf(line, { ...todo, cancelled: undefined });
   }
 }
 
@@ -345,7 +551,7 @@ export function setStateOn(line: string, state: TodoState, today: string, id: st
   // that was never waiting is somebody's words, and stays.
   const left = todo.state === "waiting";
 
-  return formatTodo({
+  return patchLine(line, {
     ...todo,
     state,
     done: state === "done" ? (todo.done ?? today) : undefined,
