@@ -122,6 +122,13 @@ describe("parseTodo", () => {
     );
   });
 
+  it("leaves 🏁 with a value that runs on in the words", () => {
+    expect(parsed("- [ ] a 🏁 keep-it")).toMatchObject({
+      text: "a 🏁 keep-it",
+      onCompletion: undefined,
+    });
+  });
+
   it("reads no field from inside a link or a code span", () => {
     for (const words of [
       "see [[notes 📅 2026-10-20]]",
@@ -291,6 +298,19 @@ describe("a state change keeps the line", () => {
     expect(set("- [ ] call  the dentist ⏲ 2h", "rejected")).toBe(
       `- [-] call  the dentist ❌ ${TODAY} ⏲ 2h`,
     );
+  });
+
+  it("never fuses a stamp onto the text after a field", () => {
+    expect(set("- [/] a ⏫urgent", "done")).toBe(`- [x] a ⏫ ✅ ${TODAY} 🆔 ${FRESH} urgent`);
+    expect(set("- [x] a ⏫urgent ✅ 2026-01-01", "rejected")).toBe(`- [-] a ⏫ ❌ ${TODAY} urgent`);
+    expect(set("- [/] a 📅 2026-01-01,b", "done")).toBe(
+      `- [x] a 📅 2026-01-01 ✅ ${TODAY} 🆔 ${FRESH} ,b`,
+    );
+  });
+
+  it("puts a stamp after a marker whose value is words, not into them", () => {
+    expect(set("- [/] a 📅 friday", "done")).toBe(`- [x] a 📅 friday ✅ ${TODAY} 🆔 ${FRESH}`);
+    expect(set("- [ ] a 📅 friday ⏫", "waiting")).toBe(`- [w] a 📅 friday 👤 ${TODAY} ⏫`);
   });
 
   it("reorders nothing on a line whose fields sit out of order", () => {

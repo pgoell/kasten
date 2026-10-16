@@ -122,7 +122,8 @@ const CREATED = /➕[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const DONE = /✅[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const CANCELLED = /❌[ \t]+(\d{4}-\d{2}-\d{2})/d;
 const PRIORITY = /(🔺|⏫|🔼|🔽|⏬)/d;
-const ON_COMPLETION = /🏁[ \t]+(keep|delete)\b/d;
+// Ends at a space or the line's end, so `🏁 keep-it` stays words.
+const ON_COMPLETION = /🏁[ \t]+(keep|delete)(?=[ \t]|$)/d;
 const ID = /🆔[ \t]+(\S+)/d;
 const BLOCKED_BY = /⛔[ \t]+(\S+)/d;
 const ESTIMATE = /⏲[ \t]+(\S+)/d;
@@ -315,9 +316,11 @@ export function formatTodo(todo: Todo): string {
  * before a trailing `^blockid`, and at the end of the line.
  *
  * Exported for the board, whose `p` puts a link there. A stamp tries the same
- * places, so both writes leave a line's fields where they were.
+ * places, so both writes leave a line's fields where they were, but passes
+ * `fields`, the offsets of the fields that parse: a stamp in front of
+ * `📅 friday` would split words that read as one.
  */
-export function endsOfWords(line: string): number[] {
+export function endsOfWords(line: string, fields?: number[]): number[] {
   const spans = [...line.matchAll(SPANS)].map((m) => [m.index, m.index + m[0].length]);
   const outside = (at: number) => spans.every(([from = 0, to = 0]) => at < from || at >= to);
   // Back over the spaces before the marker, so the insert sits after the words
@@ -328,7 +331,9 @@ export function endsOfWords(line: string): number[] {
     return from;
   };
 
-  const ends = [...line.matchAll(MARKER)].filter((m) => outside(m.index)).map((m) => back(m.index));
+  const markers =
+    fields ?? [...line.matchAll(MARKER)].map((m) => m.index).filter((at) => outside(at));
+  const ends = [...markers].sort((a, b) => a - b).map(back);
   const block = BLOCK_ID.exec(line);
   if (block !== null) ends.push(back(block.index));
   ends.push(back(line.length));
@@ -375,17 +380,26 @@ function withStamp(rest: string, stamp: string, rank: number, want: Fields): str
   const mask = masked(rest);
   // Straight after the field that comes before it in the order, where the line
   // carries one; else the first place the words end.
-  const before = ORDER.slice(0, rank).flatMap((pattern) => {
-    const found = find(pattern, rest, mask);
-    return found === null ? [] : [found.to];
-  });
-  const places = [...(before.length === 0 ? [] : [Math.max(...before)]), ...endsOfWords(rest)];
+  const fields = ORDER.map((pattern) => find(pattern, rest, mask)).flatMap((found, order) =>
+    found === null ? [] : [{ ...found, order }],
+  );
+  const before = fields.filter(({ order }) => order < rank).map((found) => found.to);
+  const places = [
+    ...(before.length === 0 ? [] : [Math.max(...before)]),
+    ...endsOfWords(
+      rest,
+      fields.map((found) => found.from),
+    ),
+  ];
 
   for (const at of places) {
+    // A space on both sides, so the stamp never runs into a word that sits
+    // hard against the field before it, `⏫urgent`.
+    const after = /^(?:[ \t]|$)/.test(rest.slice(at)) ? "" : " ";
     const written =
       at === 0
         ? `${stamp}${rest === "" ? "" : " "}${rest}`
-        : `${rest.slice(0, at)} ${stamp}${rest.slice(at)}`;
+        : `${rest.slice(0, at)} ${stamp}${after}${rest.slice(at)}`;
     if (sameFields(readFields(written), want)) return written;
   }
   return null;
