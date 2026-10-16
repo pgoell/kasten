@@ -57,6 +57,7 @@ describe("pdf.js in the editor", () => {
     pdfjs.getDocument.mockReset();
     pdfjs.getDocument.mockImplementation(fakeTask);
     vi.stubGlobal("IntersectionObserver", FakeObserver);
+    vi.stubGlobal("ResizeObserver", FakeObserver);
   });
 
   afterEach(() => {

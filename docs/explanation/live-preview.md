@@ -329,7 +329,8 @@ it draws only the pages scrolled into view, so a long pdf costs the pages you
 read. `![[plan.pdf#page=3]]` sets the box's own scroll so page 3 is at its top,
 and so page 3 is the one drawn. It does not use `scrollIntoView`, which
 scrolls every box around the page as well and would jump the note you are
-editing.
+editing. The browser keeps a scroll in pixels, so when the box changes width,
+or is hidden and shown, the box scrolls back to the page that was at its top.
 
 **A depth cap, not a cycle check.** A note that embeds itself, or two notes that
 embed each other, would draw without end. Tracking the paths on the way down

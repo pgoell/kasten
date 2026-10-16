@@ -1164,6 +1164,34 @@ function fakePdfs(files: Record<string, number>) {
   return { renderer, opened, drawn, freed: () => freed };
 }
 
+/** A `ResizeObserver` that reports nothing until a test says a box changed size. */
+class FakeResizer {
+  static all: FakeResizer[] = [];
+  readonly observed = new Set<Element>();
+  private readonly callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    FakeResizer.all.push(this);
+  }
+
+  observe(target: Element) {
+    this.observed.add(target);
+  }
+
+  disconnect() {
+    this.observed.clear();
+  }
+
+  static resize(target: Element) {
+    for (const observer of FakeResizer.all) {
+      if (!observer.observed.has(target)) continue;
+      const entry = { target } as ResizeObserverEntry;
+      observer.callback([entry], observer as unknown as ResizeObserver);
+    }
+  }
+}
+
 /** An `IntersectionObserver` that sees nothing until a test says a slot came into view. */
 class FakeObserver {
   static all: FakeObserver[] = [];
@@ -1217,6 +1245,8 @@ describe("a pdf embed", () => {
   beforeEach(() => {
     FakeObserver.all = [];
     vi.stubGlobal("IntersectionObserver", FakeObserver);
+    FakeResizer.all = [];
+    vi.stubGlobal("ResizeObserver", FakeResizer);
   });
 
   afterEach(() => {
@@ -1514,6 +1544,48 @@ describe("a pdf embed", () => {
         );
       },
     );
+
+    it("A1 keeps page 3 at the top when the box changes width, or is hidden and shown", async () => {
+      const view = mount(
+        `${ABOVE}![[plan.pdf#page=3]]`,
+        withPdfs(fakeVault({}).source, fakePdfs({ [PLAN]: 3 })),
+      );
+      const box = boxOf(view);
+      // How tall a page is, and so how far each slot sits below the last.
+      let tall = 800;
+      const index = (slot: HTMLElement) => [...(slot.parentElement?.children ?? [])].indexOf(slot);
+      vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return index(this) * tall;
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => tall);
+      await slotsOf(view);
+      expect(box.scrollTop).toBe(1600);
+
+      // Half as wide, so every page is half as tall, and the browser leaves
+      // the scroll in pixels, which is now somewhere else.
+      tall = 400;
+      box.scrollTop = 9;
+      FakeResizer.resize(box);
+      expect(box.scrollTop).toBe(800);
+
+      // Scrolled by hand to halfway down page 2, then as wide as before.
+      box.scrollTop = 600;
+      fireEvent.scroll(box);
+      tall = 800;
+      FakeResizer.resize(box);
+      expect(box.scrollTop).toBe(1200);
+
+      // Hidden, the box has no layout and the browser drops its scroll.
+      tall = 0;
+      box.scrollTop = 0;
+      fireEvent.scroll(box);
+      FakeResizer.resize(box);
+      tall = 800;
+      FakeResizer.resize(box);
+      expect(box.scrollTop).toBe(1200);
+    });
 
     it.each(["#page=9", "#page=0", "#page=-1", "#page=abc", "#page=2.5", "#page=", "#", "#intro"])(
       "A4 draws and opens page 1 for %s",
