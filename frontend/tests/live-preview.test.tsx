@@ -1589,6 +1589,41 @@ describe("a pdf embed", () => {
       expect(box.scrollTop).toBe(1200);
     });
 
+    it("B2 keeps page 3 when a scroll at 0 arrives before the resize on showing again", async () => {
+      const view = mount(
+        `${ABOVE}![[plan.pdf#page=3]]`,
+        withPdfs(fakeVault({}).source, fakePdfs({ [PLAN]: 3 })),
+      );
+      const box = boxOf(view);
+      let tall = 800;
+      const index = (slot: HTMLElement) => [...(slot.parentElement?.children ?? [])].indexOf(slot);
+      vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return index(this) * tall;
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => tall);
+      let high = 512;
+      Object.defineProperty(box, "scrollHeight", { get: () => 3 * tall });
+      Object.defineProperty(box, "clientHeight", { get: () => high });
+      await slotsOf(view);
+      expect(box.scrollTop).toBe(1600);
+
+      // Hidden: no layout, and the browser drops the scroll.
+      tall = 0;
+      high = 0;
+      box.scrollTop = 0;
+      FakeResizer.resize(box);
+
+      // Shown again, laid out with the scroll still at 0, and a browser that
+      // runs its scroll steps before the resize observers says so first.
+      tall = 800;
+      high = 512;
+      fireEvent.scroll(box);
+      FakeResizer.resize(box);
+      expect(box.scrollTop).toBe(1600);
+    });
+
     it("A1 keeps the last page at the top through a scroll the browser cut short", async () => {
       const view = mount(
         `${ABOVE}![[plan.pdf#page=3]]`,

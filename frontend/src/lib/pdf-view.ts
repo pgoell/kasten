@@ -260,7 +260,14 @@ export function showPdf(
         box.scrollTop = slot.offsetTop - head.offsetTop + share * slot.offsetHeight;
       };
       scroll();
+      // Whether the resizer last saw the box hidden. Shown again, it is laid
+      // out with its scroll at 0, and a browser may say so with a `scroll`
+      // before the resizer runs, the event loop taking scroll steps first:
+      // that 0 is not a place anyone chose, so no scroll counts until the
+      // resizer has put the box back on its place.
+      let hidden = false;
       box.addEventListener("scroll", () => {
+        if (hidden) return;
         // At the end the browser may have cut the scroll short, a last page
         // shorter than the box stopping it inside the page before: that is
         // not a place anyone chose, and the one before it is kept.
@@ -275,7 +282,8 @@ export function showPdf(
         share = (y - slot.offsetTop) / slot.offsetHeight;
       });
       resizer = new ResizeObserver(() => {
-        if ((pages[top] as HTMLElement).offsetHeight > 0) scroll();
+        hidden = (pages[top] as HTMLElement).offsetHeight === 0;
+        if (!hidden) scroll();
       });
       resizer.observe(box);
       measured();
