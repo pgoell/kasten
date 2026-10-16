@@ -181,6 +181,9 @@ A mark may hold another, as Anki reads them since 2.1.56:
   alone, with `{{c1::a` shown as typed.
 * A lone brace inside a mark still makes it no mark, nested or not, so
   `{{c1::\(x^{2}\)}}` is text.
+* A mark inside a code span is text: `` `{{c1::Paris}}` `` asks nothing. A
+  code span inside a mark is read whole, so ``{{c1::`a::b`}}`` asks `a::b`
+  with no hint. A lone backtick is text, and ``{{c1::a`b}}`` is a mark.
 
 The cloze is read before the divider. `{{c1::Paris}}` holds a `::`, and a line
 holding a cloze mark is a cloze and never a card written on one line, so the
@@ -208,8 +211,9 @@ obsidian-spaced-repetition and prose here.
 
 A card's text is markdown, so a backslash before punctuation is an escape:
 `a\-b` shows `a-b`, and `a\\-b` shows `a\-b`. `&#58;` shows a colon and
-`\&#58;` the text `&#58;`. In a code span nothing is an escape, so
-`` `a\-b` `` and `` `&#58;` `` show as written. An
+`\&#58;` the text `&#58;`. A code span is code everywhere: nothing in it is an
+escape or a mark, so `` `a\-b` `` and `` `&#58;` `` show as written, and a
+cloze mark or `!suspended` inside one is text and asks or parks nothing. An
 [imported Anki deck](/how-to/import-an-anki-deck.md) is written this way.
 
 ## The schedule

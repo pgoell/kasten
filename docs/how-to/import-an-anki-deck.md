@@ -203,7 +203,8 @@ colon before its hint, its colons are written `&#58;`, which kasten shows and
 takes from a typed answer as `:`, so `{{c1::a&#58;&#58;b}}` asks `a::b` with
 no hint. A field whose text shows `&#58;` itself, written `&amp;#58;`, is
 written `\&#58;` on any side outside code, which kasten shows as the text
-`&#58;` as Anki does. A backslash in a cloze answer is doubled as anywhere
+`&#58;` as Anki does. That holds where a tag splits it too: `a&amp;#<b></b>58;b`
+shows `a&#58;b` and is written `a\&#58;b`. A backslash in a cloze answer is doubled as anywhere
 else, so an answer Anki shows as `a\::b` is written `{{c1::a\\&#58;&#58;b}}`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
 kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
 `{{c1::a }}`. Where no mark is kept, a mark never closed runs to the end of the
@@ -244,6 +245,14 @@ Inside code, `<code>` or a line of a `<pre>`, nothing gets a backslash, since
 kasten shows a code span as written: `<code>a\-b</code>` is `` `a\-b` `` and a
 `<code>` showing `&#58;` is `` `&#58;` ``. Every entity but that one colon
 arrives as the text Anki shows, `&copy;` as `&copy;`.
+
+Kasten reads no cloze mark and no `!suspended` inside a code span, so a cloze
+mark Anki reads inside `<code>` or a `<pre>` line is written with the code
+moved inside it: `<code>{{c1::a&#58;&#58;b}}</code>` becomes ``{{c1::`a::b`}}``,
+and `<code>x {{c1::a\b}} y</code>` becomes ``` `x` {{c1::`a\b`}} `y` ```. The
+answer in the code is as Anki shows it, with no backslash and no `&#58;`, since
+kasten reads a code span in a mark whole. A mark in code that becomes a
+highlight is written ``==`a`==``.
 
 ## What does not survive
 
