@@ -1780,11 +1780,14 @@ markdown links alone.
 
 Ctrl+click or a tap on an embed, `![[note]]`, opens the embedded note in the
 focused pane, at its heading for `![[note#heading]]`. On a pdf, `![[plan.pdf]]`,
-it opens the pdf in a browser tab, as `gf` does. `![[plan.pdf#page=3]]` opens
-it at page 3, and so do `gf` and Enter on `[[plan.pdf#page=3]]` or on the
-embed's source. A `#page=` that is not a whole number from 1 opens it at page
-1, and so does a page the pdf lacks, once the box has the pdf. A plain click
-does nothing to it. [Embed format](/reference/embed-format.md) says what an embed draws.
+it opens the pdf in a pdf pane beside the note, as `gf` does, on a phone as on
+a desktop. The pane draws the pdf with pdf.js, the way the embed does, so a
+phone shows the page the link names. `![[plan.pdf#page=3]]` opens it at page
+3, and so do `gf` and Enter on `[[plan.pdf#page=3]]` or on the embed's source.
+A second link to a pdf already open turns its pane to the new page rather than
+opening another. A `#page=` that is not a whole number from 1 opens it at page
+1, and so does a page the pdf lacks. `<leader>q` closes the pane. A plain click
+on the embed does nothing. [Embed format](/reference/embed-format.md) says what an embed draws.
 
 A tap on a touch screen follows the link with no modifier. A finger that lands on a link and drags scrolls the note and follows
 nothing. A tap on the link the cursor is already in moves the cursor, so to

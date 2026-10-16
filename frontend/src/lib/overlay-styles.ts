@@ -23,9 +23,13 @@
  * Padded at the foot by what an on-screen keyboard covers, which the route's
  * frame measures and hands down as `--keyboard`. The panel is capped at the
  * room left, so its input and its first rows stay in sight above the keys.
+ * Without a keyboard the home indicator's inset is the floor, and a phone on
+ * its side keeps the panel off its notch and rounded corners: 90vw of one
+ * leaves less beside it than the 47px they take (#355). `15vh` already
+ * clears the notch at the top.
  */
 export const BACKDROP =
-  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] pb-[var(--keyboard,0px)] focus:outline-none";
+  "fixed inset-0 z-20 flex items-start justify-center bg-black/50 pt-[15vh] pr-[env(safe-area-inset-right)] pb-[max(var(--keyboard,0px),env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] focus:outline-none";
 
 /** The sheet the press now under way began on, if it began on one. */
 let pressed: EventTarget | null = null;

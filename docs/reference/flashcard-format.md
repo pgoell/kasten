@@ -214,7 +214,9 @@ A card's text is markdown, so a backslash before punctuation is an escape:
 `a\-b` shows `a-b`, and `a\\-b` shows `a\-b`. `&#58;` shows a colon and
 `\&#58;` the text `&#58;`. A code span is code everywhere: nothing in it is an
 escape or a mark, so `` `a\-b` `` and `` `&#58;` `` show as written, and a
-cloze mark or `!suspended` inside one is text and asks or parks nothing. An
+cloze mark or `!suspended` inside one is text and asks or parks nothing. The
+one exception is an escaped schedule comment or import marker, under
+[The schedule](#the-schedule). An
 [imported Anki deck](/how-to/import-an-anki-deck.md) is written this way.
 
 ## The schedule
@@ -255,7 +257,9 @@ match these comments.
 
 A comment written with a backslash, `<!--SR\:c1!2026-01-01,1,250-->`, is text
 and no schedule, wherever it sits on the line, a cloze answer or a code span
-included. The schedule is only a comment without one.
+included. The schedule is only a comment without one. Review shows and types
+such a comment without its backslash, in a code span too. There, it and the
+import's `<!--anki\:` are the only escapes kasten reads.
 
 ## Parking a card
 

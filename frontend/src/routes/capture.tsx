@@ -88,7 +88,8 @@ function Capture() {
   }
 
   return (
-    <main className="min-h-dvh bg-one-bg font-mono text-one-fg">
+    // All four insets: nothing here writes the frame's bottom padding.
+    <main className="safe-frame safe-foot min-h-dvh bg-one-bg font-mono text-one-fg">
       <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
         <header className="flex items-baseline gap-3">
           <h1 className="text-[15px]">dump</h1>

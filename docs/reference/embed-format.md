@@ -93,8 +93,8 @@ as source for that moment too, since a name cannot be resolved without it.
 | Ctrl+click, Cmd+click on a Mac | Open the embedded note in the focused pane |
 | Tap, on a phone | The same |
 
-A section embed opens the note at its heading. A pdf opens in a browser tab of
-its own, as `gf` on `[[plan.pdf]]` does, at page 3 for `![[plan.pdf#page=3]]`.
+A section embed opens the note at its heading. A pdf opens in a pdf pane beside
+the note, as `gf` on `[[plan.pdf]]` does, at page 3 for `![[plan.pdf#page=3]]`.
 A plain click does nothing to the embed.
 
 ## Out of scope

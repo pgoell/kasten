@@ -16,6 +16,7 @@ import {
   openGraphInFocused,
   openImageInFocused,
   openInFocused,
+  openPdfBeside,
   openPersonBeside,
   openReviewInFocused,
   openTerminalInFocused,
@@ -474,6 +475,26 @@ describe("a book in a pane beside its note", () => {
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(reader);
+  });
+});
+
+describe("a pdf in a pane beside the note naming it", () => {
+  it("splits the focused pane and puts the pdf, at its page, in the new one", () => {
+    const layout = openPdfBeside(emptyLayout("index.md"), "docs/plan.pdf", 3);
+
+    expect(notes(layout)).toEqual(["index.md", null]);
+    expect(focusedPane(layout).pdf).toEqual({ path: "docs/plan.pdf", page: 3 });
+  });
+
+  it("I2 turns the pane already showing that pdf to the new page, no second pane", () => {
+    const once = openPdfBeside(emptyLayout("index.md"), "docs/plan.pdf", 3);
+    const viewer = focusedPane(once).id;
+
+    const twice = openPdfBeside(nextPane(once), "docs/plan.pdf", 5);
+
+    expect(tabPanes(twice)).toHaveLength(2);
+    expect(focusedPane(twice).id).toBe(viewer);
+    expect(focusedPane(twice).pdf).toEqual({ path: "docs/plan.pdf", page: 5 });
   });
 });
 

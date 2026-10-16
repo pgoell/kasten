@@ -169,7 +169,9 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
         onClose();
       }}
       {...closeOnBackdrop(onClose)}
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 focus:outline-none"
+      // Padded by the side insets for the reason `BACKDROP` is: 95vw of a
+      // phone on its side reaches under its notch.
+      className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] focus:outline-none"
     >
       {/* The finder's panel, wider: this is the fourth thing the app draws over
           the editor and reads as the same object, but it holds a map rather

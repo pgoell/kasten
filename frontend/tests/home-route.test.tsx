@@ -8,6 +8,7 @@ import { readClock } from "@/lib/clock";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
+import type { PdfRenderer } from "@/lib/pdf-view";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
 import { hashed } from "./digests";
@@ -173,6 +174,20 @@ vi.mock("@/lib/api", () => ({
 // expecting a reader sees the error panel. The empty factory is deliberate: see
 // `book-pane.test.tsx`.
 vi.mock("foliate-js/view.js", () => ({}));
+
+// What the pdf pane draws with, which `a pdf in kasten's own view` sets. The
+// pane takes pdf.js straight from `pdf-view.ts`, holding no editor state for
+// the `pdfRenderer` facet to reach it through, so the fake goes in here.
+const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));
+vi.mock("@/lib/pdf-view", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/pdf-view")>();
+  return {
+    ...real,
+    pdfjsRenderer: {
+      open: (url: string) => (pdfPaneRenderer.current ?? real.pdfjsRenderer).open(url),
+    },
+  };
+});
 
 const VAULT: Record<string, string> = {
   "index.md": "the index note",
@@ -3850,46 +3865,29 @@ describe("following a link to an asset", () => {
     expect(document.querySelector(".cm-wikilink-dead")).toBeNull();
   });
 
+  // A pdf opens in kasten's own view, which `a pdf in kasten's own view` below
+  // covers; every other asset still goes to the browser.
   it("opens an asset the vault holds in a new tab, in any case", async () => {
-    await follow("My Plan.PDF|the plan");
+    fetchAssets.mockResolvedValue(["rehearse/my talk.mp3"]);
+    await follow("My Talk.MP3|the talk");
 
-    expect(window.open).toHaveBeenCalledWith(`/api/assets/${encodeURI(PLAN)}`, "_blank");
+    expect(window.open).toHaveBeenCalledWith("/api/assets/rehearse/my%20talk.mp3", "_blank");
     expect(createNote).not.toHaveBeenCalled();
   });
 
-  it("I8 opens a pdf at its #page with gf", async () => {
-    await follow("my plan.pdf#page=3");
-
-    expect(window.open).toHaveBeenCalledWith(`/api/assets/${encodeURI(PLAN)}#page=3`, "_blank");
-  });
-
-  it("I8 opens an embedded pdf at its #page with gf on its source", async () => {
-    fetchNote.mockResolvedValue("![[my plan.pdf#page=3]]\n");
-    const app = await renderApp();
-    await settle();
-    app.click(NOTE);
-    await settle();
-    app.press("l");
-    app.press("g");
-    app.press("f");
-    await settle();
-
-    expect(window.open).toHaveBeenCalledWith(`/api/assets/${encodeURI(PLAN)}#page=3`, "_blank");
-  });
-
   it("opens an asset whose name holds ? with gf", async () => {
-    fetchAssets.mockResolvedValue(["plan?.pdf"]);
-    await follow("plan?.pdf");
+    fetchAssets.mockResolvedValue(["plan?.mp3"]);
+    await follow("plan?.mp3");
 
     expect(document.querySelector(".cm-vimMode")).not.toBeNull();
-    expect(window.open).toHaveBeenCalledWith("/api/assets/plan%3F.pdf", "_blank");
+    expect(window.open).toHaveBeenCalledWith("/api/assets/plan%3F.mp3", "_blank");
   });
 
   it("opens an asset whose name holds ? on ctrl+click with vim off", async () => {
-    fetchAssets.mockResolvedValue(["plan?.pdf"]);
+    fetchAssets.mockResolvedValue(["plan?.mp3"]);
     localStorage.setItem("kasten.vim", "off");
     try {
-      fetchNote.mockResolvedValue("[[plan?.pdf]]\n");
+      fetchNote.mockResolvedValue("[[plan?.mp3]]\n");
       const app = await renderApp();
       await settle();
       app.click(NOTE);
@@ -3902,16 +3900,16 @@ describe("following a link to an asset", () => {
       localStorage.removeItem("kasten.vim");
     }
 
-    expect(window.open).toHaveBeenCalledWith("/api/assets/plan%3F.pdf", "_blank");
+    expect(window.open).toHaveBeenCalledWith("/api/assets/plan%3F.mp3", "_blank");
   });
 
   it("draws and opens an asset whose suffix is in capitals", async () => {
-    fetchAssets.mockResolvedValue(["docs/Plan.PDF"]);
-    await follow("Plan.PDF");
+    fetchAssets.mockResolvedValue(["docs/Talk.MP3"]);
+    await follow("Talk.MP3");
 
-    expect(document.querySelector(".cm-wikilink")?.textContent).toBe("Plan.PDF");
+    expect(document.querySelector(".cm-wikilink")?.textContent).toBe("Talk.MP3");
     expect(document.querySelector(".cm-wikilink-dead")).toBeNull();
-    expect(window.open).toHaveBeenCalledWith("/api/assets/docs/Plan.PDF", "_blank");
+    expect(window.open).toHaveBeenCalledWith("/api/assets/docs/Talk.MP3", "_blank");
     expect(createNote).not.toHaveBeenCalled();
   });
 
@@ -3921,6 +3919,302 @@ describe("following a link to an asset", () => {
     expect(window.open).not.toHaveBeenCalled();
     expect(createNote).not.toHaveBeenCalled();
     expect(document.querySelector(".cm-wikilink-dead")).not.toBeNull();
+  });
+});
+
+// #353: a phone's own pdf viewer ignores `#page`, so a pdf opens in a pane of
+// kasten's that draws it with `showPdf`, at the page the link names. The pane's
+// renderer is a fake three-page pdf, put in through `pdfPaneRenderer` above.
+describe("a pdf in kasten's own view", () => {
+  const NOTE = "index.md";
+  const PLAN = "rehearse/my plan.pdf";
+  const URL = "/api/assets/rehearse/my%20plan.pdf";
+  /** How tall a page slot is laid out, so slot N sits at (N - 1) * PAGE. */
+  const PAGE = 800;
+
+  /** Every URL the pane opened, every page it asked for, and how many it freed. */
+  let opened: string[];
+  let asked: number[];
+  let destroyed: number;
+  /** What each box's scroll was last set to, which jsdom keeps at 0. */
+  let scrolled: WeakMap<Element, number>;
+
+  const renderer: PdfRenderer = {
+    open(url) {
+      opened.push(url);
+      return {
+        file: Promise.resolve({
+          pages: 3,
+          page: async (number: number) => {
+            asked.push(number);
+            return { width: 600, height: 800, draw: async () => {} };
+          },
+        }),
+        destroy: () => {
+          destroyed += 1;
+        },
+      };
+    },
+  };
+
+  /** Sees nothing until a test says a slot came into view. */
+  class FakeObserver {
+    static all: FakeObserver[] = [];
+    readonly observed = new Set<Element>();
+    private readonly callback: IntersectionObserverCallback;
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+      FakeObserver.all.push(this);
+    }
+    observe(target: Element) {
+      this.observed.add(target);
+    }
+    disconnect() {
+      this.observed.clear();
+    }
+    static reveal(target: Element) {
+      for (const observer of FakeObserver.all) {
+        if (!observer.observed.has(target)) continue;
+        const entry = { isIntersecting: true, target } as IntersectionObserverEntry;
+        observer.callback([entry], observer as unknown as IntersectionObserver);
+      }
+    }
+  }
+
+  class QuietResizer {
+    observe() {}
+    disconnect() {}
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    vi.stubGlobal("open", vi.fn());
+    vi.stubGlobal("IntersectionObserver", FakeObserver);
+    vi.stubGlobal("ResizeObserver", QuietResizer);
+    opened = [];
+    asked = [];
+    destroyed = 0;
+    scrolled = new WeakMap();
+    FakeObserver.all = [];
+    pdfPaneRenderer.current = renderer;
+    // jsdom lays nothing out: a page slot sits at its place in the box times
+    // a page's height, and a box keeps the scroll it was given.
+    vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (!this.classList.contains("cm-pdf-page")) return 0;
+      return [...(this.parentElement?.children ?? [])].indexOf(this) * PAGE;
+    });
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(PAGE);
+    vi.spyOn(Element.prototype, "scrollTop", "get").mockImplementation(function (this: Element) {
+      return scrolled.get(this) ?? 0;
+    });
+    vi.spyOn(Element.prototype, "scrollTop", "set").mockImplementation(function (
+      this: Element,
+      value: number,
+    ) {
+      scrolled.set(this, value);
+    });
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue([NOTE]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([PLAN]);
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await hashed();
+    pdfPaneRenderer.current = null;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetAllMocks();
+  });
+
+  /** Open the note, its first line plain so the line under it draws as a widget. */
+  async function openNote(text: string) {
+    fetchNote.mockResolvedValue(text);
+    const app = await renderApp();
+    await settle();
+    // A phone starts with the tree shut, the toolbar being the way to it.
+    if (app.tree() === null) fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+    app.click(NOTE);
+    await settle();
+    return app;
+  }
+
+  /** The pdf pane, while a pane holds one. */
+  const pdfPane = () => document.querySelector<HTMLElement>("[data-pdf-pane]");
+
+  /** The pane's own page slots, not the embed's in the note beside it. */
+  const paneSlots = () => [
+    ...(pdfPane()?.querySelectorAll<HTMLElement>("[data-pdf-box] .cm-pdf-page") ?? []),
+  ];
+
+  /** The note's pdf box, drawn on a line the cursor is not on. */
+  const embedBox = () =>
+    document.querySelector<HTMLElement>("[data-pane] .cm-content .cm-embed-pdf") as HTMLElement;
+
+  /**
+   * That the pane holds this pdf at this page, with that page at the top of
+   * its box and drawn once it is in view: what the reader sees, not a URL.
+   */
+  async function showsPage(page: number, pages = 3) {
+    const pane = pdfPane();
+    expect(pane?.getAttribute("data-pdf-pane")).toBe(PLAN);
+    expect(paneSlots()).toHaveLength(pages);
+    const box = pane?.querySelector("[data-pdf-box]") as HTMLElement;
+    expect(box.scrollTop).toBe((page - 1) * PAGE);
+    expect(box.textContent).not.toContain("Could not read");
+    asked.length = 0;
+    FakeObserver.reveal(paneSlots()[page - 1] as HTMLElement);
+    await settle();
+    expect(asked).toEqual([page]);
+    expect(paneSlots()[page - 1]?.querySelector("canvas")).not.toBeNull();
+    expect(opened.at(-1)).toBe(URL);
+    expect(window.open).not.toHaveBeenCalled();
+  }
+
+  /** The panes the tab draws, as opposed to the ones it only holds. */
+  const drawn = () =>
+    [...document.querySelectorAll("[data-pane]")].filter(
+      (pane) => !pane.classList.contains("hidden"),
+    );
+
+  it("A1 a tap on the embed on a phone opens kasten's view at page 3, alone on screen", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    await openNote("above\n![[my plan.pdf#page=3]]\n");
+
+    const box = embedBox();
+    fireEvent.pointerDown(box, { pointerType: "touch" });
+    fireEvent.click(box);
+    await settle();
+
+    expect(pdfPane()?.getAttribute("data-page")).toBe("3");
+    expect(drawn()).toHaveLength(1);
+    expect(drawn()[0]?.querySelector("[data-pdf-pane]")).not.toBeNull();
+    await showsPage(3);
+  });
+
+  it.each([
+    ["ctrl", { ctrlKey: true }],
+    ["cmd", { metaKey: true }],
+  ])("A2 %s and a click on the box opens the same view at page 3", async (_, held) => {
+    await openNote("above\n![[my plan.pdf#page=3]]\n");
+
+    fireEvent.mouseDown(embedBox(), held);
+    await settle();
+
+    await showsPage(3);
+  });
+
+  // The cursor's line draws as source, and `l` puts the cursor past the `!`.
+  it("A3 gf on the embed's line, vim on, opens the same view at page 3", async () => {
+    const app = await openNote("![[my plan.pdf#page=3]]\n");
+
+    app.press("l");
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    await showsPage(3);
+  });
+
+  // Enter follows only with vim on, vim being what binds it (editor keys).
+  it("A4 Enter on the embed's line opens the same view at page 3", async () => {
+    const app = await openNote("![[my plan.pdf#page=3]]\n");
+
+    app.press("l");
+    app.press("Enter", { keyCode: 13 });
+    await settle();
+
+    await showsPage(3);
+  });
+
+  it("A5 on the desktop the same view opens beside the note at page 3", async () => {
+    await openNote("above\n![[my plan.pdf#page=3]]\n");
+
+    fireEvent.mouseDown(embedBox(), { ctrlKey: true });
+    await settle();
+
+    expect(drawn()).toHaveLength(2);
+    expect(drawn()[0]?.querySelector(".cm-content")?.textContent).toContain("above");
+    await showsPage(3);
+  });
+
+  it("I1 an embed with no #page opens the view at page 1", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    await openNote("above\n![[my plan.pdf]]\n");
+
+    const box = embedBox();
+    fireEvent.pointerDown(box, { pointerType: "touch" });
+    fireEvent.click(box);
+    await settle();
+
+    expect(pdfPane()?.hasAttribute("data-page")).toBe(false);
+    await showsPage(1);
+  });
+
+  it("I2 a second open at another page turns the open pane, no second pane", async () => {
+    await openNote("above\n![[my plan.pdf#page=3]]\n![[my plan.pdf#page=2]]\n");
+    const [three, two] = [
+      ...document.querySelectorAll<HTMLElement>("[data-pane] .cm-content .cm-embed-pdf"),
+    ];
+
+    fireEvent.mouseDown(three as HTMLElement, { ctrlKey: true });
+    await settle();
+    await showsPage(3);
+    const panes = document.querySelectorAll("[data-pane]").length;
+
+    fireEvent.mouseDown(two as HTMLElement, { ctrlKey: true });
+    await settle();
+
+    expect(document.querySelectorAll("[data-pane]")).toHaveLength(panes);
+    expect(document.querySelectorAll("[data-pdf-pane]")).toHaveLength(1);
+    expect(pdfPane()?.getAttribute("data-page")).toBe("2");
+    await showsPage(2);
+  });
+
+  it("I3 closing the pdf pane frees its pdf", async () => {
+    await openNote("above\n![[my plan.pdf#page=3]]\n");
+    fireEvent.mouseDown(embedBox(), { ctrlKey: true });
+    await settle();
+    await showsPage(3);
+    const before = destroyed;
+
+    const pane = pdfPane() as HTMLElement;
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "q" });
+    await settle();
+
+    expect(pdfPane()).toBeNull();
+    expect(destroyed).toBe(before + 1);
+  });
+
+  it("I4 a page past the end opens the pdf at its first page, without an error", async () => {
+    const app = await openNote("[[my plan.pdf#page=9]]\n");
+
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    expect(pdfPane()?.getAttribute("data-page")).toBe("9");
+    await showsPage(1);
+  });
+
+  it("I5 a plain [[x.pdf#page=3]] link, followed, opens the same view at page 3", async () => {
+    const app = await openNote("[[my plan.pdf#page=3]]\n");
+
+    app.press("g");
+    app.press("f");
+    await settle();
+
+    await showsPage(3);
   });
 });
 

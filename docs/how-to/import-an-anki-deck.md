@@ -127,7 +127,10 @@ into the deck's note, card by card, using the comment at the end of each card:
 * A card Anki has not changed stays as it is.
 * A card you edited in kasten keeps your text, even when Anki changed it too.
   The hash in the comment no longer matches, and the import leaves the card
-  alone.
+  alone. One exception: kasten 0.49.2 and older wrote a schedule comment in a
+  cloze answer bare, and rating the card rewrote it there. Where that rating
+  is the only change, the import writes the answer escaped and moves the
+  rated schedule after the comment.
 * A card whose text Anki changed gets the new text and keeps the schedule and
   the parking you gave it in kasten.
 * A card new in Anki goes on the end of the note.
@@ -210,7 +213,9 @@ schedule comment in a cloze answer or hint takes its backslash as on any line,
 in code too, so `{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}` is written
 `{{c1::<!--SR\:c1!2026-01-01,1,250-->}}`, and review never reads it as the
 schedule of `c1`. In an answer whose colons are written `&#58;`, the comment's
-colon is too, `<!--SR&#58;c1!…-->`, with no backslash. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
+colon is too, `<!--SR&#58;c1!…-->`, with no backslash, and so is the colon of
+the import's own marker, `<!--anki&#58;7&#58;0-->`, which review shows as
+`<!--anki:7:0-->`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
 kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
 `{{c1::a }}`. Where no mark is kept, a mark never closed runs to the end of the
 field, so its `::` cannot split the line. A cloze
@@ -248,6 +253,7 @@ field shows is written `\\`, so `a\-b` stays `a\-b` and is no escape. A line
 opening with three backticks is written `` \`\`\` ``, so it opens no code block.
 Inside code, `<code>` or a line of a `<pre>`, only a schedule comment and the
 import's own marker get a backslash, because kasten reads those in code too.
+Review shows and types them without it, as Anki shows them.
 Nothing else does, since kasten shows a code span as written: `<code>a\-b</code>` is `` `a\-b` `` and a
 `<code>` showing `&#58;` is `` `&#58;` ``. Every entity but that one colon
 arrives as the text Anki shows, `&copy;` as `&copy;`.

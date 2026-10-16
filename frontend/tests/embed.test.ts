@@ -16,7 +16,7 @@ describe("queryEmbedSource", () => {
     const client = new QueryClient();
     fetchNote.mockResolvedValue("first");
     const listener = vi.fn();
-    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    const stop = queryEmbedSource(client, vi.fn(), vi.fn()).watch("a.md", listener);
 
     await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith("first"));
     expect(fetchNote).toHaveBeenCalledWith("a.md");
@@ -37,7 +37,7 @@ describe("queryEmbedSource", () => {
     const client = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
     client.setQueryData(["note", "a.md"], "open beside it");
     const listener = vi.fn();
-    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    const stop = queryEmbedSource(client, vi.fn(), vi.fn()).watch("a.md", listener);
 
     expect(listener).toHaveBeenCalledWith("open beside it");
     expect(fetchNote).not.toHaveBeenCalled();
@@ -50,7 +50,7 @@ describe("queryEmbedSource", () => {
     client.setQueryData(["note", "a.md"], "body");
     client.setQueryData(["note", "b.md"], "other");
     const listener = vi.fn();
-    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    const stop = queryEmbedSource(client, vi.fn(), vi.fn()).watch("a.md", listener);
 
     client.removeQueries({ queryKey: ["note", "b.md"] });
     expect(listener).toHaveBeenLastCalledWith("body");
@@ -65,7 +65,7 @@ describe("queryEmbedSource", () => {
     const client = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
     client.setQueryData(["note", "a.md"], "body");
     const listener = vi.fn();
-    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    const stop = queryEmbedSource(client, vi.fn(), vi.fn()).watch("a.md", listener);
     client.removeQueries({ queryKey: ["note", "a.md"] });
 
     client.setQueryData(["note", "a.md"], "body");
@@ -80,7 +80,7 @@ describe("queryEmbedSource", () => {
     const client = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000 } } });
     client.setQueryData(["note", "a.md"], "body");
     const listener = vi.fn();
-    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    const stop = queryEmbedSource(client, vi.fn(), vi.fn()).watch("a.md", listener);
     stop();
     listener.mockClear();
 
@@ -94,7 +94,7 @@ describe("queryEmbedSource", () => {
     const client = new QueryClient();
     fetchNote.mockRejectedValue(new Error("GET /api/files/gone.md failed with 404"));
     const listener = vi.fn();
-    const stop = queryEmbedSource(client, vi.fn()).watch("gone.md", listener);
+    const stop = queryEmbedSource(client, vi.fn(), vi.fn()).watch("gone.md", listener);
 
     await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith(null));
     // No retries: a missing note stays missing, and three reads say so no better.
@@ -107,7 +107,7 @@ describe("queryEmbedSource", () => {
     const client = new QueryClient();
     fetchNote.mockResolvedValue("first");
     const listener = vi.fn();
-    const stop = queryEmbedSource(client, vi.fn()).watch("a.md", listener);
+    const stop = queryEmbedSource(client, vi.fn(), vi.fn()).watch("a.md", listener);
     await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith("first"));
 
     stop();
@@ -123,28 +123,45 @@ describe("queryEmbedSource", () => {
 
   it("opens the note through the handler it was given, line and all", () => {
     const open = vi.fn();
-    queryEmbedSource(new QueryClient(), open).open("a.md", 7);
+    queryEmbedSource(new QueryClient(), open, vi.fn()).open("a.md", 7);
 
     expect(open).toHaveBeenCalledWith("a.md", 7);
   });
 
-  it("opens a pdf in a tab of its own, the way gf opens one", () => {
+  it("I1 opens a pdf in kasten's pdf view, not the browser's, at no page", () => {
     const open = vi.fn();
+    const openPdf = vi.fn();
     const tab = vi.spyOn(window, "open").mockReturnValue(null);
 
-    queryEmbedSource(new QueryClient(), open).open("my docs/plan.pdf");
+    queryEmbedSource(new QueryClient(), open, openPdf).open("my docs/Plan.PDF");
 
-    expect(tab).toHaveBeenCalledWith("/api/assets/my%20docs/plan.pdf", "_blank");
+    expect(openPdf).toHaveBeenCalledWith("my docs/Plan.PDF", undefined);
     expect(open).not.toHaveBeenCalled();
+    expect(tab).not.toHaveBeenCalled();
     tab.mockRestore();
   });
 
-  it("opens a pdf at the page it was given", () => {
+  it("A1 opens a pdf in kasten's pdf view at the page it was given", () => {
+    const openPdf = vi.fn();
     const tab = vi.spyOn(window, "open").mockReturnValue(null);
 
-    queryEmbedSource(new QueryClient(), vi.fn()).open("my docs/plan.pdf", 3);
+    queryEmbedSource(new QueryClient(), vi.fn(), openPdf).open("my docs/plan.pdf", 3);
 
-    expect(tab).toHaveBeenCalledWith("/api/assets/my%20docs/plan.pdf#page=3", "_blank");
+    expect(openPdf).toHaveBeenCalledWith("my docs/plan.pdf", 3);
+    expect(tab).not.toHaveBeenCalled();
+    tab.mockRestore();
+  });
+
+  it("opens any other file in a tab of its own", () => {
+    const open = vi.fn();
+    const openPdf = vi.fn();
+    const tab = vi.spyOn(window, "open").mockReturnValue(null);
+
+    queryEmbedSource(new QueryClient(), open, openPdf).open("my docs/talk.mp3");
+
+    expect(tab).toHaveBeenCalledWith("/api/assets/my%20docs/talk.mp3", "_blank");
+    expect(open).not.toHaveBeenCalled();
+    expect(openPdf).not.toHaveBeenCalled();
     tab.mockRestore();
   });
 });

@@ -55,6 +55,21 @@ body,
   height: 100%;
 }
 
+/* A phone's notch, rounded corners and home indicator, which the page is drawn
+   under since `viewport-fit=cover` (#355). Every inset is zero on a desktop.
+   Split in two because the home route's frame cannot take the bottom one:
+   `use-keyboard-inset.ts` writes that frame's bottom padding inline, so the
+   bar along its foot pads by it instead. */
+@utility safe-frame {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility safe-foot {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 body {
   background: var(--color-one-bg);
   font-family: var(--font-sans);

@@ -1203,3 +1203,35 @@ describe("a schedule comment in a cloze answer (#351)", () => {
     expect(cards[0]?.held).toEqual({ due: "2026-10-20", interval: 3, ease: 250 });
   });
 });
+
+describe("a comment the import escaped in a code span (#356)", () => {
+  const ID = " <!--anki:1:0:abcdef12-->";
+  const read = (line: string) => parseCards(`#flashcards/x\n\n${line}${ID}\n`);
+
+  it("A14 shows and types a schedule comment in code without the backslash", () => {
+    const card = read("{{c1::`<!--SR\\:c1!2026-01-01,1,250-->`}}")[0];
+
+    expect(card?.target).toBe("<!--SR:c1!2026-01-01,1,250-->");
+    expect(card?.back).toBe("==`<!--SR:c1!2026-01-01,1,250-->`==");
+    expect(sameAnswer("<!--SR:c1!2026-01-01,1,250-->", card?.target ?? "")).toBe(true);
+  });
+
+  it("A14 reads no schedule from it", () => {
+    expect(read("{{c1::`<!--SR\\:c1!2026-01-01,1,250-->`}}")[0]?.held).toBeNull();
+  });
+
+  it("A14 shows the comment and the marker in code on a basic side without the backslash", () => {
+    const card = read("`<!--anki\\:7:0-->`::`<!--SR\\:!2026-01-01,1,250-->`")[0];
+
+    expect(card?.front).toBe("`<!--anki:7:0-->`");
+    expect(card?.back).toBe("`<!--SR:!2026-01-01,1,250-->`");
+    expect(card?.held).toBeNull();
+  });
+
+  it("A13 shows the marker beside :: as Anki shows it", () => {
+    const card = read("{{c1::<!--anki&#58;7&#58;0--> a&#58;&#58;b}}")[0];
+
+    expect(card?.target).toBe("<!--anki:7:0--> a::b");
+    expect(card?.back).toBe("==<!--anki:7:0--> a::b==");
+  });
+});

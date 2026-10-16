@@ -80,6 +80,14 @@ export interface Pane {
    */
   image?: string;
   /**
+   * The pdf this pane is showing, and the page it opened at, absent otherwise.
+   *
+   * The pdf's own path, for the reason `image` holds the image's: any number of
+   * notes name a pdf and none owns it. A thirteenth optional field for the
+   * reason `book` is the fourth, written out above.
+   */
+  pdf?: { path: string; page?: number };
+  /**
    * The HTML page this pane is showing, absent otherwise.
    *
    * The page's own path, for the reason `image` holds the image's: nothing
@@ -405,6 +413,25 @@ export function openVideoBeside(layout: Layout, note: string): Layout {
   return withTab(split, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, video: note }),
+  });
+}
+
+/**
+ * Show a pdf at a page in a pane beside this one, or turn the one showing it.
+ *
+ * Beside and not over, following `openBookBeside`: the link was followed from
+ * a note, and the note stays. Where `openBookBeside` only moves to the reader,
+ * this writes the page in too, so a second link to the same pdf turns the pane
+ * it is open in rather than opening a second.
+ */
+export function openPdfBeside(layout: Layout, path: string, page?: number): Layout {
+  const showing = tabPanes(layout).find((pane) => pane.pdf?.path === path);
+  const split = showing ? focusPane(layout, showing.id) : splitFocused(layout, "row");
+  const tab = activeTab(split);
+
+  return withTab(split, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, pdf: { path, page } }),
   });
 }
 

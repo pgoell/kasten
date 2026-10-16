@@ -48,7 +48,9 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
       role="toolbar"
       aria-label="Commands"
       inert={inert}
-      className={`flex shrink-0 gap-px border-one-line border-t bg-one-panel ${LABEL}`}
+      // Always the foot of the page where it is drawn, so it takes the home
+      // indicator's inset.
+      className={`safe-foot flex shrink-0 gap-px border-one-line border-t bg-one-panel ${LABEL}`}
     >
       {buttons.map(({ command, label, name }) => (
         <button

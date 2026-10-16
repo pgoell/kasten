@@ -69,13 +69,15 @@ interface Pdfjs {
 /**
  * pdf.js, opened the way foliate opens its own (`pdf.js:120-127`).
  *
+ * Exported for the pdf pane, which holds no editor state to read the facet off.
+ *
  * The worker is set the way foliate sets it, once, against the same staged
  * file, so whichever of the two opens a pdf first the worker resolves in the
  * build. A URL rather than the bytes, so pdf.js asks
  * for the ranges it needs and a long pdf's first page does not wait on its last.
  * `isEvalSupported` is off because the policy in `csp.ts` has no `'unsafe-eval'`.
  */
-const pdfjsRenderer: PdfRenderer = {
+export const pdfjsRenderer: PdfRenderer = {
   open(url) {
     let task: ReturnType<Pdfjs["getDocument"]> | null = null;
     let gone = false;

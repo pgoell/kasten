@@ -852,7 +852,12 @@ export function FileExplorer({
       // z-15 puts the drawer over what a pane draws at z-10 and under the
       // prompts at z-20, so a prompt opened from the tree is not behind it.
       className={`flex flex-col border-r border-one-line bg-one-panel font-mono ${
-        narrow ? "fixed inset-y-0 left-0 z-15 w-72 max-w-[85vw]" : "relative shrink-0"
+        // A drawer is `fixed` over the frame and gets none of its padding, so
+        // it keeps its rows out from under the notch and the home indicator
+        // itself (#355). It never reaches the right edge.
+        narrow
+          ? "safe-foot fixed inset-y-0 left-0 z-15 w-72 max-w-[85vw] pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)]"
+          : "relative shrink-0"
       }`}
     >
       <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3 pointer-coarse:py-0 pointer-coarse:pr-0">

@@ -292,6 +292,13 @@ interface StatusBarProps {
    */
   inert?: boolean;
   /**
+   * Whether the bar is the foot of the page, with no toolbar under it.
+   *
+   * Then it pads by the home indicator's inset, which a phone on its side
+   * still has: there the window is too wide for the toolbar (#355).
+   */
+  foot?: boolean;
+  /**
    * The notes other than the open one whose text the vault refused, each with
    * what it answered.
    *
@@ -334,6 +341,7 @@ export function StatusBar({
   zoom,
   pane,
   inert,
+  foot,
   held = [],
   conflict,
   onWrite,
@@ -449,6 +457,10 @@ export function StatusBar({
         // With the clock gone the notice takes what the save sign leaves,
         // rather than the half of the bar an even split would give it.
         notice !== undefined ? "max-md:grid-cols-[minmax(0,1fr)_auto_auto]" : ""
+      } ${
+        // `box-content` so the inset is added under the bar's height rather
+        // than taken out of it.
+        foot ? "safe-foot box-content" : ""
       }`}
     >
       {detail !== undefined && (

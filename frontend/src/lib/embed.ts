@@ -26,7 +26,7 @@ export interface EmbedSource {
    * changes. Returns what stops the calls.
    */
   watch(path: string, listener: (text: string | null) => void): () => void;
-  /** Opens the note in the focused pane, at a 1-based line when given; a pdf at that page. */
+  /** Opens the note in the focused pane, at a 1-based line when given; a pdf beside it at that page. */
   open(path: string, line?: number): void;
 }
 
@@ -72,6 +72,7 @@ export const EMBED_DEPTH = 3;
 export function queryEmbedSource(
   client: QueryClient,
   open: (path: string, line?: number) => void,
+  openPdf: (path: string, page?: number) => void,
 ): EmbedSource {
   return {
     watch(path, listener) {
@@ -122,12 +123,13 @@ export function queryEmbedSource(
         stopCache();
       };
     },
-    // A pdf goes where `gf` sends one, a tab of its own: the route's `open`
-    // reads every path as a note and would open the pdf's bytes as text.
-    // The page goes after the encoding, which would turn its `#` into `%23`.
+    // A pdf goes to kasten's own pdf view and not a browser tab, a phone's
+    // viewer ignoring `#page` (#353). Any other file goes where `gf` sends
+    // one, a tab of its own: the route's `open` reads every path as a note and
+    // would open the file's bytes as text.
     open(path, line) {
-      const page = line === undefined ? "" : `#page=${line}`;
-      if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}${page}`, "_blank");
+      if (path.toLowerCase().endsWith(".pdf")) openPdf(path, line);
+      else if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
       else open(path, line);
     },
   };

@@ -195,18 +195,41 @@ const RUBY_TAG = /<\/?ruby\b[^>]*>/g;
 const TYPED = /\\[\s\S]|(`+)(?!`)([\s\S]*?)(?<!`)\1(?!`)|`+/g;
 
 /**
+ * A schedule comment or the import's marker with the backslash the import
+ * gives it, in code too: either is read anywhere on a line (#351).
+ */
+const ESCAPED_COMMENT = /<!--(SR|anki)\\:/g;
+
+/**
+ * `code` with the backslash off each `ESCAPED_COMMENT`, the one escape a code
+ * span holds: it is no part of what Anki shows (#356). Outside code markdown
+ * takes it off itself, and doing it there would leave a comment drawn as none.
+ */
+function bareComments(code: string): string {
+  return code.replace(ESCAPED_COMMENT, "<!--$1:");
+}
+
+/** A card side as `colons` reads it, each code span's comments bare. */
+function side(text: string): string {
+  return colons(text).replace(TYPED, (found, ticks: string | undefined) =>
+    ticks === undefined ? found : bareComments(found),
+  );
+}
+
+/**
  * `target` as somebody types it: an imported `<ruby>漢字<rt>かんじ</rt></ruby>`
  * is the word `漢字`, the reading drawn over it being a hint and not the answer.
  *
  * An imported `a&#58;&#58;b` is `a::b` too, and `a\\-b` is `a\-b`, as `colons` and `unescaped` give them.
  * A code span is its text as written, since nobody types the backticks (#346),
- * and keeps its backslashes, as markdown reads no escape there.
+ * and keeps its backslashes, as markdown reads no escape there, all but
+ * `bareComments`'s.
  */
 function typedTarget(target: string): string {
   return colons(target.replace(READING, "").replace(RUBY_TAG, "")).replace(
     TYPED,
     (found, ticks: string | undefined, code: string | undefined) =>
-      ticks === undefined ? unescaped(found) : (code ?? ""),
+      ticks === undefined ? unescaped(found) : bareComments(code ?? ""),
   );
 }
 
@@ -226,10 +249,10 @@ function clozeCards(
   // The card's own tags are no part of the question, here as on any card.
   const text = withoutTags(line);
   return clozeNumbers(line).map((cloze) => {
-    const answer = colons(clozeAnswer(text, cloze));
+    const answer = side(clozeAnswer(text, cloze));
     return {
       ...card,
-      front: colons(clozeQuestion(text, cloze)),
+      front: side(clozeQuestion(text, cloze)),
       back: extra === "" ? answer : `${answer}\n\n${extra}`,
       decks: [],
       held: readSchedule(schedule, clozeComment(cloze)),
@@ -325,8 +348,8 @@ export function parseCards(text: string, note = ""): Card[] {
       to,
       // The card's own tags are part of the format and not part of the
       // question, so they come off the front before it is ever asked.
-      front: colons(withoutTags(lines.slice(from, at).join("\n")).trim()),
-      back: colons(back),
+      front: side(withoutTags(lines.slice(from, at).join("\n")).trim()),
+      back: side(back),
       inline: false,
       decks: [],
       held: schedule,
@@ -364,8 +387,8 @@ export function parseCards(text: string, note = ""): Card[] {
     cards.push({
       from: at,
       to: at,
-      front: colons(withoutTags(halves.front).trim()),
-      back: colons(halves.back),
+      front: side(withoutTags(halves.front).trim()),
+      back: side(halves.back),
       inline: true,
       decks: [],
       held: readSchedule(line),

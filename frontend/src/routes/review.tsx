@@ -31,7 +31,8 @@ function Review() {
   const navigate = useNavigate();
 
   return (
-    <main className="h-dvh w-full">
+    // All four insets: nothing here writes the frame's bottom padding.
+    <main className="safe-frame safe-foot h-dvh w-full">
       {screen.at === "decks" ? (
         <ReviewDecks
           onPick={(deck) => setScreen({ at: "sitting", deck })}

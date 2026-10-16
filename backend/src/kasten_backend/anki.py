@@ -337,10 +337,15 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
             # Anki divides answer from hint only at a `::` typed in the field,
             # so a decoded `&#58;&#58;` is answer to it and would be a hint to
             # kasten (#335). Encoded before held inner marks go back, whose own
-            # `::` stays. A schedule comment loses `_flat`'s backslash first:
-            # its `&#58;` already keeps `srs.ts` from reading it, and `\&#58;`
-            # would show as the text `&#58;` (#351).
-            answer = answer.replace("<!--SR\\:", "<!--SR:").replace(":", "&#58;")
+            # `::` stays. A schedule comment and the import's marker lose
+            # `_flat`'s backslash first: their `&#58;` already keeps a reader
+            # from taking them, and `\&#58;` would show as the text `&#58;`
+            # (#351, #356).
+            answer = (
+                answer.replace("<!--SR\\:", "<!--SR:")
+                .replace("<!--anki\\:", "<!--anki:")
+                .replace(":", "&#58;")
+            )
             opener = match[0][: match.start(1) - match.start()]
             flat = f"{opener}{answer}{_flat(_KEPT.sub(inside, hint))}}}}}"
         # The form the mark takes where it sat in code: its text in code of
@@ -941,7 +946,8 @@ def merge(old: str, deck: Deck) -> Merged | None:
     same now is kept as it stands, and one Anki changed is written anew, the
     parking token and the schedules a rating left on it carried into its new
     shape. One edited in kasten since is kept too, whatever Anki did: the edit
-    is the user's, and the marker's hash no longer finding the card says so. A
+    is the user's, and the marker's hash no longer finding the card says so,
+    save the one change `_rated` reads as a rating's and not the user's. A
     card the note lacks goes on the end in `as_note`'s layout. One the export
     lacks stays, since its schedule is history worth more than tidiness, and is
     only counted. Every line without a marker, the tag line and whatever the
@@ -967,10 +973,13 @@ def merge(old: str, deck: Deck) -> Merged | None:
         span = spans.get((card.nid, card.ord))
         if span is None:
             added.append(_with_state(_marked(card, _lines(card)), False, _carried(card)))
-        elif span.digest == _digest(_lines(card)) or not span.found or span.inside:
+            continue
+        rated = [] if span.found else _rated(lines[span.start], span, card)
+        if span.digest == _digest(_lines(card)) or rated is None or span.inside:
             kept += 1
         else:
-            card_lines = _with_state(_marked(card, _lines(card)), span.suspended, span.comments)
+            comments = span.comments + rated
+            card_lines = _with_state(_marked(card, _lines(card)), span.suspended, comments)
             replaced[span.start] = (span, card_lines)
 
     out, updated = _replaced(lines, replaced)
@@ -1024,6 +1033,32 @@ def _replaced(
         if block and at < len(lines) and lines[at].strip():
             out.append("")
     return out, applied
+
+
+def _rated(line: str, span: _Span, card: Card) -> list[str] | None:
+    """The schedules a rating wrote inside a line 0.49.2 wrote for `card`, or None.
+
+    0.49.2 wrote a schedule comment in a cloze answer with no backslash, and
+    `srs.ts` read it as the card's own, so a rating rewrote it there and the
+    line, `line` with its marker, no longer hashes to the marker (#356). It is
+    still that line when the import's line, the comment bare as then, hashes
+    to the marker and differs from it in its schedule comments alone. A card
+    of more lines is never such a line: a rating writes under its back.
+    """
+    written = _lines(card)
+    found = _ANKI_ID.search(line)
+    if len(written) != 1 or found is None:
+        return None
+    then = written[0].replace("<!--SR\\:", "<!--SR:")
+    now = line[: found.start()].removesuffix(" ")
+    # Each comment held by a stand-in, so the two hold as many in the same places.
+    if _digest([then]) != span.digest or _STATE.sub("\0", now) != _STATE.sub("\0", then):
+        return None
+    return [
+        comment
+        for comment, was in zip(_STATE.findall(now), _STATE.findall(then), strict=True)
+        if comment != was
+    ]
 
 
 def _carried(card: Card) -> list[str]:

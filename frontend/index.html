@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <!-- viewport-fit=cover draws the page under the notch and the home
+         indicator, and is what makes Safari answer env(safe-area-inset-*) with
+         anything but zero. The frame and the bars pad themselves clear by
+         those insets (#355). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content, viewport-fit=cover" />
     <title>kasten</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#282c34" />

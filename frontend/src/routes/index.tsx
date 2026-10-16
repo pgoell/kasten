@@ -21,6 +21,7 @@ import { NoteFinder } from "@/components/note-finder";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-prompt";
 import { NoteSearch } from "@/components/note-search";
 import { PaneLayout, paneRects, TabStrip } from "@/components/pane-layout";
+import { PdfPane } from "@/components/pdf-pane";
 import { PersonFooter } from "@/components/person-card";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review-pane";
@@ -86,6 +87,7 @@ import {
   openHtmlInFocused,
   openImageInFocused,
   openInFocused,
+  openPdfBeside,
   openPersonBeside,
   openReviewInFocused,
   openTerminalInFocused,
@@ -996,9 +998,21 @@ function Home() {
    * that stores what it wrote keep every embed of it current too. The line
    * passes straight through: both sides count from one.
    */
+  /**
+   * Show a pdf at a page in a pane beside the note, the view every followed
+   * pdf lands in (#353).
+   *
+   * Through `moveTo` and with no save, the way `openPassage` opens a book: the
+   * note stays open in its own pane, so nothing about it has to be written.
+   */
+  const openPdfInPane = useCallback(
+    (path: string, page?: number) => moveTo((previous) => openPdfBeside(previous, path, page)),
+    [moveTo],
+  );
+
   const embeds = useMemo(
-    () => queryEmbedSource(queryClient, (path, line) => void openInPane(path, line)),
-    [queryClient, openInPane],
+    () => queryEmbedSource(queryClient, (path, line) => void openInPane(path, line), openPdfInPane),
+    [queryClient, openInPane, openPdfInPane],
   );
 
   /** Show an HTML page in the focused pane, the way `openImageInPane` shows an image. */
@@ -1080,12 +1094,12 @@ function Home() {
       // The vault has no write for a page or an asset, so a link to one nobody
       // made stays a dead link rather than turning into a note named `.pdf.md`.
       // One the vault holds opens in a tab of its own, the browser being what
-      // reads a pdf or a picture.
-      // A pdf opens at the page `#page=3` names, which the browser's viewer reads.
+      // reads a picture. A pdf opens in kasten's own view at the page
+      // `#page=3` names, a phone's viewer ignoring `#page` (#353).
       if (namesAFile(name)) {
-        const page = pdfPage(heading);
-        const at = page === undefined ? "" : `#page=${page}`;
-        if (assets?.includes(path)) window.open(`/api/assets/${encodePath(path)}${at}`, "_blank");
+        if (!assets?.includes(path)) return;
+        if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
+        else window.open(`/api/assets/${encodePath(path)}`, "_blank");
         return;
       }
 
@@ -1108,7 +1122,7 @@ function Home() {
         },
       );
     },
-    [data, html, assets, linkable, queryClient, openInPane, openHtmlInPane],
+    [data, html, assets, linkable, queryClient, openInPane, openHtmlInPane, openPdfInPane],
   );
 
   /**
@@ -1646,6 +1660,7 @@ function Home() {
           pane.exam !== undefined ||
           pane.review === true ||
           pane.image !== undefined ||
+          pane.pdf !== undefined ||
           pane.html !== undefined ||
           pane.video !== undefined
         ) {
@@ -1958,6 +1973,7 @@ function Home() {
       pane.exam,
       pane.review,
       pane.image,
+      pane.pdf,
       pane.html,
       pane.video,
       data,
@@ -2018,7 +2034,7 @@ function Home() {
   }, [pane.id]);
 
   return (
-    <main ref={frame} className="flex h-dvh flex-col bg-one-bg">
+    <main ref={frame} className="safe-frame flex h-dvh flex-col bg-one-bg">
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer
@@ -2152,6 +2168,13 @@ function Home() {
                     // the reader's own callbacks are bound: the pane holds no
                     // path of its own.
                     onDelete={() => void discardImage(image)}
+                  />
+                ) : shown.pdf !== undefined ? (
+                  <PdfPane
+                    path={shown.pdf.path}
+                    page={shown.pdf.page}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
                   />
                 ) : shown.html !== undefined ? (
                   <HtmlPane
@@ -2317,6 +2340,7 @@ function Home() {
             : undefined
         }
         inert={narrow && treeOpen}
+        foot={!phone}
         onWrite={() => void save()}
         onTakeVault={takeVault}
         // The read made when the conflict was raised, and only for the note it
