@@ -318,8 +318,11 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         return bare.get(int(mark[1]), mark[0])
 
     def verbatim(text: str) -> str:
-        # The import's marker keeps its backslash in code too, as `_escaped` gives it.
-        return _ticked(_shown(_KEPT.sub(inside, text)).replace("<!--anki:", "<!--anki\\:"))
+        # The import's marker and a schedule comment keep their backslash in
+        # code too, as `_escaped` gives it: `srs.ts` reads a schedule in a code
+        # span as anywhere else on the line (#351).
+        shown = _shown(_KEPT.sub(inside, text))
+        return _ticked(shown.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:"))
 
     def keep(match: re.Match[str]) -> str:
         # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
@@ -445,16 +448,18 @@ def _flat(text: str) -> str:
     A backslash is doubled, as `_Markdown` doubles it outside code, before any
     written here. The token is escaped here as `_Markdown` escapes it in the
     rest of the field, since `suspended()` in `card-line.ts` reads it inside a
-    mark too, and so is the import's marker, as `_escaped` escapes it. So is
-    the text `&#58;`, as `_colon` escapes it, before `plain` writes its own
-    colons so.
+    mark too, and so are the import's marker and a schedule comment, as
+    `_escaped` escapes them, since `readSchedule` in `srs.ts` reads a comment
+    in an answer as the card's own (#351). So is the text `&#58;`, as `_colon`
+    escapes it, before `plain` writes its own colons so.
     """
     # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
     text = _RUBY_TAG.sub(lambda tag: f"{tag[1]}{tag[2].lower()}", text)
     text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text))).replace("\\", "\\\\")
     text = text.replace("", "<").replace("", ">")
     text = " ".join(text.split()).replace("!suspended", "\\!suspended")
-    return text.replace("<!--anki:", "<!--anki\\:").replace("&#58;", "\\&#58;")
+    text = text.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:")
+    return text.replace("&#58;", "\\&#58;")
 
 
 def _escaped(line: str) -> str:

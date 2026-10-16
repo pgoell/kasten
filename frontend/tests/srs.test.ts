@@ -1164,3 +1164,35 @@ describe("a code span is code (#346, #347)", () => {
     expect(only("q::`a !suspended b`").back).toBe("`a !suspended b`");
   });
 });
+
+describe("a schedule comment in a cloze answer (#351)", () => {
+  const ID = " <!--anki:1:0:abcdef12-->";
+  const read = (line: string) => parseCards(`#flashcards/x\n\n${line}${ID}\n`);
+
+  it("A1 reads no schedule from a comment inside a cloze answer", () => {
+    const cards = read("{{c1::<!--SR\\:c1!2026-01-01,1,250-->}}");
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.held).toBeNull();
+  });
+
+  it("A1 types the comment as Anki shows it", () => {
+    const card = read("{{c1::<!--SR\\:c1!2026-01-01,1,250-->}}")[0];
+
+    expect(card?.target).toBe("<!--SR:c1!2026-01-01,1,250-->");
+  });
+
+  it("A2 reads no schedule from a comment in code inside a cloze answer", () => {
+    const cards = read("{{c1::`<!--SR\\:c1!2026-01-01,1,250-->`}}");
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.held).toBeNull();
+  });
+
+  it("I1 reads the line's own schedule, not the one in the answer", () => {
+    const line = "{{c1::<!--SR\\:c1!2026-01-01,1,250-->}}";
+    const cards = parseCards(`#flashcards/x\n\n${line}${ID} <!--SR:c1!2026-10-20,3,250-->\n`);
+
+    expect(cards[0]?.held).toEqual({ due: "2026-10-20", interval: 3, ease: 250 });
+  });
+});

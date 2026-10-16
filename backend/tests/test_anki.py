@@ -1542,6 +1542,73 @@ def test_i3_a_re_import_rewrites_a_line_main_wrote_with_a_mark_in_code() -> None
     assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
 
 
+def test_a1_a_schedule_comment_in_a_cloze_answer_is_escaped() -> None:
+    # `srs.ts` reads a schedule anywhere on a line, so unescaped this text
+    # would be c1's schedule (#351).
+    deck = cloze_note("{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}", "")
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n{{{{c1::<!--SR\\:c1!2026-01-01,1,250-->}}}}{mark(1)}\n"
+    )
+
+
+def test_a2_a_schedule_comment_in_a_cloze_answer_in_code_is_escaped() -> None:
+    deck = cloze_note("<code>{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}</code>", "")
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n{{{{c1::`<!--SR\\:c1!2026-01-01,1,250-->`}}}}{mark(1)}\n"
+    )
+
+
+def test_i1_the_carried_schedule_follows_a_comment_in_the_answer() -> None:
+    notes = ((1, CLOZE, "{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}\x1f"),)
+    export = apkg(notes, CARDS[:1], ((100, "x"),), reviews=((11, 2, 4, 2500, 10),))
+
+    deck = read_apkg(export, carry=True)[0]
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n{{{{c1::<!--SR\\:c1!2026-01-01,1,250-->}}}}{mark(1)}"
+        " <!--SR:c1!2026-01-11,4,250-->\n"
+    )
+
+
+def test_i2_a_schedule_comment_in_a_cloze_hint_is_escaped() -> None:
+    deck = cloze_note("{{c1::a::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}", "")
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n{{{{c1::a::<!--SR\\:c1!2026-01-01,1,250-->}}}}{mark(1)}\n"
+    )
+
+
+def test_i3_a_plain_schedule_comment_in_a_cloze_answer_is_escaped() -> None:
+    deck = cloze_note("{{c1::&lt;!--SR:!2026-01-01,1,250--&gt;}}", "")
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n{{{{c1::<!--SR\\:!2026-01-01,1,250-->}}}}{mark(1)}\n"
+    )
+
+
+def test_i4_a_schedule_comment_in_a_highlight_is_escaped() -> None:
+    field = "{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}"
+
+    assert plain(field) == r"==<!--SR\:c1!2026-01-01,1,250-->=="
+
+
+def test_i5_a_re_import_rewrites_a_line_main_wrote_with_a_comment_in_the_answer() -> None:
+    # The line 0.49.2 wrote, its hash as the import wrote it then, and the
+    # real schedule after the marker, where a rating puts it.
+    line = "{{c1::<!--SR:c1!2026-01-01,1,250-->}}"
+    schedule = "<!--SR:c1!2026-10-20,3,250-->"
+    old = f"#flashcards/x\n\n{line}{marked(1, line)} {schedule}\n"
+
+    merged = merge(old, cloze_note("{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}", ""))
+
+    assert merged is not None
+    expected = f"#flashcards/x\n\n{{{{c1::<!--SR\\:c1!2026-01-01,1,250-->}}}}{mark(1)} {schedule}\n"
+    assert unhashed(merged.text) == expected
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
+
+
 def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # Anki will not save such a note, but a broken export can hold one; its
     # text is still worth a question.
