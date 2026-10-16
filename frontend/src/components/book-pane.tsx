@@ -812,15 +812,17 @@ export function BookPane({
    */
   const ready = useRef(false);
   /**
-   * The turn `h` or `l` asked for before the book was ready, made once it is.
+   * The turn `h`, `l` or a tap near an edge asked for before the book was
+   * ready, made once it is.
    *
    * `init` opens a book with no bookmark through the paginator's own `next()`,
    * which holds its turn lock for 100ms after the first page has drawn
    * (`paginator.js:1060-1071`), and a turn asked for under that lock returns
-   * having done nothing and said nothing (#370). One and not a queue: the same
-   * lock is what keeps a held key from turning a page per repeat.
+   * having done nothing and said nothing (#370, #372). One and not a queue: the
+   * same lock is what keeps a held key from turning a page per repeat. A tap
+   * parks its side and not a direction, for the reason `onTap` turns by side.
    */
-  const parkedTurn = useRef<"next" | "prev" | null>(null);
+  const parkedTurn = useRef<"next" | "prev" | "goLeft" | "goRight" | null>(null);
 
   /**
    * Draw `blocks` on what is on screen, in one walk of each document.
@@ -1048,8 +1050,10 @@ export function BookPane({
       const outer = frame.getBoundingClientRect();
       const box = pane.getBoundingClientRect();
       const x = outer.left + (event.clientX * outer.width) / frame.offsetWidth - box.left;
-      if (x < box.width * EDGE) void view.goLeft();
-      else if (x > box.width * (1 - EDGE)) void view.goRight();
+      const side = x < box.width * EDGE ? "goLeft" : x > box.width * (1 - EDGE) ? "goRight" : null;
+      if (side === null) return;
+      if (ready.current) void view[side]();
+      else parkedTurn.current = side;
     }
 
     /**
@@ -1369,7 +1373,7 @@ export function BookPane({
         // reader asked to be taken, and the turn's lock would drop its `goTo`.
         const turn = parkedTurn.current;
         parkedTurn.current = null;
-        if (turn !== null && parked === null) view[turn]();
+        if (turn !== null && parked === null) void view[turn]();
       } catch (error_) {
         // Every way a book fails to open arrives as an error: a `NotFoundError`
         // from foliate, a throw from the zip reader for a file that is not an

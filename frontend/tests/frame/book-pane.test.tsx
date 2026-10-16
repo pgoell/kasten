@@ -18,6 +18,7 @@ import contentsUrl from "../fixtures/contents.epub?url";
 // the fixture for a book whose publisher wrote no contents. Nothing else records
 // that, an epub being a binary nobody unzips twice.
 import plainUrl from "../fixtures/plain.epub?url";
+import { COARSE, stubMatchMedia } from "../match-media";
 import { stubCommands } from "../stub-commands";
 // The app's own stylesheet, because the pane is sized by Tailwind's `h-full`
 // and a wrapper of no height is a pane Playwright refuses to click and a
@@ -252,6 +253,7 @@ describe("the reader over a real book", () => {
     mounted?.root.unmount();
     mounted?.container.remove();
     mounted = null;
+    vi.unstubAllGlobals();
   });
 
   it("draws the first page", async () => {
@@ -383,6 +385,35 @@ describe("the reader over a real book", () => {
       sections[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
     };
     document.addEventListener("relocate", press, true);
+    await drawBook();
+
+    await vi.waitFor(() => expect(reasons).toContain("page"), { timeout: 10_000 });
+  }, 30_000);
+
+  it("turns the page on a tap near the right edge while the book is still opening", async () => {
+    // The same window as the case above, under a finger (#372). The pane only
+    // listens for taps where the pointer is coarse.
+    stubMatchMedia({ [COARSE]: true });
+    const reasons: string[] = [];
+    const tap = (event: Event) => {
+      if (sections.length === 0) return;
+      document.removeEventListener("relocate", tap, true);
+      const { renderer } = event.target as unknown as { renderer: EventTarget };
+      renderer.addEventListener("relocate", (moved) =>
+        reasons.push((moved as CustomEvent<{ reason: string }>).detail.reason),
+      );
+      const doc = sections[0] as Document;
+      const frame = doc.defaultView?.frameElement as HTMLElement;
+      const pane = (document.querySelector("[data-book-pane]") as Element).getBoundingClientRect();
+      const outer = frame.getBoundingClientRect();
+      // A tenth of the pane in from its right edge, put back into the frame's
+      // own coordinates the way the pane takes them out: the paginator widens
+      // the frame to the whole chapter and scrolls it.
+      const x = pane.left + pane.width * 0.9 - outer.left;
+      const clientX = (x * frame.offsetWidth) / outer.width;
+      doc.body.dispatchEvent(new MouseEvent("click", { clientX, bubbles: true, cancelable: true }));
+    };
+    document.addEventListener("relocate", tap, true);
     await drawBook();
 
     await vi.waitFor(() => expect(reasons).toContain("page"), { timeout: 10_000 });

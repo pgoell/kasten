@@ -716,7 +716,8 @@ the leader would cost you the space bar for nothing.
 | `Ctrl+Shift+Q` | Take the book out of the pane |
 
 An `h` or `l` pressed while the book is still opening turns the page once the
-first page has landed. Held down, either key turns a page about every tenth of
+first page has landed, and so does a tap near the left or the right edge. Only
+the last of these counts. Held down, either key turns a page about every tenth of
 a second however fast the key repeats.
 
 `w` hands the file that is actually there to the browser under its own name, so

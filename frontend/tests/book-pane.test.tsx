@@ -1477,10 +1477,14 @@ describe("a book under a finger", () => {
    * `defaultView`, so the frame is arranged here: an iframe the size of the
    * pane, and a rectangle for every range, jsdom laying nothing out.
    */
-  async function opened(phone = true) {
+  async function opened(phone = true, held?: ReturnType<typeof deferred>) {
     if (phone) stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    // A held `init` is a book still opening: the page has drawn, but the
+    // paginator's 100ms turn lock has not let go yet (#372).
+    if (held) FakeView.initWith = () => held.promise;
     const pane = draw();
-    await waitFor(() => expect(lastView().started).toBe(true));
+    await waitFor(() => expect(lastView().inits).toHaveLength(1));
+    if (!held) await waitFor(() => expect(lastView().started).toBe(true));
 
     const frame = document.createElement("iframe");
     frame.getBoundingClientRect = () => BOX;
@@ -1560,6 +1564,105 @@ describe("a book under a finger", () => {
     await opened(false);
 
     tap(350);
+
+    expect(lastView().rights).toBe(0);
+  });
+
+  /** Let a held `init` go, and everything `draw` does after it. */
+  async function release(held: ReturnType<typeof deferred>) {
+    await act(async () => {
+      held.resolve();
+      await new Promise((settle) => setTimeout(settle, 0));
+    });
+  }
+
+  // The fake holds no turn lock, so a turn made while the book is opening
+  // counts here where the real paginator drops it. Hence the assertion before
+  // the release: nothing may be turned yet.
+  it("goes right once the book opens, for a tap near the right edge while it opened, by side", async () => {
+    const held = deferred();
+    await opened(true, held);
+
+    tap(350);
+    expect(lastView().rights).toBe(0);
+    await release(held);
+
+    expect(lastView().rights).toBe(1);
+    expect(lastView().lefts + lastView().nexts + lastView().prevs).toBe(0);
+  });
+
+  it("goes left once the book opens, for a tap near the left edge while it opened, by side", async () => {
+    const held = deferred();
+    await opened(true, held);
+
+    tap(50);
+    expect(lastView().lefts).toBe(0);
+    await release(held);
+
+    expect(lastView().lefts).toBe(1);
+    expect(lastView().rights + lastView().nexts + lastView().prevs).toBe(0);
+  });
+
+  it("turns nothing for a click at the edge under a mouse while the book opened", async () => {
+    const held = deferred();
+    await opened(false, held);
+
+    tap(350);
+    expect(lastView().rights).toBe(0);
+    await release(held);
+
+    expect(lastView().rights).toBe(0);
+  });
+
+  it("parks nothing for a tap in the middle or on a link while the book opened", async () => {
+    const held = deferred();
+    await opened(true, held);
+    const doc = lastView().section;
+    const link = doc.createElement("a");
+    link.href = "ch2.xhtml";
+    doc.body.append(link);
+
+    tap(200);
+    tap(350, link);
+    await release(held);
+
+    expect(lastView().lefts + lastView().rights).toBe(0);
+  });
+
+  it("goes to a passage handed over while the book opened, over a tap", async () => {
+    FakeView.sections = sectionsOf([PASSAGE]);
+    const held = deferred();
+    const pane = await opened(true, held);
+
+    act(() => pane.send([PASSAGE]));
+    tap(350);
+    await release(held);
+
+    await waitFor(() => expect(lastView().gone).toHaveLength(1));
+    expect(lastView().rights).toBe(0);
+  });
+
+  it("makes the last of an l and a tap while the book opened, and only that", async () => {
+    const held = deferred();
+    await opened(true, held);
+
+    act(() => {
+      lastView().section.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
+    });
+    tap(350);
+    await release(held);
+
+    expect(lastView().rights).toBe(1);
+    expect(lastView().nexts).toBe(0);
+  });
+
+  it("drops a tap made while the book opened when the pane goes first", async () => {
+    const held = deferred();
+    const { unmount } = await opened(true, held);
+
+    tap(350);
+    unmount();
+    await release(held);
 
     expect(lastView().rights).toBe(0);
   });
