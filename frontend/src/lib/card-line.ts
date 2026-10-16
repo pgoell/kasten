@@ -260,7 +260,7 @@ export function clozePlain(line: string): string {
 }
 
 /**
- * What `colons` and `asTyped` read, leftmost first: `\&#58;`, any other escape
+ * What `colons` and `unescaped` read, leftmost first: `\&#58;`, any other escape
  * pair, a code span, a backtick run that closes none, and a bare `&#58;`.
  *
  * One pass, so an escape pair is read before what follows it: `\\&#58;` is an
@@ -270,8 +270,8 @@ export function clozePlain(line: string): string {
  */
 const ESCAPES = /\\&#58;|\\[\s\S]|(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)|`+|&#58;/g;
 
-/** An escape markdown reads, before ASCII punctuation, or the `\&#58;` of #340. */
-const ESCAPED = /^\\(?:&#58;|[!-/:-@[-`{-~])$/;
+/** An escape markdown reads, a backslash before ASCII punctuation. */
+const ESCAPED = /^\\[!-/:-@[-`{-~]$/;
 
 /**
  * `text` with `&#58;` read as the colon markdown shows for it, and `\&#58;` as the text `&#58;`.
@@ -290,16 +290,15 @@ export function colons(text: string): string {
 }
 
 /**
- * `text` as somebody types it: `colons`, and markdown's escapes taken off.
+ * A card side `colons` has read, with markdown's escapes taken off, as text.
  *
- * A typed answer is compared as text and never drawn, so nothing else reads
- * the `\\` or `\*` the import writes; a code span keeps its backslashes, as
- * the preview shows them.
+ * For where a side is compared or shown as text and never drawn, so nothing
+ * else reads the `\\` or `\*` the import writes. No `&#58;` is decoded here,
+ * `colons` having done that once: a second pass would read the text `&#58;`
+ * as a colon. A code span keeps its backslashes, as the preview shows them.
  */
-export function asTyped(text: string): string {
-  return text.replace(ESCAPES, (found) =>
-    found === "&#58;" ? ":" : ESCAPED.test(found) ? found.slice(1) : found,
-  );
+export function unescaped(text: string): string {
+  return text.replace(ESCAPES, (found) => (ESCAPED.test(found) ? found.slice(1) : found));
 }
 
 /** The answer: the whole line, with this number's text highlighted. */

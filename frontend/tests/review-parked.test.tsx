@@ -196,6 +196,27 @@ describe("ReviewParked putting a card back", () => {
     expect(container.querySelectorAll("button[data-parked]")).toHaveLength(0);
   });
 
+  it("A3 shows a parked a\\\\-b as a\\-b", async () => {
+    const NOTE =
+      "#flashcards/x\n\na\\\\-b \\*c\\*::back !suspended <!--anki:1:0:abcdef12-->\n\n{{c1::d\\\\-e}} !suspended\n";
+    const lines = NOTE.split("\n");
+    vi.spyOn(api, "fetchCards").mockResolvedValue([
+      { path: "x.md", line: 1, text: "#flashcards/x" },
+      { path: "x.md", line: 3, text: lines[2] ?? "" },
+      { path: "x.md", line: 5, text: lines[4] ?? "" },
+    ]);
+    vi.spyOn(api, "fetchNote").mockResolvedValue(NOTE);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewParked onLeave={vi.fn()} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("a\\-b *c*")).toBeInTheDocument();
+    expect(screen.getByText("d\\-e")).toBeInTheDocument();
+  });
+
   it("draws no put-back control on a question with no answer", async () => {
     const { container } = renderParked();
     await screen.findByText("What is a moved block?");

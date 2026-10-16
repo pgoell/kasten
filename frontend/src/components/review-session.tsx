@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
-import { asTyped } from "@/lib/card-line";
+import { unescaped } from "@/lib/card-line";
 import { readClock } from "@/lib/clock";
 import { inDeck } from "@/lib/deck-tag";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -490,7 +490,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
               <p data-testid="review-verdict" className="mt-6 text-[13px] text-one-muted">
                 {/* A cloze's back is the whole line, its target the hidden text.
                     A basic back is markdown, its escapes no part of the answer. */}
-                {sameAnswer(typed, card.target ?? asTyped(card.back)) ? (
+                {sameAnswer(typed, card.target ?? unescaped(card.back)) ? (
                   "Matched"
                 ) : (
                   <>

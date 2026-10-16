@@ -45,7 +45,6 @@
  */
 
 import {
-  asTyped,
   CLOZE_SR,
   clozeAnswer,
   clozeComment,
@@ -60,6 +59,7 @@ import {
   SR,
   SUSPEND_TOKEN,
   suspended,
+  unescaped,
   withoutAnkiId,
   withoutHeadToken,
   withoutToken,
@@ -192,10 +192,10 @@ const RUBY_TAG = /<\/?ruby\b[^>]*>/g;
  * `target` as somebody types it: an imported `<ruby>漢字<rt>かんじ</rt></ruby>`
  * is the word `漢字`, the reading drawn over it being a hint and not the answer.
  *
- * An imported `a&#58;&#58;b` is `a::b` too, and `a\\-b` is `a\-b`, as `asTyped` gives them.
+ * An imported `a&#58;&#58;b` is `a::b` too, and `a\\-b` is `a\-b`, as `colons` and `unescaped` give them.
  */
 function typedTarget(target: string): string {
-  return asTyped(target.replace(READING, "").replace(RUBY_TAG, ""));
+  return unescaped(colons(target.replace(READING, "").replace(RUBY_TAG, "")));
 }
 
 /**

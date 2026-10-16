@@ -98,6 +98,27 @@ describe("ReviewSession typing", () => {
     expect(screen.getByTestId("review-verdict")).toHaveTextContent("Matched");
   });
 
+  it("A3 counts a typed &#58; right against an imported back \\&#58;", async () => {
+    const note = "#flashcards/aws\n\nWhat is it?::a\\\\\\&#58; \\&#58; <!--anki:1:0:abcdef12-->\n";
+    vi.spyOn(api, "fetchNote").mockResolvedValue(note);
+    vi.spyOn(api, "saveNote").mockResolvedValue({ path: "decks/aws.md", content: note });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={DECK} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await shownCard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Type" }));
+    fireEvent.change(screen.getByLabelText("your answer"), {
+      target: { value: "a\\&#58; &#58;" },
+    });
+    fireEvent.submit(screen.getByTestId("review-typed"));
+
+    expect(screen.getByTestId("review-verdict")).toHaveTextContent("Matched");
+  });
+
   it("shows what was typed beside the answer when it did not match", async () => {
     await renderSession();
     fireEvent.click(screen.getByRole("button", { name: "Type" }));

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { fetchCards, fetchNote } from "@/lib/api";
-import { clozePlain } from "@/lib/card-line";
+import { clozePlain, unescaped } from "@/lib/card-line";
 import { withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 import { parkedNotes } from "@/lib/review";
@@ -199,8 +199,10 @@ function rowsOf(texts: Map<string, string>): ParkedRow[] {
               note,
               at,
               // A cloze named by its sentence, no number of it being the one asked.
-              front:
+              // Shown as text and not drawn, so markdown's escapes come off.
+              front: unescaped(
                 card.cloze === null ? card.front : clozePlain(withoutTags(lines[card.from] ?? "")),
+              ),
               deck: card.decks[0] ?? name,
               reason: card.parked,
               whole: false,
