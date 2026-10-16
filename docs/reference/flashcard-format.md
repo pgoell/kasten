@@ -206,6 +206,12 @@ The marks are text everywhere else. Live preview and Obsidian show them as
 typed, and a line of `==Paris==` stays a highlight: it is a cloze in
 obsidian-spaced-repetition and prose here.
 
+A card's text is markdown, so a backslash before punctuation is an escape:
+`a\-b` shows `a-b`, and `a\\-b` shows `a\-b`. `&#58;` shows a colon and
+`\&#58;` the text `&#58;`. In a code span nothing is an escape, so
+`` `a\-b` `` and `` `&#58;` `` show as written. An
+[imported Anki deck](/how-to/import-an-anki-deck.md) is written this way.
+
 ## The schedule
 
 ```markdown

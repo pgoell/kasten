@@ -362,14 +362,16 @@ def _marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
 def _flat(text: str) -> str:
     """`text` as one line, every tag but ruby's stripped: how a cloze mark is written.
 
-    The token is escaped here as `_Markdown` escapes it in the rest of the
-    field, since `suspended()` in `card-line.ts` reads it inside a mark too,
-    and so is the import's marker, as `_escaped` escapes it. So is the text
-    `&#58;`, as `_Markdown` escapes it, before `plain` writes its own colons so.
+    A backslash is doubled, as `_Markdown` doubles it outside code, before any
+    written here. The token is escaped here as `_Markdown` escapes it in the
+    rest of the field, since `suspended()` in `card-line.ts` reads it inside a
+    mark too, and so is the import's marker, as `_escaped` escapes it. So is
+    the text `&#58;`, as `_Markdown` escapes it, before `plain` writes its own
+    colons so.
     """
     # Ruby's tags held out bare, with private-use marks, so the strip passes them by.
     text = _RUBY_TAG.sub(lambda tag: f"{tag[1]}{tag[2].lower()}", text)
-    text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text)))
+    text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text))).replace("\\", "\\\\")
     text = text.replace("", "<").replace("", ">")
     text = " ".join(text.split()).replace("!suspended", "\\!suspended")
     return text.replace("<!--anki:", "<!--anki\\:").replace("&#58;", "\\&#58;")
@@ -408,7 +410,8 @@ class _Markdown(HTMLParser):
     lists and ruby, with every tag past those dropped and its text kept. A
     `<pre>` is a line of inline code per line rather than a fence, because both
     readers skip every card inside a fence. Text is escaped where markdown
-    would read it, and the markdown written around it is not.
+    would read it, a backslash included, and the markdown written around it
+    is not. Code is not, since a code span is drawn as it stands.
     """
 
     def __init__(self) -> None:
@@ -498,17 +501,22 @@ class _Markdown(HTMLParser):
     def handle_data(self, data: str) -> None:
         if self.skip:
             return
-        # Anki shows a field's `&amp;#58;` as the text `&#58;`, which a card
-        # shows as a colon (#335) unless the backslash says it is text (#340).
-        data = data.replace("&#58;", "\\&#58;")
         if self.pre is None:
             data = re.sub(r"\s+", " ", data)
+        # A code span is drawn verbatim, so nothing in it is escaped (#343).
         if self.pre is None and not self.code:
-            data = re.sub(r"[*_`\[]", r"\\\g<0>", data)
+            # The backslash first and in the same pass, so a lone one Anki
+            # shows is no escape to markdown (#342) and those written here
+            # are not doubled.
+            data = re.sub(r"[\\*_`\[]", r"\\\g<0>", data)
             data = re.sub("={2,}", lambda run: "\\=" * len(run[0]), data)
             # Anywhere, since `suspended()` in `card-line.ts` reads the token
             # after any space and would park a card that only names it.
             data = data.replace("!suspended", "\\!suspended")
+            # Anki shows a field's `&amp;#58;` as the text `&#58;`, which a
+            # card shows as a colon (#335) unless the backslash says it is
+            # text (#340). After the backslashes, or this one would be doubled.
+            data = data.replace("&#58;", "\\&#58;")
         self.out.append(data)
 
     def _wrap(self, at: int, marker: str) -> None:

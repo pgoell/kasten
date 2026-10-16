@@ -1386,6 +1386,68 @@ def test_i6_a_re_import_rewrites_a_line_main_wrote_with_a_literal_entity_colon()
     assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
 
 
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        ("<code>&amp;#58;</code>", "`&#58;`"),
+        ("<pre>&amp;#58;</pre>", "`&#58;`"),
+    ],
+    ids=["code", "pre"],
+)
+def test_a1_an_entity_colon_in_code_is_written_as_anki_shows_it(field: str, expected: str) -> None:
+    # The editor draws a code span verbatim, so a backslash there would show (#343).
+    assert plain(field) == expected
+
+
+def test_a1_an_entity_colon_in_code_on_the_back_is_written_as_anki_shows_it() -> None:
+    notes = ((1, BASIC, "x\x1f<code>&amp;#58;</code>"),)
+    decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
+
+    assert unhashed(as_note(decks[0])) == f"#flashcards/x\n\nx::`&#58;`{mark(1)}\n"
+
+
+def test_a3_a_literal_backslash_on_a_basic_side_is_doubled() -> None:
+    # Markdown would read a lone backslash as an escape and drop it (#342).
+    notes = ((1, BASIC, "a\\-b\x1f\\&amp;#58;"),)
+    decks = read_apkg(apkg(notes, CARDS[:1], ((100, "x"),)))
+
+    assert unhashed(as_note(decks[0])) == f"#flashcards/x\n\na\\\\-b::\\\\\\&#58;{mark(1)}\n"
+
+
+def test_a4_a_literal_backslash_in_a_cloze_answer_is_doubled() -> None:
+    # Anki shows `a\::b`; a lone backslash would escape the import's `&#58;`.
+    deck = cloze_note("{{c1::a\\&#58;&#58;b}}", "")
+
+    assert unhashed(as_note(deck)) == f"#flashcards/x\n\n{{{{c1::a\\\\&#58;&#58;b}}}}{mark(1)}\n"
+
+
+def test_i1_a_backslash_before_markup_the_import_writes_is_doubled() -> None:
+    assert plain("a\\<b>x</b>") == "a\\\\**x**"
+
+
+@pytest.mark.parametrize("field", ["<code>a\\-b</code>", "<pre>a\\-b</pre>"], ids=["code", "pre"])
+def test_i2_a_backslash_in_code_stays_one(field: str) -> None:
+    assert plain(field) == "`a\\-b`"
+
+
+def test_i4_an_entity_other_than_the_colon_is_written_as_itself() -> None:
+    assert plain("&amp;copy; &amp;amp;") == "&copy; &amp;"
+
+
+def test_i5_a_re_import_rewrites_a_line_main_wrote_with_a_backslash() -> None:
+    # The line before #342's fix, its hash as the import wrote it then.
+    line = "{{c1::a\\&#58;&#58;b}}"
+    schedule = "<!--SR:c1!2026-10-20,3,250-->"
+    old = f"#flashcards/x\n\n{line}{marked(1, line)} {schedule}\n"
+
+    merged = merge(old, cloze_note("{{c1::a\\&#58;&#58;b}}", ""))
+
+    assert merged is not None
+    expected = f"#flashcards/x\n\n{{{{c1::a\\\\&#58;&#58;b}}}}{mark(1)} {schedule}\n"
+    assert unhashed(merged.text) == expected
+    assert (merged.added, merged.updated, merged.kept, merged.removed) == (0, 1, 0, 0)
+
+
 def test_a_cloze_note_with_no_marks_is_a_card_of_its_two_fields() -> None:
     # Anki will not save such a note, but a broken export can hold one; its
     # text is still worth a question.

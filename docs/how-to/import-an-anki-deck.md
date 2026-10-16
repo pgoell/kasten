@@ -200,8 +200,9 @@ a tag is part of the answer. Where such an answer holds `::`, or ends in a
 colon before its hint, its colons are written `&#58;`, which kasten shows and
 takes from a typed answer as `:`, so `{{c1::a&#58;&#58;b}}` asks `a::b` with
 no hint. A field whose text shows `&#58;` itself, written `&amp;#58;`, is
-written `\&#58;` on any side, which kasten shows as the text `&#58;` as Anki
-does. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
+written `\&#58;` on any side outside code, which kasten shows as the text
+`&#58;` as Anki does. A backslash in a cloze answer is doubled as anywhere
+else, so an answer Anki shows as `a\::b` is written `{{c1::a\\&#58;&#58;b}}`. A nested mark, `{{c1::a {{c2::b}}}}`, stays as Anki had it, and an inner mark
 kasten does not read is its text alone, so `{{c1::a {{c2::}}}}` becomes
 `{{c1::a }}`. Where no mark is kept, a mark never closed runs to the end of the
 field, so its `::` cannot split the line. A cloze
@@ -234,8 +235,13 @@ The furigana filters do what they do in Anki. `{{furigana:Reading}}` turns
 brackets, as Anki shows it.
 
 Text that markdown would read as formatting gets a backslash, so it reads as
-text: `2\*3`, `snake\_case`, `` \` ``, `\[note]` and `\=\=`. A line opening with
-three backticks is written `` \`\`\` ``, so it opens no code block.
+text: `2\*3`, `snake\_case`, `` \` ``, `\[note]` and `\=\=`. A backslash the
+field shows is written `\\`, so `a\-b` stays `a\-b` and is no escape. A line
+opening with three backticks is written `` \`\`\` ``, so it opens no code block.
+Inside code, `<code>` or a line of a `<pre>`, nothing gets a backslash, since
+kasten shows a code span as written: `<code>a\-b</code>` is `` `a\-b` `` and a
+`<code>` showing `&#58;` is `` `&#58;` ``. Every entity but that one colon
+arrives as the text Anki shows, `&copy;` as `&copy;`.
 
 ## What does not survive
 
