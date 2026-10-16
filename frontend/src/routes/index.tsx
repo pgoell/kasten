@@ -1099,7 +1099,15 @@ function Home() {
       if (paths.includes(path) && heading !== null) {
         // A note opened while this one was read is where the reader went
         // next, and the jump arriving late must not pull them back.
-        const from = focusedNote.current.path;
+        //
+        // Where the read starts from is the pane the focus is in now, not
+        // `focusedNote`: a ctrl+click in another pane moves the focus there in
+        // this same call, and the ref hears of it only once React has drawn
+        // the move. Read from the ref, the click's own move would look like
+        // the reader going elsewhere and drop the open (#361).
+        const at = document.activeElement?.closest<HTMLElement>("[data-pane]")?.dataset.pane;
+        const here = tabPanes(layoutNow.current).find((each) => each.id === at);
+        const from = here === undefined ? focusedNote.current.path : here.path;
         const open = (line?: number) => {
           if (focusedNote.current.path === from) void openInPane(path, line);
         };

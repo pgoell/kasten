@@ -3930,7 +3930,7 @@ describe("following from a pane that is not focused", () => {
   const NOTES: Record<string, string> = {
     "index.md": "pane one\n",
     "embedded.md": "embedded body\n",
-    "target.md": "target body\n",
+    "target.md": "target body\n\n# Head\n",
   };
 
   /** A three-page pdf drawing nothing, for the embed and for the pane it opens. */
@@ -4070,6 +4070,27 @@ describe("following from a pane that is not focused", () => {
       expect(drawn()).toHaveLength(2);
       expect(paneText(0)).toContain("pane one");
       expect(paneText(1)).toContain("target body");
+    },
+  );
+
+  // The heading is read before the note opens, and the open is dropped when
+  // the focus has gone to another note by then: the click's own move of the
+  // focus must not count as that.
+  it.each(combos)(
+    "B %s+click on a [[link#heading]] in an unfocused pane opens it at the heading in that pane (vim %s)",
+    async (_key, _vim, held, vim) => {
+      await twoPanes("second note\n[[target#Head]]\n", vim);
+
+      const link = drawn()[1]?.querySelector<HTMLElement>(".cm-wikilink") as HTMLElement;
+      fireEvent.mouseDown(link, held);
+      await settle();
+
+      expect(drawn()).toHaveLength(2);
+      expect(paneText(0)).toContain("pane one");
+      expect(paneText(1)).toContain("target body");
+      const editor = drawn()[1]?.querySelector(".cm-editor") as HTMLElement;
+      const { state } = EditorView.findFromDOM(editor) as EditorView;
+      expect(state.doc.lineAt(state.selection.main.head).number).toBe(3);
     },
   );
 
