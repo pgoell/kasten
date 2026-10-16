@@ -192,7 +192,9 @@ cloze. Marks in the Back Extra, and in a note
 of any other type, become highlights, `==Paris==`, since Anki shows them as
 typed there and asks no card of them. So does a mark kasten does not read, one
 holding a lone brace such as MathJax's `{{c1::\(x^{2}\)}}` or one with no text,
-`{{c1::}}`. A brace written as an entity, `&#123;` or `&lbrace;`, counts as the
+`{{c1::}}`. Kasten draws no math, so a MathJax mark's backslashes are kept as
+text: `{{c1::\(x^{2}\)}}` becomes `==\\(x^{2}\\)==`, which shows `\(x^{2}\)`.
+A brace written as an entity, `&#123;` or `&lbrace;`, counts as the
 brace it shows, so `{{c1::&#123;}}` becomes `=={==` as `{{c1::{}}` does. A
 colon is the other way round: Anki divides the answer from the hint only at a
 `::` typed as such, so a pair written as entities, `a&#58;&#58;b`, or split by

@@ -350,9 +350,9 @@ def test_plain_keeps_a_cloze_hint_for_a_cloze_note() -> None:
 @pytest.mark.parametrize(
     ("field", "expected"),
     [
-        (r"{{c1::\(x^{2}\)}} is the square", r"==\(x^{2}\)== is the square"),
+        (r"{{c1::\(x^{2}\)}} is the square", r"==\\(x^{2}\\)== is the square"),
         ("{{c1::}} x", "==== x"),
-        (r"{{c1::\(x^{2}\)}} is {{c2::the square}}", r"==\(x^{2}\)== is {{c2::the square}}"),
+        (r"{{c1::\(x^{2}\)}} is {{c2::the square}}", r"==\\(x^{2}\\)== is {{c2::the square}}"),
     ],
     ids=["brace", "empty", "mixed"],
 )
@@ -1059,9 +1059,9 @@ def test_a_cloze_whose_back_extra_would_end_the_card_keeps_the_cloze(extra: str)
 @pytest.mark.parametrize(
     ("text", "body"),
     [
-        (r"{{c1::\(x^{2}\)}} is the square", r"==\(x^{2}\)== is the square::extra"),
+        (r"{{c1::\(x^{2}\)}} is the square", r"==\\(x^{2}\\)== is the square::extra"),
         ("{{c1::}} x", "==== x::extra"),
-        (r"{{c1::\(x^{2}\)}} is {{c2::it}}", r"==\(x^{2}\)== is {{c2::it}}" + "\n?\nextra"),
+        (r"{{c1::\(x^{2}\)}} is {{c2::it}}", r"==\\(x^{2}\\)== is {{c2::it}}" + "\n?\nextra"),
     ],
     ids=["brace", "empty", "mixed"],
 )
@@ -1104,7 +1104,7 @@ def test_i1_a_nested_cloze_mark_imports_whole(text: str, line: str, count: int) 
     ("text", "line"),
     [
         ("{{c1::a {{c2::b}}", "{{c1::a {{c2::b}}"),
-        (r"{{c1::\(x^{2}\) {{c2::y}}}}", r"==\(x^{2}\) {{c2::y}}=="),
+        (r"{{c1::\(x^{2}\) {{c2::y}}}}", r"==\\(x^{2}\\) {{c2::y}}=="),
     ],
     ids=["unclosed", "brace"],
 )
