@@ -192,10 +192,13 @@ The words first, then the fields:
 👤 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
 ```
 
-kasten rebuilds a todo line rather than patching it, so a line whose fields sit
-in another order is rewritten the first time anything touches it. Write this
-order and your line comes back byte for byte. Tags are the exception: they stay
-in the words where they were typed.
+kasten writes a new line in this order. A line that is already there it patches
+rather than rebuilds: a state change, a `⛔` picked, a `🆔` stamped by
+`<leader>i`, on a blocker or on a timer's first start, a `⏱` written on a stop
+and a box opened when an edit takes off the last `⛔` each change the box and
+the fields they write, and nothing else. The indent, a `^block` id at the end,
+the words and the order the fields sit in all stay as typed, and a stamp goes in
+at its place in this order. Tags stay in the words where they were typed.
 
 ## Recurrence
 
