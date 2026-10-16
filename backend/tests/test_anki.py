@@ -13,6 +13,8 @@ import io
 import json
 import re
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import zipfile
 from compression import zstd
@@ -1496,7 +1498,15 @@ def test_i1_a_code_span_in_a_mark_is_read_whole(text: str, answer: str, hint: st
     found = _MARK.fullmatch(text)
 
     assert found is not None
-    assert (found[2], found[4]) == (answer, hint)
+    assert (found[2], found[5]) == (answer, hint)
+
+
+def test_b1_a_line_of_code_spans_after_an_open_mark_reads_in_linear_time() -> None:
+    # A child process, since `re` cannot be stopped from inside: a regex that
+    # backtracks doubles its time with every span here and runs for minutes.
+    code = "from kasten_backend.anki import _MARK; _MARK.search('Use {{c1:: ' + '`x` ' * 30)"
+
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=5)  # noqa: S603
 
 
 def test_i2_a_mark_inside_a_code_span_is_no_cloze() -> None:

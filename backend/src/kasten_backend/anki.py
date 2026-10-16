@@ -97,14 +97,16 @@ Across lines too, or a mark over two would keep its `::` in a Basic field.
 _OPEN = re.compile(r"\{\{c\d+::")
 """A cloze mark's opener, which `plain` closes when the field never does."""
 _MARK = re.compile(
-    r"\{\{c([0-9]+)::((?:(`+)(?!`)[^{}]*?(?<!`)\3(?!`)|[^{}])+?)"
-    r"(?:::((?:(`+)(?!`)[^{}]*?(?<!`)\5(?!`)|[^{}])*?))?\}\}"
+    r"\{\{c([0-9]+)::((?:(?=((`+)(?!`)[^{}]*?(?<!`)\4(?!`)|`+|[^{}`]))\3)+?)"
+    r"(?:::((?:(?=((`+)(?!`)[^{}]*?(?<!`)\7(?!`)|`+|[^{}`]))\6)*?))?\}\}"
 )
 """A cloze mark kasten reads: `MARK` in `card-line.ts`, character for character.
 
-Groups 1, 2 and 4 are the number, the answer and the hint. Narrower than
-`_CLOZE`, taking no brace and no empty text, so a MathJax `{{c1::\\(x^{2}\\)}}`
-is a mark to Anki and not to kasten. A code span in the answer or hint is read
+Groups 1, 2 and 5 are the number, the answer and the hint. Each item is taken
+whole through a lookahead, which `re` never backtracks into, so a line of code
+spans after an opener never closed does not take twice as long per span. Narrower
+than `_CLOZE`, taking no brace and no empty text, so a MathJax
+`{{c1::\\(x^{2}\\)}}` is a mark to Anki and not to kasten. A code span in the answer or hint is read
 whole, so a `::` inside it is no hint (#346); a lone backtick is text. `[0-9]`
 because Python's `\\d` takes digits JavaScript's does not. A nested mark,
 `{{c1::a {{c2::b}}}}`, is read innermost first, each inner mark held by a

@@ -125,7 +125,8 @@ What does S3 stand for?::Simple Storage Service
 ```
 
 Everything before the first `::` is the question, everything after it the
-answer. A second `::` in the answer stays in the answer.
+answer. A second `::` in the answer stays in the answer. A `::` inside a code
+span divides nothing, so a line whose every `::` sits in code is no card.
 
 ### Over several lines
 
@@ -392,7 +393,8 @@ was written in that order on purpose.
 `Type` in the header swaps the reveal button for a text field. Submitting it
 shows the answer along with whether what you typed matched, and then the four
 ratings as usual. The comparison forgives case, spacing and a trailing full
-stop, and forgives nothing else.
+stop, and forgives nothing else. The answer is compared without the backticks
+of its code spans, so you type ``a::b`` for ``{{c1::`a::b`}}``.
 
 A mismatch never refuses a rating. The verdict is a note to yourself, not a mark.
 
