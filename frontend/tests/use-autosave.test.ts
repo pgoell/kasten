@@ -3563,6 +3563,47 @@ describe("useAutosave", () => {
       expect(heldText("index.md")).toMatchObject({ content: "T1" });
     });
 
+    /** T1's flush in the air, the buffer reopened on it within the route and typed on. */
+    function typedOnTheFlush() {
+      const vault = server("start");
+      const { note, type, show } = withEditor("start");
+      type("T1");
+      note.seed("b.md", "b");
+      note.open("b.md");
+      note.open("index.md");
+      show(String(note.cached("index.md")));
+      note.allowReload(String(note.cached("index.md")));
+      type("T1, T2");
+      return { vault, note };
+    }
+
+    it("names the flush's answer when it lands in the quiet period after a reopen on its text", async () => {
+      const { vault, note } = typedOnTheFlush();
+      await vault.land(0);
+      const flushed = vault.disk();
+      await idle();
+      await vault.land(1);
+
+      // The queue drained before the quiet write went out, and the buffer was
+      // typed on W1's text: it names W1's stamped answer, not "start" (#389).
+      expect(vault.request(1)).toMatchObject({ content: "T1, T2", base: noteBase(flushed) });
+      expect(landedAs("T1, T2", vault.disk())).toBe(true);
+      expect(note.status()).not.toBe("conflict");
+    });
+
+    it("names the old base when the flush fails in the quiet period after a reopen on its text", async () => {
+      const { vault, note } = typedOnTheFlush();
+      await vault.fail(0);
+      await idle();
+      await vault.land(1);
+
+      // The vault still holds "start", and T1, typed over since, stays held.
+      expect(vault.request(1)).toMatchObject({ content: "T1, T2", base: noteBase("start") });
+      expect(landedAs("T1, T2", vault.disk())).toBe(true);
+      expect(note.status()).not.toBe("conflict");
+      expect(heldText("index.md")).toMatchObject({ content: "T1" });
+    });
+
     /** T1's quiet write in the air, the buffer reopened on "start" and typed on. */
     function typedOnTheTextUnder() {
       const vault = server("start");

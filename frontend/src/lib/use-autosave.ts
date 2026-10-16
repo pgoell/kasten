@@ -529,6 +529,9 @@ export function useAutosave(
       ]).then(([before, mine]) => mine ?? before);
       const mine = { link, visit: opened, loaded, ok, followed: false };
       queued.current.set(to, mine);
+      // Whether the buffer on screen was typed on this write's text: the visit
+      // that sent it, or one reopened on it since, which moves the visit here.
+      const followedHere = () => mine.visit === visit.current;
       void link.then(() => {
         if (queued.current.get(to)?.link === link) queued.current.delete(to);
       });
@@ -561,8 +564,11 @@ export function useAutosave(
           // differ by the `modified` stamp `PUT` writes, and the next save names
           // what is on disk. Not after a reload since this went out: the
           // reload's text came after this answer on disk, and the buffer was
-          // typed on it, so the next save names that (#298).
-          if (here() && !reloaded()) onDisk.current = note.content;
+          // typed on it, so the next save names that (#298). Nor only `here()`:
+          // a buffer reopened on this text within the route follows it, the
+          // queue says so, and a quiet write after this answer finds the queue
+          // drained and names what this visit last learned (#389).
+          if (followedHere() && !reloaded()) onDisk.current = note.content;
           // Typing during the write leaves newer text behind us, and that is not
           // saved however this one went. The cache waits on the same test: the
           // editor reloads from it, so writing the text that was in the air would
@@ -672,7 +678,7 @@ export function useAutosave(
             }
             void reread().then((text) => {
               if (
-                here() &&
+                followedHere() &&
                 text !== undefined &&
                 (dropped.current.get(to) ?? 0) === kept &&
                 !reloaded()
