@@ -6,12 +6,18 @@ from typing import TYPE_CHECKING
 import pytest
 
 from backend.tests.conftest import JJ, descriptions
+from kasten_backend import agent
+from kasten_backend.config import Settings, get_settings
+from kasten_backend.main import app
 from kasten_backend.periodic import daily_note
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
 DAY = "01 Periodic/00 Daily/2026-09-29.md"
+
+ID = "0b7e7c1e-3c55-4a8e-9f62-1d2a3b4c5d6e"
+"""A capture id the way a phone mints one at typing."""
 
 FIXTURE = Path(__file__).parents[2] / "frontend" / "tests" / "fixtures" / "daily-notes.json"
 """The daily notes `periodic.ts` must also produce, which its own test reads too."""
@@ -104,3 +110,125 @@ async def test_records_the_capture_as_a_change(client: AsyncClient, versioned_va
     await client.post("/api/dump", json={"text": "call Jonas", "date": "2026-09-29"})
 
     assert descriptions(versioned_vault)[0] == f"vault: {DAY}"
+
+
+@pytest.fixture
+def receipts(vault: Path, tmp_path: Path) -> Path:
+    """Where the ids written so far are kept, beside a token store in the test's own dir.
+
+    The `vault` fixture's settings leave `tokens_path` at its cwd-relative
+    default, which would put the receipts in the repo. This override replaces
+    it, and the `vault` fixture's teardown clears it.
+    """
+    tokens = tmp_path / "tokens.json"
+    app.dependency_overrides[get_settings] = lambda: Settings(vault_path=vault, tokens_path=tokens)
+    return tokens.with_name("dump-receipts.json")
+
+
+def paragraphs(vault: Path, text: str) -> int:
+    """How many times `text` stands as a paragraph in the day's note."""
+    return body((vault / DAY).read_text()).count(f"\n{text}\n")
+
+
+def kept(receipts: Path) -> list[str] | None:
+    """The ids the receipts file holds, or None when there is no file."""
+    return json.loads(receipts.read_text()) if receipts.exists() else None
+
+
+def seed(receipts: Path, ids: list[str]) -> None:
+    """Leave `ids` in the receipts file, as an earlier run of the server would have."""
+    receipts.write_text(json.dumps(ids))
+
+
+async def test_a_retry_with_the_same_id_writes_one_paragraph(
+    client: AsyncClient, vault: Path, receipts: Path
+) -> None:
+    capture = {"text": "call Jonas", "date": "2026-09-29", "id": ID}
+
+    first = await client.post("/api/dump", json=capture)
+    # The answer to the first was lost, so the phone sends it again.
+    second = await client.post("/api/dump", json=capture)
+
+    assert second.status_code == 200
+    assert second.json() == first.json() == {"path": DAY, "content": (vault / DAY).read_text()}
+    assert paragraphs(vault, "call Jonas") == 1
+
+
+async def test_two_ids_with_the_same_text_write_two_paragraphs(
+    client: AsyncClient, vault: Path, receipts: Path
+) -> None:
+    other = "5f0c2d1e-9a8b-4c7d-8e6f-0a1b2c3d4e5f"
+    await client.post("/api/dump", json={"text": "water", "date": "2026-09-29", "id": ID})
+    await client.post("/api/dump", json={"text": "water", "date": "2026-09-29", "id": other})
+
+    assert paragraphs(vault, "water") == 2
+    assert kept(receipts) == [ID, other]
+
+
+async def test_two_captures_without_an_id_write_two_paragraphs(
+    client: AsyncClient, vault: Path, receipts: Path
+) -> None:
+    # An old client, or the agent's dump, which never sends one.
+    for _ in range(2):
+        await client.post("/api/dump", json={"text": "water", "date": "2026-09-29"})
+
+    assert paragraphs(vault, "water") == 2
+    assert kept(receipts) is None
+
+
+async def test_the_receipts_are_read_from_disk(
+    client: AsyncClient, vault: Path, receipts: Path
+) -> None:
+    # Written by an earlier run of the server, which nothing in this process saw.
+    seed(receipts, [ID])
+    (vault / DAY).parent.mkdir(parents=True)
+    (vault / DAY).write_text("# today\n\n## Dump\nfirst\n")
+
+    capture = {"text": "again", "date": "2026-09-29", "id": ID}
+    response = await client.post("/api/dump", json=capture)
+
+    assert response.status_code == 200
+    assert response.json() == {"path": DAY, "content": "# today\n\n## Dump\nfirst\n"}
+    assert (vault / DAY).read_text() == "# today\n\n## Dump\nfirst\n"
+
+
+async def test_the_receipts_keep_the_last_thousand_ids(
+    client: AsyncClient, vault: Path, receipts: Path
+) -> None:
+    seed(receipts, [f"old-{n}" for n in range(1000)])
+
+    await client.post("/api/dump", json={"text": "new", "date": "2026-09-29", "id": ID})
+
+    assert kept(receipts) == [*(f"old-{n}" for n in range(1, 1000)), ID]
+
+
+async def test_a_failed_write_leaves_no_receipt(
+    client: AsyncClient, vault: Path, receipts: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(*_: object) -> None:
+        raise OSError("disk full")
+
+    capture = {"text": "call Jonas", "date": "2026-09-29", "id": ID}
+    with monkeypatch.context() as patch:
+        patch.setattr(agent, "create_note", refuse)
+        with pytest.raises(OSError, match="disk full"):
+            await client.post("/api/dump", json=capture)
+
+    assert kept(receipts) is None
+
+    await client.post("/api/dump", json=capture)
+
+    assert paragraphs(vault, "call Jonas") == 1
+    assert kept(receipts) == [ID]
+
+
+async def test_only_the_browser_capture_takes_an_id(client: AsyncClient) -> None:
+    schema = (await client.get("/openapi.json")).json()
+
+    def properties(route: str) -> dict[str, object]:
+        body = schema["paths"][route]["post"]["requestBody"]["content"]["application/json"]
+        name = body["schema"]["$ref"].rsplit("/", 1)[1]
+        return schema["components"]["schemas"][name]["properties"]
+
+    assert "id" in properties("/api/dump")
+    assert "id" not in properties("/agent/dump")

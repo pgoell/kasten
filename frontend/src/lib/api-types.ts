@@ -1045,7 +1045,8 @@ export interface paths {
          *     `agent.dump` is the whole of it, and `POST /agent/dump` calls the same
          *     function: one rule about where a thought lands, whoever sent it. Text with
          *     nothing in it after the trim is a 422, answered by the handler registered
-         *     above.
+         *     above. Only this route takes the capture's `id`, which makes a phone's
+         *     resend of a queued capture write nothing the second time.
          */
         post: operations["capture_dump_api_dump_post"];
         delete?: never;
@@ -1236,6 +1237,25 @@ export interface components {
             start: number;
             /** Text */
             text: string;
+        };
+        /**
+         * Capture
+         * @description A dump from the app, which may carry the id its sender minted at typing.
+         *
+         *     `POST /api/dump` only. The agent's route and its MCP tool keep `Dump`, so
+         *     an agent's schema never grows a field it has no use for: an agent that
+         *     lost an answer reads the note again rather than resending blind.
+         */
+        Capture: {
+            /** Text */
+            text: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Id */
+            id?: string | null;
         };
         /**
          * Dump
@@ -2766,7 +2786,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Dump"];
+                "application/json": components["schemas"]["Capture"];
             };
         };
         responses: {

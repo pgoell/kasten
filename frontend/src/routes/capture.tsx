@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { captureDump, fetchFiles } from "@/lib/api";
+import { fetchFiles } from "@/lib/api";
 import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
+import { type Dump, flush, keep, type State, start, subscribe } from "@/lib/outbox";
 import { firstAddress, type Shared, sharedDraft } from "@/lib/share";
 
 export const Route = createFileRoute("/capture")({
@@ -39,6 +40,11 @@ const KEPT = 5;
  * The list under the button is this page's own memory and nothing more. It is
  * not the dump read back: the dump is in the daily note, and what the list
  * answers is whether the last send landed.
+ *
+ * Send writes the thought to the outbox on the phone first and sends it
+ * after, so a thought typed with no signal waits there, listed as waiting,
+ * until the signal comes back. Nothing on this page asks the network to
+ * mount, which is what lets it open offline at all.
  */
 function Capture() {
   const shared = Route.useSearch();
@@ -47,20 +53,82 @@ function Capture() {
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [sent, setSent] = useState<Sent[]>([]);
+  const [outbox, setOutbox] = useState<State>({ waiting: [], failure: null });
   const field = useRef<HTMLTextAreaElement>(null);
   const counter = useRef(0);
+  const waited = useRef<Dump[]>([]);
 
   // Read at every render rather than once, so a page left open overnight shows
   // and writes the day it is by now.
   const today = readClock(new Date());
   const typed = draft.trim();
   const address = firstAddress(typed);
+  // The vault's refusal of a waiting dump reads here as a failed clip would.
+  // No signal says nothing: the rows saying "waiting" are the whole message.
+  const alert = failed ?? (outbox.failure?.kind === "refused" ? outbox.failure.message : null);
 
   // `autoFocus` alone is not enough on Android, where a page opened from the
   // share sheet mounts before the window has the focus to give.
   useEffect(() => {
     field.current?.focus();
   }, []);
+
+  /** Put a line at the top of the sent list. */
+  function landed(what: string) {
+    counter.current += 1;
+    const row = { key: counter.current, what, at: readClock(new Date()).time };
+    setSent((previous) => [row, ...previous].slice(0, KEPT));
+  }
+
+  // A dump that leaves the outbox has a 2xx behind it, whichever flush sent it,
+  // so that is the moment it moves from the waiting list to the sent one.
+  useEffect(() => {
+    start();
+    return subscribe((state) => {
+      const still = new Set(state.waiting.map((dump) => dump.id));
+      for (const dump of waited.current) {
+        if (still.has(dump.id)) continue;
+        // `landed`'s body, inline so this effect depends on nothing.
+        counter.current += 1;
+        const row = { key: counter.current, what: dump.text, at: readClock(new Date()).time };
+        setSent((previous) => [row, ...previous].slice(0, KEPT));
+      }
+      waited.current = state.waiting;
+      setOutbox(state);
+    });
+  }, []);
+
+  /** Empty the box once what it held is safe, and drop the share it came from. */
+  function cleared() {
+    setDraft("");
+    setSending(false);
+    // The share is spent, so a reload must not put it back in the box.
+    void navigate({ to: "/capture", search: {}, replace: true });
+    field.current?.focus();
+  }
+
+  /**
+   * Keep the thought on the phone, then send it.
+   *
+   * The box empties once the outbox has it, not once the vault does: from
+   * there the thought is safe through no signal and a closed app, and the
+   * waiting list is where it shows until it lands.
+   */
+  function sendDump() {
+    if (sending || typed === "") return;
+    setSending(true);
+    setFailed(null);
+    keep(typed, readClock(new Date()).date).then(
+      () => {
+        cleared();
+        void flush();
+      },
+      (error: unknown) => {
+        setSending(false);
+        setFailed(error instanceof Error ? error.message : "This device could not keep that");
+      },
+    );
+  }
 
   /** Run one send, and on success list it, empty the draft and drop the share. */
   function send(write: () => Promise<string>) {
@@ -69,14 +137,8 @@ function Capture() {
     setFailed(null);
     write().then(
       (what) => {
-        counter.current += 1;
-        const row = { key: counter.current, what, at: readClock(new Date()).time };
-        setSent((previous) => [row, ...previous].slice(0, KEPT));
-        setDraft("");
-        setSending(false);
-        // The share is spent, so a reload must not put it back in the box.
-        void navigate({ to: "/capture", search: {}, replace: true });
-        field.current?.focus();
+        landed(what);
+        cleared();
       },
       (error: unknown) => {
         // The draft stays, which is the point of keeping it: a send that
@@ -112,9 +174,7 @@ function Capture() {
           <button
             type="button"
             disabled={sending || typed === ""}
-            onClick={() =>
-              send(() => captureDump(typed, readClock(new Date()).date).then(() => typed))
-            }
+            onClick={sendDump}
             className="min-h-11 flex-1 rounded border border-one-accent px-4 text-[14px] text-one-accent disabled:border-one-line disabled:text-one-muted"
           >
             Send
@@ -138,10 +198,33 @@ function Capture() {
           )}
         </div>
 
-        {failed !== null && (
+        {alert !== null && (
           <p role="alert" className="text-[13px] text-one-warn">
-            {failed}
+            {alert}
           </p>
+        )}
+
+        {outbox.failure?.kind === "sign-in" && (
+          // A plain link and not the router's: oauth2-proxy has to see a whole
+          // page load to send it to the login, which a client-side move is not.
+          <p role="status" className="text-[13px] text-one-warn">
+            Waiting:{" "}
+            <a href="/" className="underline">
+              sign in again
+            </a>
+          </p>
+        )}
+
+        {outbox.waiting.length > 0 && (
+          <ul aria-label="Waiting" className="flex flex-col gap-2">
+            {outbox.waiting.map((dump) => (
+              <li key={dump.id} className="flex gap-3 text-[13px]">
+                <span className="shrink-0 text-one-muted">{dump.date}</span>
+                <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{dump.text}</span>
+                <span className="shrink-0 text-one-muted">waiting</span>
+              </li>
+            ))}
+          </ul>
         )}
 
         {sent.length > 0 && (

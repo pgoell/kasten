@@ -17,6 +17,7 @@ import { playwright } from "@vitest/browser-playwright";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { devPolicy } from "./src/lib/csp.ts";
+import { serviceWorker } from "./sw/plugin.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
 // The chat runner, which in production Caddy reaches in the shell container.
@@ -311,6 +312,9 @@ export default defineConfig({
     devCsp(),
     foliatePdfjs(),
     foliatePaginator(),
+    // `/sw.js`, the worker that opens the installed app offline. Build only:
+    // the dev server serves no worker, so hot reload never meets a cache.
+    serviceWorker(),
   ],
   resolve: {
     alias: {

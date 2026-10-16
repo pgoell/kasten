@@ -394,6 +394,50 @@ The dev compose files take two more such overrides, both defaulting to this
 box: `KASTEN_NETWORK` (`web`) for the external network, and `KASTEN_DB_PORT`
 (`5434`) for the dev Postgres's host port.
 
+## Remove the service worker
+
+The frontend ships `/sw.js`, a worker that opens the installed app with no
+signal. If a release breaks it, there are two ways out.
+
+**The slow way.** Revert the change and cut a release. A build without the
+worker has no `/sw.js`, and nginx answers that path with `404`, never the
+shell. A browser checks the worker on the next start, gets the `404` and drops
+the registration.
+
+**The fast way.** Ship a worker that removes itself. Put this in
+`frontend/sw/sw.js` and cut a release. It takes over at once, deletes every
+cache, unregisters, and reloads every open window, which then loads from the
+network with no worker:
+
+```js
+self.addEventListener("install", () => self.skipWaiting());
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      for (const name of await caches.keys()) await caches.delete(name);
+      await self.registration.unregister();
+      for (const client of await self.clients.matchAll({ type: "window" })) {
+        client.navigate(client.url);
+      }
+    })(),
+  );
+});
+```
+
+The build plugin expects the `__PRECACHE__` and `__VERSION__` placeholders and
+stops with an error without them, so keep both in a comment at the top of that
+file.
+
+Check what prod serves:
+
+```sh
+docker exec kasten-frontend-prod wget -S -O- http://127.0.0.1:3000/sw.js
+```
+
+`200` with `Content-Type: application/javascript` and the worker's code is a
+live worker. `404` is the slow way taking effect.
+
 ## Related
 
 * [Two environments](/explanation/environments.md): why dev and prod are built in opposite ways, and the constraints this box imposes

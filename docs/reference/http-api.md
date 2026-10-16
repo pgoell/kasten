@@ -1093,6 +1093,16 @@ belongs to the day the person typing it is in. The note is
 [`KASTEN_PERIODIC_PATH`](/reference/configuration.md#the-vaults-folders) names
 another.
 
+The body may also carry an `id`, a UUID the client mints when the thought is
+typed and sends again with every retry. The server writes each id once: a post
+with an id it has already written adds nothing and answers `200` with the note
+as it is now, so a phone that resends a queued capture after a lost answer
+leaves one paragraph, not two. The server keeps the last 1000 ids in
+`dump-receipts.json` beside the token store
+([`KASTEN_TOKENS_PATH`](/reference/configuration.md#kasten_tokens_path)), outside the vault and
+the database. A post without an id is written every time. `POST /agent/dump`
+takes no `id`.
+
 The reply is the note as it landed, in the shape `GET /api/files/{path}`
 returns, and the status is `200` whether the note was made or was already
 there:

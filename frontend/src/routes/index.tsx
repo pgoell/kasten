@@ -35,7 +35,6 @@ import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
   type BookBeside,
-  captureDump,
   createNote,
   deleteFolder,
   deleteImage,
@@ -66,6 +65,8 @@ import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookType, encodePath, importedNote, noteName } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
+// Renamed because the route already has a `flush`, the bookmark's.
+import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { paletteEntries, viewCommands } from "@/lib/palette";
 import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
@@ -1512,13 +1513,24 @@ function Home() {
    * the vault has neither, and an editor holding the note hears about the
    * write through the event stream like any other change on disk, so nothing
    * here touches a cache.
+   *
+   * The thought goes through the outbox `/capture` uses, kept on the device
+   * before it is sent, so a laptop on a train loses it no more than a phone
+   * does. The notice says which of the two it got to: the vault, or the wait.
    */
   const capture = useCallback((text: string) => {
     setDumpPrompt(false);
-    void captureDump(text, readClock(new Date()).date).then(
-      () => setNotice("Captured into today's dump"),
+    void keep(text, readClock(new Date()).date).then(
+      async (dump) => {
+        const { waiting } = await flushOutbox();
+        setNotice(
+          waiting.some((each) => each.id === dump.id)
+            ? `Captured, waiting to send (${waiting.length} waiting)`
+            : "Captured into today's dump",
+        );
+      },
       (error: unknown) =>
-        setNotice(error instanceof Error ? error.message : "The capture was not written"),
+        setNotice(error instanceof Error ? error.message : "The capture was not kept"),
     );
   }, []);
 

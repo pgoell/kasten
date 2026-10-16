@@ -70,7 +70,6 @@ const {
   deleteImage,
   fetchVersion,
   fetchTags,
-  captureDump,
   beside,
 } = vi.hoisted(() => {
   /**
@@ -131,7 +130,6 @@ const {
     // The status bar asks for this on every mount. A release, because the bundle
     // these run against carries no commit either.
     fetchVersion: vi.fn().mockResolvedValue("0.8.0"),
-    captureDump: vi.fn(),
   };
 });
 vi.mock("@/lib/api", () => ({
@@ -156,7 +154,6 @@ vi.mock("@/lib/api", () => ({
   deleteImage,
   fetchVersion,
   fetchTags,
-  captureDump,
   // A daily note draws the weather card, which asks for the day's forecast.
   fetchWeather: async () => [],
   // Left off the factory this constant arrives in the route as undefined,
@@ -188,6 +185,18 @@ vi.mock("@/lib/pdf-view", async (importOriginal) => {
     },
   };
 });
+
+// Where `<leader>cd` puts a thought. Faked rather than run over fake-indexeddb,
+// whose callbacks wait on the timers every case here holds still; what the
+// outbox does with a dump is `outbox.test.ts`'s, and what is pinned here is
+// the notice the route makes of its answer.
+const outbox = vi.hoisted(() => ({
+  keep: vi.fn(),
+  flush: vi.fn(),
+  start: vi.fn(),
+  subscribe: vi.fn(() => () => {}),
+}));
+vi.mock("@/lib/outbox", () => outbox);
 
 const VAULT: Record<string, string> = {
   "index.md": "the index note",
@@ -4765,7 +4774,13 @@ describe("capturing into today's dump", () => {
     fetchNote.mockImplementation(async (path: string) => VAULT[path]);
     saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
     fetchTodos.mockResolvedValue([]);
-    captureDump.mockImplementation(async () => ({ path: "x.md", content: "" }));
+    outbox.keep.mockImplementation(async (text: string, date: string) => ({
+      id: "kept",
+      text,
+      date,
+      typedAt: 1,
+    }));
+    outbox.flush.mockResolvedValue({ waiting: [], failure: null });
   });
 
   afterEach(async () => {
@@ -4790,16 +4805,21 @@ describe("capturing into today's dump", () => {
     fireEvent.keyDown(field(), { key: "Enter" });
     await settle();
 
-    expect(captureDump).toHaveBeenCalledWith(
+    expect(outbox.keep).toHaveBeenCalledWith(
       "ask Jonas about the flat",
       readClock(new Date()).date,
     );
+    expect(outbox.flush).toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "Capture a thought" })).toBeNull();
     expect(app.notice()).toBe("Captured into today's dump");
   });
 
-  it("puts the vault's refusal where the confirmation would have been", async () => {
-    captureDump.mockRejectedValue(new Error("The vault will not take that path"));
+  it("says the thought waits, and how many do, when it cannot be sent", async () => {
+    const earlier = { id: "earlier", text: "an older one", date: "2026-10-15", typedAt: 0 };
+    outbox.flush.mockImplementation(async () => ({
+      waiting: [earlier, { id: "kept", text: "a thought", date: "2026-10-16", typedAt: 1 }],
+      failure: { kind: "offline" },
+    }));
     const app = await renderApp();
     await settle();
 
@@ -4808,7 +4828,21 @@ describe("capturing into today's dump", () => {
     fireEvent.keyDown(field(), { key: "Enter" });
     await settle();
 
-    expect(app.notice()).toBe("The vault will not take that path");
+    expect(app.notice()).toBe("Captured, waiting to send (2 waiting)");
+  });
+
+  it("puts the reason where the confirmation would have been when the thought cannot be kept", async () => {
+    outbox.keep.mockRejectedValue(new Error("The quota has been exceeded"));
+    const app = await renderApp();
+    await settle();
+
+    app.leader("c", "d");
+    fireEvent.change(field(), { target: { value: "a thought" } });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await settle();
+
+    expect(app.notice()).toBe("The quota has been exceeded");
+    expect(outbox.flush).not.toHaveBeenCalled();
   });
 
   it("writes nothing when Escape closes it", async () => {
@@ -4820,7 +4854,7 @@ describe("capturing into today's dump", () => {
     fireEvent.keyDown(field(), { key: "Escape" });
     await settle();
 
-    expect(captureDump).not.toHaveBeenCalled();
+    expect(outbox.keep).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "Capture a thought" })).toBeNull();
   });
 });

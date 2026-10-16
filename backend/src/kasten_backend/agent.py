@@ -18,8 +18,13 @@ The shell container keeps the knife.
 """
 
 import hashlib
+import json
+import os
+import tempfile
 from datetime import date  # noqa: TC003  pydantic reads the annotation at runtime
+from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import UUID  # noqa: TC003  pydantic reads the annotation at runtime
 
 from pydantic import BaseModel
 
@@ -39,8 +44,6 @@ from kasten_backend.vault import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from kasten_backend.config import Settings
 
 
@@ -94,6 +97,23 @@ class Dump(BaseModel):
     """
 
 
+class Capture(Dump):
+    """A dump from the app, which may carry the id its sender minted at typing.
+
+    `POST /api/dump` only. The agent's route and its MCP tool keep `Dump`, so
+    an agent's schema never grows a field it has no use for: an agent that
+    lost an answer reads the note again rather than resending blind.
+    """
+
+    id: UUID | None = None
+    """Minted by the phone when the thought was typed, and sent with every retry.
+
+    A phone that queued the capture offline resends it until it hears back, and
+    an answer lost on the way home looks the same to it as a request that never
+    arrived. The id is what tells the second send from a second thought.
+    """
+
+
 class ConflictError(Exception):
     """The note on disk is not the one the caller read."""
 
@@ -134,6 +154,40 @@ One mebibyte because that is the size above which jj stops tracking a new file
 by default, and therefore the size above which "jj holds the history" stops
 being true.
 """
+
+
+MOST_RECEIPTS = 1000
+"""How many capture ids the receipts file keeps, the oldest dropped first.
+
+A phone resends what it queued within days at most, and a thousand captures is
+months of them, so an id that has fallen off is one no phone still holds.
+"""
+
+
+def _receipts(store: Path) -> list[str]:
+    """Every capture id written so far, oldest first, or none when there is no file."""
+    try:
+        return json.loads(store.read_text("utf-8"))
+    except FileNotFoundError:
+        return []
+
+
+def _receipt(store: Path, ids: list[str]) -> None:
+    """Replace the receipts file with `ids`, atomically.
+
+    The way `tokens._write` does it, a `mkstemp` name in the same directory and
+    then `os.replace`, so a crash mid-write leaves the old list rather than half
+    of a new one. Half a list would read as an error on every capture after.
+    """
+    store.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(dir=store.parent, prefix=".dump-receipts", suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as output:
+            json.dump(ids[-MOST_RECEIPTS:], output)
+        os.replace(temporary, store)  # noqa: PTH105  Path has no atomic replace of a str
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def digest(content: bytes) -> str:
@@ -331,7 +385,9 @@ async def append_note(settings: Settings, path: str, text: str, sha: str | None)
     return await _put(settings, path, text, sha, appending=True)
 
 
-async def dump(settings: Settings, text: str, day: date) -> NoteRead | None:
+async def dump(
+    settings: Settings, text: str, day: date, sent: UUID | None = None
+) -> NoteRead | None:
     """Add `text` as a paragraph at the end of the `## Dump` section of `day`'s note.
 
     The one implementation behind both `POST /api/dump` and the agent's `dump`.
@@ -342,6 +398,14 @@ async def dump(settings: Settings, text: str, day: date) -> NoteRead | None:
     is not the caller's to choose, and nothing already in the note can be
     overwritten. No digest, for the reason an append needs none: the read and
     the write happen under one hold of the lock.
+
+    `sent` is the id a phone minted at typing, and only `POST /api/dump`
+    passes one. An id already written writes nothing and hands back the note as
+    it is, so a resend after a lost answer is a no-op rather than a second
+    paragraph. The ids live in `dump-receipts.json` beside the token store, out
+    of the vault so they never reach its history, and are checked and recorded
+    under the same hold of the lock as the paragraph. The paragraph is written
+    first: a write that fails leaves no receipt, and the retry lands it.
     """
     capture = text.strip()
     if capture == "":
@@ -352,7 +416,14 @@ async def dump(settings: Settings, text: str, day: date) -> NoteRead | None:
         return None
 
     relative = relative_path(settings.vault_path, note)
+    store = settings.tokens_path.with_name("dump-receipts.json")
     async with vault_write():
+        written = _receipts(store) if sent is not None else []
+        # `is_file` because the note may have been deleted since, and a resend
+        # then has nothing to hand back but a fresh note with the paragraph.
+        if str(sent) in written and note.is_file():
+            return _read(settings.vault_path, note)
+
         previous = note.read_bytes() if note.is_file() else None
         held = (
             daily_note(day, settings.periodic_path)
@@ -366,5 +437,8 @@ async def dump(settings: Settings, text: str, day: date) -> NoteRead | None:
                 create_note(note, content)
             else:
                 write_note(note, content)
+
+        if sent is not None and str(sent) not in written:
+            _receipt(store, [*written, str(sent)])
 
         return _read(settings.vault_path, note)

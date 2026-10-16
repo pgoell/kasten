@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: kasten on a phone
-description: Why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, and what no real phone has confirmed.
+description: Why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, and what no real phone has confirmed.
 tags: [design, phone, touch, vim, keyboard, frontend]
 status: stable
 ---
@@ -189,6 +189,30 @@ another `id`, and dropped the update.
 The cost falls on anyone who installed the capture app before: a browser tells
 apps apart by `id`, the `id` changed, and the old app never becomes the new
 one.
+
+## The app opens with no signal
+
+A service worker, `/sw.js`, keeps a copy of the app on the phone. When a
+release installs it, it stores the shell, `index.html`, and every hashed file
+under `/assets/`. It also keeps a copy of each public file the app asks for,
+such as the manifest, the icons and pdf.js. It never touches `/api/`, the
+sign-in under `/oauth2/`, the chat, the terminal or the agent door: those reach
+the server or fail.
+
+The shell is network-first. Each start asks the server for it and keeps the
+answer, and only when the request fails outright does the copy answer, for
+whatever route was asked. A cache-first shell would open faster, but it would
+show the last release until a second start, and #368 made a new release reach
+the app on its next start. The hashed files can come from the cache first, as
+a new release gives them new names.
+
+oauth2-proxy stands in front of the app, and when the session has expired it
+answers with a redirect to its sign-in page. The worker passes that redirect,
+or a `401`, to the page as it came and keeps no copy of it, so the sign-in
+page never takes the place of the app. Only a plain `200` from kasten's own
+origin goes into the cache.
+[Deploy to the VPS](/how-to/deploy-to-the-vps.md#remove-the-service-worker)
+shows how to remove the worker.
 
 ## What no real phone has confirmed
 

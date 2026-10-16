@@ -1308,7 +1308,7 @@ async def save_file(
 
 @app.post("/api/dump")
 async def capture_dump(
-    capture: agent.Dump, settings: Annotated[Settings, Depends(get_settings)]
+    capture: agent.Capture, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Note:
     """Add one paragraph to the `## Dump` section of a day's note.
 
@@ -1325,9 +1325,10 @@ async def capture_dump(
     `agent.dump` is the whole of it, and `POST /agent/dump` calls the same
     function: one rule about where a thought lands, whoever sent it. Text with
     nothing in it after the trim is a 422, answered by the handler registered
-    above.
+    above. Only this route takes the capture's `id`, which makes a phone's
+    resend of a queued capture write nothing the second time.
     """
-    landed = await agent.dump(settings, capture.text, capture.date)
+    landed = await agent.dump(settings, capture.text, capture.date, capture.id)
     if landed is None:
         raise HTTPException(status_code=400, detail="The vault will not take that path")
 

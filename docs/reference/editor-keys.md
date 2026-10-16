@@ -1109,9 +1109,13 @@ with the day it writes to under the input.
 | Escape | Close the prompt and write nothing |
 
 Enter on an empty input does nothing. The text is sent as it was typed, bar the
-spaces around it, and a short line in the status bar says it landed, or says
-why it did not. The day is read at the press, so a prompt left open over
-midnight writes into the new day.
+spaces around it. The thought is kept in the browser first and sent after, so
+nothing is lost with no signal. A short line in the status bar says "Captured
+into today's dump" when it landed, "Captured, waiting to send (N waiting)" when
+it waits, N counting every thought still waiting, or why the browser could not keep it. A
+waiting thought goes when the signal returns, into the day it was typed on. The
+day is read at the press, so a prompt left open over midnight writes into the
+new day.
 
 The dump is the section of prose the day's loose thoughts collect in, so each
 capture lands as a paragraph of its own at the end of the section, before any

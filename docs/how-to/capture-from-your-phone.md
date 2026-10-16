@@ -20,6 +20,22 @@ way you do on the desktop. The page keeps the last few sends under the button,
 which is how you know they landed. That list lives in the page and goes when you
 close it; the dump itself is in the daily note.
 
+## With no signal
+
+Send works with no signal too. The phone keeps the thought, empties the box and
+lists it under **Waiting**, with the day it is for and the word `waiting`. Close
+the app if you like: the thought stays on the phone.
+
+When the signal returns, or when you open kasten again, each waiting thought
+goes to the vault in the order you typed it and moves to the sent list. It
+lands in the daily note of the day you typed it, not the day it went, and a
+send that was cut off halfway never writes the same thought twice.
+
+If the page shows **Waiting: sign in again**, your login has run out. Tap
+**sign in again**, sign in, and open `/capture` once more; the waiting thoughts
+go then. Should the vault refuse a thought, the page shows its reason, and that
+thought and the ones after it wait.
+
 ## Put it on the home screen
 
 The capture page is part of the kasten app.
@@ -53,6 +69,8 @@ says why. To send something from another app, copy it, open `/capture` and paste
 
 `<leader>cd` opens the same capture as a one-line prompt over whatever you are
 doing, described in [Editor keys](/reference/editor-keys.md#capturing-into-todays-dump).
+It keeps the thought the same way, and says "Captured, waiting to send" when it
+could not go yet.
 
 ## Related
 

@@ -1,16 +1,21 @@
+import "fake-indexeddb/auto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import * as api from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { reset } from "@/lib/outbox";
 import { routeTree } from "@/routeTree.gen";
 
 /**
  * `/capture` mounted, because nothing else renders it.
  *
  * The phone's way into the dump, and the page Android's share sheet opens. So
- * what this file holds is a thought typed and sent, and a share arriving in the
- * query and leaving by either button.
+ * what this file holds is a thought typed and sent, kept waiting when it cannot
+ * go, and a share arriving in the query and leaving by either button.
+ *
+ * A dump leaves through the outbox's own raw fetch, so that is what these stub,
+ * with fake-indexeddb under the outbox in place of the phone's store.
  */
 
 const PAGE = `<!doctype html><html><head><title>A post</title></head><body>
@@ -43,9 +48,37 @@ async function renderRoute(at = "/capture") {
   };
 }
 
+/** Drop the outbox's database, which only goes once the outbox has let go of it. */
+function dropped(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase("kasten-outbox");
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/** A fetch that answers every call with `answer`, which may throw as no signal does. */
+function answering(answer: () => Response) {
+  const sent = vi.fn(async (_url: string, _init: RequestInit) => answer());
+  vi.stubGlobal("fetch", sent);
+  return sent;
+}
+
+const ok = () => new Response(JSON.stringify({ path: "x.md", content: "" }), { status: 200 });
+
+const offline = () => {
+  throw new TypeError("Failed to fetch");
+};
+
 describe("the capture route", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.restoreAllMocks();
+    await reset();
+    await dropped();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("opens on an empty box with the focus in it and today's date above", async () => {
@@ -59,34 +92,83 @@ describe("the capture route", () => {
   });
 
   it("sends the thought for this browser's day, lists it, and empties the box", async () => {
-    const sent = vi
-      .spyOn(api, "captureDump")
-      .mockResolvedValue({ path: "01 Periodic/00 Daily/x.md", content: "" });
+    const sent = answering(ok);
     const { field } = await renderRoute();
 
     fireEvent.change(field, { target: { value: "  ask Jonas about the flat \n" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => expect(field).toHaveValue(""));
-    expect(sent).toHaveBeenCalledWith("ask Jonas about the flat", readClock(new Date()).date);
-    expect(screen.getByRole("list", { name: "Sent" })).toHaveTextContent(
+    expect(await screen.findByRole("list", { name: "Sent" }, { timeout: 2000 })).toHaveTextContent(
       "ask Jonas about the flat",
     );
+    expect(sent.mock.calls.map(([, init]) => JSON.parse(init.body as string))).toEqual([
+      expect.objectContaining({
+        text: "ask Jonas about the flat",
+        date: readClock(new Date()).date,
+      }),
+    ]);
   });
 
-  it("keeps the thought and says why when the vault refuses it", async () => {
-    vi.spyOn(api, "captureDump").mockRejectedValue(new Error("Nothing to capture"));
+  it("keeps a refused thought waiting and says why", async () => {
+    answering(
+      () =>
+        new Response(JSON.stringify({ detail: "Nothing to capture" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
     const { field } = await renderRoute();
 
     fireEvent.change(field, { target: { value: "on a train" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Nothing to capture");
-    expect(field).toHaveValue("on a train");
+    expect(screen.getByRole("list", { name: "Waiting" })).toHaveTextContent("on a train");
+    expect(field).toHaveValue("");
+  });
+
+  it("keeps a thought sent with no signal under Waiting, and sends it when the signal returns", async () => {
+    answering(offline);
+    const { field } = await renderRoute();
+
+    fireEvent.change(field, { target: { value: "at the bus stop" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const list = await screen.findByRole("list", { name: "Waiting" });
+    await waitFor(() => expect(list).toHaveTextContent("at the bus stop"));
+    const row = within(list).getByText("at the bus stop").closest("li") as HTMLElement;
+    expect(row).toHaveTextContent(readClock(new Date()).date);
+    expect(row).toHaveTextContent("waiting");
+    expect(field).toHaveValue("");
+    expect(screen.queryByRole("list", { name: "Sent" })).toBeNull();
+
+    answering(ok);
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+    });
+
+    expect(await screen.findByRole("list", { name: "Sent" })).toHaveTextContent("at the bus stop");
+    await waitFor(() => expect(screen.queryByRole("list", { name: "Waiting" })).toBeNull());
+  });
+
+  it.each([
+    ["the proxy's redirect", () => ({ ok: false, status: 0, type: "opaqueredirect" }) as Response],
+    ["a 401", () => new Response("", { status: 401 })],
+  ])("says to sign in again after %s", async (_name, answer) => {
+    answering(answer);
+    const { field } = await renderRoute();
+
+    fireEvent.change(field, { target: { value: "behind the proxy" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Waiting: sign in again");
+    expect(screen.getByRole("link", { name: "sign in again" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("list", { name: "Waiting" })).toHaveTextContent("behind the proxy");
   });
 
   it("fills the box from a share, and drops the share once it is sent", async () => {
-    vi.spyOn(api, "captureDump").mockResolvedValue({ path: "x.md", content: "" });
+    answering(ok);
     const { field, router } = await renderRoute(
       "/capture?title=A%20post&text=https%3A%2F%2Fa.b%2Fc&url=https%3A%2F%2Fa.b%2Fc",
     );
@@ -99,12 +181,12 @@ describe("the capture route", () => {
   });
 
   it("clips a shared page into the inbox the way the import key does", async () => {
+    const sent = answering(ok);
     vi.spyOn(api, "fetchFiles").mockResolvedValue([]);
     vi.spyOn(api, "fetchPage").mockResolvedValue({ url: "https://a.b/c", html: PAGE });
     const made = vi
       .spyOn(api, "createNote")
       .mockResolvedValue({ path: "00 Inbox/A post.md", content: "" });
-    const dumped = vi.spyOn(api, "captureDump");
     await renderRoute("/capture?text=https%3A%2F%2Fa.b%2Fc");
 
     fireEvent.click(screen.getByRole("button", { name: "Clip to inbox" }));
@@ -116,6 +198,6 @@ describe("the capture route", () => {
       "00 Inbox/A post.md",
       expect.stringContaining("type: Source"),
     );
-    expect(dumped).not.toHaveBeenCalled();
+    expect(sent.mock.calls.map(([url]) => url)).not.toContain("/api/dump");
   });
 });
