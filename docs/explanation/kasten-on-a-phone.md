@@ -226,10 +226,13 @@ open in the editor holds its unsaved text at `pagehide`, as for any reload,
 and shows it again after. A missing stylesheet, which Vite reports as `Unable
 to preload CSS` and the router does not reload for, reloads through kasten's
 error screen, `src/lib/chunk-reload.tsx`. That screen renders after the old
-route has gone, too late to hold an editor's text, but only `/`, the editor's
-own route, has a chunk with a stylesheet, so no editor is being left when it
-fires. Each reloads once per chunk, so a chunk the new release lacks too ends
-on the error and not in a loop (#379).
+route has gone; the editor held the text of its writes still in the air as it
+unmounted (#382), and only `/`, the editor's own route, has a chunk with a
+stylesheet, so no editor is being left when it fires. Each reloads once per
+message and release: booting a release other than the one the tab last booted
+gives the reloads back, which Safari needs, since its message names no chunk
+(#383). A chunk the new release lacks too ends on the error and not in a loop
+(#379).
 
 [Deploy to the VPS](/how-to/deploy-to-the-vps.md#remove-the-service-worker)
 shows how to remove the worker.

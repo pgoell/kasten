@@ -60,7 +60,8 @@ function claim(message: string): boolean {
  * with the old route still mounted, so the editor's text is held on
  * `pagehide`; `forgetSpentReloads` lets it do so once per release. This
  * screen renders after the old route has unmounted, and a reload here would
- * cancel the editor's unmount flush, so it leaves scripts alone. A lazy route that depends on a stylesheet fails first with Vite's
+ * cancel the editor's unmount flush, so it leaves scripts alone. A lazy
+ * route that depends on a stylesheet fails first with Vite's
  * "Unable to preload CSS", which the router does not reload for. Only `/`,
  * the editor's own route, has such a chunk today, so no editor is unmounting
  * when this reloads.
