@@ -375,7 +375,8 @@ export interface Divided {
  *
  * The first `::` divides it, so an answer holding one of its own keeps it. The
  * schedule, the token and the Anki id come off the back, all being the format
- * around the card rather than part of the answer.
+ * around the card rather than part of the answer. A `::` inside a code span is
+ * code and divides nothing, so `` `{{c1::x}}` `` is no card at all.
  *
  * An empty back comes back empty rather than as null. A question with no answer
  * under it is a card somebody wrote to answer later, which is a state and not a
@@ -383,8 +384,9 @@ export interface Divided {
  * this instead of each deciding for themselves.
  */
 export function divide(line: string): Divided | null {
-  const at = line.indexOf("::");
-  if (at === -1) return null;
+  const spans = codeSpans(line);
+  const at = [...line.matchAll(/::/g)].find((found) => !inCode(spans, found.index))?.index;
+  if (at === undefined) return null;
   return {
     front: withoutAnkiId(line.slice(0, at)).trim(),
     back: withoutToken(withoutAnkiId(line.slice(at + 2).replace(SR, ""))).trim(),

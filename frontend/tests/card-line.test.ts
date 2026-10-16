@@ -299,6 +299,12 @@ describe("a code span is code (#346, #347)", () => {
     expect(performance.now() - start).toBeLessThan(100);
   });
 
+  it("B2 divides no line at a :: inside a code span", () => {
+    expect(divide("`{{c1::x}}`")).toBeNull();
+    expect(divide("`std::vector` is a container")).toBeNull();
+    expect(divide("`a::b`::c")).toEqual({ front: "`a::b`", back: "c" });
+  });
+
   it("A3 finds no token inside a code span", () => {
     expect(suspended("`a !suspended b`::c")).toBe(false);
     expect(suspended("`a` !suspended")).toBe(true);
