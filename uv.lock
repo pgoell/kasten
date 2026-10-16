@@ -666,7 +666,7 @@ wheels = [
 
 [[package]]
 name = "kasten-backend"
-version = "0.49.4"
+version = "0.49.5"
 source = { editable = "backend" }
 dependencies = [
     { name = "alembic" },
