@@ -7,7 +7,7 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { formatTodo, parseTodo, type Todo } from "@/lib/todo";
+import { parseTodo, type Todo } from "@/lib/todo";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type Column = "open" | "doing" | "waiting" | "blocked" | "done" | "rejected";
@@ -162,8 +162,21 @@ export function withProjectLink(
   if (filed) return null;
 
   const link = `[[${choice.index.slice(0, -".md".length)}|${choice.name}]]`;
-  return formatTodo({ ...todo, text: todo.text === "" ? link : `${todo.text} ${link}` });
+  const at = FIELDS_START.exec(line)?.index ?? line.length;
+  return `${line.slice(0, at)} ${link}${line.slice(at)}`;
 }
+
+/**
+ * Where a line's words end: the first field marker, a trailing `^blockid`, or
+ * the end of the line. `👤` counts, since its name runs to the next marker and
+ * a link after it would become who the todo waits on.
+ *
+ * The link goes in here rather than through `formatTodo`, which would turn a
+ * tab indent into a space and un-nest a part, move a block id off the end,
+ * and collapse the spacing somebody typed.
+ */
+const FIELDS_START =
+  /[ \t]+(?:📅|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|➕|✅|❌|⏲|⏱|🆔|⛔|👤)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$/u;
 
 /** What a lane is called: the project's own folder name, or the pile still to sort. */
 export function laneName(project: string | null): string {

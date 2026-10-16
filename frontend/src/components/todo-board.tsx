@@ -48,6 +48,8 @@ function cardKey(hit: SearchHit): string {
 }
 
 interface Lane {
+  /** The project's whole path or the kind, since two roots can hold a folder of one name. */
+  id: string;
   name: string;
   /** The lane's cards, one list per column, in `COLUMNS` order. */
   cells: Card[][];
@@ -159,6 +161,7 @@ export function TodoBoard({
     return order.map((lane) => {
       const members = groups.get(lane) ?? [];
       return {
+        id: lane ?? "",
         name: byProject ? laneName(lane) : (lane ?? "No kind"),
         cells: COLUMNS.map((column) => members.filter(({ todo }) => columnOf(todo) === column)),
       };
@@ -275,7 +278,7 @@ export function TodoBoard({
         tabIndex={focused ? 0 : -1}
         onClick={() => onOpen(hit.path, hit.line)}
         title={key}
-        className={`${ROW} flex min-w-0 flex-col gap-0.5 text-one-fg ${focused ? CURSOR : ""}`}
+        className={`${ROW} flex min-w-0 flex-col gap-0.5 text-one-fg ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""}`}
       >
         {parent !== undefined && (
           <span className="w-full truncate text-[11px] text-one-muted">↳ {parent.todo.text}</span>
@@ -359,8 +362,26 @@ export function TodoBoard({
   return (
     <div ref={root} className="flex-1 overflow-auto py-1">
       {picker !== null && (
-        <div data-testid="todo-project-pick" className="border-b border-one-line pb-1">
-          <p className="px-3 py-1 text-[11px] text-one-accent">project for: {picker.hit.text}</p>
+        // Stuck to the top of the scroll, so a `p` far down a long column
+        // opens a picker that is in sight.
+        <div
+          data-testid="todo-project-pick"
+          className="sticky top-0 z-10 border-b border-one-line bg-one-bg pb-1"
+        >
+          <div className="flex items-center gap-3 px-3 text-[11px] text-one-accent">
+            <span className="min-w-0 flex-1 truncate py-1">project for: {picker.hit.text}</span>
+            {/* Escape by finger, as the list's blocker picker has it. */}
+            {coarse && (
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setPicker(null)}
+                className="min-h-11 shrink-0 px-3 text-one-muted"
+              >
+                cancel
+              </button>
+            )}
+          </div>
           {choices.length === 0 && (
             <p className="px-3 py-1 text-[13px] text-one-muted">no folder under 02 Projects</p>
           )}
@@ -381,23 +402,35 @@ export function TodoBoard({
 
       {/* A phone has room for one column, so the tabs pick which. */}
       {coarse && (
-        <div role="tablist" className="flex overflow-x-auto border-b border-one-line text-[11px]">
-          {COLUMNS.map((name, index) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              tabIndex={-1}
-              aria-selected={index === col}
-              onClick={() => {
-                setCol(index);
-                setRow(0);
-              }}
-              className={`min-h-11 shrink-0 px-3 ${index === col ? "text-one-fg" : "text-one-muted"}`}
-            >
-              {COLUMN_HEADING[name]} {columns[index]?.length ?? 0}
-            </button>
-          ))}
+        <div className="flex border-b border-one-line text-[11px]">
+          <div role="tablist" className="flex min-w-0 flex-1 overflow-x-auto">
+            {COLUMNS.map((name, index) => (
+              <button
+                key={name}
+                type="button"
+                role="tab"
+                tabIndex={-1}
+                aria-selected={index === col}
+                onClick={() => {
+                  setCol(index);
+                  setRow(0);
+                }}
+                className={`min-h-11 shrink-0 px-3 ${index === col ? "text-one-fg" : "text-one-muted"}`}
+              >
+                {COLUMN_HEADING[name]} {columns[index]?.length ?? 0}
+              </button>
+            ))}
+          </div>
+          {/* `g` by finger. */}
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setByProject(!byProject)}
+            aria-pressed={byProject}
+            className="min-h-11 shrink-0 px-3 text-one-muted"
+          >
+            lanes
+          </button>
         </div>
       )}
 
@@ -407,7 +440,7 @@ export function TodoBoard({
         lanes
           .filter((lane) => (lane.cells[col]?.length ?? 0) > 0)
           .map((lane) => (
-            <div key={lane.name}>
+            <div key={lane.id}>
               <h3 className={heading}>{lane.name}</h3>
               {lane.cells[col]?.map(drawCard)}
             </div>
@@ -424,7 +457,7 @@ export function TodoBoard({
             </div>
           ))}
           {lanes.map((lane) => (
-            <div key={lane.name} className="col-span-6 grid grid-cols-subgrid">
+            <div key={lane.id} className="col-span-6 grid grid-cols-subgrid">
               <h3 className={`${heading} col-span-6 border-t border-one-line`}>{lane.name}</h3>
               {lane.cells.map((cell, index) => (
                 <div key={COLUMNS[index]} className="min-w-0">

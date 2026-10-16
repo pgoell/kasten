@@ -108,6 +108,8 @@ function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = {}) {
     choices: () =>
       within(screen.getByTestId("todo-project-pick"))
         .queryAllByRole("button")
+        // The choices alone, not the `cancel` a touch screen draws beside them.
+        .filter((one) => one.hasAttribute("aria-current"))
         .map((one) => one.textContent),
     filter: () => screen.getByLabelText("filter todos") as HTMLInputElement,
     answer: (next: typeof BOARD) => act(() => client.setQueryData(["todos", archive], next)),
@@ -409,5 +411,53 @@ describe("the todo board", () => {
 
     expect(pane.onCycle).toHaveBeenCalledTimes(1);
     expect(pane.onCycle).toHaveBeenCalledWith(CHART, "done");
+  });
+
+  it("A3 the lanes button switches lanes on a touch screen", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+    expect(pane.headings()).toEqual(["#client", "#internal", "No kind"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "lanes" }));
+    expect(pane.headings()).toEqual(["No project", "FDE"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "lanes" }));
+    expect(pane.headings()).toEqual(["#client", "#internal", "No kind"]);
+  });
+
+  it("B4 cancel on a touch screen shuts the project picker and writes nothing", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+
+    fireEvent.click(screen.getByLabelText("more for fix the tap"));
+    fireEvent.click(screen.getByLabelText("project fix the tap"));
+    fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+
+    expect(screen.queryByTestId("todo-project-pick")).toBeNull();
+    expect(pane.onEdit).not.toHaveBeenCalled();
+  });
+
+  it("B5 two project folders of one name under two roots draw two lanes", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const pane = await boardPane({
+      hits: [
+        { path: "02 Projects/Foo/a.md", line: 1, text: "- [ ] one" },
+        { path: "03 Areas/Foo/b.md", line: 1, text: "- [ ] two" },
+      ],
+    });
+
+    pane.press("g");
+
+    expect(pane.headings()).toEqual(["Foo", "Foo"]);
+    expect(pane.texts()).toHaveLength(2);
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
+  });
+
+  it("D7 a card on a touch screen is a full tap target", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+
+    expect(pane.card("fix the tap").className).toContain("min-h-11");
   });
 });

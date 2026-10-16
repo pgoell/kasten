@@ -1569,9 +1569,11 @@ nothing here. The leader keys work as they do over the list.
 
 On a touch screen `board` beside `done`, `next` and `view` does what `c` does.
 The board shows one column at a time under a row of tabs, one per column with
-its count; a tap on a tab shows that column. A tap on a card opens its line,
-and its `⋯` opens a strip: `open`, `doing`, `done`, `blocked`, `waiting` and
-`rejected` move it on one tap, and `project` is `p`.
+its count; a tap on a tab shows that column, and `lanes` beside the tabs does
+what `g` does. A tap on a card opens its line, and its `⋯` opens a strip:
+`open`, `doing`, `done`, `blocked`, `waiting` and `rejected` move it on one
+tap, and `project` is `p`. `cancel` beside the project picker's line shuts it
+and writes nothing.
 
 ## The todo overlay
 

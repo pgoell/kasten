@@ -163,6 +163,33 @@ describe("withProjectLink", () => {
     );
   });
 
+  it("keeps a tab indent byte for byte", () => {
+    expect(withProjectLink("\t- [ ] part 📅 2026-10-20", FDE, PATHS)).toBe(
+      "\t- [ ] part [[02 Projects/FDE/index|FDE]] 📅 2026-10-20",
+    );
+  });
+
+  it("leaves a block id last", () => {
+    expect(withProjectLink("- [ ] a 📅 2026-10-20 ^blk1", FDE, PATHS)).toBe(
+      "- [ ] a [[02 Projects/FDE/index|FDE]] 📅 2026-10-20 ^blk1",
+    );
+    expect(withProjectLink("- [ ] a ^blk1", FDE, PATHS)).toBe(
+      "- [ ] a [[02 Projects/FDE/index|FDE]] ^blk1",
+    );
+  });
+
+  it("keeps double spaces in the words", () => {
+    expect(withProjectLink("- [ ] send  the deck", FDE, PATHS)).toBe(
+      "- [ ] send  the deck [[02 Projects/FDE/index|FDE]]",
+    );
+  });
+
+  it("goes ahead of who the todo waits on", () => {
+    expect(withProjectLink("- [w] ask 👤 2026-10-14 Louise 📅 2026-10-20", FDE, PATHS)).toBe(
+      "- [w] ask [[02 Projects/FDE/index|FDE]] 👤 2026-10-14 Louise 📅 2026-10-20",
+    );
+  });
+
   it("is null when a link already lands in the folder", () => {
     expect(
       withProjectLink("- [ ] see [[02 Projects/FDE/notes/2026/kickoff]]", FDE, PATHS),
