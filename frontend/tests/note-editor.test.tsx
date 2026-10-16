@@ -7,7 +7,7 @@ import { StatusBar } from "@/components/status-bar";
 import { ChangedOnDisk } from "@/lib/api";
 import { resetHeld, unstamped } from "@/lib/held-text";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { useAutosave } from "@/lib/use-autosave";
+import { forgetQueues, useAutosave } from "@/lib/use-autosave";
 import { digestOf } from "@/lib/vault-events";
 
 // The api module builds its client at import time and captures `fetch` there,
@@ -177,6 +177,8 @@ function renderNote(path: string) {
 
 describe("an open note", () => {
   beforeEach(() => {
+    // The write queue is the page's, and each test is a page of its own.
+    forgetQueues();
     serveVault();
     // A vault that stamps nothing, so what comes back is what was sent. The
     // test that turns on the difference writes its own.

@@ -9,6 +9,7 @@ import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import type { PdfRenderer } from "@/lib/pdf-view";
+import { forgetQueues } from "@/lib/use-autosave";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
 import { hashed } from "./digests";
@@ -246,6 +247,8 @@ let signal: AbortSignal;
 
 beforeEach((context) => {
   signal = context.signal;
+  // The write queue is the page's, and each test is a page of its own.
+  forgetQueues();
 });
 
 // Outermost, so it runs after each block's own cleanup, whose unmount flushes
@@ -1102,10 +1105,10 @@ describe("the route", () => {
     expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
   });
 
-  it("lists a flush that fails after the note was reopened, and keeps it through a save there", async () => {
+  it("keeps a flush that fails after the note was reopened on screen, and saves it from there", async () => {
     // Back on the route and in the note before the flush answers: the buffer
-    // opens on the flush's text (#303), and its failure puts the vault's text
-    // back, so the refused text is only held.
+    // opens on the flush's text (#303), and takes the entry its failure holds,
+    // so the screen keeps the text and never flips back (#387).
     const app = await editing();
     let fail: (() => void) | undefined;
     saveNote.mockImplementationOnce(
@@ -1126,8 +1129,9 @@ describe("the route", () => {
     await act(async () => fail?.());
     await settle();
 
-    expect(app.text()).toBe("the index note");
-    expect(app.held()?.label).toBe("Not saved: index");
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Could not save");
+    expect(app.held()).toBeNull();
     app.press("x");
     app.press("x");
     await act(async () => {
@@ -1138,12 +1142,12 @@ describe("the route", () => {
 
     expect(saveNote).toHaveBeenLastCalledWith(
       "index.md",
-      "e index note",
+      " index note",
       false,
       await baseOf("the index note"),
     );
-    expect(app.held()?.label).toBe("Not saved: index");
-    expect(heldText("index.md")?.content).toBe("he index note");
+    expect(app.held()).toBeNull();
+    expect(heldText("index.md")).toBeUndefined();
   });
 
   it("writes the waiting text with keepalive when the page goes away", async () => {

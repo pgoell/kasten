@@ -30,14 +30,6 @@ function lower(counts: Map<string, number>, note: string): void {
   else counts.delete(note);
 }
 
-/**
- * The entries held as the editor route unmounted, of writes then in the air.
- * Module-level, because the route mounted again has a new hook that knows
- * none of the old one's writes, and the cache the leave filled reads to it as
- * the vault's text (#382). Each leaves the store when its write answers.
- */
-const leftAloft = new WeakSet<Held>();
-
 /** A queued write a `:e!` threw away before its turn came, never sent (#301). */
 class Skipped extends Error {}
 
@@ -77,6 +69,102 @@ function sentUnder(air: InAir | undefined, loaded: number): string | undefined {
 /** How many times a clean buffer of `note` took the vault's text in. */
 function reloadsOf(reloads: Map<string, number>, note: string): number {
   return reloads.get(note) ?? 0;
+}
+
+/** A note's last write still to answer; see `queued` below. */
+interface Queued {
+  link: Promise<string | undefined>;
+  visit: number;
+  loaded: number;
+  ok: Promise<boolean>;
+  // A later write names this one's link: typed on this text, it carries it.
+  followed: boolean;
+}
+
+// The write queue, by note, and the counts its entries are stamped with: the
+// page's, not the hook's. The route mounted again has a new hook, and the
+// flush the old one sent on leaving is the head of the queue the reopened
+// buffer joins (#386, #387). Its counts go on from the old hook's, or a new
+// visit 1 would read as the old visit 1 that sent the flush.
+
+// The same count as `reverts` by note, which a write still queued reads as it
+// would go out (#301): a `:e!` on the note opened next throws away none of
+// this one.
+const dropped = { current: new Map<string, number>() };
+// How many times a clean buffer took the vault's text in, which a failing
+// write compares against the reading it left with: after one, the screen
+// holds text not typed on the write's (#290). By note: a reload of the note
+// opened next says nothing about the buffer a flush of this one left.
+const reloads = { current: new Map<string, number>() };
+// The notes a write is on its way to, counted rather than flagged: `:w`
+// during a quiet write puts two in the air for one note, and the first to
+// answer must not read as the last. By path, because the tail this answers is
+// the note just left: its text is still in flight while the hook has already
+// moved on, and nothing else on the route can see that write.
+const writing = { current: new Map<string, number>() };
+// The last text sent to each note while any write to it is in the air. A
+// write empties `pending` as it goes out, and a plain fetch is cancelled with
+// the page, so this is the only copy a hide can find of a quiet write's text.
+// With the `reloads` count it left with: after a reload, text typed on is
+// typed on the reload's text, and not on this. With the base it was typed on
+// and the text it named once sent, so a hide after the note was left can
+// hold and resend it for that note (#302). `stale` gathers the base and the
+// named text of every write to the note still in the air, the earlier ones
+// too: a read answering with one of them is from before a write (#304).
+// `sent` is the text and `reloads` count of the newest write to the note
+// that went out: a write still queued behind it was never sent, and a hide
+// typed behind the queue finds that text on disk, not the queued one's
+// (#310). `restoring` marks the write `:e!` queued with the vault's own
+// text, which nobody typed and a hide neither holds nor sends (#311).
+// `unseen` is the write ahead that a buffer reopened on the text under it
+// never took: a write of that buffer replaces it here and inherits its
+// `sent`, which is then text the buffer was not typed on (#317).
+const inAir = { current: new Map<string, InAir>() };
+// The last write to each note still to answer, resolving with the text on
+// disk once it has, as far as the page knows. The next write to that note
+// goes out behind it and names that text as its base: not the text the last
+// one sent, which `stamp` may have given a block, and which a write that
+// failed never put there. Only within the visit that made it: a flush from
+// the visit before lands text the buffer reopened without, and naming it
+// would let this buffer over it unasked. Nor after a reload into the clean
+// buffer since it went out: the next write was typed on the reload's text,
+// and still goes out behind it, but names that text (#298). A visit opened
+// on the text the last write sent takes the link over (#303). `ok` answers
+// whether every write in the queue so far landed, for `saveFirst` (#306).
+const queued = { current: new Map<string, Queued>() };
+// The notes whose outside write `reconcile` declined while a write to them
+// was in the air, reloaded once the last of those writes answers (#296).
+const missed = { current: new Set<string>() };
+// Bumped by every write that goes out, which orders held entries against
+// the writes that fail after them (`heldAt`).
+const saves = { current: 0 };
+// Bumped each time a note is opened, so a write knows whether the visit it
+// was made in is still the one on screen.
+const visit = { current: 0 };
+// The `saves` count and the visit when each entry was held, so a failing
+// write can tell an entry held after it went out on the same buffer (newer
+// text, the hide's) from one typed on other text. In memory: the store keeps
+// an unchanged entry's object.
+const heldAt = { current: new WeakMap<Held, { seq: number; visit: number }>() };
+/**
+ * The entries held as the editor route unmounted, of writes then in the air.
+ * The cache the leave filled reads to the hook mounted next as the vault's
+ * text (#382). Each leaves the store when its write answers.
+ */
+let leftAloft = new WeakSet<Held>();
+
+/** Forget every write of the page, as a new page starts with none. For tests. */
+export function forgetQueues(): void {
+  queued.current = new Map();
+  inAir.current = new Map();
+  writing.current = new Map();
+  dropped.current = new Map();
+  reloads.current = new Map();
+  missed.current = new Set();
+  saves.current = 0;
+  visit.current = 0;
+  heldAt.current = new WeakMap();
+  leftAloft = new WeakSet();
 }
 
 /**
@@ -141,71 +229,6 @@ export function useAutosave(
   // screen. Reverts are counted rather than flagged because a second `:e!`
   // during the same write has to read as another one.
   const reverts = useRef(0);
-  // The same count by note, which a write still queued reads as it would go
-  // out (#301): a `:e!` on the note opened next throws away none of this one.
-  const dropped = useRef(new Map<string, number>());
-  // How many times a clean buffer took the vault's text in, which a failing
-  // write compares against the reading it left with: after one, the screen
-  // holds text not typed on the write's (#290). By note: a reload of the note
-  // opened next says nothing about the buffer a flush of this one left.
-  const reloads = useRef(new Map<string, number>());
-  // The notes a write is on its way to, counted rather than flagged: `:w`
-  // during a quiet write puts two in the air for one note, and the first to
-  // answer must not read as the last. By path, because the tail this answers is
-  // the note just left: its text is still in flight while this hook has already
-  // moved on, and nothing else on the route can see that write.
-  const writing = useRef(new Map<string, number>());
-  // The last text sent to each note while any write to it is in the air. A
-  // write empties `pending` as it goes out, and a plain fetch is cancelled with
-  // the page, so this is the only copy a hide can find of a quiet write's text.
-  // With the `reloads` count it left with: after a reload, text typed on is
-  // typed on the reload's text, and not on this. With the base it was typed on
-  // and the text it named once sent, so a hide after the note was left can
-  // hold and resend it for that note (#302). `stale` gathers the base and the
-  // named text of every write to the note still in the air, the earlier ones
-  // too: a read answering with one of them is from before a write (#304).
-  // `sent` is the text and `reloads` count of the newest write to the note
-  // that went out: a write still queued behind it was never sent, and a hide
-  // typed behind the queue finds that text on disk, not the queued one's
-  // (#310). `restoring` marks the write `:e!` queued with the vault's own
-  // text, which nobody typed and a hide neither holds nor sends (#311).
-  // `unseen` is the write ahead that a buffer reopened on the text under it
-  // never took: a write of that buffer replaces it here and inherits its
-  // `sent`, which is then text the buffer was not typed on (#317).
-  const inAir = useRef(new Map<string, InAir>());
-  // The last write to each note still to answer, resolving with the text on
-  // disk once it has, as far as this hook knows. The next write to that note
-  // goes out behind it and names that text as its base: not the text the last
-  // one sent, which `stamp` may have given a block, and which a write that
-  // failed never put there. Only within the visit that made it: a flush from
-  // the visit before lands text the buffer reopened without, and naming it
-  // would let this buffer over it unasked. Nor after a reload into the clean
-  // buffer since it went out: the next write was typed on the reload's text,
-  // and still goes out behind it, but names that text (#298). A visit opened
-  // on the text the last write sent takes the link over (#303). `ok` answers
-  // whether every write in the queue so far landed, for `saveFirst` (#306).
-  const queued = useRef(
-    new Map<
-      string,
-      {
-        link: Promise<string | undefined>;
-        visit: number;
-        loaded: number;
-        ok: Promise<boolean>;
-        // A later write names this one's link: typed on this text, it carries it.
-        followed: boolean;
-      }
-    >(),
-  );
-  // The notes whose outside write `reconcile` declined while a write to them
-  // was in the air, reloaded once the last of those writes answers (#296).
-  const missed = useRef(new Set<string>());
-  // Bumped by every write that goes out, which orders held entries against
-  // the writes that fail after them (`heldAt`).
-  const saves = useRef(0);
-  // Bumped each time a note is opened, so a write knows whether the visit it
-  // was made in is still the one on screen.
-  const visit = useRef(0);
   // The held entry the buffer holds, by identity, and the same as state for
   // the bar, which leaves out that entry alone while it is on screen.
   // Identity rather than path: a flush that fails after its note was reopened
@@ -213,11 +236,6 @@ export function useAutosave(
   // not take that one with it.
   const taken = useRef<Held | null>(null);
   const [restored, setRestored] = useState<Held | null>(null);
-  // The `saves` count and the visit when this hook held each entry, so a
-  // failing write can tell an entry held after it went out on the same buffer
-  // (newer text, the hide's) from one typed on other text. In memory: the
-  // store keeps an unchanged entry's object.
-  const heldAt = useRef(new WeakMap<Held, { seq: number; visit: number }>());
   const take = useCallback((entry: Held | null) => {
     taken.current = entry;
     setRestored(entry);
@@ -239,6 +257,69 @@ export function useAutosave(
   const lastBase = useCallback(
     (note: string) => onDisk.current ?? queryClient.getQueryData<string>(["note", note]),
     [queryClient],
+  );
+
+  /**
+   * Take the entry a write of `note` held as it failed into a clean buffer
+   * reopened on its text, which nothing else is writing: the screen keeps it,
+   * taken as a failed write is. Answers whether it did.
+   */
+  const takeFailed = useCallback(
+    (note: string, held: Held): boolean => {
+      const doc = shownRef.current?.();
+      if (
+        openRef.current !== note ||
+        pending.current !== null ||
+        writing.current.has(note) ||
+        doc === undefined ||
+        !sameText(doc, held.content)
+      ) {
+        return false;
+      }
+      take(held);
+      pending.current = held.content;
+      conflicted.current ||= held.conflicted;
+      setStatus(conflicted.current ? "conflict" : "error");
+      setReason(held.reason);
+      return true;
+    },
+    [take],
+  );
+
+  /**
+   * Follow the write to `note` in the air whose text the buffer reopened on,
+   * sent by the hook that went with the route and hears its answer alone
+   * (#387). Landed, its answer is the base; failed, the clean buffer takes
+   * the entry it held, as on a reopen within the route.
+   */
+  const follow = useCallback(
+    (note: string, held: Held) => {
+      const queue = queued.current.get(note);
+      if (queue === undefined) return;
+      queue.visit = visit.current;
+      const at = visit.current;
+      const loaded = reloadsOf(reloads.current, note);
+      // A `:e!` since put the vault's text under the buffer, and queued the
+      // write that answers for it.
+      const sent = reverts.current;
+      void Promise.all([queue.link, queue.ok]).then(([text, ok]) => {
+        if (
+          visit.current !== at ||
+          reloadsOf(reloads.current, note) !== loaded ||
+          reverts.current !== sent
+        ) {
+          return;
+        }
+        if (text !== undefined) onDisk.current = text;
+        if (ok) {
+          if (taken.current === held) take(null);
+          return;
+        }
+        const failed = heldTexts(note).find((entry) => entry.content === held.content);
+        if (failed !== undefined) takeFailed(note, failed);
+      });
+    },
+    [take, takeFailed],
   );
 
   /**
@@ -617,25 +698,10 @@ export function useAutosave(
           // the next note and threw away that one's text, not this.
           if (!here()) {
             holdText(now, held, carried);
-            // Reopened on this very text in a clean buffer, which nothing else
-            // is writing: the screen keeps it, taken as a failed write is,
-            // and the cache keeps it too. Put back, the clean screen would
-            // take the old text and leave this on the bar alone (#303).
-            const doc = shownRef.current?.();
-            if (
-              openRef.current === now &&
-              pending.current === null &&
-              !writing.current.has(now) &&
-              doc !== undefined &&
-              sameText(doc, content)
-            ) {
-              take(held);
-              pending.current = content;
-              conflicted.current ||= refused || wasConflicted;
-              setStatus(conflicted.current ? "conflict" : "error");
-              setReason(message);
-              return false;
-            }
+            // Reopened on this very text, the cache keeps it too. Put back,
+            // the clean screen would take the old text and leave this on the
+            // bar alone (#303).
+            if (takeFailed(now, held)) return false;
             settle();
             return false;
           }
@@ -685,7 +751,7 @@ export function useAutosave(
         },
       );
     },
-    [path, queryClient, take, lastBase],
+    [path, queryClient, take, lastBase, takeFailed],
   );
 
   // Of no arguments, because the editor's save key hands its caller the
@@ -899,17 +965,24 @@ export function useAutosave(
   const restore = useCallback(
     (note: string, text: string): boolean | undefined => {
       const held = heldText(note, text);
-      if (!held || pending.current !== null || writing.current.has(note)) return undefined;
+      if (!held || pending.current !== null) return undefined;
       if (!opening.current && held !== offered.current) return undefined;
       // The text of a write another hook still has in the air, which the leave
       // put in the cache: not landed yet, and the page closing would cancel
       // it. Taken, so the bar leaves it out and a hide holds it as it is; that
-      // write landing drops it, or failing holds it again.
+      // write landing drops it, or failing holds it again. The vault under
+      // the buffer is the text under that write until it answers (#386). An
+      // opening's effect follows it once it bumped the visit, which a take
+      // before it would compare against the old one (`follow`).
       if (leftAloft.has(held) && landedAs(held.content, text)) {
-        onDisk.current = text;
+        if (taken.current === held) return true;
+        const air = inAir.current.get(note);
+        onDisk.current = air === undefined ? text : (air.base ?? null);
         take(held);
+        if (!opening.current) follow(note, held);
         return true;
       }
+      if (writing.current.has(note)) return undefined;
       // Every entry the vault holds by now has landed, whichever write it was.
       for (const entry of heldTexts(note)) {
         if (landedAs(entry.content, text)) dropText(note, entry);
@@ -944,7 +1017,7 @@ export function useAutosave(
       setReason(held.reason);
       return false;
     },
-    [take],
+    [take, follow],
   );
 
   /**
@@ -1233,6 +1306,10 @@ export function useAutosave(
     if (path !== undefined && cached !== undefined && held && doc !== undefined) {
       if (sameText(doc, held.content)) restore(path, cached);
     }
+    // The leave's write the buffer took, which its sender no longer hears.
+    if (path !== undefined && taken.current !== null && leftAloft.has(taken.current)) {
+      follow(path, taken.current);
+    }
     // An editor still to mount opens on the entry held now, and only that one
     // is taken when it asks. See `opening`. An editor already showing other
     // text never takes it this visit: a later reload would put it in `pending`
@@ -1249,7 +1326,7 @@ export function useAutosave(
       setStatus("saved");
       setReason(undefined);
     }
-  }, [path, pane, queryClient, restore]);
+  }, [path, pane, queryClient, restore, follow]);
 
   return {
     status,

@@ -4,7 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk } from "@/lib/api";
 import { resetHeld } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
-import { useAutosave } from "@/lib/use-autosave";
+import { forgetQueues, useAutosave } from "@/lib/use-autosave";
 
 // The orderings of docs/reference/save-path-orderings.md that no test in
 // use-autosave.test.ts held. Its fixtures are module-local there, so the ones
@@ -149,6 +149,8 @@ function withEditor(seed: string) {
 
 describe("save path orderings", () => {
   beforeEach(() => {
+    // The write queue is the page's, and each test is a page of its own.
+    forgetQueues();
     vi.useFakeTimers();
     saveNote.mockImplementation(async (_path: string, content: string) => written(content));
   });
