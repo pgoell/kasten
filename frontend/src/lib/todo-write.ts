@@ -279,7 +279,7 @@ export function blockLine(line: string, id: string, closed: Closed): string | nu
   const todo = parseTodo(line);
   if (todo === null || todo.blockedBy.includes(id)) return null;
 
-  const named = formatTodo({ ...todo, blockedBy: [...todo.blockedBy, id] });
+  const named = patchLine(line, { ...todo, blockedBy: [...todo.blockedBy, id] });
   return blockedLines([named], closed).get(1) ?? named;
 }
 
@@ -298,7 +298,7 @@ export function unblockedEdit(before: string, after: string): string {
   if (was.state !== "blocked" || now.state !== "blocked") return after;
   if (was.blockedBy.length === 0 || now.blockedBy.length > 0) return after;
 
-  return formatTodo({ ...now, state: "open" });
+  return patchLine(after, { ...now, state: "open" });
 }
 
 export interface CycleLinesInput {
@@ -543,7 +543,7 @@ export function timerWrites(input: TimerInput): Write[] {
     // The session line has to name something, so a start stamps an id the way
     // entering done does.
     if (todo.id === undefined) {
-      lines[line - 1] = formatTodo({ ...todo, id });
+      lines[line - 1] = patchLine(lines[line - 1] ?? "", { ...todo, id });
       writes.set(path, lines.join("\n"));
     }
 
@@ -575,7 +575,11 @@ export function timerWrites(input: TimerInput): Write[] {
   // The text as the closes left it, because a todo living in today's own note
   // is both the note being closed in and the note carrying the task line.
   const after = (writes.get(path) ?? own).split("\n");
-  after[line - 1] = formatTodo({ ...todo, id, worked: formatDuration(total) });
+  after[line - 1] = patchLine(after[line - 1] ?? "", {
+    ...todo,
+    id,
+    worked: formatDuration(total),
+  });
   writes.set(path, after.join("\n"));
 
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));

@@ -19,10 +19,10 @@ import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 import {
   cycleLine,
-  formatTodo,
   isOpen,
   newId,
   parseTodo,
+  patchLine,
   setStateOn,
   type TodoState,
 } from "@/lib/todo";
@@ -156,7 +156,7 @@ export async function blockTodoInVault(hit: SearchHit, blocker: SearchHit): Prom
   if (held === null) return;
 
   if (named.id === undefined) {
-    blockerLines[blocker.line - 1] = formatTodo({ ...named, id });
+    blockerLines[blocker.line - 1] = patchLine(blocker.text, { ...named, id });
     if (!same) await saveNote(blocker.path, blockerLines.join("\n"), false, noteBase(blockerText));
   }
   lines[hit.line - 1] = held;

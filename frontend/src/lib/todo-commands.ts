@@ -5,10 +5,10 @@ import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
 import {
   cycleLine,
-  formatTodo,
   nameAt,
   newId,
   parseTodo,
+  patchLine,
   setStateOn,
   type TodoState,
 } from "@/lib/todo";
@@ -169,7 +169,24 @@ export function stampIdAtCursor(view: EditorView): void {
   // as long as that todo exists.
   if (todo === null || todo.id !== undefined) return;
 
+  // Only the span that differs is replaced, so the cursor and the rest of the
+  // line map through the change untouched.
+  const patched = patchLine(line.text, { ...todo, id: newId() });
+  let start = 0;
+  while (start < patched.length && patched[start] === line.text[start]) start += 1;
+  let end = 0;
+  while (
+    end < patched.length - start &&
+    end < line.text.length - start &&
+    patched[patched.length - 1 - end] === line.text[line.text.length - 1 - end]
+  )
+    end += 1;
+
   view.dispatch({
-    changes: { from: line.from, to: line.to, insert: formatTodo({ ...todo, id: newId() }) },
+    changes: {
+      from: line.from + start,
+      to: line.to - end,
+      insert: patched.slice(start, patched.length - end),
+    },
   });
 }

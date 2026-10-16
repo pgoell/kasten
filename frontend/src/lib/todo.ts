@@ -7,9 +7,10 @@
  * know stays in the words, where the person who typed it can see it.
  *
  * A new line is written in the one field order `tail` keeps. A line that is
- * already there is patched rather than rebuilt when its state changes: the box
- * and the stamps the change adds or drops move, and every other byte stays,
- * so a tab indent still nests a part and a `^block` id stays where links find it.
+ * already there is patched rather than rebuilt when its state or a field kasten
+ * writes changes: the box and the stamps the change adds or drops move, and
+ * every other byte stays, so a tab indent still nests a part and a `^block` id
+ * stays where links find it.
  */
 
 export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "rejected";
@@ -340,7 +341,12 @@ export function endsOfWords(line: string, fields?: number[]): number[] {
   return ends;
 }
 
-/** The fields a state change writes or takes off, each spelled as `tail` spells it. */
+/**
+ * The fields a state change or a field write puts on or takes off, each
+ * spelled as `tail` spells it. In `ORDER`'s sequence, so a stop writing `⏱` and
+ * `🆔` together finds the one when it places the other. `⛔` is not here: a
+ * line carries it more than once, and this loop writes one value per field.
+ */
 const STAMPS: {
   pattern: RegExp;
   keys: (keyof Fields)[];
@@ -361,8 +367,26 @@ const STAMPS: {
     keys: ["cancelled"],
     write: (todo) => todo.cancelled && `❌ ${todo.cancelled}`,
   },
+  { pattern: WORKED, keys: ["worked"], write: (todo) => todo.worked && `⏱ ${todo.worked}` },
   { pattern: ID, keys: ["id"], write: (todo) => todo.id && `🆔 ${todo.id}` },
 ];
+
+/** `rest` naming `blocker` as well, straight after the last `⛔` it carries. */
+function withBlocker(rest: string, blocker: string): string | null {
+  const stamp = `⛔ ${blocker}`;
+  const last = [...masked(rest).matchAll(new RegExp(BLOCKED_BY.source, "g"))].at(-1);
+  if (last !== undefined) {
+    // The value runs to a space or the line's end, so the stamp never touches a word.
+    const at = last.index + last[0].length;
+    return `${rest.slice(0, at)} ${stamp}${rest.slice(at)}`;
+  }
+  // The first one goes where any stamp goes, the end of the order.
+  const had = readFields(rest);
+  return withStamp(rest, stamp, ORDER.indexOf(BLOCKED_BY), {
+    ...had,
+    blockedBy: [...had.blockedBy, blocker],
+  });
+}
 
 /** Whether two readings carry the same words and fields, however they were spelled. */
 function sameFields(a: Fields, b: Fields): boolean {
@@ -412,7 +436,7 @@ function withStamp(rest: string, stamp: string, rank: number, want: Fields): str
  * bullet nor box.
  *
  * Exported for `todo-write.ts`, whose cascade and dependents change state the
- * way a press does.
+ * way a press does, and whose `⛔` pick, timer and unblock write a field.
  */
 export function patchLine(line: string, want: Todo, boxed = true): string {
   const todo = LINE.exec(line);
@@ -447,6 +471,16 @@ export function patchLine(line: string, want: Todo, boxed = true): string {
       if (written === null) break;
       rest = written;
     }
+  }
+
+  // Added one at a time, each after the last, which is the order the line
+  // reads back in. A blocker taken off is left to the rebuild below: no caller
+  // takes one off.
+  const named = readFields(rest).blockedBy;
+  for (const blocker of fields.blockedBy.filter((id) => !named.includes(id))) {
+    const written = withBlocker(rest, blocker);
+    if (written === null) break;
+    rest = written;
   }
 
   // Correct fields beat kept bytes: a line no place parses right on is

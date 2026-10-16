@@ -676,8 +676,8 @@ const OPEN_TASK = "- [/] wire up the pane 📅 2026-08-14 ⏫ #kasten";
 /** The same note with that line already named, so a press has nothing to stamp. */
 const NAMED = NOTE.replace(OPEN_TASK, `${OPEN_TASK} 🆔 kt-3f9a2c`);
 
-/** The line one press writes, once the id is on it. */
-const TASK = "- [/] wire up the pane #kasten 📅 2026-08-14 ⏫ 🆔 kt-3f9a2c";
+/** The line one press writes, once the id is on it: after the `⏫`, the tag where it was. */
+const TASK = "- [/] wire up the pane 📅 2026-08-14 ⏫ 🆔 kt-3f9a2c #kasten";
 
 /** One press of `t`, on the project note's line 7, with nothing running. */
 function timer(over: Partial<TimerInput> = {}): TimerInput {
@@ -769,6 +769,16 @@ describe("timerWrites, starting", () => {
   it("answers with nothing where the line is no longer a todo", () => {
     expect(timerWrites(timer({ line: 5 }))).toEqual([]);
   });
+
+  it("keeps a tab indent, a block id and unknown text when it stamps the id", () => {
+    const note = ["- [ ] parent", "\t- [ ] part zork 🜲 words ^blk1", ""].join("\n");
+    const writes = timerWrites(timer({ line: 2, notes: { [NOTE_PATH]: note } }));
+
+    expect(writes[0]).toEqual({
+      path: NOTE_PATH,
+      text: ["- [ ] parent", "\t- [ ] part zork 🜲 words 🆔 kt-3f9a2c ^blk1", ""].join("\n"),
+    });
+  });
 });
 
 const SESSION_OPEN = "- 09:12-      wire up the pane #kasten [[projects/kasten]] kt-3f9a2c";
@@ -787,14 +797,14 @@ function timeLog(...lines: string[]): string {
   ].join("\n");
 }
 
-/** The task line as a stop leaves it, the total read off the log. */
+/** The task line as a stop leaves it, the total read off the log and put after the `⏫`. */
 function worked(total: string): string {
-  return `- [/] wire up the pane #kasten 📅 2026-08-14 ⏫ ⏱ ${total} 🆔 kt-3f9a2c`;
+  return `- [/] wire up the pane 📅 2026-08-14 ⏫ ⏱ ${total} #kasten 🆔 kt-3f9a2c`;
 }
 
 /** The named task line rewritten with a total, which is what a stop writes. */
-function totalled(total: string, task = `${OPEN_TASK} 🆔 kt-3f9a2c`): string {
-  return NOTE.replace(OPEN_TASK, task).replace(task, worked(total));
+function totalled(total: string): string {
+  return NOTE.replace(OPEN_TASK, worked(total));
 }
 
 /** One press of `t` with `lines` in today's log, which is where a stop looks. */
@@ -831,7 +841,29 @@ describe("timerWrites, stopping", () => {
       notes: { [NOTE_PATH]: NOTE.replace(OPEN_TASK, typed), [DAILY_PATH]: timeLog(SESSION_OPEN) },
     });
 
-    expect(writes[1]?.text).toBe(totalled("1h20m", typed));
+    expect(writes[1]?.text).toBe(NOTE.replace(OPEN_TASK, `${OPEN_TASK} ⏱ 1h20m 🆔 kt-3f9a2c`));
+  });
+
+  it("keeps a tab indent, a block id and unknown text when it writes the total", () => {
+    const note = ["- [ ] parent", "\t- [/] part zork 🜲 words 🆔 kt-3f9a2c ^blk1", ""].join("\n");
+    const writes = stop([SESSION_OPEN], {
+      line: 2,
+      notes: { [NOTE_PATH]: note, [DAILY_PATH]: timeLog(SESSION_OPEN) },
+    });
+
+    expect(writes[1]?.text).toBe(
+      ["- [ ] parent", "\t- [/] part zork 🜲 words ⏱ 1h20m 🆔 kt-3f9a2c ^blk1", ""].join("\n"),
+    );
+  });
+
+  it("writes the new total over the old one where it sits", () => {
+    const note = `\t- [/] part ⏱ 9h zork 🆔 kt-3f9a2c ^blk1`;
+    const writes = stop([SESSION_OPEN], {
+      line: 1,
+      notes: { [NOTE_PATH]: note, [DAILY_PATH]: timeLog(SESSION_OPEN) },
+    });
+
+    expect(writes[1]?.text).toBe(`\t- [/] part ⏱ 1h20m zork 🆔 kt-3f9a2c ^blk1`);
   });
 
   it("closes every session running on the todo, and counts them all", () => {
@@ -973,6 +1005,29 @@ describe("blockLine", () => {
     );
   });
 
+  it("keeps a tab indent, a block id and unknown text, and blocks the box", () => {
+    expect(blockLine("\t- [ ] part zork 🜲 words 📅 2026-08-14 ^blk1", "kt-c0ffee", open)).toBe(
+      "\t- [b] part zork 🜲 words 📅 2026-08-14 ⛔ kt-c0ffee ^blk1",
+    );
+  });
+
+  it("puts a third blocker after the last of two, and moves nothing else", () => {
+    const line = blockLine(
+      "- [b] write ⛔ kt-000001 the docs ⛔ kt-000002 #later ^blk1",
+      "kt-c0ffee",
+      open,
+    );
+
+    expect(line).toBe("- [b] write ⛔ kt-000001 the docs ⛔ kt-000002 ⛔ kt-c0ffee #later ^blk1");
+    expect(parseTodo(line ?? "")?.blockedBy).toEqual(["kt-000001", "kt-000002", "kt-c0ffee"]);
+  });
+
+  it("reorders nothing on a line whose fields sit out of order", () => {
+    expect(
+      blockLine("- [ ] 🆔 kt-3f9a2c write ⏫ the docs 📅 2026-08-14 #tag", "kt-c0ffee", open),
+    ).toBe("- [b] 🆔 kt-3f9a2c write ⏫ the docs 📅 2026-08-14 ⛔ kt-c0ffee #tag");
+  });
+
   it("answers nothing for a blocker the line names already, or a line that is no todo", () => {
     expect(blockLine("- [b] write the docs ⛔ kt-c0ffee", "kt-c0ffee", open)).toBeNull();
     expect(blockLine("write the docs", "kt-c0ffee", open)).toBeNull();
@@ -984,6 +1039,15 @@ describe("unblockedEdit", () => {
     expect(unblockedEdit("- [b] write the docs ⛔ kt-c0ffee", "- [b] write the docs")).toBe(
       "- [ ] write the docs",
     );
+  });
+
+  it("changes the box alone, keeping a tab indent, a block id and fields out of order", () => {
+    expect(
+      unblockedEdit(
+        "\t- [b] ⏫ part zork 📅 2026-08-14 🜲 words ⛔ kt-c0ffee ^blk1",
+        "\t- [b] ⏫ part zork 📅 2026-08-14 🜲 words ^blk1",
+      ),
+    ).toBe("\t- [ ] ⏫ part zork 📅 2026-08-14 🜲 words ^blk1");
   });
 
   it("leaves a line that still names a blocker", () => {

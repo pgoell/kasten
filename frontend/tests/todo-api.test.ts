@@ -113,6 +113,28 @@ describe("blockTodoInVault", () => {
     );
   });
 
+  it("keeps the blocker's line byte for byte but for the id it stamps", async () => {
+    const lines = ["# Release", "- [ ] parent", "\t- [ ] blocker zork 🜲 words 📅 2026-10-20 ^blk1"];
+    const blocker = { path: "release.md", line: 3, text: lines[2] as string };
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "release.md" ? lines.join("\n") : NOTES[path],
+    );
+
+    await blockTodoInVault(DOCS, blocker);
+
+    const [path, text] = saveNote.mock.calls[0] as [string, string];
+    expect(path).toBe("release.md");
+    const id = /🆔 (kt-[0-9a-f]{6})/.exec(text)?.[1];
+    expect(id).toBeDefined();
+    expect(text).toBe(
+      [
+        "# Release",
+        "- [ ] parent",
+        `\t- [ ] blocker zork 🜲 words 📅 2026-10-20 🆔 ${id} ^blk1`,
+      ].join("\n"),
+    );
+  });
+
   it("leaves a blocker that carries an id alone", async () => {
     const ship = { ...SHIP, text: "- [/] ship the release 🆔 kt-c0ffee" };
     fetchNote.mockImplementation(async (path: string) =>

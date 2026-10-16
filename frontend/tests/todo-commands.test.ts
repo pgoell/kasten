@@ -1,6 +1,7 @@
+import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { cycleTodoAtCursor } from "@/lib/todo-commands";
+import { cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
 
 /** A bare view over `doc`, the cursor at `anchor`. No note path, so no log line is written. */
 function open(doc: string, anchor: number) {
@@ -23,5 +24,24 @@ describe("cycleTodoAtCursor", () => {
     expect(view.state.doc.line(2).text).toMatch(
       /^\t- \[x\] call {2}the part 📅 2026-10-20 ✅ 2026-10-16 🆔 kt-[0-9a-f]{6} \^blk1$/,
     );
+  });
+});
+
+describe("stampIdAtCursor", () => {
+  it("keeps the line byte for byte but for the id, in one change one undo takes back", () => {
+    const doc = "- [ ] parent\n\t- [ ] blocker zork 🜲 words 📅 2026-10-20 ^blk1";
+    const view = new EditorView({
+      state: EditorState.create({ doc, selection: { anchor: 20 }, extensions: [history()] }),
+    });
+
+    stampIdAtCursor(view);
+
+    const text = view.state.doc.toString();
+    const id = /🆔 (kt-[0-9a-f]{6})/.exec(text)?.[1];
+    expect(id).toBeDefined();
+    expect(text).toBe(`- [ ] parent\n\t- [ ] blocker zork 🜲 words 📅 2026-10-20 🆔 ${id} ^blk1`);
+
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
   });
 });
