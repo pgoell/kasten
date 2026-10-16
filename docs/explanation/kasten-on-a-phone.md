@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: kasten on a phone
-description: Why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, and what no real phone has confirmed.
+description: Why vim is off under a finger, why a split draws one pane, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, what an open tab does across a release, and what no real phone has confirmed.
 tags: [design, phone, touch, vim, keyboard, frontend]
 status: stable
 ---
@@ -212,6 +212,22 @@ answers with a redirect to its sign-in page. The worker passes that redirect,
 or a `401`, to the page as it came and keeps no copy of it, so the sign-in
 page never takes the place of the app. Only a plain `200` from kasten's own
 origin goes into the cache.
+
+A tab left open across a release keeps running the old one. Each route's code
+is a chunk of its own, fetched the first time the route opens, and the new
+image no longer has the old names. While the old worker controls the tab, it
+answers those chunks from its own cache, and nothing breaks. Once a new worker
+takes over, which a start of the new release in another tab brings about, it
+drops the old cache, and a route the tab has not opened yet asks the server
+for a chunk that answers `404`. The page then reloads once onto the new
+release. A missing script reloads through TanStack Router's own
+`lazyRouteComponent`; a missing stylesheet, which Vite reports as `Unable to
+preload CSS` and the router does not reload for, through kasten's error
+screen, `src/lib/chunk-reload.tsx`. Each reloads once per chunk, so a chunk the
+new release lacks too ends on the error and not in a loop. Text not yet saved
+is held at `pagehide`, as for any reload, and is back on screen after it
+(#379).
+
 [Deploy to the VPS](/how-to/deploy-to-the-vps.md#remove-the-service-worker)
 shows how to remove the worker.
 

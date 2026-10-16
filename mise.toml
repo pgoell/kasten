@@ -245,6 +245,16 @@ description = "Prove offline capture in Chromium against the production build (n
 depends = ["fe:build"]
 run = "bun frontend/e2e/offline.ts"
 
+[tasks."fe:e2e:release"]
+description = "Prove a tab open across a release survives it, in Chromium against two builds (needs a browser install)"
+dir = "{{config_root}}/frontend"
+# Release N as `fe:build` makes it, and N+1 with every asset renamed.
+run = [
+  "bunx vite build --logLevel warn --outDir dist-e2e-a --emptyOutDir",
+  "bunx vite build --logLevel warn --config e2e/release-b.config.ts --outDir dist-e2e-b --emptyOutDir",
+  "bun e2e/release.ts",
+]
+
 [tasks."fe:types"]
 description = "Regenerate the OpenAPI-derived types for the frontend"
 run = "bash scripts/gen_frontend_types.sh"

@@ -65,6 +65,7 @@ the other two services run stock images and rebuild nothing.
 | `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. `fe:dev` proxies `/chat` to it |
 | `fe:frame` | The end-to-end frame gates, in Chromium |
 | `fe:e2e` | Build, then prove offline capture in Chromium against `dist/`: the shell offline, dumps waiting and sent in order, a resend with the same id, a sign-in redirect kept out of the cache. Prints PASS or FAIL per step |
+| `fe:e2e:release` | Build two releases into `dist-e2e-a/` and `dist-e2e-b/`, the second with every asset renamed, then prove in Chromium that a tab open across the release gets to its next route on the new one, reloading at most once, and keeps the text typed into a note. Prints PASS or FAIL per scenario |
 | `fe:bench` | Record the frontend benchmark numbers on this machine |
 
 `fe:test` names its two projects rather than running every project, because the

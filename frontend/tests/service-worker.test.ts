@@ -203,6 +203,16 @@ describe("the service worker", () => {
     expect(await (await sw.cached("/assets/route-xyz.js"))?.text()).toBe("lazy chunk");
   });
 
+  it("passes a 404 for a hashed asset a release dropped through, and caches nothing", async () => {
+    // A tab open across a release asks the new worker for an old chunk. The
+    // 404 has to reach the page, whose router reloads it onto the new release.
+    const sw = await installed();
+    sw.fetch.mockResolvedValue(basic("", 404));
+    const gone = await sw.request(new Request(`${ORIGIN}/assets/route-old.js`));
+    expect(gone?.status).toBe(404);
+    expect(await sw.cached("/assets/route-old.js")).toBeUndefined();
+  });
+
   it("serves an unhashed public file from the network, and from the cache offline", async () => {
     const sw = await installed();
     sw.fetch.mockResolvedValue(basic("fit v2"));

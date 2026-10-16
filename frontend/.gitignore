@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# The two releases `fe:e2e:release` builds and serves in turn. Here and not at
+# the root, because biome reads this file and not that one.
+dist-e2e-*/
 coverage/
 
 # tsconfig.node.json outDir (composite project build info).
