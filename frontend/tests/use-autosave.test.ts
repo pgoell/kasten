@@ -4157,6 +4157,34 @@ describe("useAutosave", () => {
         expect(again.status()).toBe("saved");
       });
 
+      it("keeps text typed after the route came back when the note is reopened within the route on the leave flush's text", async () => {
+        const vault = server("start");
+        const { note, type } = withEditor("start");
+
+        type("T1");
+        note.unmount();
+        const { again, type: retype, show } = cameBack(note);
+        retype("T1 T2");
+        await idle();
+        again.seed("b.md", "b");
+        show("b");
+        again.open("b.md");
+        // The cache still holds the leave's T1, and the entry of it: the
+        // editor opens on T1, which W2's "T1 T2" was typed over.
+        show("T1");
+        again.open("index.md");
+        again.allowReload("T1");
+        retype("T1 k");
+        await idle();
+        await vault.land(0);
+        await vault.land(1);
+        await vault.land(2);
+
+        expect(landedAs("T1 T2", vault.disk())).toBe(true);
+        expect(again.status()).toBe("conflict");
+        expect(heldTexts("index.md").map((entry) => entry.content)).toContain("T1 k");
+      });
+
       it("names the leave flush's answer for text typed after the route came back", async () => {
         const vault = server("start");
         const { note, type } = withEditor("start");

@@ -700,7 +700,10 @@ export function useAutosave(
             holdText(now, held, carried);
             // Reopened on this very text, the cache keeps it too. Put back,
             // the clean screen would take the old text and leave this on the
-            // bar alone (#303).
+            // bar alone (#303). After the route mounted again, this reads the
+            // live editor's screen but takes into the old hook's buffer, gone
+            // with it, so it decides nothing: the new hook takes the entry
+            // (`follow`).
             if (takeFailed(now, held)) return false;
             settle();
             return false;
@@ -973,10 +976,16 @@ export function useAutosave(
       // write landing drops it, or failing holds it again. The vault under
       // the buffer is the text under that write until it answers (#386). An
       // opening's effect follows it once it bumped the visit, which a take
-      // before it would compare against the old one (`follow`).
-      if (leftAloft.has(held) && landedAs(held.content, text)) {
+      // before it would compare against the old one (`follow`). Only while
+      // that write is the newest: text typed over it since is queued behind
+      // it, and taking the older entry would land over that unasked.
+      const air = inAir.current.get(note);
+      if (
+        leftAloft.has(held) &&
+        landedAs(held.content, text) &&
+        (air === undefined || air.content === held.content)
+      ) {
         if (taken.current === held) return true;
-        const air = inAir.current.get(note);
         onDisk.current = air === undefined ? text : (air.base ?? null);
         take(held);
         if (!opening.current) follow(note, held);
