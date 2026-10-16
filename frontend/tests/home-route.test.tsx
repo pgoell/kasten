@@ -4180,6 +4180,25 @@ describe("a pdf in kasten's own view", () => {
     await showsPage(2);
   });
 
+  it("B a second open at the same page goes back to it after a scroll away", async () => {
+    await openNote("above\n![[my plan.pdf#page=3]]\n");
+    fireEvent.mouseDown(embedBox(), { ctrlKey: true });
+    await settle();
+    await showsPage(3);
+
+    // Scrolled by hand back to the first page.
+    const away = pdfPane()?.querySelector("[data-pdf-box]") as HTMLElement;
+    away.scrollTop = 0;
+    fireEvent.scroll(away);
+
+    fireEvent.mouseDown(embedBox(), { ctrlKey: true });
+    await settle();
+
+    expect(document.querySelectorAll("[data-pdf-pane]")).toHaveLength(1);
+    const box = pdfPane()?.querySelector("[data-pdf-box]") as HTMLElement;
+    expect(box.scrollTop).toBe(2 * PAGE);
+  });
+
   it("I3 closing the pdf pane frees its pdf", async () => {
     await openNote("above\n![[my plan.pdf#page=3]]\n");
     fireEvent.mouseDown(embedBox(), { ctrlKey: true });

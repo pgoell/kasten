@@ -85,8 +85,12 @@ export interface Pane {
    * The pdf's own path, for the reason `image` holds the image's: any number of
    * notes name a pdf and none owns it. A thirteenth optional field for the
    * reason `book` is the fourth, written out above.
+   *
+   * `opened` counts the opens, the way `jump` counts a note's: a second open
+   * at the page the pane holds changes nothing else, and the reader may have
+   * scrolled off it since. The pane reopens at `page` whenever this moves.
    */
-  pdf?: { path: string; page?: number };
+  pdf?: { path: string; page?: number; opened: number };
   /**
    * The HTML page this pane is showing, absent otherwise.
    *
@@ -428,10 +432,11 @@ export function openPdfBeside(layout: Layout, path: string, page?: number): Layo
   const showing = tabPanes(layout).find((pane) => pane.pdf?.path === path);
   const split = showing ? focusPane(layout, showing.id) : splitFocused(layout, "row");
   const tab = activeTab(split);
+  const opened = (showing?.pdf?.opened ?? 0) + 1;
 
   return withTab(split, {
     ...tab,
-    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, pdf: { path, page } }),
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, pdf: { path, page, opened } }),
   });
 }
 

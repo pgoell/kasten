@@ -483,7 +483,7 @@ describe("a pdf in a pane beside the note naming it", () => {
     const layout = openPdfBeside(emptyLayout("index.md"), "docs/plan.pdf", 3);
 
     expect(notes(layout)).toEqual(["index.md", null]);
-    expect(focusedPane(layout).pdf).toEqual({ path: "docs/plan.pdf", page: 3 });
+    expect(focusedPane(layout).pdf).toEqual({ path: "docs/plan.pdf", page: 3, opened: 1 });
   });
 
   it("I2 turns the pane already showing that pdf to the new page, no second pane", () => {
@@ -494,7 +494,15 @@ describe("a pdf in a pane beside the note naming it", () => {
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(viewer);
-    expect(focusedPane(twice).pdf).toEqual({ path: "docs/plan.pdf", page: 5 });
+    expect(focusedPane(twice).pdf).toEqual({ path: "docs/plan.pdf", page: 5, opened: 2 });
+  });
+
+  it("B counts a second open at the same page as a new one", () => {
+    const once = openPdfBeside(emptyLayout("index.md"), "docs/plan.pdf", 3);
+
+    const twice = openPdfBeside(nextPane(once), "docs/plan.pdf", 3);
+
+    expect(focusedPane(twice).pdf).toEqual({ path: "docs/plan.pdf", page: 3, opened: 2 });
   });
 });
 

@@ -2173,6 +2173,7 @@ function Home() {
                   <PdfPane
                     path={shown.pdf.path}
                     page={shown.pdf.page}
+                    opened={shown.pdf.opened}
                     commands={commands}
                     focusSignal={focused ? focusSignal : 0}
                   />

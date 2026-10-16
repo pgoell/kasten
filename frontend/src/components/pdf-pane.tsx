@@ -8,6 +8,8 @@ interface PdfPaneProps {
   path: string;
   /** The page to open at, counted from one; the first when absent. */
   page?: number;
+  /** How many times the pane was opened; each new count goes back to `page`. */
+  opened: number;
   /** What a leader sequence reaches. The same object every other pane is given. */
   commands: EditorCommands;
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
@@ -24,21 +26,23 @@ const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
  * viewer ignores `#page`: the tap opened page 1. This draws the pages the way
  * the embed in the note does, with `showPdf`, in a box as tall as the pane.
  */
-export function PdfPane({ path, page, commands, focusSignal }: PdfPaneProps) {
+export function PdfPane({ path, page, opened, commands, focusSignal }: PdfPaneProps) {
   const panel = useRef<HTMLElement>(null);
   const box = useRef<HTMLDivElement>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
 
-  // A new page opens the pdf again rather than scrolling the one open: the
-  // box is keyed on both, so `showPdf` gets a fresh one and no listener of
-  // the last open is left on it.
+  // Every open opens the pdf again rather than scrolling the one open, a
+  // repeat of the same page too, the reader having maybe scrolled off it: the
+  // box is keyed on the count, so `showPdf` gets a fresh one and no listener
+  // of the last open is left on it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `opened` is the reopen signal.
   useEffect(() => {
     const target = box.current;
     if (target === null) return;
     const name = path.slice(path.lastIndexOf("/") + 1);
     return showPdf(target, pdfjsRenderer, `/api/assets/${encodePath(path)}`, name, () => {}, page);
-  }, [path, page]);
+  }, [path, page, opened]);
 
   // A freshly focused pane takes the cursor, the way the image pane does: it
   // holds no CodeMirror, so without this the keys stay in the note.
@@ -88,7 +92,7 @@ export function PdfPane({ path, page, commands, focusSignal }: PdfPaneProps) {
         </span>
       </header>
       <div
-        key={`${path}#${page}`}
+        key={`${path}#${page}#${opened}`}
         ref={box}
         data-pdf-box
         className="min-h-0 flex-1 overflow-y-auto p-1"

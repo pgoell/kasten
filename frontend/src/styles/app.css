@@ -66,8 +66,11 @@ body,
   padding-right: env(safe-area-inset-right);
 }
 
+/* Less what that inline padding already gives, which it hands down as
+   `--keyboard` (a px length): with the keys up the home indicator is under
+   them, and the two added would leave a gap over the keyboard (#358). */
 @utility safe-foot {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: max(0px, calc(env(safe-area-inset-bottom) - var(--keyboard, 0px)));
 }
 
 body {

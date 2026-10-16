@@ -155,6 +155,23 @@ describe("the safe area on a phone", () => {
     ]);
   });
 
+  it("with the keyboard up the bar at the foot adds no inset under the keyboard padding", async () => {
+    // `use-keyboard-inset.ts` pads the frame by the keyboard and hands the same
+    // number down as `--keyboard`; the home indicator is under the keys then.
+    for (const phone of [true, false]) {
+      await device(PORTRAIT.width, PORTRAIT.height, PORTRAIT.insets);
+      await mount(<Frame phone={phone} />);
+      const main = document.querySelector("main") as HTMLElement;
+      const foot = document.querySelector(phone ? '[role="toolbar"]' : "footer") as HTMLElement;
+      main.style.setProperty("--keyboard", "300px");
+      expect(getComputedStyle(foot).paddingBottom).toBe("0px");
+      main.style.setProperty("--keyboard", "0px");
+      expect(getComputedStyle(foot).paddingBottom).toBe("34px");
+      await act(async () => root?.unmount());
+      container?.remove();
+    }
+  });
+
   it("at zero insets the layout does not move", async () => {
     await device(1280, 800, NONE);
     await mount(<Frame phone={false} />);
