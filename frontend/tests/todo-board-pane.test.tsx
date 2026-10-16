@@ -425,6 +425,35 @@ describe("the todo board", () => {
     expect(pane.headings()).toEqual(["#client", "#internal", "No kind"]);
   });
 
+  it("A3 the lanes button does what g does: cursor to the top, focus on its card", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane({ focusSignal: 1 });
+    pane.press("j");
+    expect(pane.cursor()).toContain("write the deck");
+
+    const lanes = screen.getByRole("button", { name: "lanes" });
+    lanes.focus();
+    fireEvent.click(lanes);
+
+    // Row 1 would be the deck again, the second card of the open column.
+    expect(pane.cursor()).toContain("fix the tap");
+    expect(document.activeElement?.textContent).toContain("fix the tap");
+  });
+
+  it("B4 cancel hands the focus back to the card under the cursor", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane({ focusSignal: 1 });
+    await waitFor(() => expect(document.activeElement?.textContent).toContain("send the invoice"));
+
+    fireEvent.click(screen.getByLabelText("more for fix the tap"));
+    fireEvent.click(screen.getByLabelText("project fix the tap"));
+    const cancel = screen.getByRole("button", { name: "cancel" });
+    cancel.focus();
+    fireEvent.click(cancel);
+
+    expect(document.activeElement).toBe(pane.card("send the invoice"));
+  });
+
   it("B4 cancel on a touch screen shuts the project picker and writes nothing", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane();

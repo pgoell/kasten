@@ -162,21 +162,70 @@ export function withProjectLink(
   if (filed) return null;
 
   const link = `[[${choice.index.slice(0, -".md".length)}|${choice.name}]]`;
-  const at = FIELDS_START.exec(line)?.index ?? line.length;
-  return `${line.slice(0, at)} ${link}${line.slice(at)}`;
+
+  // Each place the words might end, tried in order and kept only when
+  // `parseTodo` agrees: a marker whose value does not parse, `📅 friday`, is
+  // still words, and the parser is the one judge of that rather than a second
+  // copy of its patterns. A space after the link is tried second, for a marker
+  // typed hard against the word before it.
+  let written = `${line} ${link}`;
+  for (const at of endsOfWords(line)) {
+    for (const after of ["", " "]) {
+      written = `${line.slice(0, at)} ${link}${after}${line.slice(at)}`;
+      if (sameButLinked(todo, parseTodo(written), link)) return written;
+    }
+  }
+  return written;
 }
 
 /**
- * Where a line's words end: the first field marker, a trailing `^blockid`, or
- * the end of the line. `👤` counts, since its name runs to the next marker and
- * a link after it would become who the todo waits on.
+ * Where the link may go: before each field marker outside a link or a code
+ * span, before a trailing `^blockid`, and at the end of the line.
  *
- * The link goes in here rather than through `formatTodo`, which would turn a
- * tab indent into a space and un-nest a part, move a block id off the end,
- * and collapse the spacing somebody typed.
+ * Inserted into the line rather than rebuilt through `formatTodo`, which would
+ * turn a tab indent into a space and un-nest a part, move a block id off the
+ * end, and collapse the spacing somebody typed.
  */
-const FIELDS_START =
-  /[ \t]+(?:📅|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|➕|✅|❌|⏲|⏱|🆔|⛔|👤)|[ \t]+\^[\w-]+[ \t]*$|[ \t]*$/u;
+function endsOfWords(line: string): number[] {
+  const spans = [...line.matchAll(SPANS)].map((m) => [m.index, m.index + m[0].length]);
+  const outside = (at: number) => spans.every(([from = 0, to = 0]) => at < from || at >= to);
+  // Back over the spaces before the marker, so the link sits after the words
+  // and not after the gap; never back into a span.
+  const back = (at: number) => {
+    let from = at;
+    while (from > 0 && /[ \t]/.test(line[from - 1] ?? "") && outside(from - 1)) from -= 1;
+    return from;
+  };
+
+  const ends = [...line.matchAll(MARKER)].filter((m) => outside(m.index)).map((m) => back(m.index));
+  const block = BLOCK_ID.exec(line);
+  if (block !== null) ends.push(back(block.index));
+  ends.push(back(line.length));
+  return ends;
+}
+
+/** A link, a markdown link and a code span: a marker inside one is not a field. */
+const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`/g;
+
+/** `👤` too: its name runs to the next marker, so a link after it would be who the todo waits on. */
+const MARKER = /📅|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|➕|✅|❌|⏲|⏱|🆔|⛔|👤/gu;
+
+const BLOCK_ID = /\^[\w-]+[ \t]*$/;
+
+/**
+ * Whether the line as written reads as the original with the link at the end
+ * of its words: every field the same, and the link last in the text but for a
+ * block id, which `parseTodo` leaves in the words.
+ */
+function sameButLinked(before: Todo, after: Todo | null, link: string): boolean {
+  if (after === null) return false;
+  const { text, tags: _tags, ...fields } = after;
+  const { text: was, tags: _was, ...had } = before;
+  const at = text.lastIndexOf(link);
+  if (at === -1 || !/^(?: \^[\w-]+)?$/.test(text.slice(at + link.length))) return false;
+  const rest = `${text.slice(0, at)}${text.slice(at + link.length)}`.replace(/\s+/g, " ").trim();
+  return rest === was && JSON.stringify(fields) === JSON.stringify(had);
+}
 
 /** What a lane is called: the project's own folder name, or the pile still to sort. */
 export function laneName(project: string | null): string {

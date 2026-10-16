@@ -100,6 +100,8 @@ export function TodoBoard({
 }: TodoBoardProps) {
   /** `g`: lanes by project rather than by kind. */
   const [byProject, setByProject] = useState(false);
+  /** Bumped by a tapped button, which the focus effect below reads as its cue. */
+  const [settled, setSettled] = useState(0);
   const [col, setCol] = useState(0);
   const [row, setRow] = useState(0);
   /** The card `p` was pressed on and the choice under the picker's cursor. */
@@ -185,7 +187,11 @@ export function TodoBoard({
   // its column, the browser hands the focus to the body, and without this the
   // first card moved leaves the pane deaf.
   //
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `cards` is the trigger and not a value this reads. A redraw is what says the focused card may be gone.
+  // `settled` is the same case for a tapped button: `cancel` unmounts under
+  // the finger, and `lanes` keeps the focus on itself, so a keyboard attached
+  // to the phone would go on typing into nothing the board hears.
+  //
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `cards` and `settled` are triggers and not values this reads. A redraw or a tap is what says the focused card may be gone.
   useEffect(() => {
     const element = root.current;
     if (!element) return;
@@ -193,10 +199,28 @@ export function TodoBoard({
     if (!dropped && !element.contains(document.activeElement)) return;
     const card = element.querySelector<HTMLElement>(`[data-card="${cursorKey}"]`);
     (card ?? element.closest<HTMLElement>("section"))?.focus();
-  }, [cursorKey, cards, held]);
+  }, [cursorKey, cards, held, settled]);
+
+  /** A button was tapped: the focus goes back to the card under the cursor. */
+  function settle() {
+    setSettled((count) => count + 1);
+  }
+
+  /** `g`, and `lanes` by finger. */
+  function switchLanes() {
+    setByProject(!byProject);
+    setRow(0);
+    settle();
+  }
+
+  /** Escape, and `cancel` by finger. */
+  function closePicker() {
+    setPicker(null);
+    settle();
+  }
 
   function pick(hit: SearchHit, choice: (typeof choices)[number]) {
-    setPicker(null);
+    closePicker();
     // Null where the line already links there: a second pick writes nothing.
     const line = withProjectLink(hit.text, choice, files);
     if (line !== null) onEdit(hit, line);
@@ -215,7 +239,7 @@ export function TodoBoard({
         if (key === "j") setPicker({ ...picker, at: Math.min(picker.at + 1, choices.length - 1) });
         else if (key === "k") setPicker({ ...picker, at: Math.max(picker.at - 1, 0) });
         else if (key === "Enter" && choice !== undefined) pick(picker.hit, choice);
-        else if (key === "Escape") setPicker(null);
+        else if (key === "Escape") closePicker();
         // Nothing moves under an open picker, but the leader still opens.
         else return key !== " ";
         return true;
@@ -237,8 +261,7 @@ export function TodoBoard({
           setRow(Math.max(cursor - 1, 0));
           break;
         case "g":
-          setByProject(!byProject);
-          setRow(0);
+          switchLanes();
           break;
         case "Enter":
           if (at !== undefined) onOpen(at.hit.path, at.hit.line);
@@ -375,7 +398,7 @@ export function TodoBoard({
               <button
                 type="button"
                 tabIndex={-1}
-                onClick={() => setPicker(null)}
+                onClick={closePicker}
                 className="min-h-11 shrink-0 px-3 text-one-muted"
               >
                 cancel
@@ -425,7 +448,7 @@ export function TodoBoard({
           <button
             type="button"
             tabIndex={-1}
-            onClick={() => setByProject(!byProject)}
+            onClick={switchLanes}
             aria-pressed={byProject}
             className="min-h-11 shrink-0 px-3 text-one-muted"
           >

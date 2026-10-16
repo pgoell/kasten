@@ -184,6 +184,31 @@ describe("withProjectLink", () => {
     );
   });
 
+  it("leaves a date inside an existing link untouched", () => {
+    expect(withProjectLink("- [ ] read [[📅 plan]] 📅 2026-10-21", FDE, PATHS)).toBe(
+      "- [ ] read [[📅 plan]] [[02 Projects/FDE/index|FDE]] 📅 2026-10-21",
+    );
+  });
+
+  it("leaves a priority glyph inside a code span untouched", () => {
+    expect(withProjectLink("- [ ] fix `⏫` icon 📅 2026-10-20", FDE, PATHS)).toBe(
+      "- [ ] fix `⏫` icon [[02 Projects/FDE/index|FDE]] 📅 2026-10-20",
+    );
+  });
+
+  it("goes before a marker typed with no space", () => {
+    const line = "- [ ] a📅 2026-10-20";
+    const written = withProjectLink(line, FDE, PATHS) ?? "";
+    expect(written).toBe("- [ ] a [[02 Projects/FDE/index|FDE]]📅 2026-10-20");
+    expect(todo(written).due).toBe("2026-10-20");
+  });
+
+  it("reads a marker whose value does not parse as words", () => {
+    expect(withProjectLink("- [ ] meet 📅 friday ⏫", FDE, PATHS)).toBe(
+      "- [ ] meet 📅 friday [[02 Projects/FDE/index|FDE]] ⏫",
+    );
+  });
+
   it("goes ahead of who the todo waits on", () => {
     expect(withProjectLink("- [w] ask 👤 2026-10-14 Louise 📅 2026-10-20", FDE, PATHS)).toBe(
       "- [w] ask [[02 Projects/FDE/index|FDE]] 👤 2026-10-14 Louise 📅 2026-10-20",
