@@ -319,6 +319,12 @@ const followOnClick = EditorView.domEventHandlers({
     if (!event.ctrlKey && !event.metaKey) return false;
     const target = linkUnder(event, view);
     if (target !== null) {
+      // Returning true makes CodeMirror cancel the mousedown, and with it the
+      // focus the browser would have moved here. The pane a link opens off is
+      // the focused one, so a click in another pane takes the focus first, the
+      // way Obsidian splits off the pane you clicked (#361). The focus event
+      // runs inside this call, so the layout hears of it before the open.
+      view.focus();
       followLink(view, target);
       return true;
     }
@@ -882,7 +888,17 @@ export function Editor({
                 embedSource.of({
                   watch: (target, listener) =>
                     embedsRef.current?.watch(target, listener) ?? (() => {}),
-                  open: (target, line) => embedsRef.current?.open(target, line),
+                  // The box cancels its mousedown, so the focus stays in the
+                  // pane it was in and the open would land off that one: the
+                  // focus moves here first, as on a ctrl+click on a link
+                  // (#361). This view and not the box's, an embed inside an
+                  // embed being drawn in a nested view that cannot take the
+                  // focus but carries this same source. Not on a phone's tap,
+                  // where it would raise a keyboard nobody asked for.
+                  open: (target, line) => {
+                    if (!keyboardUnasked()) view.focus();
+                    embedsRef.current?.open(target, line);
+                  },
                 }),
               ]),
           // A pane with nothing to reload answers the way a refusal does, so

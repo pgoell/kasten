@@ -440,7 +440,9 @@ tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking. The strip naming the tabs appears
 once there is more than one, and each tab is named for the note in the pane it
 left focused, for the herdr session when that pane holds a terminal, and
-`todos` when it holds the todo list. More tabs than the window is wide scroll
+`todos` when it holds the todo list. A pane holding a pdf, an image or an HTML
+page names its tab for the file, without the folder or the suffix, so
+`x/my plan.pdf` reads `my plan`. More tabs than the window is wide scroll
 sideways, and the strip keeps the tab on screen in view.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
@@ -1769,8 +1771,9 @@ modifier that browsers already spend on opening a link. A plain click is left
 to the cursor, because clicking into a link is how the link gets edited. The
 click has to land on the link's own text; it reads the element under the
 pointer rather than the nearest position to it, so the space after the line is
-not the link. With live preview off there is no rendered link to click, and
-`gf` is the way.
+not the link. A click in a pane that is not focused focuses it first, so the
+link opens off the pane you clicked, as in Obsidian. With live preview off
+there is no rendered link to click, and `gf` is the way.
 
 Ctrl+click or a tap on a markdown link, `[mail](https://mail.google.com/...)`,
 opens its address in a new tab. Only an address with a scheme opens; a
@@ -1779,9 +1782,9 @@ link the cursor is in moves the cursor, as on a wikilink. `gf` and Enter leave
 markdown links alone.
 
 Ctrl+click or a tap on an embed, `![[note]]`, opens the embedded note in the
-focused pane, at its heading for `![[note#heading]]`. On a pdf, `![[plan.pdf]]`,
-it opens the pdf in a pdf pane beside the note, as `gf` does, on a phone as on
-a desktop. The pane draws the pdf with pdf.js, the way the embed does, so a
+pane the embed sits in, at its heading for `![[note#heading]]`, and that pane
+takes the focus. On a pdf, `![[plan.pdf]]`, it opens the pdf in a pdf pane
+beside that note, as `gf` does, on a phone as on a desktop. The pane draws the pdf with pdf.js, the way the embed does, so a
 phone shows the page the link names. `![[plan.pdf#page=3]]` opens it at page
 3, and so do `gf` and Enter on `[[plan.pdf#page=3]]` or on the embed's source.
 A second link to a pdf already open turns its pane to the new page rather than
@@ -2174,15 +2177,15 @@ and `<leader>b` open it, and it has no grip to resize it by. A narrow window
 under a coarse pointer draws no rail: `files` on
 [the toolbar](#the-toolbar) opens the drawer there. A tap outside it
 closes it, and so does anything that hands the focus to a pane: opening a note,
-an image or a page from it, a note made with `c` or picked in the finder or the
+an image, a page or a pdf from it, a note made with `c` or picked in the finder or the
 search, and Escape, which lands in the pane on screen. The page under an open
 drawer takes no focus and no keys. A panel open in a wide window closes when
 the window turns narrow.
 
 The tree draws the vault's images beside its notes, muted, keeping the suffix a
-note's row drops: the vault holds one kind of note and five kinds of image. They
-are the only rows here that are not notes, and nothing else in the app treats
-them as notes, the finder, search and every `[[link]]` reading the note listing
+note's row drops: the vault holds one kind of note and five kinds of image.
+They, the pages and the pdfs below are the only rows here that are not notes,
+and nothing else in the app treats them as notes, the finder, search and every `[[link]]` reading the note listing
 alone. Enter or a click shows one in the focused pane, over whatever was there,
 and `<leader>q` hands the pane back to an editor. A folder holding nothing but
 images is a folder in the tree all the same, which is how you reach the ones
@@ -2194,6 +2197,13 @@ draws the page in the focused pane, its styles and script included, the way a
 research run's report or slide deck was written to be read. `r` and `d` do
 nothing on a page's row: whatever wrote the page owns it, so it goes out
 through a terminal pane.
+
+Pdfs are rows too, muted and keeping `.pdf`, under the same archive filter as
+every other row. Enter or a click opens one in kasten's pdf pane at page 1, in
+the focused pane and over whatever was there, as an image row does; a second
+click on the row takes the pane back to page 1. The row of the pdf the focused
+pane shows is marked as a note's is, and `<leader>E` reaches it. `r` and `d` do
+nothing on a pdf's row, which goes out through a terminal pane as a page does.
 
 Keys typed inside a page are the page's, so a deck's arrows turn its slides and
 a leader sequence does nothing there. Click the pane's header to take the keys

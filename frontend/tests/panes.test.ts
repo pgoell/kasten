@@ -17,6 +17,7 @@ import {
   openImageInFocused,
   openInFocused,
   openPdfBeside,
+  openPdfInFocused,
   openPersonBeside,
   openReviewInFocused,
   openTerminalInFocused,
@@ -503,6 +504,36 @@ describe("a pdf in a pane beside the note naming it", () => {
     const twice = openPdfBeside(nextPane(once), "docs/plan.pdf", 3);
 
     expect(focusedPane(twice).pdf).toEqual({ path: "docs/plan.pdf", page: 3, opened: 2 });
+  });
+});
+
+describe("a pdf in the focused pane, from a row of the tree", () => {
+  it("I1 takes the note out of the pane it replaces, at page 1, keeping its id", () => {
+    const before = emptyLayout("index.md", 12);
+    const layout = openPdfInFocused(before, "docs/plan.pdf");
+
+    expect(tabPanes(layout)).toHaveLength(1);
+    expect(focusedPane(layout).id).toBe(focusedPane(before).id);
+    expect(focusedPane(layout).path).toBeUndefined();
+    expect(focusedPane(layout).line).toBeUndefined();
+    expect(focusedPane(layout).pdf).toEqual({ path: "docs/plan.pdf", page: undefined, opened: 1 });
+  });
+
+  it("I1 counts a second open of the pdf the pane already shows as a new one", () => {
+    // The pane reopens at `page` only when `opened` moves, and the reader may
+    // have scrolled off page 1 since: a second click on the row must take
+    // them back to it, as a second click on an image row shows the image.
+    const once = openPdfInFocused(emptyLayout(), "docs/plan.pdf");
+    const twice = openPdfInFocused(once, "docs/plan.pdf");
+
+    expect(focusedPane(twice).pdf).toEqual({ path: "docs/plan.pdf", page: undefined, opened: 2 });
+  });
+
+  it("I1 starts the count again for another pdf", () => {
+    const once = openPdfInFocused(emptyLayout(), "docs/plan.pdf");
+    const other = openPdfInFocused(once, "docs/other.pdf");
+
+    expect(focusedPane(other).pdf).toEqual({ path: "docs/other.pdf", page: undefined, opened: 1 });
   });
 });
 

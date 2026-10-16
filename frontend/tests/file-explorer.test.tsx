@@ -64,6 +64,7 @@ function Harness({
       onOpenFile={() => {}}
       onOpenImage={() => {}}
       onOpenHtml={() => {}}
+      onOpenPdf={() => {}}
       {...props}
       open={props.open ?? open}
       onOpenChange={onOpenChange}
@@ -974,13 +975,77 @@ describe("images in the tree", () => {
     expect(onDeleteNote).not.toHaveBeenCalled();
   });
 
-  it("marks the image the focused pane is showing as the current row", () => {
+  it("A4 marks the image the focused pane is showing as the current row", () => {
     renderTree({ images: IMAGES, openPath: IMAGES[0] });
 
     expect(screen.getByText("2026-08-12-abcdef01.png").closest("button")).toHaveAttribute(
       "aria-current",
       "page",
     );
+  });
+});
+
+describe("pdfs in the tree", () => {
+  const PDFS = ["x/my plan.pdf"];
+  // At the root, where folders sort first and `plan.pdf` after `index`, so `G`
+  // lands the cursor on it.
+  const ROOT = ["plan.pdf"];
+
+  it("A3 marks the pdf the focused pane is showing as the current row", () => {
+    renderTree({ pdfs: PDFS, openPath: PDFS[0] });
+
+    // The suffix stays on the row, as it does on an image's.
+    expect(screen.getByText("my plan.pdf").closest("button")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("I1 shows a pdf rather than opening it as a note, on a click", () => {
+    const onOpenFile = vi.fn();
+    const onOpenPdf = vi.fn();
+    renderTree({ pdfs: PDFS, onOpenFile, onOpenPdf });
+
+    fireEvent.click(screen.getByText("my plan.pdf"));
+
+    expect(onOpenPdf).toHaveBeenCalledWith(PDFS[0]);
+    expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it("I1 does the same from the keyboard, on Enter", () => {
+    const onOpenFile = vi.fn();
+    const onOpenPdf = vi.fn();
+    renderTree({ pdfs: ROOT, onOpenFile, onOpenPdf });
+
+    press("G");
+    press("Enter");
+
+    expect(onOpenPdf).toHaveBeenCalledWith(ROOT[0]);
+    expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it("I3 reveals the open pdf the way it reveals an image", () => {
+    const { rerender } = render(<Harness pdfs={PDFS} revealSignal={0} />);
+    expect(screen.queryByText("my plan.pdf")).toBeNull();
+
+    rerender(<Harness pdfs={PDFS} revealSignal={1} openPath={PDFS[0]} />);
+
+    expect(cursor()).toHaveAttribute("title", PDFS[0]);
+  });
+
+  it("leaves a pdf alone on r and d, it being no note to rename or delete", () => {
+    const onRenameNote = vi.fn();
+    const onDeleteNote = vi.fn();
+    const onDeleteImage = vi.fn();
+    renderTree({ pdfs: ROOT, onRenameNote, onDeleteNote, onDeleteImage });
+
+    press("G");
+    press("r");
+    press("d");
+
+    expect(onRenameNote).not.toHaveBeenCalled();
+    expect(onDeleteNote).not.toHaveBeenCalled();
+    expect(onDeleteImage).not.toHaveBeenCalled();
   });
 });
 

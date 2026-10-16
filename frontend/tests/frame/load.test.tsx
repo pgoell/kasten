@@ -157,6 +157,7 @@ describe(`opening the app over ${NOTES} notes`, () => {
               onOpenFile={() => {}}
               onOpenImage={() => {}}
               onOpenHtml={() => {}}
+              onOpenPdf={() => {}}
               open={true}
               onOpenChange={() => {}}
               commands={INERT}

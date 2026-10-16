@@ -364,6 +364,31 @@ export function openImageInFocused(layout: Layout, path: string): Layout {
   });
 }
 
+/**
+ * Show a pdf at its first page in the focused pane, the way `openImageInFocused`
+ * shows an image: a row of the tree opens what it names where the last row
+ * opened (#361). A followed link takes `openPdfBeside`, the note it was
+ * followed from staying on screen.
+ *
+ * `opened` goes on from the count the pane already holds when it is showing
+ * this same pdf, so a second click on the row moves it and the pane turns back
+ * to page 1 from wherever the reader scrolled to. Starting it at 1 every time
+ * would leave the field unchanged and the pane where it was.
+ */
+export function openPdfInFocused(layout: Layout, path: string): Layout {
+  const tab = activeTab(layout);
+  const { pdf } = focusedPane(layout);
+  const opened = (pdf?.path === path ? pdf.opened : 0) + 1;
+
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, {
+      id: tab.focus,
+      pdf: { path, page: undefined, opened },
+    }),
+  });
+}
+
 /** Show an HTML page in the focused pane, the way `openImageInFocused` shows an image. */
 export function openHtmlInFocused(layout: Layout, path: string): Layout {
   const tab = activeTab(layout);

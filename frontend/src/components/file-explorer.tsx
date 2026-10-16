@@ -17,13 +17,17 @@ interface FileExplorerProps {
   images?: string[];
   /** Vault-relative paths of every HTML page, as served by `GET /api/html`. Rows the way `images` are. */
   html?: string[];
-  /** Vault-relative path of the note, image or page open in the focused pane. */
+  /** Vault-relative paths of every pdf, the `.pdf` half of `GET /api/vault-assets`. Rows the way `images` are. */
+  pdfs?: string[];
+  /** Vault-relative path of the note, image, page or pdf open in the focused pane. */
   openPath?: string;
   onOpenFile: (path: string) => void;
   /** Called with the image a row names, which the route shows in the pane. */
   onOpenImage: (path: string) => void;
   /** Called with the HTML page a row names, the way `onOpenImage` is. */
   onOpenHtml: (path: string) => void;
+  /** Called with the pdf a row names, the way `onOpenImage` is. */
+  onOpenPdf: (path: string) => void;
   /** Whether the panel is unfolded. Held by the route, because `<leader>b`
    * reaches it from inside the editor. */
   open: boolean;
@@ -53,14 +57,16 @@ interface FileNode {
   name: string;
   path: string;
   /**
-   * Set on a row that is an image or an HTML page rather than a note.
+   * Set on a row that is an image, an HTML page or a pdf rather than a note.
    *
    * A field and not another `kind`, so a folder's contents still sort as one
-   * alphabetical list: images, pages and notes sit side by side the way `ls`
-   * shows them, rather than in groups nobody arranged.
+   * alphabetical list: images, pages, pdfs and notes sit side by side the way
+   * `ls` shows them, rather than in groups nobody arranged.
    */
-  shows?: "image" | "html";
+  shows?: Shows;
 }
+
+type Shows = "image" | "html" | "pdf";
 
 type TreeNode = FolderNode | FileNode;
 
@@ -70,13 +76,18 @@ type TreeNode = FolderNode | FileNode;
  * The backend deliberately serves a flat, sorted list and never models
  * folders, so the nesting is reconstructed here.
  */
-export function buildTree(paths: string[], images: string[] = [], html: string[] = []): TreeNode[] {
+export function buildTree(
+  paths: string[],
+  images: string[] = [],
+  html: string[] = [],
+  pdfs: string[] = [],
+): TreeNode[] {
   const root: TreeNode[] = [];
 
   // A loop per list over one function rather than one loop over all of them,
   // which would have to ask which list each path came from: at 10,000 notes
   // that question is a scan of the images per note, and this is none.
-  function add(path: string, shows?: "image" | "html"): void {
+  function add(path: string, shows?: Shows): void {
     const parts = path.split("/");
     const fileName = parts.pop();
     if (!fileName) return;
@@ -99,10 +110,11 @@ export function buildTree(paths: string[], images: string[] = [], html: string[]
       level = folder.children;
     }
 
-    // An image or a page keeps its suffix and a note loses its `.md`: the vault
-    // holds one kind of note and six kinds of everything else, so the suffix is
-    // news on one row and noise on the other. A page keeping `.html` is also
-    // what sets `report.html` apart from the `report` note beside it.
+    // An image, a page or a pdf keeps its suffix and a note loses its `.md`: the
+    // vault holds one kind of note and seven kinds of everything else, so the
+    // suffix is news on one row and noise on the other. A page keeping `.html`
+    // is also what sets `report.html` apart from the `report` note beside it,
+    // and a pdf keeping `.pdf` what sets a paper apart from the note about it.
     level.push(
       shows !== undefined
         ? { kind: "file", name: fileName, path, shows }
@@ -113,6 +125,7 @@ export function buildTree(paths: string[], images: string[] = [], html: string[]
   for (const path of paths) add(path);
   for (const path of images) add(path, "image");
   for (const path of html) add(path, "html");
+  for (const path of pdfs) add(path, "pdf");
 
   return sortTree(root);
 }
@@ -123,9 +136,11 @@ function opener(
   onOpenFile: (path: string) => void,
   onOpenImage: (path: string) => void,
   onOpenHtml: (path: string) => void,
+  onOpenPdf: (path: string) => void,
 ): (path: string) => void {
   if (node.shows === "image") return onOpenImage;
   if (node.shows === "html") return onOpenHtml;
+  if (node.shows === "pdf") return onOpenPdf;
   return onOpenFile;
 }
 
@@ -258,6 +273,7 @@ interface NodeListProps {
   onOpenFile: (path: string) => void;
   onOpenImage: (path: string) => void;
   onOpenHtml: (path: string) => void;
+  onOpenPdf: (path: string) => void;
   drag: DragHandlers;
 }
 
@@ -295,6 +311,7 @@ function NodeList({
   onOpenFile,
   onOpenImage,
   onOpenHtml,
+  onOpenPdf,
   drag,
 }: NodeListProps) {
   return (
@@ -314,9 +331,11 @@ function NodeList({
                 type="button"
                 data-row={key}
                 tabIndex={tabIndex}
-                onClick={() => opener(node, onOpenFile, onOpenImage, onOpenHtml)(node.path)}
-                // Notes only. An image or a page has no route that moves it on
-                // its own; the folder it sits in carries it.
+                onClick={() =>
+                  opener(node, onOpenFile, onOpenImage, onOpenHtml, onOpenPdf)(node.path)
+                }
+                // Notes only. An image, a page or a pdf has no route that moves
+                // it on its own; the folder it sits in carries it.
                 draggable={node.shows === undefined}
                 onDragStart={(event) => drag.start(event, node)}
                 onDragOver={(event) => drag.over(event, parentOf(node.path))}
@@ -377,6 +396,7 @@ function NodeList({
                 onOpenFile={onOpenFile}
                 onOpenImage={onOpenImage}
                 onOpenHtml={onOpenHtml}
+                onOpenPdf={onOpenPdf}
                 drag={drag}
               />
             )}
@@ -472,10 +492,12 @@ export function FileExplorer({
   paths,
   images,
   html,
+  pdfs,
   openPath,
   onOpenFile,
   onOpenImage,
   onOpenHtml,
+  onOpenPdf,
   open,
   onOpenChange,
   commands,
@@ -516,7 +538,7 @@ export function FileExplorer({
   /** Whether the panel is waiting for a row of its own to go, so it can take
    * the focus back off the body when it does. */
   const deleting = useRef(false);
-  const tree = useMemo(() => buildTree(paths, images, html), [paths, images, html]);
+  const tree = useMemo(() => buildTree(paths, images, html, pdfs), [paths, images, html, pdfs]);
   const rows = useMemo(() => flattenRows(tree, expanded), [tree, expanded]);
   // Collapsing a folder can strand the cursor past the end of the list.
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
@@ -677,8 +699,9 @@ export function FileExplorer({
     const node = rows[cursor]?.node;
     if (!node) return;
     // A page is left where it is: it belongs to whatever wrote it, and the
-    // folder it sits in moves it along with everything else.
-    if (node.kind === "file" && node.shows === "html") return;
+    // folder it sits in moves it along with everything else. A pdf the same,
+    // the note rename being the only rename there is and a pdf no note.
+    if (node.kind === "file" && (node.shows === "html" || node.shows === "pdf")) return;
     if (node.kind === "file") commands.renameNote(node.path);
     else commands.renameFolder(node.path);
   }
@@ -687,7 +710,9 @@ export function FileExplorer({
     const node = rows[cursor]?.node;
     if (!node) return;
 
-    if (node.kind === "file" && node.shows === "html") return;
+    // A pdf has no delete of its own, and the note delete would ask the vault
+    // for `plan.pdf` as a note it does not hold.
+    if (node.kind === "file" && (node.shows === "html" || node.shows === "pdf")) return;
 
     deleting.current = true;
     if (node.kind !== "file") commands.deleteFolder(node.path);
@@ -798,7 +823,7 @@ export function FileExplorer({
         else if (folder) setActive(Math.min(cursor + 1, rows.length - 1));
         else if (row) {
           const file = row.node.kind === "file" ? row.node : null;
-          if (file) opener(file, onOpenFile, onOpenImage, onOpenHtml)(file.path);
+          if (file) opener(file, onOpenFile, onOpenImage, onOpenHtml, onOpenPdf)(file.path);
         }
         break;
       default:
@@ -900,6 +925,7 @@ export function FileExplorer({
             onOpenFile={onOpenFile}
             onOpenImage={onOpenImage}
             onOpenHtml={onOpenHtml}
+            onOpenPdf={onOpenPdf}
             drag={rowDrag}
           />
         )}

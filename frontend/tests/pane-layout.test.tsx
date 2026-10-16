@@ -8,7 +8,10 @@ import {
   goToTab,
   type Layout,
   openBookBeside,
+  openHtmlInFocused,
+  openImageInFocused,
   openInFocused,
+  openPdfBeside,
   splitFocused,
   tabPanes,
   toggleZoom,
@@ -182,6 +185,32 @@ describe("TabStrip", () => {
     render(<TabStrip layout={layout} onSelect={() => {}} />);
 
     expect(screen.getByRole("tab", { name: /DDIA/ })).toBeInTheDocument();
+  });
+
+  // Obsidian names a tab by the file's base name, and so does this: the suffix
+  // goes, the folder goes, and the space inside the name stays.
+  it("A1 names a tab whose focused pane holds a pdf after the pdf, not empty", () => {
+    const layout = addTab(openPdfBeside(emptyLayout(), "x/my plan.pdf", 3));
+
+    render(<TabStrip layout={layout} onSelect={() => {}} />);
+
+    expect(screen.getByRole("tab", { name: "1 my plan" })).toBeInTheDocument();
+  });
+
+  it("A2 names a tab whose focused pane holds an image after the image, not empty", () => {
+    const layout = addTab(openImageInFocused(emptyLayout(), "media/diagram.png"));
+
+    render(<TabStrip layout={layout} onSelect={() => {}} />);
+
+    expect(screen.getByRole("tab", { name: "1 diagram" })).toBeInTheDocument();
+  });
+
+  it("I7 names a tab whose focused pane holds an HTML page after the page, not empty", () => {
+    const layout = addTab(openHtmlInFocused(emptyLayout(), "research/report.html"));
+
+    render(<TabStrip layout={layout} onSelect={() => {}} />);
+
+    expect(screen.getByRole("tab", { name: "1 report" })).toBeInTheDocument();
   });
 
   it("scrolls the tab on screen into view, and again when another is chosen", () => {

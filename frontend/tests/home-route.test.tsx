@@ -3922,6 +3922,179 @@ describe("following a link to an asset", () => {
   });
 });
 
+// #361: the box swallows the mousedown so the click leaves the cursor where it
+// was, which also keeps the browser from moving the focus. Pane focus follows
+// the focus, so without help the open lands off whichever pane had it before.
+describe("following from a pane that is not focused", () => {
+  const PLAN = "rehearse/my plan.pdf";
+  const NOTES: Record<string, string> = {
+    "index.md": "pane one\n",
+    "embedded.md": "embedded body\n",
+    "target.md": "target body\n",
+  };
+
+  /** A three-page pdf drawing nothing, for the embed and for the pane it opens. */
+  const renderer: PdfRenderer = {
+    open: () => ({
+      file: Promise.resolve({
+        pages: 3,
+        page: async () => ({ width: 600, height: 800, draw: async () => {} }),
+      }),
+      destroy: () => {},
+    }),
+  };
+
+  class Unseen {
+    observe() {}
+    disconnect() {}
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    vi.stubGlobal("open", vi.fn());
+    vi.stubGlobal("IntersectionObserver", Unseen);
+    vi.stubGlobal("ResizeObserver", Unseen);
+    pdfPaneRenderer.current = renderer;
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(["index.md", "second.md", "embedded.md", "target.md"]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([PLAN]);
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await hashed();
+    localStorage.removeItem("kasten.vim");
+    pdfPaneRenderer.current = null;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  const drawn = () =>
+    [...document.querySelectorAll<HTMLElement>("[data-pane]")].filter(
+      (pane) => !pane.classList.contains("hidden"),
+    );
+
+  /** What a pane's own editor shows, its embeds' text included. */
+  const paneText = (index: number) => drawn()[index]?.querySelector(".cm-content")?.textContent;
+
+  /**
+   * `index.md` on the left, `second.md` holding `second` on the right, and the
+   * focus back on the left: the pane the click is not in.
+   */
+  async function twoPanes(second: string, vim: boolean) {
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "second.md" ? second : NOTES[path],
+    );
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.click("second.md");
+    await settle();
+    if (!vim) {
+      localStorage.setItem("kasten.vim", "off");
+      act(() => void window.dispatchEvent(new StorageEvent("storage", { key: "kasten.vim" })));
+      await settle();
+    }
+    expect(document.querySelector(".cm-vimMode") !== null).toBe(vim);
+    app.focusPane(0);
+    await settle();
+    expect(app.focusedPane()).toBe(0);
+    expect(paneText(0)).toContain("pane one");
+    expect(paneText(1)).toContain("second note");
+    return app;
+  }
+
+  const combos = [
+    ["ctrl", "on", { ctrlKey: true }, true],
+    ["cmd", "on", { metaKey: true }, true],
+    ["ctrl", "off", { ctrlKey: true }, false],
+    ["cmd", "off", { metaKey: true }, false],
+  ] as const;
+
+  it.each(combos)(
+    "A5 %s+click on a note embed in an unfocused pane opens it in that pane (I5: vim %s)",
+    async (_key, _vim, held, vim) => {
+      await twoPanes("second note\n![[embedded]]\n", vim);
+
+      const box = drawn()[1]?.querySelector<HTMLElement>(".cm-embed") as HTMLElement;
+      fireEvent.mouseDown(box, held);
+      await settle();
+
+      expect(drawn()).toHaveLength(2);
+      expect(paneText(0)).toContain("pane one");
+      expect(paneText(1)).toContain("embedded body");
+      expect(paneText(1)).not.toContain("second note");
+    },
+  );
+
+  it.each(combos)(
+    "A6 %s+click on a pdf embed in an unfocused pane opens the pdf beside that pane (I5: vim %s)",
+    async (_key, _vim, held, vim) => {
+      await twoPanes("second note\n![[my plan.pdf#page=3]]\n", vim);
+
+      const box = drawn()[1]?.querySelector<HTMLElement>(".cm-embed-pdf") as HTMLElement;
+      fireEvent.mouseDown(box, held);
+      await settle();
+
+      // Split off the second pane, so it lands to the right of it and the
+      // first pane is left as it was.
+      expect(drawn()).toHaveLength(3);
+      expect(drawn().findIndex((pane) => pane.querySelector("[data-pdf-pane]") !== null)).toBe(2);
+      expect(paneText(0)).toContain("pane one");
+      expect(paneText(1)).toContain("second note");
+      const pdf = drawn()[2]?.querySelector("[data-pdf-pane]");
+      expect(pdf?.getAttribute("data-pdf-pane")).toBe(PLAN);
+      expect(pdf?.getAttribute("data-page")).toBe("3");
+    },
+  );
+
+  it.each(combos)(
+    "I4 %s+click on a [[wikilink]] in an unfocused pane opens it in that pane (I5: vim %s)",
+    async (_key, _vim, held, vim) => {
+      await twoPanes("second note\n[[target]]\n", vim);
+
+      const link = drawn()[1]?.querySelector<HTMLElement>(".cm-wikilink") as HTMLElement;
+      fireEvent.mouseDown(link, held);
+      await settle();
+
+      expect(drawn()).toHaveLength(2);
+      expect(paneText(0)).toContain("pane one");
+      expect(paneText(1)).toContain("target body");
+    },
+  );
+
+  it.each([
+    ["note", "![[embedded]]", ".cm-embed"],
+    ["pdf", "![[my plan.pdf#page=3]]", ".cm-embed-pdf"],
+  ])(
+    "I8 a plain click on a %s embed in an unfocused pane opens nothing",
+    async (_, embed, kind) => {
+      await twoPanes(`second note\n${embed}\n`, true);
+
+      const box = drawn()[1]?.querySelector<HTMLElement>(kind) as HTMLElement;
+      fireEvent.mouseDown(box);
+      fireEvent.mouseUp(box);
+      fireEvent.click(box);
+      await settle();
+
+      expect(drawn()).toHaveLength(2);
+      expect(document.querySelector("[data-pdf-pane]")).toBeNull();
+      expect(paneText(0)).toContain("pane one");
+      expect(paneText(1)).toContain("second note");
+    },
+  );
+});
+
 // #353: a phone's own pdf viewer ignores `#page`, so a pdf opens in a pane of
 // kasten's that draws it with `showPdf`, at the page the link names. The pane's
 // renderer is a fake three-page pdf, put in through `pdfPaneRenderer` above.
@@ -4708,5 +4881,126 @@ describe("the vault's own vocabulary", () => {
     await settle();
 
     expect(offered()).toEqual(["rewritten-since"]);
+  });
+});
+
+describe("a pdf as a row of the tree", () => {
+  const PLAN = "x/my plan.pdf";
+  const FILED = "98 Archive/old.pdf";
+
+  /** A pdf of one page that draws nothing, the pane's look being no concern here. */
+  const renderer: PdfRenderer = {
+    open: () => ({
+      file: Promise.resolve({
+        pages: 1,
+        page: async () => ({ width: 600, height: 800, draw: async () => {} }),
+      }),
+      destroy: () => {},
+    }),
+  };
+
+  class Quiet {
+    observe() {}
+    disconnect() {}
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    vi.stubGlobal("IntersectionObserver", Quiet);
+    vi.stubGlobal("ResizeObserver", Quiet);
+    pdfPaneRenderer.current = renderer;
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
+    // A book beside them, which the vault lists here too and the tree must not.
+    fetchAssets.mockResolvedValue([PLAN, FILED, "lit/DDIA.epub"]);
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await hashed();
+    pdfPaneRenderer.current = null;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  const pdfPane = () => document.querySelector<HTMLElement>("[data-pdf-pane]");
+  const row = (path: string) => document.querySelector(`[aria-label='Vault'] [title='${path}']`);
+
+  /** Open a note, then the pdf from its row, the way a reader does. */
+  async function openPlan() {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.expand("x");
+    app.click(PLAN);
+    await settle();
+    return app;
+  }
+
+  it("A3 marks the open pdf's row as the current one", async () => {
+    await openPlan();
+
+    expect(row(PLAN)).toHaveAttribute("aria-current", "page");
+    expect(row("index.md")).not.toHaveAttribute("aria-current");
+  });
+
+  it("I1 a click on the row opens the pdf over the note, at page 1", async () => {
+    const app = await openPlan();
+
+    expect(pdfPane()?.getAttribute("data-pdf-pane")).toBe(PLAN);
+    expect(pdfPane()?.hasAttribute("data-page")).toBe(false);
+    expect(app.panes()).toBe(1);
+    expect(document.querySelector(".cm-content")).toBeNull();
+    // Only the pdfs of the listing are rows, a book being a reader's business.
+    expect(row("lit/DDIA.epub")).toBeNull();
+  });
+
+  it("I2 keeps an archived pdf out of the tree until the archive is asked for", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    expect(app.tree().textContent).not.toContain("98 Archive");
+
+    app.leader("a");
+    await settle();
+    app.expand("98 Archive");
+
+    expect(row(FILED)).not.toBeNull();
+  });
+
+  it("I6 on a phone the drawer marks the open pdf, and its tab is named after it", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const app = await renderApp();
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+    app.click("index.md");
+    await settle();
+    // A second tab, so the strip shows and has the pdf's tab to name. Through
+    // the palette, a phone keeping vim and so the leader off.
+    fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Create a tab/ }));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+    app.expand("x");
+    app.click(PLAN);
+    await settle();
+
+    expect(pdfPane()?.getAttribute("data-pdf-pane")).toBe(PLAN);
+    expect(screen.getByRole("tab", { name: "2 my plan" })).toBeInTheDocument();
+
+    // A tap on a row shuts the drawer; opened again it marks the pdf.
+    fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+    expect(row(PLAN)).toHaveAttribute("aria-current", "page");
   });
 });

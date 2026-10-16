@@ -199,6 +199,7 @@ describe("the safe area on a phone", () => {
             onOpenFile={() => {}}
             onOpenImage={() => {}}
             onOpenHtml={() => {}}
+            onOpenPdf={() => {}}
             open={true}
             onOpenChange={() => {}}
             commands={INERT}

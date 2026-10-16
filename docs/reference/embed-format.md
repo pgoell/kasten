@@ -90,7 +90,7 @@ as source for that moment too, since a name cannot be resolved without it.
 
 | Gesture | Does |
 | --- | --- |
-| Ctrl+click, Cmd+click on a Mac | Open the embedded note in the focused pane |
+| Ctrl+click, Cmd+click on a Mac | Open the embedded note in the pane the embed sits in |
 | Tap, on a phone | The same |
 
 A section embed opens the note at its heading. A pdf opens in a pdf pane beside

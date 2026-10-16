@@ -123,7 +123,22 @@ function tabLabel(tab: Tab): string {
   if (focused?.book !== undefined) return noteName(focused.book);
   // A player names the note it plays beside, which is the only name it has.
   if (focused?.video !== undefined) return noteName(focused.video);
+  // A pdf, an image and a page are files and not notes, so they are named the
+  // way Obsidian names a tab holding one: by the file, less its suffix (#361).
+  if (focused?.pdf !== undefined) return baseName(focused.pdf.path);
+  if (focused?.image !== undefined) return baseName(focused.image);
+  if (focused?.html !== undefined) return baseName(focused.html);
   return focused?.path === undefined ? "empty" : noteName(focused.path);
+}
+
+/**
+ * A file's name without its folder or its suffix: `x/my plan.pdf` is `my plan`.
+ *
+ * The last suffix only, where `noteName` takes off `.md` alone: these files
+ * come in a dozen suffixes, and `report.v2.pdf` is `report.v2` and not `report`.
+ */
+function baseName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "");
 }
 
 interface TabStripProps {
