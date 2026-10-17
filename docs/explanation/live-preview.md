@@ -68,6 +68,11 @@ its box as a link, brackets and all, and the bullet already hides that box and
 draws a symbol in its place. Two renderings of the same three characters can
 only disagree, so the link rendering stands down where a todo's box begins.
 
+The parser reads every `[text]` as a link, with or without an address. Only one
+with a `(…)` part draws as a link; `[text]` and `[text][ref]` stay as typed,
+brackets and all, as Obsidian shows them, and Copy as keeps the brackets too.
+kasten does not look up `[text]: url` definitions (#439).
+
 ## The cursor never rests on a character you cannot see
 
 Hiding text creates a problem that colouring it does not. The hashes in `## Notes`
