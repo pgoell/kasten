@@ -106,20 +106,23 @@ const NAMES: [string, string][] = [
 ];
 
 describe("a callout", () => {
-  it.each(VIM)("draws every type and alias as its kind's box with its icon: %s", (_, vimOn) => {
-    for (const [name, kind] of NAMES) {
-      // Upper case for half of them: Obsidian reads the type without regard to it.
-      const written = kind === name ? name : name.toUpperCase();
-      const { container, unmount } = editor(`${ABOVE}> [!${written}]\n> body`, vimOn);
+  // One test per name rather than a loop of 28 editors in one, which on a
+  // loaded machine ran past the five seconds a test gets.
+  it.each(
+    NAMES.flatMap(([name, kind]) =>
+      VIM.map(([label, vimOn]) => [name, kind, label, vimOn] as const),
+    ),
+  )("draws [!%s] as the %s box with its icon: %s", (name, kind, _, vimOn) => {
+    // Upper case for the aliases: Obsidian reads the type without regard to it.
+    const written = kind === name ? name : name.toUpperCase();
+    const { container } = editor(`${ABOVE}> [!${written}]\n> body`, vimOn);
 
-      const lines = boxLines(container);
-      expect(lines, name).toHaveLength(2);
-      for (const line of lines) expect(line, name).toHaveClass(`cm-callout-${kind}`);
-      expect(lines[0]?.querySelector(".cm-callout-icon"), name).not.toBeNull();
-      expect(content(container), name).not.toContain("[!");
-      expect(content(container), name).not.toContain(">");
-      unmount();
-    }
+    const lines = boxLines(container);
+    expect(lines).toHaveLength(2);
+    for (const line of lines) expect(line).toHaveClass(`cm-callout-${kind}`);
+    expect(lines[0]?.querySelector(".cm-callout-icon")).not.toBeNull();
+    expect(content(container)).not.toContain("[!");
+    expect(content(container)).not.toContain(">");
   });
 
   it.each(VIM)("shows a written title as the title: %s", (_, vimOn) => {
