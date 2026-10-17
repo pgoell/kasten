@@ -222,7 +222,7 @@ function decide(element: HTMLImageElement | SVGSVGElement): void {
  * Decide every image of one section, and again whenever one changes (#481).
  *
  * The verdict rests on the size an image has now, so it is decided again when
- * its box changes, on a resize, or a closed `<details>` opening on it, and when
+ * its box changes, on a resize, or a hidden block shown round it, and when
  * its parent's does, which is where a font-size change shows: a fixed-px image
  * keeps its box while 1.5em grows past it. A `srcset` or `<picture>` swap
  * brings new pixels, and fires `load` again. An svg is here only when it draws
