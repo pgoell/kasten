@@ -130,6 +130,33 @@ describe("a callout", () => {
   });
 });
 
+// The parser reads every `[text]` with no `(url)` as a link (#434).
+describe("bracketed text with no address", () => {
+  it.each([
+    ["A10 in a quote", "> [x] one", "> [x] one", "<blockquote><p>[x] one</p></blockquote>"],
+    ["I1 on a plain line", "see [text] here", "see [text] here", "<p>see [text] here</p>"],
+    ["I1 as a full reference", "[text][ref] x", "[text][ref] x", "<p>[text][ref] x</p>"],
+    ["I1 holding emphasis", "[**a** <b>]", "[*a* <b>]", "<p>[<strong>a</strong> &lt;b&gt;]</p>"],
+    ["I7 as a todo's box", "- [/] task", "• [/] task", "<ul><li>[/] task</li></ul>"],
+    [
+      "A11 in a callout's body, its head still the title",
+      "> [!note] T\n> [x] one",
+      "> *T*\n> [x] one",
+      "<blockquote><p><strong>T</strong></p><p>[x] one</p></blockquote>",
+    ],
+  ])("keeps its brackets %s", (_, note, slack, html) => {
+    expect(toSlack(note)).toBe(slack);
+    expect(toHtml(note)).toBe(html);
+  });
+
+  it("I3 still writes a [text](url) link as before", () => {
+    expect(toSlack("> [docs](https://example.com)")).toBe("> docs (https://example.com)");
+    expect(toHtml("[docs](https://example.com)")).toBe(
+      '<p><a href="https://example.com">docs</a></p>',
+    );
+  });
+});
+
 describe("a wikilink's alias and heading", () => {
   it("writes an aliased wikilink as its alias", () => {
     expect(toSlack("see [[borges|Jorge]]")).toBe("see Jorge");

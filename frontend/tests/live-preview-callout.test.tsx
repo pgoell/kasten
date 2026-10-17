@@ -233,6 +233,15 @@ describe("a callout", () => {
     expect(content(container)).not.toContain("[!");
   });
 
+  it.each(VIM)("A11 hides its head's brackets, a [x] in its body keeping them: %s", (_, vimOn) => {
+    // Both parse as links with no address; the head is the callout's to draw.
+    const { container } = editor(`${ABOVE}> [!note] Title\n> [x] one`, vimOn);
+
+    const lines = boxLines(container);
+    expect(lines.map((line) => line.textContent)).toEqual(["Title", "[x] one"]);
+    expect(lines[0]?.querySelector(".cm-callout-title")?.textContent).toBe("Title");
+  });
+
   it("shows the whole source with the cursor in it, vim off", async () => {
     const { container } = editor(`${ABOVE}> [!note] Title\n> body\n> more`, false);
     const view = viewIn(container);

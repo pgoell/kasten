@@ -139,7 +139,14 @@ function span(node: SyntaxNode, source: string, format: Format): string {
       const start = node.from + (node.name === "Image" ? 2 : 1);
       const label = inline(node, source, format, start, close ? close.from : node.to);
       const url = node.getChild("URL");
-      return url ? link(label, source.slice(url.from, url.to), format) : label;
+      if (url) return link(label, source.slice(url.from, url.to), format);
+      // The parser reads any `[text]` with no `(url)` as a link. Nothing
+      // resolves a definition (#439), so it goes out as the editor shows it,
+      // brackets and any `[ref]` after them included.
+      if (node.name === "Link" && close) {
+        return `[${label}${prose(source.slice(close.from, node.to), format)}`;
+      }
+      return label;
     }
     case "Autolink": {
       const url = node.getChild("URL");

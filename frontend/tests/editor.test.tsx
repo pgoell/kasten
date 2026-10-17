@@ -740,6 +740,100 @@ describe("Editor following a link with an alias or a heading", () => {
   });
 });
 
+describe("Editor following a link inside bold or another mark (#432)", () => {
+  const ISSUE_LINE =
+    '- [ ] Decide the scorer rules. **Read [[Scorer Rules]] first: one real example per rule, with a small "Power BI vs AI/BI" table.** **Output:** one answer per line, or "ok" to take every suggestion #internal ⏳ 2026-10-19 ➕ 2026-10-17 ⏲ 20m 🆔 kt-2726c0';
+  const CASES = [
+    ["bold in the issue's todo line (A1, A6)", ISSUE_LINE, "Scorer Rules", "Scorer Rules"],
+    ["bold in a plain line (A1, A6)", "see **[[borges]]** now", "borges", "borges"],
+    ["italic (A5)", "see *[[borges]]* now", "borges", "borges"],
+    ["strikethrough (A5)", "see ~~[[borges]]~~ now", "borges", "borges"],
+    ["highlight (A5)", "see ==[[borges]]== now", "borges", "borges"],
+    ["bold, by its alias (I6)", "see **[[borges|Jorge]]** now", "Jorge", "borges|Jorge"],
+  ];
+
+  /**
+   * The element holding the text, which is what a browser hands a click as its
+   * target. Inside a mark that is a span nested in the link's own span, so a
+   * test on `.cm-wikilink` would click somewhere no finger can.
+   */
+  function textIn(container: HTMLElement, text: string): HTMLElement {
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      if (node.textContent?.includes(text)) return node.parentElement as HTMLElement;
+    }
+    throw new Error(`no text ${text}`);
+  }
+
+  afterEach(() => localStorage.clear());
+
+  it.each(CASES)(
+    "follows a link in %s on ctrl+click and cmd+click, vim on and off (A2, A3)",
+    (_, doc, text, target) => {
+      const onFollow = vi.fn();
+      const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} onFollow={onFollow} />);
+
+      fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
+      fireEvent.mouseDown(textIn(container, text), { metaKey: true });
+      act(() => toggleVim());
+      fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
+
+      expect(onFollow.mock.calls).toEqual([[target], [target], [target]]);
+    },
+  );
+
+  it.each(CASES)("follows a link in %s on a tap (A4)", (_, doc, text, target) => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} onFollow={onFollow} />);
+
+    fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
+    fireEvent.click(textIn(container, text));
+
+    expect(onFollow).toHaveBeenCalledWith(target);
+  });
+
+  it("opens a markdown link's address in bold on ctrl+click (I3)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(<Editor initialDoc="see **[mail](https://example.com/a)** now" />);
+
+    fireEvent.mouseDown(textIn(container, "mail"), { ctrlKey: true });
+
+    expect(open).toHaveBeenCalledWith("https://example.com/a", "_blank", "noopener");
+    open.mockRestore();
+  });
+
+  it("leaves a plain click on a link in bold to the cursor (I4)", () => {
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor initialDoc="see **[[borges]]** now" onFollow={onFollow} />,
+    );
+
+    fireEvent.mouseDown(textIn(container, "borges"));
+
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
+  it("leaves a tap on a link in bold the cursor sits in to the cursor (I5)", () => {
+    const onFollow = vi.fn();
+    const { container } = render(
+      <Editor initialDoc={"intro\n\nsee **[[borges]]** now"} onFollow={onFollow} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    const tap = () => {
+      fireEvent.pointerDown(textIn(container, "borges"), { pointerType: "touch" });
+      fireEvent.click(textIn(container, "borges"));
+    };
+
+    // The first tap, from outside the link, shows the second one is turned
+    // away by the cursor and not by the mark.
+    tap();
+    for (const key of ["G", "0", "f", "b"]) fireEvent.keyDown(content, { key });
+    tap();
+
+    expect(onFollow.mock.calls).toEqual([["borges"]]);
+  });
+});
+
 describe("Editor wikilink completion", () => {
   it("completes the name before an alias and keeps the alias, in vim mode", async () => {
     // Preview off: it hides `[[bor|` until the cursor is in the link, and

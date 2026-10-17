@@ -364,12 +364,15 @@ function urlUnder(event: Event, view: EditorView): UrlLink | null {
   return null;
 }
 
-/** The note the rendered link under the pointer names, or null off one. */
+/**
+ * The note the rendered link under the pointer names, or null off one.
+ *
+ * The nearest link span, not the target itself: inside bold or another mark
+ * the text sits in a span of its own nested in the link's (#432).
+ */
 function linkUnder(event: Event, view: EditorView): string | null {
-  const element = event.target;
-  if (!(element instanceof HTMLElement) || !element.classList.contains("cm-wikilink")) {
-    return null;
-  }
+  const element = event.target instanceof HTMLElement ? event.target.closest(".cm-wikilink") : null;
+  if (element === null) return null;
   return wikiLinkAt(view.state, view.posAtDOM(element));
 }
 
