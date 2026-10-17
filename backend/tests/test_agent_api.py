@@ -369,6 +369,23 @@ async def test_a_write_whose_result_exceeds_the_bound_is_refused(
     assert (agent_vault / "big.md").read_text() == "x" * (1024 * 1024 - 64)
 
 
+async def test_a_write_the_crlf_puts_over_the_bound_is_refused(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # LF text just under the bound, sent over a CRLF note, lands a byte longer
+    # per line. The bound is on what lands, so it is measured after that.
+    (agent_vault / "windows.md").write_bytes(CRLF_NOTE)
+    read = (await client.get("/agent/notes/windows.md", headers=bearer)).json()
+    lines = ("x" * 99 + "\n") * ((1024 * 1024 - 300) // 100)
+
+    response = await client.put(
+        "/agent/notes/windows.md", json={"content": lines, "sha": read["sha"]}, headers=bearer
+    )
+
+    assert response.status_code == 413
+    assert (agent_vault / "windows.md").read_bytes() == CRLF_NOTE
+
+
 async def test_the_schema_needs_a_token(client: AsyncClient, agent_vault: Path) -> None:
     # Gated by the router's own dependency, not by the MCP mount below it, which
     # would answer 401 for an unmatched path and make this pass either way.

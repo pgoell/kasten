@@ -36,6 +36,7 @@ from kasten_backend.periodic import append_dump, daily_note, daily_path
 from kasten_backend.search import search_vault
 from kasten_backend.vault import (
     create_note,
+    landing,
     list_markdown_files,
     relative_path,
     resolve_folder,
@@ -337,14 +338,15 @@ def _write(relative: str, content: str, previous: bytes | None) -> str:
     return stamped.replace("\n", "\r\n") if crlf else stamped
 
 
-def _bounded(content: str) -> str:
-    """`content`, or a refusal when it would not fit.
+def _bounded(note: Path, content: str) -> str:
+    """`content`, or a refusal when it would not fit at `note`.
 
-    Measured on the bytes that would land, after the join and after the stamp.
-    Bounding the incoming text alone would let a note just under the line plus a
-    small append cross it.
+    Measured on the bytes that would land, after the join, after the stamp and
+    after `landing` turns LF into CRLF in a CRLF note. Bounding the incoming
+    text alone would let a note just under the line plus a small append cross
+    it.
     """
-    if len(content.encode("utf-8")) > MOST_CONTENT_BYTES:
+    if len(landing(note, content).encode("utf-8")) > MOST_CONTENT_BYTES:
         raise TooLargeError(f"That write would leave more than {MOST_CONTENT_BYTES} bytes on disk")
 
     return content
@@ -377,7 +379,7 @@ async def _put(
             tail = body if body.endswith("\n") else f"{body}\n"
             body = f"{previous.decode('utf-8').rstrip(chr(13) + chr(10))}\n\n{tail}"
 
-        content = _bounded(_write(relative, body, previous))
+        content = _bounded(note, _write(relative, body, previous))
         async with vault_change(settings.vault_path, relative):
             if previous is None:
                 create_note(note, content)
@@ -449,7 +451,7 @@ async def dump(
             if previous is None
             else previous.decode("utf-8")
         )
-        content = _bounded(_write(relative, append_dump(held, capture), previous))
+        content = _bounded(note, _write(relative, append_dump(held, capture), previous))
 
         async with vault_change(settings.vault_path, relative):
             if previous is None:

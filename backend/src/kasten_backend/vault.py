@@ -615,6 +615,27 @@ def prune_empty_folders(root: Path, folder: Path) -> list[Path]:
     return removed
 
 
+def landing(path: Path, content: str) -> str:
+    """`content` as `write_note` would put it on disk at `path`.
+
+    A note that already holds a CRLF keeps CRLF: every lone LF in `content`
+    lands as a CRLF. `read_note` hands clients the text with every CRLF turned
+    into an LF, so without this any save of a note written on Windows would
+    rewrite every line of it. A CRLF that arrived stays one rather than gaining
+    a second CR. An LF note, or a path with no file yet, gets `content` as it
+    came.
+
+    Its own function so a bound on what lands can measure this rather than the
+    text before it, which is a byte short per line.
+    """
+    try:
+        crlf = b"\r\n" in path.read_bytes()
+    except FileNotFoundError:
+        crlf = False
+
+    return LONE_LF.sub("\r\n", content) if crlf else content
+
+
 def write_note(path: Path, content: str) -> None:
     """Write `content` over a note `resolve_note` returned.
 
@@ -625,20 +646,9 @@ def write_note(path: Path, content: str) -> None:
     over.
 
     `newline=""` because the vault is the source of truth: the bytes that
-    arrived are the bytes on disk, with one exception. A note that already
-    holds a CRLF keeps CRLF: every lone LF in `content` lands as a CRLF.
-    `read_note` hands clients the text with every CRLF turned into an LF, so
-    without this any save of a note written on Windows would rewrite every line
-    of it. A CRLF that arrived stays one rather than gaining a second CR. An LF
-    note, or a path with no file yet, gets `content` as it came.
+    arrived are the bytes on disk, with the one exception `landing` makes for a
+    CRLF note.
     """
-    try:
-        crlf = b"\r\n" in path.read_bytes()
-    except FileNotFoundError:
-        crlf = False
-    if crlf:
-        content = LONE_LF.sub("\r\n", content)
-
     temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_text(content, encoding="utf-8", newline="")
+    temporary.write_text(landing(path, content), encoding="utf-8", newline="")
     temporary.replace(path)

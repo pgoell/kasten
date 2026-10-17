@@ -1386,19 +1386,30 @@ def _member(bundle: zipfile.ZipFile, name: str, budget: _Budget, cap: int) -> by
 
 
 def _unzstd(blob: bytes, budget: _Budget, cap: int) -> bytes:
-    """`blob` decompressed, stopped one byte past `cap` or past what `budget` has left.
+    """Every frame of `blob` decompressed, stopped one byte past `cap` or what `budget` has left.
+
+    A decompressor stops at the end of its frame and leaves the rest in
+    `unused_data`, where `zstd.decompress` would go on, so each further frame
+    takes a fresh one under what is left of the same cap.
 
     Raises:
-        zstd.ZstdError: `blob` is not zstd, or its frame is cut short, which a
+        zstd.ZstdError: `blob` is not zstd, or a frame is cut short, which a
             decompressor given `max_length` reports by not reaching `eof`
             rather than by raising.
     """
-    decompressor = zstd.ZstdDecompressor()
-    out = decompressor.decompress(blob, max_length=min(cap, budget.left) + 1)
-    budget.spend(len(out))
-    if len(out) <= cap and not decompressor.eof:
-        raise zstd.ZstdError("the frame ends early")
-    return out
+    out = bytearray()
+    while True:
+        decompressor = zstd.ZstdDecompressor()
+        piece = decompressor.decompress(blob, max_length=min(cap - len(out), budget.left) + 1)
+        budget.spend(len(piece))
+        out += piece
+        if len(out) > cap:
+            return bytes(out)
+        if not decompressor.eof:
+            raise zstd.ZstdError("the frame ends early")
+        blob = decompressor.unused_data
+        if not blob:
+            return bytes(out)
 
 
 def _capped(name: str, blob: bytes) -> bytes:

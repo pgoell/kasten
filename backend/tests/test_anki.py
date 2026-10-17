@@ -2836,6 +2836,16 @@ def unpacked(export: bytes, *members: str) -> int:
     return total
 
 
+def test_a_collection_of_two_zstd_frames_reads_whole() -> None:
+    # `zstd.decompress` reads every frame, and a decompressor stops after one.
+    export = apkg(schema18=True, member="collection.anki21b")
+    blob = zstd.decompress(zipfile.ZipFile(io.BytesIO(export)).read("collection.anki21b"))
+    half = len(blob) // 2
+    split = zipped("collection.anki21b", zstd.compress(blob[:half]) + zstd.compress(blob[half:]))
+
+    assert sides(read_apkg(split)) == sides(read_apkg(export))
+
+
 @pytest.mark.parametrize("layer", ["deflate", "zstd"])
 async def test_a4_a_member_unpacking_past_its_cap_is_refused(
     client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch, layer: str
