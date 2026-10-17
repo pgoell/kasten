@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { page } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
-import { BACKING, backImages, backingFor } from "@/lib/book-backing";
+import { BACKING, backImages, INK, treatmentFor } from "@/lib/book-backing";
 // A book written for a white page, `body { color: #000; background: #fff }`,
 // with a cover page first and two chapters after it. The cover page holds only
 // `#cover`, `cover.png`, an opaque 300x450 portrait gradient fitted to the page
@@ -73,7 +73,7 @@ function drawn(): Promise<void> {
 }
 
 /** One property of one element of a section, as the section computes it. */
-function computed(doc: Document, selector: string, property: "backgroundColor"): string {
+function computed(doc: Document, selector: string, property: "backgroundColor" | "filter"): string {
   const element = doc.querySelector(selector);
   if (!element) throw new Error(`nothing at ${selector} inside the book`);
   return (doc.defaultView as Window).getComputedStyle(element)[property];
@@ -169,6 +169,33 @@ async function chapterOne(): Promise<Document> {
   return doc;
 }
 
+/**
+ * A 16px red circle on transparent, set into `#ornate` beside the ornament and
+ * decided, its verdict landed.
+ *
+ * The fixture holds no coloured icon, so one is drawn here.
+ */
+async function redIcon(doc: Document): Promise<HTMLImageElement> {
+  const canvas = document.createElement("canvas");
+  canvas.width = 16;
+  canvas.height = 16;
+  const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+  context.fillStyle = "red";
+  context.arc(8, 8, 7, 0, 2 * Math.PI);
+  context.fill();
+  const icon = doc.createElement("img");
+  icon.id = "icon";
+  icon.alt = "!";
+  icon.src = canvas.toDataURL();
+  icon.style.cssText = "width: 16px; height: 16px;";
+  (doc.querySelector("#ornate") as HTMLElement).append(" and an icon ", icon);
+
+  backImages(doc);
+  // The same decision `backImages` waits on, so the attributes have landed after it.
+  expect(await treatmentFor(icon)).toBe("plain");
+  return icon;
+}
+
 describe("the white page under a book's images", () => {
   beforeEach(() => {
     sections.length = 0;
@@ -224,7 +251,7 @@ describe("the white page under a book's images", () => {
 
       backImages(doc);
       // The same decision `backImages` waits on, so the attribute has landed after it.
-      expect(await backingFor(art)).toBe(false);
+      expect(await treatmentFor(art)).toBe("plain");
 
       const box = art.getBoundingClientRect();
       expect(Math.abs(box.width / box.height - 1)).toBeGreaterThan(0.05);
@@ -244,14 +271,26 @@ describe("the white page under a book's images", () => {
     });
   }, 30_000);
 
-  it("gives a small inline ornament no white patch", async () => {
+  it("draws a small black ornament light on the dark page, with no white patch", async () => {
+    // Black on the dark page it would all but vanish, and white round it would
+    // box it out of its line, so it is inverted (#478).
     const doc = await chapterOne();
     await loaded(doc, "#ornament");
 
-    await vi.waitFor(
-      () => expect(computed(doc, "#ornament", "backgroundColor")).toBe(TRANSPARENT),
-      { timeout: 5_000 },
-    );
+    await vi.waitFor(() => expect(computed(doc, "#ornament", "filter")).toBe("invert(1)"), {
+      timeout: 5_000,
+    });
+    expect(computed(doc, "#ornament", "backgroundColor")).toBe(TRANSPARENT);
+  }, 30_000);
+
+  it("leaves a small coloured icon as it is, neither inverted nor on white", async () => {
+    const doc = await chapterOne();
+    const icon = await redIcon(doc);
+
+    expect(icon.hasAttribute(INK)).toBe(false);
+    expect(icon.hasAttribute(BACKING)).toBe(false);
+    expect(computed(doc, "#icon", "filter")).toBe("none");
+    expect(computed(doc, "#icon", "backgroundColor")).toBe(TRANSPARENT);
   }, 30_000);
 
   it("keeps the white page under transparent line art", async () => {
@@ -298,6 +337,30 @@ describe("the white page under a book's images", () => {
         container.style.cssText = `width: ${width}px; height: 700px;`;
         await drawn();
         expect(await shot(pane(), `book-chapter-${name}`)).toBe(width);
+      }
+    } finally {
+      await page.viewport(414, 896);
+    }
+  }, 60_000);
+
+  it("draws the ornament and a coloured icon at phone and at desktop width", async () => {
+    try {
+      const doc = await chapterOne();
+      await loaded(doc, "#ornament");
+      await redIcon(doc);
+      await vi.waitFor(() => expect(computed(doc, "#ornament", "filter")).toBe("invert(1)"), {
+        timeout: 5_000,
+      });
+      const container = mounted?.container as HTMLElement;
+      const pane = container.querySelector("[data-book-pane]") as HTMLElement;
+      for (const [name, width] of [
+        ["phone", 390],
+        ["desktop", 1200],
+      ] as const) {
+        await page.viewport(width, 800);
+        container.style.cssText = `width: ${width}px; height: 700px;`;
+        await drawn();
+        expect(await shot(pane, `book-ornament-${name}`)).toBe(width);
       }
     } finally {
       await page.viewport(414, 896);

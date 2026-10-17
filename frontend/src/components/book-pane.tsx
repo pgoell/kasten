@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
 import { type BookBeside, fetchBook, fetchNote, uploadAsset } from "@/lib/api";
-import { BACKING, backImages } from "@/lib/book-backing";
+import { BACKING, backImages, INK } from "@/lib/book-backing";
 import { findQuotes, holdsQuote } from "@/lib/find-quote";
 import { type HighlightBlock, highlightBlocks, type Passage } from "@/lib/highlight";
 import { filedName, IMAGE_FOLDER } from "@/lib/image";
@@ -512,10 +512,14 @@ interface BookPaneProps {
  * calibre cover page, a raster fitted into a page-sized svg, and the bars round
  * the picture are page.
  *
+ * A small dark glyph on transparent in a line of text, which gets no white, is
+ * marked as ink instead and inverted, so its black turns pale like the words
+ * round it (#478).
+ *
  * An inline svg is drawn as it was on the book's page, in black: its `<text>`
  * fills black whatever the colour says (#471), and its `currentColor` shapes
  * take the `color: #000` here, where the theme's pale text would vanish on the
- * white. The last three rules add a second `:not(#\#)`, two ids and two or
+ * white. The last four rules add a second `:not(#\#)`, two ids and two or
  * three types, so they outweigh the text rule and the link rule, which an image
  * or an svg inside a link would otherwise take.
  */
@@ -531,6 +535,7 @@ function pageStyles(): string {
     `body:not(#\\#) :is(img, picture, svg:not(:has(image)), object):not(#\\#) { color: #000 !important; }`,
     `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
     `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
+    `body:not(#\\#) img[${INK}]:not(#\\#) { filter: invert(1) !important; }`,
   ].join("\n");
 }
 

@@ -1,4 +1,4 @@
-import { BACKING, backImages, backingFor } from "@/lib/book-backing";
+import { BACKING, backImages, INK, treatmentFor } from "@/lib/book-backing";
 
 interface Shape {
   /** The computed `object-fit`. jsdom's cssstyle does not know the property. */
@@ -42,6 +42,14 @@ function image({
 const opaque = () => new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255]);
 /** Two pixels, the second see-through, the way line art on a transparent png reads. */
 const transparent = () => new Uint8ClampedArray([0, 0, 0, 255, 0, 0, 0, 0]);
+/** Pixels on a transparent ground: one opaque pixel of each colour given, then one of nothing. */
+const onClear =
+  (...colours: [number, number, number, number][]) =>
+  () =>
+    new Uint8ClampedArray([...colours.flat(), 0, 0, 0, 0]);
+
+/** The size of a glyph in a line of 16px text. */
+const SMALL = { height: 16, font: 16 };
 
 describe("an image's white page", () => {
   afterEach(() => {
@@ -50,37 +58,38 @@ describe("an image's white page", () => {
   });
 
   it("puts white behind line art on a transparent png", async () => {
-    expect(await backingFor(image(), transparent)).toBe(true);
+    expect(await treatmentFor(image(), transparent)).toBe("white");
   });
 
   it("puts none behind an opaque image", async () => {
-    expect(await backingFor(image(), opaque)).toBe(false);
+    expect(await treatmentFor(image(), opaque)).toBe("plain");
   });
 
   it("puts none behind a letterboxed image, whatever its pixels", async () => {
     // A square picture in a box twice as wide. The transparent reader, so a
     // skipped check would answer white.
-    expect(await backingFor(image({ fit: "contain", width: 400 }), transparent)).toBe(false);
-    expect(await backingFor(image({ fit: "scale-down", width: 400 }), transparent)).toBe(false);
+    expect(await treatmentFor(image({ fit: "contain", width: 400 }), transparent)).toBe("plain");
+    expect(await treatmentFor(image({ fit: "scale-down", width: 400 }), transparent)).toBe("plain");
   });
 
   it("keeps white behind letterboxed line art in a chapter with text", async () => {
     const img = image({ fit: "contain", width: 400 });
     img.before("A diagram of the engine:");
 
-    expect(await backingFor(img, transparent)).toBe(true);
+    expect(await treatmentFor(img, transparent)).toBe("white");
   });
 
   it("keeps white behind line art fitted with contain at its own shape", async () => {
-    expect(await backingFor(image({ fit: "contain" }), transparent)).toBe(true);
+    expect(await treatmentFor(image({ fit: "contain" }), transparent)).toBe("white");
   });
 
   it("puts none behind a small image in a line of text", async () => {
-    expect(await backingFor(image({ height: 24, font: 16 }), transparent)).toBe(false);
+    // The black glyph on transparent is inverted rather than backed (#478).
+    expect(await treatmentFor(image({ height: 24, font: 16 }), transparent)).toBe("ink");
   });
 
   it("keeps white behind an image one size larger than a line", async () => {
-    expect(await backingFor(image({ height: 25, font: 16 }), transparent)).toBe(true);
+    expect(await treatmentFor(image({ height: 25, font: 16 }), transparent)).toBe("white");
   });
 
   it("keeps white behind an image another origin keeps from being read", async () => {
@@ -88,7 +97,7 @@ describe("an image's white page", () => {
       throw new DOMException("tainted", "SecurityError");
     };
 
-    expect(await backingFor(image(), tainted)).toBe(true);
+    expect(await treatmentFor(image(), tainted)).toBe("white");
   });
 
   it("lets any other failure to read through", async () => {
@@ -96,39 +105,40 @@ describe("an image's white page", () => {
       throw new DOMException("gone", "InvalidStateError");
     };
 
-    await expect(backingFor(image(), failing)).rejects.toThrow("gone");
+    await expect(treatmentFor(image(), failing)).rejects.toThrow("gone");
   });
 
   it("keeps white behind a broken image, for its alt text", async () => {
-    expect(await backingFor(image({ natural: 0 }), opaque)).toBe(true);
+    expect(await treatmentFor(image({ natural: 0 }), opaque)).toBe("white");
   });
 
   it("decides an image that finishes loading after the section", async () => {
     const img = image({ complete: false });
-    const answer = backingFor(img, transparent);
+    const answer = treatmentFor(img, transparent);
 
     img.dispatchEvent(new Event("load"));
 
-    expect(await answer).toBe(true);
+    expect(await answer).toBe("white");
   });
 
   it("keeps white behind an image that fails to load after the section", async () => {
     const img = image({ complete: false });
-    const answer = backingFor(img, opaque);
+    const answer = treatmentFor(img, opaque);
 
     img.dispatchEvent(new Event("error"));
 
-    expect(await answer).toBe(true);
+    expect(await answer).toBe("white");
   });
 
   it("measures a small image again once it loads, having laid out at zero", async () => {
     const img = image({ complete: false, height: 0 });
-    const answer = backingFor(img, transparent);
+    const answer = treatmentFor(img, transparent);
 
     img.getBoundingClientRect = () => ({ height: 12 }) as DOMRect;
     img.dispatchEvent(new Event("load"));
 
-    expect(await answer).toBe(false);
+    // Small once measured, so a glyph to invert and not line art to back.
+    expect(await answer).toBe("ink");
   });
 
   it("marks each image of a section the stylesheet should put white behind", async () => {
@@ -137,5 +147,77 @@ describe("an image's white page", () => {
     backImages(document);
 
     await vi.waitFor(() => expect(img.hasAttribute(BACKING)).toBe(true));
+  });
+});
+
+describe("a small glyph on the dark page", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  it("inverts a small black glyph on transparent", async () => {
+    expect(await treatmentFor(image(SMALL), onClear([0, 0, 0, 255]))).toBe("ink");
+  });
+
+  it("leaves a small coloured icon on transparent alone", async () => {
+    expect(await treatmentFor(image(SMALL), onClear([220, 20, 20, 255]))).toBe("plain");
+    expect(await treatmentFor(image(SMALL), onClear([20, 40, 220, 255]))).toBe("plain");
+    // Dark but not grey: inverted, a navy would turn a garish yellow.
+    expect(await treatmentFor(image(SMALL), onClear([10, 20, 90, 255]))).toBe("plain");
+  });
+
+  it("leaves a small white glyph on transparent alone", async () => {
+    expect(await treatmentFor(image(SMALL), onClear([255, 255, 255, 255]))).toBe("plain");
+    expect(await treatmentFor(image(SMALL), onClear([200, 200, 200, 255]))).toBe("plain");
+  });
+
+  it("leaves a small opaque dark image alone", async () => {
+    const dark = () => new Uint8ClampedArray([0, 0, 0, 255, 30, 30, 30, 255]);
+
+    expect(await treatmentFor(image(SMALL), dark)).toBe("plain");
+  });
+
+  it("leaves a small image another origin keeps from being read alone", async () => {
+    const tainted = () => {
+      throw new DOMException("tainted", "SecurityError");
+    };
+
+    expect(await treatmentFor(image(SMALL), tainted)).toBe("plain");
+  });
+
+  it("keeps large black line art white and not inverted", async () => {
+    expect(await treatmentFor(image(), onClear([0, 0, 0, 255]))).toBe("white");
+  });
+
+  it("counts a glyph's grey half-transparent edges as ink", async () => {
+    // Un-premultiplied, a black glyph's antialiased edge reads black at partial
+    // alpha, and a canvas may round it a few steps grey.
+    const edged = () =>
+      new Uint8ClampedArray([
+        0, 0, 0, 255, 0, 0, 0, 128, 40, 40, 40, 64, 70, 70, 70, 20, 0, 0, 0, 0,
+      ]);
+
+    expect(await treatmentFor(image(SMALL), edged)).toBe("ink");
+  });
+
+  it("leaves a small image with no visible pixel alone", async () => {
+    const spacer = () => new Uint8ClampedArray([0, 0, 0, 0, 0, 0, 0, 0]);
+
+    expect(await treatmentFor(image(SMALL), spacer)).toBe("plain");
+  });
+
+  it("marks a small black glyph as ink and puts no white behind it", async () => {
+    // jsdom has no 2d context, so the canvas read is stubbed to the glyph's pixels.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage() {},
+      getImageData: () => ({ data: onClear([0, 0, 0, 255])() }),
+    } as unknown as CanvasRenderingContext2D);
+    const img = image(SMALL);
+
+    backImages(document);
+
+    await vi.waitFor(() => expect(img.hasAttribute(INK)).toBe(true));
+    expect(img.hasAttribute(BACKING)).toBe(false);
   });
 });

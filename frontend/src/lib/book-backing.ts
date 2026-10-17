@@ -8,10 +8,34 @@
  * itself, and the bars are the img's own box. So the white is decided per
  * image, by its pixels, and the stylesheet in `book-pane.tsx` draws it only
  * under an img carrying `BACKING`.
+ *
+ * A small image in a line of text gets no white, which would box it out of the
+ * line, so a black glyph on transparent there is black on the dark page and
+ * close to invisible (#478). Such an image carries `INK` instead, and the
+ * stylesheet inverts it, so its black turns pale like the text round it.
  */
 
-/** The attribute the page's stylesheet reads. */
+/** The attribute the page's stylesheet reads to draw white behind an image. */
 export const BACKING = "data-kasten-backing";
+
+/** The attribute the page's stylesheet reads to invert a small dark glyph. */
+export const INK = "data-kasten-ink";
+
+/** What the page does for one image: white behind it, inverted, or nothing. */
+export type Treatment = "white" | "ink" | "plain";
+
+/**
+ * How dark and how grey a pixel may be and still count as ink.
+ *
+ * Grey as well as dark, so a navy or maroon icon is left alone: inverted, it
+ * would come out a garish complement and not the pale of the text. Most of the
+ * visible pixels and not all, so a glyph with a few lighter or tinted pixels
+ * still inverts. `getImageData` hands back colour un-premultiplied, so the
+ * half-transparent edges of a black glyph read (0,0,0,a) and count as dark.
+ */
+const INK_MAX = 96;
+const INK_SPREAD = 48;
+const INK_SHARE = 0.9;
 
 /** The longest side of the copy whose alpha is read. A thumbnail answers as well as the whole. */
 const SIDE = 64;
@@ -24,7 +48,7 @@ export type ReadPixels = (img: HTMLImageElement) => Uint8ClampedArray;
  *
  * foliate hands every epub resource over as a same-origin `blob:` URL, so the
  * canvas stays clean for an epub's own images. One from another origin taints
- * it, and `getImageData` throws a `SecurityError`, which `backingFor` answers.
+ * it, and `getImageData` throws a `SecurityError`, which `treatmentFor` answers.
  */
 function canvasPixels(img: HTMLImageElement): Uint8ClampedArray {
   const scale = Math.min(1, SIDE / Math.max(img.naturalWidth, img.naturalHeight));
@@ -85,42 +109,69 @@ function loaded(img: HTMLImageElement): Promise<boolean> {
 }
 
 /**
- * Whether `img` needs a white page behind it.
+ * Whether the pixels are a dark glyph on a transparent ground.
+ *
+ * An opaque image is a picture of its own, not ink, and one with no visible
+ * pixel, a spacer, has nothing to invert.
+ */
+function ink(pixels: Uint8ClampedArray): boolean {
+  let seeThrough = false;
+  let visible = 0;
+  let dark = 0;
+  for (let index = 0; index < pixels.length; index += 4) {
+    const [r = 0, g = 0, b = 0, alpha = 0] = pixels.subarray(index, index + 4);
+    if (alpha < 255) seeThrough = true;
+    if (alpha === 0) continue;
+    visible += 1;
+    const max = Math.max(r, g, b);
+    if (max <= INK_MAX && max - Math.min(r, g, b) <= INK_SPREAD) dark += 1;
+  }
+  return seeThrough && visible > 0 && dark >= visible * INK_SHARE;
+}
+
+/**
+ * What the page does for `img`: white behind it, inverted, or nothing.
  *
  * Read through the image's own window, the section living in foliate's iframe.
  */
-export async function backingFor(
+export async function treatmentFor(
   img: HTMLImageElement,
   readPixels: ReadPixels = canvasPixels,
-): Promise<boolean> {
+): Promise<Treatment> {
   // Everything below reads layout, so it waits even for an image already
   // loaded. foliate's `load` arrives while the iframe is hidden and before its
   // render, and the await resumes once that render has laid the chapter out
   // (`paginator.js:256-272`). Until then every box is zero.
   // A broken image draws its alt text, black, which needs the white to read.
-  if (!(await loaded(img))) return true;
+  if (!(await loaded(img))) return "white";
   // The pane closed while the image loaded, and there is no page left to draw.
   const view = img.ownerDocument.defaultView;
-  if (view === null) return false;
-  if (inline(img, view) || letterboxed(img, view)) return false;
+  if (view === null) return "plain";
+  if (letterboxed(img, view)) return "plain";
+  const small = inline(img, view);
 
   let pixels: Uint8ClampedArray;
   try {
     pixels = readPixels(img);
   } catch (error) {
-    // Another origin's image cannot be read, so it keeps the white #469 gave every image.
+    // Another origin's image cannot be read, so it keeps the white #469 gave
+    // every image, unless it sits in a line of text, which never had white.
     // The canvas lives in the chapter's iframe, so what it throws is that
     // window's DOMException and not an instance of this one's.
     const Thrown = (view as Window & typeof globalThis).DOMException;
-    if (error instanceof Thrown && error.name === "SecurityError") return true;
+    if (error instanceof Thrown && error.name === "SecurityError") return small ? "plain" : "white";
     throw error;
   }
+  if (small) return ink(pixels) ? "ink" : "plain";
   // Every fourth byte is a pixel's alpha.
-  return pixels.some((value, index) => index % 4 === 3 && value < 255);
+  return pixels.some((value, index) => index % 4 === 3 && value < 255) ? "white" : "plain";
 }
 
 /** Decide every image of one section, as each finishes loading. */
 export function backImages(doc: Document): void {
   for (const img of doc.querySelectorAll("img"))
-    void backingFor(img).then((backed) => img.toggleAttribute(BACKING, backed));
+    void treatmentFor(img).then((treatment) => {
+      img.toggleAttribute(BACKING, treatment === "white");
+      img.toggleAttribute(INK, treatment === "ink");
+    });
 }

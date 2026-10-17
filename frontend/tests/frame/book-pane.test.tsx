@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { page, userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
-import { BACKING, backImages, backingFor } from "@/lib/book-backing";
+import { BACKING, backImages, treatmentFor } from "@/lib/book-backing";
 // Three chapters and a nav holding three entries, the third nested under the
 // second, for the cases that walk a real list of chapters.
 import contentsUrl from "../fixtures/contents.epub?url";
@@ -818,7 +818,9 @@ describe("the reader over a real book", () => {
       throw new Chapter("tainted", "SecurityError");
     };
 
-    expect(await backingFor(doc.querySelector("#art") as HTMLImageElement, tainted)).toBe(true);
+    expect(await treatmentFor(doc.querySelector("#art") as HTMLImageElement, tainted)).toBe(
+      "white",
+    );
   }, 30_000);
 
   it("keeps the white page under line art the book fits with object-fit contain", async () => {
@@ -830,7 +832,7 @@ describe("the reader over a real book", () => {
     img.style.cssText = "max-width: 100%; object-fit: contain;";
     doc.body.append(img);
 
-    expect(await backingFor(img)).toBe(true);
+    expect(await treatmentFor(img)).toBe("white");
   }, 30_000);
 
   it("keeps the white page under line art letterboxed in a chapter with text", async () => {
@@ -842,7 +844,7 @@ describe("the reader over a real book", () => {
     img.style.cssText = "width: 100%; height: 40px; object-fit: contain;";
     doc.body.append(img);
 
-    expect(await backingFor(img)).toBe(true);
+    expect(await treatmentFor(img)).toBe("white");
   }, 30_000);
 
   it("decides images added to a section after it loaded", async () => {
