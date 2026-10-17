@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
 import { type BookBeside, fetchBook, fetchNote, uploadAsset } from "@/lib/api";
+import { BACKING, backImages } from "@/lib/book-backing";
 import { findQuotes, holdsQuote } from "@/lib/find-quote";
 import { type HighlightBlock, highlightBlocks, type Passage } from "@/lib/highlight";
 import { filedName, IMAGE_FOLDER } from "@/lib/image";
@@ -498,21 +499,25 @@ interface BookPaneProps {
  * `a` with an `href` is a link: an `<a id>` round a heading is a place to jump
  * to, and its text stays the theme's (#470).
  *
- * Images, svg and objects get a white page of their own (#469). The book often
- * puts its white on the block round the art, a figure or a div, and that block
- * went transparent with the rest, which leaves black line art on a transparent
- * png drawn on the dark page. Text keeps the theme's colours either way, and an
- * opaque photo covers its white. What such an element writes itself, a broken
- * image's alt text or an object's fallback, is black on that white. An svg
- * holding an `<image>` is left out: that is a calibre cover page, a raster
- * fitted into a page-sized svg, and the bars round the picture are page.
+ * Inline svg and objects get a white page of their own, and so does an image
+ * `backImages` in `book-backing.ts` marks (#469). The book often puts its white
+ * on the block round the art, a figure or a div, and that block went
+ * transparent with the rest, which leaves black line art on a transparent png
+ * drawn on the dark page. An image is marked by script rather than by a rule
+ * because a stylesheet cannot see pixels: a letterboxed cover, an opaque photo
+ * and an icon in a line of text keep the dark page (#475), and a `picture`
+ * follows the img inside it. What such an element writes itself, a broken
+ * image's alt text or an object's fallback, is black on that white, and a
+ * broken image is marked. An svg holding an `<image>` is left out: that is a
+ * calibre cover page, a raster fitted into a page-sized svg, and the bars round
+ * the picture are page.
  *
  * An inline svg is drawn as it was on the book's page, in black: its `<text>`
  * fills black whatever the colour says (#471), and its `currentColor` shapes
  * take the `color: #000` here, where the theme's pale text would vanish on the
- * white. The last two rules add a second `:not(#\#)`, two ids and two or three
- * types, so they outweigh the text rule and the link rule, which an image or
- * an svg inside a link would otherwise take.
+ * white. The last three rules add a second `:not(#\#)`, two ids and two or
+ * three types, so they outweigh the text rule and the link rule, which an image
+ * or an svg inside a link would otherwise take.
  */
 function pageStyles(): string {
   const style = getComputedStyle(document.documentElement);
@@ -523,7 +528,8 @@ function pageStyles(): string {
     `html:not(#\\#), html:not(#\\#) body { background: ${read("--color-one-bg")} !important; color: ${fg} !important; }`,
     `body:not(#\\#) :not(mark, mark *) { color: ${fg} !important; background-color: transparent !important; }`,
     `body:not(#\\#) :is(a:any-link, a:any-link *) { color: ${read("--color-one-accent")} !important; }`,
-    `body:not(#\\#) :is(img, svg:not(:has(image)), picture, object):not(#\\#) { color: #000 !important; background-color: #fff !important; }`,
+    `body:not(#\\#) :is(img, picture, svg:not(:has(image)), object):not(#\\#) { color: #000 !important; }`,
+    `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
     `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
   ].join("\n");
 }
@@ -1047,6 +1053,8 @@ export function BookPane({
       if (taking.current?.range.startContainer.ownerDocument !== doc) taking.current = null;
       forgetPagesThatLeft();
       sections.push({ doc, index, watcher: watchPage(doc) });
+      // A pdf page holds a canvas and no img, so this finds nothing there.
+      backImages(doc);
     }
     view.addEventListener("load", onLoad);
 

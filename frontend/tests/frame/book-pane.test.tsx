@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { page, userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
+import { backingFor } from "@/lib/book-backing";
 // Three chapters and a nav holding three entries, the third nested under the
 // second, for the cases that walk a real list of chapters.
 import contentsUrl from "../fixtures/contents.epub?url";
@@ -258,8 +259,13 @@ const TEXT = [
   "#anchorspan",
 ];
 const LINKS = ["#link", "#deep", "#realpic"];
-/** The images and the svg, each drawn on a white page of its own. */
-const WHITE = ["#pic", "#art", "#linkpic", "#svg", "#obj", "#picture", "#picture img"];
+/**
+ * The transparent images and the svg, each drawn on a white page of its own.
+ *
+ * An image's white arrives once it has loaded and its pixels are read, so a
+ * case asserting it waits.
+ */
+const WHITE = ["#art", "#linkpic", "#svg", "#obj", "#picture", "#picture img"];
 /** The svg's shapes, in the black a white page gives them. */
 const INK = ["#svgtext", "#svgrect"];
 /** What writes an image's alt text or an object's fallback, in black on its white. */
@@ -281,7 +287,22 @@ function expectThemed(doc: Document): void {
   expect(computed(doc, "#box", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   expect(computed(doc, "#figure", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   expect(computed(doc, "#cover", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+  // `pic.svg` is an opaque square, which covers any white and needs none (#475).
+  expect(computed(doc, "#pic", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   expect(computed(doc, "body", "backgroundColor")).toBe(bg);
+}
+
+/** Wait for a chapter's colours, which hold once its images are decided. */
+function themed(doc: Document): Promise<void> {
+  return vi.waitFor(() => expectThemed(doc), { timeout: 10_000 });
+}
+
+/** Wait for one element's background to be white. */
+function white(doc: Document, selector: string): Promise<void> {
+  return vi.waitFor(
+    () => expect(computed(doc, selector, "backgroundColor"), selector).toBe("rgb(255, 255, 255)"),
+    { timeout: 10_000 },
+  );
 }
 
 /** The dark-text fixture's first chapter, drawn. */
@@ -735,7 +756,16 @@ describe("the reader over a real book", () => {
     // every other block, so the white has to come back on the image (#469).
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#art", "backgroundColor")).toBe("rgb(255, 255, 255)");
+    await white(doc, "#art");
+  }, 30_000);
+
+  it("leaves the dark page round an opaque image", async () => {
+    // An opaque picture covers any white behind it, so it gets none (#475).
+    // Asked once `#art` is decided, so the answer is not the one before any.
+    const { doc } = await drawDark();
+    await white(doc, "#art");
+
+    expect(computed(doc, "#pic", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   }, 30_000);
 
   it("drops the white the book puts behind a figure, and keeps the text around it in the theme's", async () => {
@@ -777,10 +807,30 @@ describe("the reader over a real book", () => {
     expect(computed(doc, "#svgrect", "fill")).toBe("rgb(0, 0, 0)");
   }, 30_000);
 
+  it("keeps the white page under an image another origin keeps from being read", async () => {
+    // A tainted canvas throws from the chapter's own window, whose DOMException
+    // is not the app's. A real cross-origin image cannot stand in here: the
+    // page's `img-src` refuses another origin over http, so it never loads and
+    // takes the broken image's white without reaching the read.
+    const { doc } = await drawDark();
+    const Chapter = (doc.defaultView as Window & typeof globalThis).DOMException;
+    const tainted = () => {
+      throw new Chapter("tainted", "SecurityError");
+    };
+    // A new img and not `#art`: foliate puts `object-fit: contain` on every
+    // image it lays out, which `backingFor` reads as a letterbox once the
+    // chapter has drawn. One appended afterwards has only the book's styles.
+    const img = doc.createElement("img");
+    img.src = (doc.querySelector("#art") as HTMLImageElement).src;
+    doc.body.append(img);
+
+    expect(await backingFor(img, tainted)).toBe(true);
+  }, 30_000);
+
   it("keeps the white page under an image inside a link", async () => {
     const { doc } = await drawDark();
 
-    expect(computed(doc, "#linkpic", "backgroundColor")).toBe("rgb(255, 255, 255)");
+    await white(doc, "#linkpic");
   }, 30_000);
 
   it("writes an image's alt text in black on its white page", async () => {
@@ -803,8 +853,7 @@ describe("the reader over a real book", () => {
   it("draws an object and a picture on white", async () => {
     const { doc } = await drawDark();
 
-    for (const selector of ["#obj", "#picture", "#picture img"])
-      expect(computed(doc, selector, "backgroundColor"), selector).toBe("rgb(255, 255, 255)");
+    for (const selector of ["#obj", "#picture", "#picture img"]) await white(doc, selector);
   }, 30_000);
 
   it("keeps the theme's colours in the next chapter, after a turn", async () => {
@@ -823,7 +872,7 @@ describe("the reader over a real book", () => {
     );
     await drawn();
 
-    expectThemed(sections.at(-1) as Document);
+    await themed(sections.at(-1) as Document);
   }, 30_000);
 
   it("keeps the theme's colours at phone and at desktop width", async () => {
@@ -839,7 +888,7 @@ describe("the reader over a real book", () => {
         container.style.cssText = `width: ${width}px; height: 700px;`;
         await drawn();
 
-        expectThemed(doc);
+        await themed(doc);
         expect(
           await shot(
             container.querySelector("[data-book-pane]") as HTMLElement,
