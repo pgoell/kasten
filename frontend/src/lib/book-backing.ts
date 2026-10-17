@@ -223,8 +223,10 @@ function decide(element: HTMLImageElement | SVGSVGElement): void {
  *
  * The verdict rests on the size an image has now, so it is decided again when
  * its box changes, on a resize, or a hidden block shown round it, and when
- * its parent's does, which is where a font-size change shows: a fixed-px image
- * keeps its box while 1.5em grows past it. A `srcset` or `<picture>` swap
+ * the box of the block it sits in does, which is where a font-size change
+ * shows: a fixed-px image keeps its box while 1.5em grows past it. The block
+ * and not the parent, since an observer reports an inline parent, a `<span>`
+ * or a footnote's `<a>`, as 0x0 whatever its font. A `srcset` or `<picture>` swap
  * brings new pixels, and fires `load` again. An svg is here only when it draws
  * a raster through an `<image>`; every other svg is white by the stylesheet.
  *
@@ -246,13 +248,16 @@ export function backImages(doc: Document): ResizeObserver | undefined {
   const observer = new view.ResizeObserver((entries) => {
     const changed = new Set<HTMLImageElement | SVGSVGElement>();
     for (const { target } of entries)
-      for (const element of [target, ...target.children])
+      for (const element of [target, ...target.querySelectorAll("img, svg")])
         if (turns.has(element)) changed.add(element as HTMLImageElement | SVGSVGElement);
     for (const element of changed) decide(element);
   });
   for (const element of elements) {
     observer.observe(element);
-    if (element.parentElement) observer.observe(element.parentElement);
+    let block = element.parentElement;
+    while (block?.parentElement && view.getComputedStyle(block).display === "inline")
+      block = block.parentElement;
+    if (block) observer.observe(block);
     if (element.localName === "img") element.addEventListener("load", () => decide(element));
     decide(element);
   }
