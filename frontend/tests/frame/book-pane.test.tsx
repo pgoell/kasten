@@ -833,6 +833,18 @@ describe("the reader over a real book", () => {
     expect(await backingFor(img)).toBe(true);
   }, 30_000);
 
+  it("keeps the white page under line art letterboxed in a chapter with text", async () => {
+    // `img { width: 100% }` and foliate's `max-height` make a tall diagram's
+    // box wider than its picture. Bars beside it beat a diagram nobody can read.
+    const { doc } = await drawDark();
+    const img = doc.createElement("img");
+    img.src = (doc.querySelector("#art") as HTMLImageElement).src;
+    img.style.cssText = "width: 100%; height: 40px; object-fit: contain;";
+    doc.body.append(img);
+
+    expect(await backingFor(img)).toBe(true);
+  }, 30_000);
+
   it("decides images added to a section after it loaded", async () => {
     const { doc } = await drawDark();
     const opaque = doc.createElement("img");

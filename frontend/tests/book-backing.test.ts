@@ -64,6 +64,13 @@ describe("an image's white page", () => {
     expect(await backingFor(image({ fit: "scale-down", width: 400 }), transparent)).toBe(false);
   });
 
+  it("keeps white behind letterboxed line art in a chapter with text", async () => {
+    const img = image({ fit: "contain", width: 400 });
+    img.before("A diagram of the engine:");
+
+    expect(await backingFor(img, transparent)).toBe(true);
+  });
+
   it("keeps white behind line art fitted with contain at its own shape", async () => {
     expect(await backingFor(image({ fit: "contain" }), transparent)).toBe(true);
   });

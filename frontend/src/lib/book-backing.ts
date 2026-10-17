@@ -54,13 +54,20 @@ function inline(img: HTMLImageElement, view: Window): boolean {
 }
 
 /**
- * Whether the image's box draws bars round its picture.
+ * Whether the image is a cover whose box draws bars round its picture.
  *
  * By the bars and not by `object-fit` alone: foliate puts `contain` on every
  * image it lays out (`paginator.js:341-357`), and publishers write it on every
  * img too, and at the picture's own shape it draws nothing round it.
+ *
+ * Only on a page with no text, which is what a cover page is. In a chapter, a
+ * tall diagram under `img { width: 100% }` gets bars too, foliate's
+ * `max-height` shrinking its picture and not its box, and white bars beside it
+ * are a smaller harm than black line art nobody can read. Alt text is not
+ * `textContent`, so a cover's own alt does not count.
  */
 function letterboxed(img: HTMLImageElement, view: Window): boolean {
+  if (img.ownerDocument.body?.textContent?.trim() !== "") return false;
   const fit = view.getComputedStyle(img).objectFit;
   if (fit !== "contain" && fit !== "scale-down") return false;
   const box = img.getBoundingClientRect();
