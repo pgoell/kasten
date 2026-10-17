@@ -196,6 +196,92 @@ async function redIcon(doc: Document): Promise<HTMLImageElement> {
   return icon;
 }
 
+/** A png of `width` by `height` as a data URL, with a black bar across a clear ground, or all clear. */
+function png(width: number, height: number, bar = true): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  if (bar) (canvas.getContext("2d") as CanvasRenderingContext2D).fillRect(0, 10, width, 10);
+  return canvas.toDataURL();
+}
+
+/**
+ * Set the shapes #481 to #483 are about into chapter one, decided and loaded.
+ *
+ * After `#ornate` come `#strip`, an 800x48 black bar on transparent under
+ * `max-width: 100%`, which is taller than 1.5em of the 16px text only in a
+ * wide page's column, about 470px against a phone's 330; `#spacer`,
+ * a transparent 1x1 stretched 40px tall; and `#more`, a `hidden` div holding
+ * `#hidden`, the ornament at 16px. Not a closed `<details>`: Chromium hides
+ * its content with `content-visibility` and still lays it out, at its own
+ * size, where `display: none` lays it out at nothing. Into `#ornate` goes `#glyph`, a 1em
+ * svg drawing the ornament through an `<image>`.
+ */
+async function additions(doc: Document): Promise<void> {
+  const ornament = (doc.querySelector("#ornament") as HTMLImageElement).src;
+  const paragraph = (...children: Node[]) => {
+    const p = doc.createElement("p");
+    p.append(...children);
+    return p;
+  };
+  const strip = doc.createElement("img");
+  strip.id = "strip";
+  strip.alt = "";
+  strip.src = png(800, 48);
+  strip.style.cssText = "max-width: 100%;";
+  const spacer = doc.createElement("img");
+  spacer.id = "spacer";
+  spacer.alt = "";
+  spacer.src = png(1, 1, false);
+  spacer.style.cssText = "width: 100%; height: 40px;";
+  const hidden = doc.createElement("img");
+  hidden.id = "hidden";
+  hidden.alt = "*";
+  hidden.src = ornament;
+  hidden.style.cssText = "width: 16px; height: 16px;";
+  const more = doc.createElement("div");
+  more.id = "more";
+  more.hidden = true;
+  more.append(paragraph(doc.createTextNode("A glyph "), hidden));
+  const ornate = doc.querySelector("#ornate") as HTMLElement;
+  ornate.after(paragraph(strip), paragraph(spacer), more);
+
+  const glyph = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+  glyph.id = "glyph";
+  glyph.setAttribute("width", "1em");
+  glyph.setAttribute("height", "1em");
+  const image = doc.createElementNS("http://www.w3.org/2000/svg", "image");
+  image.setAttribute("href", ornament);
+  image.setAttribute("width", "100%");
+  image.setAttribute("height", "100%");
+  glyph.append(image);
+  ornate.append(" and a glyph ", glyph);
+
+  backImages(doc);
+  for (const selector of ["#strip", "#spacer", "#hidden"]) await loaded(doc, selector);
+  await drawn();
+}
+
+/** Put the page and the pane at `width`, so the paginator lays the chapter out again. */
+async function widen(width: number): Promise<void> {
+  await page.viewport(width, 800);
+  const container = mounted?.container as HTMLElement;
+  container.style.cssText = `width: ${width}px; height: 700px;`;
+  await drawn();
+}
+
+/** Wait for `#strip` to be on white at a wide page and inverted at a narrow one. */
+function stripAt(doc: Document, width: number): Promise<void> {
+  const wide = width > 600;
+  return vi.waitFor(
+    () => {
+      expect(computed(doc, "#strip", "backgroundColor")).toBe(wide ? WHITE : TRANSPARENT);
+      expect(computed(doc, "#strip", "filter")).toBe(wide ? "none" : "invert(1)");
+    },
+    { timeout: 5_000 },
+  );
+}
+
 describe("the white page under a book's images", () => {
   beforeEach(() => {
     sections.length = 0;
@@ -361,6 +447,68 @@ describe("the white page under a book's images", () => {
         container.style.cssText = `width: ${width}px; height: 700px;`;
         await drawn();
         expect(await shot(pane, `book-ornament-${name}`)).toBe(width);
+      }
+    } finally {
+      await page.viewport(414, 896);
+    }
+  }, 60_000);
+
+  it("decides a wide strip again as the page narrows and widens", async () => {
+    // Over 1.5em tall on a wide page, under it on a phone's, so white and then
+    // inverted, and white again (#481).
+    try {
+      const doc = await chapterOne();
+      await additions(doc);
+      for (const width of [1200, 390, 1200]) {
+        await widen(width);
+        await stripAt(doc, width);
+      }
+    } finally {
+      await page.viewport(414, 896);
+    }
+  }, 60_000);
+
+  it("decides a glyph in a hidden block again once it shows", async () => {
+    // Hidden, it lays out at nothing, which reads as no line of text (#481).
+    const doc = await chapterOne();
+    await additions(doc);
+    expect((doc.querySelector("#hidden") as HTMLElement).getBoundingClientRect().height).toBe(0);
+
+    (doc.querySelector("#more") as HTMLElement).hidden = false;
+
+    await vi.waitFor(() => expect(computed(doc, "#hidden", "filter")).toBe("invert(1)"), {
+      timeout: 5_000,
+    });
+    expect(computed(doc, "#hidden", "backgroundColor")).toBe(TRANSPARENT);
+  }, 30_000);
+
+  it("draws a small svg glyph light on the dark page, with no white patch", async () => {
+    // Drawn through an `<image>`, like a calibre cover, but the size of a
+    // letter, so it is inverted like the ornament beside it (#483).
+    const doc = await chapterOne();
+    await additions(doc);
+
+    await vi.waitFor(() => expect(computed(doc, "#glyph", "filter")).toBe("invert(1)"), {
+      timeout: 5_000,
+    });
+    expect(computed(doc, "#glyph", "backgroundColor")).toBe(TRANSPARENT);
+  }, 30_000);
+
+  it("draws a wide strip, a spacer and an svg glyph at phone and at desktop width", async () => {
+    try {
+      const doc = await chapterOne();
+      await additions(doc);
+      const container = mounted?.container as HTMLElement;
+      const pane = container.querySelector("[data-book-pane]") as HTMLElement;
+      for (const [name, width] of [
+        ["phone", 390],
+        ["desktop", 1200],
+      ] as const) {
+        await widen(width);
+        await stripAt(doc, width);
+        expect(computed(doc, "#spacer", "backgroundColor")).toBe(TRANSPARENT);
+        expect(computed(doc, "#glyph", "filter")).toBe("invert(1)");
+        expect(await shot(pane, `book-resize-${name}`)).toBe(width);
       }
     } finally {
       await page.viewport(414, 896);

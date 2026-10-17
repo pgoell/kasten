@@ -236,7 +236,7 @@ function themeColour(name: string): string {
 function computed(
   doc: Document,
   selector: string,
-  property: "color" | "backgroundColor" | "fill",
+  property: "color" | "backgroundColor" | "fill" | "filter",
 ): string {
   const element = doc.querySelector(selector);
   if (!element) throw new Error(`nothing at ${selector} inside the book`);
@@ -889,10 +889,14 @@ describe("the reader over a real book", () => {
 
   it("leaves the dark page round an svg cover", async () => {
     // A cover page fits a raster into an svg the size of the page, and the
-    // bars either side of the picture are page, not art.
+    // bars either side of the picture are page, not art. Larger than a line of
+    // text, so not a glyph to invert either (#483).
     const { doc } = await drawDark();
+    // Once the line art has its white, the section's images are decided.
+    await white(doc, "#art");
 
     expect(computed(doc, "#cover", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+    expect(computed(doc, "#cover", "filter")).toBe("none");
   }, 30_000);
 
   it("draws an object and a picture on white", async () => {

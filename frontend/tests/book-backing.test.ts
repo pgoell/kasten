@@ -27,7 +27,7 @@ function image({
   const img = document.createElement("img");
   parent.append(img);
   document.body.append(parent);
-  Object.defineProperty(img, "complete", { value: complete });
+  Object.defineProperty(img, "complete", { value: complete, writable: true });
   Object.defineProperty(img, "naturalWidth", { value: natural, writable: true });
   Object.defineProperty(img, "naturalHeight", { value: natural, writable: true });
   img.getBoundingClientRect = () => ({ width, height }) as DOMRect;
@@ -50,6 +50,52 @@ const onClear =
 
 /** The size of a glyph in a line of 16px text. */
 const SMALL = { height: 16, font: 16 };
+
+/** A `ResizeObserver`, which jsdom has none of, that a case fires by hand. */
+class FakeObserver {
+  static made: FakeObserver[] = [];
+  readonly observed: Element[] = [];
+  readonly callback: ResizeObserverCallback;
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    FakeObserver.made.push(this);
+  }
+  observe(target: Element) {
+    this.observed.push(target);
+  }
+  disconnect() {}
+  /** Report `targets` resized, the way a layout pass does. */
+  fire(...targets: Element[]) {
+    this.callback(
+      targets.map((target) => ({ target }) as ResizeObserverEntry),
+      this as unknown as ResizeObserver,
+    );
+  }
+}
+
+/** Have the canvas read hand back `pixels`, jsdom having no 2d context. */
+function canvasReads(pixels: () => Uint8ClampedArray) {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+    drawImage() {},
+    getImageData: () => ({ data: pixels() }),
+  } as unknown as CanvasRenderingContext2D);
+}
+
+/** Make the parent's computed font size `font` from now on. */
+function fontSize(font: number) {
+  vi.spyOn(window, "getComputedStyle").mockImplementation(
+    () => ({ objectFit: "fill", fontSize: `${font}px` }) as CSSStyleDeclaration,
+  );
+}
+
+beforeEach(() => {
+  FakeObserver.made = [];
+  vi.stubGlobal("ResizeObserver", FakeObserver);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("an image's white page", () => {
   afterEach(() => {
@@ -106,6 +152,13 @@ describe("an image's white page", () => {
     };
 
     await expect(treatmentFor(image(), failing)).rejects.toThrow("gone");
+  });
+
+  it("puts none behind a transparent spacer stretched taller than a line", async () => {
+    // Nothing visible to back, and white across it would draw a bar (#482).
+    const spacer = () => new Uint8ClampedArray([0, 0, 0, 0, 0, 0, 0, 0]);
+
+    expect(await treatmentFor(image({ height: 40 }), spacer)).toBe("plain");
   });
 
   it("keeps white behind a broken image, for its alt text", async () => {
@@ -230,5 +283,72 @@ describe("a small glyph on the dark page", () => {
 
     await vi.waitFor(() => expect(img.hasAttribute(INK)).toBe(true));
     expect(img.hasAttribute(BACKING)).toBe(false);
+  });
+});
+
+describe("an image decided again as it changes", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  it("decides an image again on the new pixels a srcset swap loads", async () => {
+    canvasReads(transparent);
+    const img = image();
+    backImages(document);
+    await vi.waitFor(() => expect(img.hasAttribute(BACKING)).toBe(true));
+
+    // The browser picked another candidate, opaque, and fired `load` for it.
+    canvasReads(opaque);
+    img.dispatchEvent(new Event("load"));
+
+    await vi.waitFor(() => expect(img.hasAttribute(BACKING)).toBe(false));
+  });
+
+  it("decides an image again when its parent's font grows past it", async () => {
+    // 20px is over 1.5em of 12px text and within 1.5em of 16px. The img's own
+    // box does not change, so only the parent's tells.
+    canvasReads(onClear([0, 0, 0, 255]));
+    const img = image({ height: 20, font: 12 });
+    const parent = img.parentElement as HTMLElement;
+    backImages(document);
+    await vi.waitFor(() => expect(img.hasAttribute(BACKING)).toBe(true));
+    expect(FakeObserver.made.flatMap((observer) => observer.observed)).toContain(parent);
+
+    fontSize(16);
+    FakeObserver.made[0]?.fire(parent);
+
+    await vi.waitFor(() => expect(img.hasAttribute(INK)).toBe(true));
+    expect(img.hasAttribute(BACKING)).toBe(false);
+  });
+
+  it("keeps the newest verdict when an older decision finishes after it", async () => {
+    canvasReads(onClear([0, 0, 0, 255]));
+    const img = image({ ...SMALL, complete: false });
+    // The first decision waits on the load.
+    backImages(document);
+
+    // The second finds the image complete and lands at once.
+    Object.defineProperty(img, "complete", { value: true });
+    FakeObserver.made[0]?.fire(img);
+    await vi.waitFor(() => expect(img.hasAttribute(INK)).toBe(true));
+    // The first now hears of a failure that is no longer so, and would answer white.
+    img.dispatchEvent(new Event("error"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(img.hasAttribute(INK)).toBe(true);
+    expect(img.hasAttribute(BACKING)).toBe(false);
+  });
+
+  it("watches each image once when a section is decided twice", () => {
+    // Broken, so its decision needs no canvas.
+    const img = image({ natural: 0 });
+
+    backImages(document);
+    backImages(document);
+
+    const observed = FakeObserver.made.flatMap((observer) => observer.observed);
+    expect(observed.filter((target) => target === img)).toHaveLength(1);
+    expect(observed.filter((target) => target === img.parentElement)).toHaveLength(1);
   });
 });
