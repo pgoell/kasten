@@ -28,6 +28,31 @@ The line under the button says what arrived: how many decks and cards, how many
 the import added, updated and kept, how many Anki no longer has, and how many
 image and sound files came with them.
 
+## From a link
+
+Beside **Import an Anki deck**, the field takes a link instead of a file. Paste
+it and import; kasten fetches the deck and imports it as it would the file,
+with the same summary and the same **Carry Anki's schedule**.
+
+Two kinds of link work:
+
+* A plain https address of an `.apkg`, such as a GitHub release asset. A
+  redirect to another https host is followed.
+* An AnkiWeb shared deck's page, `https://ankiweb.net/shared/info/<id>`. kasten
+  looks for the download the page offers and fetches it.
+
+AnkiWeb draws that page in JavaScript, and what it sends a server today holds
+no download link, so kasten answers that the page needs a browser. Open the
+page in a browser, press **Download**, and import the `.apkg` here as a file.
+kasten does not get past a captcha or a login either: it tells you which one
+the link asked for, and the way round is the same.
+
+kasten refuses a link that is not https, a redirect to http, and any address
+that is not on the internet, such as `localhost` or the box's own network,
+whichever hop it shows up on. It refuses a deck over 100MB, a fetch that takes
+over two minutes, a link that answers with a web page or anything else that is
+not a deck, and a deck that is gone. A refused link writes nothing.
+
 ## Where it lands
 
 One note per deck, under `03 Flashcards`:

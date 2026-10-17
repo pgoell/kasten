@@ -163,6 +163,32 @@ export async function importAnki(file: Blob, carry: boolean): Promise<AnkiImport
 }
 
 /**
+ * The same import from a link: an AnkiWeb shared-deck page or a plain `.apkg`.
+ *
+ * The backend fetches it, so a phone never has to download the deck only to
+ * upload it again, and the answer is the one `importAnki` gets.
+ */
+export async function importAnkiLink(url: string, carry: boolean): Promise<AnkiImport> {
+  // Plain `fetch` to match `importAnki`, whose refusal handling this repeats:
+  // the detail is the sentence the import line shows.
+  const response = await fetch(carry ? "/api/anki/link?carry=true" : "/api/anki/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+
+  if (!response.ok) {
+    const detail =
+      response.headers.get("content-type")?.includes("json") === true
+        ? reason(await response.json())
+        : null;
+    throw new Error(detail ?? `POST /api/anki/link failed with ${response.status}`);
+  }
+
+  return (await response.json()) as AnkiImport;
+}
+
+/**
  * Every line in the vault that could be part of a flashcard.
  *
  * Candidate lines, in search's shape. `review.ts` picks the notes worth reading

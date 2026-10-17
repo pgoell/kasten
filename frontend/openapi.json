@@ -1274,6 +1274,57 @@
         }
       }
     },
+    "/api/anki/link": {
+      "post": {
+        "summary": "Import Anki Link",
+        "description": "Fetch the deck a link names and import it as `POST /api/anki` imports a file.\n\nThe fetch is `files.fetch_deck`'s, and its refusals reach the reader\nthrough the `RefusedError` handler. Nothing is written until the bytes are\nall here, so a link that fails leaves the vault as it was.",
+        "operationId": "import_anki_link_api_anki_link_post",
+        "parameters": [
+          {
+            "name": "carry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Carry"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeckLink"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnkiImport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tokens": {
       "get": {
         "summary": "Read Tokens",
@@ -2135,6 +2186,20 @@
         ],
         "title": "Capture",
         "description": "A dump from the app, which may carry the id its sender minted at typing.\n\n`POST /api/dump` only. The agent's route and its MCP tool keep `Dump`, so\nan agent's schema never grows a field it has no use for: an agent that\nlost an answer reads the note again rather than resending blind."
+      },
+      "DeckLink": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "DeckLink",
+        "description": "Where a deck to import lives."
       },
       "Dump": {
         "properties": {

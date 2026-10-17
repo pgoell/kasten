@@ -666,6 +666,50 @@ such a file has nothing left to ask and is left out.
 
 [Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
 
+## POST /api/anki/link
+
+Fetches the deck a link names and imports it as `POST /api/anki` imports a
+file: the same merge, the same `?carry=true`, the same 201 body and the same
+400 and 409 refusals, word for word. The body is JSON:
+
+```json
+{"url": "https://ankiweb.net/shared/info/2109889812"}
+```
+
+The link is a plain https address of an `.apkg`, or an AnkiWeb shared deck's
+page, `https://ankiweb.net/shared/info/<id>`. For the page, the backend looks
+for a link on it to an `.apkg` or to AnkiWeb's `download-deck` path and fetches
+that. It never builds a download address from the id and never calls
+AnkiWeb's `/svc` API. AnkiWeb serves a server a JavaScript shell with no link
+in it today, so a page link is refused with the browser message below.
+
+Every hop, redirects included, goes through the checks `GET /api/fetch` makes
+on the address, and one more on the scheme:
+
+* A link that is not https, or a redirect to http, answers 400
+  `Only https links`. So does text that is no link at all.
+* An address off the internet, loopback, private, link-local, the metadata
+  address `169.254.169.254` and the rest `GET /api/fetch` refuses, answers 400
+  `That address is not on the internet`, on any hop. The socket opens to the
+  address checked, so a name that answers otherwise a second time changes
+  nothing.
+* A deck over 100MB answers 413 `That deck is too big`. The bytes are counted
+  as they arrive and reading stops at the cap, whatever `content-length` says.
+* A fetch that takes over two minutes in all answers 504
+  `That link took too long to answer`.
+* A web page or other bytes that are not a zip answer 400
+  `That link is a web page, not an Anki deck` or `That link is not an Anki deck`.
+* A 404 or 410 answers 502 `That deck is gone: the link answered 404`.
+* A 401, a 403, or a redirect to an `/account/login` page answers 502 with a
+  message to download the `.apkg` in a browser.
+* A page that asks for a captcha or carries Cloudflare's challenge answers 502
+  saying kasten does not get past it.
+* An AnkiWeb page with no download link answers 502
+  `AnkiWeb's page needs a browser: open it there, press Download, and import the .apkg here`.
+* Any other status of 400 or more answers 502 `That link answered N`.
+
+A refused or failed link writes nothing to the vault.
+
 ## GET /api/todos
 
 Finds every line in the vault that could be a todo. Takes an optional

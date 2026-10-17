@@ -764,6 +764,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/anki/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Anki Link
+         * @description Fetch the deck a link names and import it as `POST /api/anki` imports a file.
+         *
+         *     The fetch is `files.fetch_deck`'s, and its refusals reach the reader
+         *     through the `RefusedError` handler. Nothing is written until the bytes are
+         *     all here, so a link that fails leaves the vault as it was.
+         */
+        post: operations["import_anki_link_api_anki_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tokens": {
         parameters: {
             query?: never;
@@ -1329,6 +1353,14 @@ export interface components {
             date: string;
             /** Id */
             id?: string | null;
+        };
+        /**
+         * DeckLink
+         * @description Where a deck to import lives.
+         */
+        DeckLink: {
+            /** Url */
+            url: string;
         };
         /**
          * Dump
@@ -2599,6 +2631,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnkiImport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_anki_link_api_anki_link_post: {
+        parameters: {
+            query?: {
+                carry?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeckLink"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

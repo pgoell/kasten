@@ -1,6 +1,6 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { fetchCards, fetchNote, importAnki } from "@/lib/api";
+import { type AnkiImport, fetchCards, fetchNote, importAnki, importAnkiLink } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review";
 
@@ -12,6 +12,16 @@ function depthOf(name: string): number {
 /** What the row calls it: the last part of the path, the rest being the rows above. */
 function leafOf(name: string): string {
   return name.slice(name.lastIndexOf("/") + 1);
+}
+
+/** The line under the import row, one for a file and a link alike. */
+function summaryOf(done: AnkiImport): string {
+  return (
+    `${done.notes.length} deck${done.notes.length === 1 ? "" : "s"}, ${done.cards} cards: ` +
+    `${done.added} added, ${done.updated} updated, ${done.kept} kept, ` +
+    `${done.removed} removed in Anki` +
+    (done.media > 0 ? `, ${done.media} media file${done.media === 1 ? "" : "s"}` : "")
+  );
 }
 
 interface ReviewDecksProps {
@@ -34,7 +44,26 @@ interface ReviewDecksProps {
 export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksProps) {
   const [imported, setImported] = useState<string | null>(null);
   const [carry, setCarry] = useState(false);
+  const [link, setLink] = useState("");
+  const [linking, setLinking] = useState(false);
   const queryClient = useQueryClient();
+
+  /** Run one import, from a file or a link, and say on the line how it went. */
+  function runImport(started: Promise<AnkiImport>): Promise<boolean> {
+    setImported("Importing…");
+    return started.then(
+      (done) => {
+        setImported(summaryOf(done));
+        void queryClient.invalidateQueries({ queryKey: ["cards"] });
+        void queryClient.invalidateQueries({ queryKey: ["files"] });
+        return true;
+      },
+      (error: unknown) => {
+        setImported(error instanceof Error ? error.message : "the import failed");
+        return false;
+      },
+    );
+  }
 
   const { data: hits, isPending: scanning } = useQuery({
     queryKey: ["cards", archive],
@@ -107,24 +136,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
                 // which is what a failed import wants to let you retry.
                 event.target.value = "";
                 if (file === undefined) return;
-                setImported("Importing…");
-                void importAnki(file, carry).then(
-                  (done) => {
-                    setImported(
-                      `${done.notes.length} deck${done.notes.length === 1 ? "" : "s"}, ${done.cards} cards: ` +
-                        `${done.added} added, ${done.updated} updated, ${done.kept} kept, ` +
-                        `${done.removed} removed in Anki` +
-                        (done.media > 0
-                          ? `, ${done.media} media file${done.media === 1 ? "" : "s"}`
-                          : ""),
-                    );
-                    void queryClient.invalidateQueries({ queryKey: ["cards"] });
-                    void queryClient.invalidateQueries({ queryKey: ["files"] });
-                  },
-                  (error: unknown) => {
-                    setImported(error instanceof Error ? error.message : "the import failed");
-                  },
-                );
+                void runImport(importAnki(file, carry));
               }}
             />
             <span>Import an Anki deck</span>
@@ -140,6 +152,44 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
             />
             <span>Carry Anki's schedule</span>
           </label>
+          {/* A form so Enter at a desk and Go on a phone keyboard both submit.
+              The field keeps a link that failed, to retry, and clears on one
+              that landed. */}
+          <form
+            className="flex min-w-0 flex-1 basis-64 items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const url = link.trim();
+              // `linking` and not only the disabled button: Enter in the field
+              // submits the form whatever state the button is in.
+              if (url === "" || linking) return;
+              setLinking(true);
+              void runImport(importAnkiLink(url, carry)).then((landed) => {
+                setLinking(false);
+                if (landed) setLink("");
+              });
+            }}
+          >
+            <input
+              type="url"
+              inputMode="url"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-label="a link to an Anki deck"
+              placeholder="or paste a link to a deck"
+              value={link}
+              onChange={(event) => setLink(event.target.value)}
+              className="min-h-11 min-w-0 flex-1 border-one-line border-b bg-transparent text-one-fg outline-none placeholder:text-one-muted focus:border-one-accent"
+            />
+            <button
+              type="submit"
+              disabled={linking}
+              className="min-h-11 px-1 hover:text-one-accent disabled:opacity-50"
+            >
+              Import link
+            </button>
+          </form>
         </div>
         {imported !== null && <p className="truncate pb-2 text-one-fg">{imported}</p>}
       </div>

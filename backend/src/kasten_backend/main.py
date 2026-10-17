@@ -957,7 +957,35 @@ async def import_anki(
     comment a rating would leave, so the review picks up where Anki left off.
     Only on a card the import adds: one already in the note keeps kasten's.
     """
-    body = await request.body()
+    return await _import_bytes(await request.body(), settings, carry=carry)
+
+
+class DeckLink(BaseModel):
+    """Where a deck to import lives."""
+
+    url: str
+    """An AnkiWeb shared deck's page, `ankiweb.net/shared/info/<id>`, or an https `.apkg`."""
+
+
+@app.post("/api/anki/link", status_code=201)
+async def import_anki_link(
+    link: DeckLink, settings: Annotated[Settings, Depends(get_settings)], carry: bool = False
+) -> AnkiImport:
+    """Fetch the deck a link names and import it as `POST /api/anki` imports a file.
+
+    The fetch is `files.fetch_deck`'s, and its refusals reach the reader
+    through the `RefusedError` handler. Nothing is written until the bytes are
+    all here, so a link that fails leaves the vault as it was.
+    """
+    return await _import_bytes(await files.fetch_deck(link.url), settings, carry=carry)
+
+
+async def _import_bytes(body: bytes, settings: Settings, *, carry: bool) -> AnkiImport:
+    """Import the export `body`, the one implementation behind a file and a link.
+
+    One, so the merge, its refusals and the summary are the same words
+    whichever way the deck arrived.
+    """
     if len(body) > ASSET_LIMIT_BYTES:
         raise HTTPException(status_code=413, detail="That export is too large")
 

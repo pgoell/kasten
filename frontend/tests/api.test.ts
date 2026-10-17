@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ASSET_LIMIT_BYTES, fetchBook, importAnki, uploadAsset } from "@/lib/api";
+import { ASSET_LIMIT_BYTES, fetchBook, importAnki, importAnkiLink, uploadAsset } from "@/lib/api";
 
 const FILES = readFileSync(
   path.join(import.meta.dirname, "../../backend/src/kasten_backend/files.py"),
@@ -156,6 +156,46 @@ describe("importAnki", () => {
       method: "POST",
       body: deck,
     });
+  });
+});
+
+describe("importAnkiLink", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const LINK = "https://ankiweb.net/shared/info/1104981491";
+
+  it("A2 posts the link as JSON, asking for Anki's schedule only when told to", async () => {
+    const posting = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", posting);
+    const sent = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: LINK }),
+    };
+
+    await importAnkiLink(LINK, false);
+    expect(posting).toHaveBeenLastCalledWith("/api/anki/link", sent);
+
+    await importAnkiLink(LINK, true);
+    expect(posting).toHaveBeenLastCalledWith("/api/anki/link?carry=true", sent);
+  });
+
+  it("A7 carries the backend's sentence out of a refusal word for word", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: async () => ({ detail: "That page holds no shared deck" }),
+      }),
+    );
+
+    await expect(importAnkiLink(LINK, false)).rejects.toThrow(
+      new Error("That page holds no shared deck"),
+    );
   });
 });
 

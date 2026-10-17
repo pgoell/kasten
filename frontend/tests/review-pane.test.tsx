@@ -478,6 +478,151 @@ describe("ReviewDecks reading the deck notes", () => {
   });
 });
 
+describe("ReviewDecks importing from a link", () => {
+  const LINK = "https://ankiweb.net/shared/info/1104981491";
+  const DONE = {
+    notes: ["Anki/AWS.md"],
+    cards: 120,
+    media: 2,
+    added: 5,
+    updated: 3,
+    kept: 110,
+    removed: 2,
+  };
+  const SUMMARY =
+    "1 deck, 120 cards: 5 added, 3 updated, 110 kept, 2 removed in Anki, 2 media files";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function renderDecks() {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: /alpha/ });
+    const field = screen.getByLabelText("a link to an Anki deck") as HTMLInputElement;
+    return { field, button: screen.getByRole("button", { name: "Import link" }) };
+  }
+
+  it("A1 imports the pasted link and shows the line a file import shows", async () => {
+    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const { field, button } = await renderDecks();
+
+    fireEvent.change(field, { target: { value: LINK } });
+    fireEvent.click(button);
+
+    expect(imported).toHaveBeenLastCalledWith(LINK, false);
+    expect(await screen.findByText(SUMMARY)).toBeInTheDocument();
+  });
+
+  it("A2 carries Anki's schedule on a link import when ticked", async () => {
+    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const { field, button } = await renderDecks();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Carry Anki's schedule" }));
+    fireEvent.change(field, { target: { value: LINK } });
+    fireEvent.click(button);
+
+    expect(imported).toHaveBeenLastCalledWith(LINK, true);
+    await screen.findByText(SUMMARY);
+  });
+
+  it("A10 imports on Enter in the field, the way a desk would", async () => {
+    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const { field } = await renderDecks();
+
+    fireEvent.change(field, { target: { value: LINK } });
+    // jsdom does not submit a form on an Enter keypress, which a browser does
+    // for a form holding a submit button, so the submit is sent as it would be.
+    fireEvent.submit(field.form as HTMLFormElement);
+
+    expect(imported).toHaveBeenLastCalledWith(LINK, false);
+    await screen.findByText(SUMMARY);
+  });
+
+  it("A10 draws the field and button touch-sized in a row that wraps", async () => {
+    const { field, button } = await renderDecks();
+
+    expect(field).toHaveClass("min-h-11", "min-w-0", "flex-1");
+    expect(button).toHaveClass("min-h-11");
+    expect(field.type).toBe("url");
+    expect(field.form?.parentElement).toHaveClass("flex-wrap");
+  });
+
+  it("I2 sends nothing for an empty or blank field", async () => {
+    const imported = vi.spyOn(api, "importAnkiLink").mockResolvedValue(DONE);
+    const { field, button } = await renderDecks();
+
+    fireEvent.click(button);
+    fireEvent.change(field, { target: { value: "   " } });
+    fireEvent.click(button);
+
+    expect(imported).not.toHaveBeenCalled();
+  });
+
+  it("I3 imports once on a double tap, saying it is importing", async () => {
+    // Never settles, so the import is still running at every assertion.
+    const imported = vi.spyOn(api, "importAnkiLink").mockReturnValue(new Promise(() => {}));
+    const { field, button } = await renderDecks();
+
+    fireEvent.change(field, { target: { value: LINK } });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.submit(field.form as HTMLFormElement);
+
+    expect(imported).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+    expect(screen.getByText("Importing…")).toBeInTheDocument();
+  });
+
+  it("I4 typing in the link field fires none of /review's keys", async () => {
+    const pane = await renderPane();
+    const field = screen.getByLabelText("a link to an Anki deck");
+    field.focus();
+
+    fireEvent.keyDown(field, { key: "j" });
+    fireEvent.keyDown(field, { key: "p" });
+
+    expect(document.activeElement).toBe(field);
+    expect(pane.querySelector("button[data-deck]")).not.toBeNull();
+  });
+
+  it("I5 keeps the link after a failure and clears it after a success", async () => {
+    const imported = vi
+      .spyOn(api, "importAnkiLink")
+      .mockRejectedValueOnce(new Error("AnkiWeb did not answer"))
+      .mockResolvedValueOnce(DONE);
+    const { field, button } = await renderDecks();
+
+    fireEvent.change(field, { target: { value: LINK } });
+    fireEvent.click(button);
+    await screen.findByText("AnkiWeb did not answer");
+    expect(field.value).toBe(LINK);
+
+    fireEvent.click(button);
+    await screen.findByText(SUMMARY);
+    expect(field.value).toBe("");
+    expect(imported).toHaveBeenCalledTimes(2);
+  });
+
+  it("A7 shows a refusal's detail word for word", async () => {
+    const detail = "That page is not an AnkiWeb shared deck, and the link is not an .apkg";
+    vi.spyOn(api, "importAnkiLink").mockRejectedValue(new Error(detail));
+    const { field, button } = await renderDecks();
+
+    fireEvent.change(field, { target: { value: LINK } });
+    fireEvent.click(button);
+
+    expect((await screen.findByText(detail)).textContent).toBe(detail);
+  });
+});
+
 describe("ReviewPane on a nested cloze", () => {
   const NESTED = "#flashcards/capitals\n\n{{c1::Canberra was {{c2::founded}} in 1913}}\n";
   const HITS = [
