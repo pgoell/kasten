@@ -698,11 +698,12 @@ def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Dec
             media map unpacks past `MEMBER_LIMIT_BYTES`, or whose members read
             unpack past `TOTAL_LIMIT_BYTES` together; or one with a member zip
             cannot read, corrupt, encrypted or in a method it lacks, or a
-            directory in a zip version past what it reads.
+            directory in a zip version past what it reads, or a member name
+            flagged utf-8 that does not decode.
     """
     try:
         _count_members(data)
-        with zipfile.ZipFile(io.BytesIO(data)) as bundle:
+        with _opened(data) as bundle:
             budget = _Budget()
             rendered = _rendered(_collection(bundle, budget), carry=carry)
             index = _media_index(bundle, budget)
@@ -1386,7 +1387,8 @@ def _member(bundle: zipfile.ZipFile, name: str, budget: _Budget, cap: int) -> by
         ValueError: zipfile cannot read the member, for each way it says so:
             a bad header or CRC, a stream cut short, an encryption or method it
             lacks, or bytes that deflate, lzma, bzip2 (as `OSError`) or zstd
-            refuse. `budget`'s own refusal passes through as it is.
+            refuse, or a local header name flagged utf-8 that does not decode.
+            `budget`'s own refusal passes through as it is.
     """
     out = bytearray()
     try:
@@ -1406,9 +1408,24 @@ def _member(bundle: zipfile.ZipFile, name: str, budget: _Budget, cap: int) -> by
         zlib.error,
         lzma.LZMAError,
         zstd.ZstdError,
+        # A local header flagged utf-8 whose name does not decode. `budget`'s
+        # own ValueError is no UnicodeDecodeError, so it still passes.
+        UnicodeDecodeError,
     ) as error:
         raise ValueError(f"unreadable Anki export: {name}: {error}") from error
     return bytes(out)
+
+
+def _opened(data: bytes) -> zipfile.ZipFile:
+    """`data` opened as a zip, its directory read.
+
+    Raises:
+        ValueError: a central entry flagged utf-8 holds a name that does not decode.
+    """
+    try:
+        return zipfile.ZipFile(io.BytesIO(data))
+    except UnicodeDecodeError as error:
+        raise ValueError(f"unreadable Anki export: a member name is not utf-8: {error}") from error
 
 
 def _count_members(data: bytes) -> None:

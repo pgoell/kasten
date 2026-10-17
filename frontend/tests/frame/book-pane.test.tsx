@@ -8,12 +8,23 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// For its types alone: the provider is what gives `cdp()` a typed `send`.
+import type {} from "@vitest/browser-playwright";
 import { createRoot, type Root } from "react-dom/client";
-import { userEvent } from "vitest/browser";
+import { cdp, page, userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 // Three chapters and a nav holding three entries, the third nested under the
 // second, for the cases that walk a real list of chapters.
 import contentsUrl from "../fixtures/contents.epub?url";
+// A book written for a white page (#467). Two chapters, `One` and `Two`, with
+// the same markup and one stylesheet: `body { color: #000; background: #fff }`,
+// `p { color: #000 }`, `h1#heading { color: #c00 }`, `div.box#box` at `#222`
+// on `#fafafa` around a paragraph, `span.ink#ink` at `#333`, `li.item#item` and
+// `td.cell#cell` at `#222` (the cell on `#eee`), `p.strong#strong` at
+// `#111 !important`, `a.link#link` at `#00c` holding `span.deep#deep` at
+// `#222`, and `img#pic`, a 64 pixel svg square. Chapter one is short enough
+// that a turn or two reaches chapter two.
+import darkUrl from "../fixtures/dark-text.epub?url";
 // Two chapters, no nav document and no ncx, so `book.toc` is undefined: this is
 // the fixture for a book whose publisher wrote no contents. Nothing else records
 // that, an epub being a binary nobody unzips twice.
@@ -190,6 +201,51 @@ function takeButton(container: HTMLElement): Promise<HTMLElement> {
     },
     { timeout: 10_000 },
   );
+}
+
+/**
+ * A theme colour the way computed style spells it, `rgb(...)`.
+ *
+ * The variable holds a hex string and a computed colour never does, so the
+ * variable goes through an element of the app's own document first.
+ */
+function themeColour(name: string): string {
+  const probe = document.createElement("span");
+  probe.style.color = `var(${name})`;
+  document.body.append(probe);
+  const { color } = getComputedStyle(probe);
+  probe.remove();
+  return color;
+}
+
+/** One property of one element of a chapter, as the chapter computes it. */
+function computed(doc: Document, selector: string, property: "color" | "backgroundColor"): string {
+  const element = doc.querySelector(selector);
+  if (!element) throw new Error(`nothing at ${selector} inside the book`);
+  return (doc.defaultView as Window).getComputedStyle(element)[property];
+}
+
+/** Every element of `dark-text.epub` that holds text, by the colour it should take. */
+const TEXT = ["#heading", "#plain", "#box", "#box p", "#ink", "#item", "#cell", "#strong"];
+const LINKS = ["#link", "#deep"];
+
+/** What every chapter of `dark-text.epub` should look like on the dark page. */
+function expectThemed(doc: Document): void {
+  const fg = themeColour("--color-one-fg");
+  const accent = themeColour("--color-one-accent");
+  const bg = themeColour("--color-one-bg");
+  for (const selector of TEXT) expect(computed(doc, selector, "color"), selector).toBe(fg);
+  for (const selector of LINKS) expect(computed(doc, selector, "color"), selector).toBe(accent);
+  expect(computed(doc, "#box", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+  expect(computed(doc, "body", "backgroundColor")).toBe(bg);
+}
+
+/** The dark-text fixture's first chapter, drawn. */
+async function drawDark(): Promise<{ doc: Document; container: HTMLElement }> {
+  const { container } = await drawBook("", darkUrl);
+  await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });
+  await drawn();
+  return { doc: sections.at(-1) as Document, container };
 }
 
 let mounted: { root: Root; container: HTMLElement } | null = null;
@@ -565,5 +621,109 @@ describe("the reader over a real book", () => {
     // chapter one.
     await vi.waitFor(() => expect(sections.at(-1)?.title).toBe("Two"), { timeout: 10_000 });
     expect(container.querySelector("[role='dialog']")).toBeNull();
+  }, 30_000);
+
+  it("paints a paragraph the book colours black in the theme's text", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#plain", "color")).toBe(themeColour("--color-one-fg"));
+  }, 30_000);
+
+  it("paints a span, a list item and a table cell under the book's classes in the theme's text", async () => {
+    const { doc } = await drawDark();
+    const fg = themeColour("--color-one-fg");
+
+    for (const selector of ["#ink", "#item", "#cell"])
+      expect(computed(doc, selector, "color"), selector).toBe(fg);
+  }, 30_000);
+
+  it("paints a link the book gives a class colour in the theme's accent", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#link", "color")).toBe(themeColour("--color-one-accent"));
+  }, 30_000);
+
+  it("drops the light background the book sets on a block, and keeps the page and the image", async () => {
+    const { doc } = await drawDark();
+    const bg = themeColour("--color-one-bg");
+
+    expect(computed(doc, "#box", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+    expect(computed(doc, "#cell", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+    expect(computed(doc, "html", "backgroundColor")).toBe(bg);
+    expect(computed(doc, "body", "backgroundColor")).toBe(bg);
+    const image = doc.querySelector("#pic") as HTMLImageElement;
+    await vi.waitFor(() => expect(image.naturalWidth).toBeGreaterThan(0), { timeout: 10_000 });
+    const box = image.getBoundingClientRect();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
+    expect((doc.defaultView as Window).getComputedStyle(image).visibility).toBe("visible");
+  }, 30_000);
+
+  it("paints a heading the book colours red in the theme's text", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#heading", "color")).toBe(themeColour("--color-one-fg"));
+  }, 30_000);
+
+  it("beats a colour the book marks important on a class", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#strong", "color")).toBe(themeColour("--color-one-fg"));
+  }, 30_000);
+
+  it("paints a dark span inside a link in the theme's accent", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#deep", "color")).toBe(themeColour("--color-one-accent"));
+  }, 30_000);
+
+  it("keeps the theme's colours in the next chapter, after a turn", async () => {
+    const { container } = await drawDark();
+    const view = container.querySelector("foliate-view") as HTMLElement & {
+      next: () => Promise<void>;
+    };
+
+    // A turn the paginator's lock drops is simply tried again.
+    await vi.waitFor(
+      async () => {
+        await view.next();
+        expect(sections.at(-1)?.title).toBe("Two");
+      },
+      { timeout: 15_000, interval: 200 },
+    );
+    await drawn();
+
+    expectThemed(sections.at(-1) as Document);
+  }, 30_000);
+
+  it("keeps the theme's colours at phone and at desktop width", async () => {
+    const { doc, container } = await drawDark();
+    // Under the test file, which vite's `server.fs` lets the browser write to,
+    // and in a folder git ignores.
+    const dir = "../../node_modules/.cache/kasten-shots";
+    // The runner shrinks the test's frame to fit the box it sits in, and a
+    // screenshot comes out at the shrunk size. A window this large holds both.
+    await cdp().send("Emulation.setDeviceMetricsOverride", {
+      width: 1600,
+      height: 1400,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    for (const [name, width] of [
+      ["phone", 390],
+      ["desktop", 1200],
+    ] as const) {
+      await page.viewport(width, 800);
+      container.style.cssText = `width: ${width}px; height: 700px;`;
+      await drawn();
+
+      expectThemed(doc);
+      if (import.meta.env.VITE_KASTEN_SHOTS)
+        await page.screenshot({
+          path: `${dir}/book-dark-${name}.png`,
+          element: container.querySelector("[data-book-pane]") as HTMLElement,
+        });
+    }
+    await cdp().send("Emulation.clearDeviceMetricsOverride");
   }, 30_000);
 });

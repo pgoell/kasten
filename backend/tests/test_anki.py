@@ -3199,3 +3199,37 @@ async def test_i5_the_refusal_names_the_member_it_could_not_read(
     response = await client.post("/api/anki", content=UNREADABLE[case])
 
     assert response.json()["detail"].startswith("unreadable Anki export: collection.anki2: ")
+
+
+async def test_a7_a_local_header_name_that_is_not_utf_8_names_the_member(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The flag and the bad byte in the local header only, so the directory
+    # reads and the member's own open is what fails.
+    export = apkg()
+    local, _, _ = headers(export, "collection.anki2")
+    out = bytearray(export)
+    out[local + 7] |= 0x08  # flag bit 0x800, a name in utf-8
+    out[local + 30] = 0xFF
+
+    response = await client.post("/api/anki", content=bytes(out))
+
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith("unreadable Anki export: collection.anki2: ")
+    assert not (vault / "03 Flashcards").exists()
+
+
+async def test_a8_a_central_entry_name_that_is_not_utf_8_is_refused(
+    client: AsyncClient, vault: Path
+) -> None:
+    export = apkg()
+    _, central, _ = headers(export, "collection.anki2")
+    out = bytearray(export)
+    out[central + 9] |= 0x08  # flag bit 0x800, a name in utf-8
+    out[central + 46] = 0xFF
+
+    response = await client.post("/api/anki", content=bytes(out))
+
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith("unreadable Anki export: ")
+    assert not (vault / "03 Flashcards").exists()

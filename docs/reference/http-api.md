@@ -675,8 +675,10 @@ such a file has nothing left to ask and is left out.
   Python cannot read, such as deflate64. A media file whose zip stream cannot
   be read refuses the whole deck too, while one whose contents are not what
   its name says, bad zstd or the wrong type, is left out of the card as
-  before. A zip written in a version past what Python reads
-  answers 400 the same way, without a member name.
+  before. A member whose local header says its name is utf-8 when it is not
+  answers 400 the same way. A zip written in a version past what Python
+  reads, or whose directory holds such a name, answers 400 the same way,
+  without a member name.
 
 [Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
 

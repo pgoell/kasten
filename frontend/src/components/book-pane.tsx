@@ -482,14 +482,25 @@ interface BookPaneProps {
  * function is private to its file, hence the second reader rather than an
  * export. Nothing sets a font, a size or a column count: the book's own
  * typography is the book's, and fitting is foliate's job.
+ *
+ * The colours, though, are taken from the book whole. A book's stylesheet is
+ * written for a white page, so its `p { color: #000 }` or a pale box behind a
+ * paragraph puts black on the dark page (#467). Every rule here is
+ * `!important` so the book's normal rules lose at any specificity, and
+ * `:not(#\#)`, which matches every element, adds an id's weight so a book's
+ * own `!important` on a class loses as well. The link rule outweighs the one
+ * above it by the `a` in it. Backgrounds go transparent rather
+ * than dark, so an image still shows and the page below stays the one colour.
  */
 function pageStyles(): string {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string) => style.getPropertyValue(name).trim();
+  const fg = read("--color-one-fg");
 
   return [
-    `html, body { background: ${read("--color-one-bg")}; color: ${read("--color-one-fg")}; }`,
-    `a { color: ${read("--color-one-accent")}; }`,
+    `html:not(#\\#), html:not(#\\#) body { background: ${read("--color-one-bg")} !important; color: ${fg} !important; }`,
+    `body:not(#\\#) * { color: ${fg} !important; background-color: transparent !important; }`,
+    `body:not(#\\#) :is(a, a *) { color: ${read("--color-one-accent")} !important; }`,
   ].join("\n");
 }
 
