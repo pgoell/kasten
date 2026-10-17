@@ -59,9 +59,10 @@ lost, and that is the price of an editor a finger can use: an on-screen
 keyboard has no Escape to get back to it. The gutter counts from the top there,
 a distance from the cursor being a number only a counted motion wants.
 
-A table is the exception to the whole of this section: it flips on the cursor
-being in it and on no mode at all, and it flips as a block rather than a line.
-[The three blocks](#the-three-blocks) says why it had to.
+A table, a mermaid diagram and a `$$` math block are the exception to the whole
+of this section: each flips on the cursor being in it and on no mode at all,
+and each flips as a block rather than a line.
+[The three blocks](#the-three-blocks) says why they had to.
 
 One construct is a mark the rendering has to leave alone. `- [/] task` parses
 its box as a link, brackets and all, and the bullet already hides that box and
@@ -267,7 +268,8 @@ ask for, and the pipes are off the screen entirely. Put the cursor in it and the
 whole block comes back as source, in the monospaced face, with every mark in the
 cells on screen.
 
-Two things there are the table's own rule and nothing else's. The block flips
+Two things there are the table's own rule, shared only with the other drawn
+blocks below. The block flips
 whole rather than a line at a time, because half a table drawn and half of it in
 pipes is neither. And the cursor decides rather than the mode, which is the
 opposite of everything above. `j` and `k` move by what is on the screen, and to
@@ -307,6 +309,15 @@ offset zero because nothing has moved it, so a note or a flashcard that opens
 with a table would otherwise be a pane full of pipes. The read-only facet is
 what tells the two apart, `EditorView.editable` being a view-level thing this
 code cannot see.
+
+A ```` ```mermaid ```` block and a `$$` math block are drawn by the table's
+rule, and for the table's reasons. Each is one block widget standing in for
+its lines, a diagram or a formula, so `j` and `k` step over it the same way and
+only the cursor arriving by position can open it; half a diagram drawn and half
+of it source would be neither, as with a table. Inline `$x$` is a construct
+inside a line, so it reveals by the mode like bold does.
+[Math and diagrams](/reference/math-and-diagrams.md) states the syntax, the
+errors and where each one is drawn.
 
 ## An embed is a note, read only
 

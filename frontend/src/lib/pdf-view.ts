@@ -82,8 +82,8 @@ export const pdfjsRenderer: PdfRenderer = {
     let task: ReturnType<Pdfjs["getDocument"]> | null = null;
     let gone = false;
     const file = (async () => {
-      // The one dynamic import in kasten's own code, which `.claude/CLAUDE.md`
-      // allows: a static one put pdf.js, 118 kB gzipped, on every editor page
+      // A dynamic import, which `.claude/CLAUDE.md` allows, as it does KaTeX's
+      // and mermaid's: a static one put pdf.js, 118 kB gzipped, on every editor page
       // whether or not a note held a pdf (#327). Loaded for its side effect,
       // `globalThis.pdfjsLib`; the vendored build exports nothing. The same
       // file foliate's own `pdf.js` imports, through the alias in

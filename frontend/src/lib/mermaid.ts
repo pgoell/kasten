@@ -16,8 +16,8 @@ let loading: Promise<Mermaid> | null = null;
 
 function loadMermaid(): Promise<Mermaid> {
   loading ??= (async () => {
-    // The second dynamic import in kasten's own code, which `.claude/CLAUDE.md`
-    // allows as it does pdf.js: mermaid is the heaviest bundle in the app, and
+    // A dynamic import `.claude/CLAUDE.md` allows, as it does pdf.js and
+    // KaTeX: mermaid is the heaviest bundle in the app, and
     // a static import would put it on every editor page whether or not a note
     // held a diagram.
     const { default: mermaid } = await import("mermaid");
