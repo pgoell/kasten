@@ -12,6 +12,7 @@
 
 import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
+import { parseCallout } from "@/lib/callout";
 import { Highlight } from "@/lib/markdown-highlight";
 import { noteBody } from "@/lib/note-frontmatter";
 import { Tag } from "@/lib/tag";
@@ -177,7 +178,7 @@ function block(node: SyntaxNode, source: string, format: Format): string {
     case "Paragraph":
       return html ? `<p>${inline(node, source, format)}</p>` : inline(node, source, format);
     case "Blockquote": {
-      const body = blocks(node, source, format);
+      const body = callout(node, source, format) ?? blocks(node, source, format);
       return html ? `<blockquote>${body}</blockquote>` : body.replace(/^/gm, "> ");
     }
     case "BulletList":
@@ -201,6 +202,38 @@ function block(node: SyntaxNode, source: string, format: Format): string {
     default:
       return inline(node, source, format);
   }
+}
+
+/**
+ * A quote that opens with `[!type]`, its header as a bold line and the rest
+ * as the quote's body, or null when the quote is no callout. Neither chat
+ * draws a callout, and `[!warning]-` pasted as it stands reads as noise.
+ */
+function callout(node: SyntaxNode, source: string, format: Format): string | null {
+  let first = node.firstChild;
+  while (first && MARKS.has(first.name)) first = first.nextSibling;
+  if (first?.name !== "Paragraph") return null;
+  const newline = source.indexOf("\n", first.from);
+  const lineEnd = newline === -1 || newline > first.to ? first.to : newline;
+  const header = parseCallout(source.slice(first.from, lineEnd));
+  if (!header) return null;
+
+  // The title goes out as written: bold markup inside it would close Slack's
+  // own bold early.
+  const title = prose(header.title, format);
+  const parts: string[] = [];
+  // The paragraph runs on past the header when the body follows on the next line.
+  if (lineEnd < first.to) {
+    const rest = inline(first, source, format, lineEnd + 1);
+    parts.push(format === "html" ? `<p>${rest}</p>` : rest);
+  }
+  for (let child = first.nextSibling; child; child = child.nextSibling) {
+    if (MARKS.has(child.name) || UNSEEN.has(child.name)) continue;
+    parts.push(block(child, source, format));
+  }
+  const body = parts.filter((part) => part !== "");
+  if (format === "html") return `<p><strong>${title}</strong></p>${body.join("")}`;
+  return [`*${title}*`, body.join("\n\n")].filter((part) => part !== "").join("\n");
 }
 
 function list(node: SyntaxNode, source: string, format: Format): string {

@@ -169,7 +169,7 @@ dimmed page around them.
 
 | Pane | By touch | Stated in |
 | --- | --- | --- |
-| A note | A tap on the text focuses the editor and puts the cursor there. A tap on a wikilink follows it | [Wikilinks](#wikilinks) |
+| A note | A tap on the text focuses the editor and puts the cursor there. A tap on a wikilink follows it. A tap on a callout's arrow folds or unfolds it | [Wikilinks](#wikilinks), [Callout format](/reference/callout-format.md#folding) |
 | The file tree | A tap on a note, an image or a page opens it. A tap on a folder folds or unfolds it. Two buttons in the header: new note, and hide the tree | [The file tree](#the-file-tree) |
 | An image | Two fingers zoom, one finger moves the zoomed picture. `delete` in the header, on its second tap | [The file tree](#the-file-tree) |
 | The todo pane | A tap on a row opens its line. The state symbol cycles the todo, on its second tap. `+` adds one. `done`, `next` and `view` change the list, and `board` turns it into the board. `⋯` opens a strip of states, `timer`, `part` and `edit` | [The todo pane](#the-todo-pane) |

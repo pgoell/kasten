@@ -34,7 +34,10 @@ back. The inline constructs, bold and italic and strikethrough and inline code
 and a highlight, a link and a wikilink, come back one at a time, and only the
 one the cursor is inside. A line of prose can carry a dozen of them, and
 unmasking all twelve to edit one word puts asterisks and tildes across the line
-you are reading while you write it.
+you are reading while you write it. A [callout](/reference/callout-format.md)
+comes back whole, the way a fenced code block does: its box is drawn over every
+line of it, so the cursor anywhere inside hands back every `>` and the
+`[!type]` line.
 
 The reason is that the two modes already mean something, and it is the same
 something. Normal mode is for reading and moving around, insert mode is for

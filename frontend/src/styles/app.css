@@ -220,6 +220,102 @@ body {
   color: var(--color-one-muted);
 }
 
+/* Obsidian's callouts, a colour per kind as Obsidian gives them, taken from the
+   One Dark palette so each reads on the editor's background. An alias wears
+   the colour of the type it stands for, the editor naming the line by that. */
+:root {
+  --callout-note: var(--color-one-accent);
+  --callout-abstract: var(--color-one-cyan);
+  --callout-info: var(--color-one-accent);
+  --callout-todo: var(--color-one-accent);
+  --callout-tip: var(--color-one-cyan);
+  --callout-success: var(--color-one-green);
+  --callout-question: var(--color-one-yellow);
+  --callout-warning: var(--color-one-orange);
+  --callout-failure: var(--color-one-warn);
+  --callout-danger: var(--color-one-warn);
+  --callout-bug: var(--color-one-warn);
+  --callout-example: var(--color-one-purple);
+  --callout-quote: var(--color-one-muted);
+}
+
+/* The icon is a glyph rather than a drawing: the todos draw their boxes the
+   same way, and a glyph takes the colour and size of the text around it. The
+   `\FE0E` keeps the warning sign from turning into a coloured emoji. */
+.cm-callout-note { --callout-color: var(--callout-note); --callout-icon: "\270E"; }
+.cm-callout-abstract { --callout-color: var(--callout-abstract); --callout-icon: "\2630"; }
+.cm-callout-info { --callout-color: var(--callout-info); --callout-icon: "\24D8"; }
+.cm-callout-todo { --callout-color: var(--callout-todo); --callout-icon: "\25CE"; }
+.cm-callout-tip { --callout-color: var(--callout-tip); --callout-icon: "\2726"; }
+.cm-callout-success { --callout-color: var(--callout-success); --callout-icon: "\2713"; }
+.cm-callout-question { --callout-color: var(--callout-question); --callout-icon: "?"; }
+.cm-callout-warning { --callout-color: var(--callout-warning); --callout-icon: "\26A0\FE0E"; }
+.cm-callout-failure { --callout-color: var(--callout-failure); --callout-icon: "\2717"; }
+.cm-callout-danger { --callout-color: var(--callout-danger); --callout-icon: "\03DF"; }
+.cm-callout-bug { --callout-color: var(--callout-bug); --callout-icon: "\2731"; }
+.cm-callout-example { --callout-color: var(--callout-example); --callout-icon: "\2261"; }
+.cm-callout-quote { --callout-color: var(--callout-quote); --callout-icon: "\275D"; }
+
+/* The box is one class on each of its lines, as a code block's surface is, and
+   names .cm-line for the reason the blockquote does. A wash rather than a
+   paint, so the selection drawn behind the text still shows through. */
+.cm-line.cm-callout {
+  border-left: 3px solid var(--callout-color);
+  padding-left: 0.75em;
+  padding-right: 0.5em;
+  background-color: color-mix(in srgb, var(--callout-color) 10%, transparent);
+}
+
+.cm-line.cm-callout-open {
+  padding-top: 0.3em;
+  border-top-right-radius: 4px;
+}
+
+.cm-line.cm-callout-close {
+  padding-bottom: 0.6em;
+  border-bottom-right-radius: 4px;
+}
+
+/* The inner box's bar is painted one step in, past the outer one's. */
+.cm-line.cm-callout-nested {
+  border-left-color: var(--callout-outer);
+  padding-left: calc(var(--callout-indent) + 0.75em);
+  background-image: linear-gradient(
+    to right,
+    transparent calc(var(--callout-indent) - 0.4em),
+    var(--callout-color) calc(var(--callout-indent) - 0.4em),
+    var(--callout-color) calc(var(--callout-indent) - 0.4em + 3px),
+    transparent calc(var(--callout-indent) - 0.4em + 3px)
+  );
+}
+
+.cm-callout-head .cm-callout-title,
+.cm-callout-header {
+  color: var(--callout-color);
+  font-weight: 600;
+}
+
+.cm-callout-icon::before {
+  content: var(--callout-icon);
+  margin-right: 0.4em;
+}
+
+/* Wide enough for a thumb, the one place on a phone a callout opens from. */
+.cm-callout-fold {
+  display: inline-block;
+  padding: 0 0.4em;
+  cursor: pointer;
+  transition: transform 120ms ease-out;
+}
+
+.cm-callout-fold::before {
+  content: "\203A";
+}
+
+.cm-callout-fold-open {
+  transform: rotate(90deg);
+}
+
 /* Hangs the dot in the space the padding opens, so a wrapped line puts its
    text under the text above rather than under the bullet. */
 .cm-bullet {
