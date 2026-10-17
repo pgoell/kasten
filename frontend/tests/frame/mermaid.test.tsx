@@ -18,6 +18,7 @@ import { cdp, page, userEvent } from "vitest/browser";
 import { NotePreview } from "@/components/note-preview";
 import { imagePaths } from "@/lib/image";
 import { livePreview, renderedMarkdown } from "@/lib/live-preview";
+import { drawMermaid } from "@/lib/mermaid";
 import { noteLanguage } from "@/lib/note-language";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
@@ -26,6 +27,14 @@ import "@/styles/app.css";
 let view: EditorView | undefined;
 let root: Root | undefined;
 let host: HTMLElement | undefined;
+
+// The first draw loads mermaid and its flowchart chunk through the dev server,
+// which in a full frame run takes longer than a poll waits. Loaded once here,
+// so every test waits on drawing and none on loading. A source no test draws,
+// so the cache holds nothing a test reads.
+beforeAll(async () => {
+  expect(await drawMermaid("flowchart TD\n  Warm --> Up")).toHaveProperty("svg");
+});
 
 afterEach(() => {
   view?.dom.parentElement?.remove();
