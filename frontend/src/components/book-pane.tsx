@@ -514,7 +514,8 @@ interface BookPaneProps {
  *
  * A small dark glyph on transparent in a line of text, which gets no white, is
  * marked as ink instead and inverted, so its black turns pale like the words
- * round it (#478).
+ * round it (#478). So is a small svg drawing such a glyph through an `<image>`
+ * (#483).
  *
  * An inline svg is drawn as it was on the book's page, in black: its `<text>`
  * fills black whatever the colour says (#471), and its `currentColor` shapes
@@ -535,7 +536,7 @@ function pageStyles(): string {
     `body:not(#\\#) :is(img, picture, svg:not(:has(image)), object):not(#\\#) { color: #000 !important; }`,
     `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
     `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
-    `body:not(#\\#) img[${INK}]:not(#\\#) { filter: invert(1) !important; }`,
+    `body:not(#\\#) :is(img, svg)[${INK}]:not(#\\#) { filter: invert(1) !important; }`,
   ].join("\n");
 }
 
@@ -1039,7 +1040,12 @@ export function BookPane({
     // wrapper nor the window, an event not crossing a document boundary, and a
     // click inside it fires no focus event on any ancestor either. This is the
     // only seam: foliate builds both iframes behind closed shadow roots.
-    const sections: { doc: Document; index: number; watcher?: MutationObserver }[] = [];
+    const sections: {
+      doc: Document;
+      index: number;
+      watcher?: MutationObserver;
+      images?: ResizeObserver;
+    }[] = [];
     function onLoad(event: Event) {
       const { doc, index } = (event as CustomEvent<{ doc: Document; index: number }>).detail;
       doc.addEventListener("keydown", onKeyDown);
@@ -1057,9 +1063,8 @@ export function BookPane({
       // label; it is about the range.
       if (taking.current?.range.startContainer.ownerDocument !== doc) taking.current = null;
       forgetPagesThatLeft();
-      sections.push({ doc, index, watcher: watchPage(doc) });
-      // A pdf page holds a canvas and no img, so this finds nothing there.
-      backImages(doc);
+      // A pdf page holds a canvas and no img, so `backImages` finds nothing there.
+      sections.push({ doc, index, watcher: watchPage(doc), images: backImages(doc) });
     }
     view.addEventListener("load", onLoad);
 
@@ -1123,6 +1128,7 @@ export function BookPane({
         const page = sections[at];
         if (page === undefined || page.doc.defaultView !== null) continue;
         page.watcher?.disconnect();
+        page.images?.disconnect();
         sections.splice(at, 1);
       }
     }
@@ -1438,8 +1444,9 @@ export function BookPane({
       view.removeEventListener("load", onLoad);
       view.removeEventListener("create-overlay", onOverlay);
       renderer?.removeEventListener("relocate", onRelocate);
-      for (const { doc, watcher } of sections) {
+      for (const { doc, watcher, images } of sections) {
         watcher?.disconnect();
+        images?.disconnect();
         doc.removeEventListener("keydown", onKeyDown);
         doc.removeEventListener("pointerdown", report);
         doc.removeEventListener("focusin", report);

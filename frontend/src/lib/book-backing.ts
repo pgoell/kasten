@@ -12,7 +12,8 @@
  * A small image in a line of text gets no white, which would box it out of the
  * line, so a black glyph on transparent there is black on the dark page and
  * close to invisible (#478). Such an image carries `INK` instead, and the
- * stylesheet inverts it, so its black turns pale like the text round it.
+ * stylesheet inverts it, so its black turns pale like the text round it. A
+ * small svg drawing such a glyph through an `<image>` is judged the same (#483).
  */
 
 /** The attribute the page's stylesheet reads to draw white behind an image. */
@@ -75,10 +76,22 @@ function canvasPixels(img: HTMLImageElement): Uint8ClampedArray {
  * An icon or a glyph set into a sentence is read against the words around it,
  * so a white box round it would stand out of the line.
  */
-function inline(img: HTMLImageElement, view: Window): boolean {
-  const height = img.getBoundingClientRect().height;
-  const font = Number.parseFloat(view.getComputedStyle(img.parentElement ?? img).fontSize);
+function inline(element: Element, view: Window): boolean {
+  const height = element.getBoundingClientRect().height;
+  const font = Number.parseFloat(view.getComputedStyle(element.parentElement ?? element).fontSize);
   return height > 0 && height <= font * 1.5;
+}
+
+/**
+ * The raster an svg draws through its `<image>`, as an img of its own to read.
+ *
+ * `backImages` hands over only an svg that holds one.
+ */
+function raster(svg: SVGSVGElement): HTMLImageElement {
+  const image = svg.querySelector("image") as SVGElement;
+  const img = svg.ownerDocument.createElement("img");
+  img.src = image.getAttribute("href") ?? image.getAttribute("xlink:href") ?? "";
+  return img;
 }
 
 /**
@@ -113,12 +126,10 @@ function loaded(img: HTMLImageElement): Promise<boolean> {
 }
 
 /**
- * Whether the pixels are a dark glyph on a transparent ground.
- *
- * An opaque image is a picture of its own, not ink, and one with no visible
- * pixel, a spacer, has nothing to invert.
+ * What the pixels show: whether any is see-through, and how much is visible
+ * and how much of that dark ink.
  */
-function ink(pixels: Uint8ClampedArray): boolean {
+function survey(pixels: Uint8ClampedArray): { seeThrough: boolean; visible: number; dark: number } {
   let seeThrough = false;
   // Both summed in alpha, not counted in pixels.
   let visible = 0;
@@ -134,29 +145,36 @@ function ink(pixels: Uint8ClampedArray): boolean {
     const max = Math.max(r, g, b);
     if (max <= INK_MAX && max - Math.min(r, g, b) <= INK_SPREAD) dark += alpha;
   }
-  return seeThrough && visible > 0 && dark >= visible * INK_SHARE;
+  return { seeThrough, visible, dark };
 }
 
 /**
- * What the page does for `img`: white behind it, inverted, or nothing.
+ * What the page does for an img, or for an svg drawing a raster through its
+ * `<image>`: white behind it, inverted, or nothing.
  *
- * Read through the image's own window, the section living in foliate's iframe.
+ * Read through the element's own window, the section living in foliate's iframe.
  */
 export async function treatmentFor(
-  img: HTMLImageElement,
+  element: HTMLImageElement | SVGSVGElement,
   readPixels: ReadPixels = canvasPixels,
 ): Promise<Treatment> {
+  const svg = element.localName === "svg";
+  const img = svg ? raster(element as SVGSVGElement) : (element as HTMLImageElement);
   // Everything below reads layout, so it waits even for an image already
   // loaded. foliate's `load` arrives while the iframe is hidden and before its
   // render, and the await resumes once that render has laid the chapter out
   // (`paginator.js:256-272`). Until then every box is zero.
   // A broken image draws its alt text, black, which needs the white to read.
-  if (!(await loaded(img))) return "white";
+  // An svg has no alt text to keep legible.
+  if (!(await loaded(img))) return svg ? "plain" : "white";
   // The pane closed while the image loaded, and there is no page left to draw.
-  const view = img.ownerDocument.defaultView;
+  const view = element.ownerDocument.defaultView;
   if (view === null) return "plain";
-  if (letterboxed(img, view)) return "plain";
-  const small = inline(img, view);
+  if (!svg && letterboxed(img, view)) return "plain";
+  const small = inline(element, view);
+  // A larger svg holding an image is a calibre cover page, a raster fitted
+  // into a page-sized svg, and the bars round the picture are page (#474).
+  if (svg && !small) return "plain";
 
   let pixels: Uint8ClampedArray;
   try {
@@ -170,16 +188,73 @@ export async function treatmentFor(
     if (error instanceof Thrown && error.name === "SecurityError") return small ? "plain" : "white";
     throw error;
   }
-  if (small) return ink(pixels) ? "ink" : "plain";
-  // Every fourth byte is a pixel's alpha.
-  return pixels.some((value, index) => index % 4 === 3 && value < 255) ? "white" : "plain";
+  const { seeThrough, visible, dark } = survey(pixels);
+  // A spacer, however far it is stretched, shows nothing to back or invert (#482).
+  if (visible === 0) return "plain";
+  // An opaque image is a picture of its own, not ink.
+  if (small) return seeThrough && dark >= visible * INK_SHARE ? "ink" : "plain";
+  return seeThrough ? "white" : "plain";
 }
 
-/** Decide every image of one section, as each finishes loading. */
-export function backImages(doc: Document): void {
-  for (const img of doc.querySelectorAll("img"))
-    void treatmentFor(img).then((treatment) => {
-      img.toggleAttribute(BACKING, treatment === "white");
-      img.toggleAttribute(INK, treatment === "ink");
-    });
+/**
+ * The latest decision started for each element watched, which is also the
+ * mark that `backImages` watches it already.
+ */
+const turns = new WeakMap<Element, number>();
+
+/**
+ * Decide `element` and mark it, unless a newer decision has started meanwhile.
+ *
+ * Two decisions of one image can finish out of order, one waiting on a load the
+ * other did not, and the older one's verdict is for a size or picture gone.
+ */
+function decide(element: HTMLImageElement | SVGSVGElement): void {
+  const turn = (turns.get(element) ?? 0) + 1;
+  turns.set(element, turn);
+  void treatmentFor(element).then((treatment) => {
+    if (turns.get(element) !== turn) return;
+    element.toggleAttribute(BACKING, treatment === "white");
+    element.toggleAttribute(INK, treatment === "ink");
+  });
+}
+
+/**
+ * Decide every image of one section, and again whenever one changes (#481).
+ *
+ * The verdict rests on the size an image has now, so it is decided again when
+ * its box changes, on a resize, or a closed `<details>` opening on it, and when
+ * its parent's does, which is where a font-size change shows: a fixed-px image
+ * keeps its box while 1.5em grows past it. A `srcset` or `<picture>` swap
+ * brings new pixels, and fires `load` again. An svg is here only when it draws
+ * a raster through an `<image>`; every other svg is white by the stylesheet.
+ *
+ * Answers the observer to disconnect when the section leaves, or nothing for a
+ * section with no image, which is every pdf page.
+ */
+export function backImages(doc: Document): ResizeObserver | undefined {
+  const svgs = [...doc.querySelectorAll("svg image")].map(
+    (image) => image.closest("svg") as SVGSVGElement,
+  );
+  // A set, since an svg holding two images is found twice.
+  const elements = [...new Set([...doc.querySelectorAll("img"), ...svgs])].filter(
+    (element) => !turns.has(element),
+  );
+  if (elements.length === 0) return undefined;
+
+  // From the section's window, as `treatmentFor` takes its DOMException.
+  const view = doc.defaultView as Window & typeof globalThis;
+  const observer = new view.ResizeObserver((entries) => {
+    const changed = new Set<HTMLImageElement | SVGSVGElement>();
+    for (const { target } of entries)
+      for (const element of [target, ...target.children])
+        if (turns.has(element)) changed.add(element as HTMLImageElement | SVGSVGElement);
+    for (const element of changed) decide(element);
+  });
+  for (const element of elements) {
+    observer.observe(element);
+    if (element.parentElement) observer.observe(element.parentElement);
+    if (element.localName === "img") element.addEventListener("load", () => decide(element));
+    decide(element);
+  }
+  return observer;
 }
