@@ -411,16 +411,24 @@ export class ChangedOnDisk extends Error {
  * set aside (`unstamped`), and makes the write conditional: a vault that has
  * moved past it refuses with `ChangedOnDisk`. Without one the write lands
  * whatever is there.
+ *
+ * `restoredFrom` is the jj change id the text was read from, which only the
+ * history pane's restore sends: the backend then records the write as a change
+ * of its own, so the text it replaced stays in the change below.
  */
 export async function saveNote(
   path: string,
   content: string,
   keepalive = false,
   base?: string,
+  restoredFrom?: string,
 ): Promise<Note> {
+  const body: components["schemas"]["NoteSave"] = { content };
+  if (base !== undefined) body.base = base;
+  if (restoredFrom !== undefined) body.restored_from = restoredFrom;
   const { data, response } = await client.PUT("/api/files/{path}", {
     params: { path: { path } },
-    body: base === undefined ? { content } : { content, base },
+    body,
     keepalive,
   });
 

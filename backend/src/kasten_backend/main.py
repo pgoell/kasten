@@ -13,7 +13,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi import Path as Segment
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.requests import ClientDisconnect
 from youtube_transcript_api import (
     CouldNotRetrieveTranscript,
@@ -243,6 +243,18 @@ class NoteEdit(BaseModel):
 
     A save that names one is refused when the disk has moved past it. None
     writes unconditionally, as the agent API and the todo writes do.
+    """
+
+
+class NoteSave(NoteEdit):
+    """A save's body, which may say the text is a restore from the history pane."""
+
+    restored_from: Annotated[str | None, Field(pattern=r"^[k-z]{1,64}$")] = None
+    """The short id of the jj change the text was restored from, or None.
+
+    Names the change after the restore, which keeps it out of the change in hand:
+    amended in, the restore would leave the text it replaced in no change. The
+    pattern is jj's change-id alphabet, so nothing else reaches a description.
     """
 
 
@@ -1386,7 +1398,7 @@ async def create_file(
 
 @app.put("/api/files/{path:path}")
 async def save_file(
-    path: str, edit: NoteEdit, settings: Annotated[Settings, Depends(get_settings)]
+    path: str, edit: NoteSave, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Note:
     """Write one note back to the vault.
 
@@ -1443,7 +1455,13 @@ async def save_file(
 
         content = edit.content if reserved(relative) else stamp(edit.content, current)
 
-        async with vault_change(settings.vault_path, relative):
+        # A label unlike the plain save's opens a change for the restore, and the
+        # next plain save opens another, which seals the restore in its own.
+        label = relative
+        if edit.restored_from is not None:
+            label = f"{relative} (restored from {edit.restored_from})"
+
+        async with vault_change(settings.vault_path, label):
             write_note(note, content)
 
     return Note(path=path, content=content)

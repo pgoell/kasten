@@ -58,7 +58,7 @@ function open(onRestore: Restore = vi.fn(async () => null)) {
       <HistoryPane note={NOTE} commands={commands} focusSignal={1} onRestore={onRestore} />
     </QueryClientProvider>,
   );
-  return { commands, onRestore };
+  return { commands, onRestore, client };
 }
 
 function pane(): HTMLElement {
@@ -167,7 +167,7 @@ describe("HistoryPane", () => {
 
     press("Enter", { ctrlKey: true });
 
-    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(NEWEST, NOW));
+    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(NEWEST, NOW, "kxyzkxyz"));
   });
 
   it("#425 A4 the Restore button restores the picked change", async () => {
@@ -179,7 +179,34 @@ describe("HistoryPane", () => {
     expect(button).toHaveClass("pointer-coarse:min-h-11");
     fireEvent.click(button);
 
-    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(OLDEST, NOW));
+    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(OLDEST, NOW, "lmnolmno"));
+  });
+
+  it("#425 A3 A4 keeps the picked change when a new one lands on top", async () => {
+    const { onRestore, client } = await opened();
+    fireEvent.click(rows()[1] as HTMLElement);
+    await waitFor(() => expect(diff()).toContain("-id: 1"));
+
+    fetchHistory.mockResolvedValue({
+      versioned: true,
+      changes: [
+        {
+          commit: "d".repeat(40),
+          change: "pqrspqrs",
+          time: "2026-10-17T10:00:00+02:00",
+          description: "a write elsewhere",
+          path: NOTE,
+        },
+        ...CHANGES,
+      ],
+    });
+    await client.invalidateQueries({ queryKey: ["note", NOTE, "history"] });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+
+    expect(rows()[2]).toHaveAttribute("aria-current", "true");
+    expect(rows()[2]).toHaveAttribute("aria-selected", "true");
+    press("Enter", { ctrlKey: true });
+    await waitFor(() => expect(onRestore).toHaveBeenCalledWith(OLDEST, NOW, "lmnolmno"));
   });
 
   it("#425 A5 says why a restore was refused", async () => {

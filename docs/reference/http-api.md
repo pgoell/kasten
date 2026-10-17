@@ -408,9 +408,9 @@ first line of the change's description.
 
 The list follows the note through moves. Where a change renamed it from another
 path, the older changes are those that touched that path, and `path` says
-where the note was in each. jj names a rename only when the content stayed
-close, so a change that added the note and removed exactly one other note, and
-nothing else, counts as a rename too. A rename out of `.trash`, which a restore is, is
+where the note was in each. Only a rename jj itself records counts, which
+it finds when the text stayed similar, as a kasten move keeps it. A note added
+while another was removed is not followed. A rename out of `.trash`, which a restore is, is
 not followed. The walk stops after 20 renames.
 
 The working-copy change is listed like any other, as of the last snapshot,
@@ -1061,6 +1061,11 @@ If the vault is a jj repo, the write is bracketed by two jj commands: a change
 is started before it and a snapshot taken after. Changes are one per note, not
 one per save, and named `vault: <path>`, so `jj log` reads as the list of notes
 you worked on while `jj op log` still holds every individual save.
+
+A body may carry `restored_from`, the short id of the change whose text it
+restores, in jj's change-id letters `k` to `z`, or the answer is `422`. The
+change is then named `vault: <path> (restored from <id>)`, so the restore gets
+a change of its own and the text it replaced stays in the change before it.
 
 A vault that is not a jj repo is written to just the same and no history is
 kept. jj failing, or missing from the box, never fails a save: the note matters

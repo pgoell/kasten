@@ -1612,6 +1612,18 @@ export interface components {
             sha: string;
         };
         /**
+         * NoteSave
+         * @description A save's body, which may say the text is a restore from the history pane.
+         */
+        NoteSave: {
+            /** Content */
+            content: string;
+            /** Base */
+            base?: string | null;
+            /** Restored From */
+            restored_from?: string | null;
+        };
+        /**
          * Page
          * @description One web page as it arrived, for the client to make a note out of.
          */
@@ -2872,7 +2884,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NoteEdit"];
+                "application/json": components["schemas"]["NoteSave"];
             };
         };
         responses: {

@@ -1027,10 +1027,12 @@ function Home() {
    * other than the note's. One `saveNote` naming `against` as its base and not
    * `updateNote`, whose retry reads the note again and would land the old text
    * over a write the reader never saw in the diff. A refusal rereads the note
-   * instead, so the diff shows what the vault holds now.
+   * instead, so the diff shows what the vault holds now. `from` is the jj
+   * change the text comes from, which the backend names in a change of the
+   * restore's own.
    */
   const restoreOf = useCallback(
-    (note: string, text: string, against: string): Promise<string | null> =>
+    (note: string, text: string, against: string, from: string): Promise<string | null> =>
       write(note, async () => {
         // Asked inside the queue, so after any write of the note queued ahead.
         if (heldText(note) !== undefined) return "That note holds text not yet saved";
@@ -1042,7 +1044,7 @@ function Home() {
 
         let written: Awaited<ReturnType<typeof saveNote>>;
         try {
-          written = await saveNote(note, text, false, noteBase(against));
+          written = await saveNote(note, text, false, noteBase(against), from);
         } catch (error) {
           if (!(error instanceof ChangedOnDisk)) return "The change was not restored";
           void queryClient.invalidateQueries({ queryKey: ["note", note] });
@@ -1350,7 +1352,11 @@ function Home() {
         path !== undefined && (path === gone || path.startsWith(inside));
 
       setLayout((previous) =>
-        mapPanes(previous, (shown) => (held(shown.path) ? { id: shown.id } : shown)),
+        // A history pane too: what it lists is a note the vault no longer has,
+        // and a restore from it would write the note back under the reader.
+        mapPanes(previous, (shown) =>
+          held(shown.path) || held(shown.history) ? { id: shown.id } : shown,
+        ),
       );
       queryClient.removeQueries({
         queryKey: ["note"],
@@ -2380,7 +2386,9 @@ function Home() {
                     focusSignal={focused ? focusSignal : 0}
                     // Bound here, the way the reader's callbacks are, so the
                     // pane holds no path the route would write to on its own.
-                    onRestore={(text, against) => restoreOf(shown.history ?? "", text, against)}
+                    onRestore={(text, against, from) =>
+                      restoreOf(shown.history ?? "", text, against, from)
+                    }
                   />
                 ) : shown.graph !== undefined ? (
                   <GraphPane

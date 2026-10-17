@@ -14,11 +14,12 @@ interface HistoryPaneProps {
   /** Raised when the pane this sits in has been moved to. See `Editor`. */
   focusSignal?: number;
   /**
-   * Write `text` over the note, naming `against` as the text on disk, and
-   * answer null once it landed or the reason it did not. The route owns it,
-   * because the route owns the write queue and knows what else is writing.
+   * Write `text`, the note at jj change `from`, over the note, naming `against`
+   * as the text on disk, and answer null once it landed or the reason it did
+   * not. The route owns it, because the route owns the write queue and knows
+   * what else is writing.
    */
-  onRestore: (text: string, against: string) => Promise<string | null>;
+  onRestore: (text: string, against: string, from: string) => Promise<string | null>;
 }
 
 const LABEL = "shrink-0 text-[11px] tracking-wide text-one-muted uppercase";
@@ -40,10 +41,13 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
   const panel = useRef<HTMLElement>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
-  /** The row the keys move. */
-  const [cursor, setCursor] = useState(0);
-  /** The row whose diff is drawn, which Enter, a click or a tap moves here. */
-  const [picked, setPicked] = useState(0);
+  // Both by commit and not by row: a write lands a new change on top, and a
+  // row index would then point at another change than the one on screen.
+  // Undefined is the newest, which is where the pane opens.
+  /** The commit of the row the keys move. */
+  const [cursorAt, setCursorAt] = useState<string>();
+  /** The commit whose diff is drawn, which Enter, a click or a tap moves here. */
+  const [pickedAt, setPickedAt] = useState<string>();
   const [said, setSaid] = useState<string | null>(null);
 
   // A freshly focused pane takes the cursor, the way the person pane does.
@@ -57,6 +61,13 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
   });
   const now = useQuery({ queryKey: ["note", note], queryFn: () => fetchNote(note) });
   const changes = history.data?.changes ?? [];
+  const rowOf = (commit: string | undefined) =>
+    Math.max(
+      changes.findIndex((each) => each.commit === commit),
+      0,
+    );
+  const cursor = rowOf(cursorAt);
+  const picked = rowOf(pickedAt);
   const change: HistoryChange | undefined = changes[picked];
   // Under its own key: the text at a commit never changes, so no write needs
   // to read it again.
@@ -73,14 +84,20 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
   const ready = old !== undefined && against !== undefined && !same;
 
   function pick(at: number) {
-    setCursor(at);
-    setPicked(at);
+    const commit = changes[at]?.commit;
+    setCursorAt(commit);
+    setPickedAt(commit);
     setSaid(null);
   }
 
+  function move(by: number) {
+    const at = Math.min(Math.max(cursor + by, 0), Math.max(changes.length - 1, 0));
+    setCursorAt(changes[at]?.commit);
+  }
+
   async function restore() {
-    if (!ready) return;
-    setSaid(await onRestore(old, against));
+    if (!ready || change === undefined) return;
+    setSaid(await onRestore(old, against, change.change));
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -117,11 +134,11 @@ export function HistoryPane({ note, commands, focusSignal, onRestore }: HistoryP
         break;
       case "j":
       case "ArrowDown":
-        setCursor((at) => Math.min(at + 1, Math.max(changes.length - 1, 0)));
+        move(1);
         break;
       case "k":
       case "ArrowUp":
-        setCursor((at) => Math.max(at - 1, 0));
+        move(-1);
         break;
       case "Enter":
         pick(cursor);

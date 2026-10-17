@@ -1642,7 +1642,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NoteEdit"
+                "$ref": "#/components/schemas/NoteSave"
               }
             }
           }
@@ -2710,6 +2710,43 @@
         ],
         "title": "NoteRead",
         "description": "One note, and the digest a conditional write presents back."
+      },
+      "NoteSave": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "restored_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[k-z]{1,64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored From"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "NoteSave",
+        "description": "A save's body, which may say the text is a restore from the history pane."
       },
       "Page": {
         "properties": {

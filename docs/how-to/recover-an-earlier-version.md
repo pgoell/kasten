@@ -29,8 +29,10 @@ history](#give-the-vault-a-history) at the end.
 4. Press `Ctrl+Enter`, or tap **Restore**, to write the picked change over the
    note.
 
-The restore is a save like any other, so it becomes a change of its own at the
-top of the list, and restoring the change under it undoes it. Kasten refuses
+The restore goes through the same save as your typing, but always opens a jj
+change of its own, which shows at the top of the list. The text it replaced
+stays in the change below it, so restoring that change undoes the restore.
+Kasten refuses
 it, and says why in the line under the diff, when:
 
 * the note's own pane has the focus, or a save of the note is still in the air,

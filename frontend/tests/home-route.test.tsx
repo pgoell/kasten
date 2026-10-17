@@ -2817,7 +2817,13 @@ describe("the route", () => {
       await restore();
 
       expect(saveNote).toHaveBeenCalledTimes(1);
-      expect(saveNote).toHaveBeenCalledWith("index.md", BEFORE, false, noteBase("the index note"));
+      expect(saveNote).toHaveBeenCalledWith(
+        "index.md",
+        BEFORE,
+        false,
+        noteBase("the index note"),
+        "kxyzkxyz",
+      );
       expect(app.cached("index.md")).toBe(BEFORE);
       // Asked again, so the change the restore made shows at the top.
       expect(fetchHistory).toHaveBeenCalledWith("index.md");
@@ -2857,7 +2863,13 @@ describe("the route", () => {
         localStorage.removeItem("kasten.vim");
       }
 
-      expect(saveNote).toHaveBeenCalledWith("index.md", BEFORE, false, noteBase("the index note"));
+      expect(saveNote).toHaveBeenCalledWith(
+        "index.md",
+        BEFORE,
+        false,
+        noteBase("the index note"),
+        "kxyzkxyz",
+      );
     });
 
     it("#425 I2 writes nothing while the flush of text typed into the note is in the air", async () => {
@@ -2925,6 +2937,65 @@ describe("the route", () => {
       expect(outside.get("index.md")).toBe("somebody else's index");
       expect(said()).toBe("The note changed since this diff was drawn");
       expect(screen.getByTestId("history-diff")).toHaveTextContent("somebody else's index");
+    });
+
+    it("#425 A4 restores on ctrl enter with vim off", async () => {
+      localStorage.setItem("kasten.vim", "off");
+      try {
+        const app = await renderApp();
+        await settle();
+        app.click("index.md");
+        await settle();
+        // No leader with vim off: the palette, by its chord on a desktop.
+        app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+        await settle();
+        fireEvent.click(screen.getByRole("option", { name: /^Show this note's history/ }));
+        await settle();
+        expect(screen.getByTestId("history-diff")).toHaveTextContent(BEFORE);
+
+        await restore();
+      } finally {
+        localStorage.removeItem("kasten.vim");
+      }
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(saveNote).toHaveBeenCalledWith(
+        "index.md",
+        BEFORE,
+        false,
+        noteBase("the index note"),
+        "kxyzkxyz",
+      );
+    });
+
+    it("#425 A a restore names the change it restores from, so it lands as a change of its own", async () => {
+      const app = await renderApp();
+      await settle();
+      await history(app);
+
+      await restore();
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(saveNote.mock.calls[0]?.[4]).toBe("kxyzkxyz");
+    });
+
+    it("#425 closes the history pane when its note is deleted", async () => {
+      deleteNote.mockResolvedValue({
+        entry: "index.md@2026-10-17T10-00-00.000000",
+        path: "index.md",
+        deleted: "2026-10-17T10:00:00Z",
+      });
+      const app = await renderApp();
+      await settle();
+      await history(app);
+      app.focusPane(0);
+      await settle();
+
+      app.leader("d", "f");
+      await settle();
+
+      expect(deleteNote).toHaveBeenCalledWith("index.md");
+      expect(historyPane()).toBeNull();
     });
 
     it("#425 I6 reads the list again when the note is written elsewhere", async () => {

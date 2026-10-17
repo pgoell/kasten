@@ -69,27 +69,20 @@ async def test_follows_the_note_back_through_a_move(
     assert old.json()["content"].endswith("# the old name\n")
 
 
-async def test_follows_the_note_back_through_a_move_edited_in_the_same_change(
+async def test_does_not_follow_a_note_removed_beside_this_one(
     client: AsyncClient, versioned_vault: Path
 ) -> None:
-    # The save after a move amends the move's change. jj matches a rename by
-    # similar content, so an edit that rewrites most of the note leaves a delete
-    # and an add instead.
-    await client.post("/api/files/borges.md")
-    await client.put("/api/files/borges.md", json={"content": "# the old name\n"})
-    await client.patch("/api/files/borges.md", json={"path": "reading/borges.md"})
-    rewritten = "".join(f"line {number} of a new text\n" for number in range(50))
-    await client.put("/api/files/reading/borges.md", json={"content": rewritten})
+    # A note made while another was deleted in the shell is no move. Followed,
+    # this note would take the other's history, and a restore would write its text.
+    (versioned_vault / "apple.md").write_text("# apples grow on trees\n")
+    jj(versioned_vault, "commit", "-m", "apple")
+    (versioned_vault / "apple.md").unlink()
+    (versioned_vault / "cello.md").write_text("# a cello has four strings\n")
+    jj(versioned_vault, "commit", "-m", "cello")
 
-    response = await client.get("/api/history", params={"path": "reading/borges.md"})
+    response = await client.get("/api/history", params={"path": "cello.md"})
 
-    changes = response.json()["changes"]
-    assert [change["path"] for change in changes] == ["reading/borges.md", "borges.md"]
-    assert changes[1]["commit"] == commit_of(versioned_vault, "@-")
-    old = await client.get(
-        "/api/history/version", params={"path": "borges.md", "commit": changes[1]["commit"]}
-    )
-    assert old.json()["content"].endswith("# the old name\n")
+    assert [change["description"] for change in response.json()["changes"]] == ["cello"]
 
 
 async def test_does_not_follow_a_change_that_removed_two_notes(
@@ -124,6 +117,46 @@ async def test_reads_the_text_of_the_note_at_a_change(
 
     assert response.status_code == 200
     assert response.json() == {"content": "# first\n"}
+
+
+async def test_seals_a_restore_in_a_change_of_its_own(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Saved as a plain save, the restore would amend the change holding T1 and
+    # the text it replaced would be in no change at all.
+    await client.post("/api/files/index.md")
+    await client.put("/api/files/index.md", json={"content": "# T0\n"})
+    await client.post("/api/files/other.md")
+    await client.put("/api/files/index.md", json={"content": "# T1\n"})
+    t0 = (await client.get("/api/history", params={"path": "index.md"})).json()["changes"][1]
+
+    await client.put(
+        "/api/files/index.md", json={"content": "# T0\n", "restored_from": t0["change"]}
+    )
+
+    changes = (await client.get("/api/history", params={"path": "index.md"})).json()["changes"]
+    assert changes[0]["description"] == f"vault: index.md (restored from {t0['change']})"
+    texts = [
+        (
+            await client.get(
+                "/api/history/version", params={"path": "index.md", "commit": change["commit"]}
+            )
+        ).json()["content"]
+        for change in changes[1:]
+    ]
+    assert any(text.endswith("# T1\n") for text in texts)
+
+
+async def test_refuses_a_restored_from_that_is_not_a_change_id(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    await client.post("/api/files/index.md")
+
+    response = await client.put(
+        "/api/files/index.md", json={"content": "# T0\n", "restored_from": "abc) | all()"}
+    )
+
+    assert response.status_code == 422
 
 
 async def test_writes_no_operation_to_the_repo(client: AsyncClient, versioned_vault: Path) -> None:
@@ -187,6 +220,51 @@ async def test_kills_a_jj_that_runs_too_long(
     assert response.status_code == 503
     assert response.json()["detail"]
     assert spawned[0].returncode is not None
+
+
+async def test_answers_503_when_jj_writes_bytes_that_are_not_utf8(
+    client: AsyncClient, versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spawn = asyncio.create_subprocess_exec
+
+    async def garbled(*_argv: str, stdout: int, stderr: int) -> asyncio.subprocess.Process:
+        # `printf` turns the octal escape into the one byte 0xff, never UTF-8.
+        return await spawn("printf", "\\377", stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", garbled)
+
+    response = await client.get("/api/history", params={"path": "index.md"})
+
+    assert response.status_code == 503
+
+
+async def test_kills_jj_when_the_request_is_cancelled(
+    versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spawned: list[asyncio.subprocess.Process] = []
+    started = asyncio.Event()
+    spawn = asyncio.create_subprocess_exec
+
+    async def hanging(*_argv: str, stdout: int, stderr: int) -> asyncio.subprocess.Process:
+        process = await spawn("sleep", "30", stdout=stdout, stderr=stderr)
+        spawned.append(process)
+        started.set()
+        return process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", hanging)
+    reading = asyncio.create_task(history.list_changes(versioned_vault, "index.md"))
+    await started.wait()
+
+    reading.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await reading
+
+    returncode = spawned[0].returncode
+    if returncode is None:
+        # Reaped here so a failing run leaves no child behind either.
+        spawned[0].kill()
+        await spawned[0].wait()
+    assert returncode is not None
 
 
 @pytest.mark.parametrize(

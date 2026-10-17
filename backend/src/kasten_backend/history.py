@@ -98,37 +98,35 @@ async def _read(root: Path, *args: str) -> str:
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), TIMEOUT)
     except TimeoutError as error:
-        # Killed and reaped, so a hung jj leaves no child behind the request.
-        process.kill()
-        await process.wait()
         raise HistoryError(f"jj {args[0]} took longer than {TIMEOUT:g} seconds") from error
+    finally:
+        # Killed and reaped on every way out, a cancelled request included, so a
+        # jj still running leaves no child behind.
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
 
     if process.returncode != 0:
         raise HistoryError(f"jj {args[0]} failed: {stderr.decode(errors='replace').strip()}")
 
-    return stdout.decode()
+    try:
+        return stdout.decode()
+    except UnicodeDecodeError as error:
+        raise HistoryError(f"jj {args[0]} wrote output that is not UTF-8") from error
 
 
 def moved_from(touched: list[list[str]], path: str) -> str | None:
-    """The path the note had before this change, when the change moved it.
+    """The path the note had before this change, when jj says the change moved it.
 
-    jj names a move only when the content stayed close enough to match. A
-    kasten move followed by saves to the moved note amends one change, and a
-    save that rewrites most of the note leaves jj seeing a delete and an add.
-    So a change that added the note and removed exactly one other note, and
-    nothing else, reads as a move too. Two removed notes is no move: which one
-    the note came from would be a guess.
+    Only jj's own rename, which it finds when the text stayed similar, as a
+    kasten move keeps it. A guess from a delete beside an add would hand a new
+    note the history of one removed in the shell in the same change, and a
+    restore would then write that other note's text.
     """
-    for status, source, target in touched:
-        if status == "renamed" and target == path:
-            return source
-
-    added = any(status == "added" and target == path for status, _, target in touched)
-    removed = [source for status, source, _ in touched if status == "removed"]
-    if added and len(removed) == 1 and removed[0].endswith(".md"):
-        return removed[0]
-
-    return None
+    return next(
+        (source for status, source, target in touched if status == "renamed" and target == path),
+        None,
+    )
 
 
 async def list_changes(root: Path, path: str) -> list[Change] | None:
