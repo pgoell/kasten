@@ -615,6 +615,20 @@ describe("backlinks", () => {
       await waitFor(() => expect(panel.hint()).toBe("That note is still being saved"));
       expect(panel.rows()).toHaveLength(1);
     });
+
+    it("#424 lets go of the reason a link was not written once the query changes", async () => {
+      const onLink = vi.fn(async () => "That note is still being saved");
+      searchNotes.mockResolvedValue([]);
+      fetchMentions.mockResolvedValue([MENTION]);
+      const panel = renderBacklinks(PATHS, "reading/borges.md", onLink);
+      await waitFor(() => expect(panel.rows()).toHaveLength(1));
+      panel.press("Enter", { ctrlKey: true });
+      await waitFor(() => expect(panel.hint()).toBe("That note is still being saved"));
+
+      panel.type("library");
+
+      expect(panel.hint()).toBe("nothing links here");
+    });
   });
 });
 

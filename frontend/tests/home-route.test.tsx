@@ -2687,6 +2687,65 @@ describe("the route", () => {
       expect(said()).toBe("The link was not written");
       expect(screen.getByRole("button", { name: "link" })).toBeInTheDocument();
     });
+
+    /**
+     * A write lands on other.md between the link's first read and its write:
+     * the first read answers the text from before, every later one the disk.
+     * `updateNote` runs its real three tries here, since the refusal and the
+     * read after it are the ordering under test.
+     */
+    function writtenBetween(disk: string) {
+      outside.set("other.md", disk);
+      fetchNote.mockImplementationOnce(async () => NAMES);
+      fetchNote.mockImplementation(async (path: string) =>
+        path === "other.md" ? outside.get(path) : VAULT[path],
+      );
+      updateNote.mockImplementation(
+        async (path: string, change: (text: string) => string | null) => {
+          for (let tries = 1; ; tries++) {
+            const text: string = await fetchNote(path);
+            const next = change(text);
+            if (next === null) return null;
+            try {
+              return await saveNote(path, next, false, noteBase(text));
+            } catch (error) {
+              if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
+            }
+          }
+        },
+      );
+    }
+
+    it("#424 links on the read after a refusal when the line still says the same", async () => {
+      const app = await renderApp();
+      await settle();
+      await backlinks(app);
+      writtenBetween(`${NAMES}\nadded by somebody else`);
+
+      await link();
+
+      expect(saveNote).toHaveBeenLastCalledWith(
+        "other.md",
+        "see the [[index]] here\nadded by somebody else",
+        false,
+        noteBase(`${NAMES}\nadded by somebody else`),
+      );
+      expect(outside.get("other.md")).toBe("see the [[index]] here\nadded by somebody else");
+      expect(said()).not.toBe("The link was not written");
+    });
+
+    it("#424 writes nothing on the read after a refusal when the line changed", async () => {
+      const app = await renderApp();
+      await settle();
+      await backlinks(app);
+      writtenBetween("see the index there");
+
+      await link();
+
+      expect(outside.get("other.md")).toBe("see the index there");
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(said()).toBe("That line has changed since it was listed");
+    });
   });
 });
 

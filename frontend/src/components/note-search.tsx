@@ -484,7 +484,9 @@ export function NoteSearch({
         // is how the list says what Enter would open.
         tabIndex={-1}
         onClick={() => accept(index)}
-        className={`${ROW} ${TAP} flex gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
+        // `min-w-0` lets the row shrink below its path beside a mention's
+        // `link` button, which a long path would otherwise push off a phone.
+        className={`${ROW} ${TAP} flex min-w-0 gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
       >
         <span
           // Capped below `md`, where a long path alone is wider than the list
@@ -550,6 +552,8 @@ export function NoteSearch({
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
+              // A reason for a link is about the rows it was given for.
+              setRefused(undefined);
               setActive(0);
             }}
             role="combobox"
