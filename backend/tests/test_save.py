@@ -329,3 +329,84 @@ async def test_writes_over_a_base_the_disk_gave_an_id_and_a_creation_date(
     written = (vault / "borges.md").read_text()
     assert "\nid: kept\n" in written
     assert written.endswith("\n---\n# borges\n\nMine, and more.\n")
+
+
+BLOCK = "id: kept\ncreated: 2020-01-01T00:00:00+00:00\ntype: Note\n"
+
+LF_NOTE = f"---\n{BLOCK}modified: 2020-01-01T00:00:00+00:00\n---\n# borges\n\nTheirs.\n"
+
+CRLF_NOTE = LF_NOTE.replace("\n", "\r\n").encode()
+"""`LF_NOTE` written on Windows, as the bytes on disk."""
+
+CRLF_BASE = _base(f"---\n{BLOCK}---\n# borges\n\nTheirs.\n")
+"""What a client that read `CRLF_NOTE` names as its base: the text as it was served."""
+
+
+async def test_keeps_a_crlf_notes_line_endings(client: AsyncClient, vault: Path) -> None:
+    # The client was served the note with every CRLF turned into an LF and
+    # sends LF back. The note must not be rewritten line by line for it, the
+    # restamped `modified` included, and the client still sees LF.
+    (vault / "borges.md").write_bytes(CRLF_NOTE)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={
+            "content": f"---\n{BLOCK}---\n# borges\n\nMine.\n",
+            "base": CRLF_BASE,
+        },
+    )
+
+    assert response.status_code == 200
+    landed = (vault / "borges.md").read_bytes()
+    assert landed.count(b"\n") == landed.count(b"\r\n")
+    assert landed.startswith(f"---\n{BLOCK}".replace("\n", "\r\n").encode())
+    assert landed.endswith(b"\r\n---\r\n# borges\r\n\r\nMine.\r\n")
+    modified = next(line for line in landed.split(b"\r\n") if line.startswith(b"modified: "))
+    assert modified != b"modified: 2020-01-01T00:00:00+00:00"
+    assert "\r" not in response.json()["content"]
+    assert response.json()["content"] == landed.decode().replace("\r\n", "\n")
+
+
+async def test_keeps_an_lf_notes_line_endings(client: AsyncClient, vault: Path) -> None:
+    (vault / "borges.md").write_text(LF_NOTE)
+
+    response = await client.put(
+        "/api/files/borges.md", json={"content": "# borges\n\nMine.\n", "base": CRLF_BASE}
+    )
+
+    assert response.status_code == 200
+    assert b"\r" not in (vault / "borges.md").read_bytes()
+
+
+async def test_leaves_a_crlf_note_untouched_when_it_refuses_a_base(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "borges.md").write_bytes(CRLF_NOTE)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={"content": "# borges\n\nMine.\n", "base": _base("# borges\n\nOlder.\n")},
+    )
+
+    assert response.status_code == 409
+    assert (vault / "borges.md").read_bytes() == CRLF_NOTE
+
+
+async def test_leaves_a_crlf_note_untouched_when_a_stale_base_repeats_its_text(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The keepalive that lands second over a CRLF note: the disk holds its text
+    # already, so nothing is written and the bytes stay as they were.
+    (vault / "borges.md").write_bytes(CRLF_NOTE)
+
+    response = await client.put(
+        "/api/files/borges.md",
+        json={
+            "content": f"---\n{BLOCK}---\n# borges\n\nTheirs.\n",
+            "base": _base("# borges\n\nOlder.\n"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["content"] == LF_NOTE
+    assert (vault / "borges.md").read_bytes() == CRLF_NOTE

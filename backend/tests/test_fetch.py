@@ -18,7 +18,7 @@ import pytest
 from kasten_backend import files, main
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator, Callable
 
     from httpx import AsyncClient
 
@@ -250,3 +250,34 @@ async def test_gives_up_on_a_page_that_redirects_forever(
 
     assert response.status_code == 502
     assert response.json()["detail"] == "That page redirects too many times"
+
+
+class Counted(httpx.AsyncByteStream):
+    """A long body counting the chunks anybody asked it for."""
+
+    def __init__(self) -> None:
+        self.chunks = 0
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        # Ends after a thousand, so a reader that reads it all finishes and fails.
+        while self.chunks < 1000:
+            self.chunks += 1
+            yield b"x" * 1024
+
+
+async def test_does_not_read_a_redirect_body(client: AsyncClient, answer: Callable) -> None:
+    """httpx reads a 3xx body whole and past any cap, so a redirect's is never read."""
+    stream = Counted()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/post":
+            return httpx.Response(302, headers={"location": "/2025/post"}, stream=stream)
+        return httpx.Response(200, html="<html><body><p>hello</p></body></html>")
+
+    answer(handler)
+
+    response = await client.get("/api/fetch", params={"url": "https://example.com/post"})
+
+    assert response.status_code == 200
+    assert response.json()["url"] == "https://example.com/2025/post"
+    assert stream.chunks <= 1

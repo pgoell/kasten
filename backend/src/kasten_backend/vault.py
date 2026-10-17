@@ -14,6 +14,9 @@ if TYPE_CHECKING:
 SUFFIX = ".md"
 """What a note's name ends in, which is the one rule a folder does not share."""
 
+LONE_LF = re.compile(r"(?<!\r)\n")
+"""An LF with no CR before it, which `write_note` turns into a CRLF."""
+
 BOOK_SUFFIXES = (".epub", ".pdf")
 """What a book's name ends in, the preferred format first.
 
@@ -622,8 +625,20 @@ def write_note(path: Path, content: str) -> None:
     over.
 
     `newline=""` because the vault is the source of truth: the bytes that
-    arrived are the bytes on disk.
+    arrived are the bytes on disk, with one exception. A note that already
+    holds a CRLF keeps CRLF: every lone LF in `content` lands as a CRLF.
+    `read_note` hands clients the text with every CRLF turned into an LF, so
+    without this any save of a note written on Windows would rewrite every line
+    of it. A CRLF that arrived stays one rather than gaining a second CR. An LF
+    note, or a path with no file yet, gets `content` as it came.
     """
+    try:
+        crlf = b"\r\n" in path.read_bytes()
+    except FileNotFoundError:
+        crlf = False
+    if crlf:
+        content = LONE_LF.sub("\r\n", content)
+
     temporary = path.with_name(f".{path.name}.tmp")
     temporary.write_text(content, encoding="utf-8", newline="")
     temporary.replace(path)

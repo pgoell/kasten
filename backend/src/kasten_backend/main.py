@@ -990,7 +990,9 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool) -> Anki
         raise HTTPException(status_code=413, detail="That export is too large")
 
     try:
-        decks = read_apkg(body, settings.flashcards_path, carry=carry)
+        # In a worker thread: unzipping, zstd and sqlite take seconds on a big
+        # deck, and on the event loop every other request would wait them out.
+        decks = await asyncio.to_thread(read_apkg, body, settings.flashcards_path, carry=carry)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

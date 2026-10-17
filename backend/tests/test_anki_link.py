@@ -306,6 +306,18 @@ async def test_does_not_read_a_redirect_body(
     assert stream.chunks <= 1
 
 
+async def test_gives_up_on_a_link_that_redirects_forever(
+    client: AsyncClient, vault: Path, answer: Callable
+) -> None:
+    answer(lambda request: httpx.Response(302, headers={"location": "/French.apkg"}))
+
+    response = await link(client, "https://example.com/French.apkg")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "That page redirects too many times"
+    assert not (vault / "03 Flashcards").exists()
+
+
 class Dripping(httpx.AsyncByteStream):
     """A body whose first byte never comes, so only a deadline over the whole fetch ends it."""
 

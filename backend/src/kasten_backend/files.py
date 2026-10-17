@@ -218,23 +218,27 @@ def reader() -> httpx.AsyncClient:
 
     A function rather than a client built at each call site, so there is one
     place that decides how kasten reaches the internet, and one seam a test
-    replaces to answer for the internet.
+    replaces to answer for the internet. It follows no redirects: httpx reads
+    every 3xx body whole into memory on the way past, where no cap sees it, so
+    `open_public` follows them by hand.
     """
     return httpx.AsyncClient(
         timeout=PAGE_TIMEOUT_SECONDS,
         headers={"user-agent": PAGE_AGENT},
-        follow_redirects=True,
-        max_redirects=PAGE_REDIRECTS,
         transport=_PublicTransport(),
     )
 
 
 async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
-    """Open `url` as a stream. The caller closes what comes back.
+    """Open `url` as a stream, redirects followed. The caller closes what comes back.
 
     http and https and nothing else, checked before anything is opened:
-    `file://` would read this container's disk. The address is `_PublicOnly`'s
-    to check, on every hop.
+    `file://` would read this container's disk. A later hop to another scheme
+    is the transport's to refuse. The address is `_PublicOnly`'s to check, on
+    every hop.
+
+    Each redirect is closed with its body unread, so the only body anybody
+    reads is the last one, and the caller reads it through its cap.
     """
     try:
         request = client.build_request("GET", url)
@@ -243,10 +247,16 @@ async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
     if request.url.scheme not in ("http", "https") or not request.url.host:
         raise RefusedError(400, "Only http and https addresses")
 
-    try:
-        return await client.send(request, stream=True)
-    except httpx.TooManyRedirects as error:
-        raise RefusedError(502, "That page redirects too many times") from error
+    for _ in range(PAGE_REDIRECTS + 1):
+        response = await client.send(request, stream=True)
+        if not response.is_redirect:
+            return response
+        await response.aclose()
+        try:
+            request = client.build_request("GET", response.url.join(response.headers["location"]))
+        except httpx.InvalidURL as error:
+            raise RefusedError(502, "That link redirects to no address") from error
+    raise RefusedError(502, "That page redirects too many times")
 
 
 async def fetch_deck(url: str) -> bytes:
@@ -271,11 +281,8 @@ async def fetch_deck(url: str) -> bytes:
     try:
         async with asyncio.timeout(DECK_TIMEOUT_SECONDS), reader() as client:
             # A hook rather than a check on `url`, so no hop can be sent
-            # without it, the ones `_deck_body` follows by hand included.
+            # without it, the ones `open_public` follows by hand included.
             client.event_hooks["request"].append(_only_https)
-            # Followed by `_deck_body` instead: httpx reads every 3xx body
-            # whole into memory on the way past, where `_capped` never sees it.
-            client.follow_redirects = False
             at, body = await _deck_body(client, url)
             if not body.startswith(b"PK") and _ankiweb_page(at):
                 link = _download_link(body)
@@ -305,26 +312,12 @@ async def _only_https(request: httpx.Request) -> None:
 async def _deck_body(client: httpx.AsyncClient, url: str) -> tuple[httpx.URL, bytes]:
     """Where `url` ended up and what it answered, once the answer is worth reading.
 
-    Redirects are followed here, each closed with its body unread, so the
-    only body read is the last one and it is read through the cap.
-
     Gone is judged first, since a site's own 404 page may load a captcha
     script for a form on it. The body is read before the rest is judged,
     because a challenge comes with a 403 and is told apart from a login only
     by what it says.
     """
-    for _ in range(PAGE_REDIRECTS + 1):
-        response = await open_public(client, url)
-        if not response.is_redirect:
-            break
-        await response.aclose()
-        try:
-            url = str(response.url.join(response.headers["location"]))
-        except httpx.InvalidURL as error:
-            raise RefusedError(502, "That link redirects to no address") from error
-    else:
-        raise RefusedError(502, "That page redirects too many times")
-
+    response = await open_public(client, url)
     status = response.status_code
     if status in (404, 410):
         await response.aclose()

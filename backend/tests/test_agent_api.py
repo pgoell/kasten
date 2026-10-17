@@ -269,6 +269,47 @@ async def test_save_preserves_crlf(
     assert landed.endswith(b"\r\n\r\n# one\r\n")
 
 
+CRLF_NOTE = (
+    b"---\r\nid: 019\r\ncreated: 2026-08-01T00:00:00+00:00\r\ntype: Note\r\n"
+    b"modified: 2026-08-01T00:00:00+00:00\r\n---\r\n\r\n# one\r\n"
+)
+
+
+async def test_save_of_lf_text_over_a_crlf_note_keeps_crlf(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # An agent may hand back the text it read with every CRLF turned into an
+    # LF, as plenty of clients do. The note stays a CRLF one all the same.
+    (agent_vault / "windows.md").write_bytes(CRLF_NOTE)
+    read = (await client.get("/agent/notes/windows.md", headers=bearer)).json()
+
+    response = await client.put(
+        "/agent/notes/windows.md",
+        json={"content": "# one\n\n# two\n", "sha": read["sha"]},
+        headers=bearer,
+    )
+
+    assert response.status_code == 200
+    landed = (agent_vault / "windows.md").read_bytes()
+    assert landed.count(b"\n") == landed.count(b"\r\n")
+    assert landed.endswith(b"\r\n---\r\n# one\r\n\r\n# two\r\n")
+
+
+async def test_append_to_a_crlf_note_keeps_crlf(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "windows.md").write_bytes(CRLF_NOTE)
+
+    response = await client.post(
+        "/agent/notes/windows.md/append", json={"text": "# two\n"}, headers=bearer
+    )
+
+    assert response.status_code == 200
+    landed = (agent_vault / "windows.md").read_bytes()
+    assert landed.count(b"\n") == landed.count(b"\r\n")
+    assert landed.endswith(b"\r\n\r\n# one\r\n\r\n# two\r\n")
+
+
 async def test_append_creates_with_no_leading_blank_line(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:

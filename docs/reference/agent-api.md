@@ -228,6 +228,9 @@ between them. What that closes, and what it deliberately does not, is in
 The answer is the same shape a read gives: the path, the content that landed and
 its digest.
 
+A note that holds a CRLF on disk keeps CRLF, whether the text sent carries CRLF
+or LF. The append below does the same.
+
 A note created here makes the folders on the way, and each folder it makes gets
 an `index.md` listing what it holds, the way
 [a create in the browser](/reference/http-api.md#post-apifilespath) does. The

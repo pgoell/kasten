@@ -15,7 +15,7 @@ from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
 from kasten_backend import files
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator, Callable
     from pathlib import Path
 
     from httpx import AsyncClient
@@ -166,6 +166,55 @@ async def test_a_fetch_refuses_a_redirect_into_the_box(
 
     assert response.status_code == 400
     assert sockets == []
+    assert empty(agent_vault)
+
+
+class Counted(httpx.AsyncByteStream):
+    """A long body counting the chunks anybody asked it for."""
+
+    def __init__(self) -> None:
+        self.chunks = 0
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        # Ends after a thousand, so a reader that reads it all finishes and fails.
+        while self.chunks < 1000:
+            self.chunks += 1
+            yield b"x" * 1024
+
+
+async def test_a_fetch_does_not_read_a_redirect_body(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], answer: Callable
+) -> None:
+    """httpx reads a 3xx body whole and past any cap, so a redirect's is never read."""
+    stream = Counted()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/a":
+            return httpx.Response(302, headers={"location": "edge.pdf"}, stream=stream)
+        return httpx.Response(200, content=PDF)
+
+    answer(handler)
+
+    response = await client.post(
+        "/agent/files/edge.pdf/fetch", json={"url": "https://example.com/a"}, headers=bearer
+    )
+
+    assert response.status_code == 201
+    assert (agent_vault / "edge.pdf").read_bytes() == PDF
+    assert stream.chunks <= 1
+
+
+async def test_a_fetch_gives_up_on_a_redirect_loop(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], answer: Callable
+) -> None:
+    answer(lambda request: httpx.Response(302, headers={"location": "/a"}))
+
+    response = await client.post(
+        "/agent/files/edge.pdf/fetch", json={"url": "https://example.com/a"}, headers=bearer
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "That page redirects too many times"
     assert empty(agent_vault)
 
 

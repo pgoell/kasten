@@ -67,6 +67,32 @@ The latest export compresses its media map and every media file, the legacy
 one neither, and nothing else in the zip says which form a member is in.
 """
 
+MEMBER_LIMIT_BYTES = 1024 * 1024 * 1024
+"""The most one member may unpack to, through the zip and zstd both.
+
+A gibibyte, since the upload is capped at a hundred mebibytes and a collection
+of text compresses some five times over: a real deck stays well under it, and a
+bomb is stopped there rather than at the end of memory.
+"""
+
+TOTAL_LIMIT_BYTES = 2 * 1024 * 1024 * 1024
+"""The most every member read may unpack to together, collection, media map and media.
+
+The import holds all of it in memory at once, which is why the sum and not only
+each member needs a cap.
+"""
+
+MEMBER_COUNT_LIMIT = 50_000
+"""The most members an export may hold.
+
+A real deck holds a member per image and sound, a few thousand in a big one.
+Fifty thousand in a hundred mebibytes is two kibibytes each, less than any
+picture worth carrying.
+"""
+
+_CHUNK_BYTES = 1024 * 1024
+"""How much of a member `_member` reads at a time, so a cap is checked as it unpacks."""
+
 MEDIA_SUFFIXES = (*IMAGE_SUFFIXES, *AUDIO_SUFFIXES)
 """What a field's image or sound may be to come through: an asset, and no book."""
 
@@ -664,14 +690,26 @@ def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Dec
     Raises:
         ValueError: `data` is not a zip, or holds no collection, or holds one
             zstd or sqlite refuses to read, or one whose decks, note types or
-            note fields cannot be read, or a media map that cannot be read.
+            note fields cannot be read, or a media map that cannot be read; or
+            one past `MEMBER_COUNT_LIMIT` members, or whose collection or
+            media map unpacks past `MEMBER_LIMIT_BYTES`, or whose members read
+            unpack past `TOTAL_LIMIT_BYTES` together.
     """
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as bundle:
-            rendered = _rendered(_collection(bundle), carry=carry)
-            index = _media_index(bundle)
+            if len(bundle.namelist()) > MEMBER_COUNT_LIMIT:
+                raise ValueError(
+                    f"Anki export too large: it holds more than {MEMBER_COUNT_LIMIT} files"
+                )
+            budget = _Budget()
+            rendered = _rendered(_collection(bundle, budget), carry=carry)
+            index = _media_index(bundle, budget)
             wanted = {name for card in rendered for name in _names(card.question, card.answer)}
-            files = {name: found for name in wanted if (found := _media_file(bundle, index, name))}
+            files = {
+                name: found
+                for name in wanted
+                if (found := _media_file(bundle, index, name, budget))
+            }
     except zipfile.BadZipFile as error:
         raise ValueError("not an Anki export: the bytes are not a zip") from error
 
@@ -1314,20 +1352,78 @@ def _empty(value: str) -> bool:
     return _EMPTY.fullmatch(value) is not None
 
 
-def _collection(bundle: zipfile.ZipFile) -> bytes:
+class _Budget:
+    """What the members of one export may still unpack to, out of `TOTAL_LIMIT_BYTES`.
+
+    Both layers count, the bytes the zip inflates and the bytes zstd makes of
+    them, since the import holds each in memory.
+    """
+
+    def __init__(self) -> None:
+        self.left = TOTAL_LIMIT_BYTES
+
+    def spend(self, size: int) -> None:
+        """Take `size` bytes off what is left, refusing the export once it runs out."""
+        if size > self.left:
+            raise ValueError(
+                f"Anki export too large: its files unpack past {TOTAL_LIMIT_BYTES} bytes together"
+            )
+        self.left -= size
+
+
+def _member(bundle: zipfile.ZipFile, name: str, budget: _Budget, cap: int) -> bytes:
+    """The member `name` inflated, a chunk at a time, stopped one byte past `cap`.
+
+    Never `bundle.read`, and never trusting the size the zip states: a deflate
+    bomb states what it likes, and only counting what comes out stops it.
+    """
+    out = bytearray()
+    with bundle.open(name) as stream:
+        while len(out) <= cap and (chunk := stream.read(min(_CHUNK_BYTES, cap + 1 - len(out)))):
+            budget.spend(len(chunk))
+            out += chunk
+    return bytes(out)
+
+
+def _unzstd(blob: bytes, budget: _Budget, cap: int) -> bytes:
+    """`blob` decompressed, stopped one byte past `cap` or past what `budget` has left.
+
+    Raises:
+        zstd.ZstdError: `blob` is not zstd, or its frame is cut short, which a
+            decompressor given `max_length` reports by not reaching `eof`
+            rather than by raising.
+    """
+    decompressor = zstd.ZstdDecompressor()
+    out = decompressor.decompress(blob, max_length=min(cap, budget.left) + 1)
+    budget.spend(len(out))
+    if len(out) <= cap and not decompressor.eof:
+        raise zstd.ZstdError("the frame ends early")
+    return out
+
+
+def _capped(name: str, blob: bytes) -> bytes:
+    """`blob` as it is, or refused when the member `name` unpacked past `MEMBER_LIMIT_BYTES`."""
+    if len(blob) > MEMBER_LIMIT_BYTES:
+        raise ValueError(f"Anki export too large: {name} unpacks past {MEMBER_LIMIT_BYTES} bytes")
+    return blob
+
+
+def _collection(bundle: zipfile.ZipFile, budget: _Budget) -> bytes:
     """The sqlite bytes of the newest collection the export holds."""
     held = set(bundle.namelist())
     member = next((name for name in COLLECTION_MEMBERS if name in held), None)
     if member is None:
         raise ValueError(f"no Anki collection in the export: {sorted(held)}")
-    blob = bundle.read(member)
+    blob = _capped(member, _member(bundle, member, budget, MEMBER_LIMIT_BYTES))
+    if member != ZSTD_MEMBER:
+        return blob
     try:
-        return zstd.decompress(blob) if member == ZSTD_MEMBER else blob
+        return _capped(member, _unzstd(blob, budget, MEMBER_LIMIT_BYTES))
     except zstd.ZstdError as error:
         raise ValueError(f"unreadable Anki export: {member} is not zstd: {error}") from error
 
 
-def _media_index(bundle: zipfile.ZipFile) -> dict[str, str]:
+def _media_index(bundle: zipfile.ZipFile, budget: _Budget) -> dict[str, str]:
     """Every media file the export lists, by the name a field gives it, against its zip member.
 
     The legacy map is JSON from member to name. The latest is Anki's
@@ -1336,30 +1432,39 @@ def _media_index(bundle: zipfile.ZipFile) -> dict[str, str]:
     """
     if "media" not in bundle.namelist():
         return {}
-    raw = bundle.read("media")
+    raw = _capped("media", _member(bundle, "media", budget, MEMBER_LIMIT_BYTES))
+    latest = raw.startswith(ZSTD_MAGIC)
+    if latest:
+        # Apart from the parse below, whose `ValueError` would swallow a cap's.
+        try:
+            raw = _capped("media", _unzstd(raw, budget, MEMBER_LIMIT_BYTES))
+        except zstd.ZstdError as error:
+            raise ValueError(f"unreadable Anki export: bad media map ({error})") from error
     try:
-        if not raw.startswith(ZSTD_MAGIC):
+        if not latest:
             return {name: member for member, name in json.loads(raw).items()}
         index: dict[str, str] = {}
-        for number, entry in enumerate(_protobuf(zstd.decompress(raw)).get(1, [])):
+        for number, entry in enumerate(_protobuf(raw).get(1, [])):
             if not isinstance(entry, bytes):
                 raise ValueError(f"entry {number} is not a message")
             legacy = _protobuf(entry).get(255)
             index[_string(entry, 1)] = str(legacy[0] if legacy else number)
-    except (zstd.ZstdError, ValueError, AttributeError, TypeError) as error:
+    except (ValueError, AttributeError, TypeError) as error:
         raise ValueError(f"unreadable Anki export: bad media map ({error})") from error
     return index
 
 
 def _media_file(
-    bundle: zipfile.ZipFile, index: dict[str, str], name: str
+    bundle: zipfile.ZipFile, index: dict[str, str], name: str, budget: _Budget
 ) -> tuple[str, bytes] | None:
     """The file a field names as `name`, by its name in the vault and its bytes, or None.
 
     None for a file the vault would refuse as `store` would: a name that is not
     one plain file name the vault holds (hidden, or too long once its temp's
     fourteen bytes are added), a suffix it takes no image or sound under, a body over
-    the cap or not what its suffix says. None too for one the zip lacks.
+    the cap or not what its suffix says. None too for one the zip lacks. What it
+    reads counts against `budget` all the same, so many files each under the
+    cap still refuse the export once together they pass `TOTAL_LIMIT_BYTES`.
     """
     # Anki percent-encodes an `<img src>` in some versions, never the map.
     if name not in index:
@@ -1377,11 +1482,11 @@ def _media_file(
         or bundle.getinfo(member).file_size > ASSET_LIMIT_BYTES
     ):
         return None
-    data = bundle.read(member)
+    data = _member(bundle, member, budget, ASSET_LIMIT_BYTES)
     if data.startswith(ZSTD_MAGIC):
         try:
             # Capped, since the size the zip states is the compressed one.
-            data = zstd.ZstdDecompressor().decompress(data, max_length=ASSET_LIMIT_BYTES + 1)
+            data = _unzstd(data, budget, ASSET_LIMIT_BYTES)
         except zstd.ZstdError:
             return None
     if len(data) > ASSET_LIMIT_BYTES or not fits(Path(name).suffix.lower(), data):

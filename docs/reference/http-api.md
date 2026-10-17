@@ -663,6 +663,10 @@ such a file has nothing left to ask and is left out.
   and does not count it.
 * With `carry`, a collection whose `col` row holds no creation time answers 400.
 * A body over 100MB answers 413.
+* An export that holds more than 50,000 files, whose collection or media map
+  unpacks past 1GiB, or whose files unpack past 2GiB together, answers 400
+  with a `detail` starting `Anki export too large`. The bytes are counted as
+  they unpack, and nothing is written.
 
 [Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
 
@@ -1020,8 +1024,9 @@ the list above. A slash inside it may be sent raw or percent-encoded.
 { "path": "daily/2026-08-05.md", "content": "# 2026-08-05\n" }
 ```
 
-`content` is the file's text, unchanged, the
-[frontmatter block](/reference/note-frontmatter.md) included.
+`content` is the file's text, the
+[frontmatter block](/reference/note-frontmatter.md) included, with every CRLF
+read as an LF.
 
 Anything that is not a readable markdown file inside the vault is a `404`:
 
@@ -1063,6 +1068,11 @@ below.
 The write goes to a hidden temp file beside the target and is then renamed over
 it. The rename is atomic, so a crash halfway through leaves the old note whole
 rather than half a new one.
+
+A note that holds a CRLF on disk keeps CRLF: the client was served LF, so every
+LF in what it sends lands as a CRLF, the restamped `modified:` line included.
+The reply and the `base` stay on the LF text the client saw. A note with only
+LF on disk is written as sent.
 
 A body may also carry `base`, the hex SHA-256 of the text the client believes
 is on disk, with the frontmatter's `modified:` line set aside:
