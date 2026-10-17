@@ -200,6 +200,33 @@ export async function searchNotes(query: string, archive = false): Promise<Searc
   return data;
 }
 
+/**
+ * A line naming a note in plain words, and where on the line the words are.
+ *
+ * `start` and `end` count UTF-16 code units into `text`, which is what
+ * `slice` counts, so the backend's offsets need no translating here. `name` is
+ * the title or alias of the note that matched.
+ */
+export type Mention = components["schemas"]["Mention"];
+
+/**
+ * Every line outside `path` naming it without linking to it.
+ *
+ * The backend has already passed over links, code, frontmatter, the note
+ * itself and the archive, so what comes back is each candidate for a link.
+ */
+export async function fetchMentions(path: string, archive = false): Promise<Mention[]> {
+  const { data, response } = await client.GET("/api/mentions", {
+    params: { query: { path, archive } },
+  });
+
+  if (!data) {
+    throw new Error(`GET /api/mentions failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /** What the graph pane asks: a query, and for a local graph the note it is around. */
 export interface GraphAsk {
   query: string;

@@ -48,6 +48,7 @@ import {
   fetchTerminals,
   fetchTrash,
   fetchVersion,
+  type Mention,
   restoreEntry,
   type SearchHit,
   updateNote,
@@ -60,6 +61,7 @@ import { queryEmbedSource } from "@/lib/embed";
 import { heldText, moveHeld, sameText, useHeld } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
+import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import type { MoveMode } from "@/lib/move";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookType, encodePath, importedNote, noteName } from "@/lib/note-path";
@@ -953,6 +955,61 @@ function Home() {
         }
 
         void queryClient.invalidateQueries({ queryKey: ["note", note] });
+      }),
+    [queryClient, write],
+  );
+
+  /**
+   * Turn an unlinked mention of `target` into a `[[link]]`, answering null once
+   * it landed or the reason it did not.
+   *
+   * The bookmark's rules and not the highlight's, though this is a press too:
+   * the press was made in the panel and not in the note, so nobody chose to
+   * write over text they may be typing there. A note with text held after a
+   * failed save is refused as well, since the vault's text is then not what the
+   * reader last typed, and a link written over it would race that text back.
+   */
+  const linkMentionOf = useCallback(
+    (target: string, mention: Mention): Promise<string | null> =>
+      write(mention.path, async () => {
+        const note = mention.path;
+        const busy = (): string | null => {
+          if (heldText(note) !== undefined) return "That note holds text not yet saved";
+          const focused = focusedNote.current;
+          if (focused.path === note) return "That note is open to type in";
+          if (focused.isWriting(note)) return "That note is still being saved";
+          return null;
+        };
+        const before = busy();
+        if (before !== null) return before;
+
+        const paths = queryClient.getQueryData<string[]>(["files"]) ?? [];
+        const linkText = mentionLinkText(mention, target, paths);
+        // What stopped the change, which `updateNote` answers null for whatever
+        // the cause, and the one sentence for a write that threw.
+        let why = "The link was not written";
+        const written = await updateNote(note, (text) => {
+          // Asked again, because the read took a round trip.
+          const now = busy();
+          if (now !== null) {
+            why = now;
+            return null;
+          }
+          const next = linkMention(text, mention, linkText);
+          if (next === null) why = "That line has changed since it was listed";
+          return next;
+        }).then(
+          (landed) => landed,
+          // A 500, the network, or refused over its base three times.
+          () => null,
+        );
+        if (written === null) return why;
+
+        queryClient.setQueryData(["note", note], written.content);
+        // The row leaves the unlinked group and the line joins the links.
+        void queryClient.invalidateQueries({ queryKey: ["mentions"] });
+        void queryClient.invalidateQueries({ queryKey: ["search"] });
+        return null;
       }),
     [queryClient, write],
   );
@@ -2526,6 +2583,9 @@ function Home() {
           todos={todosOpen}
           archive={archive}
           paths={data}
+          onLink={
+            backlinksOf === undefined ? undefined : (mention) => linkMentionOf(backlinksOf, mention)
+          }
           onOpen={(path, hitLine) => {
             setSearchOpen(false);
             setBacklinksOf(undefined);

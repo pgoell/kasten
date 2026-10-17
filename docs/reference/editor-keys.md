@@ -2084,11 +2084,26 @@ nobody has written yet is left out: the panel is a list of notes, and there is
 no note there to list. The editor already draws that link dotted, and `gf` is
 what turns it into a note.
 
-The line underneath says `nothing links here` for a note nothing points at, and
-`this note links nowhere` for one that points at nothing.
+Under the links, the backlinks panel lists the unlinked mentions: lines in other
+notes that name this note in plain words, under a heading of that name, the one
+Obsidian uses. A mention is the note's title or one of its `aliases`, matched
+whole and ignoring case, outside a link, code or the frontmatter, and never in
+the note itself or the archive. Each row is drawn as a
+backlink is, and typing, the arrows, Tab and Enter treat it as one. `Ctrl+Enter`
+(`Cmd+Enter` on a Mac) on a mention, or a tap on the `link` button at the end
+of its row, turns those words into a link and keeps them as they were written:
+`[[name]]` where they spell the note's name, `[[name|words]]` where case or an
+alias differs, and the path in place of the name where another note shares it.
+The write follows the bookmark's rules. It skips a note that is open to type
+in, still being saved, or holding text a failed save left behind, and a line
+that changed since the panel read it, and the line under the list says which.
+Once the link lands, the row moves from the mentions to the links.
 
-Both panels are a snapshot of the moment they opened. Nothing behind them is
-being edited while they are up, so there is nothing for them to keep up with.
+The line underneath says `nothing links here` for a note nothing points at,
+mentions or not, and `this note links nowhere` for one that points at nothing.
+
+Both panels are a snapshot of the moment they opened, but for a link written
+from the panel, which reads the backlinks again.
 
 ## Periodic notes
 

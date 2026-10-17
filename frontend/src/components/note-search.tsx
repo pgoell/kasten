@@ -1,7 +1,14 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
-import { fetchNote, fetchTodos, type SearchHit, searchNotes } from "@/lib/api";
+import {
+  fetchMentions,
+  fetchNote,
+  fetchTodos,
+  type Mention,
+  type SearchHit,
+  searchNotes,
+} from "@/lib/api";
 import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
 import { noteName } from "@/lib/note-path";
 import {
@@ -48,6 +55,12 @@ interface NoteSearchProps {
    * cached answers rather than one that goes stale on a toggle.
    */
   archive?: boolean;
+  /**
+   * Turn an unlinked mention into a `[[link]]`, answering null once it is
+   * written or the reason it was not. The route owns the write, being the one
+   * that knows which note somebody is typing in.
+   */
+  onLink?: (mention: Mention) => Promise<string | null>;
 }
 
 /** Which of the three lists the panel is drawing, and where its lines come from. */
@@ -112,19 +125,43 @@ function relationOf(text: string, viewing: string, paths: string[]): string | nu
 /** React key for the untyped group. A relation name is `[a-z][a-z-]*`, so this is not one. */
 const UNTYPED_KEY = "\u0000";
 
+/**
+ * The heading over the lines naming the note without linking it, Obsidian's
+ * words. It has a space in it, so no relation name can spell it.
+ */
+const UNLINKED = "unlinked mentions";
+
+/** Whether a row of the list is an unlinked mention rather than a line of links. */
+function isMention(hit: SearchHit | Mention): hit is Mention {
+  return "start" in hit;
+}
+
 /** One heading and the ranked rows under it. A null name is the untyped group. */
 interface Group {
   name: string | null;
   rows: number[];
 }
 
-/** The ranked rows in the order they are drawn: each name once, untyped last. */
-function groupHits(rows: number[], found: SearchHit[], viewing: string, paths: string[]): Group[] {
+/**
+ * The ranked rows in the order they are drawn: each name once, untyped next,
+ * and the unlinked mentions last, being the lines that do not link here yet.
+ */
+function groupHits(
+  rows: number[],
+  found: (SearchHit | Mention)[],
+  viewing: string,
+  paths: string[],
+): Group[] {
   const named = new Map<string, number[]>();
   const untyped: number[] = [];
+  const unlinked: number[] = [];
 
   for (const row of rows) {
     const hit = found[row];
+    if (hit !== undefined && isMention(hit)) {
+      unlinked.push(row);
+      continue;
+    }
     const name = hit === undefined ? null : relationOf(hit.text, viewing, paths);
     if (name === null) {
       untyped.push(row);
@@ -137,8 +174,10 @@ function groupHits(rows: number[], found: SearchHit[], viewing: string, paths: s
 
   // A map keeps insertion order, which here is first appearance in the ranking,
   // and the rows inside each name keep the rank order they arrived in.
-  const groups = [...named].map(([name, under]) => ({ name, rows: under }));
-  return untyped.length === 0 ? groups : [...groups, { name: null, rows: untyped }];
+  const groups: Group[] = [...named].map(([name, under]) => ({ name, rows: under }));
+  if (untyped.length > 0) groups.push({ name: null, rows: untyped });
+  if (unlinked.length > 0) groups.push({ name: UNLINKED, rows: unlinked });
+  return groups;
 }
 
 /**
@@ -190,6 +229,7 @@ export function NoteSearch({
   paths,
   todos,
   archive = false,
+  onLink,
 }: NoteSearchProps) {
   const [query, setQuery] = useState("");
   /** What a typed query settled on, which trails what has been typed. */
@@ -234,6 +274,16 @@ export function NoteSearch({
     retry: false,
   });
 
+  // The lines naming the note in plain words, asked beside the links and only
+  // for backlinks. The backend reads these itself, titles and aliases being
+  // something rg on the name alone cannot find.
+  const mentions = useQuery({
+    queryKey: ["mentions", backlinksOf, archive],
+    queryFn: backlinksOf === undefined ? skipToken : () => fetchMentions(backlinksOf, archive),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+
   // Every line the vault answered with, cut to the ones that really are links
   // where backlinks were asked for. rg finds the note's name in prose as
   // readily as in a link, and only reading the line as the editor parses it
@@ -244,7 +294,10 @@ export function NoteSearch({
   // The todo endpoint matches the shape of a checkbox and nothing else, so the
   // same reading cuts its answer down: a session line is not a todo and a
   // finished one is not work.
-  const found = useMemo(() => {
+  //
+  // The unlinked mentions go on the end of the same array, so the ranking, the
+  // highlight and Enter count them the way they count every other row.
+  const found: (SearchHit | Mention)[] = useMemo(() => {
     const hits = search.data ?? [];
     if (mode === "todos") {
       return hits.filter((hit) => {
@@ -253,10 +306,11 @@ export function NoteSearch({
       });
     }
     if (backlinksOf === undefined) return hits;
-    return hits.filter((hit) =>
+    const linked = hits.filter((hit) =>
       wikiLinkTargets(hit.text).some((target) => wikiLinkPath(target, paths ?? []) === backlinksOf),
     );
-  }, [search.data, mode, backlinksOf, paths]);
+    return [...linked, ...(mentions.data ?? [])];
+  }, [search.data, mentions.data, mode, backlinksOf, paths]);
   // Derived from the answer and not from the query, so every keystroke between
   // two answers ranks a set that was prepared once.
   const candidates = useMemo(() => lineCandidates(found.map((hit) => hit.text)), [found]);
@@ -346,6 +400,31 @@ export function NoteSearch({
     onOpen(hit.path, hit.line);
   }
 
+  /** Why the last link was not written, which the line under the list says. */
+  const [refused, setRefused] = useState<string>();
+  /**
+   * The mentions whose write is in the air. A second press while one is out
+   * would read the note before the first lands and link the same words twice,
+   * or be refused over a base the first just moved.
+   */
+  const linking = useRef(new Set<string>());
+
+  async function link(index: number | undefined) {
+    if (index === undefined || onLink === undefined) return;
+    const hit = found[index];
+    if (hit === undefined || !isMention(hit)) return;
+    const key = `${hit.path}:${hit.line}:${hit.start}`;
+    if (linking.current.has(key)) return;
+    linking.current.add(key);
+    setRefused(undefined);
+    try {
+      const reason = await onLink(hit);
+      if (reason !== null) setRefused(reason);
+    } finally {
+      linking.current.delete(key);
+    }
+  }
+
   function onKeyDown(event: React.KeyboardEvent) {
     // Tab walks the list rather than completing anything, the way it does in a
     // terminal fuzzy finder. There is nothing here to complete: Enter opens the
@@ -370,7 +449,11 @@ export function NoteSearch({
     switch (event.key) {
       case "Enter":
         event.preventDefault();
-        accept(highlighted);
+        // Ctrl or Cmd with Enter links an unlinked mention where Enter alone
+        // opens it, the panel's own key the way Tab is, and on any other row
+        // it does nothing rather than open by surprise.
+        if (event.ctrlKey || event.metaKey) void link(highlighted);
+        else accept(highlighted);
         break;
       case "Escape":
         event.preventDefault();
@@ -390,7 +473,7 @@ export function NoteSearch({
     // hand back, which is why the row still draws the line it was given rather
     // than nothing at all.
     const todo = mode === "todos" ? parseTodo(hit.text) : null;
-    return (
+    const option = (
       <button
         key={`${hit.path}:${hit.line}`}
         id={`${listId}-${row}`}
@@ -419,6 +502,26 @@ export function NoteSearch({
             the date they are due on. */}
         {todo?.due !== undefined && <span className="shrink-0 text-one-muted">📅 {todo.due}</span>}
       </button>
+    );
+    if (!isMention(hit)) return option;
+    // Beside the row and not inside it: a button in a button is no markup a
+    // browser keeps, and a click inside would reach the row and open the note
+    // too. Keyed on the offset as well, since one line can name the note twice.
+    return (
+      <div key={`${hit.path}:${hit.line}:${hit.start}`} className="flex">
+        {option}
+        <button
+          type="button"
+          tabIndex={-1}
+          // The press would move the focus here, and the keys belong to the
+          // input: Tab and Ctrl+Enter have to go on working after a tap.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => void link(index)}
+          className={`${TAP} flex shrink-0 cursor-pointer px-3 text-[11px] text-one-accent hover:bg-one-hover`}
+        >
+          link
+        </button>
+      </div>
     );
   }
 
@@ -525,7 +628,20 @@ export function NoteSearch({
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className={STATUS}>{hint(typed, search.isFetching, ordered.length, mode)}</output>
+        {/* Backlinks count only the rows that link, so a note named in prose
+            and linked nowhere still says nothing links here. */}
+        <output className={STATUS}>
+          {refused ??
+            hint(
+              typed,
+              search.isFetching || mentions.isFetching,
+              ordered.filter((index) => {
+                const hit = found[index];
+                return hit !== undefined && !isMention(hit);
+              }).length,
+              mode,
+            )}
+        </output>
       </div>
     </div>
   );
