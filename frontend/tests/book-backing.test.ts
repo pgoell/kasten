@@ -201,6 +201,17 @@ describe("a small glyph on the dark page", () => {
     expect(await treatmentFor(image(SMALL), edged)).toBe("ink");
   });
 
+  it("counts a glyph's light matte fringe by its alpha", async () => {
+    // Saved against a white matte, a glyph's edge reads light grey at partial
+    // alpha. Counted whole, two such pixels in ten would sink the glyph under
+    // the share; weighed by alpha, they are the faint edge they look.
+    const black: [number, number, number, number] = [0, 0, 0, 255];
+    const fringe: [number, number, number, number] = [200, 200, 200, 64];
+    const matted = onClear(...Array(8).fill(black), fringe, fringe);
+
+    expect(await treatmentFor(image(SMALL), matted)).toBe("ink");
+  });
+
   it("leaves a small image with no visible pixel alone", async () => {
     const spacer = () => new Uint8ClampedArray([0, 0, 0, 0, 0, 0, 0, 0]);
 

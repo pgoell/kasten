@@ -28,10 +28,14 @@ export type Treatment = "white" | "ink" | "plain";
  * How dark and how grey a pixel may be and still count as ink.
  *
  * Grey as well as dark, so a navy or maroon icon is left alone: inverted, it
- * would come out a garish complement and not the pale of the text. Most of the
- * visible pixels and not all, so a glyph with a few lighter or tinted pixels
- * still inverts. `getImageData` hands back colour un-premultiplied, so the
- * half-transparent edges of a black glyph read (0,0,0,a) and count as dark.
+ * would come out a garish complement and not the pale of the text. Most of
+ * what is visible and not all, so a glyph with a few lighter or tinted pixels
+ * still inverts. Each pixel weighs as much as it shows, by its alpha: a glyph
+ * saved against a white matte has light grey edges at partial alpha, which
+ * counted whole would outvote a small glyph's solid black, and a faint shadow
+ * would count as much as the ink. `getImageData` hands back colour
+ * un-premultiplied, so the half-transparent edges of a glyph drawn on nothing
+ * read (0,0,0,a) and count as dark.
  */
 const INK_MAX = 96;
 const INK_SPREAD = 48;
@@ -116,15 +120,19 @@ function loaded(img: HTMLImageElement): Promise<boolean> {
  */
 function ink(pixels: Uint8ClampedArray): boolean {
   let seeThrough = false;
+  // Both summed in alpha, not counted in pixels.
   let visible = 0;
   let dark = 0;
   for (let index = 0; index < pixels.length; index += 4) {
-    const [r = 0, g = 0, b = 0, alpha = 0] = pixels.subarray(index, index + 4);
+    // In bounds, `getImageData` handing back whole RGBA quads.
+    const r = pixels[index] as number;
+    const g = pixels[index + 1] as number;
+    const b = pixels[index + 2] as number;
+    const alpha = pixels[index + 3] as number;
     if (alpha < 255) seeThrough = true;
-    if (alpha === 0) continue;
-    visible += 1;
+    visible += alpha;
     const max = Math.max(r, g, b);
-    if (max <= INK_MAX && max - Math.min(r, g, b) <= INK_SPREAD) dark += 1;
+    if (max <= INK_MAX && max - Math.min(r, g, b) <= INK_SPREAD) dark += alpha;
   }
   return seeThrough && visible > 0 && dark >= visible * INK_SHARE;
 }
