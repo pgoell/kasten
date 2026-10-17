@@ -112,6 +112,14 @@ describe("a callout", () => {
     );
   });
 
+  it("keeps a callout title's literal and code asterisks for Slack", () => {
+    expect(toSlack("> [!note] 2 * 3 and `a*b`\n> x")).toBe("> *2 * 3 and `a*b`*\n> x");
+  });
+
+  it("prints a callout title that runs onto the next line once", () => {
+    expect(toSlack("> [!note] *Title\n> more*\n> body")).toBe("> *Title more*\n> body");
+  });
+
   it("reads a callout only off the quote's first line", () => {
     expect(toSlack(">\n> [!note] T\n> body")).not.toContain("*T*");
   });

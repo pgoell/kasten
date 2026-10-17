@@ -447,6 +447,22 @@ describe("a click on a written title", () => {
   });
 });
 
+describe("a click on a link in a written title", () => {
+  it.each(VIM)("leaves the fold alone: %s", async (_, vimOn) => {
+    const { container } = editor(`${ABOVE}> [!faq]- See [[Other]] text\n> body`, vimOn);
+    const link = container.querySelector(".cm-callout-title .cm-wikilink") as HTMLElement;
+    expect(link.textContent).toBe("Other");
+
+    fireEvent.mouseDown(link);
+    fireEvent.mouseUp(link);
+    fireEvent.click(link);
+    // A flip would land by now: the toggle's own click redraws at once.
+    await act(async () => {});
+
+    expect(container.querySelector(".cm-callout-fold-open")).toBeNull();
+  });
+});
+
 describe("the search pane", () => {
   it("opens a folded callout holding the hit", () => {
     const { container } = render(

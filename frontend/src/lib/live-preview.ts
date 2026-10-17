@@ -764,16 +764,22 @@ export const opensFor = Facet.define<number>();
  *
  * The title is text in the document rather than a widget, so CodeMirror would
  * put the cursor in it, and with vim off that shows the callout's source
- * rather than opening it. The mark carries the callout's `>`.
+ * rather than opening it. The mark carries the callout's `>`. A link in the
+ * title is left to do what a click on a link does anywhere else.
  */
+function foldingTitle(target: EventTarget | null): Element | null {
+  if (!(target instanceof Element) || target.closest(".cm-link, .cm-wikilink")) return null;
+  return target.closest("[data-fold]");
+}
+
 const foldClicks = EditorView.domEventHandlers({
   mousedown(event) {
-    if (!(event.target instanceof Element) || !event.target.closest("[data-fold]")) return false;
+    if (foldingTitle(event.target) === null) return false;
     event.preventDefault();
     return true;
   },
   click(event, view) {
-    const title = event.target instanceof Element ? event.target.closest("[data-fold]") : null;
+    const title = foldingTitle(event.target);
     if (title === null) return false;
     view.dispatch({ effects: toggleFold.of(Number(title.getAttribute("data-fold"))) });
     return true;

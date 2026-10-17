@@ -64,7 +64,8 @@ and the sign you wrote decides how the callout starts the next time the note
 opens.
 
 The cursor never rests in a shut body. A move down from the title lands on
-the line under the box; a move up from below lands at the end of the title.
+the line under the box, or stays on the title when the callout ends the note;
+a move up from below lands at the end of the title.
 The search pane draws a shut callout open when the hit is inside it.
 
 ## Nesting
