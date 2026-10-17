@@ -260,4 +260,24 @@ describe("math", () => {
       "<p>before</p><pre><code>$$\na_1 * b_2 * c\n$$</code></pre><p>after</p>",
     );
   });
+
+  it("R2 keeps one quote mark on each line of a math block in a callout", () => {
+    expect(toSlack("> [!note]\n> $$\n> x^2\n> $$")).toBe(
+      "> *Note*\n> ```\n> $$\n> x^2\n> $$\n> ```",
+    );
+  });
+
+  it("R3 keeps one indent on each line of a math block in a list", () => {
+    expect(toSlack("- item\n  $$\n  x\n  $$")).toBe(
+      "• item\n    ```\n    $$\n    x\n    $$\n    ```",
+    );
+  });
+
+  it("R4 leaves a lazy line opening with two dollars in its list item", () => {
+    expect(toSlack("- item\n$$ lazy\n- next")).toBe("• item\n    $$ lazy\n• next");
+  });
+
+  it("R5 opens no formula that would cut through a wikilink", () => {
+    expect(toSlack("costs $5 per [[Item]], x$ each")).toBe("costs $5 per Item, x$ each");
+  });
 });

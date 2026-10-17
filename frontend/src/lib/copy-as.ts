@@ -213,7 +213,19 @@ function block(node: SyntaxNode, source: string, format: Format): string {
       return html ? `<pre><code>${escapeHtml(code)}</code></pre>` : `\`\`\`\n${code}\n\`\`\``;
     }
     case "BlockMath": {
-      const text = source.slice(node.from, node.to);
+      // The lines under the first carry the `>` and the indent of the quote
+      // or list the formula sits in, up to the column it opens at, which the
+      // quote or list puts back on its own.
+      const column = node.from - (source.lastIndexOf("\n", node.from - 1) + 1);
+      const text = source
+        .slice(node.from, node.to)
+        .split("\n")
+        .map((line, index) => {
+          if (index === 0) return line;
+          const prefix = /^[ \t>]*/.exec(line)?.[0].length ?? 0;
+          return line.slice(Math.min(column, prefix));
+        })
+        .join("\n");
       return html ? `<pre><code>${escapeHtml(text)}</code></pre>` : `\`\`\`\n${text}\n\`\`\``;
     }
     case "HorizontalRule":

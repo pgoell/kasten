@@ -16,8 +16,19 @@ function isDigit(code: number): boolean {
   return code >= 48 && code <= 57;
 }
 
-/** A `$$` block written on one line, `$$x$$`. */
-const ONE_LINE = /^\$\$[\s\S]*\S[\s\S]*\$\$\s*$/;
+/**
+ * How long the first line is when it is a whole `$$x$$` block, else -1.
+ *
+ * Read once, when the paragraph starts: the leaf's content grows by a line at
+ * a time, and reading all of it on every line made a long unclosed `$$`
+ * paragraph cubic to parse.
+ */
+function oneLine(first: string): number {
+  const text = first.trimEnd();
+  return text.length > 4 && text.endsWith("$$") && text.slice(2, -2).trim() !== ""
+    ? text.length
+    : -1;
+}
 
 /**
  * A paragraph that opens with `$$`, which is a formula once a line ends with
@@ -30,12 +41,17 @@ const ONE_LINE = /^\$\$[\s\S]*\S[\s\S]*\$\$\s*$/;
  * declining hands it back as the paragraph it would have been.
  */
 class BlockMathParser implements LeafBlockParser {
+  private readonly closed: number;
+
+  constructor(first: string) {
+    this.closed = oneLine(first);
+  }
+
   nextLine(cx: BlockContext, line: Line, leaf: LeafBlock): boolean {
     // Closed on its first line: the block ends there and this line is the
     // next block's, so it is left for the parser to read.
-    if (ONE_LINE.test(leaf.content)) {
-      const end = leaf.start + leaf.content.trimEnd().length;
-      cx.addLeafElement(leaf, mathBlock(cx, leaf.start, end));
+    if (this.closed > 0) {
+      cx.addLeafElement(leaf, mathBlock(cx, leaf.start, leaf.start + this.closed));
       return true;
     }
     const text = line.text.trimEnd();
@@ -47,8 +63,8 @@ class BlockMathParser implements LeafBlockParser {
   }
 
   finish(cx: BlockContext, leaf: LeafBlock): boolean {
-    if (!ONE_LINE.test(leaf.content)) return false;
-    cx.addLeafElement(leaf, mathBlock(cx, leaf.start, leaf.start + leaf.content.trimEnd().length));
+    if (this.closed < 0 || leaf.content.includes("\n")) return false;
+    cx.addLeafElement(leaf, mathBlock(cx, leaf.start, leaf.start + this.closed));
     return true;
   }
 }
@@ -81,11 +97,16 @@ export const MathSyntax: MarkdownConfig = {
   parseBlock: [
     {
       name: "BlockMath",
-      leaf: (_, leaf) => (leaf.content.startsWith("$$") ? new BlockMathParser() : null),
+      leaf: (_, leaf) => (leaf.content.startsWith("$$") ? new BlockMathParser(leaf.content) : null),
       // A `$$` line closes the paragraph above it, so a formula needs no blank
-      // line before it. Not the one it closes itself.
-      endLeaf: (_, line, leaf) =>
+      // line before it, in a callout under its title as in prose. Not the one
+      // it closes itself, and not as a lazy line: `- item` over `$$ lazy` is
+      // one list item, as it is without the extension. A line is lazy when it
+      // matched fewer of the quotes and lists around it than the paragraph
+      // sits in, which lezer counts on the line as `depth`, typed nowhere.
+      endLeaf: (cx, line, leaf) =>
         !leaf.parsers.some((parser) => parser instanceof BlockMathParser) &&
+        (line as Line & { depth: number }).depth >= cx.depth &&
         line.text.startsWith("$$", line.pos),
     },
   ],
@@ -107,6 +128,9 @@ export const MathSyntax: MarkdownConfig = {
           }
           if (code !== DOLLAR || at === pos + 1) continue;
           if (/\s/.test(cx.slice(at - 1, at)) || isDigit(cx.char(at + 1))) continue;
+          // A formula running from inside one link into another would break
+          // both, the way `$5 per [[Item]], x$` would lose its wikilink.
+          if (/\]\(|\[\[|\]\]/.test(cx.slice(pos + 1, at))) return -1;
           return cx.addElement(
             cx.elt("InlineMath", pos, at + 1, [
               cx.elt("InlineMathMark", pos, pos + 1),
