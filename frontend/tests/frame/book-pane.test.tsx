@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { page, userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
-import { backingFor } from "@/lib/book-backing";
+import { BACKING, backImages, backingFor } from "@/lib/book-backing";
 // Three chapters and a nav holding three entries, the third nested under the
 // second, for the cases that walk a real list of chapters.
 import contentsUrl from "../fixtures/contents.epub?url";
@@ -817,14 +817,45 @@ describe("the reader over a real book", () => {
     const tainted = () => {
       throw new Chapter("tainted", "SecurityError");
     };
-    // A new img and not `#art`: foliate puts `object-fit: contain` on every
-    // image it lays out, which `backingFor` reads as a letterbox once the
-    // chapter has drawn. One appended afterwards has only the book's styles.
+
+    expect(await backingFor(doc.querySelector("#art") as HTMLImageElement, tainted)).toBe(true);
+  }, 30_000);
+
+  it("keeps the white page under line art the book fits with object-fit contain", async () => {
+    // Publishers write `img { max-width: 100%; object-fit: contain }`, which at
+    // the picture's own shape draws no bars, so the line art keeps its white.
+    const { doc } = await drawDark();
     const img = doc.createElement("img");
     img.src = (doc.querySelector("#art") as HTMLImageElement).src;
+    img.style.cssText = "max-width: 100%; object-fit: contain;";
     doc.body.append(img);
 
-    expect(await backingFor(img, tainted)).toBe(true);
+    expect(await backingFor(img)).toBe(true);
+  }, 30_000);
+
+  it("decides images added to a section after it loaded", async () => {
+    const { doc } = await drawDark();
+    const opaque = doc.createElement("img");
+    opaque.src = (doc.querySelector("#pic") as HTMLImageElement).src;
+    const transparent = doc.createElement("img");
+    transparent.src = (doc.querySelector("#art") as HTMLImageElement).src;
+    doc.body.append(opaque, transparent);
+
+    backImages(doc);
+
+    await vi.waitFor(
+      () => {
+        expect(transparent.hasAttribute(BACKING)).toBe(true);
+        expect(opaque.naturalWidth).toBeGreaterThan(0);
+      },
+      { timeout: 10_000 },
+    );
+    expect((doc.defaultView as Window).getComputedStyle(transparent).backgroundColor).toBe(
+      "rgb(255, 255, 255)",
+    );
+    expect((doc.defaultView as Window).getComputedStyle(opaque).backgroundColor).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
   }, 30_000);
 
   it("keeps the white page under an image inside a link", async () => {

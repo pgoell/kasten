@@ -5,6 +5,8 @@ interface Shape {
   fit?: string;
   /** The rendered height, which jsdom lays out at zero. */
   height?: number;
+  /** The rendered width, the same as the height unless given. */
+  width?: number;
   /** The parent's computed font size in pixels. */
   font?: number;
   /** The intrinsic width and height. Zero is a broken image. */
@@ -16,6 +18,7 @@ interface Shape {
 function image({
   fit = "fill",
   height = 200,
+  width = height,
   font = 16,
   natural = 64,
   complete = true,
@@ -27,7 +30,7 @@ function image({
   Object.defineProperty(img, "complete", { value: complete });
   Object.defineProperty(img, "naturalWidth", { value: natural, writable: true });
   Object.defineProperty(img, "naturalHeight", { value: natural, writable: true });
-  img.getBoundingClientRect = () => ({ height }) as DOMRect;
+  img.getBoundingClientRect = () => ({ width, height }) as DOMRect;
   vi.spyOn(window, "getComputedStyle").mockImplementation(
     (element) =>
       ({ objectFit: element === img ? fit : "fill", fontSize: `${font}px` }) as CSSStyleDeclaration,
@@ -55,14 +58,14 @@ describe("an image's white page", () => {
   });
 
   it("puts none behind a letterboxed image, whatever its pixels", async () => {
-    // The transparent reader, so a skipped check would answer white.
-    expect(await backingFor(image({ fit: "contain" }), transparent)).toBe(false);
-    expect(await backingFor(image({ fit: "scale-down" }), transparent)).toBe(false);
+    // A square picture in a box twice as wide. The transparent reader, so a
+    // skipped check would answer white.
+    expect(await backingFor(image({ fit: "contain", width: 400 }), transparent)).toBe(false);
+    expect(await backingFor(image({ fit: "scale-down", width: 400 }), transparent)).toBe(false);
   });
 
-  it("decides a letterboxed image before it loads", async () => {
-    // Never loads, so an answer at all says the load was not waited for.
-    expect(await backingFor(image({ fit: "contain", complete: false }), transparent)).toBe(false);
+  it("keeps white behind line art fitted with contain at its own shape", async () => {
+    expect(await backingFor(image({ fit: "contain" }), transparent)).toBe(true);
   });
 
   it("puts none behind a small image in a line of text", async () => {

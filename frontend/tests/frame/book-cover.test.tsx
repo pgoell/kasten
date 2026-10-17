@@ -14,6 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { page } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
+import { BACKING, backImages, backingFor } from "@/lib/book-backing";
 // A book written for a white page, `body { color: #000; background: #fff }`,
 // with a cover page first and two chapters after it. The cover page holds only
 // `#cover`, `cover.png`, an opaque 300x450 portrait gradient fitted to the page
@@ -198,6 +199,37 @@ describe("the white page under a book's images", () => {
       await vi.waitFor(() => expect(computed(doc, "#cover", "backgroundColor")).toBe(TRANSPARENT), {
         timeout: 5_000,
       });
+    } finally {
+      await page.viewport(414, 896);
+    }
+  }, 30_000);
+
+  it("leaves the dark page round a letterboxed cover with transparent pixels", async () => {
+    // The bars decide it, not the pixels: a square of transparent line art
+    // stretched to the page's box would put its white across the whole page.
+    try {
+      await page.viewport(1200, 800);
+      await drawBook("", 1200);
+      const doc = await section("Cover");
+      // The cover page holds no transparent png, so one is drawn here: a black
+      // line across a square of nothing.
+      const canvas = document.createElement("canvas");
+      canvas.width = 64;
+      canvas.height = 64;
+      (canvas.getContext("2d") as CanvasRenderingContext2D).fillRect(0, 30, 64, 4);
+      const art = doc.createElement("img");
+      art.src = canvas.toDataURL();
+      art.style.cssText = "width: 100%; height: 100%; object-fit: contain;";
+      doc.body.append(art);
+
+      backImages(doc);
+      // The same decision `backImages` waits on, so the attribute has landed after it.
+      expect(await backingFor(art)).toBe(false);
+
+      const box = art.getBoundingClientRect();
+      expect(Math.abs(box.width / box.height - 1)).toBeGreaterThan(0.05);
+      expect(art.hasAttribute(BACKING)).toBe(false);
+      expect((doc.defaultView as Window).getComputedStyle(art).backgroundColor).toBe(TRANSPARENT);
     } finally {
       await page.viewport(414, 896);
     }

@@ -53,6 +53,21 @@ function inline(img: HTMLImageElement, view: Window): boolean {
   return height > 0 && height <= font * 1.5;
 }
 
+/**
+ * Whether the image's box draws bars round its picture.
+ *
+ * By the bars and not by `object-fit` alone: foliate puts `contain` on every
+ * image it lays out (`paginator.js:341-357`), and publishers write it on every
+ * img too, and at the picture's own shape it draws nothing round it.
+ */
+function letterboxed(img: HTMLImageElement, view: Window): boolean {
+  const fit = view.getComputedStyle(img).objectFit;
+  if (fit !== "contain" && fit !== "scale-down") return false;
+  const box = img.getBoundingClientRect();
+  const picture = img.naturalWidth / img.naturalHeight;
+  return Math.abs(box.width / box.height - picture) > picture * 0.02;
+}
+
 /** Wait for the image to load or fail. True for a picture, false for a broken one. */
 function loaded(img: HTMLImageElement): Promise<boolean> {
   if (img.complete) return Promise.resolve(img.naturalWidth > 0);
@@ -71,24 +86,16 @@ export async function backingFor(
   img: HTMLImageElement,
   readPixels: ReadPixels = canvasPixels,
 ): Promise<boolean> {
-  const view = img.ownerDocument.defaultView;
-  if (view === null) return false;
-  // A letterboxed image's box is wider than its picture, and the bars are page.
-  // Decided before any load, so a cover is never drawn on white first. Read
-  // here, before the first await, for a second reason: foliate's `load` comes
-  // before its render, which puts `object-fit: contain` on every image
-  // (`paginator.js:341-357`), so a later read would take each one for a letterbox.
-  const fit = view.getComputedStyle(img).objectFit;
-  if (fit === "contain" || fit === "scale-down") return false;
-  if (inline(img, view)) return false;
-
+  // Everything below reads layout, so it waits even for an image already
+  // loaded. foliate's `load` arrives while the iframe is hidden and before its
+  // render, and the await resumes once that render has laid the chapter out
+  // (`paginator.js:256-272`). Until then every box is zero.
   // A broken image draws its alt text, black, which needs the white to read.
   if (!(await loaded(img))) return true;
   // The pane closed while the image loaded, and there is no page left to draw.
-  const after = img.ownerDocument.defaultView;
-  if (after === null) return false;
-  // An image with no size of its own lays out at zero until it loads.
-  if (inline(img, after)) return false;
+  const view = img.ownerDocument.defaultView;
+  if (view === null) return false;
+  if (inline(img, view) || letterboxed(img, view)) return false;
 
   let pixels: Uint8ClampedArray;
   try {
@@ -97,7 +104,7 @@ export async function backingFor(
     // Another origin's image cannot be read, so it keeps the white #469 gave every image.
     // The canvas lives in the chapter's iframe, so what it throws is that
     // window's DOMException and not an instance of this one's.
-    const Thrown = (after as Window & typeof globalThis).DOMException;
+    const Thrown = (view as Window & typeof globalThis).DOMException;
     if (error instanceof Thrown && error.name === "SecurityError") return true;
     throw error;
   }
