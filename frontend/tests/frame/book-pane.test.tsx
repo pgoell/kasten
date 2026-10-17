@@ -18,12 +18,17 @@ import { BookPane } from "@/components/book-pane";
 import contentsUrl from "../fixtures/contents.epub?url";
 // A book written for a white page (#467). Two chapters, `One` and `Two`, with
 // the same markup and one stylesheet: `body { color: #000; background: #fff }`,
-// `p { color: #000 }`, `h1#heading { color: #c00 }`, `div.box#box` at `#222`
-// on `#fafafa` around a paragraph, `span.ink#ink` at `#333`, `li.item#item` and
-// `td.cell#cell` at `#222` (the cell on `#eee`), `p.strong#strong` at
-// `#111 !important`, `a.link#link` at `#00c` holding `span.deep#deep` at
-// `#222`, and `img#pic`, a 64 pixel svg square. Chapter one is short enough
-// that a turn or two reaches chapter two.
+// `p { color: #000 }`, `h1 { color: #c00 }`, `.box { color: #222; background:
+// #fafafa }`, `.ink { color: #333 }`, `.item` and `.deep` at `#222`, `.cell`
+// at `#222` on `#eee`, `.strong { color: #111 !important }` and
+// `a.link { color: #00c }`. The markup puts `.box` on a div around a
+// paragraph, `.ink` on a span, `.item` on a list item, `.cell` on a table
+// cell, `.strong` on a paragraph, `.link` on a link holding a `.deep` span,
+// and adds an `img` of a 64 pixel svg square. Chapter one also holds a
+// `<mark>` the stylesheet says nothing about. Each element carries an id the
+// stylesheet never names (`#heading`, `#box`, `#ink`, `#item`, `#cell`,
+// `#strong`, `#link`, `#deep`, `#pic`, `#mark`), there only for the tests to
+// find it. Chapter one is short enough that a turn or two reaches chapter two.
 import darkUrl from "../fixtures/dark-text.epub?url";
 // Two chapters, no nav document and no ncx, so `book.toc` is undefined: this is
 // the fixture for a book whose publisher wrote no contents. Nothing else records
@@ -677,6 +682,15 @@ describe("the reader over a real book", () => {
     expect(computed(doc, "#deep", "color")).toBe(themeColour("--color-one-accent"));
   }, 30_000);
 
+  it("keeps the yellow the browser gives a mark", async () => {
+    // The book sets nothing on it, so this is Chromium's own black on yellow,
+    // which already reads on a dark page.
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#mark", "backgroundColor")).toBe("rgb(255, 255, 0)");
+    expect(computed(doc, "#mark", "color")).toBe("rgb(0, 0, 0)");
+  }, 30_000);
+
   it("keeps the theme's colours in the next chapter, after a turn", async () => {
     const { container } = await drawDark();
     const view = container.querySelector("foliate-view") as HTMLElement & {
@@ -709,21 +723,27 @@ describe("the reader over a real book", () => {
       deviceScaleFactor: 1,
       mobile: false,
     });
-    for (const [name, width] of [
-      ["phone", 390],
-      ["desktop", 1200],
-    ] as const) {
-      await page.viewport(width, 800);
-      container.style.cssText = `width: ${width}px; height: 700px;`;
-      await drawn();
+    // In a `finally`, so a failed width does not leave its window to the
+    // cases after it.
+    try {
+      for (const [name, width] of [
+        ["phone", 390],
+        ["desktop", 1200],
+      ] as const) {
+        await page.viewport(width, 800);
+        container.style.cssText = `width: ${width}px; height: 700px;`;
+        await drawn();
 
-      expectThemed(doc);
-      if (import.meta.env.VITE_KASTEN_SHOTS)
-        await page.screenshot({
-          path: `${dir}/book-dark-${name}.png`,
-          element: container.querySelector("[data-book-pane]") as HTMLElement,
-        });
+        expectThemed(doc);
+        if (import.meta.env.VITE_KASTEN_SHOTS)
+          await page.screenshot({
+            path: `${dir}/book-dark-${name}.png`,
+            element: container.querySelector("[data-book-pane]") as HTMLElement,
+          });
+      }
+    } finally {
+      await cdp().send("Emulation.clearDeviceMetricsOverride");
+      await page.viewport(414, 896);
     }
-    await cdp().send("Emulation.clearDeviceMetricsOverride");
   }, 30_000);
 });

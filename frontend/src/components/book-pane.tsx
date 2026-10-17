@@ -488,9 +488,13 @@ interface BookPaneProps {
  * paragraph puts black on the dark page (#467). Every rule here is
  * `!important` so the book's normal rules lose at any specificity, and
  * `:not(#\#)`, which matches every element, adds an id's weight so a book's
- * own `!important` on a class loses as well. The link rule outweighs the one
- * above it by the `a` in it. Backgrounds go transparent rather
+ * own `!important` on a class loses as well. Backgrounds go transparent rather
  * than dark, so an image still shows and the page below stays the one colour.
+ *
+ * A `<mark>` keeps the browser's black on yellow, which reads on any page and
+ * is the point of the element. Leaving it out costs the rule above the link
+ * rule's extra weight, so the two now tie and the link rule wins by coming
+ * last.
  */
 function pageStyles(): string {
   const style = getComputedStyle(document.documentElement);
@@ -499,7 +503,7 @@ function pageStyles(): string {
 
   return [
     `html:not(#\\#), html:not(#\\#) body { background: ${read("--color-one-bg")} !important; color: ${fg} !important; }`,
-    `body:not(#\\#) * { color: ${fg} !important; background-color: transparent !important; }`,
+    `body:not(#\\#) :not(mark, mark *) { color: ${fg} !important; background-color: transparent !important; }`,
     `body:not(#\\#) :is(a, a *) { color: ${read("--color-one-accent")} !important; }`,
   ].join("\n");
 }
