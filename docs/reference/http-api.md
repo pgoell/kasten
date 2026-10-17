@@ -672,8 +672,10 @@ such a file has nothing left to ask and is left out.
 * A zip whose member cannot be read answers 400 with a `detail` starting
   `unreadable Anki export: <member>:`, and nothing is written. That is a
   corrupt or cut-short stream, a bad CRC, an encrypted member, or a method
-  Python cannot read, such as deflate64. A media file counts, so one bad file
-  refuses the whole deck. A zip written in a version past what Python reads
+  Python cannot read, such as deflate64. A media file whose zip stream cannot
+  be read refuses the whole deck too, while one whose contents are not what
+  its name says, bad zstd or the wrong type, is left out of the card as
+  before. A zip written in a version past what Python reads
   answers 400 the same way, without a member name.
 
 [Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
