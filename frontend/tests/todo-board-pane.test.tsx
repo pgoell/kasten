@@ -121,7 +121,8 @@ function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = {}) {
 /** A pane switched to the board, its cards drawn. */
 async function boardPane(options?: Parameters<typeof renderPane>[0]) {
   const pane = renderPane(options);
-  await waitFor(() => expect(screen.queryAllByRole("button").length).toBeGreaterThan(0));
+  // A row rather than any button: the strip is a button before the todos come.
+  await waitFor(() => expect(document.querySelector("[data-row]")).not.toBeNull());
   pane.press("c");
   await waitFor(() => expect(pane.cards().length).toBeGreaterThan(0));
   return pane;
@@ -136,7 +137,7 @@ function lane(name: string): string {
 describe("the todo board", () => {
   it("A1 c turns the list into the board and back, and so does board on a touch screen", async () => {
     const pane = renderPane();
-    await waitFor(() => expect(screen.queryAllByRole("button").length).toBeGreaterThan(0));
+    await waitFor(() => expect(document.querySelector("[data-row]")).not.toBeNull());
     expect(pane.cards()).toHaveLength(0);
 
     pane.press("c");
@@ -571,6 +572,32 @@ describe("the board by mouse (#419)", () => {
     await listPane();
 
     expect(screen.getByTestId("todo-footer").textContent).toContain("c board");
+  });
+
+  it("#419 B1 a click on the strip while a row is an input leaves the edit be", async () => {
+    const pane = await listPane();
+    pane.press("i");
+    expect(screen.getByLabelText("edit line")).not.toBeNull();
+
+    fireEvent.click(button("c board"));
+    fireEvent.click(button("d done"));
+
+    expect(pane.cards()).toHaveLength(0);
+    expect(button("d done").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByLabelText("edit line")).not.toBeNull();
+  });
+
+  it("#419 B2 a click on the strip while picking a blocker leaves the picker be", async () => {
+    const pane = await listPane();
+    pane.press("b");
+    expect(screen.getByTestId("todo-pick")).not.toBeNull();
+
+    fireEvent.click(button("c board"));
+    fireEvent.click(button("d done"));
+
+    expect(pane.cards()).toHaveLength(0);
+    expect(button("d done").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByTestId("todo-pick")).not.toBeNull();
   });
 
   it("#419 I3 the desktop strip stays out of the tab order", async () => {

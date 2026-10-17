@@ -743,10 +743,20 @@ export function TodoPane({
    * turns Space and Enter into another click. The row or card handed it may
    * unmount at once, as `c` does to the list, and the `dropped` effects carry
    * it on from there. By mouse only: a finger brings no keys to catch.
+   *
+   * Nothing at all by mouse while a row is an input or the list is a picker.
+   * The input has no blur to close it, so the edit would outlive its row and
+   * deafen the pane, and the picker would stay up over a list or a board its
+   * Enter and Escape no longer mean what it says.
    */
   function strip(run: () => void) {
+    if (coarse) {
+      run();
+      return;
+    }
+    if (editing !== null || picking !== null) return;
     run();
-    if (!coarse) focusList();
+    focusList();
   }
 
   /**

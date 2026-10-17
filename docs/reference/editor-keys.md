@@ -1311,7 +1311,7 @@ its parts where it has any, the two clocks and the day of the due date.
 A click or a tap on a row opens the line the todo is written on. On a touch
 screen the state's symbol is a button of its own that cycles the todo as `x`
 does, and the header carries a `+` that adds one as `a` does. Under the header
-`done`, `next` and `view` do what `d`, `n` and `v` do. Each row ends in a `⋯`
+`done`, `next`, `view` and `board` do what `d`, `n`, `v` and `c` do. Each row ends in a `⋯`
 that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
 `blocked`, `waiting` and `rejected` set the state as `O`, `P`, `X`, `B`, `W` and `R` do,
 `timer` is `t`, `part` is `s`, `edit` is `i` and `blocked by` is `b`. `edit`
@@ -1319,9 +1319,10 @@ does nothing while another row is being edited. After `blocked by`, a tap on a
 row picks it as the blocker and opens nothing, and `cancel` beside the picker's
 line is Escape. A state picked from the strip is set on one tap.
 
-With a mouse the same strip sits under the header, and each button names its
-key: `d done`, `n next`, `v view` and `c board`. `board` turns the list into
-[the board](#the-board) and back, as `c` does.
+With a mouse the `done` `next` `view` `board` strip under the header shows
+too, and each button names its key: `d done`, `n next`, `v view` and `c board`.
+A click does what the key does, and nothing while a row is being edited or a
+blocker picked.
 
 The state button takes two taps: the first turns the symbol into the state the
 todo would move to with a `?` after it, and the second is the one that cycles.
