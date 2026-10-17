@@ -1,6 +1,8 @@
 import { CompletionContext } from "@codemirror/autocomplete";
+import { forceParsing } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { EditorView } from "@codemirror/view";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { IMAGE_FOLDER, imageCompletions, imagePaths } from "@/lib/image";
 import { ARCHIVE, applyLayout, INBOX, type Layout, PERIODIC } from "@/lib/layout";
@@ -31,6 +33,12 @@ function open(initialDoc: string, images?: string[]) {
   const { container } = render(
     <Editor initialDoc={initialDoc} images={images} onChange={onChange} onNotice={onNotice} />,
   );
+  // The parse at state creation gets 20ms of wall clock; on a loaded machine
+  // the first draw can come before the image node exists (#365, #436).
+  const view = EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement);
+  act(() => {
+    if (view) forceParsing(view, view.state.doc.length, 5000);
+  });
 
   return {
     container,
