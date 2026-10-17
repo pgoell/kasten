@@ -254,13 +254,18 @@ async def test_refuses_a_redirect_off_the_internet(
 
 
 class Endless(httpx.AsyncByteStream):
-    """A body that never ends, counting the chunks anybody asked it for."""
+    """A body that never ends, counting the chunks anybody asked it for.
 
-    def __init__(self) -> None:
+    `upto` ends it after that many, for a test that has to see a reader that
+    would have read it all finish rather than hang.
+    """
+
+    def __init__(self, upto: int | None = None) -> None:
         self.chunks = 0
+        self.upto = upto
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
-        while True:
+        while self.upto is None or self.chunks < self.upto:
             self.chunks += 1
             yield b"PK" + b"x" * 1022
 
@@ -278,6 +283,27 @@ async def test_stops_reading_at_the_cap_whatever_the_length_says(
     assert response.json()["detail"] == "That deck is too big"
     assert stream.chunks == 11
     assert not (vault / "03 Flashcards").exists()
+
+
+async def test_does_not_read_a_redirect_body(
+    client: AsyncClient, vault: Path, answer: Callable
+) -> None:
+    """httpx reads a 3xx body whole and past any cap, so a redirect's is never read."""
+    stream = Endless(upto=1000)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "example.com":
+            return httpx.Response(
+                302, headers={"location": "https://cdn.example/French.apkg"}, stream=stream
+            )
+        return deck_file(request)
+
+    answer(handler)
+
+    response = await link(client, "https://example.com/French.apkg")
+
+    assert response.status_code == 201
+    assert stream.chunks <= 1
 
 
 class Dripping(httpx.AsyncByteStream):
@@ -330,6 +356,21 @@ async def test_says_when_the_deck_is_gone(
     assert response.status_code == 502
     assert response.json()["detail"] == f"That deck is gone: the link answered {status}"
     assert not (vault / "03 Flashcards").exists()
+
+
+async def test_a_gone_page_that_loads_recaptcha_reads_as_gone(
+    client: AsyncClient, vault: Path, answer: Callable
+) -> None:
+    """A site's own 404 page may load a captcha script for a form on it."""
+    answer(
+        lambda request: httpx.Response(
+            404, html='<script src="https://www.google.com/recaptcha/api.js"></script>'
+        )
+    )
+
+    response = await link(client, "https://example.com/French.apkg")
+
+    assert response.json()["detail"] == "That deck is gone: the link answered 404"
 
 
 LOGIN = "That link asks for a login: download the .apkg in a browser and import it here"

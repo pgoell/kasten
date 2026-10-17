@@ -566,6 +566,24 @@ describe("ReviewDecks importing from a link", () => {
     expect(imported).not.toHaveBeenCalled();
   });
 
+  it("I2 sends a link that is not a URL to the backend and shows its message", async () => {
+    const imported = vi
+      .spyOn(api, "importAnkiLink")
+      .mockRejectedValue(new Error("Only https links"));
+    const { field } = await renderDecks();
+    const form = field.form as HTMLFormElement;
+
+    // A browser checks a url field before it submits, and its own bubble would
+    // stand in for the backend's sentence. jsdom does not run that check, so
+    // the attribute that turns it off is what the test can see.
+    expect(form.noValidate).toBe(true);
+    fireEvent.change(field, { target: { value: "ankiweb.net/shared/info/1" } });
+    fireEvent.submit(form);
+
+    expect(imported).toHaveBeenLastCalledWith("ankiweb.net/shared/info/1", false);
+    expect(await screen.findByText("Only https links")).toBeInTheDocument();
+  });
+
   it("I3 imports once on a double tap, saying it is importing", async () => {
     // Never settles, so the import is still running at every assertion.
     const imported = vi.spyOn(api, "importAnkiLink").mockReturnValue(new Promise(() => {}));
@@ -591,6 +609,11 @@ describe("ReviewDecks importing from a link", () => {
 
     expect(document.activeElement).toBe(field);
     expect(pane.querySelector("button[data-deck]")).not.toBeNull();
+
+    // The same `p` on the pane does open the parked list, so the deck rows
+    // still standing above is the field holding the key and not a dead key.
+    fireEvent.keyDown(pane, { key: "p" });
+    expect(pane.querySelector("button[data-deck]")).toBeNull();
   });
 
   it("I5 keeps the link after a failure and clears it after a success", async () => {

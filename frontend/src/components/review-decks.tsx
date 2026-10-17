@@ -155,7 +155,10 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
           {/* A form so Enter at a desk and Go on a phone keyboard both submit.
               The field keeps a link that failed, to retry, and clears on one
               that landed. */}
+          {/* `noValidate`, or the browser refuses a link it thinks is no URL
+              with its own bubble and the backend's sentence never shows. */}
           <form
+            noValidate
             className="flex min-w-0 flex-1 basis-64 items-center gap-2"
             onSubmit={(event) => {
               event.preventDefault();
@@ -180,7 +183,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
               placeholder="or paste a link to a deck"
               value={link}
               onChange={(event) => setLink(event.target.value)}
-              className="min-h-11 min-w-0 flex-1 border-one-line border-b bg-transparent text-one-fg outline-none placeholder:text-one-muted focus:border-one-accent"
+              className="my-1 min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-2 text-one-fg outline-none placeholder:text-one-muted focus:border-one-accent"
             />
             <button
               type="submit"

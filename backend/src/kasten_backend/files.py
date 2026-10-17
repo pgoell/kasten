@@ -270,9 +270,12 @@ async def fetch_deck(url: str) -> bytes:
 
     try:
         async with asyncio.timeout(DECK_TIMEOUT_SECONDS), reader() as client:
-            # A hook rather than a check on `url`: httpx follows redirects
-            # inside `send`, and a request hook is the one thing run per hop.
+            # A hook rather than a check on `url`, so no hop can be sent
+            # without it, the ones `_deck_body` follows by hand included.
             client.event_hooks["request"].append(_only_https)
+            # Followed by `_deck_body` instead: httpx reads every 3xx body
+            # whole into memory on the way past, where `_capped` never sees it.
+            client.follow_redirects = False
             at, body = await _deck_body(client, url)
             if not body.startswith(b"PK") and _ankiweb_page(at):
                 link = _download_link(body)
@@ -302,17 +305,37 @@ async def _only_https(request: httpx.Request) -> None:
 async def _deck_body(client: httpx.AsyncClient, url: str) -> tuple[httpx.URL, bytes]:
     """Where `url` ended up and what it answered, once the answer is worth reading.
 
-    The body is read before the status is judged, because a challenge comes
-    with a 403 and is told apart from a login only by what it says.
+    Redirects are followed here, each closed with its body unread, so the
+    only body read is the last one and it is read through the cap.
+
+    Gone is judged first, since a site's own 404 page may load a captcha
+    script for a form on it. The body is read before the rest is judged,
+    because a challenge comes with a 403 and is told apart from a login only
+    by what it says.
     """
-    response = await open_public(client, url)
+    for _ in range(PAGE_REDIRECTS + 1):
+        response = await open_public(client, url)
+        if not response.is_redirect:
+            break
+        await response.aclose()
+        try:
+            url = str(response.url.join(response.headers["location"]))
+        except httpx.InvalidURL as error:
+            raise RefusedError(502, "That link redirects to no address") from error
+    else:
+        raise RefusedError(502, "That page redirects too many times")
+
+    status = response.status_code
+    if status in (404, 410):
+        await response.aclose()
+        raise RefusedError(502, f"That deck is gone: the link answered {status}")
     try:
         body = await _capped(response)
     finally:
         await response.aclose()
 
-    status = response.status_code
-    if not body.startswith(b"PK") and any(word in body.lower() for word in _CHALLENGES):
+    page = status < PAGE_FAILED and "html" in response.headers.get("content-type", "")
+    if (status in (403, 429) or page) and any(word in body.lower() for word in _CHALLENGES):
         raise RefusedError(
             502,
             "That link asks for a captcha, which kasten does not get past:"
@@ -323,8 +346,6 @@ async def _deck_body(client: httpx.AsyncClient, url: str) -> tuple[httpx.URL, by
             502,
             "That link asks for a login: download the .apkg in a browser and import it here",
         )
-    if status in (404, 410):
-        raise RefusedError(502, f"That deck is gone: the link answered {status}")
     if status >= PAGE_FAILED:
         raise RefusedError(502, f"That link answered {status}")
     return response.url, body
