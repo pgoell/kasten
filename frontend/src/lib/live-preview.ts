@@ -1458,9 +1458,17 @@ function build(state: EditorState): Live {
         // The highlighter still colours a Link node as a link, so the mark
         // takes that look back off, the cursor on it or not (#441).
         if (node.node.getChildren("LinkMark").length < 3) {
-          decorations.push(
-            Decoration.mark({ class: "cm-plain-brackets" }).range(node.from, node.to),
-          );
+          // A heading's colour sits on the same spans as the link's, so the
+          // CSS has to be told to give it back. Read off the tree, because a
+          // setext heading's line carries no heading class.
+          let inHeading = false;
+          for (let up = node.node.parent; up; up = up.parent) {
+            if (/^(ATX|Setext)Heading[1-6]$/.test(up.name)) inHeading = true;
+          }
+          const name = inHeading
+            ? "cm-plain-brackets cm-plain-brackets-heading"
+            : "cm-plain-brackets";
+          decorations.push(Decoration.mark({ class: name }).range(node.from, node.to));
           return;
         }
 

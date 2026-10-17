@@ -45,6 +45,10 @@ it("paints a [text] as the words around it, a real link as a link", () => {
     "# head [text] end",
     "**bold [text] bold**",
     "[a](https://x.y)",
+    // The blank line keeps the lines above out of the setext heading's paragraph.
+    "",
+    "Setext [text] st",
+    "===",
   ];
   const parent = document.body.appendChild(document.createElement("div"));
   view = new EditorView({
@@ -68,6 +72,7 @@ it("paints a [text] as the words around it, a real link as a link", () => {
     [1, "see"],
     [2, "head"],
     [3, "bold"],
+    [6, "Setext"],
   ] as const) {
     const line = lines[n] as Element;
     expect(line.textContent).toContain("[text]");

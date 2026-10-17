@@ -412,7 +412,7 @@ body {
   text-decoration: none;
 }
 
-.cm-line[class*="cm-heading-"] .cm-plain-brackets {
+.cm-plain-brackets-heading {
   color: var(--color-one-warn);
 }
 
