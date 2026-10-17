@@ -897,6 +897,60 @@
         }
       }
     },
+    "/api/mentions": {
+      "get": {
+        "summary": "List Mentions",
+        "description": "Find every line in another note that names this one in plain text.\n\nObsidian's unlinked mentions: the note's title and its aliases, whole and\nignoring case, outside links, code and frontmatter. What the backlinks pane\nlists under the links, so one key can turn a mention into a link.\n\n`archive` walks the archive folder too, off by default as on a search.",
+        "operationId": "list_mentions_api_mentions_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Archive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Mention"
+                  },
+                  "title": "Response List Mentions Api Mentions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/todos": {
       "get": {
         "summary": "List Todos",
@@ -2347,6 +2401,45 @@
         ],
         "title": "Layout",
         "description": "The folders the editor files into or looks in, each a path from the vault root."
+      },
+      "Mention": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "line",
+          "text",
+          "start",
+          "end",
+          "name"
+        ],
+        "title": "Mention",
+        "description": "One place another note names this one in plain text, without linking to it."
       },
       "Minted": {
         "properties": {

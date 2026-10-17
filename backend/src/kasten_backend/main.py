@@ -47,6 +47,7 @@ from kasten_backend.graph import MOST_DEPTH, Graph, GraphError, query_graph
 from kasten_backend.guide import write_guide
 from kasten_backend.indexes import carries, drop_entries, rehome_entry
 from kasten_backend.links import plan_move, relink_move
+from kasten_backend.mentions import find_mentions
 from kasten_backend.okf import prepare
 from kasten_backend.search import search_vault
 from kasten_backend.tags import find_tags
@@ -355,6 +356,32 @@ class SearchHit(BaseModel):
 
     text: str
     """The line itself, for the client to show and to rank."""
+
+
+class Mention(BaseModel):
+    """One place another note names this one in plain text, without linking to it."""
+
+    path: str
+    """The note the mention is in, relative to the vault root."""
+
+    line: int
+    """Which line it is, counting from one, the way an editor counts."""
+
+    text: str
+    """The whole line, exactly as it is on disk, a trailing carriage return included."""
+
+    start: int
+    """Where the mention begins in `text`, in UTF-16 code units.
+
+    UTF-16 because that is what the client slices a string in, so an emoji
+    earlier on the line does not push the highlight off the word.
+    """
+
+    end: int
+    """Where the mention ends in `text`, in UTF-16 code units."""
+
+    name: str
+    """Which name matched, the title or an alias, spelled the way the note spells it."""
 
 
 class TrashEntry(BaseModel):
@@ -700,6 +727,31 @@ async def search_files(
     """
     hits = await search_vault(settings.vault_path, q, None if archive else settings.archive_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.get("/api/mentions")
+async def list_mentions(
+    path: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
+) -> list[Mention]:
+    """Find every line in another note that names this one in plain text.
+
+    Obsidian's unlinked mentions: the note's title and its aliases, whole and
+    ignoring case, outside links, code and frontmatter. What the backlinks pane
+    lists under the links, so one key can turn a mention into a link.
+
+    `archive` walks the archive folder too, off by default as on a search.
+    """
+    note = resolve_note(settings.vault_path, path)
+    if note is None:
+        raise HTTPException(status_code=404, detail="No such note")
+
+    found = await find_mentions(
+        settings.vault_path,
+        relative_path(settings.vault_path, note),
+        note.read_text(encoding="utf-8"),
+        None if archive else settings.archive_path,
+    )
+    return [Mention(**mention._asdict()) for mention in found]
 
 
 @app.get("/api/todos")

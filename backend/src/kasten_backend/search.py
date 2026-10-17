@@ -85,8 +85,8 @@ class SearchError(RuntimeError):
     """
 
 
-async def notes_holding(root: Path, text: str) -> list[str]:
-    """Every note in the vault whose text contains `text`, ignoring case.
+async def notes_holding(root: Path, *texts: str, skip: str | None = None) -> list[str]:
+    """Every note in the vault whose text contains one of `texts`, ignoring case.
 
     Paths only, one per note rather than one per matching line, which is what
     lets this have no cap where `search_vault` needs one: a caller about to
@@ -96,7 +96,12 @@ async def notes_holding(root: Path, text: str) -> list[str]:
     A literal match, and a superset of what the caller is really after. It
     narrows a walk over every note in the vault to a walk over the few that
     could hold the link, and the caller still decides note by note.
+
+    `skip` is for the caller that only reads, unlinked mentions, which leaves
+    the archive out the way a search does. A move passes none, for the reason
+    `skipping` gives.
     """
+    named = [flag for text in texts for flag in ("-e", text)]
     process = await asyncio.create_subprocess_exec(
         "rg",
         "--files-with-matches",
@@ -106,8 +111,8 @@ async def notes_holding(root: Path, text: str) -> list[str]:
         # A newline can, and splitting on one would cut such a path in half.
         "--null",
         *SEEN_BY_THE_LISTING,
-        "-e",
-        text,
+        *skipping(skip),
+        *named,
         "--",
         str(root),
         stdout=asyncio.subprocess.PIPE,

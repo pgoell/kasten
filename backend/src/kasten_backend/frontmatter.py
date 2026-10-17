@@ -72,14 +72,64 @@ def _split(content: str) -> tuple[list[str], list[str]]:
     that never ends would swallow the note under it.
     """
     lines = content.split("\n")
-    if lines[0].strip() != FENCE:
-        return [], lines
-
-    end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == FENCE), None)
+    end = _closing(lines)
     if end is None:
         return [], lines
 
     return lines[1:end], lines[end + 1 :]
+
+
+def _closing(lines: list[str]) -> int | None:
+    """Which line closes the block, or None when there is no block."""
+    if lines[0].strip() != FENCE:
+        return None
+
+    return next((i for i, line in enumerate(lines[1:], 1) if line.strip() == FENCE), None)
+
+
+def body_start(content: str) -> int:
+    """Where the note's own text begins: the offset after the block's closing fence, or 0.
+
+    Not read off `_split`, which hands back no lines both for a note with no
+    block and for an empty one, and the second still has two fences to skip.
+    """
+    lines = content.split("\n")
+    end = _closing(lines)
+    if end is None:
+        return 0
+
+    return min(len(content), sum(len(line) + 1 for line in lines[: end + 1]))
+
+
+def aliases(content: str) -> list[str]:
+    """The other names the block gives the note, in the order it gives them.
+
+    Obsidian's three spellings: a flow list `aliases: [a, b]`, a block list of
+    `- a` lines under the key, and one bare string. Read as lines like the rest
+    of this module, so a quoted name loses its quotes and nothing more.
+    """
+    block, _ = _split(content)
+    index = next((i for i, line in enumerate(block) if _key(line) == "aliases"), None)
+    if index is None:
+        return []
+
+    value = block[index].partition(":")[2].strip()
+    if value.startswith("[") and value.endswith("]"):
+        items = value[1:-1].split(",")
+    elif value:
+        items = [value]
+    else:
+        items = []
+        for line in block[index + 1 :]:
+            item = line.strip()
+            # A list item may sit at the key's own indent in YAML, so the next
+            # key, not the next unindented line, is what ends the list.
+            if _key(line) is not None or not item.startswith("-"):
+                break
+            items.append(item[1:])
+
+    names = [item.strip().strip("\"'").strip() for item in items]
+    return [name for name in names if name]
 
 
 def with_type(content: str) -> str:

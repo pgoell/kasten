@@ -112,7 +112,22 @@ Beside them is `sr-suspended`, which
 touching its schedule. `true` parks it and anything else does not, so a note put
 back carries `sr-suspended: false` rather than losing the key.
 
-The block is not parsed as YAML. Five keys are found by reading lines, and
+kasten reads one field it never writes: `aliases`, the other names a note goes
+by. [Unlinked mentions](/reference/http-api.md#get-apimentions) look for each
+of them beside the note's title, and nothing else reads them, so `[[alias]]`
+does not reach the note. Three spellings work:
+
+```yaml
+aliases: [Jorge Luis, JLB]
+aliases:
+  - Jorge Luis
+  - JLB
+aliases: JLB
+```
+
+Quotes around a name are dropped.
+
+The block is not parsed as YAML. Six keys are found by reading lines, and
 everything else is text that gets copied, which is what keeps a save from
 reordering keys, requoting strings or dropping comments.
 

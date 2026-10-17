@@ -542,6 +542,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mentions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Mentions
+         * @description Find every line in another note that names this one in plain text.
+         *
+         *     Obsidian's unlinked mentions: the note's title and its aliases, whole and
+         *     ignoring case, outside links, code and frontmatter. What the backlinks pane
+         *     lists under the links, so one key can turn a mention into a link.
+         *
+         *     `archive` walks the archive folder too, off by default as on a search.
+         */
+        get: operations["list_mentions_api_mentions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/todos": {
         parameters: {
             query?: never;
@@ -1429,6 +1455,24 @@ export interface components {
             config: string;
         };
         /**
+         * Mention
+         * @description One place another note names this one in plain text, without linking to it.
+         */
+        Mention: {
+            /** Path */
+            path: string;
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Name */
+            name: string;
+        };
+        /**
          * Minted
          * @description One token as its owner sees it, once.
          */
@@ -2228,6 +2272,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mentions_api_mentions_get: {
+        parameters: {
+            query: {
+                path: string;
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mention"][];
                 };
             };
             /** @description Validation Error */
