@@ -26,10 +26,13 @@ import hashlib
 import html
 import io
 import json
+import lzma
 import re
 import sqlite3
+import struct
 import tempfile
 import zipfile
+import zlib
 from collections import defaultdict
 from compression import zstd
 from contextlib import closing
@@ -693,14 +696,13 @@ def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Dec
             note fields cannot be read, or a media map that cannot be read; or
             one past `MEMBER_COUNT_LIMIT` members, or whose collection or
             media map unpacks past `MEMBER_LIMIT_BYTES`, or whose members read
-            unpack past `TOTAL_LIMIT_BYTES` together.
+            unpack past `TOTAL_LIMIT_BYTES` together; or one with a member zip
+            cannot read, corrupt, encrypted or in a method it lacks, or a
+            directory in a zip version past what it reads.
     """
     try:
+        _count_members(data)
         with zipfile.ZipFile(io.BytesIO(data)) as bundle:
-            if len(bundle.namelist()) > MEMBER_COUNT_LIMIT:
-                raise ValueError(
-                    f"Anki export too large: it holds more than {MEMBER_COUNT_LIMIT} files"
-                )
             budget = _Budget()
             rendered = _rendered(_collection(bundle, budget), carry=carry)
             index = _media_index(bundle, budget)
@@ -712,6 +714,9 @@ def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Dec
             }
     except zipfile.BadZipFile as error:
         raise ValueError("not an Anki export: the bytes are not a zip") from error
+    except NotImplementedError as error:
+        # Only the directory read gets here, `_member` turning its own into ValueError.
+        raise ValueError(f"unreadable Anki export: {error}") from error
 
     cards: defaultdict[str, list[Card]] = defaultdict(list)
     carried: defaultdict[str, dict[str, bytes]] = defaultdict(dict)
@@ -1376,13 +1381,67 @@ def _member(bundle: zipfile.ZipFile, name: str, budget: _Budget, cap: int) -> by
 
     Never `bundle.read`, and never trusting the size the zip states: a deflate
     bomb states what it likes, and only counting what comes out stops it.
+
+    Raises:
+        ValueError: zipfile cannot read the member, for each way it says so:
+            a bad header or CRC, a stream cut short, an encryption or method it
+            lacks, or bytes that deflate, lzma, bzip2 (as `OSError`) or zstd
+            refuse. `budget`'s own refusal passes through as it is.
     """
     out = bytearray()
-    with bundle.open(name) as stream:
-        while len(out) <= cap and (chunk := stream.read(min(_CHUNK_BYTES, cap + 1 - len(out)))):
-            budget.spend(len(chunk))
-            out += chunk
+    try:
+        with bundle.open(name) as stream:
+            while len(out) <= cap:
+                chunk = stream.read(min(_CHUNK_BYTES, cap + 1 - len(out)))
+                if not chunk:
+                    break
+                budget.spend(len(chunk))
+                out += chunk
+    except (
+        zipfile.BadZipFile,
+        EOFError,
+        RuntimeError,
+        NotImplementedError,
+        OSError,
+        zlib.error,
+        lzma.LZMAError,
+        zstd.ZstdError,
+    ) as error:
+        raise ValueError(f"unreadable Anki export: {name}: {error}") from error
     return bytes(out)
+
+
+def _count_members(data: bytes) -> None:
+    """Refuse `data` past `MEMBER_COUNT_LIMIT` members before zipfile reads its directory.
+
+    zipfile builds an object for every entry before anything can count them,
+    and a hundred mebibytes of empty entries is some two million. The end
+    record's count comes first, then the entries themselves up to the cap,
+    since zipfile reads the directory by its size and a record may understate
+    the count. Bytes that are no zip, or a directory that breaks off, are left
+    for zipfile to refuse in its own words.
+    """
+    # `_EndRecData` is private, so typeshed leaves it out, but it has not
+    # changed in decades; it finds the record behind a comment and resolves
+    # zip64. Its fields 4, 5 and 9 are zipfile's `_ECD_ENTRIES_TOTAL`,
+    # `_ECD_SIZE` and `_ECD_LOCATION`.
+    end = zipfile._EndRecData(io.BytesIO(data))  # ty: ignore[unresolved-attribute]
+    if end is None:
+        return
+    count, size, stop = end[4], end[5], end[9]
+    too_many = f"Anki export too large: it holds more than {MEMBER_COUNT_LIMIT} files"
+    if count > MEMBER_COUNT_LIMIT:
+        raise ValueError(too_many)
+    # Where zipfile starts too: the directory's size before the record, which
+    # also allows for any bytes prepended to the zip. For zip64 the location
+    # is already the zip64 record's, which `_EndRecData` moves it to.
+    at = stop - size
+    for _ in range(MEMBER_COUNT_LIMIT + 1):
+        if at < 0 or at + 46 > stop or data[at : at + 4] != b"PK\x01\x02":
+            return
+        name, extra, comment = struct.unpack_from("<3H", data, at + 28)
+        at += 46 + name + extra + comment
+    raise ValueError(too_many)
 
 
 def _unzstd(blob: bytes, budget: _Budget, cap: int) -> bytes:

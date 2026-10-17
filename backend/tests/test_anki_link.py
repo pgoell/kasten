@@ -541,3 +541,22 @@ async def test_a_bad_deck_name_reads_as_the_file_import_gives_it(
 
     assert by_link.status_code == by_file.status_code == 400
     assert by_link.json() == by_file.json()
+
+
+async def test_i4_an_unreadable_member_reads_as_the_file_import_gives_it(
+    client: AsyncClient, vault: Path, answer: Callable
+) -> None:
+    # Flag bit 0, encrypted, in the one member's local header and its central entry.
+    export = bytearray(DECK)
+    with zipfile.ZipFile(io.BytesIO(DECK)) as bundle:
+        export[bundle.start_dir + 8] |= 1
+    export[6] |= 1
+    answer(lambda request: httpx.Response(200, content=bytes(export)))
+
+    by_file = await client.post("/api/anki", content=bytes(export))
+    by_link = await link(client, "https://example.com/French.apkg")
+
+    assert by_link.status_code == by_file.status_code == 400
+    assert by_link.json() == by_file.json()
+    assert by_link.json()["detail"].startswith("unreadable Anki export: collection.anki2: ")
+    assert not (vault / "03 Flashcards").exists()

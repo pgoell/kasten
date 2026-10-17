@@ -666,7 +666,15 @@ such a file has nothing left to ask and is left out.
 * An export that holds more than 50,000 files, whose collection or media map
   unpacks past 1GiB, or whose files unpack past 2GiB together, answers 400
   with a `detail` starting `Anki export too large`. The bytes are counted as
-  they unpack, and nothing is written.
+  they unpack, and nothing is written. The files are counted from the zip's
+  directory before it is read, so an export of millions of empty files is
+  refused before it takes the memory to list them.
+* A zip whose member cannot be read answers 400 with a `detail` starting
+  `unreadable Anki export: <member>:`, and nothing is written. That is a
+  corrupt or cut-short stream, a bad CRC, an encrypted member, or a method
+  Python cannot read, such as deflate64. A media file counts, so one bad file
+  refuses the whole deck. A zip written in a version past what Python reads
+  answers 400 the same way, without a member name.
 
 [Import an Anki deck](/how-to/import-an-anki-deck.md) is the runbook.
 
