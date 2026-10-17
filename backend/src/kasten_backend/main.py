@@ -368,7 +368,7 @@ class Mention(BaseModel):
     """Which line it is, counting from one, the way an editor counts."""
 
     text: str
-    """The whole line, exactly as it is on disk, a trailing carriage return included."""
+    """The whole line, as `GET /api/files` serves the note, so a `\\r\\n` ends it as `\\n` does."""
 
     start: int
     """Where the mention begins in `text`, in UTF-16 code units.

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from kasten_backend.frontmatter import aliases, body_start
 from kasten_backend.links import MARKDOWN_LINK, SUFFIX, WIKILINK, code_spans
 from kasten_backend.search import notes_holding
+from kasten_backend.vault import read_note
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -58,21 +59,34 @@ def names(path: str, content: str) -> list[str]:
 def matcher(ordered: list[str]) -> re.Pattern[str]:
     r"""One pattern for every name, each its own group so a match says which name it was.
 
-    The boundary is no letter, digit or underscore on either side, not `\b`.
-    `\b` wants a word character at the name's own edge, so `C++` could never
-    be matched at all. Not ASCII either, or `Müller` would end at the `ü` and
-    match inside `Müllers`. `ordered` comes longest first, so a longer name wins
-    where two start at the same spot.
+    The boundary is no letter or digit on either side, not `\b`. `\b` wants a
+    word character at the name's own edge, so `C++` could never be matched at
+    all. An underscore does not count as a letter, or `_Borges_`, which is
+    emphasis, would hide its name. Not ASCII either, or `Müller` would end at
+    the `ü` and match inside `Müllers`. `ordered` comes longest first, so a
+    longer name wins where two start at the same spot.
     """
     groups = "|".join(f"({re.escape(name)})" for name in ordered)
-    return re.compile(rf"(?<!\w)(?:{groups})(?!\w)", re.IGNORECASE)
+    return re.compile(rf"(?<![^\W_])(?:{groups})(?![^\W_])", re.IGNORECASE)
+
+
+TAG = re.compile(r"(?<![\w/])#[^\W\d][\w/-]*")
+r"""`#tag`, as `tags.TAG` spells it for rg, in Python's terms.
+
+Python's `re` has no `\p{L}`, so a letter is `[^\W\d]` and a letter, digit or
+underscore is `\w`. Close enough for a span to skip: a name linked inside a tag
+would end the tag at the brackets.
+"""
+
+BARE_URL = re.compile(r"https?://\S+")
+"""An address written out with no link around it, which a `[[link]]` inside would break."""
 
 
 def skipped(text: str) -> list[tuple[int, int]]:
-    """Where a name is not a mention: the block, code, and every link already written."""
+    """Where a name is not a mention: the block, code, links, tags and bare addresses."""
     spans = [(0, body_start(text)), *code_spans(text)]
-    spans += [match.span() for match in WIKILINK.finditer(text)]
-    spans += [match.span() for match in MARKDOWN_LINK.finditer(text)]
+    for pattern in (WIKILINK, MARKDOWN_LINK, TAG, BARE_URL):
+        spans += [match.span() for match in pattern.finditer(text)]
     return spans
 
 
@@ -119,11 +133,18 @@ def scan(root: Path, candidates: list[str], found: list[str], cap: int) -> list[
     pattern = matcher(ordered)
     result: list[Mention] = []
     for path in candidates:
-        # Bytes, because `read_text` turns `\r\n` into `\n` and the line has to
-        # come back as it is on disk. Replaced rather than refused, the way rg
-        # decodes a line for search: one note that is not UTF-8 should not
-        # empty every other note's list.
-        text = (root / path).read_bytes().decode("utf-8", "replace")
+        # Read the way `GET /api/files` reads it, `\r\n` turned into `\n`,
+        # because the client links a mention by finding `text` on that line of
+        # the note it was served, and offsets into anything else miss.
+        try:
+            text = read_note(root, path)
+        except UnicodeDecodeError:
+            # A note that is not UTF-8 is one the client cannot open either, and
+            # it should not empty every other note's list.
+            continue
+        # None when the note went between rg naming it and this reading it.
+        if text is None:
+            continue
         result += mentions_in(path, text, pattern, ordered)
         if len(result) >= cap:
             return result[:cap]

@@ -369,7 +369,7 @@ then line, then place on the line. A note that does not exist is a `404`.
 The names are the note's title, its file name without `.md`, and each of its
 [aliases](/reference/note-frontmatter.md#every-other-field-is-yours). `name`
 says which one matched, spelled as the note spells it. A match ignores case and
-counts only whole: no letter, digit or underscore may touch it on either side,
+counts only whole: no letter or digit may touch it on either side,
 so `borges` finds `Borges,` and not `borgesian`, and `C++` and `2026-W32` still
 match.
 
@@ -378,9 +378,14 @@ text or its address), inside code (fenced or inline) or inside the block at the
 top of a note is not a mention, because a link does not go there. The note
 itself is never listed. Two mentions on one line are two entries.
 
-`text` is the whole line as it is on disk, a trailing carriage return included.
-`start` and `end` count UTF-16 code units into it, which is how the browser
-slices a string, so `text.slice(start, end)` is the mention as written.
+A `#tag` holding a name and an address written out bare, `https://x.org/borges`,
+are skipped too, since a link inside either would break it. An underscore does
+not join a word, so `_Borges_` is a mention.
+
+`text` is the whole line as `GET /api/files/{path}` serves the note, where a
+`\r\n` ends a line as `\n` does, so it matches that line of what the client
+read. `start` and `end` count UTF-16 code units into it, which is how the
+browser slices a string, so `text.slice(start, end)` is the mention as written.
 
 `rg` picks the notes holding any of the names, and the backend then reads those
 to find where. `archive` works as it does on a search. The cap is the list the

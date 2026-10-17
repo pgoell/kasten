@@ -97,6 +97,13 @@ async def test_ignores_case_and_matches_whole_words_only(client: AsyncClient, va
     assert spans(await mentions(client, "2026-W32.md")) == [("a.md", 3, "2026-W32")]
 
 
+async def test_matches_a_name_inside_underscore_emphasis(client: AsyncClient, vault: Path) -> None:
+    write(vault, "Borges.md", "")
+    write(vault, "a.md", "_Borges_ and __Borges__\n")
+
+    assert spans(await mentions(client, "Borges.md")) == [("a.md", 1, "Borges")] * 2
+
+
 async def test_skips_names_inside_links_code_and_frontmatter(
     client: AsyncClient, vault: Path
 ) -> None:
@@ -115,6 +122,17 @@ async def test_skips_names_inside_links_code_and_frontmatter(
     assert spans(await mentions(client, "Borges.md")) == [("a.md", 10, "Borges")]
 
 
+async def test_skips_names_inside_tags_and_bare_urls(client: AsyncClient, vault: Path) -> None:
+    write(vault, "Borges.md", "")
+    write(
+        vault,
+        "a.md",
+        "#borges and #reading/borges\nhttps://x.org/borges and http://borges.org\nBorges\n",
+    )
+
+    assert spans(await mentions(client, "Borges.md")) == [("a.md", 3, "Borges")]
+
+
 async def test_never_lists_the_note_itself(client: AsyncClient, vault: Path) -> None:
     write(vault, "reading/Borges.md", "Borges wrote this.\n")
 
@@ -130,16 +148,31 @@ async def test_two_mentions_on_one_line_are_two_results(client: AsyncClient, vau
     assert [(hit["line"], hit["start"], hit["end"]) for hit in found] == [(1, 0, 6), (1, 11, 17)]
 
 
-async def test_counts_offsets_in_utf16_and_keeps_the_line_verbatim(
-    client: AsyncClient, vault: Path
-) -> None:
+async def test_counts_offsets_in_utf16(client: AsyncClient, vault: Path) -> None:
     write(vault, "Borges.md", "")
-    write(vault, "a.md", "📚 Borges\r\nnext\n")
+    write(vault, "a.md", "📚 Borges\nnext\n")
 
     found = await mentions(client, "Borges.md")
 
     # The emoji is two UTF-16 units, so the name starts at 3 for the browser.
-    assert [(hit["text"], hit["start"], hit["end"]) for hit in found] == [("📚 Borges\r", 3, 9)]
+    assert [(hit["text"], hit["start"], hit["end"]) for hit in found] == [("📚 Borges", 3, 9)]
+
+
+async def test_gives_the_line_of_a_crlf_note_as_the_notes_endpoint_reads_it(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "Borges.md", "")
+    write(vault, "a.md", "first\r\nsee Borges\r\nlast\r\n")
+
+    found = await mentions(client, "Borges.md")
+    note = await client.get("/api/files/a.md")
+
+    # The client links a mention by finding `text` on that line of the note it
+    # read, so the two have to be the same string.
+    lines = note.json()["content"].split("\n")
+    assert [(hit["text"], lines[hit["line"] - 1]) for hit in found] == [
+        ("see Borges", "see Borges")
+    ]
 
 
 async def test_skips_the_archive_unless_asked(client: AsyncClient, vault: Path) -> None:
