@@ -162,6 +162,49 @@ describe("bracketed text with no address", () => {
   });
 });
 
+describe("an image with no address, and an address in angle brackets", () => {
+  it("#442 gives Slack ![alt] as written", () => {
+    expect(toSlack("see ![alt] here")).toBe("see ![alt] here");
+  });
+
+  it("#442 gives Teams ![alt] as written", () => {
+    expect(toHtml("see ![alt] here")).toBe("<p>see ![alt] here</p>");
+  });
+
+  it("#443 gives Slack [a](<>) as its text", () => {
+    expect(toSlack("see [a](<>) here")).toBe("see a here");
+  });
+
+  it("#443 gives Teams [a](<>) as its text", () => {
+    expect(toHtml("see [a](<>) here")).toBe("<p>see a here</p>");
+  });
+
+  it("I6 drops the angle brackets around a link's address", () => {
+    expect(toSlack("[a](<https://x.y>)")).toBe("a (https://x.y)");
+    expect(toHtml("[a](<https://x.y>)")).toBe('<p><a href="https://x.y">a</a></p>');
+  });
+
+  it("I7 keeps ![alt][ref] as written", () => {
+    expect(toSlack("![alt][ref] x")).toBe("![alt][ref] x");
+    expect(toHtml("![alt][ref] x")).toBe("<p>![alt][ref] x</p>");
+  });
+
+  it("I7 gives ![alt](<>) as its text", () => {
+    expect(toSlack("![alt](<>)")).toBe("alt");
+    expect(toHtml("![alt](<>)")).toBe("<p>alt</p>");
+  });
+
+  it("I7 guard: gives ![alt]() as its text", () => {
+    expect(toSlack("![alt]()")).toBe("alt");
+    expect(toHtml("![alt]()")).toBe("<p>alt</p>");
+  });
+
+  it("I7 guard: writes ![alt](u) as before", () => {
+    expect(toSlack("![alt](u)")).toBe("alt (u)");
+    expect(toHtml("![alt](u)")).toBe('<p><a href="u">alt</a></p>');
+  });
+});
+
 describe("a wikilink's alias and heading", () => {
   it("writes an aliased wikilink as its alias", () => {
     expect(toSlack("see [[borges|Jorge]]")).toBe("see Jorge");

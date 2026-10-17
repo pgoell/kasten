@@ -1455,7 +1455,14 @@ function build(state: EditorState): Live {
         // a quote line among them. Nothing resolves a definition (#439), so it
         // is text and keeps its brackets, as Obsidian shows it. Told apart by
         // the `(` mark rather than the URL: `[a]()` is a link to nowhere.
-        if (node.node.getChildren("LinkMark").length < 3) return;
+        // The highlighter still colours a Link node as a link, so the mark
+        // takes that look back off, the cursor on it or not (#441).
+        if (node.node.getChildren("LinkMark").length < 3) {
+          decorations.push(
+            Decoration.mark({ class: "cm-plain-brackets" }).range(node.from, node.to),
+          );
+          return;
+        }
 
         // A link carries four marks, `[`, `]`, `(` and `)`. The first two
         // bracket the text worth showing; everything from the second to the end

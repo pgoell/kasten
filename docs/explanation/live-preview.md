@@ -71,6 +71,9 @@ only disagree, so the link rendering stands down where a todo's box begins.
 The parser reads every `[text]` as a link, with or without an address. Only one
 with a `(…)` part draws as a link; `[text]` and `[text][ref]` stay as typed,
 brackets and all, as Obsidian shows them, and Copy as keeps the brackets too.
+They draw as plain text, with no link colour or underline, so in bold or a
+heading they look like the words around them. The highlighter still colours
+the node as a link, so a mark over it takes that look back off (#441).
 kasten does not look up `[text]: url` definitions (#439).
 
 ## The cursor never rests on a character you cannot see

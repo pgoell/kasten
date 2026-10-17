@@ -139,13 +139,18 @@ function span(node: SyntaxNode, source: string, format: Format): string {
       const start = node.from + (node.name === "Image" ? 2 : 1);
       const label = inline(node, source, format, start, close ? close.from : node.to);
       const url = node.getChild("URL");
-      if (url) return link(label, source.slice(url.from, url.to), format);
-      // The parser reads any `[text]` with no `(url)` as a link. Nothing
-      // resolves a definition (#439), so it goes out as the editor shows it,
-      // brackets and any `[ref]` after them included. `[a]()`, with its `(`
-      // mark, is a link to nowhere and goes out as its label.
-      if (node.name === "Link" && close && node.getChildren("LinkMark").length < 3) {
-        return `[${label}${prose(source.slice(close.from, node.to), format)}`;
+      // The URL node keeps the brackets of `(<url>)`, which are syntax: `<>`
+      // is an empty address (#443).
+      const address = url ? source.slice(url.from, url.to).replace(/^<(.*)>$/, "$1") : "";
+      if (address) return link(label, address, format);
+      // The parser reads any `[text]` or `![alt]` with no `(url)` as a link
+      // or an image. Nothing resolves a definition (#439), so it goes out as
+      // the editor shows it, brackets and any `[ref]` after them included
+      // (#442). `[a]()`, with its `(` mark, is a link to nowhere and goes out
+      // as its label.
+      if (close && node.getChildren("LinkMark").length < 3) {
+        const open = node.name === "Image" ? "![" : "[";
+        return `${open}${label}${prose(source.slice(close.from, node.to), format)}`;
       }
       return label;
     }

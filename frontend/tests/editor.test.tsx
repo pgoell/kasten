@@ -837,6 +837,37 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
 
     expect(onFollow.mock.calls).toEqual([["borges"]]);
   });
+
+  it.each([
+    ["a plain line", "see [text] here"],
+    ["bold", "see **[text]** here"],
+  ])("opens nothing on ctrl+click, cmd+click or a tap on a [text] in %s (#441)", (_, doc) => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} onFollow={onFollow} />);
+
+    fireEvent.mouseDown(textIn(container, "text"), { ctrlKey: true });
+    fireEvent.mouseDown(textIn(container, "text"), { metaKey: true });
+    fireEvent.pointerDown(textIn(container, "text"), { pointerType: "touch" });
+    fireEvent.click(textIn(container, "text"));
+
+    expect(open).not.toHaveBeenCalled();
+    expect(onFollow).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("opens a markdown link's address on a tap (#441)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc={"intro\n\nsee [mail](https://example.com/a) now"} />,
+    );
+
+    fireEvent.pointerDown(textIn(container, "mail"), { pointerType: "touch" });
+    fireEvent.click(textIn(container, "mail"));
+
+    expect(open).toHaveBeenCalledWith("https://example.com/a", "_blank", "noopener");
+    open.mockRestore();
+  });
 });
 
 describe("Editor wikilink completion", () => {
