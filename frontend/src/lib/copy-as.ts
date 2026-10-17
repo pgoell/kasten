@@ -142,8 +142,9 @@ function span(node: SyntaxNode, source: string, format: Format): string {
       if (url) return link(label, source.slice(url.from, url.to), format);
       // The parser reads any `[text]` with no `(url)` as a link. Nothing
       // resolves a definition (#439), so it goes out as the editor shows it,
-      // brackets and any `[ref]` after them included.
-      if (node.name === "Link" && close) {
+      // brackets and any `[ref]` after them included. `[a]()`, with its `(`
+      // mark, is a link to nowhere and goes out as its label.
+      if (node.name === "Link" && close && node.getChildren("LinkMark").length < 3) {
         return `[${label}${prose(source.slice(close.from, node.to), format)}`;
       }
       return label;

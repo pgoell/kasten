@@ -149,6 +149,11 @@ describe("bracketed text with no address", () => {
     expect(toHtml(note)).toBe(html);
   });
 
+  it("B1 [a]() copies as its text, a link with an empty address", () => {
+    expect(toSlack("see [a]() here")).toBe("see a here");
+    expect(toHtml("see [a]() here")).toBe("<p>see a here</p>");
+  });
+
   it("I3 still writes a [text](url) link as before", () => {
     expect(toSlack("> [docs](https://example.com)")).toBe("> docs (https://example.com)");
     expect(toHtml("[docs](https://example.com)")).toBe(

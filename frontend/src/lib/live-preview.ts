@@ -656,7 +656,7 @@ function markedText(state: EditorState, node: SyntaxNode): Span | null {
   const inline = INLINE[node.name];
   if (!inline && node.name !== "Link") return null;
   // A `[text]` with no `(url)` stays text, brackets and all: see the walk.
-  if (node.name === "Link" && node.getChild("URL") === null) return null;
+  if (node.name === "Link" && node.getChildren("LinkMark").length < 3) return null;
 
   // The first two marks, which is all an inline construct has and, on a link,
   // the `[` and `]` around the text rather than the `(url)` that does not show.
@@ -1453,8 +1453,9 @@ function build(state: EditorState): Live {
         if (todo !== null && node.from === line.from + todo.indent + 2) return;
         // The parser reads any `[text]` with no `(url)` as a link, `[!note]` on
         // a quote line among them. Nothing resolves a definition (#439), so it
-        // is text and keeps its brackets, as Obsidian shows it.
-        if (node.node.getChild("URL") === null) return;
+        // is text and keeps its brackets, as Obsidian shows it. Told apart by
+        // the `(` mark rather than the URL: `[a]()` is a link to nowhere.
+        if (node.node.getChildren("LinkMark").length < 3) return;
 
         // A link carries four marks, `[`, `]`, `(` and `)`. The first two
         // bracket the text worth showing; everything from the second to the end

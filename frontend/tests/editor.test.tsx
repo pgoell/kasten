@@ -782,14 +782,19 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     },
   );
 
-  it.each(CASES)("follows a link in %s on a tap (A4)", (_, doc, text, target) => {
+  it.each(CASES)("follows a link in %s on a tap, vim on and off (A4)", (_, doc, text, target) => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} onFollow={onFollow} />);
+    const tap = () => {
+      fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
+      fireEvent.click(textIn(container, text));
+    };
 
-    fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
-    fireEvent.click(textIn(container, text));
+    tap();
+    act(() => toggleVim());
+    tap();
 
-    expect(onFollow).toHaveBeenCalledWith(target);
+    expect(onFollow.mock.calls).toEqual([[target], [target]]);
   });
 
   it("opens a markdown link's address in bold on ctrl+click (I3)", () => {

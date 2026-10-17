@@ -153,6 +153,16 @@ describe("live preview", () => {
     expect(table.querySelector(".cm-link")).toBeNull();
   });
 
+  it("B1 [a]() draws as a link, its marks hidden, in prose and in a cell", () => {
+    // CommonMark reads empty parens as a link with an empty address.
+    const lines = ["intro", "", "see [a]() here", "", "| x |", "| - |", "| [b]() |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    expect(content(container)).toContain("see a here");
+    expect(container.querySelector(".cm-line .cm-link")?.textContent).toBe("a");
+    expect(container.querySelector(".cm-table-grid tbody .cm-link")?.textContent).toBe("b");
+  });
+
   it("I3 draws a [text](url) link as its text in cm-link, as before", () => {
     const { container } = renderEditor(
       <Editor initialDoc={"intro\n\n> see [the docs](https://example.com) now"} />,
