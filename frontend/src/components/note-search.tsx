@@ -317,10 +317,19 @@ export function NoteSearch({
   // Ranked against what is typed now rather than what was asked for, which is
   // what narrows the list while the next scan is still out. Ranked whole and
   // cut afterwards, so the rows are the best of the answer and not its head.
-  const hits = useMemo(
-    () => rankIndexes(candidates, typed).slice(0, VISIBLE_HITS),
-    [candidates, typed],
-  );
+  //
+  // The mentions are cut on their own, so a note with more links than the list
+  // holds still shows the best of its mentions rather than none of them.
+  const hits = useMemo(() => {
+    const ranked = rankIndexes(candidates, typed);
+    const linked: number[] = [];
+    const unlinked: number[] = [];
+    for (const index of ranked) {
+      const hit = found[index];
+      (hit !== undefined && isMention(hit) ? unlinked : linked).push(index);
+    }
+    return [...linked.slice(0, VISIBLE_HITS), ...unlinked.slice(0, VISIBLE_HITS)];
+  }, [candidates, typed, found]);
   // Backlinks gather under the relation name pointing here; the other two lists
   // are one group with no name, so their rows come out in the order they were
   // ranked in and nothing on screen moves.

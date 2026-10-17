@@ -531,6 +531,24 @@ describe("backlinks", () => {
       expect(panel.groups()[0]?.rows[0]).toContain("Borges wrote the library");
     });
 
+    it("#424 shows the mentions under a note with more links than the list holds", async () => {
+      searchNotes.mockResolvedValue(
+        Array.from({ length: 25 }, (_, i) => ({
+          path: `links/${i}.md`,
+          line: 1,
+          text: `see [[borges]] ${i}`,
+        })),
+      );
+      fetchMentions.mockResolvedValue([MENTION]);
+      const panel = renderBacklinks();
+
+      await waitFor(() =>
+        expect(panel.groups().find((group) => group.name === "unlinked mentions")?.rows).toEqual([
+          expect.stringContaining("Borges wrote the library"),
+        ]),
+      );
+    });
+
     it("#424 still says nothing links here when there are only mentions", async () => {
       searchNotes.mockResolvedValue([]);
       fetchMentions.mockResolvedValue([MENTION]);
