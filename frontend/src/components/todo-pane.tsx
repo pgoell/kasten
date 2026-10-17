@@ -734,6 +734,21 @@ export function TodoPane({
     if (missing && !making.current) makeViews();
   }
 
+  /** The strip's buttons: a tap's height by finger, a line's by mouse. */
+  const pad = coarse ? "min-h-11 px-3" : "px-2 py-1";
+
+  /**
+   * A click on the strip, then the focus back on the cursor. A browser leaves
+   * the focus on the clicked button, which draws the cursor unfocused and
+   * turns Space and Enter into another click. The row or card handed it may
+   * unmount at once, as `c` does to the list, and the `dropped` effects carry
+   * it on from there. By mouse only: a finger brings no keys to catch.
+   */
+  function strip(run: () => void) {
+    run();
+    if (!coarse) focusList();
+  }
+
   /**
    * `i`: the row becomes its line. By the row's own key, so a tap need not move the cursor.
    *
@@ -991,42 +1006,43 @@ export function TodoPane({
         </div>
       )}
 
-      {/* `d`, `n` and `v` by finger. Outside the list, so they stay put while
+      {/* `d`, `n`, `v` and `c` by finger or by mouse. On every pointer, since
+          nothing else on a desktop says the board exists (#419). A finger gets
+          bare words at a tap's height; a mouse gets the footer's key-then-word,
+          so the strip teaches the key. Outside the list, so they stay put while
           it scrolls, and out of the tab order like every button but the row. */}
-      {coarse && (
-        <div className="flex border-b border-one-line px-1 text-[11px] text-one-muted">
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => show("done")}
-            aria-pressed={mode === "done"}
-            className={`min-h-11 px-3 ${mode === "done" ? "text-one-fg" : ""}`}
-          >
-            done
-          </button>
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => show("next")}
-            aria-pressed={mode === "next"}
-            className={`min-h-11 px-3 ${mode === "next" ? "text-one-fg" : ""}`}
-          >
-            next
-          </button>
-          <button type="button" tabIndex={-1} onClick={nextView} className="min-h-11 px-3">
-            view
-          </button>
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => setBoard(!board)}
-            aria-pressed={board}
-            className={`min-h-11 px-3 ${board ? "text-one-fg" : ""}`}
-          >
-            board
-          </button>
-        </div>
-      )}
+      <div className="flex border-b border-one-line px-1 text-[11px] text-one-muted">
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip(() => show("done"))}
+          aria-pressed={mode === "done"}
+          className={`${pad} ${mode === "done" ? "text-one-fg" : ""}`}
+        >
+          {coarse ? "done" : "d done"}
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip(() => show("next"))}
+          aria-pressed={mode === "next"}
+          className={`${pad} ${mode === "next" ? "text-one-fg" : ""}`}
+        >
+          {coarse ? "next" : "n next"}
+        </button>
+        <button type="button" tabIndex={-1} onClick={() => strip(nextView)} className={pad}>
+          {coarse ? "view" : "v view"}
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip(() => setBoard(!board))}
+          aria-pressed={board}
+          className={`${pad} ${board ? "text-one-fg" : ""}`}
+        >
+          {coarse ? "board" : "c board"}
+        </button>
+      </div>
 
       {board ? (
         <TodoBoard
@@ -1355,7 +1371,8 @@ export function TodoPane({
           <span>
             x cycle&ensp;&ensp;O P X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
             edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n
-            next&ensp;&ensp;v view&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+            next&ensp;&ensp;v view&ensp;&ensp;c board&ensp;&ensp;/ filter&ensp;&ensp;q
+            close&ensp;&ensp;Escape editor
           </span>
         )}
       </footer>

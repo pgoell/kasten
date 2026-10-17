@@ -136,6 +136,15 @@ describe("KeyHelp", () => {
     }
   });
 
+  it("#419 names c, the key that turns the todo list into the board", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    // Written out rather than read off `TODO_PANE`: the loop above passes over
+    // a table that never had the row, and a missing `c` left the board with no
+    // way in that the panel named.
+    expect(group("Todo pane").getByText("c").nextElementSibling).toHaveTextContent(/board/);
+  });
+
   it("lists every screen reached by typing its address", () => {
     // The two screens with no key and no link. Without this group nothing in
     // the app says `/tokens` exists at all, and finding it means reading the

@@ -666,6 +666,12 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "d", label: "Show what was finished in the last seven days" },
   { key: "n", label: "Show one next action per task" },
   { key: "v", label: "Show the next saved view, or all todos again" },
+  { key: "c", label: "Turn the list into the board, and back" },
+  // The keys only the board takes. The panel draws one flat list, so the label
+  // says where they work.
+  { key: "g", label: "On the board: lanes by kind, or by project" },
+  { key: "h / l", label: "On the board: the column to the left, or to the right" },
+  { key: "p", label: "On the board: pick a project for the card" },
   { key: "O", label: "Set the todo under the cursor to open" },
   { key: "P", label: "Set the todo under the cursor to doing" },
   { key: "X", label: "Set the todo under the cursor to done" },

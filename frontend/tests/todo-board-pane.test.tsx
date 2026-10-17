@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { toggleVim } from "@/lib/vim-setting";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 // The module rather than `fetch`, as the list's own tests stand it in.
@@ -488,5 +489,112 @@ describe("the todo board", () => {
     const pane = await boardPane();
 
     expect(pane.card("fix the tap").className).toContain("min-h-11");
+  });
+});
+
+describe("the board by mouse (#419)", () => {
+  // The vim setting lives in localStorage, so the two tests that set it put
+  // it back for whoever runs next.
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  /** The pane with its rows drawn, which a strip of buttons no longer says. */
+  async function listPane(options?: Parameters<typeof renderPane>[0]) {
+    const pane = renderPane(options);
+    await waitFor(() => expect(document.querySelector("[data-row]")).not.toBeNull());
+    return pane;
+  }
+
+  const button = (name: string) => screen.getByRole("button", { name });
+
+  it("#419 A1 A4 the strip names its keys on a fine pointer and stays bare on a coarse one", async () => {
+    const media = stubMatchMedia();
+    await listPane();
+
+    for (const name of ["d done", "n next", "v view", "c board"]) {
+      expect(button(name).className).not.toContain("min-h-11");
+    }
+
+    media.set(COARSE, true);
+
+    for (const name of ["done", "next", "view", "board"]) {
+      expect(button(name).className).toContain("min-h-11 px-3");
+      expect(button(name).tabIndex).toBe(-1);
+    }
+    expect(screen.queryByRole("button", { name: "c board" })).toBeNull();
+  });
+
+  it("#419 A6 c and the c board button reach the board, vim on", async () => {
+    toggleVim();
+    toggleVim();
+    expect(localStorage.getItem("kasten.vim")).toBe("on");
+    const pane = await listPane();
+
+    pane.press("c");
+    await waitFor(() => expect(pane.cards().length).toBeGreaterThan(0));
+    pane.press("c");
+    expect(pane.cards()).toHaveLength(0);
+    fireEvent.click(button("c board"));
+    expect(pane.cards().length).toBeGreaterThan(0);
+  });
+
+  it("#419 A6 c and the c board button reach the board, vim off", async () => {
+    toggleVim();
+    expect(localStorage.getItem("kasten.vim")).toBe("off");
+    const pane = await listPane();
+
+    pane.press("c");
+    await waitFor(() => expect(pane.cards().length).toBeGreaterThan(0));
+    pane.press("c");
+    expect(pane.cards()).toHaveLength(0);
+    fireEvent.click(button("c board"));
+    expect(pane.cards().length).toBeGreaterThan(0);
+  });
+
+  it("#419 I1 a click on c board leaves the keys on the board, and c goes back to the list", async () => {
+    const pane = await listPane({ focusSignal: 1 });
+    // What a browser does with a mouse down on a button that jsdom does not.
+    act(() => button("c board").focus());
+
+    fireEvent.click(button("c board"));
+    await waitFor(() => expect(pane.cards().length).toBeGreaterThan(0));
+    const card = document.activeElement as HTMLElement;
+    expect(card.hasAttribute("data-card")).toBe(true);
+    expect(card.tabIndex).toBe(0);
+
+    fireEvent.keyDown(card, { key: "c" });
+    expect(pane.cards()).toHaveLength(0);
+    expect(document.activeElement?.hasAttribute("data-row")).toBe(true);
+  });
+
+  it("#419 I2 the list footer names c board on a desktop", async () => {
+    await listPane();
+
+    expect(screen.getByTestId("todo-footer").textContent).toContain("c board");
+  });
+
+  it("#419 I3 the desktop strip stays out of the tab order", async () => {
+    await listPane();
+
+    for (const name of ["d done", "n next", "v view", "c board"]) {
+      expect(button(name).tabIndex).toBe(-1);
+    }
+  });
+
+  it("#419 I5 the desktop strip says which of done, next and board is on", async () => {
+    const pane = await listPane();
+    const pressed = (name: string) => button(name).getAttribute("aria-pressed");
+    expect([pressed("d done"), pressed("n next"), pressed("c board")]).toEqual([
+      "false",
+      "false",
+      "false",
+    ]);
+
+    pane.press("d");
+    expect([pressed("d done"), pressed("n next")]).toEqual(["true", "false"]);
+    pane.press("n");
+    expect([pressed("d done"), pressed("n next")]).toEqual(["false", "true"]);
+    pane.press("c");
+    expect(pressed("c board")).toBe("true");
   });
 });

@@ -67,6 +67,16 @@ function recorder() {
   return { reached, commands };
 }
 
+/** The strip above the list as a mouse sees it, drawn on every pointer since #419. */
+const STRIP = ["d done", "n next", "v view", "c board"];
+
+/** Every button but that strip, which is what the list drew before it had one. */
+function buttons() {
+  return screen
+    .queryAllByRole("button")
+    .filter((button) => !STRIP.includes(button.textContent ?? ""));
+}
+
 function renderPane(hits = TODOS, focusSignal = 0) {
   fetchTodos.mockResolvedValue(hits);
   const onOpen = vi.fn();
@@ -131,10 +141,10 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     /** What the header says the list is showing: a view's name, or nothing. */
     view: () => screen.queryByTestId("todo-view")?.textContent ?? "",
     headings: () => screen.queryAllByRole("heading").map((row) => row.textContent),
-    rows: () => screen.queryAllByRole("button"),
-    texts: () => screen.queryAllByRole("button").map((row) => row.textContent ?? ""),
+    rows: () => buttons(),
+    texts: () => buttons().map((row) => row.textContent ?? ""),
     /** The row the keyboard cursor is on, which is the pane's only tab stop. */
-    cursor: () => screen.queryAllByRole("button").find((row) => row.tabIndex === 0),
+    cursor: () => buttons().find((row) => row.tabIndex === 0),
     footer: () => screen.getByTestId("todo-footer").textContent ?? "",
     press: (key: string) => fireEvent.keyDown(panel(), { key }),
     type: (value: string) =>

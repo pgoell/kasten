@@ -1319,6 +1319,10 @@ does nothing while another row is being edited. After `blocked by`, a tap on a
 row picks it as the blocker and opens nothing, and `cancel` beside the picker's
 line is Escape. A state picked from the strip is set on one tap.
 
+With a mouse the same strip sits under the header, and each button names its
+key: `d done`, `n next`, `v view` and `c board`. `board` turns the list into
+[the board](#the-board) and back, as `c` does.
+
 The state button takes two taps: the first turns the symbol into the state the
 todo would move to with a `?` after it, and the second is the one that cycles.
 The question is taken back after four seconds, on a tap anywhere else, when the
@@ -1373,6 +1377,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
 | `v` | Show the next saved view, or all todos again |
+| `c` | Turn the list into [the board](#the-board), and back |
 | `O` `P` `X` `B` `W` `R` | Set the row's todo to open, doing, done, blocked, waiting or rejected |
 | `b` | Pick the todo that blocks the row's todo |
 | `/` | Narrow the list |
