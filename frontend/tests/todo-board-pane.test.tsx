@@ -600,6 +600,77 @@ describe("the board by mouse (#419)", () => {
     expect(screen.getByTestId("todo-pick")).not.toBeNull();
   });
 
+  /** Every word on the touch strip, tapped once. */
+  function tapStrip() {
+    for (const name of ["board", "done", "next", "view"]) fireEvent.click(button(name));
+  }
+
+  it("#421 A1 I4 a tap on the strip while a row is edited leaves the edit be, vim on", async () => {
+    toggleVim();
+    toggleVim();
+    expect(localStorage.getItem("kasten.vim")).toBe("on");
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await listPane();
+    fireEvent.click(screen.getByLabelText("more for fix the tap"));
+    fireEvent.click(screen.getByLabelText("edit fix the tap"));
+    expect(screen.getByLabelText("edit line")).not.toBeNull();
+
+    tapStrip();
+
+    expect(pane.cards()).toHaveLength(0);
+    expect(button("done").getAttribute("aria-pressed")).toBe("false");
+    // `view` would have put a view's terms in the filter and named it.
+    expect(pane.filter().value).toBe("");
+    expect(screen.queryByTestId("todo-view")).toBeNull();
+    expect(screen.getByLabelText("edit line")).not.toBeNull();
+  });
+
+  it("#421 A2 I4 a tap on the strip while picking a blocker leaves the picker be, vim off", async () => {
+    toggleVim();
+    expect(localStorage.getItem("kasten.vim")).toBe("off");
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await listPane();
+    fireEvent.click(screen.getByLabelText("more for fix the tap"));
+    fireEvent.click(screen.getByLabelText("blocked by fix the tap"));
+    expect(screen.getByTestId("todo-pick")).not.toBeNull();
+
+    tapStrip();
+
+    expect(pane.cards()).toHaveLength(0);
+    expect(button("done").getAttribute("aria-pressed")).toBe("false");
+    expect(pane.filter().value).toBe("");
+    expect(screen.getByTestId("todo-pick")).not.toBeNull();
+  });
+
+  it("#421 I1 once the edit ends a tap on the strip works again", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await listPane();
+    fireEvent.click(screen.getByLabelText("more for fix the tap"));
+    fireEvent.click(screen.getByLabelText("edit fix the tap"));
+    fireEvent.keyDown(screen.getByLabelText("edit line"), { key: "Escape" });
+    expect(screen.queryByLabelText("edit line")).toBeNull();
+
+    fireEvent.click(button("board"));
+    expect(pane.cards().length).toBeGreaterThan(0);
+    // The same tap A1 makes, so it shows `view` there had something to do.
+    fireEvent.click(button("view"));
+    await waitFor(() => expect(pane.filter().value).not.toBe(""));
+  });
+
+  it("#421 I2 once the picker is cancelled a tap on the strip works again", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await listPane();
+    fireEvent.click(screen.getByLabelText("more for fix the tap"));
+    fireEvent.click(screen.getByLabelText("blocked by fix the tap"));
+    fireEvent.click(button("cancel"));
+
+    expect(screen.queryByTestId("todo-pick")).toBeNull();
+    expect(button("done").getAttribute("aria-pressed")).toBe("false");
+    expect(button("next").getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(button("board"));
+    expect(pane.cards().length).toBeGreaterThan(0);
+  });
+
   it("#419 I3 the desktop strip stays out of the tab order", async () => {
     await listPane();
 

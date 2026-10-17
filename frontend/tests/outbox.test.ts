@@ -214,6 +214,36 @@ describe("the outbox", () => {
     expect((await waiting()).map((dump) => dump.text)).toEqual(["before the close", "and another"]);
   });
 
+  it("#426 A3 a listener that unsubscribes before the first read lands is never called", async () => {
+    // The capture route unsubscribes on unmount, and a read that lands after
+    // that set state on a page already gone.
+    const listener = vi.fn();
+    subscribe(listener)();
+    await waiting();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("#426 A3 a reset drops the first read too", async () => {
+    const listener = vi.fn();
+    subscribe(listener);
+    await reset();
+    await waiting();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("#426 I3 a listener still subscribed hears the first read", async () => {
+    offline();
+    await keep("heard", "2026-10-16");
+    const listener = vi.fn();
+    subscribe(listener);
+    const list = await waiting();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ waiting: list, failure: null });
+  });
+
   it("sends each dump once when two flushes start together", async () => {
     offline();
     await keep("one", "2026-10-16");

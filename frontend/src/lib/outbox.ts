@@ -241,7 +241,11 @@ export function flush(): Promise<State> {
  */
 export function subscribe(listener: (state: State) => void): () => void {
   listeners.add(listener);
-  void waiting().then((list) => listener({ waiting: list, failure }));
+  // The read can land after an unsubscribe or a reset, and a listener that
+  // sets component state must not hear it once its page is gone (#426).
+  void waiting().then((list) => {
+    if (listeners.has(listener)) listener({ waiting: list, failure });
+  });
   return () => {
     listeners.delete(listener);
   };
