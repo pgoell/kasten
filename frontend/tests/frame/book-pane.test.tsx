@@ -27,13 +27,14 @@ import contentsUrl from "../fixtures/contents.epub?url";
 // lines on a transparent background, over a caption; the same png inside a
 // real link; an anchor with no `href` round an h2's text and a span; an inline
 // svg holding a default-fill `<text>` and a `currentColor` rect; an `object`
-// of the svg square; and a `picture` holding the png. Chapter one also holds a
+// of the svg square; a `picture` holding the png; and an svg holding the png
+// as an `<image>`, the shape of a calibre cover page. Chapter one also holds a
 // `<mark>` the stylesheet says nothing about. Each element carries an id the
 // stylesheet never names (`#heading`, `#box`, `#ink`, `#item`, `#cell`,
 // `#strong`, `#link`, `#deep`, `#pic`, `#figure`, `#art`, `#caption`,
 // `#realpic`, `#linkpic`, `#anchored`, `#chap1`, `#anchorspan`, `#svg`,
-// `#svgtext`, `#svgrect`, `#obj`, `#picture`, `#mark`), there only for the
-// tests to find it. Chapter one is short enough that a turn or two reaches
+// `#svgtext`, `#svgrect`, `#obj`, `#picture`, `#cover`, `#mark`), there only
+// for the tests to find it. Chapter one is short enough that a turn or two reaches
 // chapter two.
 import darkUrl from "../fixtures/dark-text.epub?url";
 // Two chapters, no nav document and no ncx, so `book.toc` is undefined: this is
@@ -261,6 +262,8 @@ const LINKS = ["#link", "#deep", "#realpic"];
 const WHITE = ["#pic", "#art", "#linkpic", "#svg", "#obj", "#picture", "#picture img"];
 /** The svg's shapes, in the black a white page gives them. */
 const INK = ["#svgtext", "#svgrect"];
+/** What writes an image's alt text or an object's fallback, in black on its white. */
+const ALT = ["#art", "#linkpic", "#obj"];
 
 /** What every chapter of `dark-text.epub` should look like on the dark page. */
 function expectThemed(doc: Document): void {
@@ -273,8 +276,11 @@ function expectThemed(doc: Document): void {
     expect(computed(doc, selector, "backgroundColor"), selector).toBe("rgb(255, 255, 255)");
   for (const selector of INK)
     expect(computed(doc, selector, "fill"), selector).toBe("rgb(0, 0, 0)");
+  for (const selector of ALT)
+    expect(computed(doc, selector, "color"), selector).toBe("rgb(0, 0, 0)");
   expect(computed(doc, "#box", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   expect(computed(doc, "#figure", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+  expect(computed(doc, "#cover", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   expect(computed(doc, "body", "backgroundColor")).toBe(bg);
 }
 
@@ -775,6 +781,23 @@ describe("the reader over a real book", () => {
     const { doc } = await drawDark();
 
     expect(computed(doc, "#linkpic", "backgroundColor")).toBe("rgb(255, 255, 255)");
+  }, 30_000);
+
+  it("writes an image's alt text in black on its white page", async () => {
+    // A broken image draws its alt text, and an object its fallback, in the
+    // element's own colour, which on the white would be the theme's pale text.
+    const { doc } = await drawDark();
+
+    for (const selector of ["#art", "#linkpic", "#obj"])
+      expect(computed(doc, selector, "color"), selector).toBe("rgb(0, 0, 0)");
+  }, 30_000);
+
+  it("leaves the dark page round an svg cover", async () => {
+    // A cover page fits a raster into an svg the size of the page, and the
+    // bars either side of the picture are page, not art.
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#cover", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   }, 30_000);
 
   it("draws an object and a picture on white", async () => {
