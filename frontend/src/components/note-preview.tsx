@@ -2,7 +2,7 @@ import { EditorState, Text } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Decoration, EditorView, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef } from "react";
-import { renderedMarkdown } from "@/lib/live-preview";
+import { opensFor, renderedMarkdown } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 
 interface NotePreviewProps {
@@ -75,6 +75,8 @@ export function NotePreview({ text, firstLine, markLine }: NotePreviewProps) {
           // A static set rather than a state field: the document never
           // changes here, so neither can the mark on it.
           EditorView.decorations.of(hit ? Decoration.set([HIT.range(hit.from)]) : Decoration.none),
+          // A hit in a folded callout's body would mark a line nobody can see.
+          ...(hit ? [opensFor.of(hit.from)] : []),
           ...(from === undefined ? [] : [lineNumbers({ formatNumber: (n) => `${n + offset}` })]),
         ],
       }),

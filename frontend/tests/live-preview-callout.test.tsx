@@ -391,3 +391,73 @@ describe("a callout", () => {
     await waitFor(() => expect(content(container)).toBe("Mindthe gap"));
   });
 });
+
+/** A folded callout with nothing after it, so no line waits under the body. */
+const LAST = `${ABOVE}> [!faq]- Why\n> because`;
+
+describe("a folded callout's hidden body", () => {
+  it("is not what dd deletes after G at the end of the note", async () => {
+    const { container } = editor(LAST, true);
+    const view = viewIn(container);
+
+    keys(container, "G", "d", "d");
+
+    await waitFor(() => expect(view.state.doc.toString()).not.toBe(LAST));
+    expect(view.state.doc.toString()).not.toBe(`${ABOVE}> [!faq]- Why`);
+    expect(view.state.doc.toString()).toBe(`${ABOVE}> because`);
+  });
+
+  it.each(VIM)("keeps the cursor out when the callout ends the note: %s", (_, vimOn) => {
+    const { container } = editor(LAST, vimOn);
+    const view = viewIn(container);
+
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }));
+
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(3).to);
+  });
+
+  it.each(VIM)("lands an upward move from under it on the title: %s", (_, vimOn) => {
+    const { container } = editor(`${FOLDED} and a long line under the fold`, vimOn);
+    const view = viewIn(container);
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }));
+
+    // Where a move up from far along the line lands: the end of the body,
+    // which is drawn at the end of the title.
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.line(5).to } }));
+
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(3);
+  });
+});
+
+describe("a click on a written title", () => {
+  it.each(VIM)("opens the fold without moving the cursor: %s", async (_, vimOn) => {
+    const { container } = editor(FOLDED, vimOn);
+    const view = viewIn(container);
+    const head = view.state.selection.main.head;
+    const title = container.querySelector(".cm-callout-title") as HTMLElement;
+    expect(title.textContent).toBe("Why");
+
+    fireEvent.mouseDown(title);
+    fireEvent.mouseUp(title);
+    fireEvent.click(title);
+
+    await waitFor(() => expect(content(container)).toContain("because"));
+    expect(content(container)).not.toContain("[!");
+    expect(view.state.selection.main.head).toBe(head);
+  });
+});
+
+describe("the search pane", () => {
+  it("opens a folded callout holding the hit", () => {
+    const { container } = render(
+      <NotePreview
+        text={"intro\n\n> [!faq]- Why\n> because\n> of this\n\nafter"}
+        firstLine={1}
+        markLine={4}
+      />,
+    );
+
+    expect(container.querySelector(".cm-searchHit")?.textContent).toBe("because");
+    expect(content(container)).not.toContain("[!");
+  });
+});

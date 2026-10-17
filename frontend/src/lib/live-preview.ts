@@ -3,6 +3,7 @@ import type { Extension, Line, Range, Text } from "@codemirror/state";
 import {
   EditorSelection,
   EditorState,
+  Facet,
   MapMode,
   type RangeSet,
   StateEffect,
@@ -45,6 +46,9 @@ import {
 
 /** An empty replacement: the range is in the document but not on the screen. */
 const HIDDEN = Decoration.replace({});
+
+/** A folded callout's body, told apart from `HIDDEN` by `skipHidden`. */
+const FOLDED = Decoration.replace({});
 
 const HEADING = /^ATXHeading([1-6])$/;
 
@@ -748,6 +752,35 @@ function tableGrid(state: EditorState, table: SyntaxNode, end: number): TableGri
 const toggleFold = StateEffect.define<number>();
 
 /**
+ * Positions a callout folded shut by its `-` opens for.
+ *
+ * The search pane marks the line a hit sits on, and a hit inside a shut body
+ * would mark a line nobody can see. A click still shuts it again.
+ */
+export const opensFor = Facet.define<number>();
+
+/**
+ * A click on a written title flips the fold, as one on the chevron does.
+ *
+ * The title is text in the document rather than a widget, so CodeMirror would
+ * put the cursor in it, and with vim off that shows the callout's source
+ * rather than opening it. The mark carries the callout's `>`.
+ */
+const foldClicks = EditorView.domEventHandlers({
+  mousedown(event) {
+    if (!(event.target instanceof Element) || !event.target.closest("[data-fold]")) return false;
+    event.preventDefault();
+    return true;
+  },
+  click(event, view) {
+    const title = event.target instanceof Element ? event.target.closest("[data-fold]") : null;
+    if (title === null) return false;
+    view.dispatch({ effects: toggleFold.of(Number(title.getAttribute("data-fold"))) });
+    return true;
+  },
+});
+
+/**
  * The callouts whose fold a click has flipped from what their sign says.
  *
  * View state and not text: Obsidian folds by click without touching the file,
@@ -1041,7 +1074,9 @@ function build(state: EditorState): Live {
         }
 
         const folding = callout.fold !== "";
-        const open = (callout.fold !== "-") !== state.field(folds).includes(node.from);
+        const shownAt = state.facet(opensFor).some((at) => at >= node.from && at <= last.to);
+        const shut = callout.fold === "-" && !shownAt;
+        const open = !shut !== state.field(folds).includes(node.from);
         box.head = { from: node.from, to: header.to };
         const widget = new CalloutHead(
           callout.titled ? null : callout.title,
@@ -1052,7 +1087,11 @@ function build(state: EditorState): Live {
         hidden.push(HIDDEN.range(node.from, header.to));
         if (callout.titled) {
           const end = header.to + callout.title.length;
-          decorations.push(Decoration.mark({ class: "cm-callout-title" }).range(header.to, end));
+          // The callout's `>` on a title that folds, for `foldClicks` to read.
+          const attributes = folding ? { "data-fold": String(node.from) } : undefined;
+          decorations.push(
+            Decoration.mark({ class: "cm-callout-title", attributes }).range(header.to, end),
+          );
           if (folding) {
             decorations.push(
               Decoration.widget({ widget: new FoldToggle(node.from, open), side: -1 }).range(
@@ -1063,15 +1102,12 @@ function build(state: EditorState): Live {
         }
 
         // Shut, the body falls into the title line, the way CodeMirror's own
-        // folding hides a range. The cursor is kept from the body's lines and
-        // the line break after them, so a jump into it lands under the box
-        // rather than at the end of the title, where `x` would eat a line
-        // break nobody can see.
+        // folding hides a range. `FOLDED` tells `skipHidden` where the cursor
+        // goes instead: see there.
         if (folding && !open && last.number > line.number) {
           const body = state.doc.line(line.number + 1);
           decorations.push(HIDDEN.range(line.to, last.to));
-          const next = last.number < state.doc.lines ? last.to + 1 : last.to;
-          hidden.push(HIDDEN.range(body.from, next));
+          hidden.push(FOLDED.range(line.to, last.to));
           folded = { from: body.from, to: last.to };
           box.shown = line.number;
         }
@@ -1600,6 +1636,14 @@ const live = StateField.define<Live>({
  * `direction` flips at most once, from backward to forward, when the hidden run
  * starts a line and there is nothing to its left to retreat to. Each direction
  * moves `pos` monotonically, so the walk cannot cycle.
+ *
+ * A folded callout's body runs the other way round. It starts at the end of
+ * the title, which is where the cursor belongs, and every position after that
+ * up to the body's end is bad: the end of its last line paints at the end of
+ * the title too, and `dd` there deletes a line nobody can see. Forward lands
+ * on the line under the box, backward and at the end of the note on the
+ * title. A move up from far along the line under it lands at the body's end,
+ * and the general rule would send it back down, the run starting a line.
  */
 function skipHidden(start: number, bias: number, hidden: RangeSet<Decoration>, doc: Text): number {
   let pos = start;
@@ -1607,7 +1651,13 @@ function skipHidden(start: number, bias: number, hidden: RangeSet<Decoration>, d
 
   for (;;) {
     let moved = false;
-    hidden.between(pos - 1, pos + 1, (from, to) => {
+    hidden.between(pos - 1, pos + 1, (from, to, value) => {
+      if (value === FOLDED) {
+        if (pos <= from || pos > to) return;
+        pos = direction < 0 || to === doc.length ? from : to + 1;
+        moved = true;
+        return;
+      }
       if (pos < from || pos >= to) return;
       const lineStart = doc.lineAt(from).from;
       if (direction < 0 && from > lineStart) {
@@ -1663,7 +1713,7 @@ const nudgeSelection = EditorState.transactionFilter.of((tr) => {
 });
 
 export function livePreview(): Extension {
-  return [vimModeState(), folds, live, nudgeSelection];
+  return [vimModeState(), folds, live, foldClicks, nudgeSelection];
 }
 
 /**
@@ -1678,5 +1728,5 @@ export function livePreview(): Extension {
  * preview opens and shuts by click as it does in the editor.
  */
 export function renderedMarkdown(): Extension {
-  return [vimModeField, folds, live];
+  return [vimModeField, folds, live, foldClicks];
 }

@@ -210,17 +210,23 @@ function block(node: SyntaxNode, source: string, format: Format): string {
  * draws a callout, and `[!warning]-` pasted as it stands reads as noise.
  */
 function callout(node: SyntaxNode, source: string, format: Format): string | null {
-  let first = node.firstChild;
+  const mark = node.firstChild;
+  let first = mark;
   while (first && MARKS.has(first.name)) first = first.nextSibling;
-  if (first?.name !== "Paragraph") return null;
+  if (!mark || first?.name !== "Paragraph") return null;
+  // The header must sit on the quote's own first line, as the editor reads
+  // it: a paragraph that starts lower down, under a bare `>`, opens nothing.
+  if (source.slice(mark.to, first.from).trim() !== "") return null;
   const newline = source.indexOf("\n", first.from);
   const lineEnd = newline === -1 || newline > first.to ? first.to : newline;
   const header = parseCallout(source.slice(first.from, lineEnd));
   if (!header) return null;
 
-  // The title goes out as written: bold markup inside it would close Slack's
-  // own bold early.
-  const title = prose(header.title, format);
+  let title = header.titled
+    ? inline(first, source, format, first.from + header.length, lineEnd).trim()
+    : prose(header.title, format);
+  // Slack's bold cannot hold a bold of its own: the inner `*` would close it.
+  if (format === "slack") title = title.replace(/\*/g, "");
   const parts: string[] = [];
   // The paragraph runs on past the header when the body follows on the next line.
   if (lineEnd < first.to) {

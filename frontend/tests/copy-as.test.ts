@@ -104,6 +104,18 @@ describe("a callout", () => {
     );
   });
 
+  it("renders a callout title's wikilink and emphasis as the chat's own", () => {
+    const note = "> [!note] See [[Other|alias]] **now**\n> body";
+    expect(toSlack(note)).toBe("> *See alias now*\n> body");
+    expect(toHtml(note)).toBe(
+      "<blockquote><p><strong>See alias <strong>now</strong></strong></p><p>body</p></blockquote>",
+    );
+  });
+
+  it("reads a callout only off the quote's first line", () => {
+    expect(toSlack(">\n> [!note] T\n> body")).not.toContain("*T*");
+  });
+
   it("leaves a quote that opens no callout as it is", () => {
     expect(toSlack("> plain\n>\n> two")).toBe("> plain\n> \n> two");
     expect(toHtml("> one")).toBe("<blockquote><p>one</p></blockquote>");

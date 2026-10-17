@@ -58,9 +58,14 @@ stands for. A type not in this table is still a callout, drawn as a note.
 ## Folding
 
 A callout with a fold sign draws an arrow beside its title. A click or a tap
-on the arrow folds or unfolds the box. The fold lives on the screen alone: it
-leaves the file as it is, and the sign you wrote decides how the callout
-starts the next time the note opens.
+on the arrow or the title folds or unfolds the box, and leaves the cursor
+where it was. The fold lives on the screen alone: it leaves the file as it is,
+and the sign you wrote decides how the callout starts the next time the note
+opens.
+
+The cursor never rests in a shut body. A move down from the title lands on
+the line under the box; a move up from below lands at the end of the title.
+The search pane draws a shut callout open when the hit is inside it.
 
 ## Nesting
 
