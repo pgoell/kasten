@@ -17,6 +17,8 @@ import { parseCallout } from "@/lib/callout";
 import { readClock } from "@/lib/clock";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths, imageSource } from "@/lib/image";
+import { loadKatex } from "@/lib/math";
+import { type Drawing, drawMermaid, drawnMermaid } from "@/lib/mermaid";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
 import { encodePath } from "@/lib/note-path";
@@ -292,6 +294,55 @@ class Ruby extends WidgetType {
     const reading = ruby.appendChild(document.createElement("rt"));
     reading.textContent = this.reading;
     return ruby;
+  }
+}
+
+/**
+ * A formula, `$x$` inline or `$$x$$` as a block, drawn by KaTeX.
+ *
+ * The source stands in the box until KaTeX lands, and a formula KaTeX cannot
+ * read stays its source in the warning colour, the parse error on hover,
+ * rather than a blank. KaTeX draws the rest in whatever colour it sits in.
+ * The box changes size when the drawing lands, so it asks for a measure the
+ * way a picture does.
+ */
+class Formula extends WidgetType {
+  private readonly source: string;
+  private readonly display: boolean;
+
+  constructor(source: string, display: boolean) {
+    super();
+    this.source = source;
+    this.display = display;
+  }
+
+  override eq(other: Formula): boolean {
+    return other.source === this.source && other.display === this.display;
+  }
+
+  /**
+   * A click puts the cursor in the formula, which is what shows the source,
+   * as it does in a table. Inline, with vim on, it puts the cursor beside it.
+   */
+  override ignoreEvent(): boolean {
+    return false;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    // A block's space above and below is padding on the box, for the reason
+    // the table's is.
+    const box = document.createElement(this.display ? "div" : "span");
+    box.className = this.display ? "cm-math-block" : "cm-math";
+    box.textContent = this.source;
+    void loadKatex().then((katex) => {
+      katex.render(this.source, box, {
+        displayMode: this.display,
+        throwOnError: false,
+        errorColor: "var(--color-one-warn)",
+      });
+      view.requestMeasure();
+    });
+    return box;
   }
 }
 
@@ -646,6 +697,64 @@ class TableGrid extends WidgetType {
     });
     return block;
   }
+}
+
+/**
+ * A ```` ```mermaid ```` block, drawn as its diagram.
+ *
+ * Shown as its source while the cursor is in it, by the rule a table follows,
+ * and a click puts the cursor there for the reason it does on a table. A
+ * diagram mermaid cannot read shows the message and the source rather than a
+ * blank, so a typo is something you can see and fix.
+ */
+class MermaidBlock extends WidgetType {
+  private readonly source: string;
+
+  constructor(source: string) {
+    super();
+    this.source = source;
+  }
+
+  override eq(other: MermaidBlock): boolean {
+    return other.source === this.source;
+  }
+
+  override ignoreEvent(): boolean {
+    return false;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    // Padding on a wrapper rather than a margin, for the reason `TableGrid`
+    // gives.
+    const block = document.createElement("div");
+    block.className = "cm-mermaid-block";
+    const known = drawnMermaid(this.source);
+    if (known !== undefined) {
+      fillDiagram(block, known, this.source);
+      return block;
+    }
+    // The svg lands after CodeMirror has measured the empty box, so the
+    // measurement is asked for again, as a picture's load does.
+    void drawMermaid(this.source).then((drawing) => {
+      fillDiagram(block, drawing, this.source);
+      view.requestMeasure();
+    });
+    return block;
+  }
+}
+
+function fillDiagram(block: HTMLElement, drawing: Drawing, source: string): void {
+  if ("svg" in drawing) {
+    // Sanitised by mermaid at its strict level, see `mermaid.ts`.
+    block.innerHTML = drawing.svg;
+    return;
+  }
+  const message = block.appendChild(document.createElement("div"));
+  message.className = "cm-mermaid-error";
+  message.textContent = drawing.error;
+  const code = block.appendChild(document.createElement("pre"));
+  code.className = "cm-mermaid-source";
+  code.textContent = source;
 }
 
 /** What a construct inside a cell shows and the class it wears, or null. */
@@ -1024,6 +1133,8 @@ function build(state: EditorState): Live {
       const isTag = node.name === "Tag";
       const isEmbed = node.name === "Embed";
       const isEscape = node.name === "Escape";
+      const isInlineMath = node.name === "InlineMath";
+      const isBlockMath = node.name === "BlockMath";
       const isRuby =
         node.name === "HTMLTag" && state.doc.sliceString(node.from, node.to) === "<ruby>";
       if (
@@ -1040,7 +1151,9 @@ function build(state: EditorState): Live {
         !isRule &&
         !isImage &&
         !isTable &&
-        !isTag
+        !isTag &&
+        !isInlineMath &&
+        !isBlockMath
       ) {
         return;
       }
@@ -1136,6 +1249,27 @@ function build(state: EditorState): Live {
       // itself is left alone, whichever parser the language named having
       // already highlighted it.
       if (isFence) {
+        // A diagram goes by the table's rule, and for its reasons: see there.
+        const info = node.node.getChild("CodeInfo");
+        const code = node.node.getChild("CodeText");
+        const isMermaid =
+          info !== null &&
+          code !== null &&
+          state.doc.sliceString(info.from, info.to).toLowerCase() === "mermaid";
+        if (isMermaid) {
+          const inside =
+            !state.readOnly &&
+            state.selection.ranges.some((range) => range.from <= node.to && range.to >= node.from);
+          const whole =
+            node.from === state.doc.lineAt(node.from).from &&
+            node.to === state.doc.lineAt(node.to).to;
+          if (!inside && whole) {
+            const widget = new MermaidBlock(state.doc.sliceString(code.from, code.to));
+            decorations.push(Decoration.replace({ widget, block: true }).range(node.from, node.to));
+            drawn = node.to;
+            return false;
+          }
+        }
         const first = state.doc.lineAt(node.from).number;
         const last = state.doc.lineAt(node.to).number;
         // The cursor anywhere in the block hands the fences back, and a fence
@@ -1228,6 +1362,25 @@ function build(state: EditorState): Live {
           const edge = number === first.number ? " cm-table-head" : "";
           decorations.push(Decoration.line({ class: `cm-table${edge}` }).range(at));
         }
+        return;
+      }
+
+      // A `$$` block, by the table's rule and for the table's reasons: one
+      // widget stands for its lines, `j` and `k` step over it, and the cursor
+      // in it in any mode shows the source. A read-only view draws it.
+      if (isBlockMath) {
+        const first = state.doc.lineAt(node.from);
+        const end = state.doc.lineAt(node.to).to;
+        const inside =
+          !state.readOnly &&
+          state.selection.ranges.some((range) => range.from <= end && range.to >= node.from);
+        if (!inside && node.from === first.from) {
+          const source = state.doc.sliceString(node.from + 2, node.to - 2).trim();
+          const widget = new Formula(source, true);
+          decorations.push(Decoration.replace({ widget, block: true }).range(node.from, end));
+          return false;
+        }
+        // On to the `>` of a block in a quote, which shows its source.
         return;
       }
 
@@ -1442,6 +1595,16 @@ function build(state: EditorState): Live {
       // a line construct, whose mark sits at the head of the line and whose two
       // rules therefore say the same thing.
       const inlineRevealed = isNodeRevealed(state, node.from, node.to) || node.from < tableEnd;
+
+      // Drawn in place of `$x$` and hidden as an image is, so the cursor in
+      // normal mode steps over the formula rather than onto a hidden `$`.
+      if (isInlineMath) {
+        if (inlineRevealed) return false;
+        const widget = new Formula(state.doc.sliceString(node.from + 1, node.to - 1), false);
+        decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
+        hidden.push(HIDDEN.range(node.from, node.to));
+        return false;
+      }
 
       if (isLink) {
         // `- [/] task` parses its box as a link, brackets and all. The bullet

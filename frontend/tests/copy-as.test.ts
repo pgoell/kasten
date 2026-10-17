@@ -246,3 +246,18 @@ describe("a wikilink's alias and heading", () => {
     }
   });
 });
+
+describe("math", () => {
+  it("A9 keeps inline math as its source, its stars no emphasis", () => {
+    expect(toSlack("so $a*b*c$ holds")).toBe("so `$a*b*c$` holds");
+    expect(toHtml("so $a<b*c*$ holds")).toBe("<p>so <code>$a&lt;b*c*$</code> holds</p>");
+  });
+
+  it("A9 keeps a math block as its source", () => {
+    const note = "before\n\n$$\na_1 * b_2 * c\n$$\n\nafter";
+    expect(toSlack(note)).toBe("before\n\n```\n$$\na_1 * b_2 * c\n$$\n```\n\nafter");
+    expect(toHtml(note)).toBe(
+      "<p>before</p><pre><code>$$\na_1 * b_2 * c\n$$</code></pre><p>after</p>",
+    );
+  });
+});
