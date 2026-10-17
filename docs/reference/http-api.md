@@ -392,6 +392,48 @@ to find where. `archive` works as it does on a search. The cap is the list the
 pane shows: nothing ranks it afterwards, and a title like `Week` can be named
 on most lines of a large vault.
 
+## GET /api/history
+
+Lists the jj changes that touched one note, newest first. Takes `path`, the
+note's vault path, which need not exist now. A path the vault would not take
+is a `404`.
+
+```json
+{ "versioned": true, "changes": [{ "commit": "3c7719c83cbe41108baa7c74f7ba464c69df1d02", "change": "kvlnznonukvs", "time": "2026-10-17T17:40:13+02:00", "description": "vault: reading/borges.md", "path": "reading/borges.md" }] }
+```
+
+`commit` is the 40-digit commit id, `change` the short change id `jj log`
+shows, `time` the committer timestamp with its offset, and `description` the
+first line of the change's description.
+
+The list follows the note through moves. Where a change renamed it from another
+path, the older changes are those that touched that path, and `path` says
+where the note was in each. jj names a rename only when the content stayed
+close, so a change that added the note and removed exactly one other note, and
+nothing else, counts as a rename too. A rename out of `.trash`, which a restore is, is
+not followed. The walk stops after 20 renames.
+
+The working-copy change is listed like any other, as of the last snapshot,
+which every save takes. No call here snapshots or writes to the repo: each
+passes `--ignore-working-copy`.
+
+A vault that is not a jj repo, or a box with no jj, answers
+`{ "versioned": false, "changes": [] }`. A jj that fails or runs over ten
+seconds is a `503`.
+
+## GET /api/history/version
+
+Reads one note's full text at one change. Takes `path`, the path that change
+lists, and `commit`, its commit id.
+
+```json
+{ "content": "# Borges\n" }
+```
+
+A `commit` that is not 40 lowercase hex digits is a `422`. A commit jj does
+not know, or a note that is not at that path in it, is a `404`, and so is a
+path the vault would not take. A jj that fails or runs too long is a `503`.
+
 ## GET /api/tags
 
 Lists every tag written anywhere in the vault, once each, sorted.

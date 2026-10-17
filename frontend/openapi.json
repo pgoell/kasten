@@ -951,6 +951,96 @@
         }
       }
     },
+    "/api/history": {
+      "get": {
+        "summary": "Read History",
+        "description": "List the jj changes that touched a note, newest first, following it through moves.\n\nA vault that is not a repo, or a box without jj, answers `versioned: false`\nrather than an error, the history being a thing the vault may not keep.",
+        "operationId": "read_history_api_history_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/History"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/history/version": {
+      "get": {
+        "summary": "Read History Version",
+        "description": "Read a note's text at one of the changes `/api/history` listed.\n\n`path` is the one that change lists, which is not the note's path now when\na move came after it. The pattern on `commit` is what keeps anything but a\ncommit id out of the revset.",
+        "operationId": "read_history_version_api_history_version_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          },
+          {
+            "name": "commit",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$",
+              "title": "Commit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Version"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/todos": {
       "get": {
         "summary": "List Todos",
@@ -2310,6 +2400,62 @@
         "title": "Health",
         "description": "Liveness response."
       },
+      "History": {
+        "properties": {
+          "versioned": {
+            "type": "boolean",
+            "title": "Versioned"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "versioned",
+          "changes"
+        ],
+        "title": "History",
+        "description": "A note's changes, newest first, and whether the vault keeps any at all."
+      },
+      "HistoryChange": {
+        "properties": {
+          "commit": {
+            "type": "string",
+            "title": "Commit"
+          },
+          "change": {
+            "type": "string",
+            "title": "Change"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "commit",
+          "change",
+          "time",
+          "description",
+          "path"
+        ],
+        "title": "HistoryChange",
+        "description": "One jj change that touched a note."
+      },
       "Hit": {
         "properties": {
           "path": {
@@ -2772,6 +2918,20 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "Version": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "Version",
+        "description": "A note's full text at one change."
       }
     }
   }
