@@ -605,23 +605,41 @@ describe("the board by mouse (#419)", () => {
     for (const name of ["board", "done", "next", "view"]) fireEvent.click(button(name));
   }
 
+  /**
+   * The views read and walked back round to none. The vault is only asked at
+   * the first `view`, so without this a stray tap would change nothing until
+   * the answer came, and a check right after it would pass either way.
+   */
+  async function viewsInHand(pane: ReturnType<typeof renderPane>) {
+    fireEvent.click(button("view"));
+    await waitFor(() => expect(pane.filter().value).toBe("due:today"));
+    for (let left = 0; left < 3; left++) fireEvent.click(button("view"));
+    expect(pane.filter().value).toBe("");
+  }
+
+  /** What tapStrip must not have changed, the list's own state and the view. */
+  function stripUnmoved(pane: ReturnType<typeof renderPane>) {
+    expect(pane.cards()).toHaveLength(0);
+    expect(button("done").getAttribute("aria-pressed")).toBe("false");
+    expect(button("next").getAttribute("aria-pressed")).toBe("false");
+    expect(pane.filter().value).toBe("");
+    expect(screen.queryByTestId("todo-view")).toBeNull();
+  }
+
   it("#421 A1 I4 a tap on the strip while a row is edited leaves the edit be, vim on", async () => {
     toggleVim();
     toggleVim();
     expect(localStorage.getItem("kasten.vim")).toBe("on");
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await listPane();
+    await viewsInHand(pane);
     fireEvent.click(screen.getByLabelText("more for fix the tap"));
     fireEvent.click(screen.getByLabelText("edit fix the tap"));
     expect(screen.getByLabelText("edit line")).not.toBeNull();
 
     tapStrip();
 
-    expect(pane.cards()).toHaveLength(0);
-    expect(button("done").getAttribute("aria-pressed")).toBe("false");
-    // `view` would have put a view's terms in the filter and named it.
-    expect(pane.filter().value).toBe("");
-    expect(screen.queryByTestId("todo-view")).toBeNull();
+    stripUnmoved(pane);
     expect(screen.getByLabelText("edit line")).not.toBeNull();
   });
 
@@ -630,15 +648,14 @@ describe("the board by mouse (#419)", () => {
     expect(localStorage.getItem("kasten.vim")).toBe("off");
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await listPane();
+    await viewsInHand(pane);
     fireEvent.click(screen.getByLabelText("more for fix the tap"));
     fireEvent.click(screen.getByLabelText("blocked by fix the tap"));
     expect(screen.getByTestId("todo-pick")).not.toBeNull();
 
     tapStrip();
 
-    expect(pane.cards()).toHaveLength(0);
-    expect(button("done").getAttribute("aria-pressed")).toBe("false");
-    expect(pane.filter().value).toBe("");
+    stripUnmoved(pane);
     expect(screen.getByTestId("todo-pick")).not.toBeNull();
   });
 
@@ -652,9 +669,19 @@ describe("the board by mouse (#419)", () => {
 
     fireEvent.click(button("board"));
     expect(pane.cards().length).toBeGreaterThan(0);
-    // The same tap A1 makes, so it shows `view` there had something to do.
-    fireEvent.click(button("view"));
-    await waitFor(() => expect(pane.filter().value).not.toBe(""));
+  });
+
+  it("#421 I1 once the edit is written with Enter a tap on the strip works again", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await listPane();
+    fireEvent.click(screen.getByLabelText("more for fix the tap"));
+    fireEvent.click(screen.getByLabelText("edit fix the tap"));
+    fireEvent.keyDown(screen.getByLabelText("edit line"), { key: "Enter" });
+    expect(pane.onEdit).toHaveBeenCalledWith(TAP, TAP?.text);
+    expect(screen.queryByLabelText("edit line")).toBeNull();
+
+    fireEvent.click(button("board"));
+    expect(pane.cards().length).toBeGreaterThan(0);
   });
 
   it("#421 I2 once the picker is cancelled a tap on the strip works again", async () => {
