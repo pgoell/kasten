@@ -11,10 +11,8 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
-// For its types alone: the provider is what gives `cdp()` a typed `send`.
-import type {} from "@vitest/browser-playwright";
 import { createRoot, type Root } from "react-dom/client";
-import { cdp, page, userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { NotePreview } from "@/components/note-preview";
 import { imagePaths } from "@/lib/image";
 import { livePreview, renderedMarkdown } from "@/lib/live-preview";
@@ -23,6 +21,7 @@ import { noteLanguage } from "@/lib/note-language";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
+import { shot } from "./shots";
 
 let view: EditorView | undefined;
 let root: Root | undefined;
@@ -232,6 +231,22 @@ it("I7 measures the note again when the svg lands, so no line sits under it", as
     .toBeLessThan(2);
 });
 
+it("S1 a screenshot comes out as wide as the viewport asks, at desktop and at phone width", async () => {
+  host = document.body.appendChild(document.createElement("div"));
+  host.style.cssText = "width: 100%; height: 40px; background: #282c34;";
+  const widths: number[] = [];
+  // In a `finally`, so a failed width does not leave its viewport to the cases after it.
+  try {
+    for (const width of [1200, 390]) {
+      await page.viewport(width, 680);
+      widths.push(await shot(host, `viewport-${width}`));
+    }
+  } finally {
+    await page.viewport(414, 896);
+  }
+  expect(widths).toEqual([1200, 390]);
+});
+
 it.runIf(import.meta.env.VITE_KASTEN_SHOTS)("takes screenshots of diagrams and math", async () => {
   const doc = [
     "# Diagrams and math",
@@ -254,32 +269,24 @@ it.runIf(import.meta.env.VITE_KASTEN_SHOTS)("takes screenshots of diagrams and m
     "",
     "A price line: $5 and $6.",
   ].join("\n");
-  // Under the test file, which vite's `server.fs` lets the browser write to,
-  // and in a folder git ignores.
-  const dir = "../../node_modules/.cache/kasten-shots";
-  // The runner shrinks the test's frame to fit the box it sits in, and a
-  // screenshot comes out at the shrunk size. A window this large holds both.
-  await cdp().send("Emulation.setDeviceMetricsOverride", {
-    width: 1600,
-    height: 1400,
-    deviceScaleFactor: 1,
-    mobile: false,
-  });
-  for (const [name, width] of [
-    ["desktop", 1200],
-    ["phone", 390],
-  ] as const) {
-    await page.viewport(width, 680);
-    // Wrapped, as the editor and the panes are, or the longest line sets the
-    // width and a phone shows the left of it.
-    const at = mount(doc, false, 0, [EditorView.lineWrapping]);
-    at.dom.style.background = "#282c34";
-    await expect.poll(() => at.dom.querySelectorAll(".cm-mermaid-block svg").length).toBe(1);
-    await expect.poll(() => at.dom.querySelectorAll(".cm-mermaid-error").length).toBe(1);
-    await page.screenshot({ path: `${dir}/mermaid-math-${name}.png`, element: at.dom });
-    at.dom.parentElement?.remove();
-    at.destroy();
-    view = undefined;
+  try {
+    for (const [name, width] of [
+      ["desktop", 1200],
+      ["phone", 390],
+    ] as const) {
+      await page.viewport(width, 680);
+      // Wrapped, as the editor and the panes are, or the longest line sets the
+      // width and a phone shows the left of it.
+      const at = mount(doc, false, 0, [EditorView.lineWrapping]);
+      at.dom.style.background = "#282c34";
+      await expect.poll(() => at.dom.querySelectorAll(".cm-mermaid-block svg").length).toBe(1);
+      await expect.poll(() => at.dom.querySelectorAll(".cm-mermaid-error").length).toBe(1);
+      expect(await shot(at.dom, `mermaid-math-${name}`)).toBe(width);
+      at.dom.parentElement?.remove();
+      at.destroy();
+      view = undefined;
+    }
+  } finally {
+    await page.viewport(414, 896);
   }
-  await cdp().send("Emulation.clearDeviceMetricsOverride");
 });

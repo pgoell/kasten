@@ -489,12 +489,24 @@ interface BookPaneProps {
  * `!important` so the book's normal rules lose at any specificity, and
  * `:not(#\#)`, which matches every element, adds an id's weight so a book's
  * own `!important` on a class loses as well. Backgrounds go transparent rather
- * than dark, so an image still shows and the page below stays the one colour.
+ * than dark, so the page below stays the one colour.
  *
  * A `<mark>` keeps the browser's black on yellow, which reads on any page and
- * is the point of the element. Leaving it out costs the rule above the link
- * rule's extra weight, so the two now tie and the link rule wins by coming
- * last.
+ * is the point of the element. Leaving it out weighs the rule above at an id
+ * and three types, which the link rule's `:any-link` outweighs by a class.
+ * Only an `a` with an `href` is a link: an `<a id>` round a heading is a place
+ * to jump to, and its text stays the theme's (#470).
+ *
+ * Images, svg and objects get a white page of their own (#469). The book often
+ * puts its white on the block round the art, a figure or a div, and that block
+ * went transparent with the rest, which leaves black line art on a transparent
+ * png drawn on the dark page. Text keeps the theme's colours either way, and an
+ * opaque photo covers its white. An inline svg is drawn as it was on the
+ * book's page, in black on that white: its `<text>` fills black whatever the
+ * colour says (#471), and its `currentColor` shapes take the `color: #000`
+ * here, where the theme's pale text would vanish on the white. The last two
+ * rules add a second `:not(#\#)` so they outweigh the text rule and the link
+ * rule, which an svg inside a link would otherwise take.
  */
 function pageStyles(): string {
   const style = getComputedStyle(document.documentElement);
@@ -504,7 +516,9 @@ function pageStyles(): string {
   return [
     `html:not(#\\#), html:not(#\\#) body { background: ${read("--color-one-bg")} !important; color: ${fg} !important; }`,
     `body:not(#\\#) :not(mark, mark *) { color: ${fg} !important; background-color: transparent !important; }`,
-    `body:not(#\\#) :is(a, a *) { color: ${read("--color-one-accent")} !important; }`,
+    `body:not(#\\#) :is(a:any-link, a:any-link *) { color: ${read("--color-one-accent")} !important; }`,
+    `body:not(#\\#) :is(img, svg, picture, object):not(#\\#) { background-color: #fff !important; }`,
+    `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
   ].join("\n");
 }
 

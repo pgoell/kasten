@@ -8,10 +8,8 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-// For its types alone: the provider is what gives `cdp()` a typed `send`.
-import type {} from "@vitest/browser-playwright";
 import { createRoot, type Root } from "react-dom/client";
-import { cdp, page, userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 // Three chapters and a nav holding three entries, the third nested under the
 // second, for the cases that walk a real list of chapters.
@@ -21,14 +19,22 @@ import contentsUrl from "../fixtures/contents.epub?url";
 // `p { color: #000 }`, `h1 { color: #c00 }`, `.box { color: #222; background:
 // #fafafa }`, `.ink { color: #333 }`, `.item` and `.deep` at `#222`, `.cell`
 // at `#222` on `#eee`, `.strong { color: #111 !important }` and
-// `a.link { color: #00c }`. The markup puts `.box` on a div around a
-// paragraph, `.ink` on a span, `.item` on a list item, `.cell` on a table
-// cell, `.strong` on a paragraph, `.link` on a link holding a `.deep` span,
-// and adds an `img` of a 64 pixel svg square. Chapter one also holds a
+// `a.link { color: #00c }` and `figure { background: #fff }`. The markup puts
+// `.box` on a div around a paragraph, `.ink` on a span, `.item` on a list
+// item, `.cell` on a table cell, `.strong` on a paragraph, `.link` on a link
+// holding a `.deep` span, and adds an `img` of a 64 pixel svg square. After it
+// come the shapes #469 to #471 are about: a figure holding `art.png`, black
+// lines on a transparent background, over a caption; the same png inside a
+// real link; an anchor with no `href` round an h2's text and a span; an inline
+// svg holding a default-fill `<text>` and a `currentColor` rect; an `object`
+// of the svg square; and a `picture` holding the png. Chapter one also holds a
 // `<mark>` the stylesheet says nothing about. Each element carries an id the
 // stylesheet never names (`#heading`, `#box`, `#ink`, `#item`, `#cell`,
-// `#strong`, `#link`, `#deep`, `#pic`, `#mark`), there only for the tests to
-// find it. Chapter one is short enough that a turn or two reaches chapter two.
+// `#strong`, `#link`, `#deep`, `#pic`, `#figure`, `#art`, `#caption`,
+// `#realpic`, `#linkpic`, `#anchored`, `#chap1`, `#anchorspan`, `#svg`,
+// `#svgtext`, `#svgrect`, `#obj`, `#picture`, `#mark`), there only for the
+// tests to find it. Chapter one is short enough that a turn or two reaches
+// chapter two.
 import darkUrl from "../fixtures/dark-text.epub?url";
 // Two chapters, no nav document and no ncx, so `book.toc` is undefined: this is
 // the fixture for a book whose publisher wrote no contents. Nothing else records
@@ -36,6 +42,7 @@ import darkUrl from "../fixtures/dark-text.epub?url";
 import plainUrl from "../fixtures/plain.epub?url";
 import { COARSE, stubMatchMedia } from "../match-media";
 import { stubCommands } from "../stub-commands";
+import { shot } from "./shots";
 // The app's own stylesheet, because the pane is sized by Tailwind's `h-full`
 // and a wrapper of no height is a pane Playwright refuses to click and a
 // paginator with nothing to columnise into.
@@ -224,15 +231,36 @@ function themeColour(name: string): string {
 }
 
 /** One property of one element of a chapter, as the chapter computes it. */
-function computed(doc: Document, selector: string, property: "color" | "backgroundColor"): string {
+function computed(
+  doc: Document,
+  selector: string,
+  property: "color" | "backgroundColor" | "fill",
+): string {
   const element = doc.querySelector(selector);
   if (!element) throw new Error(`nothing at ${selector} inside the book`);
   return (doc.defaultView as Window).getComputedStyle(element)[property];
 }
 
 /** Every element of `dark-text.epub` that holds text, by the colour it should take. */
-const TEXT = ["#heading", "#plain", "#box", "#box p", "#ink", "#item", "#cell", "#strong"];
-const LINKS = ["#link", "#deep"];
+const TEXT = [
+  "#heading",
+  "#plain",
+  "#box",
+  "#box p",
+  "#ink",
+  "#item",
+  "#cell",
+  "#strong",
+  "#caption",
+  "#anchored",
+  "#chap1",
+  "#anchorspan",
+];
+const LINKS = ["#link", "#deep", "#realpic"];
+/** The images and the svg, each drawn on a white page of its own. */
+const WHITE = ["#pic", "#art", "#linkpic", "#svg", "#obj", "#picture", "#picture img"];
+/** The svg's shapes, in the black a white page gives them. */
+const INK = ["#svgtext", "#svgrect"];
 
 /** What every chapter of `dark-text.epub` should look like on the dark page. */
 function expectThemed(doc: Document): void {
@@ -241,7 +269,12 @@ function expectThemed(doc: Document): void {
   const bg = themeColour("--color-one-bg");
   for (const selector of TEXT) expect(computed(doc, selector, "color"), selector).toBe(fg);
   for (const selector of LINKS) expect(computed(doc, selector, "color"), selector).toBe(accent);
+  for (const selector of WHITE)
+    expect(computed(doc, selector, "backgroundColor"), selector).toBe("rgb(255, 255, 255)");
+  for (const selector of INK)
+    expect(computed(doc, selector, "fill"), selector).toBe("rgb(0, 0, 0)");
   expect(computed(doc, "#box", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+  expect(computed(doc, "#figure", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
   expect(computed(doc, "body", "backgroundColor")).toBe(bg);
 }
 
@@ -691,6 +724,66 @@ describe("the reader over a real book", () => {
     expect(computed(doc, "#mark", "color")).toBe("rgb(0, 0, 0)");
   }, 30_000);
 
+  it("draws black line art on a transparent png on a white page of its own", async () => {
+    // The book's white sits on the figure, and the figure goes transparent with
+    // every other block, so the white has to come back on the image (#469).
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#art", "backgroundColor")).toBe("rgb(255, 255, 255)");
+  }, 30_000);
+
+  it("drops the white the book puts behind a figure, and keeps the text around it in the theme's", async () => {
+    const { doc } = await drawDark();
+    const fg = themeColour("--color-one-fg");
+
+    expect(computed(doc, "#figure", "backgroundColor")).toBe("rgba(0, 0, 0, 0)");
+    expect(computed(doc, "#caption", "color")).toBe(fg);
+    expect(computed(doc, "#plain", "color")).toBe(fg);
+  }, 30_000);
+
+  it("paints a heading inside an anchor with no href in the theme's text", async () => {
+    // An `<a id>` is a place to jump to and not a link, so it takes no accent (#470).
+    const { doc } = await drawDark();
+    const fg = themeColour("--color-one-fg");
+
+    for (const selector of ["#anchored", "#chap1"])
+      expect(computed(doc, selector, "color"), selector).toBe(fg);
+  }, 30_000);
+
+  it("paints a span inside an anchor with no href in the theme's text", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#anchorspan", "color")).toBe(themeColour("--color-one-fg"));
+  }, 30_000);
+
+  it("draws an inline svg on white, with its text in black", async () => {
+    // An svg's text fills black whatever the colour, so on the dark page it
+    // needs the white page it was drawn for (#471).
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#svg", "backgroundColor")).toBe("rgb(255, 255, 255)");
+    expect(computed(doc, "#svgtext", "fill")).toBe("rgb(0, 0, 0)");
+  }, 30_000);
+
+  it("fills an svg shape drawn in currentColor in black", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#svgrect", "fill")).toBe("rgb(0, 0, 0)");
+  }, 30_000);
+
+  it("keeps the white page under an image inside a link", async () => {
+    const { doc } = await drawDark();
+
+    expect(computed(doc, "#linkpic", "backgroundColor")).toBe("rgb(255, 255, 255)");
+  }, 30_000);
+
+  it("draws an object and a picture on white", async () => {
+    const { doc } = await drawDark();
+
+    for (const selector of ["#obj", "#picture", "#picture img"])
+      expect(computed(doc, selector, "backgroundColor"), selector).toBe("rgb(255, 255, 255)");
+  }, 30_000);
+
   it("keeps the theme's colours in the next chapter, after a turn", async () => {
     const { container } = await drawDark();
     const view = container.querySelector("foliate-view") as HTMLElement & {
@@ -712,17 +805,6 @@ describe("the reader over a real book", () => {
 
   it("keeps the theme's colours at phone and at desktop width", async () => {
     const { doc, container } = await drawDark();
-    // Under the test file, which vite's `server.fs` lets the browser write to,
-    // and in a folder git ignores.
-    const dir = "../../node_modules/.cache/kasten-shots";
-    // The runner shrinks the test's frame to fit the box it sits in, and a
-    // screenshot comes out at the shrunk size. A window this large holds both.
-    await cdp().send("Emulation.setDeviceMetricsOverride", {
-      width: 1600,
-      height: 1400,
-      deviceScaleFactor: 1,
-      mobile: false,
-    });
     // In a `finally`, so a failed width does not leave its window to the
     // cases after it.
     try {
@@ -735,14 +817,14 @@ describe("the reader over a real book", () => {
         await drawn();
 
         expectThemed(doc);
-        if (import.meta.env.VITE_KASTEN_SHOTS)
-          await page.screenshot({
-            path: `${dir}/book-dark-${name}.png`,
-            element: container.querySelector("[data-book-pane]") as HTMLElement,
-          });
+        expect(
+          await shot(
+            container.querySelector("[data-book-pane]") as HTMLElement,
+            `book-dark-${name}`,
+          ),
+        ).toBe(width);
       }
     } finally {
-      await cdp().send("Emulation.clearDeviceMetricsOverride");
       await page.viewport(414, 896);
     }
   }, 30_000);
