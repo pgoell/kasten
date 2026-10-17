@@ -33,6 +33,7 @@ export function stubCommands() {
     openYearly: vi.fn(),
     openBook: vi.fn(),
     openPerson: vi.fn(),
+    openHistory: vi.fn(),
     openGraph: vi.fn(),
     openLocalGraph: vi.fn(),
     openVideo: vi.fn(),

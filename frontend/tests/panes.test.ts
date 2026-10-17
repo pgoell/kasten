@@ -14,6 +14,7 @@ import {
   openChatInFocused,
   openGraphBeside,
   openGraphInFocused,
+  openHistoryBeside,
   openImageInFocused,
   openInFocused,
   openPdfBeside,
@@ -600,6 +601,30 @@ describe("a person's card in a pane beside their note", () => {
 
     expect(tabPanes(twice)).toHaveLength(2);
     expect(focusedPane(twice).id).toBe(card);
+  });
+});
+
+describe("a note's history in a pane beside it", () => {
+  const NOTE = "notes/plan.md";
+
+  it("#425 A1 splits the focused pane and puts the history beside the note, focused", () => {
+    const layout = openHistoryBeside(emptyLayout(NOTE), NOTE);
+
+    expect(tabPanes(layout).map((pane) => pane.path ?? null)).toEqual([NOTE, null]);
+    expect(tabPanes(layout).map((pane) => pane.history ?? null)).toEqual([null, NOTE]);
+    expect(focusedPane(layout).history).toBe(NOTE);
+    const root = activeTab(layout).root;
+    expect(isSplit(root) && root.dir).toBe("row");
+  });
+
+  it("#425 A1 goes to the pane already showing that note's history rather than making a second", () => {
+    const once = openHistoryBeside(emptyLayout(NOTE), NOTE);
+    const pane = focusedPane(once).id;
+
+    const twice = openHistoryBeside(nextPane(once), NOTE);
+
+    expect(tabPanes(twice)).toHaveLength(2);
+    expect(focusedPane(twice).id).toBe(pane);
   });
 });
 

@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Recover an earlier version of a note
-description: Read back or restore a note as it was before a save overwrote it.
+description: Read back or restore a note as it was before a save overwrote it, from the history pane or with jj.
 tags: [vault, jj, history, recovery]
 status: stable
 ---
@@ -14,6 +14,36 @@ Every save writes over what was there. The vault is a
 This assumes the vault has a history. If `vault/.jj` is missing it does not,
 and there is nothing to recover; see [Give the vault a
 history](#give-the-vault-a-history) at the end.
+
+## From the history pane
+
+1. Open the note, and press `<leader>gh`. On a phone, tap `run` and pick
+   **Show this note's history beside it**.
+2. The pane opens beside the note and lists its changes, newest first, each
+   with its time and description. A change from before the note moved shows
+   its old path under it.
+3. The newest change is picked, and its text shows against the note as it is
+   now: a `-` line is one the restore takes away, a `+` line one it brings
+   back. Move with `j` and `k` or the arrows and press `Enter`, or click or tap
+   a change, to pick another.
+4. Press `Ctrl+Enter`, or tap **Restore**, to write the picked change over the
+   note.
+
+The restore is a save like any other, so it becomes a change of its own at the
+top of the list, and restoring the change under it undoes it. Kasten refuses
+it, and says why in the line under the diff, when:
+
+* the note's own pane has the focus, or a save of the note is still in the air,
+  which includes the save of what you typed just before you pressed `gh`;
+* the note holds text a failed save left, listed on the status bar;
+* somebody wrote the note after the diff was drawn. The pane reads the note
+  again, so press `Ctrl+Enter` once more if the new diff is still what you want.
+
+A change whose text is the note as it is now cannot be restored, and the line
+says so. `Escape` or `q` closes the pane. Every key is in
+[Editor keys](/reference/editor-keys.md#the-history-pane).
+
+The rest of this page does the same with jj on the server.
 
 ## See what happened to a note
 

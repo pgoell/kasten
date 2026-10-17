@@ -119,6 +119,14 @@ export interface Pane {
    */
   person?: string;
   /**
+   * The note whose jj history this pane lists, absent otherwise.
+   *
+   * The note's path, following `person`: the pane reads the history and the
+   * note's text by it, so a move that rewrites it carries the pane along. A
+   * fourteenth optional field for the reason `book` is the fourth.
+   */
+  history?: string;
+  /**
    * Set on a pane holding the graph, absent on every other.
    *
    * `around` names the note a local graph is drawn around, and is absent on
@@ -485,6 +493,26 @@ export function openPersonBeside(layout: Layout, person: string): Layout {
   return withTab(split, {
     ...tab,
     root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, person }),
+  });
+}
+
+/**
+ * Put a note's history in a pane beside it, or go to the one already listing it.
+ *
+ * Beside and not over, following `openPersonBeside` down to the reuse: an old
+ * version is read against the note as it is now. On a narrow window the route
+ * draws the focused pane alone, so there the history takes the screen.
+ */
+export function openHistoryBeside(layout: Layout, note: string): Layout {
+  const listing = tabPanes(layout).find((pane) => pane.history === note);
+  if (listing) return focusPane(layout, listing.id);
+
+  const split = splitFocused(layout, "row");
+  const tab = activeTab(split);
+
+  return withTab(split, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, history: note }),
   });
 }
 

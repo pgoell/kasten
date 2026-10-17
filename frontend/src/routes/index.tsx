@@ -12,6 +12,7 @@ import { Editor } from "@/components/editor";
 import { ExamPane } from "@/components/exam-pane";
 import { FileExplorer } from "@/components/file-explorer";
 import { GraphPane } from "@/components/graph-pane";
+import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { KeyHelp } from "@/components/key-help";
@@ -35,6 +36,7 @@ import { VideoPane } from "@/components/video-pane";
 import {
   ASSET_LIMIT_BYTES,
   type BookBeside,
+  ChangedOnDisk,
   createNote,
   deleteFolder,
   deleteImage,
@@ -51,6 +53,7 @@ import {
   type Mention,
   restoreEntry,
   type SearchHit,
+  saveNote,
   updateNote,
   uploadAsset,
 } from "@/lib/api";
@@ -63,6 +66,7 @@ import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import type { MoveMode } from "@/lib/move";
+import { noteBase } from "@/lib/note-base";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookNote, bookType, encodePath, importedNote, noteName } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
@@ -87,6 +91,7 @@ import {
   openExamInFocused,
   openGraphBeside,
   openGraphInFocused,
+  openHistoryBeside,
   openHtmlInFocused,
   openImageInFocused,
   openInFocused,
@@ -1014,6 +1019,44 @@ function Home() {
     [queryClient, write],
   );
 
+  /**
+   * Write `text`, an older version of `note`, back over it, answering null once
+   * it landed or the reason it did not.
+   *
+   * `linkMentionOf`'s guards, for its reasons: the press was made in a pane
+   * other than the note's. One `saveNote` naming `against` as its base and not
+   * `updateNote`, whose retry reads the note again and would land the old text
+   * over a write the reader never saw in the diff. A refusal rereads the note
+   * instead, so the diff shows what the vault holds now.
+   */
+  const restoreOf = useCallback(
+    (note: string, text: string, against: string): Promise<string | null> =>
+      write(note, async () => {
+        // Asked inside the queue, so after any write of the note queued ahead.
+        if (heldText(note) !== undefined) return "That note holds text not yet saved";
+        const focused = focusedNote.current;
+        if (focused.path === note) return "That note is open to type in";
+        // The flush the note's editor sent as the focus left it for this pane
+        // is one of these.
+        if (focused.isWriting(note)) return "That note is still being saved";
+
+        let written: Awaited<ReturnType<typeof saveNote>>;
+        try {
+          written = await saveNote(note, text, false, noteBase(against));
+        } catch (error) {
+          if (!(error instanceof ChangedOnDisk)) return "The change was not restored";
+          void queryClient.invalidateQueries({ queryKey: ["note", note] });
+          return "The note changed since this diff was drawn";
+        }
+
+        queryClient.setQueryData(["note", note], written.content);
+        // The restore is a jj change of its own, to go at the top of the list.
+        void queryClient.invalidateQueries({ queryKey: ["note", note, "history"] });
+        return null;
+      }),
+    [queryClient, write],
+  );
+
   // The focused pane's note is the only note that can be typed into, so its
   // taking the focus is the earliest signal there is that typing may start.
   // The guard above would refuse the write anyway when the timer fired; what
@@ -1406,8 +1449,11 @@ function Home() {
         // over a book still at the old path. Not worth a field on the answer
         // to tell apart.
         const book = noteAfterPrompt(mode, startPath, path, shown.book) ?? shown.book;
+        // A history pane follows its note for the same reason.
+        const history = noteAfterPrompt(mode, startPath, path, shown.history) ?? shown.history;
         const moved = next === undefined ? shown : { ...shown, path: next };
-        return book === shown.book ? moved : { ...moved, book };
+        const read = book === shown.book ? moved : { ...moved, book };
+        return history === shown.history ? read : { ...read, history };
       }),
     );
   }, []);
@@ -1909,6 +1955,14 @@ function Home() {
         if (!isPerson(queryClient.getQueryData<string>(["note", note]) ?? "")) return;
         moveTo((previous) => openPersonBeside(previous, note));
       },
+      // Needs a note in the focused pane, and splits rather than replaces, so
+      // no `saveFirst` for `openBook`'s reason. Leaving the note flushes what
+      // was typed, and the restore refuses while that write is out.
+      openHistory: () => {
+        if (pane.path === undefined) return;
+        const note = pane.path;
+        moveTo((previous) => openHistoryBeside(previous, note));
+      },
       // Needs a note in the focused pane for the reason `openBook` does: the
       // link is in that note, and the pane reads it out for itself. No
       // `saveFirst` for the same reason either, this splitting rather than
@@ -2318,6 +2372,15 @@ function Home() {
                     archive={archive}
                     focusSignal={focused ? focusSignal : 0}
                     onOpen={(path, hitLine) => void openInPane(path, hitLine)}
+                  />
+                ) : shown.history !== undefined ? (
+                  <HistoryPane
+                    note={shown.history}
+                    commands={commands}
+                    focusSignal={focused ? focusSignal : 0}
+                    // Bound here, the way the reader's callbacks are, so the
+                    // pane holds no path the route would write to on its own.
+                    onRestore={(text, against) => restoreOf(shown.history ?? "", text, against)}
                   />
                 ) : shown.graph !== undefined ? (
                   <GraphPane

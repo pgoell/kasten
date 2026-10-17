@@ -72,6 +72,8 @@ const {
   deleteImage,
   fetchVersion,
   fetchTags,
+  fetchHistory,
+  fetchHistoryText,
   beside,
 } = vi.hoisted(() => {
   /**
@@ -133,6 +135,9 @@ const {
     // The status bar asks for this on every mount. A release, because the bundle
     // these run against carries no commit either.
     fetchVersion: vi.fn().mockResolvedValue("0.8.0"),
+    // The history pane's two reads. Set by the tests that open one.
+    fetchHistory: vi.fn(),
+    fetchHistoryText: vi.fn(),
   };
 });
 vi.mock("@/lib/api", () => ({
@@ -158,6 +163,8 @@ vi.mock("@/lib/api", () => ({
   deleteImage,
   fetchVersion,
   fetchTags,
+  fetchHistory,
+  fetchHistoryText,
   // A daily note draws the weather card, which asks for the day's forecast.
   fetchWeather: async () => [],
   // Left off the factory this constant arrives in the route as undefined,
@@ -2745,6 +2752,191 @@ describe("the route", () => {
       expect(outside.get("other.md")).toBe("see the index there");
       expect(saveNote).toHaveBeenCalledTimes(1);
       expect(said()).toBe("That line has changed since it was listed");
+    });
+  });
+
+  describe("a note's history", () => {
+    /** index.md as the one change in its history held it. */
+    const BEFORE = "the index note, as it was";
+    const COMMIT = "c".repeat(40);
+
+    beforeEach(() => {
+      fetchHistory.mockResolvedValue({
+        versioned: true,
+        changes: [
+          {
+            commit: COMMIT,
+            change: "kxyzkxyz",
+            time: "2026-10-16T09:30:00+02:00",
+            description: "an older index",
+            path: "index.md",
+          },
+        ],
+      });
+      fetchHistoryText.mockResolvedValue(BEFORE);
+    });
+
+    const historyPane = () => document.querySelector<HTMLElement>("[data-history-pane]");
+    const said = () => historyPane()?.querySelector("output")?.textContent ?? "";
+
+    /** index.md open, then its history beside it with `gh`, the diff drawn. */
+    async function history(app: Awaited<ReturnType<typeof renderApp>>) {
+      app.click("index.md");
+      await settle();
+      app.leader("g", "h");
+      await settle();
+      expect(historyPane()).not.toBeNull();
+      expect(screen.getByTestId("history-diff")).toHaveTextContent(BEFORE);
+    }
+
+    /** Ctrl+Enter in the pane, and the write it starts settled. */
+    async function restore() {
+      fireEvent.keyDown(historyPane() as HTMLElement, { key: "Enter", ctrlKey: true });
+      await hashed();
+      await settle();
+    }
+
+    it("#425 A1 gh opens the note's history beside it, listing its changes", async () => {
+      const app = await renderApp();
+      await settle();
+
+      await history(app);
+
+      expect(app.panes()).toBe(2);
+      expect(app.focusedPane()).toBe(1);
+      expect(fetchHistory).toHaveBeenCalledWith("index.md");
+      expect(screen.getByRole("option")).toHaveTextContent("an older index");
+    });
+
+    it("#425 A4 A5 I3 restores on ctrl enter with vim on, and a clean pane on the note reloads", async () => {
+      const app = await renderApp();
+      await settle();
+      await history(app);
+      fetchHistory.mockClear();
+
+      await restore();
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(saveNote).toHaveBeenCalledWith("index.md", BEFORE, false, noteBase("the index note"));
+      expect(app.cached("index.md")).toBe(BEFORE);
+      // Asked again, so the change the restore made shows at the top.
+      expect(fetchHistory).toHaveBeenCalledWith("index.md");
+      expect(said()).toBe("This change is the note as it is now");
+      const docs = [...document.querySelectorAll<HTMLElement>(".cm-content")].map((each) =>
+        EditorView.findFromDOM(each)?.state.doc.toString(),
+      );
+      expect(docs).toContain(BEFORE);
+    });
+
+    it("#425 A1 A4 restores on a tap with vim off in a narrow window with one pane", async () => {
+      localStorage.setItem("kasten.vim", "off");
+      try {
+        const media = stubMatchMedia();
+        const app = await renderApp();
+        await settle();
+        app.click("index.md");
+        await settle();
+        media.set(NARROW, true);
+        media.set(COARSE, true);
+
+        fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+        fireEvent.click(screen.getByRole("option", { name: /^Show this note's history/ }));
+        await settle();
+        // One pane drawn: the history, the note hidden behind it.
+        const shown = [...document.querySelectorAll("[data-pane]")].filter(
+          (each) => !each.classList.contains("hidden"),
+        );
+        expect(shown).toHaveLength(1);
+        expect(shown[0]).toContainElement(historyPane());
+        const button = screen.getByRole("button", { name: "Restore" });
+        expect(button).toHaveClass("pointer-coarse:min-h-11");
+        fireEvent.click(button);
+        await hashed();
+        await settle();
+      } finally {
+        localStorage.removeItem("kasten.vim");
+      }
+
+      expect(saveNote).toHaveBeenCalledWith("index.md", BEFORE, false, noteBase("the index note"));
+    });
+
+    it("#425 I2 writes nothing while the flush of text typed into the note is in the air", async () => {
+      const app = await renderApp();
+      await settle();
+      app.click("index.md");
+      await settle();
+      // Typed, and `gh` at once: leaving the note flushes the typing, and that
+      // write is still out when ctrl+enter comes.
+      app.press("x");
+      saveNote.mockImplementationOnce(() => new Promise(() => {}));
+      app.leader("g", "h");
+      await hashed();
+      await settle();
+      expect(saveNote).toHaveBeenCalledTimes(1);
+
+      await restore();
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(said()).toBe("That note is still being saved");
+    });
+
+    it("#425 I2 writes nothing into a note holding text not yet saved", async () => {
+      const app = await renderApp();
+      await settle();
+      await history(app);
+      holdText("index.md", {
+        content: "the index note, typed",
+        reason: "PUT failed with 500",
+        conflicted: false,
+      });
+
+      await restore();
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(said()).toBe("That note holds text not yet saved");
+    });
+
+    it("#425 I2 writes nothing into the note while its pane has the focus", async () => {
+      const app = await renderApp();
+      await settle();
+      await history(app);
+      app.focusPane(0);
+      await settle();
+      expect(app.focusedPane()).toBe(0);
+
+      fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+      await hashed();
+      await settle();
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(said()).toBe("That note is open to type in");
+    });
+
+    it("#425 A5 lands nothing over a write the diff did not see, and reads the note again", async () => {
+      const app = await renderApp();
+      await settle();
+      await history(app);
+      outside.set("index.md", "somebody else's index");
+      fetchNote.mockImplementation(async (path: string) => outside.get(path) ?? VAULT[path]);
+
+      await restore();
+
+      expect(saveNote).toHaveBeenCalledTimes(1);
+      expect(outside.get("index.md")).toBe("somebody else's index");
+      expect(said()).toBe("The note changed since this diff was drawn");
+      expect(screen.getByTestId("history-diff")).toHaveTextContent("somebody else's index");
+    });
+
+    it("#425 I6 reads the list again when the note is written elsewhere", async () => {
+      const app = await renderApp();
+      await settle();
+      await history(app);
+      fetchHistory.mockClear();
+
+      act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+      await settle();
+
+      expect(fetchHistory).toHaveBeenCalledWith("index.md");
     });
   });
 });

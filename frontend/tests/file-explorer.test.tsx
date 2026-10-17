@@ -98,6 +98,7 @@ function Harness({
         openYearly: () => {},
         openBook: () => {},
         openPerson: () => {},
+        openHistory: () => {},
         openGraph: () => {},
         openLocalGraph: () => {},
         openVideo: () => {},

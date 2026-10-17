@@ -131,6 +131,8 @@ function tabLabel(tab: Tab): string {
   // An exam and a card are each about one note, and are named by it (#363).
   if (focused?.exam !== undefined) return noteName(focused.exam);
   if (focused?.person !== undefined) return noteName(focused.person);
+  // Not the note's name alone, which the note's own tab already carries.
+  if (focused?.history !== undefined) return `history of ${noteName(focused.history)}`;
   if (focused?.graph !== undefined) {
     const { around } = focused.graph;
     return around === undefined ? "graph view" : `graph of ${noteName(around)}`;

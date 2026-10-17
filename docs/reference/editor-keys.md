@@ -177,6 +177,7 @@ dimmed page around them.
 | A book | A swipe or a tap in the left or right quarter turns the page. `Contents` and `Take` at the foot | [The book pane](#the-book-pane) |
 | A video | A tap on the count goes to the next video. The player's controls are YouTube's own | [The video pane](#the-video-pane) |
 | A person card | A tap on a row opens the line it names | [The person card](#the-person-card) |
+| A note's history | A tap on a change shows its diff against the note now. `Restore` writes the change shown back over the note | [The history pane](#the-history-pane) |
 | The review | Every move is a button | [The review pane](#the-review-pane) |
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](#terminal) |
@@ -227,6 +228,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>gd` | Open today's note |
 | `<leader>ge` | Sit the open note as a practice exam |
 | `<leader>gg` | Put the graph of the whole vault in the focused pane |
+| `<leader>gh` | Show this note's history in a pane beside it |
 | `<leader>gl` | Show the graph around this note in a pane beside it |
 | `<leader>gm` | Open this month's note |
 | `<leader>go` | Show what the open note links to |
@@ -445,7 +447,8 @@ page names its tab for the file, without the folder or the suffix, so
 `x/my plan.pdf` reads `my plan`. An exam and a person card name the tab for
 their note, again without the folder or `.md`, so `people/Ada Lovelace.md`
 reads `Ada Lovelace`. The graph of the whole vault reads `graph view`, the
-graph around a note reads `graph of` and the note's name, and the review reads
+graph around a note reads `graph of` and the note's name, a note's history
+reads `history of` and the note's name, and the review reads
 `review`. More tabs than the window is wide scroll
 sideways, and the strip keeps the tab on screen in view.
 
@@ -1007,6 +1010,26 @@ The card asks nothing new of the backend. It reads `GET /api/todos` and
 `GET /api/search` for the person's name, which are the two answers the todo pane
 and [the link panels](#the-link-panels) already hold, and decides for itself
 which of those lines are links.
+
+## The history pane
+
+`<leader>gh` lists the jj changes of the open note in a pane beside it, newest
+first, and the palette's **Show this note's history beside it** does the same
+on a phone, where the pane takes the screen. A second press moves to the pane
+already open. The newest change is picked when it opens, and its text shows as
+a line diff against the note now, the `modified` line set aside. The keys are
+the same with vim on or off.
+
+| Key | Does |
+| --- | --- |
+| `j` `k` `ArrowDown` `ArrowUp` | Move the cursor down or up the list |
+| `Enter` | Show the diff of the change under the cursor |
+| `Ctrl+Enter` | Restore the change whose diff is shown |
+| `Escape` `q` | Close the pane |
+
+A click or a tap on a change shows its diff, and a tap on **Restore** restores
+it. How a restore goes, and when kasten refuses one, is in
+[Recover an earlier version of a note](/how-to/recover-an-earlier-version.md#from-the-history-pane).
 
 ## The graph pane
 
