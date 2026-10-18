@@ -188,8 +188,9 @@ type Drawn =
 function drawnImage(state: EditorState, node: SyntaxNode): Drawn | null {
   const url = node.getChild("URL");
   const address = url === null ? "" : state.doc.sliceString(url.from, url.to);
-  // The video first: an address is one or the other, and a YouTube link is not
-  // a path the vault holds, so `imageSource` would answer null for it anyway.
+  // The video first: a YouTube link is an `https:` address, which
+  // `imageSource` passes as it stands, so asked second it would be handed to an
+  // `img` and draw as a broken picture.
   const video = videoId(address);
   if (video !== null) return { kind: "video", id: video };
   const source = imageSource(address);
@@ -701,6 +702,9 @@ class TableGrid extends WidgetType {
    * mouse no way in. The keys have `w`, a search and a line jump, all of which
    * move by document position; `j` and `k` move by what is on the screen and
    * step over the whole block, which is the fast way past a long table.
+   *
+   * A wide table's block scrolls sideways with no scrollbar to press on, the
+   * stylesheet hiding every one, so no press here is the browser's to keep.
    */
   override ignoreEvent(): boolean {
     return false;
@@ -713,6 +717,14 @@ class TableGrid extends WidgetType {
     // against a height that is short by it.
     const block = document.createElement("div");
     block.className = "cm-table-block";
+    // A tap. CodeMirror leaves a touch to the selection the browser makes,
+    // and the browser makes none on a picture, so a finger on one would leave
+    // the table shut. A mouse got there on its press, which redrew the table
+    // as source and took this block off the page before the click.
+    block.addEventListener("click", () => {
+      if (!block.isConnected) return;
+      view.dispatch({ selection: { anchor: view.posAtDOM(block) } });
+    });
     const table = block.appendChild(document.createElement("table"));
     table.className = "cm-table-grid";
     const head = table.createTHead();

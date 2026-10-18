@@ -12,7 +12,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
-import { cdp, page, userEvent } from "vitest/browser";
+import { cdp, page } from "vitest/browser";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -104,6 +104,41 @@ async function phone(): Promise<void> {
   expect(matchMedia("(pointer: coarse)").matches).toBe(true);
 }
 
+/** A table row of `columns` cells, each holding `cell`. */
+function row(columns: number, cell: string): string {
+  return `|${` ${cell} |`.repeat(columns)}`;
+}
+
+/** The centre of `element`, in the frame's coordinates. */
+function centre(element: Element): [number, number] {
+  const box = element.getBoundingClientRect();
+  return [box.left + box.width / 2, box.top + box.height / 2];
+}
+
+/**
+ * A point in the frame put in the page's coordinates, which is what the
+ * DevTools protocol takes: the test runs in a frame placed inside that page.
+ */
+function toPage(x: number, y: number): [number, number] {
+  const frame = window.frameElement?.getBoundingClientRect();
+  return [x + (frame?.left ?? 0), y + (frame?.top ?? 0)];
+}
+
+/** A finger put down on `element` and lifted again. */
+async function tap(element: Element): Promise<void> {
+  const [x, y] = toPage(...centre(element));
+  await cdp().send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+
+/** A left button pressed and let go at a point in the frame. */
+async function press(x: number, y: number): Promise<void> {
+  const [pageX, pageY] = toPage(x, y);
+  const at = { x: pageX, y: pageY, button: "left" as const, clickCount: 1 };
+  await cdp().send("Input.dispatchMouseEvent", { type: "mousePressed", ...at });
+  await cdp().send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+}
+
 describe("pictures in a table", () => {
   it("A4 draws both pictures on a phone, and a tap on the table shows its source", async () => {
     await phone();
@@ -117,9 +152,33 @@ describe("pictures in a table", () => {
     expect(right?.right).toBeLessThanOrEqual(414);
     expect(await shot(at.dom, "table-images-414")).toBe(414);
 
-    await userEvent.click(at.dom.querySelector(".cm-table-grid") as Element);
+    // A finger on the picture, not a mouse: CodeMirror reads a touch apart
+    // from a click, and a click is what a mouse event would test.
+    await tap(images[0] as Element);
     await expect.poll(() => at.dom.querySelector(".cm-table-grid")).toBeNull();
     expect(at.contentDOM.textContent).toContain(`| ![](${PBI}) |`);
+  });
+
+  it("B scrollbar drag on a wide table keeps it drawn", async () => {
+    await page.viewport(1200, 900);
+    const at = mount(
+      ["Judge labels", "", row(60, "ab"), row(60, "-"), row(60, "cd")].join("\n"),
+      900,
+    );
+    await expect.poll(() => at.dom.querySelector(".cm-table-block")).not.toBeNull();
+    const block = at.dom.querySelector(".cm-table-block") as HTMLElement;
+    // `app.css` hides every scrollbar, so the block has no strip a press could
+    // land on and take for a click in the table: its whole height is content.
+    expect(block.offsetHeight).toBe(block.clientHeight);
+    // It still scrolls, by wheel or trackpad, and stays drawn while it does.
+    block.scrollLeft = 200;
+    expect(block.scrollLeft).toBe(200);
+    expect(at.scrollDOM.scrollLeft).toBe(0);
+    expect(at.dom.querySelector(".cm-table-grid")).not.toBeNull();
+
+    // The middle of the block, the first cells having scrolled out of it.
+    await press(...centre(block));
+    await expect.poll(() => at.dom.querySelector(".cm-table-grid")).toBeNull();
   });
 
   it("A4 draws both pictures on a desktop", async () => {
@@ -134,8 +193,10 @@ describe("pictures in a table", () => {
     await phone();
     // The editor wraps a word anywhere, so a long one would only make a tall
     // cell. Thirty columns, each with its padding and border, cannot wrap.
-    const row = (cell: string) => `|${` ${cell} |`.repeat(30)}`;
-    const at = mount(["Judge labels", "", row("ab"), row("-"), row("cd")].join("\n"), 896);
+    const at = mount(
+      ["Judge labels", "", row(30, "ab"), row(30, "-"), row(30, "cd")].join("\n"),
+      896,
+    );
 
     // The parse can land a frame after the mount, the first run of a fresh
     // stylesheet being slow enough to show it.
