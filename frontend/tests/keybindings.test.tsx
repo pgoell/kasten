@@ -1,3 +1,5 @@
+import { undoDepth } from "@codemirror/commands";
+import { EditorView } from "@codemirror/view";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
@@ -785,6 +787,78 @@ describe("the leader key", () => {
     fireEvent.keyDown(editor, { key: "x" });
 
     expect(doc()).toBe(`- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c`);
+  });
+
+  it("logs nothing for leader s x on a done todo in today's own note, however often", () => {
+    const note = `- [x] a ✅ ${TODAY}`;
+    const { editor, doc } = open(note, stubCommands(), periodicNote("daily", new Date()).path);
+
+    for (const _ of [1, 2]) {
+      fireEvent.keyDown(editor, { key: " " });
+      fireEvent.keyDown(editor, { key: "s" });
+      fireEvent.keyDown(editor, { key: "x" });
+    }
+
+    expect(doc()).toBe(note);
+  });
+
+  it("reports nothing for leader s x on a done todo in any other note", () => {
+    const { editor, onCycleTodo } = open(`- [x] a ✅ ${TODAY}`, stubCommands(), "kasten.md");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(onCycleTodo).not.toHaveBeenCalled();
+  });
+
+  it("writes and reports nothing for leader s x on a done todo carrying an id", () => {
+    const note = `- [x] a ✅ ${TODAY} 🆔 kt-3f9a2c`;
+    const { editor, doc, onCycleTodo } = open(note, stubCommands(), "kasten.md");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc()).toBe(note);
+    expect(onCycleTodo).not.toHaveBeenCalled();
+  });
+
+  it("leaves the cursor and the undo history alone on leader s b on a blocked todo", () => {
+    const note = "- [b] wire up the pane";
+    const { container, editor, doc, onCycleTodo } = open(note, stubCommands(), "kasten.md");
+    const view = EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement);
+    if (view === null) throw new Error("no view");
+
+    // Off the first word, where a press that dispatched would put the cursor.
+    fireEvent.keyDown(editor, { key: "$" });
+    const head = view.state.selection.main.head;
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "b" });
+
+    expect(view.state.selection.main.head).toBe(head);
+    expect(undoDepth(view.state)).toBe(0);
+    fireEvent.keyDown(editor, { key: "u" });
+    expect(doc()).toBe(note);
+    expect(view.state.selection.main.head).toBe(head);
+    expect(onCycleTodo).not.toHaveBeenCalled();
+  });
+
+  it("logs one line for leader s x on an open todo in today's own note", () => {
+    const { editor, doc } = open("- [ ] a", stubCommands(), periodicNote("daily", new Date()).path);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(doc()).toMatch(
+      new RegExp(
+        `^- \\[x\\] a ✅ ${TODAY} 🆔 (kt-[0-9a-f]{6})\\n\\n## Done\\n- ✅ ${TODAY} a \\1\\n$`,
+        "u",
+      ),
+    );
   });
 
   it("stops space from moving the cursor", () => {

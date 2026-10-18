@@ -17,15 +17,7 @@ import {
 } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
-import {
-  cycleLine,
-  isOpen,
-  newId,
-  parseTodo,
-  patchLine,
-  setStateOn,
-  type TodoState,
-} from "@/lib/todo";
+import { isOpen, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
 import { expandShorthand } from "@/lib/todo-shorthand";
 import { parseSession } from "@/lib/todo-time";
@@ -38,6 +30,7 @@ import {
   cycleTodoWrites,
   doneLogWrites,
   insertSubtask,
+  pressedLine,
   type SessionHit,
   timerWrites,
   unblockedEdit,
@@ -295,11 +288,10 @@ export async function cycleTodoInVault(
   // The id goes only into the write, so stamping it before the search changes
   // nothing; it lets the press be read here, ahead of the search, as it will land.
   const id = newId();
-  const pressed =
-    state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id);
+  const pressed = pressedLine(line, today, id, state);
   // A press that leaves the line as it is, such as `X` on a done todo, has
   // nothing to log, unblock or write, so it costs no search and no save.
-  if (pressed === line) return;
+  if (pressed === null) return;
   const now = parseTodo(pressed);
 
   // Only a press that enters or leaves done touches the log, and any todo with

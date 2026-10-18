@@ -3,8 +3,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { CommandPalette } from "@/components/command-palette";
+import { readClock } from "@/lib/clock";
 import { editorCommands } from "@/lib/editor-commands";
 import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/palette";
+import { periodicNote } from "@/lib/periodic";
+import { notePath, todoCycled } from "@/lib/todo-commands";
 import { stubCommands } from "./stub-commands";
 
 function viewOf(doc: string, cursor = doc.length) {
@@ -123,6 +126,33 @@ describe("the palette", () => {
 
     expect(view.state.doc.toString()).toBe("- [r] wire up the pane");
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes and reports nothing from a tapped done row on a done todo, no vim in the editor", () => {
+    const tap = (path: string) => {
+      const note = `- [x] a ✅ ${readClock(new Date()).date}`;
+      const cycled = vi.fn();
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: note,
+          extensions: [notePath.of(path), todoCycled.of(cycled)],
+        }),
+      });
+      const { unmount } = render(
+        <CommandPalette entries={paletteEntries(stubCommands(), view)} onClose={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole("option", { name: /Set this todo to done/ }));
+      unmount();
+      return { note, doc: view.state.doc.toString(), cycled };
+    };
+
+    // Today's note, where the log would land in this buffer.
+    const today = tap(periodicNote("daily", new Date()).path);
+    expect(today.doc).toBe(today.note);
+    // Any other note, where the route would be told to write it.
+    const other = tap("kasten.md");
+    expect(other.doc).toBe(other.note);
+    expect(other.cycled).not.toHaveBeenCalled();
   });
 
   it("prints the key beside the command", () => {

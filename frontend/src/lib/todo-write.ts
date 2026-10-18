@@ -329,6 +329,21 @@ function pressed(line: string, today: string, id: string, state?: TodoState): st
 }
 
 /**
+ * The line one press writes, or null where the press leaves it as it is, such
+ * as `X` on a done todo. Such a press has nothing to write, log or report, and
+ * both the pane and the editor stop on the null before they read anything more.
+ */
+export function pressedLine(
+  line: string,
+  today: string,
+  id: string,
+  state?: TodoState,
+): string | null {
+  const after = pressed(line, today, id, state);
+  return after === line ? null : after;
+}
+
+/**
  * The todo the press is on, as a node of its note's tree. Null where it is not
  * one, and null for a todo nothing hangs off, which needs no tree walked.
  */

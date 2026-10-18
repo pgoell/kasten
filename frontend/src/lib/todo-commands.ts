@@ -3,16 +3,8 @@ import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
 import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
-import {
-  cycleLine,
-  nameAt,
-  newId,
-  parseTodo,
-  patchLine,
-  setStateOn,
-  type TodoState,
-} from "@/lib/todo";
-import { closedAmong, cycleLines, doneLine, doneLineEdits } from "@/lib/todo-write";
+import { nameAt, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo";
+import { closedAmong, cycleLines, doneLine, doneLineEdits, pressedLine } from "@/lib/todo-write";
 
 /** Where the box ends on a line that has one, which is where the words start. */
 const BOX = /^[ \t]*- \[.\] /;
@@ -98,9 +90,11 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   const line = state.doc.lineAt(state.selection.main.head);
   const today = readClock(new Date()).date;
   const id = newId();
+  const cycled = pressedLine(line.text, today, id, want);
+  // A key aimed at the state the line is in already. Writing the same line back
+  // would still move the cursor, fill the undo history and log the todo again.
+  if (cycled === null) return;
   const doc = state.doc.toString();
-  const cycled =
-    want === undefined ? cycleLine(line.text, today, id) : setStateOn(line.text, want, today, id);
   const cycleHandler = state.facet(todoCycled);
   const path = state.facet(notePath);
 
