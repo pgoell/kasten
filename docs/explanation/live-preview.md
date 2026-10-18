@@ -71,8 +71,9 @@ only disagree, so the link rendering stands down where a todo's box begins.
 
 The parser reads every `[text]` as a link, with or without an address. A
 reference link, `[text]`, `[text][]` or `[text][label]`, draws as a link when
-the note holds a definition `[label]: url` on a line of its own, anywhere in
-the note, the label matched without regard to case. It then draws, opens and
+the note holds a definition `[label]: url` that starts a block of its own,
+anywhere in the note but a code block, the label matched without regard to
+case. A label opening with `^` is a footnote and never a link. It then draws, opens and
 copies as `[text](url)` does, through the same code: kasten has one link
 rendering, and a reference link only finds its address elsewhere. The
 definition line stays as typed, as Obsidian's live preview shows it, and Copy
