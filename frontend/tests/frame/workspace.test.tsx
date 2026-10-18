@@ -56,12 +56,15 @@ function Shell({ start }: { start: () => Layout }) {
           zoomed={narrow || tab.zoom === true ? tab.focus : null}
           onFocus={(id) => setLayout((previous) => focusPane(previous, id))}
         >
-          {(pane) =>
+          {(pane, focused) =>
             pane.path === undefined ? null : (
               <div data-note={pane.path} className="h-full">
                 <Editor
                   initialDoc={`# ${noteName(pane.path)}\n\nOpen before the reload, and open after it.\n`}
                   commands={stubCommands()}
+                  // As the route passes it: only the focused pane's editor
+                  // takes the focus on mount.
+                  focused={focused}
                 />
               </div>
             )
@@ -143,5 +146,11 @@ it("a desktop reopens a row of two notes side by side", async () => {
   expect(a.right).toBeLessThanOrEqual(b.left);
   expect(a.top).toBe(b.top);
   expect(Math.abs(a.width - b.width)).toBeLessThanOrEqual(1);
+  // The split moved the focus to Right, and the reload keeps it there: its
+  // pane wears the focused border and its editor holds the browser's focus.
+  const pane = (note: Element) => note.closest("[data-pane]") as Element;
+  expect(pane(right as Element).className).toContain("border-one-accent");
+  expect(pane(left as Element).className).not.toContain("border-one-accent");
+  await expect.poll(() => (right as Element).contains(document.activeElement)).toBe(true);
   expect(await shot(host as Element, "workspace-desktop")).toBe(1280);
 });
