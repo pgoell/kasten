@@ -544,6 +544,27 @@ describe("the todo board", () => {
 
     expect(pane.card("fix the tap").className).toContain("min-h-11");
   });
+
+  it("#488 the board footer on a phone drops its key hints", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    await boardPane();
+
+    expect(screen.getByTestId("todo-footer").textContent).not.toContain("h l column");
+  });
+
+  it("#488 the board footer on a desktop keeps its key hints", async () => {
+    await boardPane();
+
+    expect(screen.getByTestId("todo-footer").textContent).toContain("h l column");
+  });
+
+  it("#488 the list footer on a phone drops its key hints", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane();
+    await waitFor(() => expect(document.querySelector("[data-row]")).not.toBeNull());
+
+    expect(screen.getByTestId("todo-footer").textContent).not.toContain("x cycle");
+  });
 });
 
 describe("the board by mouse (#419)", () => {

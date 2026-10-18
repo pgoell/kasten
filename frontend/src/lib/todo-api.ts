@@ -286,19 +286,26 @@ export async function cycleTodoInVault(
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  const todo = parseTodo(text.split("\n")[hit.line - 1] ?? "");
+  const line = text.split("\n")[hit.line - 1] ?? "";
+  const todo = parseTodo(line);
   // The line moved, or somebody edited it into prose. Cycling whatever is there
   // now is not what was asked for.
   if (todo === null) return;
 
-  // Only a press that enters or leaves done touches the log, and only a todo
-  // that already carries an id can be named by a line already written. A todo
-  // entering done with none needs no search: nothing can name a todo that has
-  // never had a name. Review is one press from done as doing is, and an agent
-  // can put a ticked todo back in review with its log line still written.
+  // The id goes only into the write, so stamping it before the search changes
+  // nothing; it lets the press be read here, ahead of the search, as it will land.
+  const id = newId();
+  const now = parseTodo(
+    state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id),
+  );
+
+  // Only a press that enters or leaves done touches the log, and any todo with
+  // an id that does may be named by a line already written: a hand or an agent
+  // can move a ticked todo to any state with its log line left in place, so the
+  // state it comes from says nothing. A todo with no id needs no search, since
+  // nothing can name a todo that has never had a name.
   const named =
-    (todo.state === "doing" || todo.state === "review" || todo.state === "done") &&
-    todo.id !== undefined
+    (todo.state === "done" || now?.state === "done") && todo.id !== undefined
       ? new Set((await searchNotes(todo.id)).map((found) => found.path))
       : new Set<string>();
 
@@ -308,7 +315,6 @@ export async function cycleTodoInVault(
   }
 
   const daily = await dailyNote(paths, logged);
-  const id = newId();
   // The whole vault's blockers, off the one pass the pane already asked for.
   // The pressed todo answers off the press itself, inside `cycleLines`.
   const closed = closedAmong((await fetchTodos()).flatMap((found) => parseTodo(found.text) ?? []));
@@ -331,10 +337,6 @@ export async function cycleTodoInVault(
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
   // press could see only the ones in the note it moved.
-  const line = text.split("\n")[hit.line - 1] ?? "";
-  const now = parseTodo(
-    state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id),
-  );
   if (now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
     await writeBackBlocked(now.id, !isOpen(now), "");
   }

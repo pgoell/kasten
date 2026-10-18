@@ -88,6 +88,52 @@ const LINES = [
   `- [x] fix the tap ✅ ${TODAY}`,
 ];
 
+it("#488 keeps the board footer's count on one line on a phone", async () => {
+  fetchTodos.mockResolvedValue(LINES.map((text, at) => ({ path: DAILY, line: at + 3, text })));
+  const host = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(host);
+  // In a `finally`, so a failure does not leave its viewport or its phone to the cases after it.
+  try {
+    await page.viewport(414, 896);
+    stubMatchMedia({ [COARSE]: true, [NARROW]: true });
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <TodoPane
+          commands={stubCommands()}
+          onOpen={() => {}}
+          onCycle={() => {}}
+          onAdd={() => {}}
+          onSubtask={() => {}}
+          onEdit={() => {}}
+          onBlock={() => {}}
+          onTimer={() => {}}
+          focusSignal={0}
+          today={TODAY}
+          archive={false}
+        />
+      </QueryClientProvider>,
+    );
+    await expect.poll(() => host.querySelector("[data-row]")).not.toBeNull();
+    host
+      .querySelector("section[aria-label='Todos']")
+      ?.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true }));
+    await expect.poll(() => host.querySelector("[data-testid='todo-card']")).not.toBeNull();
+
+    const count = host.querySelector("[data-testid='todo-footer'] > span") as Element;
+    expect(count.textContent).toBe("5 on the board");
+    // A range over the text, not the span: a flex item is one box however
+    // its text wraps, while the range gives one box per line.
+    const range = document.createRange();
+    range.selectNodeContents(count);
+    expect(range.getClientRects().length).toBe(1);
+  } finally {
+    root.unmount();
+    host.remove();
+    vi.unstubAllGlobals();
+    await page.viewport(414, 896);
+  }
+});
+
 it.runIf(import.meta.env.VITE_KASTEN_SHOTS)(
   "takes screenshots of review in live preview and on the board",
   async () => {

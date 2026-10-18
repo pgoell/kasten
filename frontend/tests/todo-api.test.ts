@@ -254,6 +254,103 @@ describe("cycleTodoInVault", () => {
       noteBase(`${line}\n`),
     );
   });
+
+  it.each([
+    ["blocked", "b"],
+    ["waiting", "w"],
+    ["open", " "],
+    ["rejected", "-"],
+  ])(
+    "writes no second log line setting a %s todo done whose day already logged it",
+    async (_, mark) => {
+      // It was done once, then moved back by hand or by an agent, and the line its
+      // first tick wrote is still under today's `## Done`.
+      const daily = periodicNote("daily", new Date()).path;
+      const line = `- [${mark}] a 🆔 kt-aaaaaa`;
+      const log = "## Done\n- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa\n";
+      const notes: Record<string, string> = { "projects/kasten.md": `${line}\n`, [daily]: log };
+      fetchNote.mockImplementation(async (path: string) => notes[path]);
+      searchNotes.mockResolvedValue([
+        { path: "projects/kasten.md", line: 1, text: line },
+        { path: daily, line: 2, text: "- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa" },
+      ]);
+
+      await cycleTodoInVault(
+        { path: "projects/kasten.md", line: 1, text: line },
+        "2026-08-10",
+        ["projects/kasten.md", daily],
+        "done",
+      );
+
+      expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+        "projects/kasten.md",
+        "- [x] a ✅ 2026-08-10 🆔 kt-aaaaaa\n",
+        false,
+        noteBase(`${line}\n`),
+      );
+    },
+  );
+
+  it("writes one log line setting a blocked todo done that no day has logged", async () => {
+    const daily = periodicNote("daily", new Date()).path;
+    const line = "- [b] a 🆔 kt-aaaaaa";
+    const notes: Record<string, string> = {
+      "projects/kasten.md": `${line}\n`,
+      [daily]: "## Done\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockResolvedValue([{ path: "projects/kasten.md", line: 1, text: line }]);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: line },
+      "2026-08-10",
+      ["projects/kasten.md", daily],
+      "done",
+    );
+
+    expect(saveNote).toHaveBeenCalledWith(
+      daily,
+      "## Done\n- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa\n",
+      false,
+      noteBase("## Done\n"),
+    );
+  });
+
+  it("drops the log line blocking a done todo", async () => {
+    const daily = periodicNote("daily", new Date()).path;
+    const line = "- [x] a ✅ 2026-08-10 🆔 kt-aaaaaa";
+    const log = "## Done\n- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa\n";
+    const notes: Record<string, string> = { "projects/kasten.md": `${line}\n`, [daily]: log };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line },
+      { path: daily, line: 2, text: "- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa" },
+    ]);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: line },
+      "2026-08-10",
+      ["projects/kasten.md", daily],
+      "blocked",
+    );
+
+    expect(saveNote).toHaveBeenCalledWith(daily, "## Done\n", false, noteBase(log));
+  });
+
+  it("searches nothing blocking an open todo", async () => {
+    // Neither side of the press is done, so no log line can be at stake.
+    const line = "- [ ] a 🆔 kt-aaaaaa";
+    fetchNote.mockResolvedValue(`${line}\n`);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: line },
+      "2026-08-10",
+      ["projects/kasten.md"],
+      "blocked",
+    );
+
+    expect(searchNotes).not.toHaveBeenCalled();
+  });
 });
 
 describe("addTodoInVault", () => {

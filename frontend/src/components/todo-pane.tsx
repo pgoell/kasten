@@ -1356,7 +1356,9 @@ export function TodoPane({
       )}
 
       {/* Only the keys this phase binds. A footer offering one that does
-          nothing is worse than a short one. */}
+          nothing is worse than a short one. A finger has no keys, as the
+          strip shows, so a coarse pointer gets the count alone: beside the
+          hints a phone squeezed it to a word per line (#488). */}
       <footer
         data-testid="todo-footer"
         className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
@@ -1375,7 +1377,7 @@ export function TodoPane({
             </>
           )}
         </span>
-        {picking !== null ? (
+        {coarse ? null : picking !== null ? (
           <span>j k move&ensp;&ensp;/ filter&ensp;&ensp;Enter pick&ensp;&ensp;Escape cancel</span>
         ) : board ? (
           <span>
