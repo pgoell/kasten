@@ -230,13 +230,24 @@ export function doneLogWrites(input: LogInput): Write[] {
  * Nothing reads as still open, so a dependent is never opened on a guess. The
  * buffer builds this from the document it holds; the vault writer builds it
  * from every todo the vault holds.
+ *
+ * `"twinned"` is an id two todos carry. Neither can be told from the other, so
+ * whether it is closed has no answer, and reading it as open would block a
+ * dependent nobody asked to move.
  */
-export type Closed = (id: string) => boolean | undefined;
+export type Closed = (id: string) => boolean | "twinned" | undefined;
 
-/** A resolver over the todos in hand. An id none of them carries answers nothing. */
+/**
+ * A resolver over the todos in hand. An id none of them carries answers
+ * nothing, and an id two of them carry answers `"twinned"` rather than going by
+ * whichever was listed last.
+ */
 export function closedAmong(todos: Todo[]): Closed {
-  const states = new Map<string, boolean>();
-  for (const todo of todos) if (todo.id !== undefined) states.set(todo.id, !isOpen(todo));
+  const states = new Map<string, boolean | "twinned">();
+  for (const todo of todos) {
+    if (todo.id === undefined) continue;
+    states.set(todo.id, states.has(todo.id) ? "twinned" : !isOpen(todo));
+  }
   return (id) => states.get(id);
 }
 
@@ -247,6 +258,10 @@ export function closedAmong(todos: Todo[]): Closed {
  * `⛔` on a line means kasten owns the choice between `[ ]` and `[b]` there.
  * `[/]`, `[x]` and `[-]` are never touched, so a state set by hand cannot be
  * destroyed by a blocker moving.
+ *
+ * Nor is a line naming a twinned blocker, whatever its other blockers say: one
+ * twin may be open and the other closed, and either state written here would
+ * be a guess at which one the `⛔` meant.
  */
 export function blockedLines(lines: string[], closed: Closed): Map<number, string> {
   const moved = new Map<number, string>();
@@ -256,8 +271,10 @@ export function blockedLines(lines: string[], closed: Closed): Map<number, strin
     if (todo === null || todo.blockedBy.length === 0) continue;
     if (todo.state !== "open" && todo.state !== "blocked") continue;
 
+    const answers = todo.blockedBy.map(closed);
+    if (answers.includes("twinned")) continue;
     // Every blocker has to be closed, and one this cannot see reads as open.
-    const held = todo.blockedBy.some((blocker) => closed(blocker) !== true);
+    const held = answers.some((answer) => answer !== true);
     const state = held ? "blocked" : "open";
     if (todo.state !== state) moved.set(index + 1, patchLine(text, { ...todo, state }));
   }

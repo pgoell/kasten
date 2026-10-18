@@ -305,6 +305,19 @@ export async function fetchNote(path: string): Promise<string> {
 }
 
 /**
+ * A create refused because a note is already at that path.
+ *
+ * A class of its own, because the `## Done` log reads it as a press just before
+ * having made today's note, and writes into that note instead. The message is
+ * the one every other failed create says, so a notice reads the same.
+ */
+export class NoteExists extends Error {
+  constructor(path: string) {
+    super(`POST /api/files/${path} failed with 409`);
+  }
+}
+
+/**
  * Make a note, and answer with the note the vault wrote.
  *
  * `content` is what goes under the frontmatter block, and it is empty for every
@@ -319,6 +332,7 @@ export async function createNote(path: string, content = ""): Promise<Note> {
     body: { content },
   });
 
+  if (response.status === 409) throw new NoteExists(path);
   if (!data) {
     throw new Error(`POST /api/files/${path} failed with ${response.status}`);
   }

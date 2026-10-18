@@ -1188,3 +1188,26 @@ describe("field reads before a code span and with the variation selector", () =>
     expect(writes[1]?.text).toBe("\t- [/] part zork ⏱️ 1h20m 🆔 kt-3f9a2c ^blk1");
   });
 });
+
+describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
+  // Each case lists last the twin that would move its dependent, which is the
+  // one a resolver going by the last todo listed would have answered with.
+  it.each([
+    ["an open dependent", "- [ ] c ⛔ kt-aaaaaa", ["- [x] a 🆔 kt-aaaaaa", "- [ ] a 🆔 kt-aaaaaa"]],
+    [
+      "a blocked dependent",
+      "- [b] c ⛔ kt-aaaaaa",
+      ["- [ ] a 🆔 kt-aaaaaa", "- [x] a 🆔 kt-aaaaaa"],
+    ],
+  ])("#537 A4 blockedLines leaves a dependent on a twinned 🆔 as it is, %s", (_, line, twins) => {
+    expect(blockedLines([line], closedAmong(twins.map(todo)))).toEqual(new Map());
+  });
+
+  it("#537 I4 a dependent with one twinned blocker and one closed blocker stays as it is", () => {
+    const closed = closedAmong(
+      ["- [ ] a 🆔 kt-aaaaaa", "- [x] a 🆔 kt-aaaaaa", "- [x] b 🆔 kt-bbbbbb"].map(todo),
+    );
+
+    expect(blockedLines(["- [b] c ⛔ kt-aaaaaa ⛔ kt-bbbbbb"], closed)).toEqual(new Map());
+  });
+});

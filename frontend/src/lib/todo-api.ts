@@ -10,6 +10,7 @@ import {
   createNote,
   fetchNote,
   fetchTodos,
+  NoteExists,
   type SearchHit,
   saveNote,
   searchNotes,
@@ -143,8 +144,16 @@ export async function blockTodoInVault(hit: SearchHit, blocker: SearchHit): Prom
   const lines = same ? blockerLines : text.split("\n");
   if (lines[hit.line - 1] !== hit.text) return;
 
+  // A blocker whose id another todo line carries too is refused before any
+  // write: the `⛔` could not say which of the two it waits on.
+  const todos = await fetchTodos();
+  if (named.id !== undefined) {
+    const other = otherTodoWithId(named.id, blocker.path, blocker.line, todos, blockerText);
+    if (other !== null) throw new Error(other);
+  }
+
   const id = named.id ?? newId();
-  const seen = closedAmong((await fetchTodos()).flatMap((found) => parseTodo(found.text) ?? []));
+  const seen = closedAmong(todos.flatMap((found) => parseTodo(found.text) ?? []));
   // The blocker answers off its own line: the id may be minutes old or new.
   const closed: Closed = (asked) => (asked === id ? !isOpen(named) : seen(asked));
   const held = blockLine(hit.text, id, closed);
@@ -227,6 +236,10 @@ async function writeBackBlocked(
  * A write to the note the key was typed into is dropped: the buffer owns that
  * note, and a `PUT` over it would land on text somebody is still typing. The
  * dependents in there travelled with the press for the same reason.
+ *
+ * The log goes through `updateNote`, which reads each note again on a refusal
+ * and works the line out afresh. Two quick presses read today's note at once,
+ * and a write naming that read as its base would refuse the second (#538).
  */
 export async function cycleTodoAside(
   path: string,
@@ -257,22 +270,38 @@ export async function cycleTodoAside(
       }
     }
 
-    const daily = await dailyNote(paths, logged);
-    const writes = doneLogWrites({
-      was,
-      now,
-      path,
-      dailyPath: daily.path,
-      dailyText: daily.text,
-      logged,
-      today,
-    });
+    const daily = periodicNote("daily", new Date());
+    // One note's write, worked out with `text` standing for that note. Today's
+    // note goes into `logged` too, so a retry reading the line an earlier press
+    // wrote there neither logs it twice nor misses it on a reopen. Visiting
+    // another note, `daily.body` only fills a write that `find` throws away.
+    const change = (notePath: string) => (text: string) =>
+      doneLogWrites({
+        was,
+        now,
+        path,
+        dailyPath: daily.path,
+        dailyText: notePath === daily.path ? text : daily.body,
+        logged: { ...logged, [notePath]: text },
+        today,
+      }).find((write) => write.path === notePath)?.text ?? null;
 
-    await send(
-      writes.filter((write) => write.path !== path),
-      paths,
-      { ...logged, [daily.path]: daily.text },
-    );
+    const visits = new Set([daily.path, ...Object.keys(logged)]);
+    visits.delete(path);
+    for (const notePath of visits) {
+      if (notePath === daily.path && !paths.includes(notePath)) {
+        const text = change(notePath)(daily.body);
+        if (text === null) continue;
+        try {
+          await createNote(notePath, text);
+          continue;
+        } catch (error) {
+          // A press just before this one made today's note: write into it.
+          if (!(error instanceof NoteExists)) throw error;
+        }
+      }
+      await updateNote(notePath, change(notePath));
+    }
   }
 
   // Only a press that closed or reopened a todo something can name moves what

@@ -85,3 +85,38 @@ describe("stampIdAtCursor", () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 });
+
+describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 16, 9, 30));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it("#537 A5 <leader>x on another blocker leaves a dependent on a twinned 🆔 in the buffer", () => {
+    // The issue's note. The done twin is listed last, the open one still blocks c.
+    const lines = [
+      "- [ ] a 🆔 kt-aaaaaa",
+      "- [x] a 🆔 kt-aaaaaa",
+      "- [b] c ⛔ kt-aaaaaa",
+      "- [ ] d 🆔 kt-dddddd",
+      "- [b] e ⛔ kt-dddddd",
+    ];
+    const view = open(lines.join("\n"), lines.slice(0, 3).join("\n").length + 1);
+
+    // Open to doing, then doing to done: the second press is the one that closes d.
+    cycleTodoAtCursor(view);
+    cycleTodoAtCursor(view);
+
+    expect(view.state.doc.toString()).toBe(
+      [
+        "- [ ] a 🆔 kt-aaaaaa",
+        "- [x] a 🆔 kt-aaaaaa",
+        "- [b] c ⛔ kt-aaaaaa",
+        "- [x] d ✅ 2026-10-16 🆔 kt-dddddd",
+        "- [ ] e ⛔ kt-dddddd",
+      ].join("\n"),
+    );
+  });
+});

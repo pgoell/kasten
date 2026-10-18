@@ -176,6 +176,8 @@ vi.mock("@/lib/api", () => ({
   // The autosave tells a save refused over its base from any other failure
   // by this class, which a factory leaving it out would hand it as undefined.
   ChangedOnDisk: class ChangedOnDisk extends Error {},
+  // The `## Done` log tells a create refused over a note already there by this.
+  NoteExists: class NoteExists extends Error {},
 }));
 
 // The route imports `BookPane`, which imports foliate for its side effect. With
@@ -3746,6 +3748,94 @@ describe("the route", () => {
       }
     });
 
+    describe("#538 two quick presses into done in one note", () => {
+      const TWO = "two.md";
+      const daily = periodicNote("daily", new Date()).path;
+      const LOGGED = [
+        expect.stringMatching(/^- ✅ \S+ a \[\[two\]\] kt-aaaaaa$/),
+        expect.stringMatching(/^- ✅ \S+ b \[\[two\]\] kt-bbbbbb$/),
+      ];
+
+      /** Every log line today's note holds, in order. */
+      const logLines = () =>
+        (outside.get(daily) ?? "").split("\n").filter((line) => line.startsWith("- ✅"));
+
+      /**
+       * The app over a note holding two todos one press from done, and a
+       * today's note whose writes are refused over a stale base. `updateNote`
+       * runs its real three tries, the refusal and the read after it being
+       * what is under test.
+       */
+      async function twoTodos(entry?: string) {
+        outside.set(daily, "## Done\n");
+        const notes: Record<string, string> = {
+          ...VAULT,
+          [TWO]: "- [/] a 🆔 kt-aaaaaa\n- [/] b 🆔 kt-bbbbbb",
+        };
+        fetchFiles.mockImplementation(async () => [...Object.keys(notes), daily]);
+        fetchNote.mockImplementation(async (path: string) => outside.get(path) ?? notes[path]);
+        searchNotes.mockResolvedValue([]);
+        updateNote.mockImplementation(
+          async (path: string, change: (text: string) => string | null) => {
+            for (let tries = 1; ; tries++) {
+              const text: string = await fetchNote(path);
+              const next = change(text);
+              if (next === null) return null;
+              try {
+                return await saveNote(path, next, false, noteBase(text));
+              } catch (error) {
+                if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
+              }
+            }
+          },
+        );
+        const app = await renderApp(entry);
+        await settle();
+        return app;
+      }
+
+      it("#538 A3 two quick <leader>x into done with vim on both log", async () => {
+        const app = await twoTodos();
+        app.click(TWO);
+        await settle();
+
+        // Both presses inside one round trip: nothing settles between them.
+        app.leader("x");
+        app.press("j");
+        app.leader("x");
+        await hashed();
+        await settle();
+
+        expect(app.text()).toMatch(/a ✅ .*b ✅ /);
+        expect(logLines()).toEqual(LOGGED);
+        expect(app.notice()).toBeNull();
+      });
+
+      it("#538 A3 two quick palette cycles into done with vim off in a narrow window both log", async () => {
+        stubMatchMedia({ [NARROW]: true });
+        localStorage.setItem("kasten.vim", "off");
+        try {
+          const app = await twoTodos(`/?note=${TWO}`);
+
+          const cycle = () => {
+            app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+            fireEvent.click(screen.getByRole("option", { name: /^Cycle the todo on this line/ }));
+          };
+          cycle();
+          app.press("ArrowDown");
+          cycle();
+          await hashed();
+          await settle();
+
+          expect(app.text()).toMatch(/a ✅ .*b ✅ /);
+          expect(logLines()).toEqual(LOGGED);
+          expect(app.notice()).toBeNull();
+        } finally {
+          localStorage.removeItem("kasten.vim");
+        }
+      });
+    });
+
     it("#534 A4 B3 <leader>x in today's note on a todo whose 🆔 another note carries moves only its line", async () => {
       // Today's own note, where the log line and the dependent are buffer edits.
       const daily = periodicNote("daily", new Date()).path;
@@ -3792,6 +3882,71 @@ describe("the route", () => {
 
       wroteNothing();
       expect(app.notice()).toBe("Nothing moved: GET /api/search failed with 500");
+    });
+
+    describe("#537 blocking on a todo whose 🆔 another todo carries", () => {
+      const DOCS = "- [ ] write the docs";
+      const SHIP = "- [ ] ship the release 🆔 kt-aaaaaa";
+      /** The twin, done, in another note. */
+      const COPY = "- [x] ship the release 🆔 kt-aaaaaa";
+      const REFUSED = "Nothing moved: 🆔 kt-aaaaaa is on another todo too: other.md line 1";
+
+      /** The pane over the dependent and the blocker in one note, the twin in another. */
+      async function blocking(phone = false) {
+        const notes: Record<string, string> = {
+          ...VAULT,
+          [PATH]: `${DOCS}\n${SHIP}`,
+          "other.md": COPY,
+        };
+        fetchFiles.mockImplementation(async () => Object.keys(notes));
+        fetchNote.mockImplementation(async (path: string) => notes[path]);
+        fetchTodos.mockResolvedValue([
+          { path: PATH, line: 1, text: DOCS, project: null },
+          { path: PATH, line: 2, text: SHIP, project: null },
+          { path: "other.md", line: 1, text: COPY, project: null },
+        ]);
+        const app = await renderApp();
+        await settle();
+        if (phone) fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
+        else app.leader("g", "t");
+        await settle();
+        return app;
+      }
+
+      it("#537 A6 the pane's b on a twinned blocker says Nothing moved", async () => {
+        const app = await blocking();
+        const pane = app.todoPane() as HTMLElement;
+        pane.focus();
+
+        fireEvent.keyDown(pane, { key: "b" });
+        fireEvent.keyDown(pane, { key: "j" });
+        fireEvent.keyDown(pane, { key: "Enter" });
+        await hashed();
+        await settle();
+
+        wroteNothing();
+        expect(app.notice()).toBe(REFUSED);
+      });
+
+      it("#537 A7 the phone menu's blocked by on a twinned blocker says Nothing moved", async () => {
+        stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+        const app = await blocking(true);
+
+        fireEvent.click(screen.getByLabelText("more for write the docs"));
+        fireEvent.click(screen.getByLabelText("blocked by write the docs"));
+        fireEvent.click(
+          screen
+            .getAllByRole("button")
+            .find(
+              (button) => button.title !== "" && button.textContent?.includes("ship the release"),
+            ) as HTMLElement,
+        );
+        await hashed();
+        await settle();
+
+        wroteNothing();
+        expect(app.notice()).toBe(REFUSED);
+      });
     });
   });
 });

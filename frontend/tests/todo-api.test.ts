@@ -1,3 +1,4 @@
+import { ChangedOnDisk, NoteExists } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { dailyDate, periodicNote } from "@/lib/periodic";
 import {
@@ -20,14 +21,21 @@ const { createNote, fetchNote, fetchTodos, saveNote, searchNotes, updateNote } =
   searchNotes: vi.fn(),
   updateNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({
-  createNote,
-  fetchNote,
-  fetchTodos,
-  saveNote,
-  searchNotes,
-  updateNote,
-}));
+vi.mock("@/lib/api", async (importOriginal) => {
+  // The two refusals the writes tell apart by class, which a factory leaving
+  // them out would hand over as undefined.
+  const real = await importOriginal<typeof import("@/lib/api")>();
+  return {
+    ChangedOnDisk: real.ChangedOnDisk,
+    NoteExists: real.NoteExists,
+    createNote,
+    fetchNote,
+    fetchTodos,
+    saveNote,
+    searchNotes,
+    updateNote,
+  };
+});
 
 beforeEach(() => {
   // One try over the fakes above. The retries on a 409 are `update-note.test.ts`'s.
@@ -752,6 +760,175 @@ describe("cycleTodoAside", () => {
   });
 });
 
+describe("#538 two presses in flight on the ## Done log", () => {
+  const daily = periodicNote("daily", new Date()).path;
+  const PATH = "projects/kasten.md";
+  const DOC = "- [/] a 🆔 kt-aaaaaa\n- [/] b 🆔 kt-bbbbbb";
+  const INTO_A = {
+    before: "- [/] a 🆔 kt-aaaaaa",
+    after: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
+    line: 1,
+    doc: DOC,
+  };
+  const INTO_B = {
+    before: "- [/] b 🆔 kt-bbbbbb",
+    after: "- [x] b ✅ 2026-10-18 🆔 kt-bbbbbb",
+    line: 2,
+    doc: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa\n- [/] b 🆔 kt-bbbbbb",
+  };
+  const LOG_A = "- ✅ 2026-10-18 a [[projects/kasten]] kt-aaaaaa";
+  const LOG_B = "- ✅ 2026-10-18 b [[projects/kasten]] kt-bbbbbb";
+
+  /** The vault's notes, which the fakes below read and write the way the backend does. */
+  let notes: Record<string, string>;
+
+  /** What the index answers for `id` at the moment it is asked. */
+  const hits = (id: string) =>
+    Object.entries(notes).flatMap(([path, text]) =>
+      text
+        .split("\n")
+        .flatMap((line, index) =>
+          line.includes(id) ? [{ path, line: index + 1, text: line }] : [],
+        ),
+    );
+
+  /** Every log line a note holds, in order. */
+  const logLines = (path: string) =>
+    (notes[path] ?? "").split("\n").filter((line) => line.startsWith("- ✅"));
+
+  beforeEach(() => {
+    notes = { [PATH]: DOC, [daily]: "## Done\n" };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    // The backend's check: a base the disk has moved past is a 409.
+    saveNote.mockImplementation(
+      async (path: string, text: string, _keepalive: boolean, base?: string) => {
+        if (base !== undefined && base !== noteBase(notes[path] ?? "")) throw new ChangedOnDisk();
+        notes[path] = text;
+      },
+    );
+    createNote.mockImplementation(async (path: string, text: string) => {
+      if (notes[path] !== undefined) throw new NoteExists(path);
+      notes[path] = text;
+    });
+    searchNotes.mockImplementation(async (id: string) => hits(id));
+    // The real three tries, since the refusal and the read after it are what
+    // is under test here.
+    updateNote.mockImplementation(async (path: string, change: (text: string) => string | null) => {
+      for (let tries = 1; ; tries++) {
+        const text: string = await fetchNote(path);
+        const next = change(text);
+        if (next === null) return null;
+        try {
+          return await saveNote(path, next, false, noteBase(text));
+        } catch (error) {
+          if (!(error instanceof ChangedOnDisk) || tries === 3) throw error;
+        }
+      }
+    });
+  });
+
+  it("#538 A1 two <leader>x into done in flight on one note both log, a then b", async () => {
+    const pressed = await Promise.allSettled([
+      cycleTodoAside(PATH, INTO_A, "2026-10-18", [PATH, daily]),
+      cycleTodoAside(PATH, INTO_B, "2026-10-18", [PATH, daily]),
+    ]);
+
+    expect(logLines(daily)).toEqual([LOG_A, LOG_B]);
+    expect(pressed.map((press) => press.status)).toEqual(["fulfilled", "fulfilled"]);
+  });
+
+  it("#538 A2 a log write refused three times still says why", async () => {
+    saveNote.mockRejectedValue(new ChangedOnDisk());
+
+    await expect(cycleTodoAside(PATH, INTO_A, "2026-10-18", [PATH, daily])).rejects.toBeInstanceOf(
+      ChangedOnDisk,
+    );
+    expect(saveNote).toHaveBeenCalledTimes(3);
+  });
+
+  it("#538 I1 a quick reopen after done drops the line the first press logged", async () => {
+    // The index answers the reopen from before the first press landed, as one
+    // a write behind does, and the answer arrives after that press is done.
+    let first: Promise<void> = Promise.resolve();
+    searchNotes.mockImplementationOnce(async (id: string) => hits(id));
+    searchNotes.mockImplementationOnce(async (id: string) => {
+      const found = hits(id);
+      await first;
+      return found;
+    });
+
+    first = cycleTodoAside(PATH, INTO_A, "2026-10-18", [PATH, daily]);
+    const reopen = cycleTodoAside(
+      PATH,
+      {
+        before: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
+        after: "- [ ] a 🆔 kt-aaaaaa",
+        line: 1,
+        doc: INTO_B.doc,
+      },
+      "2026-10-18",
+      [PATH, daily],
+    );
+    const pressed = await Promise.allSettled([first, reopen]);
+
+    expect(logLines(daily)).toEqual([]);
+    expect(pressed.map((press) => press.status)).toEqual(["fulfilled", "fulfilled"]);
+  });
+
+  it("#538 I2 a stray log line in another note is dropped on the newer text", async () => {
+    const OLD = "projects/old.md";
+    notes[OLD] = [
+      "## Done",
+      "- ✅ 2026-10-17 a [[projects/kasten]] kt-aaaaaa",
+      "- ✅ 2026-10-17 b [[projects/kasten]] kt-bbbbbb",
+      "",
+    ].join("\n");
+    const done = "- [x] a ✅ 2026-10-17 🆔 kt-aaaaaa\n- [x] b ✅ 2026-10-17 🆔 kt-bbbbbb";
+    notes[PATH] = done;
+
+    const pressed = await Promise.allSettled([
+      cycleTodoAside(
+        PATH,
+        {
+          before: "- [x] a ✅ 2026-10-17 🆔 kt-aaaaaa",
+          after: "- [ ] a 🆔 kt-aaaaaa",
+          line: 1,
+          doc: done,
+        },
+        "2026-10-18",
+        [PATH, daily, OLD],
+      ),
+      cycleTodoAside(
+        PATH,
+        {
+          before: "- [x] b ✅ 2026-10-17 🆔 kt-bbbbbb",
+          after: "- [ ] b 🆔 kt-bbbbbb",
+          line: 2,
+          doc: "- [ ] a 🆔 kt-aaaaaa\n- [x] b ✅ 2026-10-17 🆔 kt-bbbbbb",
+        },
+        "2026-10-18",
+        [PATH, daily, OLD],
+      ),
+    ]);
+
+    expect(notes[OLD]).toBe("## Done\n");
+    expect(pressed.map((press) => press.status)).toEqual(["fulfilled", "fulfilled"]);
+  });
+
+  it("#538 I3 two presses on the first log of the day both log", async () => {
+    delete notes[daily];
+
+    const pressed = await Promise.allSettled([
+      cycleTodoAside(PATH, INTO_A, "2026-10-18", [PATH]),
+      cycleTodoAside(PATH, INTO_B, "2026-10-18", [PATH]),
+    ]);
+
+    expect(logLines(daily)).toEqual([LOG_A, LOG_B]);
+    expect(pressed.map((press) => press.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect(createNote).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("toggleTimerInVault", () => {
   const daily = periodicNote("daily", new Date()).path;
   const clock = { date: dailyDate(daily) ?? "", time: "14:03" };
@@ -990,5 +1167,93 @@ describe("addTodoInVault", () => {
       false,
       noteBase("# Today\n"),
     );
+  });
+});
+
+describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
+  const daily = periodicNote("daily", new Date()).path;
+
+  /** The vault as `notes`, written back as each save lands. */
+  function serve(notes: Record<string, string>) {
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    saveNote.mockImplementation(async (path: string, text: string) => {
+      notes[path] = text;
+    });
+  }
+
+  it("#537 A5 setting d done leaves c blocked in the issue's note", async () => {
+    const lines = [
+      "- [ ] a 🆔 kt-aaaaaa",
+      "- [x] a 🆔 kt-aaaaaa",
+      "- [b] c ⛔ kt-aaaaaa",
+      "- [ ] d 🆔 kt-dddddd",
+      "- [b] e ⛔ kt-dddddd",
+    ];
+    const notes: Record<string, string> = { "inbox.md": lines.join("\n"), [daily]: "## Done\n" };
+    serve(notes);
+    fetchTodos.mockResolvedValue(
+      lines.map((text, index) => ({ path: "inbox.md", line: index + 1, text, project: null })),
+    );
+
+    await cycleTodoInVault(
+      { path: "inbox.md", line: 4, text: "- [ ] d 🆔 kt-dddddd" },
+      "2026-08-10",
+      ["inbox.md", daily],
+      "done",
+    );
+
+    expect(notes["inbox.md"]).toBe(
+      [
+        "- [ ] a 🆔 kt-aaaaaa",
+        "- [x] a 🆔 kt-aaaaaa",
+        "- [b] c ⛔ kt-aaaaaa",
+        "- [x] d ✅ 2026-08-10 🆔 kt-dddddd",
+        "- [ ] e ⛔ kt-dddddd",
+      ].join("\n"),
+    );
+  });
+
+  it("#537 A5 the write back leaves a dependent in another note on a twinned 🆔", async () => {
+    // The pressed todo closes, and the dependent's other blocker is the twinned
+    // one, whose done twin is listed last.
+    const notes: Record<string, string> = {
+      "d.md": "- [/] d 🆔 kt-dddddd",
+      "deps.md": "- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa",
+      [daily]: "## Done\n",
+    };
+    serve(notes);
+    fetchTodos.mockResolvedValue([
+      { path: "d.md", line: 1, text: "- [/] d 🆔 kt-dddddd", project: null },
+      { path: "a.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa", project: null },
+      { path: "b.md", line: 1, text: "- [x] a 🆔 kt-aaaaaa", project: null },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa", project: null },
+    ]);
+
+    await cycleTodoInVault(
+      { path: "d.md", line: 1, text: "- [/] d 🆔 kt-dddddd" },
+      "2026-08-10",
+      ["d.md", "deps.md", daily],
+      "done",
+    );
+
+    expect(notes["d.md"]).toBe("- [x] d ✅ 2026-08-10 🆔 kt-dddddd");
+    expect(notes["deps.md"]).toBe("- [b] c ⛔ kt-dddddd ⛔ kt-aaaaaa");
+  });
+
+  it("#537 A6 blocking on a todo whose 🆔 stands on another todo writes nothing and names the other", async () => {
+    const docs = { path: "docs.md", line: 2, text: "- [ ] write the docs" };
+    const blocker = { path: "release.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" };
+    serve({ "docs.md": "# Docs\n- [ ] write the docs", "release.md": blocker.text });
+    fetchTodos.mockResolvedValue([
+      { ...docs, project: null },
+      { ...blocker, project: null },
+      { path: "other.md", line: 3, text: "- [x] a 🆔 kt-aaaaaa", project: null },
+    ]);
+
+    await expect(blockTodoInVault(docs, blocker)).rejects.toThrow(
+      "🆔 kt-aaaaaa is on another todo too: other.md line 3",
+    );
+
+    expect(saveNote).not.toHaveBeenCalled();
   });
 });

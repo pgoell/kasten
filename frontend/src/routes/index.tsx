@@ -1728,12 +1728,17 @@ function Home() {
     [todosWritten],
   );
 
-  /** Write a `⛔` naming the todo picked, from the pane's `b`. Only the write, as `editTodo` is. */
+  /**
+   * Write a `⛔` naming the todo picked, from the pane's `b`.
+   *
+   * A refusal says why, as a press's does: a blocker whose id another todo
+   * carries too writes nothing, and the pick would look ignored without it.
+   */
   const blockTodo = useCallback(
     (hit: SearchHit, blocker: SearchHit) => {
-      void blockTodoInVault(hit, blocker).then(todosWritten, () => {
-        // As above: the list stays as it is, and the next event redraws it.
-      });
+      void blockTodoInVault(hit, blocker).then(todosWritten, (error: unknown) =>
+        setNotice(nothingMoved(error)),
+      );
     },
     [todosWritten],
   );
