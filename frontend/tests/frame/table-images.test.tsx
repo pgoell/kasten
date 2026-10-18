@@ -236,9 +236,10 @@ describe("pictures in a table", () => {
 });
 
 describe("embedded and wrapped pictures in a table (#507, #508)", () => {
+  // Not the linked picture, which follows its link instead (#561).
   it.each([
     ["the ![[x.png]]", 0],
-    ["the linked picture", 1],
+    ["the bold picture", 2],
   ] as const)("A7 a tap on %s in a cell shows the table's source on a phone", async (_, index) => {
     await phone();
     const at = mount(WRAPPED, 896, [SHOT]);
