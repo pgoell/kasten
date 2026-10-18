@@ -288,6 +288,7 @@ export async function cycleTodoInVault(
   today: string,
   paths: string[],
   state?: TodoState,
+  _twins?: number[],
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
@@ -370,6 +371,7 @@ export async function toggleTimerInVault(
   hit: SearchHit,
   clock: { date: string; time: string },
   paths: string[],
+  _twins?: number[],
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch.
   const text = await fetchNote(hit.path);

@@ -1,11 +1,12 @@
 import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { dailyDate, periodicNote } from "@/lib/periodic";
 import {
   addSubtaskInVault,
   addTodoInVault,
   blockTodoInVault,
   cycleTodoInVault,
   editTodoInVault,
+  toggleTimerInVault,
 } from "@/lib/todo-api";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
@@ -451,6 +452,178 @@ describe("cycleTodoInVault", () => {
       "- [b] a 🆔 kt-aaaaaa\n",
       false,
       noteBase("- [/] a 🆔 kt-aaaaaa\n"),
+    );
+  });
+
+  it("#530 A3 a state write on the second of two twins sets the second after a line above shifted both", async () => {
+    // Listed at lines 1 and 2, and a line written above both since. The second
+    // twin's old number now holds the first twin, word for word.
+    const note = "- [ ] written since\n- [ ] a\n- [ ] a\n";
+    fetchNote.mockResolvedValue(note);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
+      "2026-10-18",
+      ["projects/kasten.md"],
+      "blocked",
+      [1, 2],
+    );
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "projects/kasten.md",
+      "- [ ] written since\n- [ ] a\n- [b] a\n",
+      false,
+      noteBase(note),
+    );
+  });
+
+  it("#530 A4 a state write on a twin whose twins changed in number writes nothing", async () => {
+    // Two were listed and three are there now: which one the row meant is
+    // anybody's guess.
+    fetchNote.mockResolvedValue("- [ ] a\n- [ ] a\n- [ ] a\n");
+
+    await expect(
+      cycleTodoInVault(
+        { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
+        "2026-10-18",
+        ["projects/kasten.md"],
+        "blocked",
+        [1, 2],
+      ),
+    ).rejects.toThrow("that line has changed since it was listed");
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("#530 I2 a state write on the second of two twins with nothing shifted sets the second", async () => {
+    const note = "- [ ] a\n- [ ] a\n";
+    fetchNote.mockResolvedValue(note);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
+      "2026-10-18",
+      ["projects/kasten.md"],
+      "blocked",
+      [1, 2],
+    );
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "projects/kasten.md",
+      "- [ ] a\n- [b] a\n",
+      false,
+      noteBase(note),
+    );
+  });
+
+  it("#530 I3 a second state press on a twin before the redraw never sets the other twin", async () => {
+    // The first press moved the second twin on, so the first twin is the only
+    // line left with the row's words.
+    fetchNote.mockResolvedValue("- [ ] a\n- [/] a 🆔 kt-aaaaaa\n");
+
+    await expect(
+      cycleTodoInVault(
+        { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
+        "2026-10-18",
+        ["projects/kasten.md"],
+        "blocked",
+        [1, 2],
+      ),
+    ).rejects.toThrow("that line has changed since it was listed");
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleTimerInVault", () => {
+  const daily = periodicNote("daily", new Date()).path;
+  const clock = { date: dailyDate(daily) ?? "", time: "14:03" };
+
+  it("#529 A1 a timer press finds its todo by its words where a line above shifted it", async () => {
+    const notes: Record<string, string> = {
+      "projects/kasten.md": "- [ ] written since\n- [ ] a 🆔 kt-aaaaaa\n",
+      [daily]: "## Time\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+
+    await toggleTimerInVault(
+      { path: "projects/kasten.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" },
+      clock,
+      ["projects/kasten.md", daily],
+    );
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      "## Time\n- 14:03-      a [[projects/kasten]] kt-aaaaaa\n",
+      false,
+      noteBase("## Time\n"),
+    );
+  });
+
+  it("#529 A2 a timer press whose line now holds another todo writes nothing", async () => {
+    const notes: Record<string, string> = {
+      "projects/kasten.md": "- [ ] another\n",
+      [daily]: "## Time\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+
+    await expect(
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock, [
+        "projects/kasten.md",
+        daily,
+      ]),
+    ).rejects.toThrow("that line has changed since it was listed");
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("#529 I1 a second timer press before the redraw stops the session it started", async () => {
+    // The first press stamped the id and opened a session; the row still says
+    // what the list read before it.
+    const open = "- 09:12-      a [[projects/kasten]] kt-aaaaaa";
+    const notes: Record<string, string> = {
+      "projects/kasten.md": "- [ ] a 🆔 kt-aaaaaa\n",
+      [daily]: `## Time\n${open}\n`,
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" },
+      { path: daily, line: 2, text: open },
+    ]);
+
+    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock, [
+      "projects/kasten.md",
+      daily,
+    ]);
+
+    expect(saveNote).toHaveBeenCalledWith(
+      daily,
+      "## Time\n- 09:12-14:03 a [[projects/kasten]] kt-aaaaaa\n",
+      false,
+      noteBase(`## Time\n${open}\n`),
+    );
+  });
+
+  it("#529 I4 a timer press on the second of two twins starts the second after a shift", async () => {
+    // Listed at lines 1 and 2, and a line written above both since.
+    const notes: Record<string, string> = {
+      "projects/kasten.md": "- [ ] written since\n- [ ] a\n- [ ] a\n",
+      [daily]: "## Time\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+
+    await toggleTimerInVault(
+      { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
+      clock,
+      ["projects/kasten.md", daily],
+      [1, 2],
+    );
+
+    expect(saveNote).toHaveBeenCalledWith(
+      "projects/kasten.md",
+      expect.stringMatching(/^- \[ \] written since\n- \[ \] a\n- \[ \] a 🆔 kt-\w+\n$/),
+      false,
+      noteBase("- [ ] written since\n- [ ] a\n- [ ] a\n"),
     );
   });
 });
