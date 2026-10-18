@@ -408,9 +408,18 @@ export function TodoPane({
 
   // Every press in here that writes a state or a timer, key, tap or drop on
   // the board, goes through these two, so none of them leaves the twins off.
-  const onCycle = (hit: SearchHit, state?: TodoState) =>
-    cycle(hit, state, twinsOf(data ?? [], hit));
-  const onTimer = (hit: SearchHit) => timer(hit, twinsOf(data ?? [], hit));
+  // Only where there are twins: one line or none is the row's own, and the
+  // press goes out with the arguments it was made with.
+  const onCycle = (...args: [hit: SearchHit, state?: TodoState]) => {
+    const twins = twinsOf(data ?? [], args[0]);
+    if (twins.length > 1) cycle(args[0], args[1], twins);
+    else cycle(...args);
+  };
+  const onTimer = (hit: SearchHit) => {
+    const twins = twinsOf(data ?? [], hit);
+    if (twins.length > 1) timer(hit, twins);
+    else timer(hit);
+  };
 
   // The listing is already in the cache, put there by the route, so this asks
   // whether the vault holds the views note without a request, and without a
