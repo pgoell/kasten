@@ -95,6 +95,7 @@ import {
   openHtmlInFocused,
   openImageInFocused,
   openInFocused,
+  openOnTop,
   openPdfBeside,
   openPdfInFocused,
   openPersonBeside,
@@ -130,6 +131,7 @@ import { useViewport } from "@/lib/use-viewport";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { setWatched } from "@/lib/video";
 import { namesAFile, outgoingLinks, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
+import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
@@ -256,25 +258,33 @@ function Home() {
   /**
    * Whether the archive is in what the four lookups answer with.
    *
-   * React state and nothing more, so a reload puts it back to hidden. That is
-   * the same bargain the pane arrangement makes, and the safer default of the
-   * two: a lookup that quietly kept showing finished work would be the mode you
-   * forgot you were in.
+   * React state and nothing more, so a reload puts it back to hidden, where
+   * the pane arrangement comes back: a lookup that quietly kept showing
+   * finished work would be the mode you forgot you were in.
    */
   const [archive, setArchive] = useState(false);
   const { note, line } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
 
-  // How the window is divided, and what is open in each division. Seeded from
-  // the URL once and never read back out of it: the arrangement itself is not
-  // in there, so a reload comes back to the note you were reading in a single
-  // pane rather than to the tabs you had around it.
+  // Read up here rather than beside the drawer below, because which device
+  // this is decides which saved workspace the layout starts from.
+  const { narrow, coarse } = useViewport();
+  // What this device had open when it last drew, read once (#495). Its own
+  // state so the layout and the tree start from the one read: a second read
+  // would re-id every pane again for nothing.
+  const [saved] = useState(() => loadWorkspace(coarse));
+  // How the window is divided, and what is open in each division. Restored
+  // from this device's saved workspace, then the URL's note opened over it:
+  // a link that names a note wins, and a plain reload, whose URL names the
+  // focused pane's note, finds it already there and changes nothing.
   //
-  // ponytail: layout is lost on reload. Serialising a tree of splits into a
-  // query parameter is its own feature, and tmux is the thing to copy if it
-  // ever earns the work: a session that outlives the window.
-  const [layout, setLayout] = useState<Layout>(() => emptyLayout(note, line));
+  // In the initializer and not an effect, so the first render already draws
+  // the restored panes and no editor mounts on a pane about to be replaced.
+  const [layout, setLayout] = useState<Layout>(() => {
+    if (saved === null) return emptyLayout(note, line);
+    return note === undefined ? saved.layout : openOnTop(saved.layout, note, line);
+  });
   // Raised by every key that moves the focus, so the editor in the pane arrived
   // at takes it. A click raises nothing, having already moved the focus itself.
   const [focusSignal, setFocusSignal] = useState(0);
@@ -414,8 +424,7 @@ function Home() {
   // because the key that toggles it is pressed inside the editor.
   //
   // Shut to begin with below `md`, where it is a drawer over the page and not a
-  // panel beside it.
-  const { narrow, coarse } = useViewport();
+  // panel beside it. Wider, it starts the way this device last left it.
   // A phone: the one place the toolbar is drawn, and the rail is not.
   const phone = narrow && coarse;
   // The whole frame makes room for a keyboard that covers the page, so the
@@ -423,7 +432,11 @@ function Home() {
   // decides it and not the width: a tablet has the same keyboard.
   const frame = useRef<HTMLElement>(null);
   useKeyboardInset(frame, coarse);
-  const [treeOpen, setTreeOpen] = useState(!narrow);
+  const [treeOpen, setTreeOpen] = useState(!narrow && (saved?.treeOpen ?? true));
+  // The whole workspace on every change, over whatever another kasten tab on
+  // this device wrote: the last tab to move wins, and none listens for the
+  // others, so two tabs never merge into a layout neither had open.
+  useEffect(() => saveWorkspace(coarse, layout, treeOpen), [coarse, layout, treeOpen]);
   // The drawer covers the pane, so it shuts whenever the focus is handed to
   // one, which every way of opening something ends with. It shuts as well when
   // the window turns narrow under an open panel, a phone turned upright being

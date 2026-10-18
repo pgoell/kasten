@@ -707,6 +707,60 @@ export function goToTab(layout: Layout, index: number): Layout {
 }
 
 /**
+ * The same layout under ids made on this page, the focus of each tab following
+ * its pane.
+ *
+ * A saved layout carries the ids of the page that saved it, and that page's
+ * counter is not this one's: kept, the next split here could mint an id a
+ * restored pane already has, and React would draw two panes as one.
+ */
+export function reidLayout(layout: Layout): Layout {
+  return {
+    ...layout,
+    tabs: layout.tabs.map((tab) => {
+      const renamed = new Map<string, string>();
+      const walk = (node: PaneNode): PaneNode => {
+        if (isSplit(node))
+          return { ...node, id: nextId("split"), children: node.children.map(walk) };
+        const id = nextId("pane");
+        renamed.set(node.id, id);
+        return { ...node, id };
+      };
+      const root = walk(tab.root);
+      return {
+        ...tab,
+        id: nextId("tab"),
+        root,
+        focus: must(renamed.get(tab.focus), "focused pane"),
+      };
+    }),
+  };
+}
+
+/**
+ * Open the note a URL names over a restored layout.
+ *
+ * A pane already holding it, in any tab, is gone to rather than doubled. The
+ * focused pane holding it is the plain reload, whose URL the route wrote from
+ * that very pane, so the layout comes back as it is: a line there would count
+ * as a fresh open and jump a cursor the reader left somewhere else.
+ */
+export function openOnTop(layout: Layout, path: string, line?: number): Layout {
+  if (focusedPane(layout).path === path) return layout;
+
+  // The tab on screen first, so a note open in two tabs keeps you where you are.
+  const order = [layout.active, ...layout.tabs.keys()];
+  for (const at of order) {
+    const holding = panesOf(must(layout.tabs[at], "tab").root).find((pane) => pane.path === path);
+    if (holding === undefined) continue;
+    const there = focusPane({ ...layout, active: at }, holding.id);
+    return line === undefined ? there : openInFocused(there, path, line);
+  }
+
+  return openInFocused(layout, path, line);
+}
+
+/**
  * Rewrite every pane in every tab, which is how a moved note is followed.
  *
  * The panes of tabs that are not on screen are rewritten too: a note that moved
