@@ -3505,6 +3505,76 @@ describe("the route", () => {
       expect(app.notice()).toBe("Nothing moved: PUT failed with 500");
     });
   });
+
+  describe("a press on a row whose line moved under it", () => {
+    const PATH = "inbox.md";
+
+    /** The pane listing `rows`, over a note the vault serves as `text` at the write. */
+    async function listing(rows: TodoHit[], text: string) {
+      fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), PATH]);
+      fetchNote.mockImplementation(async (path: string) => (path === PATH ? text : VAULT[path]));
+      fetchTodos.mockResolvedValue(rows);
+      const app = await renderApp();
+      await settle();
+      app.leader("g", "t");
+      await settle();
+      return app;
+    }
+
+    /** The lines of what the press wrote to the note, or undefined where it wrote none. */
+    const written = () =>
+      (saveNote.mock.calls.find(([path]) => path === PATH)?.[1] as string | undefined)?.split("\n");
+
+    const TWINS = [
+      { path: PATH, line: 1, text: "- [ ] a", project: null },
+      { path: PATH, line: 2, text: "- [ ] a", project: null },
+    ];
+    /** A line written above both twins since the listing. */
+    const SHIFTED = "## TODOs\n- [ ] a\n- [ ] a";
+
+    it("#529 A2 a timer press that cannot find its todo says Nothing moved", async () => {
+      const app = await listing(
+        [{ path: PATH, line: 2, text: "- [ ] send the deck", project: null }],
+        "## TODOs\n- [ ] buy milk",
+      );
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+
+      fireEvent.keyDown(pane, { key: "t" });
+      await hashed();
+      await settle();
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: that line has changed since it was listed");
+    });
+
+    it("#530 A5 the pane's X on a twin sets that twin after a shift", async () => {
+      const app = await listing(TWINS, SHIFTED);
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+
+      fireEvent.keyDown(pane, { key: "j" });
+      fireEvent.keyDown(pane, { key: "X" });
+      await hashed();
+      await settle();
+
+      expect(written()?.[1]).toBe("- [ ] a");
+      expect(written()?.[2]).toMatch(/^- \[x\] a/);
+    });
+
+    it("#530 A5 the phone strip's done on a twin sets that twin after a shift", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await listing(TWINS, SHIFTED);
+
+      fireEvent.click(screen.getAllByLabelText("more for a")[1] as HTMLElement);
+      fireEvent.click(screen.getByLabelText("done a"));
+      await hashed();
+      await settle();
+
+      expect(written()?.[1]).toBe("- [ ] a");
+      expect(written()?.[2]).toMatch(/^- \[x\] a/);
+    });
+  });
 });
 
 describe("a reader when the vault moves under it", () => {
