@@ -253,7 +253,13 @@ export function cycleTodoAside(
   today: string,
   paths: string[],
 ): Promise<void> {
-  const turn = asideTurns.then(() => cycleAside(path, cycle, today, paths));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ASIDE_WAIT_MS);
+  });
+  const turn = Promise.race([asideTurns, bound])
+    .finally(() => clearTimeout(timer))
+    .then(() => cycleAside(path, cycle, today, paths));
   // Settled either way, so the next press waits on this one and never on why
   // it failed.
   asideTurns = Promise.allSettled([turn]);
@@ -262,6 +268,16 @@ export function cycleTodoAside(
 
 /** The press before this one, which the next waits on. */
 let asideTurns: Promise<unknown> = Promise.resolve();
+
+/**
+ * How long a press waits on the one before it, then goes on its own.
+ *
+ * The api client sets no timeout, so a press whose answer never comes would
+ * otherwise hold every later press until the page reloads. Ten seconds is far
+ * past any answer the vault gives on a working line; past it the order is lost
+ * for that pair, which is what a press did before it waited at all.
+ */
+const ASIDE_WAIT_MS = 10_000;
 
 async function cycleAside(
   path: string,

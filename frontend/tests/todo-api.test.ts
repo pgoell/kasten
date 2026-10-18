@@ -985,6 +985,24 @@ describe("#538 two presses in flight on the ## Done log", () => {
     expect(logLines(daily)).toEqual([]);
   });
 
+  it("#538 B2 a press that never answers holds the next one back only so long", async () => {
+    vi.useFakeTimers();
+    try {
+      // Press a's guard asks the vault, which never answers.
+      fetchTodos.mockReturnValueOnce(new Promise(() => {}));
+
+      void cycleTodoAside(PATH, INTO_A, "2026-10-18", [PATH, daily]);
+      const b = cycleTodoAside(PATH, INTO_B, "2026-10-18", [PATH, daily]);
+      // The ten seconds `cycleTodoAside` waits on the press before.
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      expect(logLines(daily)).toEqual([LOG_B]);
+      await expect(b).resolves.toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("#538 B1 a reopen with no note today writes nothing and says nothing", async () => {
     delete notes[daily];
 
