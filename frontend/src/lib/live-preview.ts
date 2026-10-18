@@ -154,7 +154,16 @@ class Picture extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
-    return pictureElement(view, this.picture);
+    const image = pictureElement(view, this.picture);
+    // A tap or a click puts the cursor on the picture, which is what shows its
+    // source. CodeMirror leaves both to the browser, the widget swallowing the
+    // press, and the browser puts no caret on a picture (#552). Here and not in
+    // `pictureElement`: a table's cell already has the block's handler.
+    image.addEventListener("click", () => {
+      if (!image.isConnected) return;
+      view.dispatch({ selection: { anchor: view.posAtDOM(image) } });
+    });
+    return image;
   }
 }
 
@@ -214,15 +223,37 @@ type Drawn =
   | { kind: "picture"; source: string; alt: string };
 
 /**
+ * The address of an `![alt](address)` with a space in it, and where it ends.
+ *
+ * CommonMark ends a bare address at a space, so the parser reads
+ * `![shot](99 Misc/shot.png)` as a reference image `![shot]` and the rest as
+ * text. Obsidian draws the picture, and a note it wrote says what it meant: an
+ * `Image` ending in `]` with a `(` straight after it has the address that runs
+ * to the first `)` on its line, spaces kept and no title read. Each space is
+ * written `%20`, which is what kasten's own writers would have put there, the
+ * rest being taken as already encoded, as `imageSource` takes any path. Null
+ * for any other image. Copy as reads the node as CommonMark does.
+ */
+function spacedAddress(doc: Text, node: SyntaxNode): { address: string; to: number } | null {
+  if (doc.sliceString(node.to - 1, node.to + 1) !== "](") return null;
+  const end = Math.min(doc.lineAt(node.to).to, node.parent?.to ?? doc.length);
+  const close = doc.sliceString(node.to + 1, end).indexOf(")");
+  if (close === -1) return null;
+  const typed = doc.sliceString(node.to + 1, node.to + 1 + close).trim();
+  return { address: unescaped(typed).replaceAll(" ", "%20"), to: node.to + close + 2 };
+}
+
+/**
  * Reads an `Image` node into what it is drawn as.
  *
  * An address `imageSource` cannot load renders as its source instead, since a
  * broken picture would hide what the text says was meant. So does one with no
  * address, `![a]()` or a `![a][ref]` no definition names, which `imageSource`
- * would hand the assets route as the empty path.
+ * would hand the assets route as the empty path. The parens of a spaced
+ * address win over a definition of the alt text, as they do in Obsidian.
  */
 function drawnImage(state: EditorState, node: SyntaxNode): Drawn | null {
-  const address = linkAddress(node, state.doc);
+  const address = spacedAddress(state.doc, node)?.address ?? linkAddress(node, state.doc);
   if (!address) return null;
   // The video first: a YouTube link is an `https:` address, which
   // `imageSource` passes as it stands, so asked second it would be handed to an
@@ -854,7 +885,9 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
   if (node.name === "Image") {
     const drawn = drawnImage(state, node);
     if (drawn?.kind !== "picture") return null;
-    return [{ text: whole, class: null, image: { source: drawn.source, alt: drawn.alt } }];
+    const to = spacedAddress(state.doc, node)?.to ?? node.to;
+    const text = state.doc.sliceString(node.from, to);
+    return [{ text, class: null, image: { source: drawn.source, alt: drawn.alt } }];
   }
   // Only a picture again: a note or a pdf drawn in a cell would be a page
   // inside a table, so those stay their source, as a missing picture does.
@@ -912,13 +945,14 @@ function spansIn(state: EditorState, parent: SyntaxNode, from: number, to: numbe
   const spans: Span[] = [];
   let at = from;
   for (let child = parent.firstChild; child; child = child.nextSibling) {
-    // The marks of a construct being cut, which sit outside the range.
-    if (child.from < from || child.to > to) continue;
+    // The marks of a construct being cut, which sit outside the range, and
+    // what a picture's spaced address already took in.
+    if (child.from < from || child.to > to || child.from < at) continue;
     const marked = markedText(state, child);
     if (marked === null) continue;
     if (child.from > at) spans.push({ text: state.doc.sliceString(at, child.from), class: null });
     spans.push(...marked);
-    at = child.to;
+    at = (child.name === "Image" && spacedAddress(state.doc, child)?.to) || child.to;
   }
   if (at < to) spans.push({ text: state.doc.sliceString(at, to), class: null });
   return spans;
@@ -1183,6 +1217,26 @@ function isLineRevealed(state: EditorState, line: Line): boolean {
 function isNodeRevealed(state: EditorState, from: number, to: number): boolean {
   if (!revealsSource(editingMode(state))) return false;
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+}
+
+/**
+ * The mark that takes a link's colour off a `[text]` or `![alt][ref]` no
+ * definition names, or null for one with a `(url)` or a definition.
+ *
+ * Such a one is text, as Obsidian shows it, but the highlighter colours every
+ * Link and Image node as a link.
+ */
+function plainBrackets(doc: Text, node: SyntaxNode): Range<Decoration> | null {
+  if (node.getChildren("LinkMark").length > 2 || linkAddress(node, doc) !== null) return null;
+  // A heading's colour sits on the same spans as the link's, so the CSS has to
+  // be told to give it back. Read off the tree, because a setext heading's line
+  // carries no heading class.
+  let inHeading = false;
+  for (let up = node.parent; up; up = up.parent) {
+    if (/^(ATX|Setext)Heading[1-6]$/.test(up.name)) inHeading = true;
+  }
+  const name = inHeading ? "cm-plain-brackets cm-plain-brackets-heading" : "cm-plain-brackets";
+  return Decoration.mark({ class: name }).range(node.from, node.to);
 }
 
 function build(state: EditorState): Live {
@@ -1656,22 +1710,36 @@ function build(state: EditorState): Live {
       // inside a widget, and `x` on the first character of one would delete a
       // bracket nobody can see.
       if (isImage) {
+        const spaced = spacedAddress(state.doc, node.node);
+        // An `![alt][ref]` no definition names is text, as a `[text]` is, the
+        // cursor on it or not (#554). Asked after the spaced address, which
+        // the parser leaves as such an image.
+        const plain = spaced === null ? plainBrackets(state.doc, node.node) : null;
+        if (plain !== null) {
+          decorations.push(plain);
+          return;
+        }
         if (revealed) return;
-        const drawn = drawnImage(state, node.node);
+        const media = drawnImage(state, node.node);
         // Neither a video nor an image that can load, drawn as its own source
         // for the reason `drawnImage` gives.
-        if (drawn === null) return;
+        if (media === null) return;
         // The position the note remembers, so a clip picked up again opens where
         // the pane left it. Read here rather than held, the widget's `eq` being
         // what stops a later position remounting the frame.
         const widget: WidgetType =
-          drawn.kind === "video"
-            ? new Player(drawn.id, watchedAt(state.doc.toString(), drawn.id))
-            : drawn.kind === "sound"
-              ? new Sound(drawn.source)
-              : new Picture(drawn);
-        decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
-        hidden.push(HIDDEN.range(node.from, node.to));
+          media.kind === "video"
+            ? new Player(media.id, watchedAt(state.doc.toString(), media.id))
+            : media.kind === "sound"
+              ? new Sound(media.source)
+              : new Picture(media);
+        // A spaced address is text after the node, on the cursor's line with
+        // it, so the line rule reveals the two together. `drawn` keeps the
+        // walk from hiding a mark inside it, as a ruby's does.
+        const end = spaced?.to ?? node.to;
+        decorations.push(Decoration.replace({ widget }).range(node.from, end));
+        hidden.push(HIDDEN.range(node.from, end));
+        if (spaced !== null) drawn = end;
         return;
       }
 
@@ -1722,21 +1790,9 @@ function build(state: EditorState): Live {
         // apart by the `(` mark rather than the URL: `[a]()` is a link to
         // nowhere. The highlighter still colours a Link node as a link, so the
         // mark takes that look back off, the cursor on it or not (#441).
-        if (
-          node.node.getChildren("LinkMark").length < 3 &&
-          linkAddress(node.node, state.doc) === null
-        ) {
-          // A heading's colour sits on the same spans as the link's, so the
-          // CSS has to be told to give it back. Read off the tree, because a
-          // setext heading's line carries no heading class.
-          let inHeading = false;
-          for (let up = node.node.parent; up; up = up.parent) {
-            if (/^(ATX|Setext)Heading[1-6]$/.test(up.name)) inHeading = true;
-          }
-          const name = inHeading
-            ? "cm-plain-brackets cm-plain-brackets-heading"
-            : "cm-plain-brackets";
-          decorations.push(Decoration.mark({ class: name }).range(node.from, node.to));
+        const plain = plainBrackets(state.doc, node.node);
+        if (plain !== null) {
+          decorations.push(plain);
           return;
         }
 

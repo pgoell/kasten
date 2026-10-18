@@ -232,7 +232,9 @@ An image is drawn, and it is the one widget here that loads something. That is
 what it cost to render: [GET /api/assets/{path}](/reference/http-api.md) already
 served books, so a picture only needed a suffix added to it, and the widget asks
 for the line to be measured again when the bytes land, the height of an image
-being unknown until then. An `https:` address is drawn too, since a clipped
+being unknown until then. A tap or click on a picture puts the cursor on it,
+as a click on text does; the browser puts no caret on a picture, so the widget
+does it. An `https:` address is drawn too, since a clipped
 article links its pictures rather than holding them; the page's own policy
 allows images from `https:` and sends no referrer, so the host never learns
 which note asked. Any other address stays as its source. A reference image,
@@ -243,6 +245,16 @@ drawn, opened or copied, and one in angle brackets, `<x.png>`, loses the
 brackets too, as CommonMark reads it. The parser kasten uses ends `<…>` at the
 first `>`, escaped or not, so `frontend/patches/` carries a fix to it; a bump
 of `@lezer/markdown` needs that patch made again with `bun patch`.
+
+CommonMark ends a bare address at a space, so it reads
+`![shot](99 Misc/shot.png)` as `![shot]` and some text. Obsidian draws the picture, and so does kasten: when
+an image ending in `]` has a `(` straight after it, the address runs from there
+to the first `)` on the line, spaces kept. A title after a space is not read.
+The backslash escapes come off, each space becomes `%20`, and the rest goes
+through the same checks as any address, so a script address stays as typed.
+The parens win over a definition of the alt text. Copy as still reads the line
+as CommonMark does. A reference image whose label nothing defines stays as
+typed, and in the colour of the words around it, as a `[text]` does.
 
 The same brackets around a YouTube address draw the player instead, `videoId`
 in `video.ts` reading the address the pane already reads. It is the second
