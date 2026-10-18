@@ -1,4 +1,4 @@
-import { forceParsing, syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree, forceParsing, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { renderedMarkdown } from "@/lib/live-preview";
@@ -19,7 +19,13 @@ function drawn(view: EditorView, from: number, to: number): boolean {
 
 /** The tree `doc` parses to, as lezer prints it. */
 function tree(doc: string): string {
-  return syntaxTree(EditorState.create({ doc, extensions: [noteLanguage()] })).toString();
+  // A fresh state parses for only 20 ms, which a cold worker under the full
+  // suite can spend before the parser reaches the end of even a short doc
+  // (#533). A view parses the rest later; a bare state never does.
+  const state = EditorState.create({ doc, extensions: [noteLanguage()] });
+  const parsed = ensureSyntaxTree(state, doc.length, 10_000);
+  if (!parsed) throw new Error(`the parser did not reach the end of ${JSON.stringify(doc)}`);
+  return parsed.toString();
 }
 
 describe("an embed", () => {
@@ -31,9 +37,16 @@ describe("an embed", () => {
   });
 
   it("leaves the link under the embed readable to gf", () => {
-    const state = EditorState.create({ doc: "![[note]]", extensions: [noteLanguage()] });
+    // wikiLinkAt reads the state's own tree, which ensureSyntaxTree leaves as
+    // it was; forceParsing lands the whole tree in the view's state.
+    const view = new EditorView({
+      state: EditorState.create({ doc: "![[note]]", extensions: [noteLanguage()] }),
+    });
+    if (!forceParsing(view, view.state.doc.length, 10_000))
+      throw new Error("the parser fell short");
 
-    expect(wikiLinkAt(state, 4)).toBe("note");
+    expect(wikiLinkAt(view.state, 4)).toBe("note");
+    view.destroy();
   });
 
   it("refuses what a wikilink refuses", () => {
