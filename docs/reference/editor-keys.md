@@ -1939,7 +1939,9 @@ click has to land on the link's own text; it reads the element under the
 pointer rather than the nearest position to it, so the space after the line is
 not the link. A click in a pane that is not focused focuses it first, so the
 link opens off the pane you clicked, as in Obsidian. With live preview off
-there is no rendered link to click, and `gf` is the way.
+there is no rendered link to click, and `gf` is the way. Ctrl+click and a tap
+work on a wikilink in a drawn table's cell too; a plain click there opens the
+table.
 
 Ctrl+click or a tap on a markdown link, `[mail](https://mail.google.com/...)`,
 opens its address in a new tab. Only an address with a scheme opens; a
