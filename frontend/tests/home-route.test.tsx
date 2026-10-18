@@ -6011,6 +6011,42 @@ describe("the workspace across a reload", () => {
     expect(heldText("index.md")).toBeUndefined();
   });
 
+  it("workspace: I5 text thrown away in one pane does not come back from a second pane on the same note", async () => {
+    holdText("index.md", {
+      content: "typed and never saved",
+      reason: "Not yet written when the page was hidden",
+      conflicted: false,
+    });
+    seed([
+      {
+        id: "t",
+        root: {
+          id: "s",
+          dir: "row",
+          children: [
+            { id: "a", path: "index.md" },
+            { id: "b", path: "index.md" },
+          ],
+        },
+        focus: "a",
+      },
+    ]);
+    const app = await reload();
+    expect(document.querySelectorAll(".cm-content")[1]?.textContent).toBe("typed and never saved");
+
+    app.ex("e!");
+    await settle();
+
+    expect(document.querySelectorAll(".cm-content")[1]?.textContent).toBe("the index note");
+    act(() => app.focusPane(1));
+    await settle();
+    app.press("x");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(saveNote.mock.calls.map(([, content]) => content)).not.toContain("yped and never saved");
+  });
+
   it("workspace: I3 a URL with a line on the focused note jumps to that line", async () => {
     fetchNote.mockImplementation(async (path: string) =>
       path === "index.md" ? "one\ntwo\nthree\nfour\n" : VAULT[path],

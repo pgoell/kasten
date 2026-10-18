@@ -407,16 +407,17 @@ function Home() {
       if (query && query.getObserversCount() === 0) cache.remove(query);
     }
   }, [held, queryClient]);
-  // A pane left showing the kept text refused every reload while the conflict
-  // stood (`standbyReload`). Once it is settled elsewhere, the vault's text
-  // may already be in the cache, so no reload comes, and the pane would keep
-  // text the reader threw away for one keystroke to write over the vault.
-  // Put straight into the view: an unfocused pane reports no typing, and off
-  // the undo stack so `u` there cannot bring the thrown-away text back.
-  const conflictedBefore = useRef(new Set<string>());
+  // A pane left showing held text refused every reload while it was held
+  // (`standbyReload`), conflicted or not: a restore opens every pane on a
+  // held note on that text. Once it is settled or thrown away elsewhere, the
+  // vault's text may already be in the cache, so no reload comes, and the
+  // pane would keep text the reader threw away for one keystroke to write over
+  // the vault. Put straight into the view: an unfocused pane reports no
+  // typing, and off the undo stack so `u` there cannot bring it back.
+  const heldBefore = useRef(new Set<string>());
   useEffect(() => {
-    const now = new Set(held.filter((each) => each.conflicted).map((each) => each.path));
-    for (const path of conflictedBefore.current) {
+    const now = new Set(held.map((each) => each.path));
+    for (const path of heldBefore.current) {
       const vault = queryClient.getQueryData<string>(["note", path]);
       if (now.has(path) || vault === undefined) continue;
       for (const each of tabPanes(layoutNow.current)) {
@@ -430,7 +431,7 @@ function Home() {
         });
       }
     }
-    conflictedBefore.current = now;
+    heldBefore.current = now;
   }, [held, queryClient, pane.id]);
   // The focused pane's note and the hook holding its unsaved text, for the
   // event handler below to read. That handler lives in an effect that opens one
