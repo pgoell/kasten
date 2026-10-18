@@ -476,3 +476,7 @@
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md#the-three-blocks) says a reference image with a `[label]: url` definition draws as a picture (#547), and that an `<address>` loses its brackets and backslash escapes before it is drawn, opened or copied (#446, #447).
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md#the-three-blocks) says a tap on a drawn picture puts the cursor on it (#552), that `![a](x y.png)` reads a space as part of the address (#553), and that an undefined `![alt][ref]` takes the colour of the words around it (#554).
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md#the-three-blocks) says a tap or click on a picture inside a link follows the link in a new tab (#558), and that `\|` in a code span in a table cell reads `|` (#515).
+
+## 2026-10-19
+
+* **Update**: [Live preview and the vim mode](/explanation/live-preview.md#the-three-blocks) and [Editor keys](/reference/editor-keys.md) say a link's text or picture in a table cell follows the link as it does outside a table, and a tap elsewhere in the cell opens the table (#561).

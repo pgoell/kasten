@@ -298,7 +298,9 @@ the same helper the line does for that picture, so `![[x.png\|200]]` in a cell
 and `![[x.png|200]]` on a line come out the same size. A picture wrapped in a
 link or in emphasis draws too: what sits between the marks is cut the way a
 cell is, so `**word ![](a.png)**` is bold text and the picture. A tap or click
-on any of them opens the table, as a link in a cell does. A sound or a video in
+in a cell opens the table, except where it follows a link as it would outside
+one: a tap on a link's text or picture, Ctrl+click on its text, any click on
+its picture. A sound or a video in
 a cell stays its source, and so do an address that cannot load, a picture the
 vault lacks, and an embedded note or pdf, which would be a page inside a table.
 A `\|` in a code span in a cell reads `|`, as GFM says, though a code span keeps
