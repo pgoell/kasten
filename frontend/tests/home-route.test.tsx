@@ -270,6 +270,9 @@ afterEach(() => {
   // the layout the next one starts on.
   localStorage.removeItem("kasten.workspace.1");
   localStorage.removeItem("kasten.workspace.coarse.1");
+  // And the cursor each note was left at: a test that opens a note and presses
+  // a key at its first line would otherwise press it where another test left.
+  localStorage.removeItem("kasten.positions.1");
   resetHeld();
   outside.clear();
 });
