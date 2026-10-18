@@ -82,7 +82,7 @@ The `pane` button shows only while the tab holds more than one pane.
 3. Tap the symbol again within four seconds.
 
 To set a state directly, tap `⋯` at the end of the row, then `open`, `doing`,
-`done`, `blocked`, `waiting` or `rejected`. That takes one tap.
+`review`, `done`, `blocked`, `waiting` or `rejected`. That takes one tap.
 
 To say a todo waits for another one, tap `⋯` at the end of its row, then
 `blocked by`, then the row of the todo that blocks it. `cancel` above the list

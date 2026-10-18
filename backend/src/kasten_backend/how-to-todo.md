@@ -39,7 +39,7 @@ kasten keeps in step, and the `.jj` directory beside the notes.
 From the vault root, with `rg` and `cat`, which is all a read needs:
 
 ```sh
-rg -n '^\s*- \[[ /xXbw-]\] '            # every todo line, with note and line number
+rg -n '^\s*- \[[ /xXbwr-]\] '           # every todo line, with note and line number
 rg -n '📅 2026-08-14'                  # everything due that day
 rg -n 'kt-3f9a2c'                      # the todo, its done log line, its sessions
 cat '{{periodic}}/00 Daily/2026-08-10.md'
@@ -91,8 +91,8 @@ Today's date below is the day you are doing this, `YYYY-MM-DD`.
    `🆔 kt-<six hex>` if the line carries no id. Keep
    [the field order](#the-field-order).
 3. If the todo has parts, that is todos indented under it, tick every part that
-   is still `[ ]`, `[/]`, `[b]` or `[w]`: box `[x]` and `✅ <today>` on each, no
-   id, and drop a `👤` field the part carries.
+   is still `[ ]`, `[/]`, `[b]`, `[w]` or `[r]`: box `[x]` and `✅ <today>` on
+   each, no id, and drop a `👤` field the part carries.
    Leave a part already done or rejected alone.
 4. If the line carries `🔁`, leave the finished line where it is and put a fresh
    copy above it, one period on. Move every date it carries by the same number
@@ -161,20 +161,21 @@ appears once. A todo opens only when every `⛔` on it names a closed todo, and 
 Every field except the two clocks is what the obsidian-tasks plugin already
 reads, so this vault opened in Obsidian shows working tasks.
 
-## The six states
+## The seven states
 
 | Box | State |
 | --- | --- |
 | `[ ]` | open |
 | `[/]` | doing |
+| `[r]` | review |
 | `[x]` | done |
 | `[b]` | blocked |
 | `[w]` | waiting |
 | `[-]` | rejected |
 
 `[X]` reads as done too, because other editors write it that way. Write `[x]`.
-Open means neither done nor rejected, so a blocked todo is open work and so is
-a waiting one. Entering rejected stamps `❌ <today>`, and leaving it drops that
+`[R]` is no todo at all. Open means neither done nor rejected, so a blocked
+todo is open work, and so are a waiting one and one in review. Entering rejected stamps `❌ <today>`, and leaving it drops that
 stamp.
 
 Blocked waits on another todo, named by `⛔`. Waiting waits on a person, for an
@@ -183,6 +184,11 @@ approval or an answer. To set a todo waiting, write the box `[w]` and put
 name as a `[[link]]` to the person's
 note where the vault has one. Keep a date the line already carries. When the
 todo leaves `[w]` for any other state, drop the `👤` field whole.
+
+Review is yours. When your work on a todo is done and the owner has to check
+it, write the box `[r]`. Never tick it `[x]` yourself: the owner ticks it once
+the check is done, and a tick of a parent ticks its `[r]` parts with it. Drop
+a `✅`, `❌` or `👤` the line carries from the state it leaves.
 
 ## The field order
 

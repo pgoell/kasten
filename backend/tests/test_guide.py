@@ -30,6 +30,16 @@ async def test_startup_writes_the_guide(startup_vault: Path) -> None:
     assert "# How to work with todos" in text
 
 
+async def test_the_guide_names_the_review_state(startup_vault: Path) -> None:
+    async with LifespanManager(app):
+        pass
+
+    text = (startup_vault / GUIDE_PATH).read_text(encoding="utf-8")
+
+    assert "| `[r]` | review |" in text
+    assert "[ /xXbwr-]" in text
+
+
 async def test_startup_keeps_the_guide_the_vault_already_has(startup_vault: Path) -> None:
     note = startup_vault / GUIDE_PATH
     note.parent.mkdir(parents=True)

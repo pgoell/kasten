@@ -255,6 +255,7 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>rf` | Open the rename prompt |
 | `<leader>so` | Set this todo to open |
 | `<leader>sp` | Set this todo to doing |
+| `<leader>sv` | Set this todo to waiting for review |
 | `<leader>sx` | Set this todo to done |
 | `<leader>sb` | Set this todo to blocked |
 | `<leader>sw` | Set this todo to waiting on somebody |
@@ -1208,15 +1209,16 @@ more presses walk it through doing and done, and a fourth gives the words back
 as prose. It edits the buffer, so `u` undoes it and the autosave writes it.
 [The cycle](/reference/todo-format.md#the-cycle) says what each press stamps.
 
-The walk is the work and nothing else. Blocked, waiting and rejected are not on
-it, and the six `<leader>s` keys are how you reach any state from any other:
-`so` open, `sp` doing, `sx` done, `sb` blocked, `sw` waiting, `sr` rejected.
+The walk is the work and nothing else. Review, blocked, waiting and rejected are
+not on it, and the seven `<leader>s` keys are how you reach any state from any
+other: `so` open, `sp` doing, `sv` review, `sx` done, `sb` blocked, `sw`
+waiting, `sr` rejected. A press of `<leader>x` on a review line ticks it done.
 `sw` stamps `👤` and today after the words and leaves the cursor on the date,
 where `a` then types
 [who the todo waits on](/reference/todo-format.md#waiting-on-somebody). They stamp what the
 walk stamps and drag what it drags, so setting a parent done still ticks its
-parts. `s` for state, and `p` for in progress because `d` is spent on the done
-list in the pane.
+parts. `s` for state, `p` for in progress because `d` is spent on the done
+list in the pane, and `v` for verify because `r` is spent on rejected.
 
 The press that enters or leaves done also moves
 [the done log](/reference/todo-format.md#the-done-log), which lives in another
@@ -1241,7 +1243,7 @@ dependent in another note is a write the buffer cannot reach, like the log.
 line that is not a todo or that carries one already. It is how you name a todo
 that is still open, so a `⛔` on another line has something to point at.
 
-The editor draws each state as a symbol in place of its box, `☐ ◐ ☑ ⊘ ☒`, and
+The editor draws each state as a symbol in place of its box, `☐ ◐ ◎ ☑ ⊘ ◷ ☒`, and
 mutes and strikes through a line that is done or rejected. A due date that has
 passed is drawn in red, behind any of `📅 📆 🗓`, with or without the variation
 selector. A date inside a code span or a link is not the todo's due date, so it
@@ -1336,8 +1338,9 @@ screen the state's symbol is a button of its own that cycles the todo as `x`
 does, and the header carries a `+` that adds one as `a` does. Under the header
 `done`, `next`, `view` and `board` do what `d`, `n`, `v` and `c` do, and
 nothing while a row is being edited or a blocker picked. Each row ends in a `⋯`
-that opens a strip under it, one strip at a time: `open`, `doing`, `done`,
-`blocked`, `waiting` and `rejected` set the state as `O`, `P`, `X`, `B`, `W` and `R` do,
+that opens a strip under it, one strip at a time: `open`, `doing`, `review`,
+`done`, `blocked`, `waiting` and `rejected` set the state as `O`, `P`, `V`, `X`,
+`B`, `W` and `R` do,
 `timer` is `t`, `part` is `s`, `edit` is `i` and `blocked by` is `b`. `edit`
 does nothing while another row is being edited. After `blocked by`, a tap on a
 row picks it as the blocker and opens nothing, and `cancel` beside the picker's
@@ -1384,7 +1387,8 @@ state already being written on the line. A row
 [waiting on somebody](/reference/todo-format.md#waiting-on-somebody) is drawn
 the same way and says for how many days and on whom before its date,
 `👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. The footer counts the rows, so many open and so many
-blocked, how many are waiting where any are, and how many timers are going
+blocked, how many are waiting where any are, how many wait for review where
+any do, and how many timers are going
 where any are.
 
 Only open todos are listed. One that is done or rejected is not work, and the
@@ -1403,7 +1407,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `n` | Show one next action per task |
 | `v` | Show the next saved view, or all todos again |
 | `c` | Turn the list into [the board](#the-board), and back |
-| `O` `P` `X` `B` `W` `R` | Set the row's todo to open, doing, done, blocked, waiting or rejected |
+| `O` `P` `V` `X` `B` `W` `R` | Set the row's todo to open, doing, review, done, blocked, waiting or rejected |
 | `b` | Pick the todo that blocks the row's todo |
 | `/` | Narrow the list |
 | `q` | Close the pane |
@@ -1466,8 +1470,8 @@ todo has no due date worth grouping on, and a list reaching back to the
 beginning of the vault is not one anybody reads to the end of. Pressing `d`
 again brings the open list back.
 
-The six shifted keys set a state directly, which is the only way to blocked,
-waiting and rejected from here: a row leaves this list the moment it is done, and done is
+The seven shifted keys set a state directly, which is the only way to review,
+blocked, waiting and rejected from here: a row leaves this list the moment it is done, and done is
 where the walk goes first. They are the pane's spelling of the `<leader>s` keys
 and write exactly what those write.
 
@@ -1560,8 +1564,8 @@ todo written by an agent or over ssh appears without a reload.
 
 ### The board
 
-`c` turns the list into a board and back. The board has six columns, open,
-doing, waiting, blocked, done and rejected, each headed with its count. Done
+`c` turns the list into a board and back. The board has seven columns, open,
+doing, review, waiting, blocked, done and rejected, each headed with its count. Done
 and rejected hold what was finished in the last seven days, as `d` does. A todo
 whose start date has not come stays off, as it does in the list.
 
@@ -1583,7 +1587,7 @@ list cuts it. A part names the todo it is part of on a line above, after a `↳`
 | `j` `k` | The next card down the column, or the one above, across lanes |
 | Enter | Open the card's line, as a click does |
 | `x` | Cycle the card's todo |
-| `O` `P` `W` `B` `X` `R` | Move the card to open, doing, waiting, blocked, done or rejected |
+| `O` `P` `V` `W` `B` `X` `R` | Move the card to open, doing, review, waiting, blocked, done or rejected |
 | `p` | Pick a project for the card: `j` `k` and Enter, or a click, pick, Escape shuts |
 | `/` | Filter the cards, as in the list |
 | `v` | The next saved view |
@@ -1603,8 +1607,8 @@ On a touch screen `board` beside `done`, `next` and `view` does what `c` does.
 The board shows one column at a time under a row of tabs, one per column with
 its count; a tap on a tab shows that column, and `lanes` beside the tabs does
 what `g` does. A tap on a card opens its line, and its `⋯` opens a strip:
-`open`, `doing`, `done`, `blocked`, `waiting` and `rejected` move it on one
-tap, and `project` is `p`. `cancel` beside the project picker's line shuts it
+`open`, `doing`, `review`, `done`, `blocked`, `waiting` and `rejected` move it
+on one tap, and `project` is `p`. `cancel` beside the project picker's line shuts it
 and writes nothing.
 
 ## The todo overlay

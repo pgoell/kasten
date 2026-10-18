@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Todo format
-description: The line a todo is written on, every field it carries, the six states, the cycle, the done log, the time log, the tag that marks client work, the terms that filter one, and the note that saves them.
+description: The line a todo is written on, every field it carries, the seven states, the cycle, the done log, the time log, the tag that marks client work, the terms that filter one, and the note that saves them.
 resource: frontend/src/lib/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
@@ -53,7 +53,7 @@ and leaves the span whole.
 
 | Field | Spelling | From |
 | --- | --- | --- |
-| state | `[ ]` `[/]` `[x]` `[b]` `[w]` `[-]` | ours |
+| state | `[ ]` `[/]` `[r]` `[x]` `[b]` `[w]` `[-]` | ours |
 | due | `📅 2026-08-14`, also `📆` or `🗓` | obsidian-tasks |
 | scheduled | `⏳ 2026-08-12` | obsidian-tasks |
 | start | `🛫 2026-08-11` | obsidian-tasks |
@@ -115,33 +115,38 @@ There is deliberately no block anchor. The id does every job a `^anchor` would
 have done: the done log names it, dependencies name it, and the time log names
 it.
 
-## The six states
+## The seven states
 
 | Box | State | Drawn |
 | --- | --- | --- |
 | `[ ]` | open | ☐ |
 | `[/]` | doing | ◐ |
+| `[r]` | review | ◎ |
 | `[x]` | done | ☑ |
 | `[b]` | blocked | ⊘ |
 | `[w]` | waiting | ◷ |
 | `[-]` | rejected | ☒ |
 
 `[X]` reads as done as well, because another editor writes it that way. kasten
-always writes `[x]`.
+always writes `[x]`. `[R]` is no todo: only the `x` has a capital that counts.
 
-Six rather than the plugin's two, because blocked, waiting and rejected are
+Seven rather than the plugin's two, because blocked, waiting and rejected are
 things that happen to work and a todo that is neither open nor done has to be
 able to say which. `[/]` and `[-]` are what most Obsidian themes already style;
-`[b]` and `[w]` have no convention behind them and read as what they are.
-Obsidian shows a box it does not know as a task that is not done.
+`[r]`, `[b]` and `[w]` have no convention behind them and read as what they
+are. Obsidian shows a box it does not know as a task that is not done.
 
 Blocked and waiting are two different holds. A blocked todo waits on another
 todo, which its `⛔` names. A waiting todo waits on somebody, for an approval or
 an answer, and [its `👤`](#waiting-on-somebody) says who and since when.
 
+Review is the agent's state. An agent sets `[r]` when its work on a todo is
+done and the owner has to check it, and it never ticks the todo `[x]` itself.
+The owner's tick is the approval.
+
 Open means neither done nor rejected, which is what
 [the todo pane and the todo overlay](/reference/editor-keys.md#todos) both show.
-A blocked todo is open work, and so is a waiting one.
+A blocked todo is open work, and so are a waiting one and one in review.
 
 ## The cycle
 
@@ -152,13 +157,14 @@ A blocked todo is open work, and so is a waiting one.
 | a plain line | `[ ]` | `➕` today, unless the line already carries one |
 | `[ ]` | `[/]` | nothing |
 | `[/]` | `[x]` | `✅` today, and `🆔` unless the line already carries one |
+| `[r]` | `[x]` | `✅` today, and `🆔` unless the line already carries one |
 | `[x]` | a plain line | strips the `✅` it wrote |
 | `[b]` | `[/]` | nothing |
 | `[w]` | `[/]` | strips the `👤` |
 | `[-]` | a plain line | strips the `❌` it wrote |
 
 The walk is the work: not started, started, finished, and out of the list again.
-Blocked, waiting and rejected are things that happen to work rather than steps
+Review, blocked, waiting and rejected are things that happen to work rather than steps
 in it, so none is on the walk and each has [a key of its own](#setting-a-state). That
 is also what puts done last. A list of open work loses a row the moment it is
 done, so a walk with two closed states in it could never reach the second: from
@@ -168,6 +174,12 @@ row left the list at done and took the rest of the walk with it.
 The walk picks a blocked line up where the work left off, at doing, rather than
 at the start of it. A todo somebody blocked is one somebody had begun. It picks
 a waiting line up at the same place, the answer having come.
+
+A review line goes the other way, one press to done with its `✅` and its id. An
+agent puts a todo in review and no person walks into it, so no step of the walk
+lands there. Out of it, the owner's check is the one thing left and the press
+is that check. A blocked or a waiting todo still has work in it, so it goes
+back to doing; a todo in review has none.
 
 The first step reads the fields already on the line, so a todo written out by
 hand arrives carrying them. It takes the line's bullet off where it had one, the
@@ -203,10 +215,12 @@ what those two presses write.
 
 ## Setting a state
 
-Six keys put a line straight into one state from wherever it was: `O`, `P`,
-`X`, `B`, `W` and `R` in the todo pane, and `<leader>so`, `<leader>sp`,
-`<leader>sx`, `<leader>sb`, `<leader>sw` and `<leader>sr` in the editor. `p` is
-in progress, `d` being spent on the done list.
+Seven keys put a line straight into one state from wherever it was: `O`, `P`,
+`V`, `X`, `B`, `W` and `R` in the todo pane and on the board, and `<leader>so`,
+`<leader>sp`, `<leader>sv`, `<leader>sx`, `<leader>sb`, `<leader>sw` and
+`<leader>sr` in the editor. By touch the row's `⋯` strip names them, `review`
+among them. `p` is in progress, `d` being spent on the done list, and `v` is
+verify, `r` being spent on rejected.
 
 A state is worth the same whichever key wrote it. Entering done stamps `✅`
 today and an `🆔` where the line carries none, entering rejected stamps `❌`
@@ -293,8 +307,8 @@ as closed. A todo with no parts shows nothing.
 
 Ticking a parent done ticks every part that is still open, stamping today's
 `✅` on each and leaving a part that was already done or rejected where it is.
-Blocked and waiting count as open, so a `[b]` or a `[w]` part goes done with the
-rest, the `[w]` one losing its `👤`. One
+Blocked, waiting and review count as open, so a `[b]`, a `[w]` or an `[r]` part
+goes done with the rest, the `[w]` one losing its `👤`. One
 `- ✅` line is written for the press, naming the parent, because six lines for
 one press is noise, and no part gets an id, nothing naming one. It is one
 buffer edit, so one `u` puts every line back.
@@ -599,7 +613,7 @@ The todo pane's filter line takes these:
 | --- | --- |
 | `#tag` | a todo carrying that tag |
 | `!highest` `!high` `!med` `!low` `!lowest` | that priority |
-| `/open` `/doing` `/done` `/blocked` `/waiting` `/rejected` | that state |
+| `/open` `/doing` `/review` `/done` `/blocked` `/waiting` `/rejected` | that state |
 | `due:today` | due today |
 | `due:overdue` | due before today |
 | `due:<7d` | due less than seven days out, so today counts and the seventh day does not |
@@ -612,6 +626,10 @@ excludes the tag.
 
 A `-` on a word that is not a term is kept, because `-later` is then something
 you typed to look for. A bare `#` names no tag and is a word like any other.
+
+`/review` is the view of what waits for your check: every todo an agent has
+finished and you have not ticked. `-/review` leaves those out. A line in
+[the saved views note](#saved-views), `- review: /review`, puts it one `v` away.
 
 ## Saved views
 

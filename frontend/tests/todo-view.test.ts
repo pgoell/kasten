@@ -246,6 +246,13 @@ describe("progressOf", () => {
   it("answers nothing for a todo with no parts", () => {
     expect(progressOf(root("- [ ] a"))).toBeNull();
   });
+
+  it("counts a part waiting for review as not closed", () => {
+    expect(progressOf(root("- [/] a", "  - [r] b", "  - [x] c", "  - [ ] d"))).toEqual({
+      closed: 1,
+      total: 3,
+    });
+  });
 });
 
 describe("nextActionOf", () => {

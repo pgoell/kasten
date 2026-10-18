@@ -199,14 +199,15 @@ A mode of the todo pane, `c`, for the reason the steelman gave: the board
 reads the answer the pane holds, and a move goes through the write the state
 keys make, so done runs the completion walk with no second copy of it.
 
-* Columns: open, doing, waiting, blocked, done and rejected. `[w]` has its
-  own column because kasten writes it. Done and rejected show the last seven
+* Columns: open, doing, review, waiting, blocked, done and rejected. `[w]` has
+  its own column because kasten writes it. Review sits after doing because it
+  is the next step in an agent's walk, the last stop before done. Done and rejected show the last seven
   days, as `d` does in the list.
 * Every todo is a card, a part too, naming the todo it is part of. A card
   shows the words, the priority, the due date, the parts count and what it
   waits for.
 * `h` `l` move between columns and `j` `k` between cards, Enter opens the
-  line, and `O` `P` `W` `B` `X` `R` move the card. The filter line and the
+  line, and `O` `P` `V` `W` `B` `X` `R` move the card. The filter line and the
   views narrow the board as they narrow the list.
 * On a phone the board shows one column at a time, with a tab per column.
   A tap on a card opens it; its `⋯` holds the states and `project`.

@@ -744,11 +744,12 @@ it: the files are the source of truth.
 It matches two shapes and nothing else:
 
 * a checkbox list item at any indent, in any of
-  [the six states](/reference/todo-format.md#the-six-states): `- [ ]`,
-  `- [/]`, `- [x]`, `- [X]`, `- [b]`, `- [w]` or `- [-]`
+  [the seven states](/reference/todo-format.md#the-seven-states): `- [ ]`,
+  `- [/]`, `- [r]`, `- [x]`, `- [X]`, `- [b]`, `- [w]` or `- [-]`
 * a running session line, `- 14:03- …`, with no end time on it
 
-`[X]` is matched because another editor writes it that way. `[` is not one of
+`[X]` is matched because another editor writes it that way, and `[R]` is not,
+because nothing does. `[` is not one of
 the state characters, which is what keeps `- [[borges]]` out, and the `- `
 anchor is what keeps `1. [ ] ordered` out. The done log's `- ✅` line does not
 match either, which is

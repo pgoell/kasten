@@ -29,11 +29,12 @@ on screen to say so. A short list is worse than a long one, so the number now
 sits where nothing written by hand reaches it.
 """
 
-TODO_LINE = r"^[ \t]*- \[[ /xXbw-]\]([ \t]|$)"
-"""A checkbox list item at any indent, in any of the six states.
+TODO_LINE = r"^[ \t]*- \[[ /xXbwr-]\]([ \t]|$)"
+"""A checkbox list item at any indent, in any of the seven states.
 
 `X` is in the class because another editor may write it and the frontend reads
-it as done. `[` is not, which is what keeps `- [[borges]]` out. The `- ` anchor
+it as done. `R` is not, because nothing writes it and the frontend reads
+`[R]` as no todo. `[` is not either, which is what keeps `- [[borges]]` out. The `- ` anchor
 is what keeps an ordered list item out. The `-` sits last in the class, where a
 character class reads it as itself rather than as a range.
 """

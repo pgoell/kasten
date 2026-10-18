@@ -13,7 +13,7 @@
  * stays where links find it.
  */
 
-export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "rejected";
+export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "review" | "rejected";
 export type TodoPriority = "highest" | "high" | "medium" | "low" | "lowest";
 
 export interface Todo {
@@ -49,7 +49,11 @@ export interface Todo {
   waitingOn?: string;
 }
 
-/** `X` is here because another editor writes it. Everything kasten writes is `x`. */
+/**
+ * `X` is here because another editor writes it. Everything kasten writes is
+ * `x`. No `R`: nothing writes one, and obsidian-tasks reads case, so an `[R]`
+ * is no todo there either.
+ */
 const STATES: Record<string, TodoState> = {
   " ": "open",
   "/": "doing",
@@ -57,6 +61,7 @@ const STATES: Record<string, TodoState> = {
   X: "done",
   b: "blocked",
   w: "waiting",
+  r: "review",
   "-": "rejected",
 };
 
@@ -66,6 +71,7 @@ const BOX: Record<TodoState, string> = {
   done: "x",
   blocked: "b",
   waiting: "w",
+  review: "r",
   rejected: "-",
 };
 
@@ -73,7 +79,7 @@ const BOX: Record<TodoState, string> = {
  * How each state is drawn where a list is drawn rather than edited.
  *
  * Here rather than in the panel that first wanted it, because the pane wants
- * the same six and a second copy would be six characters to keep in step by
+ * the same seven and a second copy would be seven characters to keep in step by
  * hand. `.cm-todo-*` in `app.css` is the third copy and cannot be this one:
  * the editor draws its symbol in a `::before`, which no module can reach.
  */
@@ -83,6 +89,7 @@ export const STATE_SYMBOL: Record<TodoState, string> = {
   done: "☑",
   blocked: "⊘",
   waiting: "◷",
+  review: "◎",
   rejected: "☒",
 };
 
@@ -104,7 +111,7 @@ const PRIORITY_OF: Record<string, TodoPriority> = {
 };
 
 /** The bullet, the box, and everything after it. */
-const LINE = /^([ \t]*)- \[([ /xXbw-])\](?:[ \t](.*))?$/;
+const LINE = /^([ \t]*)- \[([ /xXbwr-])\](?:[ \t](.*))?$/;
 
 /** A line that is not a todo, cut into what it is indented by and what it says. */
 const PLAIN = /^([ \t]*)(?:- )?(.*)$/;
@@ -543,8 +550,8 @@ function proseOf(line: string, todo: Todo): string {
  * One step round the cycle.
  *
  * The walk is the work: open, doing, done, and out to a plain line again.
- * Blocked, waiting and rejected are things that happen to work rather than
- * steps in it, so none is on the walk and each is set by a key of its own. That is
+ * Blocked, waiting, review and rejected are things that happen to work rather
+ * than steps in it, so none is on the walk and each is set by a key of its own. That is
  * also what puts done last: a list of open work loses the row at the end of the
  * walk rather than in the middle of it, where the two states past it were once
  * unreachable from the pane.
@@ -578,6 +585,11 @@ export function cycleLine(line: string, today: string, id: string): string {
         waitingOn: undefined,
       });
     case "doing":
+      return patchLine(line, { ...todo, state: "done", done: today, id: todo.id ?? id });
+    // On to done rather than back to doing, as blocked and waiting go. Those
+    // still have work in them; a todo in review has none, the owner's check
+    // being the one thing left, so the press is the approval.
+    case "review":
       return patchLine(line, { ...todo, state: "done", done: today, id: todo.id ?? id });
     // Both ways out, each dropping the stamp its own state wrote. Every other
     // field stays, so three more presses give the todo back with its dates.
