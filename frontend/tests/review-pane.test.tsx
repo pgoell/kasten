@@ -35,6 +35,21 @@ function noteOf(hits: api.SearchHit[], path: string): string {
 }
 
 /**
+ * A client already holding the scan and each deck note, as `renderPane` says why.
+ *
+ * Each note is the lines the scan found in it. A test whose `fetchNote` serves
+ * fuller text gets that on the refetch at mount, which counts the same.
+ */
+function seededClient(hits: api.SearchHit[], archive = false) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(["cards", archive], hits);
+  for (const path of deckNotes(hits)) {
+    client.setQueryData(["cards", "note", path], noteOf(hits, path));
+  }
+  return client;
+}
+
+/**
  * The pane on the deck overview, its decks drawn on the first render.
  *
  * The cache holds the scan and every deck note before the pane mounts. Left
@@ -48,11 +63,7 @@ function noteOf(hits: api.SearchHit[], path: string): string {
 async function renderPane() {
   vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
   serveNotes(HITS);
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(["cards", false], HITS);
-  for (const path of deckNotes(HITS)) {
-    client.setQueryData(["cards", "note", path], noteOf(HITS, path));
-  }
+  const client = seededClient(HITS);
   render(
     <QueryClientProvider client={client}>
       <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
@@ -133,14 +144,14 @@ describe("ReviewPane on a nested deck", () => {
   it("draws the deck under its parent, called by its last part", async () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(NESTED);
     serveNotes(NESTED);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = seededClient(NESTED);
     render(
       <QueryClientProvider client={client}>
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
 
-    const parent = await screen.findByRole("button", { name: /databases/ });
+    const parent = screen.getByRole("button", { name: /databases/ });
     const child = screen.getByRole("button", { name: /postgres/ });
     expect(parent).toHaveAttribute("data-deck", "databases");
     expect(child).toHaveAttribute("data-deck", "databases/postgres");
@@ -150,14 +161,14 @@ describe("ReviewPane on a nested deck", () => {
   it("counts the card once in the header, not once per row above it", async () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(NESTED);
     serveNotes(NESTED);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = seededClient(NESTED);
     render(
       <QueryClientProvider client={client}>
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
 
-    await screen.findByRole("button", { name: /postgres/ });
+    screen.getByRole("button", { name: /postgres/ });
 
     expect(screen.getByText(/to go/).textContent).toBe("1 to go");
   });
@@ -201,13 +212,13 @@ describe("ReviewPane on a deck holding parked cards", () => {
   async function renderParked() {
     vi.spyOn(api, "fetchCards").mockResolvedValue(PARKED);
     serveNotes(PARKED);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = seededClient(PARKED);
     render(
       <QueryClientProvider client={client}>
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
-    await screen.findByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /alpha/ });
   }
 
   it("counts the parked cards in the header beside the ones to go", async () => {
@@ -307,13 +318,13 @@ describe("ReviewPane on the parked screen", () => {
     vi.spyOn(api, "fetchNote").mockResolvedValue(A);
     vi.spyOn(api, "saveNote").mockResolvedValue({ path: "a.md", content: A });
     const onOpen = vi.fn();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = seededClient(PARKED_HITS);
     const { container } = render(
       <QueryClientProvider client={client}>
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={onOpen} />
       </QueryClientProvider>,
     );
-    await screen.findByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /alpha/ });
     const pane = screen.getByLabelText("review");
     fireEvent.keyDown(pane, { key: "p" });
     return { pane, container, onOpen };
@@ -426,8 +437,14 @@ describe("ReviewDecks reading the deck notes", () => {
     vi.restoreAllMocks();
   });
 
-  function renderDecks(archive?: boolean) {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  /**
+   * With `hits` the cache holds them before mount; without, the decks wait on
+   * the reads, which is what the failing-note test is about.
+   */
+  function renderDecks(hits?: api.SearchHit[], archive?: boolean) {
+    const client = hits
+      ? seededClient(hits, archive)
+      : new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
         <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} archive={archive} />
@@ -453,13 +470,14 @@ describe("ReviewDecks reading the deck notes", () => {
     const cards = vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     serveNotes(HITS);
 
-    renderDecks();
-    await screen.findByRole("button", { name: /alpha/ });
+    // The seeded scan is stale at once, so the mount still asks for it.
+    renderDecks(HITS);
+    screen.getByRole("button", { name: /alpha/ });
     expect(cards).toHaveBeenLastCalledWith(false);
 
     cleanup();
-    renderDecks(true);
-    await screen.findByRole("button", { name: /alpha/ });
+    renderDecks(HITS, true);
+    screen.getByRole("button", { name: /alpha/ });
     expect(cards).toHaveBeenLastCalledWith(true);
   });
 
@@ -475,8 +493,8 @@ describe("ReviewDecks reading the deck notes", () => {
       kept: 110,
       removed: 2,
     });
-    renderDecks();
-    await screen.findByRole("button", { name: /alpha/ });
+    renderDecks(HITS);
+    screen.getByRole("button", { name: /alpha/ });
     const deck = new File(["apkg"], "aws.apkg");
     const carry = screen.getByRole("checkbox", { name: "Carry Anki's schedule" });
 
@@ -516,13 +534,13 @@ describe("ReviewDecks importing from a link", () => {
   async function renderDecks() {
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     serveNotes(HITS);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = seededClient(HITS);
     render(
       <QueryClientProvider client={client}>
         <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
       </QueryClientProvider>,
     );
-    await screen.findByRole("button", { name: /alpha/ });
+    screen.getByRole("button", { name: /alpha/ });
     const field = screen.getByLabelText("a link to an Anki deck") as HTMLInputElement;
     return { field, button: screen.getByRole("button", { name: "Import link" }) };
   }
@@ -681,13 +699,13 @@ describe("ReviewPane on a nested cloze", () => {
     const saved = vi
       .spyOn(api, "saveNote")
       .mockImplementation(async (path: string, content: string) => ({ path, content }));
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = seededClient(HITS);
     render(
       <QueryClientProvider client={client}>
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
-    await screen.findByRole("button", { name: /capitals/ });
+    screen.getByRole("button", { name: /capitals/ });
     const pane = screen.getByLabelText("review");
 
     fireEvent.keyDown(pane, { key: "j" });
