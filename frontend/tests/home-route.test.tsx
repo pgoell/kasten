@@ -1524,12 +1524,15 @@ describe("the route", () => {
     await settle();
     await app.navigate("/capture");
     await settle();
-    await app.navigate("/");
-    await settle();
-
+    // The vault answers with `vault` before the return, as the disk does: the
+    // return reopens the note in its restored pane and reads it there, before
+    // the click below, which then lands on the note already open.
     fetchNote.mockImplementation(async (path: string) =>
       path === "index.md" ? vault : VAULT[path],
     );
+    await app.navigate("/");
+    await settle();
+
     app.click("index.md");
     await settle();
     return app;
