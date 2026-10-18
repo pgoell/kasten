@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit, TodoHit } from "@/lib/api";
 import { ROW } from "@/lib/overlay-styles";
 import { PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
 import {
@@ -11,14 +11,14 @@ import {
   kindOf,
   laneName,
   projectChoices,
-  projectOf,
   withProjectLink,
 } from "@/lib/todo-board";
 import { type Placed, waitsFor } from "@/lib/todo-view";
 
 /** One todo the board draws, as the pane read it: the tree's todo, not the line's. */
 export interface Card {
-  hit: SearchHit;
+  /** Carries the todo's project, which the backend works out. */
+  hit: TodoHit;
   todo: Todo;
 }
 
@@ -60,13 +60,13 @@ interface TodoBoardProps {
   ref: React.Ref<BoardKeys>;
   /** What the filter left of the open todos and the recently finished ones. */
   cards: Card[];
-  /** What each todo hangs off, keyed `path:line`, which kind and project walk up. */
+  /** What each todo hangs off, keyed `path:line`, which kind walks up. */
   parents: Map<string, Placed>;
   /** What each `⛔` names. */
   named: Map<string, Todo>;
   /** `3/5` keyed by `path:line`. */
   progress: Map<string, string>;
-  /** Every path in the vault, which a link resolves against. */
+  /** Every path in the vault, which `p` lists projects from and a link resolves against. */
   files: string[];
   today: string;
   coarse: boolean;
@@ -132,19 +132,14 @@ export function TodoBoard({
 
   const lanes = useMemo((): Lane[] => {
     const laneOf = (card: Card): string | null => {
+      // The backend's answer, so an agent reading `/api/todos` sees the lane
+      // drawn here and no second copy of the rule can drift from it.
+      if (byProject) return card.hit.project;
       const above = ancestors.get(cardKey(card.hit)) ?? [];
-      if (!byProject) {
-        return kindOf(
-          card.todo,
-          above.map((one) => one.todo),
-        );
-      }
-      // Top down, so each step hands its project to the part below it.
-      let project: string | null = null;
-      for (const one of [...above].reverse()) {
-        project = projectOf(card.hit.path, one.todo, files, project);
-      }
-      return projectOf(card.hit.path, card.todo, files, project);
+      return kindOf(
+        card.todo,
+        above.map((one) => one.todo),
+      );
     };
 
     const groups = new Map<string | null, Card[]>();
@@ -169,7 +164,7 @@ export function TodoBoard({
         cells: COLUMNS.map((column) => members.filter(({ todo }) => columnOf(todo) === column)),
       };
     });
-  }, [cards, ancestors, byProject, files]);
+  }, [cards, ancestors, byProject]);
 
   // A column's cards top to bottom across the lanes, which is what `j` and `k` walk.
   const columns = useMemo(

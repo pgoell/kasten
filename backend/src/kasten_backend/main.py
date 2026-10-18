@@ -52,7 +52,7 @@ from kasten_backend.mentions import find_mentions
 from kasten_backend.okf import prepare
 from kasten_backend.search import search_vault
 from kasten_backend.tags import find_tags
-from kasten_backend.todos import find_todos
+from kasten_backend.todos import find_todos, projects_of
 from kasten_backend.tokens import Minted, Token, listing, mint, revoke
 from kasten_backend.transcripts import read_transcript
 from kasten_backend.trash import (
@@ -369,6 +369,17 @@ class SearchHit(BaseModel):
 
     text: str
     """The line itself, for the client to show and to rank."""
+
+
+class TodoHit(SearchHit):
+    """One todo line, or one running session line, and the project it belongs to."""
+
+    project: str | None
+    """The project folder, `02 Projects/FDE`, by the rule `todos.projects_of` reads.
+
+    Its own model rather than a field on `SearchHit`, which search and the
+    cards answer with too and which have no project to give.
+    """
 
 
 class Mention(BaseModel):
@@ -860,23 +871,32 @@ async def read_history_version(
 @app.get("/api/todos")
 async def list_todos(
     settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
-) -> list[SearchHit]:
+) -> list[TodoHit]:
     """Find every checkbox line and every time session line in the vault.
 
-    Candidate lines, not todos. Whether one of these is open, overdue or a
-    subtask of the line above it is read on the client, off the same parser the
-    editor draws a todo with, so the vault has one reader of the format rather
-    than two in two languages.
+    Candidate lines, not todos. Whether one of these is open or overdue is read
+    on the client, off the same parser the editor draws a todo with, so the
+    vault has one reader of the format rather than two in two languages.
 
-    Answers in search's shape, which is what lets the overlay rank these through
-    the ranking it already has and open a note on the line it found.
+    The project is the exception, read here off each line's indent, tags and
+    links by `projects_of`, so an agent reading this sees the lane the board
+    draws without a copy of the rule. The links resolve against the notes
+    `GET /api/files` lists, the archive among them.
+
+    Answers in search's shape plus the project, which is what lets the overlay
+    rank these through the ranking it already has and open a note on the line it
+    found.
 
     `archive` walks the archive folder too, and is off for the reason it is off
     on a search: a finished project's open checkboxes are true of the note and
     false of the week.
     """
     hits = await find_todos(settings.vault_path, None if archive else settings.archive_path)
-    return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+    projects = projects_of(hits, list_markdown_files(settings.vault_path))
+    return [
+        TodoHit(path=hit.path, line=hit.line, text=hit.text, project=project)
+        for hit, project in zip(hits, projects, strict=True)
+    ]
 
 
 @app.get("/api/cards")

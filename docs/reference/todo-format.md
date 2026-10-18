@@ -772,17 +772,30 @@ happens.
 ## Projects
 
 The [board](/reference/editor-keys.md#the-board) files each todo under a project
-by four steps, the first that answers winning:
+by five steps, the first that answers winning. The backend works it out and
+`GET /api/todos` serves it as each line's `project`.
 
-1. The note sits in a project folder: a folder directly under `02 Projects` or
-   `03 Areas`, at any depth below it. A todo in `02 Projects/FDE/plan.md`
-   belongs to `02 Projects/FDE`.
-2. Else the first `[[link]]` on the line that lands on a note in a folder under
+1. A `#p/x` tag on the todo, else on the nearest todo above it that it is a
+   part of and that carries one. `x` names a folder directly under
+   `02 Projects`, with case ignored and a `-` or `_` for a space:
+   `#p/japan-honeymoon-2027` names `02 Projects/Japan Honeymoon 2027`, and
+   `#p/fde/workshops` names FDE. A tag that names no folder is passed over, and
+   of two tags the first that names one wins.
+2. Else the note sits in a project folder: a folder directly under
+   `02 Projects` or `03 Areas`, at any depth below it. A todo in
+   `02 Projects/FDE/plan.md` belongs to `02 Projects/FDE`.
+3. Else the first `[[link]]` on the line that lands on a note in a folder under
    `02 Projects`. `- [ ] send the deck [[02 Projects/FDE/index|FDE]]` in a
    daily note belongs to FDE. A link to a note that is not there counts for
    nothing.
-3. Else the project of the todo it is a part of.
-4. Else no project.
+4. Else the project of the todo it is a part of.
+5. Else no project.
+
+The tag is the way to file a todo against its folder: `- [ ] book flights
+#p/japan-honeymoon-2027` in `02 Projects/FDE/plan.md` belongs to Japan
+Honeymoon 2027. Obsidian Tasks filters on it with `tags include #p/x`.
+[HTTP API](/reference/http-api.md#the-project) has the exact rule for reading
+a tag.
 
 Nothing moves: the link is one Obsidian reads and obsidian-tasks leaves alone.
 [The todo board](/explanation/the-todo-board.md) says why.

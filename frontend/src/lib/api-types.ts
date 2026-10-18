@@ -626,13 +626,18 @@ export interface paths {
          * List Todos
          * @description Find every checkbox line and every time session line in the vault.
          *
-         *     Candidate lines, not todos. Whether one of these is open, overdue or a
-         *     subtask of the line above it is read on the client, off the same parser the
-         *     editor draws a todo with, so the vault has one reader of the format rather
-         *     than two in two languages.
+         *     Candidate lines, not todos. Whether one of these is open or overdue is read
+         *     on the client, off the same parser the editor draws a todo with, so the
+         *     vault has one reader of the format rather than two in two languages.
          *
-         *     Answers in search's shape, which is what lets the overlay rank these through
-         *     the ranking it already has and open a note on the line it found.
+         *     The project is the exception, read here off each line's indent, tags and
+         *     links by `projects_of`, so an agent reading this sees the lane the board
+         *     draws without a copy of the rule. The links resolve against the notes
+         *     `GET /api/files` lists, the archive among them.
+         *
+         *     Answers in search's shape plus the project, which is what lets the overlay
+         *     rank these through the ranking it already has and open a note on the line it
+         *     found.
          *
          *     `archive` walks the archive folder too, and is off for the reason it is off
          *     on a search: a finished project's open checkboxes are true of the note and
@@ -1696,6 +1701,20 @@ export interface components {
             text: string;
         };
         /**
+         * TodoHit
+         * @description One todo line, or one running session line, and the project it belongs to.
+         */
+        TodoHit: {
+            /** Path */
+            path: string;
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+            /** Project */
+            project: string | null;
+        };
+        /**
          * Token
          * @description One token as anything but the mint may see it.
          */
@@ -2522,7 +2541,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SearchHit"][];
+                    "application/json": components["schemas"]["TodoHit"][];
                 };
             };
             /** @description Validation Error */

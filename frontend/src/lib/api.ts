@@ -12,6 +12,9 @@ export type Folder = components["schemas"]["Folder"];
 /** One line of one note that matched a search, and where to find it. */
 export type SearchHit = components["schemas"]["SearchHit"];
 
+/** One todo or session line, and the project folder the backend files it under. */
+export type TodoHit = components["schemas"]["TodoHit"];
+
 /** One web page the backend read for us: where it came from, and its markup. */
 export type Page = components["schemas"]["Page"];
 
@@ -118,10 +121,11 @@ export async function fetchTerminals(): Promise<string[]> {
  * Every todo line and every time session line the vault holds.
  *
  * Candidate lines, not todos. The backend matches the shape of a checkbox and
- * nothing more, so reading the state, the dates and whether a line is still
- * open is this side's job, done by the same parser the editor draws with.
+ * reads only what the project needs, so reading the state, the dates and
+ * whether a line is still open is this side's job, done by the same parser the
+ * editor draws with.
  */
-export async function fetchTodos(archive = false): Promise<SearchHit[]> {
+export async function fetchTodos(archive = false): Promise<TodoHit[]> {
   const { data, response } = await client.GET("/api/todos", {
     params: { query: { archive } },
   });

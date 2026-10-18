@@ -1044,7 +1044,7 @@
     "/api/todos": {
       "get": {
         "summary": "List Todos",
-        "description": "Find every checkbox line and every time session line in the vault.\n\nCandidate lines, not todos. Whether one of these is open, overdue or a\nsubtask of the line above it is read on the client, off the same parser the\neditor draws a todo with, so the vault has one reader of the format rather\nthan two in two languages.\n\nAnswers in search's shape, which is what lets the overlay rank these through\nthe ranking it already has and open a note on the line it found.\n\n`archive` walks the archive folder too, and is off for the reason it is off\non a search: a finished project's open checkboxes are true of the note and\nfalse of the week.",
+        "description": "Find every checkbox line and every time session line in the vault.\n\nCandidate lines, not todos. Whether one of these is open or overdue is read\non the client, off the same parser the editor draws a todo with, so the\nvault has one reader of the format rather than two in two languages.\n\nThe project is the exception, read here off each line's indent, tags and\nlinks by `projects_of`, so an agent reading this sees the lane the board\ndraws without a copy of the rule. The links resolve against the notes\n`GET /api/files` lists, the archive among them.\n\nAnswers in search's shape plus the project, which is what lets the overlay\nrank these through the ranking it already has and open a note on the line it\nfound.\n\n`archive` walks the archive folder too, and is off for the reason it is off\non a search: a finished project's open checkboxes are true of the note and\nfalse of the week.",
         "operationId": "list_todos_api_todos_get",
         "parameters": [
           {
@@ -1066,7 +1066,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/SearchHit"
+                    "$ref": "#/components/schemas/TodoHit"
                   },
                   "title": "Response List Todos Api Todos Get"
                 }
@@ -2894,6 +2894,42 @@
         ],
         "title": "SearchHit",
         "description": "One line in the vault that matched, and enough to open the note on it."
+      },
+      "TodoHit": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "line",
+          "text",
+          "project"
+        ],
+        "title": "TodoHit",
+        "description": "One todo line, or one running session line, and the project it belongs to."
       },
       "Token": {
         "properties": {

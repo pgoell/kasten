@@ -2,12 +2,10 @@ import { parseTodo, type Todo } from "@/lib/todo";
 import {
   COLUMNS,
   columnOf,
-  folderProject,
   kindOf,
   laneName,
   onBoard,
   projectChoices,
-  projectOf,
   withProjectLink,
 } from "@/lib/todo-board";
 
@@ -31,62 +29,6 @@ const PATHS = [
   "03 Areas/08 People/Louise.md",
   "01 Periodic/2026-10-16.md",
 ];
-
-const DAILY = "01 Periodic/2026-10-16.md";
-
-describe("folderProject", () => {
-  it("names the project folder of a note three folders deep", () => {
-    expect(folderProject("02 Projects/FDE/notes/2026/kickoff.md")).toBe("02 Projects/FDE");
-  });
-
-  it("counts a folder under the areas root as a project", () => {
-    expect(folderProject("03 Areas/06 Allianz Direct/plan.md")).toBe("03 Areas/06 Allianz Direct");
-  });
-
-  it("gives a note at the vault root no project", () => {
-    expect(folderProject("todo.md")).toBeNull();
-  });
-
-  it("gives a note directly in a root no project", () => {
-    expect(folderProject("02 Projects/readme.md")).toBeNull();
-  });
-
-  it("gives a note outside the roots no project", () => {
-    expect(folderProject("04 Ressources/03 Workshops/a.md")).toBeNull();
-  });
-});
-
-describe("projectOf", () => {
-  it("takes the folder over any link on the line", () => {
-    const line = todo("- [ ] send [[02 Projects/Atlas/index|Atlas]]");
-    expect(projectOf("02 Projects/FDE/index.md", line, PATHS, null)).toBe("02 Projects/FDE");
-  });
-
-  it("files a daily todo under the project its link lands in", () => {
-    const line = todo("- [ ] send the deck [[02 Projects/FDE/index|FDE]]");
-    expect(projectOf(DAILY, line, PATHS, null)).toBe("02 Projects/FDE");
-  });
-
-  it("reads a link with a heading and an alias", () => {
-    const line = todo("- [ ] send the deck [[02 Projects/FDE/index#x|FDE]]");
-    expect(projectOf(DAILY, line, PATHS, null)).toBe("02 Projects/FDE");
-  });
-
-  it("files nothing under a person in the areas", () => {
-    const line = todo("- [ ] ask [[Louise]]");
-    expect(projectOf(DAILY, line, PATHS, null)).toBeNull();
-  });
-
-  it("skips a link to a note that is not there", () => {
-    const line = todo("- [ ] ask [[02 Projects/Ghost/index]] then [[02 Projects/Atlas/index]]");
-    expect(projectOf(DAILY, line, PATHS, null)).toBe("02 Projects/Atlas");
-  });
-
-  it("falls back to the parent's project", () => {
-    const line = todo("  - [ ] a part");
-    expect(projectOf(DAILY, line, PATHS, "02 Projects/FDE")).toBe("02 Projects/FDE");
-  });
-});
 
 describe("kindOf", () => {
   it("takes the todo's own first kind tag", () => {

@@ -37,17 +37,28 @@ afterEach(() => {
  * One project note and one daily note. By kind: the invoice is client work,
  * the deck and its parts internal, `ship it` private and the rest no kind. By
  * project: the deck's tree by its folder, the invoice by its link, the rest
- * none. The old rejection is past the board's seven days.
+ * none, as the backend answers. The old rejection is past the board's seven
+ * days.
  */
 const BOARD = [
-  { path: PLAN, line: 1, text: "- [ ] write the deck 📅 2026-08-12 ⏫ #internal" },
-  { path: PLAN, line: 2, text: "  - [/] draw the chart" },
-  { path: PLAN, line: 3, text: "  - [x] gather numbers ✅ 2026-08-09" },
-  { path: DAILY, line: 4, text: "- [ ] send the invoice [[02 Projects/FDE/index|FDE]] #client" },
-  { path: DAILY, line: 5, text: "- [b] ship it ⛔ kt-000009 #private" },
-  { path: DAILY, line: 6, text: "- [ ] fix the tap 🆔 kt-000009" },
-  { path: DAILY, line: 7, text: "- [-] old idea ❌ 2026-08-01" },
-  { path: DAILY, line: 8, text: "- [-] drop the logo ❌ 2026-08-09" },
+  {
+    path: PLAN,
+    line: 1,
+    text: "- [ ] write the deck 📅 2026-08-12 ⏫ #internal",
+    project: "02 Projects/FDE",
+  },
+  { path: PLAN, line: 2, text: "  - [/] draw the chart", project: "02 Projects/FDE" },
+  { path: PLAN, line: 3, text: "  - [x] gather numbers ✅ 2026-08-09", project: "02 Projects/FDE" },
+  {
+    path: DAILY,
+    line: 4,
+    text: "- [ ] send the invoice [[02 Projects/FDE/index|FDE]] #client",
+    project: "02 Projects/FDE",
+  },
+  { path: DAILY, line: 5, text: "- [b] ship it ⛔ kt-000009 #private", project: null },
+  { path: DAILY, line: 6, text: "- [ ] fix the tap 🆔 kt-000009", project: null },
+  { path: DAILY, line: 7, text: "- [-] old idea ❌ 2026-08-01", project: null },
+  { path: DAILY, line: 8, text: "- [-] drop the logo ❌ 2026-08-09", project: null },
 ];
 
 const [DECK, CHART, NUMBERS, INVOICE, , TAP] = BOARD;
@@ -428,7 +439,7 @@ describe("the todo board", () => {
 
   it("#429 A4 a review card sits in a Review column after Doing, in a grid of seven", async () => {
     const pane = await boardPane({
-      hits: [...BOARD, { path: DAILY, line: 9, text: "- [r] write the parser" }],
+      hits: [...BOARD, { path: DAILY, line: 9, text: "- [r] write the parser", project: null }],
     });
 
     expect(pane.columns().slice(0, 3)).toEqual(["Open 3", "Doing 1", "Review 1"]);
@@ -449,7 +460,7 @@ describe("the todo board", () => {
 
   it("#429 A4 a phone has a Review tab, and the card's strip sets review on one tap", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const review = { path: DAILY, line: 9, text: "- [r] write the parser" };
+    const review = { path: DAILY, line: 9, text: "- [r] write the parser", project: null };
     const pane = await boardPane({ hits: [...BOARD, review] });
 
     fireEvent.click(screen.getByRole("tab", { name: "Review 1" }));
@@ -525,8 +536,8 @@ describe("the todo board", () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const pane = await boardPane({
       hits: [
-        { path: "02 Projects/Foo/a.md", line: 1, text: "- [ ] one" },
-        { path: "03 Areas/Foo/b.md", line: 1, text: "- [ ] two" },
+        { path: "02 Projects/Foo/a.md", line: 1, text: "- [ ] one", project: "02 Projects/Foo" },
+        { path: "03 Areas/Foo/b.md", line: 1, text: "- [ ] two", project: "03 Areas/Foo" },
       ],
     });
 
@@ -797,5 +808,101 @@ describe("the board by mouse (#419)", () => {
     expect([pressed("d done"), pressed("n next")]).toEqual(["false", "true"]);
     pane.press("c");
     expect(pressed("c board")).toBe("true");
+  });
+});
+
+describe("lanes by the project the backend names (#395, #394)", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  const KASTEN = "02 Projects/Kasten/plan.md";
+
+  /**
+   * In the Kasten folder, but its tag names FDE, and the backend says so. The
+   * A4 tests put it beside the deck and its doing part, both FDE by folder.
+   */
+  const TAGGED = {
+    path: KASTEN,
+    line: 1,
+    text: "- [ ] send the deck #p/fde",
+    project: "02 Projects/FDE",
+  };
+
+  it("A2 #395 a daily todo with no link sits in the lane the API names", async () => {
+    const pane = await boardPane({
+      hits: [
+        { path: DAILY, line: 4, text: "- [ ] send the deck", project: "02 Projects/FDE" },
+        { path: DAILY, line: 6, text: "- [ ] fix the tap", project: null },
+      ],
+    });
+
+    pane.press("g");
+
+    expect(pane.headings()).toEqual(["No project", "FDE"]);
+    expect(lane("FDE")).toContain("send the deck");
+    expect(lane("No project")).toContain("fix the tap");
+  });
+
+  it("A3 #394 a todo tagged #p/fde in the Kasten folder sits in the FDE lane", async () => {
+    const pane = await boardPane({
+      hits: [
+        TAGGED,
+        { path: KASTEN, line: 2, text: "- [ ] fix the tap", project: "02 Projects/Kasten" },
+      ],
+    });
+
+    pane.press("g");
+
+    expect(pane.headings()).toEqual(["FDE", "Kasten"]);
+    expect(lane("FDE")).toContain("send the deck");
+    expect(lane("Kasten")).not.toContain("send the deck");
+    expect(lane("Kasten")).toContain("fix the tap");
+  });
+
+  // The board never reads the vim setting, its keys landing on the pane, so
+  // the two runs below differ in the setting alone.
+  for (const vim of ["on", "off"]) {
+    it(`A4 #394 g then j k h l reach the tagged card in its FDE lane on a desktop, vim ${vim}`, async () => {
+      toggleVim();
+      if (vim === "on") toggleVim();
+      expect(localStorage.getItem("kasten.vim")).toBe(vim);
+      const pane = await boardPane({ hits: [...BOARD.slice(0, 2), TAGGED] });
+
+      pane.press("g");
+      expect(pane.headings()).toEqual(["FDE"]);
+      expect(lane("FDE")).toContain("send the deck");
+
+      expect(pane.cursor()).toContain("write the deck");
+      pane.press("j");
+      expect(pane.cursor()).toContain("send the deck");
+      pane.press("l");
+      expect(pane.cursor()).toContain("draw the chart");
+      pane.press("h");
+      pane.press("j");
+      expect(pane.cursor()).toContain("send the deck");
+      pane.press("k");
+      expect(pane.cursor()).toContain("write the deck");
+      pane.press("j");
+      pane.press("Enter");
+      expect(pane.onOpen).toHaveBeenLastCalledWith(KASTEN, 1);
+    });
+  }
+
+  it("A4 #394 a phone shows the tagged card in its FDE lane, one column, lanes by finger", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane({ hits: [...BOARD.slice(0, 2), TAGGED] });
+
+    fireEvent.click(screen.getByRole("button", { name: "lanes" }));
+
+    expect(pane.headings()).toEqual(["FDE"]);
+    expect(screen.getAllByRole("tab")[0]?.textContent).toBe("Open 2");
+    expect(pane.texts()).toEqual([
+      expect.stringContaining("write the deck"),
+      expect.stringContaining("send the deck"),
+    ]);
+    expect(lane("FDE")).toContain("send the deck");
+
+    fireEvent.click(pane.card("send the deck"));
+    expect(pane.onOpen).toHaveBeenCalledWith(KASTEN, 1);
   });
 });

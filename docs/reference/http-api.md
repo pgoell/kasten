@@ -730,10 +730,10 @@ A refused or failed link writes nothing to the vault.
 
 Finds every line in the vault that could be a todo. Takes an optional
 `archive` and answers with at most 100,000 matches, in the shape
-`GET /api/search` returns.
+`GET /api/search` returns plus a `project` on each.
 
 ```json
-[{ "path": "projects/kasten.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫" }]
+[{ "path": "02 Projects/kasten/plan.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫", "project": "02 Projects/kasten" }]
 ```
 
 One `rg` pass, carrying the same flags search carries, so this and
@@ -764,12 +764,51 @@ it, and the closed ones are the half of that log that piles up. A stop reads the
 through `GET /api/search` on the todo's id instead, which is one narrow pass at
 the press rather than a growing answer on every fetch.
 
-Nothing here parses a todo. The endpoint finds the lines that could be one and
-hands them over whole, because the editor has to parse a line anyway and two
-parsers in two languages drift. Whether one of them is open, overdue or a
-subtask of the line above it is read on the client, off the same module the
-editor draws a todo with. That is also how the client tells a session line from
-a todo, which is why one endpoint can answer both.
+The endpoint parses no todo's state or fields. It finds the lines that could be
+one and hands them over whole, because the editor has to parse a line anyway and
+two parsers in two languages drift. Whether one of them is open or overdue is
+read on the client, off the same module the editor draws a todo with. That is
+also how the client tells a session line from a todo, which is why one endpoint
+can answer both. The one thing the backend reads is `project`, below.
+
+### The project
+
+`project` is the project folder a todo belongs to, as a path from the vault
+root, `"02 Projects/FDE"`, or `null` for none. The board draws its lanes by it,
+and an agent reading this endpoint sees the same lanes. The first of these that
+answers wins:
+
+1. A `#p/x` tag on the todo, else on the nearest todo above it that it is a part
+   of and that carries one.
+2. The note's project folder: a folder directly under `02 Projects` or
+   `03 Areas`, with the note at any depth inside it. A note directly in one of
+   those two, or outside them, has none.
+3. The first `[[link]]` on the line that lands on a note that exists, in a
+   folder under `02 Projects`. Areas do not count here.
+4. The project of the todo it is a part of, by this same rule.
+5. `null`.
+
+A part is a todo indented under another: its parent is the nearest todo above
+it in the same note with a smaller indent, a tab counting as one, with prose in
+between ending nothing. A session line is no todo, has `project: null` and is
+nobody's parent. Done, rejected and archived todos follow the same rule.
+
+How a tag names a folder:
+
+* A tag is read as Obsidian reads one: a letter or `_`, then letters, digits,
+  `_`, `/` and `-`, with no letter, digit, `_` or `/` straight before the `#`.
+  So `#p/fde.` at the end of a sentence is `#p/fde`. Inside a `[[link]]` or a
+  code span counts too, as it does for the board's own tags.
+* `#p/` matches with case ignored, so `#P/FDE` counts.
+* `#p/x/y` names `x`, and `#p/` alone names nothing.
+* `x` names a folder directly under `02 Projects` that holds at least one note.
+  Case is ignored, and a `-` or `_` on either side stands for a space:
+  `#p/japan-honeymoon-2027` names `02 Projects/Japan Honeymoon 2027`.
+* A tag that names no folder is passed over. Of two tags, the first, left to
+  right, that names a folder wins.
+
+A link lands when it resolves, by the rule `GET /api/files` and the editor
+share, to a note in that listing, which holds the archive too.
 
 The cap is 100,000 rather than search's 2,000, and the two numbers are doing
 different jobs. Search guards a query that can match anything in the vault. This

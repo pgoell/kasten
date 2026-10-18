@@ -18,8 +18,13 @@ const PATHS = [MAX, MEETING, DAILY];
 
 /** Every checkbox line in the vault, which is what `GET /api/todos` answers with. */
 const TODOS = [
-  { path: DAILY, line: 12, text: "- [ ] send [[Max Bosch]] the repo 📅 2026-10-02" },
-  { path: DAILY, line: 13, text: "- [ ] something nobody is named in" },
+  {
+    path: DAILY,
+    line: 12,
+    text: "- [ ] send [[Max Bosch]] the repo 📅 2026-10-02",
+    project: null,
+  },
+  { path: DAILY, line: 13, text: "- [ ] something nobody is named in", project: null },
 ];
 
 /** Every line carrying the name, which is what `GET /api/search` answers with. */

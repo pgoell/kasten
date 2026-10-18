@@ -60,9 +60,12 @@ curl -s "$KASTEN_API/api/search?q=kt-3f9a2c"        # every line naming an id
 curl -s "$KASTEN_API/api/files/{{periodic|url}}/00%20Daily/2026-08-10.md"
 ```
 
-`GET /api/todos` answers with one object per line, `{"path", "line", "text"}`,
-and parses nothing: you read the format below yourself. It also returns time log
-lines, which are not todos.
+`GET /api/todos` answers with one object per line,
+`{"path", "line", "text", "project"}`. It parses no state or field: you read the
+format below yourself. `project` is the project the todo belongs to, by
+[the rule under Projects](#projects), as a folder path such as
+`"02 Projects/FDE"`, or `null`. It also returns time log lines, which are not
+todos and carry `null`.
 
 Writing a note back:
 
@@ -278,3 +281,25 @@ When you rank todos, order them by priority first, and between two of the same
 priority put client work ahead of internal work. The tag never lifts a todo over
 one of a higher priority, and it changes no date. kasten's todo pane sorts each
 of its groups this way.
+
+## Projects
+
+Every todo belongs to at most one project, a folder such as `02 Projects/FDE`.
+`GET /api/todos` gives it as `project`, so read it there rather than working it
+out. The first of these that answers wins:
+
+1. A `#p/x` tag on the todo, else on the nearest todo above it that it is a
+   part of and that carries one.
+2. The note's folder, when the note sits at any depth inside a folder directly
+   under `02 Projects` or `03 Areas`.
+3. The first `[[link]]` on the line to a note that exists in a folder under
+   `02 Projects`.
+4. The project of the todo it is a part of.
+5. None.
+
+To file a todo under a project its note is not in, write `#p/x` on it, where `x`
+is the folder's name under `02 Projects` with case ignored and a `-` or `_` for
+each space: `#p/japan-honeymoon-2027` files it under
+`02 Projects/Japan Honeymoon 2027`, whatever note it sits in. A tag that names
+no folder there counts for nothing, so check the folder exists. Put the tag on
+the top todo only: its parts follow it, as they follow `#client`.

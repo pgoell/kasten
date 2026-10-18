@@ -2,7 +2,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo-board";
 import { TodoHints } from "@/components/todo-hints";
-import { createNote, fetchFiles, fetchNote, fetchTodos, type SearchHit } from "@/lib/api";
+import {
+  createNote,
+  fetchFiles,
+  fetchNote,
+  fetchTodos,
+  type SearchHit,
+  type TodoHit,
+} from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
 import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
@@ -48,14 +55,14 @@ import { useViewport } from "@/lib/use-viewport";
 
 /** One line the vault answered with, read once. A line is one or the other. */
 interface Read {
-  hit: SearchHit;
+  hit: TodoHit;
   todo: Todo | null;
   session: Session | null;
 }
 
 /** One drawn row: the line the vault answered with, and that line read. */
 interface Row {
-  hit: SearchHit;
+  hit: TodoHit;
   todo: Todo;
   /** The todo this one is a part of, drawn in front of it where it is not above it. */
   under?: string;
@@ -449,7 +456,7 @@ export function TodoPane({
   // on screen: a closed part is exactly what the list above leaves out.
   const forest = useMemo(() => {
     const notes = new Map<string, Placed[]>();
-    const hits = new Map<string, SearchHit>();
+    const hits = new Map<string, TodoHit>();
     for (const { hit, todo } of parsed) {
       if (todo === null) continue;
       const lines = notes.get(hit.path) ?? [];

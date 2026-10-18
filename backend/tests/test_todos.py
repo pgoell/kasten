@@ -1,9 +1,9 @@
 """What `GET /api/todos` finds in the vault, and what it refuses to call a todo.
 
-The backend does not parse a todo. It finds the lines that could be one and
-hands them over whole, so these tests are about the pattern and nothing else: a
+The backend does not parse a todo's state or fields. It finds the lines that
+could be one and hands them over whole, so these tests are about the pattern: a
 wikilink bullet and an ordered list item look enough like a checkbox to be worth
-a test each.
+a test each. The project each line carries is `test_todo_project.py`'s.
 """
 
 from typing import TYPE_CHECKING
@@ -35,13 +35,13 @@ async def test_finds_every_state(client: AsyncClient, vault: Path) -> None:
 
     assert response.status_code == 200
     assert response.json() == [
-        {"path": "projects/kasten.md", "line": 2, "text": "- [ ] open"},
-        {"path": "projects/kasten.md", "line": 3, "text": "- [/] doing"},
-        {"path": "projects/kasten.md", "line": 4, "text": "- [x] done"},
-        {"path": "projects/kasten.md", "line": 5, "text": "- [b] blocked"},
-        {"path": "projects/kasten.md", "line": 6, "text": "- [-] rejected"},
-        {"path": "projects/kasten.md", "line": 7, "text": "- [w] waiting"},
-        {"path": "projects/kasten.md", "line": 8, "text": "- [r] review"},
+        {"path": "projects/kasten.md", "line": 2, "text": "- [ ] open", "project": None},
+        {"path": "projects/kasten.md", "line": 3, "text": "- [/] doing", "project": None},
+        {"path": "projects/kasten.md", "line": 4, "text": "- [x] done", "project": None},
+        {"path": "projects/kasten.md", "line": 5, "text": "- [b] blocked", "project": None},
+        {"path": "projects/kasten.md", "line": 6, "text": "- [-] rejected", "project": None},
+        {"path": "projects/kasten.md", "line": 7, "text": "- [w] waiting", "project": None},
+        {"path": "projects/kasten.md", "line": 8, "text": "- [r] review", "project": None},
     ]
 
 

@@ -1,6 +1,6 @@
 /**
- * How the board reads a todo: which column it sits in, which lane, and
- * whether it is a card at all.
+ * How the board reads a todo: which column it sits in, which kind lane, and
+ * whether it is a card at all. Its project lane comes from the backend.
  *
  * Pure, as `todo-view.ts` is, so the rules the design settled are tested as
  * functions over strings and the pane only draws what these answer.
@@ -38,63 +38,14 @@ export const COLUMN_HEADING: Record<Column, string> = {
 };
 
 /**
- * The folders whose subfolders are projects.
- *
- * Fixed, as `CLIENT` is, rather than a setting: a vault without them sees
- * every todo in no project, and a rule per vault would have to reach the
- * agents that read the same lines as well as this board. Areas count because
- * client work lives there; resources do not, or every reading list would be a
- * project.
- */
-export const PROJECT_ROOTS: readonly string[] = ["02 Projects", "03 Areas"];
-
-/**
- * The one root a link files a todo under. Not areas: a daily todo names people
- * far more often than projects, and the people live in `03 Areas/08 People`.
+ * The one root `p` offers projects from, the root a link files a todo under on
+ * the backend. Not areas: a daily todo names people far more often than
+ * projects, and the people live in `03 Areas/08 People`.
  */
 export const LINK_ROOT = "02 Projects";
 
 /** How far back done and rejected reach, the window `d` shows in the list. */
 export const BOARD_DAYS = 7;
-
-/** The project folder a path lies in under one of `roots`, at any depth. */
-function projectIn(path: string, roots: readonly string[]): string | null {
-  const parts = path.split("/");
-  // Root, folder and at least the file: a note directly in a root is in none.
-  if (parts.length < 3 || !roots.includes(parts[0] ?? "")) return null;
-  return `${parts[0]}/${parts[1]}`;
-}
-
-/** "02 Projects/FDE" for any note at any depth inside that folder; null for a note directly in a root, outside the roots, or at the vault root. */
-export function folderProject(path: string): string | null {
-  return projectIn(path, PROJECT_ROOTS);
-}
-
-/**
- * The project a todo belongs to, by the design's rule: the note's folder, else
- * the first link on the line into a project, else the parent's.
- *
- * A link counts only when it lands on a note that is there: a typo would
- * otherwise file the todo under a project nobody made.
- */
-export function projectOf(
-  path: string,
-  todo: Todo,
-  paths: string[],
-  parentProject: string | null,
-): string | null {
-  const own = folderProject(path);
-  if (own !== null) return own;
-
-  for (const target of wikiLinkTargets(todo.text)) {
-    const linked = wikiLinkPath(target, paths);
-    if (!paths.includes(linked)) continue;
-    const project = projectIn(linked, [LINK_ROOT]);
-    if (project !== null) return project;
-  }
-
-  return parentProject;
-}
 
 /** The tags the board draws its first lanes by, fixed for the reason `CLIENT` is. */
 export const KINDS: readonly string[] = ["#client", "#internal", "#private"];
