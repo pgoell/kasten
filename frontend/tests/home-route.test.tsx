@@ -9,6 +9,7 @@ import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import type { PdfRenderer } from "@/lib/pdf-view";
+import { periodicNote } from "@/lib/periodic";
 import type { TodoState } from "@/lib/todo";
 import { forgetQueues } from "@/lib/use-autosave";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
@@ -3743,6 +3744,44 @@ describe("the route", () => {
       } finally {
         localStorage.removeItem("kasten.vim");
       }
+    });
+
+    it("#534 A4 B3 <leader>x in today's note on a todo whose 🆔 another note carries moves only its line", async () => {
+      // Today's own note, where the log line and the dependent are buffer edits.
+      const daily = periodicNote("daily", new Date()).path;
+      const text = "- [/] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n";
+      const notes: Record<string, string> = {
+        ...VAULT,
+        [daily]: text,
+        "projects/x.md": "- [/] z 🆔 kt-aaaaaa",
+      };
+      fetchFiles.mockImplementation(async () => Object.keys(notes));
+      fetchNote.mockImplementation(async (path: string) => notes[path]);
+      fetchTodos.mockResolvedValue([
+        { path: daily, line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null },
+        { path: daily, line: 2, text: "- [b] c ⛔ kt-aaaaaa", project: null },
+        { path: "projects/x.md", line: 1, text: "- [/] z 🆔 kt-aaaaaa", project: null },
+      ]);
+      const app = await renderApp(`/?note=${encodeURIComponent(daily)}`);
+      await settle();
+      // The listing is what the press asks, so the page holds one: the overlay
+      // reads it and shuts, leaving the note where it was.
+      app.leader("f", "t");
+      await settle();
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+      await settle();
+
+      app.leader("x");
+      await hashed();
+      await settle();
+
+      const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
+      expect(view?.state.doc.toString()).toBe(
+        `- [x] a ✅ ${readClock(new Date()).date} 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n`,
+      );
+      expect(app.notice()).toBe(
+        "Nothing moved: 🆔 kt-aaaaaa is on another todo too: projects/x.md line 1",
+      );
     });
 
     it("#534 I5 a timer press whose search fails says Nothing moved and why", async () => {

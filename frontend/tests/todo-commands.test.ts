@@ -2,7 +2,7 @@ import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { periodicNote } from "@/lib/periodic";
-import { cycleTodoAtCursor, notePath, stampIdAtCursor } from "@/lib/todo-commands";
+import { cycleTodoAtCursor, idElsewhere, notePath, stampIdAtCursor } from "@/lib/todo-commands";
 
 /** A bare view over `doc`, the cursor at `anchor`. No note path, so no log line is written. */
 function open(doc: string, anchor: number) {
@@ -42,6 +42,27 @@ describe("cycleTodoAtCursor", () => {
 
     expect(view.state.doc.toString()).toBe(
       "- [x] a ✅ 2026-10-16 🆔 kt-aaaaaa\n- [/] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n",
+    );
+  });
+
+  it("#534 A4 B3 a press whose 🆔 another note carries moves its own line and no log or dependent", () => {
+    // The other todo is in the vault's listing, not in this buffer.
+    const doc = "- [/] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc,
+        selection: { anchor: 0 },
+        extensions: [
+          notePath.of(periodicNote("daily", new Date()).path),
+          idElsewhere.of((id) => id === "kt-aaaaaa"),
+        ],
+      }),
+    });
+
+    cycleTodoAtCursor(view);
+
+    expect(view.state.doc.toString()).toBe(
+      "- [x] a ✅ 2026-10-16 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n",
     );
   });
 });

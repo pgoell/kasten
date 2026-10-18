@@ -58,6 +58,19 @@ export const notePath = Facet.define<string, string | undefined>({
 });
 
 /**
+ * Whether an id stands on a todo line in another note, as far as the page's
+ * listing of the vault says. The press is synchronous and cannot ask the vault,
+ * and a listing it does not hold answers no: the route asks the vault afresh
+ * before it writes anything beyond the buffer.
+ */
+export const idElsewhere = Facet.define<
+  (id: string) => boolean,
+  ((id: string) => boolean) | undefined
+>({
+  combine: (answers) => answers[0],
+});
+
+/**
  * The log's half of a press, when the note holding the todo is today's own.
  *
  * Empty for every other note, where the route writes the log through the vault
@@ -119,6 +132,13 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   // conservative answer and the right one: a line is opened only when every
   // blocker on it can be seen closed.
   const lines = doc.split("\n");
+  // An id another todo line carries too, in here or in another note: the press
+  // moves its own line and what hangs off it, no log line and no dependent, and
+  // the route refuses the rest and says why.
+  const carried = parseTodo(line.text)?.id;
+  const shared =
+    twinnedIn(lines, line.number) ||
+    (carried !== undefined && state.facet(idElsewhere)?.(carried) === true);
   const moved = cycleLines({
     lines,
     line: line.number,
@@ -126,6 +146,7 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
     id,
     closed: closedAmong(lines.flatMap((text) => parseTodo(text) ?? [])),
     state: want,
+    shared,
   });
 
   const changes = ChangeSet.of(
@@ -134,9 +155,7 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
         const held = state.doc.line(at);
         return { from: held.from, to: held.to, insert };
       }),
-      // No log line for an id another todo line in here carries too: the route
-      // refuses the press beyond this line, and says why.
-      ...(twinnedIn(lines, line.number) ? [] : logEdits(doc, line.text, cycled, path)),
+      ...(shared ? [] : logEdits(doc, line.text, cycled, path)),
     ],
     state.doc.length,
   );

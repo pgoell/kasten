@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { memo } from "react";
 import { Editor } from "@/components/editor";
-import { fetchNote } from "@/lib/api";
+import { fetchNote, type TodoHit } from "@/lib/api";
 import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
+import { parseTodo } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
 
 interface NoteEditorProps {
@@ -105,6 +106,13 @@ export const NoteEditor = memo(function NoteEditor({
     queryKey: ["note", path],
     queryFn: () => fetchNote(path),
   });
+  const queryClient = useQueryClient();
+  // Off the todo pane's listing where the page holds one, read at the press
+  // rather than subscribed to: no render of this note waits on the vault's todos.
+  const idElsewhere = (id: string) =>
+    (queryClient.getQueryData<TodoHit[]>(["todos", false]) ?? []).some(
+      (hit) => hit.path !== path && parseTodo(hit.text)?.id === id,
+    );
 
   if (isPending) return <p className={MESSAGE}>Opening {path}</p>;
   // Only while there is nothing to show. Every write to the vault reads this
@@ -143,6 +151,7 @@ export const NoteEditor = memo(function NoteEditor({
       onFollow={onFollow}
       onOpenHighlight={(quote) => onOpenHighlight?.(path, quote)}
       onCycleTodo={(cycle) => onCycleTodo?.(path, cycle)}
+      idElsewhere={idElsewhere}
       onNotice={onNotice}
       path={path}
       embeds={embeds}

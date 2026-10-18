@@ -33,7 +33,7 @@ import { type CopyFormat, slashCompletions, viewCommands } from "@/lib/palette";
 import { readPosition, writePosition } from "@/lib/positions";
 import { moveCell } from "@/lib/table";
 import { tagCompletions, vaultTags } from "@/lib/tag";
-import { type CycleHandler, notePath, todoCycled } from "@/lib/todo-commands";
+import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo-commands";
 import { todoCompletions } from "@/lib/todo-suggest";
 import { setWatched } from "@/lib/video";
 import { vimKeys } from "@/lib/vim-mode";
@@ -725,6 +725,8 @@ interface EditorProps {
   onOpenHighlight?: (quote: string[]) => void;
   /** Called with the line `<leader>x` cycled, which the done log follows. */
   onCycleTodo?: CycleHandler;
+  /** Whether an id stands on a todo line in another note. See `idElsewhere`. */
+  idElsewhere?: (id: string) => boolean;
   /** The note this holds, which tells today's own note from every other. */
   path?: string;
   /**
@@ -772,6 +774,7 @@ export function Editor({
   onFollow,
   onOpenHighlight,
   onCycleTodo,
+  idElsewhere: elsewhere,
   path,
   onNotice,
   embeds,
@@ -799,6 +802,7 @@ export function Editor({
   const onFollowRef = useRef(onFollow);
   const onOpenHighlightRef = useRef(onOpenHighlight);
   const onCycleTodoRef = useRef(onCycleTodo);
+  const elsewhereRef = useRef(elsewhere);
   const onNoticeRef = useRef(onNotice);
   const allowReloadRef = useRef(allowReload);
   const onReloadRef = useRef(onReload);
@@ -811,6 +815,7 @@ export function Editor({
     onFollowRef.current = onFollow;
     onOpenHighlightRef.current = onOpenHighlight;
     onCycleTodoRef.current = onCycleTodo;
+    elsewhereRef.current = elsewhere;
     onNoticeRef.current = onNotice;
     allowReloadRef.current = allowReload;
     onReloadRef.current = onReload;
@@ -822,6 +827,7 @@ export function Editor({
     onFollow,
     onOpenHighlight,
     onCycleTodo,
+    elsewhere,
     onNotice,
     allowReload,
     onReload,
@@ -942,6 +948,7 @@ export function Editor({
           followHandler.of((target) => onFollowRef.current?.(target)),
           highlightHandler.of((quote) => onOpenHighlightRef.current?.(quote)),
           todoCycled.of((cycle) => onCycleTodoRef.current?.(cycle)),
+          idElsewhere.of((id) => elsewhereRef.current?.(id) === true),
           ...(path === undefined ? [] : [notePath.of(path)]),
           // Outside every compartment, so a vim toggle or a new listing never
           // takes it out. The ref and not the prop, for the reason the

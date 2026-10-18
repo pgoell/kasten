@@ -321,12 +321,17 @@ export interface CycleLinesInput {
   closed: Closed;
   /** The state the key named, or nothing where the key walks the cycle. */
   state?: TodoState;
+  /**
+   * Whether the pressed todo's id stands on another todo line too, here or in
+   * another note. Its dependents may be waiting on the other, so none moves.
+   */
+  shared?: boolean;
 }
 
 /**
  * Whether the todo on `line` carries an id another todo line in `lines` carries
  * too. Such a press cannot tell whose log line or dependents it moves, so it
- * moves only its own line. See `otherTodoWithId`.
+ * moves only its own line and what hangs off it. See `otherTodoWithId`.
  */
 export function twinnedIn(lines: string[], line: number): boolean {
   const id = parseTodo(lines[line - 1] ?? "")?.id;
@@ -385,6 +390,7 @@ export function cycleLines({
   id,
   closed,
   state,
+  shared = false,
 }: CycleLinesInput): Map<number, string> {
   const before = lines[line - 1] ?? "";
   const was = parseTodo(before);
@@ -418,14 +424,8 @@ export function cycleLines({
   // From the blocker's side and only from there: closing or reopening a todo
   // that carries an id is what moves the lines waiting on it. A press that
   // leaves the line no longer a todo moves nothing, nothing being able to
-  // resolve it any more. Nor does one whose id a second todo line carries,
-  // whose dependents may be waiting on the other.
-  if (
-    was !== null &&
-    now?.id !== undefined &&
-    isOpen(was) !== isOpen(now) &&
-    !twinnedIn(lines, line)
-  ) {
+  // resolve it any more. Nor does one whose id is `shared`.
+  if (!shared && was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now)) {
     const after = [...lines];
     for (const [at, insert] of moved) after[at - 1] = insert;
     // The press is newer than whatever the caller can see, so this one id is
