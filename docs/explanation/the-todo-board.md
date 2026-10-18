@@ -214,13 +214,51 @@ keys make, so done runs the completion walk with no second copy of it.
 * A move between lanes writes nothing. Drag and drop is left out, as the
   outside view advised: the keys and the strip already move a card.
 
+### The project on the backend, and the tag that overrides it
+
+Two of the items the critique left for later came next (#395, #394).
+
+`GET /api/todos` now answers each todo with its `project`, worked out on the
+backend by the rule above. The board reads it from there and no longer holds a
+copy of the rule, so an agent that reads the endpoint sees the lane the board
+draws. The backend had found the lines and parsed none of them, for the reason
+two parsers in two languages drift. This rule needs only a todo's indent, its
+tags and its links, and the backend already reads links by a rule both sides
+test against one file of cases, so the cost is small and the answer is one.
+
+A `#p/x` tag on a todo comes before every step of that rule, the folder
+included, and Obsidian Tasks can filter on it with `tags include #p/x`. So the
+full order is:
+
+1. A `#p/x` tag on the todo, else on the nearest todo it is a part of. A part
+   is the same work as the todo above it, as it already is for a kind tag.
+2. The note's project folder.
+3. The first link on the line into a folder under `02 Projects`.
+4. The project of the todo it is a part of.
+5. No project.
+
+How a tag names a folder:
+
+* `x` names a folder directly under `02 Projects`, as a link does and as `p`
+  offers. Not areas: their folder names carry a number, `06 Allianz Direct`,
+  which nobody types as a tag.
+* Case does not count, and a hyphen or an underscore in the tag stands for a
+  space in the folder name: `#p/japan-honeymoon-2027` names
+  `02 Projects/Japan Honeymoon 2027`.
+* `#p/x/y` names `x`: a project is one folder deep, and the rest is the user's
+  own grouping inside it.
+* A tag is read as Obsidian reads one, so `#p/fde.` at the end of a sentence
+  names `fde`.
+* A tag that names no folder is passed over, as a link to a note that is not
+  there is: a typo would otherwise make a project nobody made.
+* With two tags on a line, the first that names a folder wins, as the first
+  link that lands does.
+
 ### Left for later
 
 The critique raised these and the first board does without them. Each has an
 issue.
 
-* A `#p/x` tag that overrides the folder, which Tasks could filter on.
-* The project worked out on the backend, so agents read it without this rule.
 * A refile key that moves one todo into its project's note, for a user who
   wants the line there.
 * Drag and drop between columns and between lanes.

@@ -460,3 +460,7 @@
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says an `![](path)` in a table cell draws as its picture, where it had shown as source, and that a table wider than the pane scrolls sideways inside its block (#504).
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md) says an embed `![[x.png]]` in a table cell, and a picture inside a link or emphasis there, draw as the picture (#508, #507). [Embed format](/reference/embed-format.md) says an image embed's alias is read as Obsidian reads it: `200` a width, `200x100` a width and height, other words the alt.
 * **Update**: [The workspace](/explanation/the-workspace.md) says a pane hidden by a zoom or a narrow window comes back at the scroll it had (#506).
+
+## 2026-10-18
+
+* **Update**: [The todo board](/explanation/the-todo-board.md#the-project-on-the-backend-and-the-tag-that-overrides-it) says why a todo's project is now worked out on the backend and answered by `GET /api/todos` (#395), and how a `#p/x` tag on a todo overrides its folder (#394).
