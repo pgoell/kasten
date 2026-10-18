@@ -170,7 +170,7 @@ function stubOpen() {
   return vi.spyOn(window, "open").mockImplementation(() => null);
 }
 
-/** Two frames, by which a click the press made has been handled. */
+/** Two frames, for anything a click already handled set going to show. */
 async function settled(): Promise<void> {
   for (let frame = 0; frame < 2; frame++) {
     await new Promise((done) => requestAnimationFrame(done));
@@ -185,12 +185,21 @@ async function cursorIn(at: EditorView, [from, to]: [number, number], what: stri
 }
 
 /**
+ * The first open has come, however late a slow runner makes the click a touch
+ * turns into, and two frames more have passed for a second one to show.
+ */
+async function opened(open: ReturnType<typeof stubOpen>): Promise<void> {
+  await expect.poll(() => open.mock.calls.length, { message: "the follow" }).toBeGreaterThan(0);
+  await settled();
+}
+
+/**
  * The press followed the link to `address` once and left the cursor where it
  * was. The cursor is a soft check, so on a build that moves it instead the
  * open is still asked about.
  */
 async function followed(at: EditorView, open: ReturnType<typeof stubOpen>, address: string) {
-  await settled();
+  await opened(open);
   expect.soft(at.state.selection.main.head, "the cursor stays out of the link").toBe(0);
   expect(open).toHaveBeenCalledExactlyOnceWith(address, "_blank", "noopener");
 }
@@ -289,8 +298,11 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
       });
     }
     await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    await settled();
-    expect(at.state.selection.main.head).toBe(0);
+    // Nothing shows that a scroll was handled, so a tap on the first line goes
+    // after it: input is handled in order, and the cursor moving there means
+    // any click the scroll made has landed.
+    await tap(at.contentDOM.querySelector(".cm-line") as Element);
+    await cursorIn(at, [1, "A cat".length], "a tap on the first line");
     expect(open).not.toHaveBeenCalled();
   });
 
@@ -321,7 +333,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     const open = stubOpen();
 
     await press(image, 2);
-    await settled();
+    await opened(open);
     expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
   });
 
@@ -331,7 +343,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     const open = stubOpen();
 
     await tap(image);
-    await settled();
+    await opened(open);
     expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
   });
 
@@ -340,9 +352,15 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     const at = mount(NOTE, false, 900);
     const image = await loaded(at.dom);
     const open = stubOpen();
+    // On the editor rather than the picture, which a build that shows the
+    // source on the first click takes away from under the second. A click
+    // bubbles here after the widget's own listener has run, so the second
+    // counted means the second was handled.
+    let clicks = 0;
+    at.dom.addEventListener("click", () => clicks++);
 
     await doublePress(image);
-    await settled();
+    await expect.poll(() => clicks, { message: "the clicks handled" }).toBe(2);
     expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
   });
 });
