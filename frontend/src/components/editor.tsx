@@ -12,7 +12,6 @@ import {
 } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import type { SyntaxNode } from "@lezer/common";
 import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
@@ -25,7 +24,7 @@ import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
-import { isScript, linkAddress } from "@/lib/link-reference";
+import { type UrlLink, urlLinkAt } from "@/lib/link-reference";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { noteSectionOf } from "@/lib/note-section";
@@ -339,34 +338,12 @@ const followOnClick = EditorView.domEventHandlers({
   },
 });
 
-/** A markdown link to an address, and where its source sits in the note. */
-interface UrlLink {
-  address: string;
-  from: number;
-  to: number;
-}
-
-/**
- * The rendered `[text](url)` or reference link under the pointer, or null.
- *
- * Only an address with a scheme: a relative one would resolve against kasten's
- * own page, not the vault, and open nothing useful. Never a script, which a
- * note pasted from anywhere can carry and which would run as kasten (#548).
- */
+/** The rendered `[text](url)` or reference link under the pointer, if it opens in a tab. */
 function urlUnder(event: Event, view: EditorView): UrlLink | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-link") : null;
   if (element === null) return null;
-  for (
-    let node: SyntaxNode | null = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
-    node !== null;
-    node = node.parent
-  ) {
-    if (node.name !== "Link") continue;
-    const address = linkAddress(node, view.state.doc) ?? "";
-    const opens = /^[a-z][a-z0-9+.-]*:/i.test(address) && !isScript(address);
-    return opens ? { address, from: node.from, to: node.to } : null;
-  }
-  return null;
+  const node = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
+  return urlLinkAt(node, view.state.doc);
 }
 
 /**

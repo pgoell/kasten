@@ -2682,6 +2682,71 @@ describe("an escape in a table cell (#512)", () => {
   });
 });
 
+describe("an escaped bar in a code span in a table cell (#515)", () => {
+  /** A line above the table, so the cursor at offset zero is off it. */
+  function table(...rows: string[]): string {
+    return ["intro", "", ...rows].join("\n");
+  }
+
+  function lit(vimOn: boolean): Extension[] {
+    return vimOn ? [vim(), livePreview(), vaultPaths.of([]), imagePaths.of([])] : plain(null);
+  }
+
+  function cell(view: EditorView): HTMLElement | null {
+    return view.dom.querySelector<HTMLElement>(".cm-table-grid tbody td");
+  }
+
+  const MODES = [
+    ["vim off", false],
+    ["vim on", true],
+  ] as const;
+
+  it.each(MODES.map(([mode, vimOn]) => ["A5", mode, vimOn] as const))(
+    "%s draws an escaped bar in a code span in a cell as the bar alone, %s",
+    (_, __, vimOn) => {
+      const view = mount(table("| h |", "| - |", "| `a \\| b` |"), lit(vimOn));
+
+      expect(cell(view)?.querySelector(".cm-inline-code")?.textContent).toBe("a | b");
+      expect(cell(view)?.textContent).toBe("a | b");
+    },
+  );
+
+  it("I5 guard: draws an escaped bar beside a code span in a cell as the bar alone", () => {
+    const view = mount(table("| h |", "| - |", "| a \\| `b` |"), plain(null));
+
+    expect(cell(view)?.textContent).toBe("a | b");
+  });
+
+  it("I5 guard: keeps the backslash of an escaped bar in a code span on a plain line", () => {
+    const view = mount("intro\n\nx `a \\| b` y", plain(null));
+
+    expect([...view.contentDOM.querySelectorAll(".cm-line")].at(-1)?.textContent).toContain(
+      "a \\| b",
+    );
+  });
+
+  it("I5 keeps any other escape in a code span in a cell as written", () => {
+    const view = mount(table("| h |", "| - |", "| `a\\b` |"), plain(null));
+
+    expect(cell(view)?.textContent).toBe("a\\b");
+  });
+
+  it.each(MODES.map(([mode, vimOn]) => ["I6", mode, vimOn] as const))(
+    "%s guard: shows an escaped bar in a code span as written with the cursor in the table, %s",
+    (_, __, vimOn) => {
+      const doc = table("| h |", "| - |", "| `a \\| b` |");
+      const view = mount(doc, lit(vimOn));
+
+      act(() => view.dispatch({ selection: { anchor: doc.indexOf("a \\|") } }));
+      expect(view.dom.querySelector(".cm-table-grid")).toBeNull();
+      expect(view.state.doc.toString()).toBe(doc);
+      expect([...view.contentDOM.querySelectorAll(".cm-line")].at(-1)?.textContent).toBe(
+        "| `a \\| b` |",
+      );
+    },
+  );
+});
+
 describe("a reference image (#547)", () => {
   const VIM = [
     ["vim on", true],

@@ -17,7 +17,7 @@ import { parseCallout } from "@/lib/callout";
 import { readClock } from "@/lib/clock";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths, imageSource } from "@/lib/image";
-import { linkAddress, unescaped } from "@/lib/link-reference";
+import { linkAddress, unescaped, urlLinkAt } from "@/lib/link-reference";
 import { loadKatex } from "@/lib/math";
 import { type Drawing, drawMermaid, drawnMermaid } from "@/lib/mermaid";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -159,9 +159,21 @@ class Picture extends WidgetType {
     // source. CodeMirror leaves both to the browser, the widget swallowing the
     // press, and the browser puts no caret on a picture (#552). Here and not in
     // `pictureElement`: a table's cell already has the block's handler.
+    //
+    // A picture inside a link follows it instead, as the link's text does
+    // (#558). The editor's own tap and ctrl+click never hear of a press the
+    // widget swallowed, so the follow is here, under the rule `followOnTap`
+    // keeps: a link the cursor is already in is one being edited.
     image.addEventListener("click", () => {
       if (!image.isConnected) return;
-      view.dispatch({ selection: { anchor: view.posAtDOM(image) } });
+      const at = view.posAtDOM(image);
+      const link = urlLinkAt(syntaxTree(view.state).resolveInner(at, 1), view.state.doc);
+      const head = view.state.selection.main.head;
+      if (link !== null && (head < link.from || head > link.to)) {
+        window.open(link.address, "_blank", "noopener");
+      } else {
+        view.dispatch({ selection: { anchor: at } });
+      }
     });
     return image;
   }
@@ -930,6 +942,14 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
     const dead = paths !== null && !wikiLinkLands(text, paths);
     const alias = splitTarget(text).alias;
     return [{ text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className }];
+  }
+
+  // GFM takes a `\|` in a cell as a bar before it reads the code span, so its
+  // backslash goes here too, while a code span keeps every other escape as
+  // written. The parser makes no Escape inside a code span to cut on.
+  if (node.name === "InlineCode") {
+    const text = state.doc.sliceString(open.to, close.from).replaceAll("\\|", "|");
+    return [{ text, class: className }];
   }
 
   // What the marks enclose is cut as a cell is, so a picture inside a link or

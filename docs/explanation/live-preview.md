@@ -234,7 +234,9 @@ served books, so a picture only needed a suffix added to it, and the widget asks
 for the line to be measured again when the bytes land, the height of an image
 being unknown until then. A tap or click on a picture puts the cursor on it,
 as a click on text does; the browser puts no caret on a picture, so the widget
-does it. An `https:` address is drawn too, since a clipped
+does it. A picture inside a link, `[![alt](cat.png)](https://example.com)`,
+follows the link in a new tab instead, as a tap on the link's text does, unless
+the cursor already sits in the link. An `https:` address is drawn too, since a clipped
 article links its pictures rather than holding them; the page's own policy
 allows images from `https:` and sends no referrer, so the host never learns
 which note asked. Any other address stays as its source. A reference image,
@@ -298,7 +300,9 @@ link or in emphasis draws too: what sits between the marks is cut the way a
 cell is, so `**word ![](a.png)**` is bold text and the picture. A tap or click
 on any of them opens the table, as a link in a cell does. A sound or a video in
 a cell stays its source, and so do an address that cannot load, a picture the
-vault lacks, and an embedded note or pdf, which would be a page inside a table. A
+vault lacks, and an embedded note or pdf, which would be a page inside a table.
+A `\|` in a code span in a cell reads `|`, as GFM says, though a code span keeps
+every other escape as written. A
 table wider than the pane scrolls sideways inside its own block, and the note
 stays as wide as the pane. Put the cursor in it and the
 whole block comes back as source, in the monospaced face, with every mark in the

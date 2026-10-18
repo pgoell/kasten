@@ -83,6 +83,30 @@ export function isScript(address: string): boolean {
   return /^(javascript|data|vbscript):/i.test(address);
 }
 
+/** A markdown link to an address, and where its source sits in the note. */
+export interface UrlLink {
+  address: string;
+  from: number;
+  to: number;
+}
+
+/**
+ * The `Link` at or above `node` when it opens in a new tab, else null.
+ *
+ * Only an address with a scheme: a relative one would resolve against kasten's
+ * own page, not the vault, and open nothing useful. Never a script, which a
+ * note pasted from anywhere can carry and which would run as kasten (#548).
+ */
+export function urlLinkAt(node: SyntaxNode | null, doc: Source): UrlLink | null {
+  for (let up = node; up !== null; up = up.parent) {
+    if (up.name !== "Link") continue;
+    const address = linkAddress(up, doc) ?? "";
+    const opens = /^[a-z][a-z0-9+.-]*:/i.test(address) && !isScript(address);
+    return opens ? { address, from: up.from, to: up.to } : null;
+  }
+  return null;
+}
+
 /** The definitions of the note `top` heads, read once per parse. */
 function definitions(top: SyntaxNode, doc: Source): Map<string, string> {
   const tree = top.tree;

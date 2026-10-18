@@ -11,13 +11,13 @@
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
+import { getCM, vim } from "@replit/codemirror-vim";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
-import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";
@@ -54,9 +54,11 @@ function mount(height: number): EditorView {
     state: EditorState.create({
       doc: NOTE,
       extensions: [
+        // As the app has it with vim on: vim first, so its keys win, and no
+        // `vimKeys`, whose absence means yes.
+        vim(),
         noteLanguage(),
         oneDark,
-        vimKeys.of(true),
         livePreview(),
         vaultPaths.of([]),
         imagePaths.of([]),
@@ -66,6 +68,8 @@ function mount(height: number): EditorView {
     parent,
   });
   view.dom.style.height = "100%";
+  // Vim is live, so the test cannot slip back to an editor without its keys.
+  expect(getCM(view)).not.toBeNull();
   return view;
 }
 
