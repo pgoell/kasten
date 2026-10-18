@@ -1451,6 +1451,9 @@ whose todo has a session open carries `▶` after its state, and where that
 session was opened on an earlier day the mark carries the day, `▶ 08-09`, which
 is how a timer nobody stopped reads as unstopped. The row shows what is on disk:
 there is no clock ticking on it, and a session lands in `⏱` when it is stopped.
+Where a write since the list was drawn moved the row's todo so that `t` cannot
+tell which line it is, `t` writes nothing and the notice says
+`Nothing moved: that line has changed since it was listed`, as a state key does.
 
 The cell between the count and the date is the two clocks: `⏱ 1h20m / 2h` with
 both, `⏱ 1h20m` with only the worked total, `⏲ 2h` with only an estimate, and
