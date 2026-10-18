@@ -102,6 +102,79 @@ no tag. A link or a code span is not masked, because the board's own tag
 reading does not mask one either.
 """
 
+LINE = re.compile(
+    r"([ \t]*)- \[[ /xXbwr-]\](?:[ \t]([^\r\n\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]*))?"
+)
+"""A todo as the editor's `parseTodo` takes one, the words after the box captured.
+
+Narrower than `TODO_LINE`: the editor's `.` matches no `\\r`, U+2028 or
+U+2029, so a line holding one is no todo there, and so it is none here either,
+neither filed nor anybody's parent. rg matches it all the same.
+"""
+
+# The fields `readFields` in the editor's `todo.ts` takes off a todo's words,
+# spelled the same and taken in the same order, because one taken first can
+# change where a free-text one ends. A link inside a field's value is no link
+# the todo is filed by, the words being only what is left. Each marker may
+# carry the variation selector. `[0-9]` and the spelled-out `\^` class because
+# the editor's `\d` and `\w` are ASCII and Python's are not.
+_VS = "\N{VARIATION SELECTOR-16}?"
+# Spelled out where it is alone, since ruff takes the glyph for a plus sign.
+_CREATED = "\N{HEAVY PLUS SIGN}"
+_STOP = "📅|📆|🗓|⏳|🛫|" + _CREATED + "|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱"
+"""Every marker but `🔁` and `👤`, each of which ends the other's free text."""
+_DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
+_BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*$"
+FIELDS = (
+    re.compile("(?:📅|📆|🗓)" + _VS + _DATE),
+    re.compile("⏳" + _VS + _DATE),
+    re.compile("🛫" + _VS + _DATE),
+    re.compile("(🔺|⏫|🔼|🔽|⏬)" + _VS),
+    re.compile(
+        "🔁"
+        + _VS
+        + r"[ \t]+(.+?)(?=[ \t]*(?:"
+        + _STOP
+        + r"|👤|#)|[ \t]+"
+        + _BLOCK_ID
+        + r"|[ \t]*$)"
+    ),
+    re.compile("🏁" + _VS + r"[ \t]+(keep|delete)(?=[ \t]|$)"),
+    re.compile(_CREATED + _VS + _DATE),
+    re.compile("✅" + _VS + _DATE),
+    re.compile("❌" + _VS + _DATE),
+    re.compile("⏲" + _VS + r"[ \t]+(\S+)"),
+    re.compile("⏱" + _VS + r"[ \t]+(\S+)"),
+    re.compile("🆔" + _VS + r"[ \t]+(\S+)"),
+)
+BLOCKED_BY = re.compile("⛔" + _VS + r"[ \t]+(\S+)")
+WAITING = re.compile(
+    "👤" + _VS + r"(?:" + _DATE + r")?(?:[ \t]+(.+?))??"
+    r"(?=[ \t]+(?:" + _STOP + r"|🔁|#|" + _BLOCK_ID + r")|[ \t]*$)"
+)
+
+SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`")
+"""A link, a markdown link and a code span: a marker inside one is not a field."""
+
+
+def _words(rest: str) -> str:
+    """A todo's words: what follows the box with every field taken out, as `readFields` leaves it.
+
+    Each field is found on a copy with every span blanked to a no-break space,
+    so a marker inside a link is no marker and a one-word value cannot run into
+    one, and cut from both. A match with no value is no field, and only the
+    first match of each is tried, as in the editor; only `⛔` repeats.
+    """
+    text = rest
+    mask = SPANS.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), rest)
+    for pattern in (*FIELDS, BLOCKED_BY, WAITING):
+        while (found := pattern.search(mask)) is not None and any(found.groups()):
+            text = text[: found.start()] + text[found.end() :]
+            mask = mask[: found.start()] + mask[found.end() :]
+            if pattern is not BLOCKED_BY:
+                break
+    return text
+
 
 def _project_in(path: str, roots: tuple[str, ...]) -> str | None:
     """The project folder `path` lies in under one of `roots`, at any depth."""
@@ -179,16 +252,20 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
         above: list[tuple[int, str | None, str | None]] = []
         # rg answers in any order, and a parent has to come before its parts.
         for hit in sorted(lines, key=lambda one: one.line):
-            if re.match(TODO_LINE, hit.text) is None:
+            todo = LINE.fullmatch(hit.text)
+            if todo is None:
                 continue
             # A tab counts one, as the editor's `parseTodo` counts it.
-            indent = len(hit.text) - len(hit.text.lstrip(" \t"))
+            indent = len(todo[1])
             while above and above[-1][0] >= indent:
                 above.pop()
             parent_tag, parent = (above[-1][1], above[-1][2]) if above else (None, None)
 
-            tagged = _tag_project(hit.text, folders) or parent_tag
-            project = tagged or folder or _link_project(hit.text, paths) or parent
+            # Tags and links off the words, as the board read `todo.tags` and
+            # `todo.text`, so neither counts inside a field's value.
+            words = _words(todo[2] or "")
+            tagged = _tag_project(words, folders) or parent_tag
+            project = tagged or folder or _link_project(words, paths) or parent
             found[(note, hit.line)] = project
             above.append((indent, tagged, project))
 

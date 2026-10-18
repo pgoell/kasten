@@ -784,6 +784,12 @@ function Home() {
         // A link or a relation is a line of a note, so any write can move an
         // edge. Only a graph on screen is asked again, the rest marked stale.
         queryClient.invalidateQueries({ queryKey: ["graph"] }, { cancelRefetch: false });
+      } else {
+        // A folder moved or a note deleted changes no todo line, but it can
+        // change the project the backend files one under: a link that lands in
+        // the folder, or the folder the note sits in. The board's lanes are
+        // that answer, so they would stay on the old folder until the next write.
+        queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
       }
 
       // A write to a note the tree already draws changes no row, and this is

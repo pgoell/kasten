@@ -2088,6 +2088,47 @@ describe("the route", () => {
     expect(app.todoPane()?.contains(document.activeElement)).toBe(true);
   });
 
+  it("B3 a folder moved or a note deleted asks the todos again, so the board's lanes follow", async () => {
+    const daily = "01 Periodic/00 Daily/2026-08-10.md";
+    const row = { path: daily, line: 1, text: "- [ ] send deck [[Kickoff]]" };
+    // The vault as each event leaves it: the folder renamed, then the note gone.
+    let kickoff: string | null = "02 Projects/FDE/Kickoff.md";
+    const project = () => (kickoff === null ? null : kickoff.slice(0, kickoff.lastIndexOf("/")));
+    fetchFiles.mockImplementation(async () => [
+      ...Object.keys(VAULT),
+      daily,
+      ...(kickoff === null ? [] : [kickoff]),
+    ]);
+    fetchTodos.mockImplementation(async () => [{ ...row, project: project() }]);
+
+    const app = await renderApp();
+    await settle();
+    app.leader("g", "t");
+    await settle();
+    const pane = app.todoPane() as HTMLElement;
+    pane.focus();
+    fireEvent.keyDown(pane, { key: "c" });
+    fireEvent.keyDown(pane, { key: "g" });
+    await settle();
+    const lanes = () => [...pane.querySelectorAll("h3")].map((one) => one.textContent);
+    expect(lanes()).toEqual(["FDE"]);
+    const asked = fetchTodos.mock.calls.length;
+
+    kickoff = "02 Projects/FDE Client/Kickoff.md";
+    act(() => stream().send({ path: "", change: "listing", digest: null }));
+    await settle();
+    expect(fetchTodos).toHaveBeenCalledTimes(asked + 1);
+    expect(lanes()).toEqual(["FDE Client"]);
+
+    kickoff = null;
+    act(() =>
+      stream().send({ path: "02 Projects/FDE Client/Kickoff.md", change: "removed", digest: null }),
+    );
+    await settle();
+    expect(fetchTodos).toHaveBeenCalledTimes(asked + 2);
+    expect(lanes()).toEqual(["No project"]);
+  });
+
   it("opens the daily note the vault already holds without writing to it", async () => {
     vi.setSystemTime(new Date(2026, 7, 6, 9, 30));
     const path = "01 Periodic/00 Daily/2026-08-06.md";

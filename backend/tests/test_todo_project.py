@@ -271,3 +271,34 @@ async def test_i7_session_line_has_none(client: AsyncClient, vault: Path) -> Non
 
     assert found["  - 14:03- a session"] is None
     assert found["- [ ] a #p/atlas"] == "02 Projects/Atlas"
+
+
+async def test_b1_link_in_a_field_files_nothing(client: AsyncClient, vault: Path) -> None:
+    write(vault, "02 Projects/FDE/People/Vendor.md", "")
+    lines = [
+        "- [w] chase quote 👤 2026-10-01 [[Vendor]]",
+        "- [ ] water plants 🔁 every week [[Vendor]]",
+        # The due date is taken first, so the rule runs on to the end of the line.
+        "- [ ] pay rent 🔁 every month 📅 2026-10-01 [[Vendor]]",
+        "- [ ] call [[Vendor]] 👤 Bob",
+    ]
+    write(vault, DAILY, "\n".join(lines) + "\n")
+
+    found = await projects(client)
+
+    assert found[lines[0]] is None
+    assert found[lines[1]] is None
+    assert found[lines[2]] is None
+    assert found[lines[3]] == "02 Projects/FDE"
+
+
+async def test_b2_line_the_editor_rejects_is_no_parent(client: AsyncClient, vault: Path) -> None:
+    write(vault, "02 Projects/FDE/FDE Kickoff.md", "")
+    # The editor's `.` stops at U+2028, so it reads no todo on this line.
+    line = "- [ ] plan [[FDE Kickoff]]\N{LINE SEPARATOR}more"
+    write(vault, DAILY, f"{line}\n  - [ ] book room\n")
+
+    found = await projects(client)
+
+    assert found[line] is None
+    assert found["  - [ ] book room"] is None

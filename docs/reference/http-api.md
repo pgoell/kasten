@@ -788,10 +788,16 @@ answers wins:
 4. The project of the todo it is a part of, by this same rule.
 5. `null`.
 
+Tags and links are read off the todo's words, as the editor parses them: a
+link inside a field's value, such as `👤 2026-10-01 [[Vendor]]` or
+`🔁 every week [[Vendor]]`, files nothing.
+
 A part is a todo indented under another: its parent is the nearest todo above
 it in the same note with a smaller indent, a tab counting as one, with prose in
 between ending nothing. A session line is no todo, has `project: null` and is
-nobody's parent. Done, rejected and archived todos follow the same rule.
+nobody's parent, and so is a line the editor does not read as a todo, such as
+one holding a lone `\r`, U+2028 or U+2029. Done, rejected and archived todos
+follow the same rule.
 
 How a tag names a folder:
 

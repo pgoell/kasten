@@ -1567,7 +1567,8 @@ of panes is already lost on a reload, so a reload comes back to an empty pane
 and `<leader>gt` is one press.
 
 The list is read again on every write the vault reports over `/api/events`, so a
-todo written by an agent or over ssh appears without a reload.
+todo written by an agent or over ssh appears without a reload. A folder move or
+a deleted note reads it again too, as either can change a todo's project.
 
 ### The board
 
