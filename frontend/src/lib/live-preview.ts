@@ -140,37 +140,70 @@ class Progress extends WidgetType {
  * moves the cursor.
  */
 class Picture extends WidgetType {
-  private readonly source: string;
-  private readonly alt: string;
+  private readonly picture: Pictured;
 
-  constructor(source: string, alt: string) {
+  constructor(picture: Pictured) {
     super();
-    this.source = source;
-    this.alt = alt;
+    this.picture = picture;
   }
 
   override eq(other: Picture): boolean {
-    return other.source === this.source && other.alt === this.alt;
+    const [a, b] = [other.picture, this.picture];
+    return a.source === b.source && a.alt === b.alt && a.width === b.width && a.height === b.height;
   }
 
   toDOM(view: EditorView): HTMLElement {
-    return pictureElement(view, this.source, this.alt);
+    return pictureElement(view, this.picture);
   }
 }
 
+/** What a picture is drawn from, the size being one an embed's alias asks for. */
+interface Pictured {
+  source: string;
+  alt: string;
+  width?: number;
+  height?: number;
+}
+
 /** The `img` a picture is drawn as, on a line of its own or in a table's cell. */
-function pictureElement(view: EditorView, source: string, alt: string): HTMLImageElement {
+function pictureElement(view: EditorView, picture: Pictured): HTMLImageElement {
   const image = document.createElement("img");
   image.className = "cm-image";
   // Sites that refuse hotlinking mostly key on the referrer, and this one
   // would name the note being read.
   image.referrerPolicy = "no-referrer";
-  image.src = source;
+  image.src = picture.source;
   // The alt text the note wrote, which is empty for most images and is the
   // right value for one that carries no meaning of its own.
-  image.alt = alt;
+  image.alt = picture.alt;
+  if (picture.width !== undefined) image.width = picture.width;
+  if (picture.height !== undefined) {
+    image.height = picture.height;
+    // `.cm-image` sets `height: auto`, which a stylesheet rule wins over the
+    // attribute with, and a height asked for in the note should hold.
+    image.style.height = `${picture.height}px`;
+  }
   image.addEventListener("load", () => view.requestMeasure());
   return image;
+}
+
+/**
+ * The picture `![[name|alias]]` names, or null where the vault holds none.
+ *
+ * Read off the image listing by the rule a link finds its note by. The alias is
+ * read as Obsidian reads it: `200` is a width, `200x100` a width and a height,
+ * and anything else the alt text.
+ */
+function embeddedPicture(state: EditorState, name: string, alias: string | null): Pictured | null {
+  const images = state.facet(imagePaths);
+  const image = images === null ? null : resolveIn(name, images);
+  if (image === null || !images?.includes(image)) return null;
+  const source = imageSource(encodePath(image));
+  if (source === null) return null;
+  const size = /^(\d+)(?:x(\d+))?$/.exec(alias ?? "");
+  if (size === null) return { source, alt: alias ?? "" };
+  const [, width, height] = size;
+  return { source, alt: "", width: Number(width), ...(height ? { height: Number(height) } : {}) };
 }
 
 /** What an `![alt](address)` is drawn as, or null for one that stays its source. */
@@ -666,8 +699,8 @@ interface Span {
   text: string;
   /** The class the construct wears, or null for text that carries none. */
   class: string | null;
-  /** The picture an `![](path)` draws, standing in for the text. */
-  image?: { source: string; alt: string };
+  /** The picture an `![](path)` or `![[x.png]]` draws, standing in for the text. */
+  image?: Pictured;
 }
 
 /**
@@ -738,7 +771,7 @@ class TableGrid extends WidgetType {
         if (align !== "none") cell.style.textAlign = align;
         for (const span of spans) {
           if (span.image) {
-            cell.append(pictureElement(view, span.image.source, span.image.alt));
+            cell.append(pictureElement(view, span.image));
             continue;
           }
           if (span.class === null) {
@@ -814,18 +847,25 @@ function fillDiagram(block: HTMLElement, drawing: Drawing, source: string): void
   code.textContent = source;
 }
 
-/** What a construct inside a cell shows and the class it wears, or null. */
-function markedText(state: EditorState, node: SyntaxNode): Span | null {
-  if (node.name === "Tag") {
-    return { text: state.doc.sliceString(node.from, node.to), class: "cm-tag" };
-  }
+/** What a construct inside a cell shows and the classes it wears, or null. */
+function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
+  const whole = state.doc.sliceString(node.from, node.to);
+  if (node.name === "Tag") return [{ text: whole, class: "cm-tag" }];
   // Only a picture: a player or a sound control has no business in a cell, so
   // those stay their source, as an address that cannot load does.
   if (node.name === "Image") {
     const drawn = drawnImage(state, node);
     if (drawn?.kind !== "picture") return null;
-    const image = { source: drawn.source, alt: drawn.alt };
-    return { text: state.doc.sliceString(node.from, node.to), class: null, image };
+    return [{ text: whole, class: null, image: { source: drawn.source, alt: drawn.alt } }];
+  }
+  // Only a picture again: a note or a pdf drawn in a cell would be a page
+  // inside a table, so those stay their source, as a missing picture does.
+  if (node.name === "Embed") {
+    const link = node.getChild("WikiLink");
+    if (link === null) return null;
+    const { name, alias } = splitTarget(state.doc.sliceString(link.from + 2, link.to - 2));
+    const image = embeddedPicture(state, name, alias);
+    return image === null ? null : [{ text: whole, class: null, image }];
   }
   const inline = INLINE[node.name];
   if (!inline && node.name !== "Link") return null;
@@ -842,26 +882,37 @@ function markedText(state: EditorState, node: SyntaxNode): Span | null {
   const [open, close] = marks;
   if (!open || !close || open.to >= close.from) return null;
 
-  const text = state.doc.sliceString(open.to, close.from);
   const className = inline ? inline.class : "cm-link";
-  const paths = node.name === "WikiLink" ? state.facet(vaultPaths) : null;
-  const dead = paths !== null && !wikiLinkLands(text, paths);
-  const alias = node.name === "WikiLink" ? splitTarget(text).alias : null;
-  return { text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className };
+  if (node.name === "WikiLink") {
+    const text = state.doc.sliceString(open.to, close.from);
+    const paths = state.facet(vaultPaths);
+    const dead = paths !== null && !wikiLinkLands(text, paths);
+    const alias = splitTarget(text).alias;
+    return [{ text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className }];
+  }
+
+  // What the marks enclose is cut as a cell is, so a picture inside a link or
+  // a bold run is drawn rather than shown as its source. A picture wears no
+  // class; the text around it wears this one beside any of its own.
+  return spansIn(state, node, open.to, close.from).map((span) =>
+    span.image ? span : { ...span, class: span.class ? `${className} ${span.class}` : className },
+  );
 }
 
-/** One cell's text, cut at the constructs inside it. */
-function cellSpans(state: EditorState, cell: SyntaxNode): Span[] {
+/** The text of `parent` from `from` to `to`, cut at the constructs inside it. */
+function spansIn(state: EditorState, parent: SyntaxNode, from: number, to: number): Span[] {
   const spans: Span[] = [];
-  let at = cell.from;
-  for (let child = cell.firstChild; child; child = child.nextSibling) {
+  let at = from;
+  for (let child = parent.firstChild; child; child = child.nextSibling) {
+    // The marks of a construct being cut, which sit outside the range.
+    if (child.from < from || child.to > to) continue;
     const marked = markedText(state, child);
     if (marked === null) continue;
     if (child.from > at) spans.push({ text: state.doc.sliceString(at, child.from), class: null });
-    spans.push(marked);
+    spans.push(...marked);
     at = child.to;
   }
-  if (at < cell.to) spans.push({ text: state.doc.sliceString(at, cell.to), class: null });
+  if (at < to) spans.push({ text: state.doc.sliceString(at, to), class: null });
   return spans;
 }
 
@@ -879,7 +930,7 @@ function rowSpans(state: EditorState, row: SyntaxNode): Span[][] {
 
   for (let child = row.firstChild; child; child = child.nextSibling) {
     if (child.name === "TableCell") {
-      current = cellSpans(state, child);
+      current = spansIn(state, child, child.from, child.to);
       continue;
     }
     if (child.name !== "TableDelimiter") continue;
@@ -1498,15 +1549,13 @@ function build(state: EditorState): Live {
         }
         if (images === null && /\.\w+$/.test(name) && !name.endsWith(".md")) return false;
 
-        // An image the vault holds is drawn as one, found by the rule a link
-        // finds its note by. Anything else is a note, or nothing.
-        const image = images === null ? null : resolveIn(name, images);
-        const picture =
-          image !== null && images?.includes(image) ? imageSource(encodePath(image)) : null;
+        // An image the vault holds is drawn as one. Anything else is a note, or
+        // nothing.
+        const picture = embeddedPicture(state, name, alias);
 
         const label = heading === null ? name : `${name}#${heading}`;
         let widget: WidgetType;
-        if (picture !== null) widget = new Picture(picture, alias ?? "");
+        if (picture !== null) widget = new Picture(picture);
         // A view nobody told how to read the vault shows the source, rather
         // than calling every note it names missing.
         else if (source === null) return false;
@@ -1612,7 +1661,7 @@ function build(state: EditorState): Live {
             ? new Player(drawn.id, watchedAt(state.doc.toString(), drawn.id))
             : drawn.kind === "sound"
               ? new Sound(drawn.source)
-              : new Picture(drawn.source, drawn.alt);
+              : new Picture(drawn);
         decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
         hidden.push(HIDDEN.range(node.from, node.to));
         return;

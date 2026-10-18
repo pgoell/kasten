@@ -2,7 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { forceParsing } from "@codemirror/language";
-import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { EditorSelection, EditorState, type Extension, StateEffect } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
@@ -2177,5 +2177,159 @@ describe("an image in a table cell (#504)", () => {
 
     const [head] = cells(view, "thead th");
     expect(head?.querySelector("img.cm-image")?.getAttribute("alt")).toBe("h");
+  });
+});
+
+describe("an embed or a wrapped image in a table cell (#507, #508)", () => {
+  const SHOT = "/api/assets/99%20Misc/my%20shot.png";
+
+  /** A line above the table, so the cursor at offset zero is off it. */
+  function table(...cells: string[]): string {
+    const row = (cell: (text: string) => string) =>
+      `|${cells.map((c) => ` ${cell(c)} |`).join("")}`;
+    return ["intro", "", row(() => "h"), row(() => "-"), row((c) => c)].join("\n");
+  }
+
+  function lit(vimOn: boolean): Extension[] {
+    return vimOn
+      ? [vim(), livePreview(), vaultPaths.of(["b.md"]), imagePaths.of(["99 Misc/my shot.png"])]
+      : plain(null);
+  }
+
+  function cells(view: EditorView): HTMLElement[] {
+    return [...view.dom.querySelectorAll<HTMLElement>(".cm-table-grid tbody td")];
+  }
+
+  it("A1 draws ![[x.png]] in a cell as the picture the vault holds", () => {
+    const view = mount(table("![[my shot.png]]"), plain(null));
+
+    const [cell] = cells(view);
+    expect(cell?.querySelector("img.cm-image")?.getAttribute("src")).toBe(SHOT);
+    expect(cell?.textContent).toBe("");
+  });
+
+  it("A2 draws ![[x.png\\|200]] in a cell at width 200", () => {
+    // The bar escaped, as a table needs it to be.
+    const view = mount(table("![[my shot.png\\|200]]"), plain(null));
+
+    const image = cells(view)[0]?.querySelector("img.cm-image");
+    expect(image?.getAttribute("src")).toBe(SHOT);
+    expect(image?.getAttribute("width")).toBe("200");
+    expect(image?.getAttribute("alt")).toBe("");
+  });
+
+  it("A3 draws a picture wrapped in a link in a cell", () => {
+    const view = mount(table("[![](p.png)](https://example.com)"), plain(null));
+
+    const [cell] = cells(view);
+    expect(cell?.querySelector("img.cm-image")?.getAttribute("src")).toBe("/api/assets/p.png");
+    expect(cell?.textContent).toBe("");
+  });
+
+  it.each([["**![](p.png)**"], ["*![](p.png)*"]])(
+    "A4 draws a picture wrapped in emphasis in a cell, %s",
+    (source) => {
+      const view = mount(table(source), plain(null));
+
+      const [cell] = cells(view);
+      expect(cell?.querySelector("img.cm-image")?.getAttribute("src")).toBe("/api/assets/p.png");
+      expect(cell?.textContent).toBe("");
+    },
+  );
+
+  it("A4 draws bold text around a picture in a cell as bold text and the picture", () => {
+    const view = mount(table("**word ![](p.png) more**"), plain(null));
+
+    const [cell] = cells(view);
+    expect(cell?.querySelector("img.cm-image")?.getAttribute("src")).toBe("/api/assets/p.png");
+    expect([...(cell?.querySelectorAll(".cm-strong") ?? [])].map((s) => s.textContent)).toEqual([
+      "word ",
+      " more",
+    ]);
+  });
+
+  it.each([
+    ["vim off", false],
+    ["vim on", true],
+  ] as const)("A6 draws the embedded, linked and emphasized pictures of a cell, %s", (_, vimOn) => {
+    const doc = table(
+      "![[my shot.png]]",
+      "![[my shot.png\\|200]]",
+      "[![](p.png)](https://example.com)",
+      "**![](p.png)**",
+      "*![](p.png)*",
+    );
+    const view = mount(doc, lit(vimOn));
+
+    expect(
+      cells(view).map((cell) => cell.querySelector("img.cm-image")?.getAttribute("src")),
+    ).toEqual([SHOT, SHOT, "/api/assets/p.png", "/api/assets/p.png", "/api/assets/p.png"]);
+  });
+
+  it("I1 shows every cell's source again, marks included, with the cursor in the table", () => {
+    const row = "| ![[my shot.png\\|200]] | [![](p.png)](https://example.com) | **![](p.png)** |";
+    const doc = ["intro", "", "| a | b | c |", "| - | - | - |", row].join("\n");
+    const view = mount(doc, plain(null));
+    expect(view.dom.querySelector(".cm-table-grid")).not.toBeNull();
+
+    act(() => view.dispatch({ selection: { anchor: doc.indexOf("p.png") } }));
+    expect(view.dom.querySelector(".cm-table-grid")).toBeNull();
+    expect(view.dom.querySelector("img")).toBeNull();
+    expect(view.contentDOM.textContent).toContain(row);
+  });
+
+  it("I2 leaves ![[missing.png]] and a note embed ![[note]] in a cell as source", () => {
+    const view = mount(table("![[missing.png]]", "![[b]]"), plain(null));
+
+    expect(cells(view).map((cell) => cell.textContent)).toEqual(["![[missing.png]]", "![[b]]"]);
+    expect(view.dom.querySelector(".cm-table-grid img")).toBeNull();
+  });
+
+  it("I3 reads an embed's alias in a cell as Obsidian does: words are alt, 200x100 a size", () => {
+    const view = mount(
+      table("![[my shot.png\\|some words]]", "![[my shot.png\\|200x100]]"),
+      plain(null),
+    );
+
+    const [words, sized] = cells(view).map((cell) => cell.querySelector("img.cm-image"));
+    expect(words?.getAttribute("alt")).toBe("some words");
+    expect(words?.hasAttribute("width")).toBe(false);
+    expect(words?.hasAttribute("height")).toBe(false);
+    expect(sized?.getAttribute("width")).toBe("200");
+    expect(sized?.getAttribute("height")).toBe("100");
+  });
+
+  it("I4 draws ![[x.png|200]] at width 200 outside a table too", () => {
+    const view = mount(`${ABOVE}![[my shot.png|200]]`, plain(null));
+
+    const image = view.dom.querySelector("img.cm-image");
+    expect(image?.getAttribute("src")).toBe(SHOT);
+    expect(image?.getAttribute("width")).toBe("200");
+  });
+
+  it("I5 still draws a link and emphasis around text in a cell", () => {
+    const view = mount(table("[site](https://example.com)", "**bold**", "*soft*"), plain(null));
+
+    const [link, bold, soft] = cells(view);
+    expect(link?.querySelector(".cm-link")?.textContent).toBe("site");
+    expect(bold?.querySelector(".cm-strong")?.textContent).toBe("bold");
+    expect(soft?.querySelector(".cm-emphasis")?.textContent).toBe("soft");
+    expect(cells(view).map((cell) => cell.textContent)).toEqual(["site", "bold", "soft"]);
+  });
+
+  it("I8 draws ![[x.png]] in a cell once the image listing lands", () => {
+    const view = mount(table("![[my shot.png]]"), [
+      vimKeys.of(false),
+      livePreview(),
+      vaultPaths.of([]),
+    ]);
+    expect(cells(view)[0]?.textContent).toBe("![[my shot.png]]");
+
+    act(() =>
+      view.dispatch({
+        effects: StateEffect.appendConfig.of(imagePaths.of(["99 Misc/my shot.png"])),
+      }),
+    );
+    expect(cells(view)[0]?.querySelector("img.cm-image")?.getAttribute("src")).toBe(SHOT);
   });
 });

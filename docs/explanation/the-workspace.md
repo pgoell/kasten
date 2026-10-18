@@ -67,6 +67,11 @@ Not kept:
 Panes have no handle to drag, so a split always draws its panes in equal
 shares. The shape of the tree is the size, and nothing else needs saving.
 
+A zoom hides the other panes and closes none of them, and a narrow window
+hides all but the focused pane the same way. The browser forgets where a
+hidden pane was scrolled, so the editor keeps the last offset it saw on screen
+and puts it back when the pane shows again, with no new key in the store.
+
 ## Last write wins
 
 Every change to the layout writes the whole of it, over whatever was there.

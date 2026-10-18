@@ -32,6 +32,15 @@ const NOTE = [
   "|---|---|",
   `| ![](${PBI}) | ![](${AIBI}) |`,
 ].join("\n");
+// A picture the vault holds, named by an embed, beside two wrapped ones (#507, #508).
+const SHOT = "99 Misc/02 Assets/01 Images/shot.png";
+const WRAPPED = [
+  "Wrapped pictures",
+  "",
+  "| Embed | Link | Bold |",
+  "|---|---|---|",
+  `| ![[shot.png]] | [![](${PBI})](https://example.com) | **![](${AIBI})** |`,
+].join("\n");
 
 let view: EditorView | undefined;
 
@@ -55,7 +64,7 @@ function picture(colour: string): string {
 }
 
 /** The editor the way the app mounts a note, filling a pane of the given height. */
-function mount(doc: string, height: number): EditorView {
+function mount(doc: string, height: number, images: string[] = []): EditorView {
   const parent = document.body.appendChild(document.createElement("div"));
   parent.style.cssText = `width: 100%; height: ${height}px; background: #282c34;`;
   view = new EditorView({
@@ -66,7 +75,7 @@ function mount(doc: string, height: number): EditorView {
         vimKeys.of(false),
         livePreview(),
         vaultPaths.of([]),
-        imagePaths.of([]),
+        imagePaths.of(images),
         notePath.of("02 Projects/AIBI Migration Plugin/Judge Labels 2026-10-18.md"),
         EditorView.lineWrapping,
       ],
@@ -94,6 +103,25 @@ async function loaded(at: EditorView): Promise<HTMLImageElement[]> {
   await expect
     .poll(() => images.filter((image) => image.complete && image.naturalWidth > 0).length)
     .toBe(2);
+  return images;
+}
+
+/** The embedded, linked and bold pictures of `WRAPPED`, checked and loaded as `loaded` does. */
+async function wrapped(at: EditorView): Promise<HTMLImageElement[]> {
+  await expect.poll(() => at.dom.querySelectorAll(".cm-table-grid img").length).toBe(3);
+  const images = [...at.dom.querySelectorAll<HTMLImageElement>(".cm-table-grid img.cm-image")];
+  expect(images.map((image) => image.getAttribute("src"))).toEqual([
+    `/api/assets/${FOLDER}/shot.png`,
+    `/api/assets/${PBI}`,
+    `/api/assets/${AIBI}`,
+  ]);
+  const colours = ["#98c379", "#61afef", "#d19a66"];
+  images.forEach((image, at) => {
+    image.src = picture(colours[at] as string);
+  });
+  await expect
+    .poll(() => images.filter((image) => image.complete && image.naturalWidth > 0).length)
+    .toBe(3);
   return images;
 }
 
@@ -204,5 +232,37 @@ describe("pictures in a table", () => {
     const block = at.dom.querySelector(".cm-table-block") as HTMLElement;
     expect(block.scrollWidth).toBeGreaterThan(block.clientWidth);
     expect(at.scrollDOM.scrollWidth).toBeLessThanOrEqual(at.scrollDOM.clientWidth);
+  });
+});
+
+describe("embedded and wrapped pictures in a table (#507, #508)", () => {
+  it.each([
+    ["the ![[x.png]]", 0],
+    ["the linked picture", 1],
+  ] as const)("A7 a tap on %s in a cell shows the table's source on a phone", async (_, index) => {
+    await phone();
+    const at = mount(WRAPPED, 896, [SHOT]);
+
+    const images = await wrapped(at);
+    await tap(images[index] as Element);
+    await expect.poll(() => at.dom.querySelector(".cm-table-grid")).toBeNull();
+    expect(at.contentDOM.textContent).toContain("| ![[shot.png]] |");
+  });
+
+  it("A1 draws an embedded, a linked and a bold picture on a phone and a desktop", async () => {
+    await phone();
+    const small = mount(WRAPPED, 896, [SHOT]);
+    for (const image of await wrapped(small)) {
+      expect(image.getBoundingClientRect().right).toBeLessThanOrEqual(414);
+    }
+    expect(await shot(small.dom, "table-wrapped-414")).toBe(414);
+    small.dom.parentElement?.remove();
+    small.destroy();
+
+    await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: false });
+    await page.viewport(1280, 800);
+    const wide = mount(WRAPPED, 800, [SHOT]);
+    await wrapped(wide);
+    expect(await shot(wide.dom, "table-wrapped-1280")).toBe(1280);
   });
 });

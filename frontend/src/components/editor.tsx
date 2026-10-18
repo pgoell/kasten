@@ -863,18 +863,23 @@ export function Editor({
       written = { anchor, head, top };
       writePosition(path, written);
     }
-    function reveal() {
-      if (shown || saved === undefined || view.scrollDOM.clientHeight === 0) return;
-      shown = true;
-      view.scrollDOM.scrollTop = saved.top;
+    // The offset passed in and not `top` read later: setting it scrolls, and a
+    // scroll that lands short on guessed line heights would move `top` there.
+    function scrollTo(offset: number) {
+      view.scrollDOM.scrollTop = offset;
       // Again once the lines are measured: until then their heights are
       // guesses, and the offset can land short of where it was.
       view.requestMeasure({
         read: () => {},
         write: () => {
-          view.scrollDOM.scrollTop = saved.top;
+          view.scrollDOM.scrollTop = offset;
         },
       });
+    }
+    function reveal() {
+      if (shown || saved === undefined || view.scrollDOM.clientHeight === 0) return;
+      shown = true;
+      scrollTo(saved.top);
     }
     // Trailing and not reset while pending, so a held `j` or a long scroll
     // writes twice a second and not once per line. The close and `pagehide`
@@ -1078,10 +1083,27 @@ export function Editor({
     if (focusedRef.current && !keyboardUnasked() && nothingFocused()) view.focus();
 
     reveal();
+    // A pane zoomed out of sight since it showed, or one a narrow window
+    // switched away from. A browser keeps no offset across `display: none`,
+    // and the pane comes back at the size it left, so CodeMirror sees no
+    // change of geometry and `reveal` has done its one job already. Its height
+    // going from none to some is the only sign, and `top` is where it was.
+    let away = false;
+    const resize = new ResizeObserver(() => {
+      if (view.scrollDOM.clientHeight === 0) away = shown;
+      else if (away) {
+        away = false;
+        scrollTo(top);
+      }
+    });
+    resize.observe(view.scrollDOM);
     function onScroll() {
       // No height is a pane zoomed out of sight since it showed, whose
       // scroller reads 0 wherever the reader left it.
       if (!shown || view.scrollDOM.clientHeight === 0) return;
+      // Back on screen before the observer has said so: a browser runs scroll
+      // events ahead of resize observers in a frame, and this one reads 0.
+      if (away) return;
       top = view.scrollDOM.scrollTop;
       soon();
     }
@@ -1090,6 +1112,7 @@ export function Editor({
     window.addEventListener("pagehide", keep);
 
     return () => {
+      resize.disconnect();
       view.scrollDOM.removeEventListener("scroll", onScroll);
       window.removeEventListener("pagehide", keep);
       keep();

@@ -1006,8 +1006,33 @@ describe("Editor reopening a note where it was left (#495)", () => {
     return vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(height);
   }
 
+  /**
+   * jsdom resizes nothing, so the observers it hands out never report. These
+   * keep what each watches, and the returned function tells one box's
+   * observer it changed size, as a browser would on a pane hidden or shown.
+   */
+  function watchResizes() {
+    const watched = new Map<Element, () => void>();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        private readonly callback: ResizeObserverCallback;
+        constructor(callback: ResizeObserverCallback) {
+          this.callback = callback;
+        }
+        observe(target: Element) {
+          watched.set(target, () => this.callback([], this as unknown as ResizeObserver));
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    return (target: Element) => act(() => watched.get(target)?.());
+  }
+
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     localStorage.clear();
   });
 
@@ -1094,6 +1119,110 @@ describe("Editor reopening a note where it was left (#495)", () => {
 
     expect(JSON.parse(localStorage.getItem(KEY) as string)).toEqual([
       ["a.md", { anchor: 0, head: 0, top: 120 }],
+    ]);
+  });
+
+  it.each([
+    ["on", false],
+    ["off", true],
+  ])(
+    "editor: A5 a pane zoomed out of sight comes back at its scroll on the unzoom, vim %s",
+    (_, toggle) => {
+      if (toggle) act(() => toggleVim());
+      const resized = watchResizes();
+      const height = boxHigh(400);
+      const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+      const view = viewIn(container);
+      view.scrollDOM.scrollTop = 120;
+      fireEvent.scroll(view.scrollDOM);
+
+      // Zoomed out of sight: no height, and the offset a browser drops then.
+      height.mockReturnValue(0);
+      view.scrollDOM.scrollTop = 0;
+      fireEvent.scroll(view.scrollDOM);
+      resized(view.scrollDOM);
+      // Back at the size it left, which CodeMirror sees as no change at all.
+      height.mockReturnValue(400);
+      resized(view.scrollDOM);
+
+      expect(view.scrollDOM.scrollTop).toBe(120);
+      unmount();
+    },
+  );
+
+  it("editor: A5 a scroll the unzoomed pane reports before its observer does keeps its place", () => {
+    const resized = watchResizes();
+    const height = boxHigh(400);
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    const view = viewIn(container);
+    view.scrollDOM.scrollTop = 120;
+    fireEvent.scroll(view.scrollDOM);
+
+    height.mockReturnValue(0);
+    view.scrollDOM.scrollTop = 0;
+    resized(view.scrollDOM);
+    // Shown again, and a browser runs the scroll event ahead of the observer,
+    // with the offset it dropped while the pane was hidden.
+    height.mockReturnValue(400);
+    fireEvent.scroll(view.scrollDOM);
+    resized(view.scrollDOM);
+
+    expect(view.scrollDOM.scrollTop).toBe(120);
+    unmount();
+  });
+
+  it("editor: A7 a pane a narrow window switches away from and back comes back at its scroll each time", () => {
+    const resized = watchResizes();
+    const height = boxHigh(400);
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    const view = viewIn(container);
+    function away() {
+      height.mockReturnValue(0);
+      view.scrollDOM.scrollTop = 0;
+      fireEvent.scroll(view.scrollDOM);
+      resized(view.scrollDOM);
+    }
+    function back() {
+      height.mockReturnValue(400);
+      resized(view.scrollDOM);
+    }
+    view.scrollDOM.scrollTop = 120;
+    fireEvent.scroll(view.scrollDOM);
+
+    away();
+    back();
+    expect(view.scrollDOM.scrollTop).toBe(120);
+
+    // Read on from there, so the second return is to the new place.
+    view.scrollDOM.scrollTop = 200;
+    fireEvent.scroll(view.scrollDOM);
+    away();
+    back();
+    expect(view.scrollDOM.scrollTop).toBe(200);
+    unmount();
+  });
+
+  it("editor: I6 the zoomed pane keeps its own scroll across the zoom and the unzoom", () => {
+    const resized = watchResizes();
+    const height = boxHigh(400);
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    const view = viewIn(container);
+    view.scrollDOM.scrollTop = 120;
+    fireEvent.scroll(view.scrollDOM);
+
+    // Zoomed: the whole window, read further down while it has it.
+    height.mockReturnValue(800);
+    resized(view.scrollDOM);
+    view.scrollDOM.scrollTop = 300;
+    fireEvent.scroll(view.scrollDOM);
+    // Unzoomed: smaller again, but never without a height.
+    height.mockReturnValue(400);
+    resized(view.scrollDOM);
+    expect(view.scrollDOM.scrollTop).toBe(300);
+    unmount();
+
+    expect(JSON.parse(localStorage.getItem(KEY) as string)).toEqual([
+      ["a.md", { anchor: 0, head: 0, top: 300 }],
     ]);
   });
 

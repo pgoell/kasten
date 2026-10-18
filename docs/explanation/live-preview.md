@@ -265,8 +265,15 @@ first line of code into it.
 A table is drawn as a table. One widget stands in for every line of it, a real
 `<table>` with a head row, borders and each column's text on the side its dashes
 ask for, and the pipes are off the screen entirely. An `![](path)` in a cell
-draws as its picture, so two images in one row stand side by side. A sound or a
-video in a cell stays its source, and so does an address that cannot load. A
+draws as its picture, so two images in one row stand side by side, and so does
+an `![[x.png]]` the vault holds, at the width its alias asks for. The cell asks
+the same helper the line does for that picture, so `![[x.png\|200]]` in a cell
+and `![[x.png|200]]` on a line come out the same size. A picture wrapped in a
+link or in emphasis draws too: what sits between the marks is cut the way a
+cell is, so `**word ![](a.png)**` is bold text and the picture. A tap or click
+on any of them opens the table, as a link in a cell does. A sound or a video in
+a cell stays its source, and so do an address that cannot load, a picture the
+vault lacks, and an embedded note or pdf, which would be a page inside a table. A
 table wider than the pane scrolls sideways inside its own block, and the note
 stays as wide as the pane. Put the cursor in it and the
 whole block comes back as source, in the monospaced face, with every mark in the

@@ -30,6 +30,9 @@ same embeds.
 | `![[note\|alias]]` | the whole note; the alias is ignored |
 | `![[note#heading\|alias]]` | one section; the alias is ignored |
 | `![[image.png]]` | the picture |
+| `![[image.png\|200]]` | the picture, 200 pixels wide |
+| `![[image.png\|200x100]]` | the picture, 200 wide and 100 high |
+| `![[image.png\|words]]` | the picture, with the words as its alt text |
 | `![[file.pdf]]` | the pdf's pages, in a box that scrolls |
 | `![[file.pdf#page=3]]` | the same, scrolled to page 3 |
 
@@ -47,8 +50,12 @@ wikilink follows:
 **The heading** follows `#`. It is matched against the note's headings ignoring
 case and the spaces around it, so `![[Plan# risks ]]` finds `## Risks`.
 
-**The alias** follows `|`. It is read and then ignored: an embed draws the note,
-not a name for it, so `![[Plan|the plan]]` and `![[Plan]]` draw the same box.
+**The alias** follows `|`. On a note it is read and then ignored: an embed draws
+the note, not a name for it, so `![[Plan|the plan]]` and `![[Plan]]` draw the
+same box. On an image it is read as Obsidian reads it: a number is the width in
+pixels, `200x100` is the width and the height, and anything else is the alt
+text. In a table the bar is written `\|`, and the backslash is not part of the
+alias.
 
 ## What is drawn
 

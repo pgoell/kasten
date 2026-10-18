@@ -21,6 +21,17 @@ Range.prototype.getBoundingClientRect = () => new DOMRect();
 // the day a real browser stops having it too.
 Element.prototype.scrollIntoView = () => {};
 
+// No layout, so no box ever changes size, and jsdom leaves `ResizeObserver`
+// out. Every editor watches its scroller with one, so every test that draws a
+// note would throw. One that never reports is what a browser's would do here.
+// Assigned rather than `vi.stubGlobal`, for the reason `matchMedia` is below:
+// a test that stubs its own wins, and unstubbing falls back to this.
+window.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // No layout means no media queries either, and jsdom leaves `matchMedia` out
 // altogether, so anything that reads `useViewport` throws on render. Every
 // query answers no, which is a wide window and a mouse: the desktop every test
