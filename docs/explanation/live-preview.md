@@ -73,9 +73,9 @@ The parser reads every `[text]` as a link, with or without an address. A
 reference link, `[text]`, `[text][]` or `[text][label]`, draws as a link when
 the note holds a definition `[label]: url` that starts a block of its own,
 anywhere in the note but a code block, the label matched without regard to
-case. A label opening with `^` is a footnote and never a link. It then draws, opens and
-copies as `[text](url)` does, through the same code: kasten has one link
-rendering, and a reference link only finds its address elsewhere. The
+case. It then draws, opens and copies as `[text](url)` does, through the same
+code: kasten has one link rendering, and a reference link only finds its
+address elsewhere. A label opening with `^` is a footnote and never a link. The
 definition line stays as typed, as Obsidian's live preview shows it, and Copy
 as leaves it out. A `[text]` whose label nothing defines stays as typed,
 brackets and all, as Obsidian shows it, and Copy as keeps the brackets too.
