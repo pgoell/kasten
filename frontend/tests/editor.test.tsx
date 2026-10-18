@@ -961,3 +961,104 @@ describe("Editor embeds", () => {
     expect(first.watch).not.toHaveBeenCalled();
   });
 });
+
+describe("Editor reopening a note where it was left (#495)", () => {
+  const DOC = "one\ntwo\nthree\nfour";
+  // Inside `three`, so the line and the column both have to come back.
+  const IN_THREE = "one\ntwo\nth".length;
+  // The store's key and shape, written out rather than imported: these tests
+  // hold the editor to what lands in the browser, not to the module's API.
+  const KEY = "kasten.positions.1";
+
+  function viewIn(container: HTMLElement): EditorView {
+    return EditorView.findFromDOM(
+      container.querySelector(".cm-editor") as HTMLElement,
+    ) as EditorView;
+  }
+
+  /** Open the note, put the cursor and the scroll somewhere, and close it. */
+  function leave(cursor: number, top = 0) {
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    const view = viewIn(container);
+    act(() => view.dispatch({ selection: { anchor: cursor } }));
+    view.scrollDOM.scrollTop = top;
+    fireEvent.scroll(view.scrollDOM);
+    unmount();
+  }
+
+  afterEach(() => localStorage.clear());
+
+  it.each([
+    ["on", false],
+    ["off", true],
+  ])("editor: A6 a note reopens at its saved cursor with vim %s", (vim, toggle) => {
+    if (toggle) act(() => toggleVim());
+    leave(IN_THREE);
+
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+
+    expect(viewIn(container).state.selection.main.head).toBe(IN_THREE);
+    // Vim's own cursor is the one its keys act on, so ask it where it is.
+    if (vim === "on") expect(deleteCurrentLine(container)).toBe("onetwofour");
+    unmount();
+  });
+
+  it.each([
+    ["on", false],
+    ["off", true],
+  ])("editor: A6 a note reopens at its saved scroll with vim %s", (_, toggle) => {
+    if (toggle) act(() => toggleVim());
+    leave(0, 120);
+
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+
+    expect(viewIn(container).scrollDOM.scrollTop).toBe(120);
+    unmount();
+  });
+
+  it("editor: A6 a line asked for beats the saved cursor, which holds without one", () => {
+    leave(IN_THREE);
+
+    const plain = render(<Editor initialDoc={DOC} path="a.md" />);
+    expect(viewIn(plain.container).state.selection.main.head).toBe(IN_THREE);
+    plain.unmount();
+
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" startLine={4} />);
+    expect(deleteCurrentLine(container)).toBe("onetwothree");
+    unmount();
+  });
+
+  it("editor: A6 a saved cursor past the end of a note edited elsewhere clamps to its length", () => {
+    localStorage.setItem(KEY, JSON.stringify([["a.md", { anchor: 500, head: 500, top: 0 }]]));
+
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+
+    expect(viewIn(container).state.selection.main.head).toBe(DOC.length);
+    unmount();
+  });
+
+  it("editor: A6 the page going away stores the note's path and three numbers, no text", () => {
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    act(() => viewIn(container).dispatch({ selection: { anchor: IN_THREE } }));
+
+    fireEvent(window, new Event("pagehide"));
+
+    expect(JSON.parse(localStorage.getItem(KEY) as string)).toEqual([
+      ["a.md", { anchor: IN_THREE, head: IN_THREE, top: 0 }],
+    ]);
+    unmount();
+  });
+
+  it("editor: A6 an editor holding no note leaves the store as the last note left it", () => {
+    leave(IN_THREE);
+    const stored = localStorage.getItem(KEY);
+    expect(stored).not.toBeNull();
+
+    const { container, unmount } = render(<Editor initialDoc={DOC} />);
+    act(() => viewIn(container).dispatch({ selection: { anchor: 2 } }));
+    fireEvent(window, new Event("pagehide"));
+    unmount();
+
+    expect(localStorage.getItem(KEY)).toBe(stored);
+  });
+});
