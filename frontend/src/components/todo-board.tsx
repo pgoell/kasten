@@ -331,8 +331,11 @@ export function TodoBoard({
       setLifted(cardKey(card.hit));
       if (!touch) return;
       // A finger's pointer is held by the card it went down on, so no other
-      // cell would hear it pass. jsdom has no pointer capture to let go of.
-      if ("releasePointerCapture" in target) target.releasePointerCapture(pointerId);
+      // cell would hear it pass. Asked first, since letting go of a pointer
+      // nothing holds throws; jsdom has no pointer capture at all.
+      if ("hasPointerCapture" in target && target.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId);
+      }
       // From here the finger carries the card: no scroll and no menu. A
       // `touch-action` on the card would have stopped every scroll that
       // starts on one.
@@ -588,7 +591,13 @@ export function TodoBoard({
       {/* A phone has room for one column, so the tabs pick which. */}
       {coarse && (
         <div className="flex border-b border-one-line text-[11px]">
-          <div role="tablist" className="flex min-w-0 flex-1 overflow-x-auto">
+          {/* A lifted card holds the page still, so a tab scrolled out of the
+              strip could not be reached: while one is up, the tabs wrap. */}
+          <div
+            role="tablist"
+            data-carrying={lifted !== null ? "" : undefined}
+            className={`flex min-w-0 flex-1 ${lifted !== null ? "flex-wrap" : "overflow-x-auto"}`}
+          >
             {COLUMNS.map((name, index) => (
               <button
                 key={name}

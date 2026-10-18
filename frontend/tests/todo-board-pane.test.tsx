@@ -1076,6 +1076,22 @@ describe("dragging a card (#397)", () => {
     expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(INVOICE, "done");
   });
 
+  it("#397 A3 while a card is up on a phone every column's tab is in sight", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+    vi.useFakeTimers();
+    const tabs = screen.getByRole("tablist");
+    expect(tabs.hasAttribute("data-carrying")).toBe(false);
+    expect(tabs.className).toContain("overflow-x-auto");
+
+    // The finger holds the page still from here, so no tab can be scrolled to.
+    hold(pane.card("send the invoice"));
+
+    expect(tabs.hasAttribute("data-carrying")).toBe(true);
+    expect(tabs.className).toContain("flex-wrap");
+    expect(tabs.className).not.toContain("overflow-x-auto");
+  });
+
   it("#397 A3 a long press on a phone and a drop on a lane of the column shown refiles", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane();
