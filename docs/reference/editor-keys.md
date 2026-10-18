@@ -1347,7 +1347,8 @@ nothing while a row is being edited or a blocker picked. Each row ends in a `⋯
 that opens a strip under it, one strip at a time: `open`, `doing`, `review`,
 `done`, `blocked`, `waiting` and `rejected` set the state as `O`, `P`, `V`, `X`,
 `B`, `W` and `R` do,
-`timer` is `t`, `part` is `s`, `edit` is `i` and `blocked by` is `b`. `edit`
+`timer` is `t`, `part` is `s`, `edit` is `i`, `blocked by` is `b` and
+`refile` is `m`. `edit`
 does nothing while another row is being edited. After `blocked by`, a tap on a
 row picks it as the blocker and opens nothing, and `cancel` beside the picker's
 line is Escape. A state picked from the strip is set on one tap.
@@ -1415,6 +1416,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `c` | Turn the list into [the board](#the-board), and back |
 | `O` `P` `V` `X` `B` `W` `R` | Set the row's todo to open, doing, review, done, blocked, waiting or rejected |
 | `b` | Pick the todo that blocks the row's todo |
+| `m` | Move the row's todo, and every line under it, into its project's note |
 | `/` | Narrow the list |
 | `q` | Close the pane |
 | Escape | Back to the editor |
@@ -1495,6 +1497,27 @@ a finished todo.
 Enter writes two lines. The blocker gets a `🆔` where it has none, and the
 todo gets `⛔` and that id. An open todo becomes blocked; one that is doing or
 waiting keeps its state.
+
+`m` moves the row's todo into its project's note, the `index.md` of the
+project `GET /api/todos` names for it, which is the note `p` links to. The todo
+goes with every line indented under it, as they stand, to the end of that
+note's `## TODOs`, which is made where there is none; a project's folder with
+no `index.md` gets one holding the todo. In the todo's place stays a plain
+bullet, not a checkbox: its words and a link to the project's note. One todo
+per press, so no bulk move happens. [The todo board](/explanation/the-todo-board.md#the-refile-key)
+says why.
+
+The project's note is written first and the note the todo left second, each
+once and in its note's write queue. Neither is written while it is open to type
+in, while a write of it is in the air, or while it holds text a failed save
+left, and the notice says which. Where the project's note is not written,
+nothing moves. Where the note the todo left changed since it was listed, or its
+write fails, the todo stays in both notes and the notice says so; a second `m`
+then finishes the move without copying the todo twice. A todo with no project
+moves nowhere, and the notice names `p` and a `#p/x` tag; a todo already in its
+project's note stays. The way back is the
+[history pane](#the-history-pane)'s restore on each of the two notes: `u` in an
+editor does not reach a write made through the vault.
 [Dependencies](/reference/todo-format.md#dependencies) has the rule.
 
 A row that waits says for what: `⛔` and the blocker's words, or `⛔ 2` where
@@ -1597,6 +1620,7 @@ list cuts it. A part names the todo it is part of on a line above, after a `↳`
 | `x` | Cycle the card's todo |
 | `O` `P` `V` `W` `B` `X` `R` | Move the card to open, doing, review, waiting, blocked, done or rejected |
 | `p` | Pick a project for the card: `j` `k` and Enter, or a click, pick, Escape shuts |
+| `m` | Move the card's todo into its project's note, as in the list |
 | `/` | Filter the cards, as in the list |
 | `v` | The next saved view |
 | `q` | Close the pane |
@@ -1616,7 +1640,7 @@ The board shows one column at a time under a row of tabs, one per column with
 its count; a tap on a tab shows that column, and `lanes` beside the tabs does
 what `g` does. A tap on a card opens its line, and its `⋯` opens a strip:
 `open`, `doing`, `review`, `done`, `blocked`, `waiting` and `rejected` move it
-on one tap, and `project` is `p`. `cancel` beside the project picker's line shuts it
+on one tap, `project` is `p` and `refile` is `m`. `cancel` beside the project picker's line shuts it
 and writes nothing.
 
 ## The todo overlay

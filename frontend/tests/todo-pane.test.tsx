@@ -86,6 +86,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
   const onEdit = vi.fn();
   const onBlock = vi.fn();
   const onTimer = vi.fn();
+  const onRefile = vi.fn();
   const { reached, commands } = recorder();
   const client = new QueryClient();
 
@@ -100,6 +101,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
         onEdit={onEdit}
         onBlock={onBlock}
         onTimer={onTimer}
+        onRefile={onRefile}
         focusSignal={focusSignal}
         today={TODAY}
       />
@@ -116,6 +118,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
     onEdit,
     onBlock,
     onTimer,
+    onRefile,
     reached,
     /** What the pane says it is picking a blocker for, or nothing outside the picker. */
     picking: () => screen.queryByTestId("todo-pick")?.textContent ?? "",

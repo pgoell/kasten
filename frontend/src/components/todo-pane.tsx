@@ -264,6 +264,13 @@ interface TodoPaneProps {
    * disk again, and the path and the line are how it finds the task line.
    */
   onTimer: (hit: SearchHit) => void;
+  /**
+   * Move the row's todo, with its parts, into its project's note.
+   *
+   * The `TodoHit` rather than a bare hit, because the project it moves to is
+   * the one the backend answered with, never one worked out here.
+   */
+  onRefile: (hit: TodoHit) => void;
   /** Raised by the route when this pane has been moved to. See `Editor`. */
   focusSignal: number;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
@@ -305,6 +312,7 @@ export function TodoPane({
   onEdit,
   onBlock,
   onTimer,
+  onRefile,
   focusSignal,
   today,
   archive = false,
@@ -881,6 +889,10 @@ export function TodoPane({
       case "t":
         if (at !== undefined) onTimer(at.hit);
         break;
+      // One todo per press, so no bulk move ever happens.
+      case "m":
+        if (at !== undefined) onRefile(at.hit);
+        break;
       // The one key here that writes a note nothing on screen names: the todo
       // goes into today's, wherever the cursor happens to be sitting.
       case "a":
@@ -1078,6 +1090,7 @@ export function TodoPane({
           onOpen={onOpen}
           onCycle={onCycle}
           onEdit={onEdit}
+          onRefile={onRefile}
         />
       ) : (
         /* A list that moves under the finger has moved the armed row with it. */
@@ -1283,6 +1296,7 @@ export function TodoPane({
                     ["part", () => onSubtask(hit)],
                     ["edit", () => edit(hit)],
                     ["blocked by", () => block(hit)],
+                    ["refile", () => onRefile(hit)],
                   ];
                   return (
                     <div key={key}>
@@ -1389,15 +1403,15 @@ export function TodoPane({
         ) : board ? (
           <span>
             h l column&ensp;&ensp;j k card&ensp;&ensp;x cycle&ensp;&ensp;O P V X B W R
-            state&ensp;&ensp;p project&ensp;&ensp;g lanes&ensp;&ensp;c list&ensp;&ensp;v
-            view&ensp;&ensp;/ filter&ensp;&ensp;q close
+            state&ensp;&ensp;p project&ensp;&ensp;m refile&ensp;&ensp;g lanes&ensp;&ensp;c
+            list&ensp;&ensp;v view&ensp;&ensp;/ filter&ensp;&ensp;q close
           </span>
         ) : (
           <span>
             x cycle&ensp;&ensp;O P V X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
-            edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n
-            next&ensp;&ensp;v view&ensp;&ensp;c board&ensp;&ensp;/ filter&ensp;&ensp;q
-            close&ensp;&ensp;Escape editor
+            edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;m refile&ensp;&ensp;d
+            done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;c board&ensp;&ensp;/
+            filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
           </span>
         )}
       </footer>

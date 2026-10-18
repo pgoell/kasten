@@ -54,6 +54,7 @@ import {
   restoreEntry,
   type SearchHit,
   saveNote,
+  type TodoHit,
   updateNote,
   uploadAsset,
 } from "@/lib/api";
@@ -124,6 +125,7 @@ import {
   toggleTimerInVault,
 } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
+import { fileUnderTodos, projectNote, refileOf } from "@/lib/todo-refile";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
@@ -1724,6 +1726,145 @@ function Home() {
   );
 
   /**
+   * Move one todo, and every line under it, into its project's note, from the
+   * pane's `m`.
+   *
+   * The project's note is written first and the note the todo left second, so
+   * a write failing between the two leaves the todo in both and never in none.
+   * Each in its note's queue, with `linkMentionOf`'s guards asked before and
+   * again inside the write, for its reasons: the press was made in the pane,
+   * not in either note. The project is the backend's, so the todo lands in the
+   * lane the board draws it in.
+   */
+  const refileTodo = useCallback(
+    async (hit: TodoHit) => {
+      setNotice(undefined);
+      const { project } = hit;
+      if (project === null) {
+        setNotice("That todo has no project: give it one with p or a #p/x tag");
+        return;
+      }
+      const source = hit.path;
+      const target = projectNote(project);
+      if (source === target) {
+        setNotice("That todo is in its project's note already");
+        return;
+      }
+
+      const busy = (note: string): string | null => {
+        if (heldText(note) !== undefined) return `${note} holds text not yet saved`;
+        const focused = focusedNote.current;
+        if (focused.path === note) return `${note} is open to type in`;
+        if (focused.isWriting(note)) return `${note} is still being saved`;
+        return null;
+      };
+      const before = busy(target) ?? busy(source);
+      if (before !== null) {
+        setNotice(`Nothing moved: ${before}`);
+        return;
+      }
+
+      // The block as the note holds it now, checked against what the row read:
+      // a row the vault has moved past would move whatever sits there instead.
+      const read = await fetchNote(source).then(
+        (text) => text,
+        () => null,
+      );
+      const moved = read === null ? null : refileOf(read, hit.line, project);
+      if (read === null || moved === null || read.split("\n")[hit.line - 1] !== hit.text) {
+        setNotice("Nothing moved: that line has changed since it was listed");
+        return;
+      }
+
+      let why = `Nothing moved: ${target} was not written`;
+      const filed = await write(target, async () => {
+        const now = busy(target);
+        if (now !== null) {
+          why = `Nothing moved: ${now}`;
+          return false;
+        }
+        // The backend names only folders it found, so a project without its
+        // note gets the one `p` already links to.
+        if (!queryClient.getQueryData<string[]>(["files"])?.includes(target)) {
+          const made = await createNote(target, `## TODOs\n${moved.block}\n`).then(
+            (note) => note,
+            () => null,
+          );
+          if (made !== null) queryClient.setQueryData(["note", made.path], made.content);
+          return made !== null;
+        }
+        // Already there, from a press whose second write was refused: this
+        // press finishes that move rather than copying the todo twice.
+        let there = false;
+        const written = await updateNote(target, (text) => {
+          const again = busy(target);
+          if (again !== null) {
+            why = `Nothing moved: ${again}`;
+            return null;
+          }
+          const next = fileUnderTodos(text, moved.block);
+          there = next === null;
+          return next;
+        }).then(
+          (landed) => landed,
+          // A 500, the network, or refused over its base three times.
+          () => null,
+        );
+        if (written !== null) queryClient.setQueryData(["note", target], written.content);
+        return written !== null || there;
+      });
+      if (!filed) {
+        setNotice(why);
+        return;
+      }
+
+      const stays = (reason: string) =>
+        `Copied into ${target}; ${reason}, so the todo stays there too`;
+      let left = stays(`${source} was not written`);
+      const taken = await write(source, async () => {
+        const now = busy(source);
+        if (now !== null) {
+          left = stays(now);
+          return false;
+        }
+        const written = await updateNote(source, (text) => {
+          const again = busy(source);
+          if (again !== null) {
+            left = stays(again);
+            return null;
+          }
+          // The todo or a line under it changed since the copy was made, so
+          // taking it out would lose what the copy does not hold.
+          const fresh = refileOf(text, hit.line, project);
+          if (
+            fresh === null ||
+            fresh.block !== moved.block ||
+            text.split("\n")[hit.line - 1] !== hit.text
+          ) {
+            left = stays(`${source} changed`);
+            return null;
+          }
+          return fresh.left;
+        }).then(
+          (landed) => landed,
+          () => null,
+        );
+        if (written !== null) queryClient.setQueryData(["note", source], written.content);
+        return written !== null;
+      });
+
+      todosWritten();
+      // The move went through the vault and not a buffer, so `u` cannot reach it.
+      setNotice(
+        taken
+          ? `Moved into ${target}. The history pane's restore on either note takes it back`
+          : left,
+      );
+    },
+    [queryClient, write, todosWritten],
+  );
+
+  /**
    * Put the file the picker just handed back into the vault, with its note.
    *
    * The book keeps its own name and lands in the inbox, rather than taking the
@@ -2334,6 +2475,7 @@ function Home() {
                     onEdit={editTodo}
                     onBlock={blockTodo}
                     onTimer={toggleTimer}
+                    onRefile={(hit) => void refileTodo(hit)}
                     archive={archive}
                     focusSignal={focused ? focusSignal : 0}
                     // Read at the render rather than inside the pane, which

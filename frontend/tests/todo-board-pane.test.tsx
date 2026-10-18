@@ -80,6 +80,7 @@ function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = {}) {
   const onOpen = vi.fn();
   const onCycle = vi.fn();
   const onEdit = vi.fn();
+  const onRefile = vi.fn();
   const { reached, commands } = recorder();
   const client = new QueryClient();
 
@@ -94,6 +95,7 @@ function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = {}) {
         onEdit={onEdit}
         onBlock={vi.fn()}
         onTimer={vi.fn()}
+        onRefile={onRefile}
         focusSignal={focusSignal}
         today={TODAY}
         archive={archive}
@@ -108,6 +110,7 @@ function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = {}) {
     onOpen,
     onCycle,
     onEdit,
+    onRefile,
     reached,
     cards,
     texts: () => cards().map((card) => card.textContent ?? ""),
@@ -904,5 +907,85 @@ describe("lanes by the project the backend names (#395, #394)", () => {
 
     fireEvent.click(pane.card("send the deck"));
     expect(pane.onOpen).toHaveBeenCalledWith(KASTEN, 1);
+  });
+});
+
+describe("refiling one todo (#396)", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  /** A daily todo the backend files under FDE, beside one it files nowhere. */
+  const SEND = {
+    path: DAILY,
+    line: 4,
+    text: "- [ ] send the invoice",
+    project: "02 Projects/FDE",
+  };
+  const LOOSE = { path: DAILY, line: 6, text: "- [ ] fix the tap", project: null };
+
+  /** The list with its rows drawn. */
+  async function listPane(options?: Parameters<typeof renderPane>[0]) {
+    const pane = renderPane(options);
+    await waitFor(() => expect(document.querySelector("[data-row]")).not.toBeNull());
+    return pane;
+  }
+
+  // The pane's keys land on the section and never in CodeMirror, so the two
+  // runs differ in the setting alone, which is what A2 and A3 ask to see.
+  for (const vim of ["on", "off"]) {
+    it(`#396 ${vim === "on" ? "A2" : "A3"} A5 m on a list row hands that one row on, vim ${vim}`, async () => {
+      toggleVim();
+      if (vim === "on") toggleVim();
+      expect(localStorage.getItem("kasten.vim")).toBe(vim);
+      const pane = await listPane({ hits: [SEND, LOOSE] });
+
+      pane.press("m");
+
+      expect(pane.onRefile).toHaveBeenCalledExactlyOnceWith(SEND);
+      expect(pane.onEdit).not.toHaveBeenCalled();
+      expect(pane.onCycle).not.toHaveBeenCalled();
+    });
+
+    it(`#396 ${vim === "on" ? "A2" : "A3"} A5 m on a board card hands that one card on, vim ${vim}`, async () => {
+      toggleVim();
+      if (vim === "on") toggleVim();
+      expect(localStorage.getItem("kasten.vim")).toBe(vim);
+      const pane = await boardPane({ hits: [SEND, LOOSE] });
+      pane.press("j");
+      expect(pane.cursor()).toContain("fix the tap");
+
+      pane.press("m");
+
+      expect(pane.onRefile).toHaveBeenCalledExactlyOnceWith(LOOSE);
+    });
+  }
+
+  it("#396 A4 a phone's row strip holds refile, and a tap refiles", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await listPane({ hits: [SEND, LOOSE] });
+
+    fireEvent.click(screen.getByLabelText("more for send the invoice"));
+    fireEvent.click(screen.getByLabelText("refile send the invoice"));
+
+    expect(pane.onRefile).toHaveBeenCalledExactlyOnceWith(SEND);
+  });
+
+  it("#396 A4 a phone's card strip holds refile, and a tap refiles", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane({ hits: [SEND, LOOSE] });
+
+    fireEvent.click(screen.getByLabelText("more for send the invoice"));
+    fireEvent.click(screen.getByLabelText("refile send the invoice"));
+
+    expect(pane.onRefile).toHaveBeenCalledExactlyOnceWith(SEND);
+  });
+
+  it("#396 A1 both footers on a desktop name m refile", async () => {
+    const pane = await listPane({ hits: [SEND] });
+    expect(screen.getByTestId("todo-footer").textContent).toContain("m refile");
+
+    pane.press("c");
+    await waitFor(() => expect(pane.cards().length).toBeGreaterThan(0));
+    expect(screen.getByTestId("todo-footer").textContent).toContain("m refile");
   });
 });

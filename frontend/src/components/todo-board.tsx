@@ -75,6 +75,8 @@ interface TodoBoardProps {
   onOpen: (path: string, line: number) => void;
   onCycle: (hit: SearchHit, state?: TodoState) => void;
   onEdit: (hit: SearchHit, line: string) => void;
+  /** The pane's `m`, said of a card. */
+  onRefile: (hit: TodoHit) => void;
 }
 
 /**
@@ -98,6 +100,7 @@ export function TodoBoard({
   onOpen,
   onCycle,
   onEdit,
+  onRefile,
 }: TodoBoardProps) {
   /** `g`: lanes by project rather than by kind. */
   const [byProject, setByProject] = useState(false);
@@ -277,6 +280,9 @@ export function TodoBoard({
         case "p":
           if (at !== undefined) project(at.hit);
           break;
+        case "m":
+          if (at !== undefined) onRefile(at.hit);
+          break;
         default:
           return false;
       }
@@ -338,6 +344,7 @@ export function TodoBoard({
         () => onCycle(hit, state),
       ]),
       ["project", () => project(hit)],
+      ["refile", () => onRefile(hit)],
     ];
     return (
       <div key={key}>
