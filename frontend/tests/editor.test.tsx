@@ -995,7 +995,18 @@ describe("Editor reopening a note where it was left (#495)", () => {
     unmount();
   }
 
-  afterEach(() => localStorage.clear());
+  /**
+   * jsdom lays nothing out, so every scroller is 0 high, which is what a pane
+   * hidden behind a zoom is in a browser. A test of a pane on screen says so.
+   */
+  function boxHigh(height: number) {
+    return vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(height);
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
 
   it.each([
     ["on", false],
@@ -1018,11 +1029,62 @@ describe("Editor reopening a note where it was left (#495)", () => {
   ])("editor: A6 a note reopens at its saved scroll with vim %s", (_, toggle) => {
     if (toggle) act(() => toggleVim());
     leave(0, 120);
+    boxHigh(400);
 
     const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
 
     expect(viewIn(container).scrollDOM.scrollTop).toBe(120);
     unmount();
+  });
+
+  it("editor: A6 a pane hidden at mount gets its saved scroll back when it shows", async () => {
+    localStorage.setItem(KEY, JSON.stringify([["a.md", { anchor: 0, head: 0, top: 120 }]]));
+    const height = boxHigh(0);
+
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    const view = viewIn(container);
+    // A hidden scroller in a browser keeps no offset; jsdom keeps any number,
+    // so an editor that wrote it now would read back 120 here.
+    expect(view.scrollDOM.scrollTop).toBe(0);
+
+    // Shown: a height, and a place on the page, which is how CodeMirror tells
+    // an editor on screen from one that is not.
+    height.mockReturnValue(400);
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 600, 400),
+    );
+    act(() => view.requestMeasure());
+
+    await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(120));
+    unmount();
+  });
+
+  it("editor: A6 a pane hidden at mount keeps its saved scroll when it closes unseen", () => {
+    localStorage.setItem(KEY, JSON.stringify([["a.md", { anchor: 0, head: 0, top: 120 }]]));
+    boxHigh(0);
+
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    const view = viewIn(container);
+    act(() => view.dispatch({ selection: { anchor: IN_THREE } }));
+    // What a hidden scroller reports, if anything makes it report.
+    view.scrollDOM.scrollTop = 0;
+    fireEvent.scroll(view.scrollDOM);
+    unmount();
+
+    expect(JSON.parse(localStorage.getItem(KEY) as string)).toEqual([
+      ["a.md", { anchor: IN_THREE, head: IN_THREE, top: 120 }],
+    ]);
+  });
+
+  it("editor: A6 closing a note whose cursor and scroll did not move writes nothing", () => {
+    localStorage.setItem(KEY, JSON.stringify([["a.md", { anchor: 0, head: 0, top: 0 }]]));
+    const write = vi.spyOn(Storage.prototype, "setItem");
+
+    const { unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    fireEvent(window, new Event("pagehide"));
+    unmount();
+
+    expect(write).not.toHaveBeenCalled();
   });
 
   it("editor: A6 a line asked for beats the saved cursor, which holds without one", () => {

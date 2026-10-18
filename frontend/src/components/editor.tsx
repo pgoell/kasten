@@ -844,14 +844,37 @@ export function Editor({
     // React runs the cleanup after the host has left the page, and a detached
     // element reports 0, which would overwrite every note's scroll with the top.
     let top = saved?.top ?? 0;
+    // Whether the saved scroll has reached the screen. A pane hidden behind a
+    // zoom mounts with no box, where an offset does not take, and gets it
+    // when it first shows. Until then its scroller reads 0, which is not
+    // where the reader left it, so nothing it reports counts.
+    let shown = saved === undefined;
+    // What the store holds for this note as far as this editor knows, so a
+    // close that moved nothing writes nothing.
+    let written = saved;
     let pending: ReturnType<typeof setTimeout> | undefined;
-    // `view` is assigned below; neither runs before it is.
+    // `view` is assigned below; none of these runs before it is.
     function keep() {
       clearTimeout(pending);
       pending = undefined;
       if (path === undefined) return;
       const { anchor, head } = view.state.selection.main;
-      writePosition(path, { anchor, head, top });
+      if (written?.anchor === anchor && written.head === head && written.top === top) return;
+      written = { anchor, head, top };
+      writePosition(path, written);
+    }
+    function reveal() {
+      if (shown || saved === undefined || view.scrollDOM.clientHeight === 0) return;
+      shown = true;
+      view.scrollDOM.scrollTop = saved.top;
+      // Again once the lines are measured: until then their heights are
+      // guesses, and the offset can land short of where it was.
+      view.requestMeasure({
+        read: () => {},
+        write: () => {
+          view.scrollDOM.scrollTop = saved.top;
+        },
+      });
     }
     // Trailing and not reset while pending, so a held `j` or a long scroll
     // writes twice a second and not once per line. The close and `pagehide`
@@ -1037,6 +1060,9 @@ export function Editor({
           // serves vim on and off.
           EditorView.updateListener.of((update) => {
             if (update.selectionSet) soon();
+            // A hidden pane coming into view is a change of size, which
+            // CodeMirror measures and reports as geometry.
+            if (update.geometryChanged) reveal();
           }),
         ],
       }),
@@ -1051,16 +1077,9 @@ export function Editor({
     // which the route follows to that pane and which turns its zoom off.
     if (focusedRef.current && !keyboardUnasked() && nothingFocused()) view.focus();
 
-    if (saved) {
-      const restore = () => {
-        view.scrollDOM.scrollTop = saved.top;
-      };
-      restore();
-      // Again once the lines are measured: until then their heights are
-      // guesses, and the offset can land short of where it was.
-      view.requestMeasure({ read: () => {}, write: restore });
-    }
+    reveal();
     function onScroll() {
+      if (!shown) return;
       top = view.scrollDOM.scrollTop;
       soon();
     }
