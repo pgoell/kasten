@@ -867,6 +867,9 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
     const image = embeddedPicture(state, name, alias);
     return image === null ? null : [{ text: whole, class: null, image }];
   }
+  // The character alone, as off a table: a cell is drawn from its spans, so
+  // the backslash a table needs before a bar would otherwise show.
+  if (node.name === "Escape") return [{ text: whole.slice(1), class: null }];
   const inline = INLINE[node.name];
   if (!inline && node.name !== "Link") return null;
   // A `[text]` with no `(url)` stays text, brackets and all: see the walk.
