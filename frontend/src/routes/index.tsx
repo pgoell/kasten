@@ -1608,15 +1608,23 @@ function Home() {
     [data, todosWritten],
   );
 
-  /** Walk one todo on, in the vault, from the pane's `x`, or set the state a key named. */
+  /**
+   * Walk one todo on, in the vault, from the pane's `x`, or set the state a key
+   * named or a card was dropped on.
+   *
+   * A refused write says so: a dropped card goes back to the column it left,
+   * since the board draws the vault, and without a notice the drop would look
+   * ignored. A line that moved or became prose writes nothing and is no failure.
+   */
   const cycleTodo = useCallback(
     (hit: SearchHit, state?: TodoState) => {
+      setNotice(undefined);
       void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state).then(
         todosWritten,
-        () => {
-          // The vault refused the write, or the note moved out from under the
-          // row. The list stays as it is, and the next event redraws it.
-        },
+        (error: unknown) =>
+          setNotice(
+            `Nothing moved: ${error instanceof Error ? error.message : "the vault refused the write"}`,
+          ),
       );
     },
     [data, todosWritten],
@@ -1727,19 +1735,20 @@ function Home() {
 
   /**
    * Move one todo, and every line under it, into its project's note, from the
-   * pane's `m`.
+   * pane's `m`, or into the project of the lane a card was dropped on.
    *
    * The project's note is written first and the note the todo left second, so
    * a write failing between the two leaves the todo in both and never in none.
    * Each in its note's queue, with `linkMentionOf`'s guards asked before and
    * again inside the write, for its reasons: the press was made in the pane,
    * not in either note. The project is the backend's, so the todo lands in the
-   * lane the board draws it in.
+   * lane the board draws it in. A drop names the lane's instead, which is how
+   * a card in "No project" gets one: the same path, so a drop is no second move.
    */
   const refileTodo = useCallback(
-    async (hit: TodoHit) => {
+    async (hit: TodoHit, lane?: string) => {
       setNotice(undefined);
-      const { project } = hit;
+      const project = lane ?? hit.project;
       if (project === null) {
         setNotice("That todo has no project: give it one with p or a #p/x tag");
         return;
@@ -2483,7 +2492,8 @@ function Home() {
                     onEdit={editTodo}
                     onBlock={blockTodo}
                     onTimer={toggleTimer}
-                    onRefile={(hit) => void refileTodo(hit)}
+                    onRefile={(hit, project) => void refileTodo(hit, project)}
+                    onNotice={setNotice}
                     archive={archive}
                     focusSignal={focused ? focusSignal : 0}
                     // Read at the render rather than inside the pane, which

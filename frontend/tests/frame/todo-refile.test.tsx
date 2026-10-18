@@ -50,6 +50,7 @@ async function mount(width: number, height: number) {
         onBlock={() => {}}
         onTimer={() => {}}
         onRefile={(hit) => refiled.push(hit)}
+        onNotice={() => {}}
         focusSignal={0}
         today={TODAY}
         archive={false}

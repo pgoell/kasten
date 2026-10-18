@@ -108,6 +108,7 @@ it("#488 keeps the board footer's count on one line on a phone", async () => {
           onBlock={() => {}}
           onTimer={() => {}}
           onRefile={() => {}}
+          onNotice={() => {}}
           focusSignal={0}
           today={TODAY}
           archive={false}
@@ -173,6 +174,7 @@ it.runIf(import.meta.env.VITE_KASTEN_SHOTS)(
               onBlock={() => {}}
               onTimer={() => {}}
               onRefile={() => {}}
+              onNotice={() => {}}
               focusSignal={0}
               today={TODAY}
               archive={false}

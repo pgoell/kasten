@@ -268,9 +268,12 @@ interface TodoPaneProps {
    * Move the row's todo, with its parts, into its project's note.
    *
    * The `TodoHit` rather than a bare hit, because the project it moves to is
-   * the one the backend answered with, never one worked out here.
+   * the one the backend answered with, never one worked out here. A board
+   * card dropped on a project's lane names that project instead.
    */
-  onRefile: (hit: TodoHit) => void;
+  onRefile: (hit: TodoHit, project?: string) => void;
+  /** Say why a card dropped on the board moved nothing. */
+  onNotice: (text: string) => void;
   /** Raised by the route when this pane has been moved to. See `Editor`. */
   focusSignal: number;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
@@ -313,6 +316,7 @@ export function TodoPane({
   onBlock,
   onTimer,
   onRefile,
+  onNotice,
   focusSignal,
   today,
   archive = false,
@@ -1091,6 +1095,7 @@ export function TodoPane({
           onCycle={onCycle}
           onEdit={onEdit}
           onRefile={onRefile}
+          onNotice={onNotice}
         />
       ) : (
         /* A list that moves under the finger has moved the armed row with it. */

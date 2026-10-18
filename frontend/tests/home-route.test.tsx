@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-library/react";
-import { ASSET_LIMIT_BYTES, ChangedOnDisk } from "@/lib/api";
+import { ASSET_LIMIT_BYTES, ChangedOnDisk, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
@@ -195,6 +195,23 @@ vi.mock("@/lib/pdf-view", async (importOriginal) => {
       open: (url: string) => (pdfPaneRenderer.current ?? real.pdfjsRenderer).open(url),
     },
   };
+});
+
+// The props the route last handed the todo pane. A card dropped on a lane
+// reaches the route as `onRefile(hit, project)`, which no key of the pane
+// makes: the drag itself is `todo-board.test.tsx`'s, and what is pinned here
+// is what the route does with the lane it names. The real pane still renders.
+const paneProps = vi.hoisted(() => ({
+  current: null as { onRefile: (hit: TodoHit, project?: string) => void } | null,
+}));
+vi.mock("@/components/todo-pane", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/components/todo-pane")>();
+  // One component, made once, so React keeps the pane mounted across renders.
+  function TodoPane(props: Parameters<typeof real.TodoPane>[0]) {
+    paneProps.current = props;
+    return <real.TodoPane {...props} />;
+  }
+  return { ...real, TodoPane };
 });
 
 // Where `<leader>cd` puts a thought. Faked rather than run over fake-indexeddb,
@@ -3382,6 +3399,110 @@ describe("the route", () => {
 
       expect(saveNote).not.toHaveBeenCalled();
       expect(app.notice()).toBe("That todo is in its project's note already");
+    });
+
+    describe("by a card dropped on a lane", () => {
+      const OTHER = "02 Projects/Other";
+      const OTHER_NOTE = "02 Projects/Other/index.md";
+      const OTHER_TEXT = "# Other\n\n## TODOs\n- [ ] older";
+
+      beforeEach(() => {
+        notes[OTHER_NOTE] = OTHER_TEXT;
+      });
+
+      /** The board open, then the drop as it reaches the route: the row and the lane's project. */
+      async function drop(row: TodoHit, project: string) {
+        app.leader("g", "t");
+        await settle();
+        act(() => paneProps.current?.onRefile(row, project));
+        await hashed();
+        await settle();
+      }
+
+      let app: Awaited<ReturnType<typeof renderApp>>;
+
+      it("#397 A2 a card dropped on another project lane moves into that project's note, project's note first", async () => {
+        app = await renderApp();
+        await settle();
+
+        await drop(ROW, OTHER);
+
+        expect(saved()).toEqual([OTHER_NOTE, DAILY]);
+        expect(saveNote).toHaveBeenCalledWith(
+          DAILY,
+          ["## TODOs", "- send the deck [[02 Projects/Other/index|Other]]", "- [ ] buy milk"].join(
+            "\n",
+          ),
+          false,
+          noteBase(SOURCE.join("\n")),
+        );
+        expect(app.notice()).toBe(
+          "Moved into 02 Projects/Other/index.md. The history pane's restore on both notes takes it back",
+        );
+      });
+
+      it("#397 A2 a card with no project dropped on a project lane moves into that project's note", async () => {
+        const row = { ...ROW, project: null };
+        fetchTodos.mockResolvedValue([row]);
+        app = await renderApp();
+        await settle();
+
+        await drop(row, OTHER);
+
+        expect(saved()).toEqual([OTHER_NOTE, DAILY]);
+        expect(app.notice()).toBe(
+          "Moved into 02 Projects/Other/index.md. The history pane's restore on both notes takes it back",
+        );
+      });
+
+      it("#397 I4 a dropped card's parts move with it", async () => {
+        app = await renderApp();
+        await settle();
+
+        await drop(ROW, OTHER);
+
+        expect(saveNote).toHaveBeenCalledWith(
+          OTHER_NOTE,
+          `${OTHER_TEXT}\n- [ ] send the deck\n  - [ ] draw the chart`,
+          false,
+          noteBase(OTHER_TEXT),
+        );
+        expect(saveNote).toHaveBeenCalledWith(
+          DAILY,
+          ["## TODOs", "- send the deck [[02 Projects/Other/index|Other]]", "- [ ] buy milk"].join(
+            "\n",
+          ),
+          false,
+          noteBase(SOURCE.join("\n")),
+        );
+      });
+    });
+  });
+
+  describe("a state the vault refuses", () => {
+    it("#397 I3 a state write the vault refuses leaves the card and says so", async () => {
+      const row = { path: "daily.md", line: 2, text: "- [ ] send the deck", project: null };
+      const text = "## TODOs\n- [ ] send the deck";
+      fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), row.path]);
+      fetchNote.mockImplementation(async (path: string) =>
+        path === row.path ? text : VAULT[path],
+      );
+      fetchTodos.mockResolvedValue([row]);
+      saveNote.mockRejectedValue(new Error("PUT failed with 500"));
+      const app = await renderApp();
+      await settle();
+      app.leader("g", "t");
+      await settle();
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+
+      fireEvent.keyDown(pane, { key: "x" });
+      await hashed();
+      await settle();
+
+      expect(saveNote).toHaveBeenCalled();
+      expect(pane.textContent).toContain("send the deck");
+      expect(app.notice()).toBe("Nothing moved: PUT failed with 500");
     });
   });
 });

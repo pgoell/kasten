@@ -102,6 +102,7 @@ function renderPane(hits = TODOS, focusSignal = 0) {
         onBlock={onBlock}
         onTimer={onTimer}
         onRefile={onRefile}
+        onNotice={() => {}}
         focusSignal={focusSignal}
         today={TODAY}
       />
