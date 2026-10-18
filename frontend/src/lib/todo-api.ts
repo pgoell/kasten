@@ -19,6 +19,7 @@ import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 import { isOpen, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo";
 import type { TodoCycle } from "@/lib/todo-commands";
+import { lineOf } from "@/lib/todo-refile";
 import { expandShorthand } from "@/lib/todo-shorthand";
 import { parseSession } from "@/lib/todo-time";
 import {
@@ -279,10 +280,14 @@ export async function cycleTodoInVault(
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  const line = text.split("\n")[hit.line - 1] ?? "";
+  // The row's own line, by its words where a write since has shifted it: a
+  // card held through a drag, or a key pressed just after an agent wrote above
+  // it, would otherwise set whatever todo sits at that number now.
+  const at = lineOf(text, hit.line, hit.text);
+  if (at === null) throw new Error("that line has changed since it was listed");
+  const line = text.split("\n")[at - 1] ?? "";
   const todo = parseTodo(line);
-  // The line moved, or somebody edited it into prose. Cycling whatever is there
-  // now is not what was asked for.
+  // Only a row whose own words are no todo, which the listing never hands over.
   if (todo === null) return;
 
   // The id goes only into the write, so stamping it before the search changes
@@ -317,7 +322,7 @@ export async function cycleTodoInVault(
   const writes = cycleTodoWrites({
     path: hit.path,
     text,
-    line: hit.line,
+    line: at,
     dailyPath: daily.path,
     dailyText: daily.text,
     logged,

@@ -1092,6 +1092,60 @@ describe("dragging a card (#397)", () => {
     expect(tabs.className).not.toContain("overflow-x-auto");
   });
 
+  it("#397 A3 a touch press holds a non-passive touchmove listener from the start and blocks nothing before the lift", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+    vi.useFakeTimers();
+    const card = pane.card("send the invoice");
+    const added = vi.spyOn(window, "addEventListener");
+    try {
+      fireEvent.pointerDown(card, { pointerType: "touch", pointerId: 1, clientX: 10, clientY: 10 });
+
+      // Android may make a touch's moves uncancelable once one has gone by
+      // unasked, so the listener is there before the long press ends.
+      expect(added).toHaveBeenCalledWith("touchmove", expect.any(Function), { passive: false });
+      expect(fireEvent.touchMove(card)).toBe(true);
+      act(() => vi.advanceTimersByTime(400));
+      expect(fireEvent.touchMove(card)).toBe(false);
+    } finally {
+      added.mockRestore();
+    }
+  });
+
+  it("#397 B1 switching lanes mid-drag cancels the drag and writes nothing", async () => {
+    const pane = await boardPane();
+    pane.press("g");
+
+    lift(pane.card("send the invoice"));
+    expect(lifted()).toBe(1);
+    pane.press("g");
+    expect(lifted()).toBe(0);
+    drop(cell("#client", "open"));
+
+    expect(pane.onRefile).not.toHaveBeenCalled();
+    expect(pane.onCycle).not.toHaveBeenCalled();
+    expect(pane.onNotice).not.toHaveBeenCalled();
+  });
+
+  it("#397 B3 a second pointer's release does not drop the card", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane();
+    vi.useFakeTimers();
+    const done = screen.getByRole("tab", { name: /^Done/ });
+    const waiting = screen.getByRole("tab", { name: /^Waiting/ });
+
+    hold(pane.card("send the invoice"));
+    fireEvent.pointerEnter(done, { pointerType: "touch", pointerId: 1 });
+    // A second finger passes over another tab and lets go.
+    fireEvent.pointerEnter(waiting, { pointerType: "touch", pointerId: 2 });
+    fireEvent.pointerUp(waiting, { pointerType: "touch", pointerId: 2 });
+    expect(lifted()).toBe(1);
+    expect(pane.onCycle).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(done, { pointerType: "touch", pointerId: 1 });
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(INVOICE, "done");
+  });
+
   it("#397 A3 a long press on a phone and a drop on a lane of the column shown refiles", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane();

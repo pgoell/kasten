@@ -398,6 +398,41 @@ describe("cycleTodoInVault", () => {
 
     expect(saveNote).not.toHaveBeenCalled();
   });
+
+  it("#397 B2 a state write finds its todo by its words where a line above shifted it", async () => {
+    // Listed at line 1, and a line written above it since: a card held through
+    // a drag, or a key pressed just after an agent wrote.
+    fetchNote.mockResolvedValue("- [ ] written since\n- [ ] a\n");
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: "- [ ] a" },
+      "2026-10-18",
+      ["projects/kasten.md"],
+      "blocked",
+    );
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "projects/kasten.md",
+      "- [ ] written since\n- [b] a\n",
+      false,
+      noteBase("- [ ] written since\n- [ ] a\n"),
+    );
+  });
+
+  it("#397 B2 a state write whose line now holds another todo writes nothing", async () => {
+    fetchNote.mockResolvedValue("- [ ] another\n");
+
+    await expect(
+      cycleTodoInVault(
+        { path: "projects/kasten.md", line: 1, text: "- [ ] a" },
+        "2026-10-18",
+        ["projects/kasten.md"],
+        "blocked",
+      ),
+    ).rejects.toThrow("that line has changed since it was listed");
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
 });
 
 describe("addTodoInVault", () => {

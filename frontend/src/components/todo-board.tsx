@@ -59,6 +59,8 @@ const LONG_PRESS_MS = 400;
 interface Press {
   card: Card;
   from: Spot;
+  /** The pointer that pressed, so a second finger neither drops nor steers the card. */
+  pointerId: number;
   x: number;
   y: number;
   touch: boolean;
@@ -252,6 +254,8 @@ export function TodoBoard({
 
   /** `g`, and `lanes` by finger. */
   function switchLanes() {
+    // The cell the card left is gone, and with it what a drop would mean.
+    endDrag();
     setByProject(!byProject);
     setRow(0);
     settle();
@@ -285,17 +289,20 @@ export function TodoBoard({
     setOverZone(null);
   }
 
-  /** The pointer came over a drop zone; `lane` left out is the lane the card left. */
-  function hover(zone: string, column: Column, lane?: string) {
+  /**
+   * The pointer came over a drop zone; `lane` left out is the lane the card
+   * left. Another finger passing over one moves nothing.
+   */
+  function hover(event: React.PointerEvent, zone: string, column: Column, lane?: string) {
     const held = press.current;
-    if (!held?.lifted) return;
+    if (!held?.lifted || event.pointerId !== held.pointerId) return;
     held.over = { lane: lane ?? held.from.lane, column };
     setOverZone(zone);
   }
 
-  function unhover() {
+  function unhover(event: React.PointerEvent) {
     const held = press.current;
-    if (!held?.lifted) return;
+    if (!held?.lifted || event.pointerId !== held.pointerId) return;
     held.over = null;
     setOverZone(null);
   }
@@ -311,6 +318,10 @@ export function TodoBoard({
     else if (drop.kind === "refile") onRefile(card.hit, drop.project);
     else if (drop.kind === "refused") onNotice(drop.why);
   }
+  // The window's listeners outlive the render that added them, so they land
+  // through this, which holds the lanes and the props of the latest one.
+  const landing = useRef(land);
+  landing.current = land;
 
   // Pointer events rather than HTML drag and drop, which a phone does not
   // fire for a finger. A mouse lifts the card once it moves past the slop, so
@@ -323,7 +334,16 @@ export function TodoBoard({
     const { pointerId } = event;
     const touch = event.pointerType === "touch";
     const stop = (other: Event) => other.preventDefault();
-    const cancel = () => endDrag();
+    // A second finger's events are not this press's.
+    const mine = (other: PointerEvent) => other.pointerId === pointerId;
+    const cancel = (other: PointerEvent) => {
+      if (mine(other)) endDrag();
+    };
+    // Before the lift a move is a scroll the browser goes on with; after it,
+    // the finger carries the card and the page stays still.
+    const carry = (other: Event) => {
+      if (held.lifted) other.preventDefault();
+    };
 
     const lift = () => {
       held.lifted = true;
@@ -336,26 +356,26 @@ export function TodoBoard({
       if ("hasPointerCapture" in target && target.hasPointerCapture(pointerId)) {
         target.releasePointerCapture(pointerId);
       }
-      // From here the finger carries the card: no scroll and no menu. A
-      // `touch-action` on the card would have stopped every scroll that
-      // starts on one.
-      window.addEventListener("touchmove", stop, { passive: false });
+      // From here the finger carries the card, which no menu interrupts.
       window.addEventListener("contextmenu", stop);
     };
     const move = (other: PointerEvent) => {
-      if (held.lifted || Math.hypot(other.clientX - held.x, other.clientY - held.y) <= SLOP) return;
+      if (!mine(other) || held.lifted) return;
+      if (Math.hypot(other.clientX - held.x, other.clientY - held.y) <= SLOP) return;
       if (touch) endDrag();
       else lift();
     };
-    const up = () => {
+    const up = (other: PointerEvent) => {
+      if (!mine(other)) return;
       const { lifted: carried, over } = held;
       endDrag();
-      if (carried && over !== null) land(held, over);
+      if (carried && over !== null) landing.current(held, over);
     };
 
     const held: Press = {
       card,
       from,
+      pointerId,
       x: event.clientX,
       y: event.clientY,
       touch,
@@ -366,7 +386,7 @@ export function TodoBoard({
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", cancel);
-        window.removeEventListener("touchmove", stop);
+        window.removeEventListener("touchmove", carry);
         window.removeEventListener("contextmenu", stop);
       },
     };
@@ -374,6 +394,9 @@ export function TodoBoard({
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", cancel);
+    // Added at the press, not at the lift: Android Chrome may already treat a
+    // touch's moves as uncancelable 400 ms in, once one went by unasked.
+    if (touch) window.addEventListener("touchmove", carry, { passive: false });
   }
 
   // The pane's keys never reach CodeMirror: they land on the section, whose
@@ -611,7 +634,7 @@ export function TodoBoard({
                 }}
                 // A drop on a tab sets that column's state.
                 data-over={marked(`tab:${name}`)}
-                onPointerOver={() => hover(`tab:${name}`, name)}
+                onPointerOver={(event) => hover(event, `tab:${name}`, name)}
                 onPointerLeave={unhover}
                 className={`min-h-11 shrink-0 px-3 ${index === col ? "text-one-fg" : "text-one-muted"} ${lit(`tab:${name}`)}`}
               >
@@ -646,7 +669,7 @@ export function TodoBoard({
                 key={lane.id}
                 data-lane={lane.id}
                 data-over={marked(name)}
-                onPointerOver={() => hover(name, column, lane.id)}
+                onPointerOver={(event) => hover(event, name, column, lane.id)}
                 onPointerLeave={unhover}
                 className={lit(name)}
               >
@@ -677,7 +700,7 @@ export function TodoBoard({
                     data-lane={lane.id}
                     data-column={column}
                     data-over={marked(name)}
-                    onPointerOver={() => hover(name, column, lane.id)}
+                    onPointerOver={(event) => hover(event, name, column, lane.id)}
                     onPointerLeave={unhover}
                     className={`min-w-0 ${lit(name)}`}
                   >
