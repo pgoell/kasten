@@ -741,12 +741,15 @@ export function reidLayout(layout: Layout): Layout {
  * Open the note a URL names over a restored layout.
  *
  * A pane already holding it, in any tab, is gone to rather than doubled. The
- * focused pane holding it is the plain reload, whose URL the route wrote from
- * that very pane, so the layout comes back as it is: a line there would count
- * as a fresh open and jump a cursor the reader left somewhere else.
+ * focused pane holding it with no line is the plain reload, whose URL the
+ * route wrote from that very pane, so the layout comes back as it is. A line
+ * is never the reload's, the route writing none into the URL, so it is a link
+ * asking for that line and jumps there.
  */
 export function openOnTop(layout: Layout, path: string, line?: number): Layout {
-  if (focusedPane(layout).path === path) return layout;
+  if (focusedPane(layout).path === path) {
+    return line === undefined ? layout : openInFocused(layout, path, line);
+  }
 
   // The tab on screen first, so a note open in two tabs keeps you where you are.
   const order = [layout.active, ...layout.tabs.keys()];

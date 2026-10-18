@@ -6011,6 +6011,24 @@ describe("the workspace across a reload", () => {
     expect(heldText("index.md")).toBeUndefined();
   });
 
+  it("workspace: I3 a URL with a line on the focused note jumps to that line", async () => {
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "one\ntwo\nthree\nfour\n" : VAULT[path],
+    );
+    seed([{ id: "t", root: { id: "a", path: "index.md" }, focus: "a" }]);
+    // Left on line 2, which a URL naming a line must not lose to.
+    localStorage.setItem(
+      "kasten.positions.1",
+      JSON.stringify([["index.md", { anchor: 4, head: 4, top: 0 }]]),
+    );
+
+    await reload("/?note=index.md&line=4");
+
+    const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
+    const head = view?.state.selection.main.head ?? -1;
+    expect(view?.state.doc.lineAt(head).number).toBe(4);
+  });
+
   /** index.md focused beside other.md, which holds text a failed write left. */
   async function heldBeside() {
     holdText("other.md", {

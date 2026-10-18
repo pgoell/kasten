@@ -709,12 +709,14 @@ function Home() {
   // you were reading. `replace` rather than a push: moving between panes is not
   // navigation, and one history entry per pane would bury the back button under
   // a walk across the window.
+  //
+  // The note and not its line: the line belongs to the open that set it, and
+  // the cursor has moved on since. Written down, a reload would read it as a
+  // link asking for that line (`openOnTop`) and jump the cursor back over the
+  // spot the editor saved.
   useEffect(() => {
-    navigate({
-      search: pane.path === undefined ? {} : { note: pane.path, line: pane.line },
-      replace: true,
-    });
-  }, [pane.path, pane.line, navigate]);
+    navigate({ search: pane.path === undefined ? {} : { note: pane.path }, replace: true });
+  }, [pane.path, navigate]);
 
   // The vault is the source of truth, so a note written by an agent or an ssh
   // session is as real as one written here. `/api/events` says what moved and

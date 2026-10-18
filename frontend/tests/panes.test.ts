@@ -715,7 +715,16 @@ describe("a restored layout", () => {
   it("I3 a URL naming the focused pane's note changes nothing", () => {
     const layout = goToTab(restored(), 0);
 
-    expect(openOnTop(layout, "index.md", 12)).toBe(layout);
+    expect(openOnTop(layout, "index.md")).toBe(layout);
+  });
+
+  it("I3 a URL with a line on the focused pane's note jumps there", () => {
+    const layout = goToTab(restored(), 0);
+
+    const moved = openOnTop(layout, "index.md", 12);
+
+    expect(notes(moved)).toEqual(["index.md", "other.md"]);
+    expect(focusedPane(moved)).toMatchObject({ path: "index.md", line: 12, jump: 1 });
   });
 
   it("I3 a URL naming a note another tab holds goes to that tab and that pane", () => {
