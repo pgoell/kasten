@@ -3509,14 +3509,18 @@ describe("the route", () => {
   describe("a press on a row whose line moved under it", () => {
     const PATH = "inbox.md";
 
-    /** The pane listing `rows`, over a note the vault serves as `text` at the write. */
-    async function listing(rows: TodoHit[], text: string) {
+    /**
+     * The pane listing `rows`, over a note the vault serves as `text` at the
+     * write. Opened by the toolbar's button on a phone, which has no leader.
+     */
+    async function listing(rows: TodoHit[], text: string, phone = false) {
       fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), PATH]);
       fetchNote.mockImplementation(async (path: string) => (path === PATH ? text : VAULT[path]));
       fetchTodos.mockResolvedValue(rows);
       const app = await renderApp();
       await settle();
-      app.leader("g", "t");
+      if (phone) fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
+      else app.leader("g", "t");
       await settle();
       return app;
     }
@@ -3564,7 +3568,7 @@ describe("the route", () => {
 
     it("#530 A5 the phone strip's done on a twin sets that twin after a shift", async () => {
       stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-      await listing(TWINS, SHIFTED);
+      await listing(TWINS, SHIFTED, true);
 
       fireEvent.click(screen.getAllByLabelText("more for a")[1] as HTMLElement);
       fireEvent.click(screen.getByLabelText("done a"));
