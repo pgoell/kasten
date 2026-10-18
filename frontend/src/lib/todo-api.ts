@@ -31,6 +31,7 @@ import {
   cycleTodoWrites,
   doneLogWrites,
   insertSubtask,
+  otherTodoWithId,
   pressedLine,
   type SessionHit,
   timerWrites,
@@ -235,8 +236,18 @@ export async function cycleTodoAside(
 ): Promise<void> {
   const was = parseTodo(cycle.before);
   const now = parseTodo(cycle.after);
+  const logs = was?.state === "done" || now?.state === "done";
+  const flips = was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now);
 
-  if (was?.state === "done" || now?.state === "done") {
+  // Only an id the line had before the press can stand anywhere else, and only
+  // a press that moves another note needs to know. The buffer keeps its line:
+  // the refusal covers what this would write beyond it.
+  if (was?.id !== undefined && (logs || flips)) {
+    const other = otherTodoWithId(was.id, path, cycle.line, await fetchTodos());
+    if (other !== null) throw new Error(other);
+  }
+
+  if (logs) {
     const id = now?.state === "done" ? now.id : was?.id;
     const logged: Record<string, string> = {};
     if (id !== undefined) {
@@ -265,7 +276,7 @@ export async function cycleTodoAside(
 
   // Only a press that closed or reopened a todo something can name moves what
   // waits on it. The dependents in this very note travelled with the press.
-  if (was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now)) {
+  if (flips && now?.id !== undefined) {
     await writeBackBlocked(now.id, !isOpen(now), path);
   }
 }
@@ -333,6 +344,14 @@ export async function cycleTodoInVault(
   if (pressed === null) return;
   const now = parseTodo(pressed);
 
+  // The whole vault's todos, off the one pass the pane already asked for: they
+  // answer for the blockers, and for whether the id is this todo's alone.
+  const todos = await fetchTodos();
+  if (todo.id !== undefined) {
+    const other = otherTodoWithId(todo.id, hit.path, at, todos, text);
+    if (other !== null) throw new Error(other);
+  }
+
   // Only a press that enters or leaves done touches the log, and any todo with
   // an id that does may be named by a line already written: a hand or an agent
   // can move a ticked todo to any state with its log line left in place, so the
@@ -349,9 +368,8 @@ export async function cycleTodoInVault(
   }
 
   const daily = await dailyNote(paths, logged);
-  // The whole vault's blockers, off the one pass the pane already asked for.
   // The pressed todo answers off the press itself, inside `cycleLines`.
-  const closed = closedAmong((await fetchTodos()).flatMap((found) => parseTodo(found.text) ?? []));
+  const closed = closedAmong(todos.flatMap((found) => parseTodo(found.text) ?? []));
 
   const writes = cycleTodoWrites({
     path: hit.path,
@@ -400,10 +418,14 @@ export async function toggleTimerInVault(
   if (todo === null) return;
 
   const notes: Record<string, string> = { [hit.path]: text };
-  const sessions: SessionHit[] =
-    todo.id === undefined
-      ? []
-      : (await searchNotes(todo.id)).map((found) => ({ path: found.path, text: found.text }));
+  const hits = todo.id === undefined ? [] : await searchNotes(todo.id);
+  // Sessions are found by id, so a second todo carrying it would have its
+  // session closed and its minutes written onto this line.
+  if (todo.id !== undefined) {
+    const other = otherTodoWithId(todo.id, hit.path, at, hits, text);
+    if (other !== null) throw new Error(other);
+  }
+  const sessions: SessionHit[] = hits.map((found) => ({ path: found.path, text: found.text }));
 
   // Only the notes a close would rewrite. The closed lines are read for their
   // minutes alone, and the search already answered with those whole.

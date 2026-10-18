@@ -4,6 +4,7 @@ import {
   addSubtaskInVault,
   addTodoInVault,
   blockTodoInVault,
+  cycleTodoAside,
   cycleTodoInVault,
   editTodoInVault,
   toggleTimerInVault,
@@ -532,6 +533,196 @@ describe("cycleTodoInVault", () => {
 
     expect(saveNote).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["x on a doing todo", "- [/] a 🆔 kt-aaaaaa", undefined],
+    ["doing on an open todo", "- [ ] a 🆔 kt-aaaaaa", "doing"],
+    ["done on an open todo", "- [ ] a 🆔 kt-aaaaaa", "done"],
+    ["open on a done todo", "- [x] a ✅ 2026-10-17 🆔 kt-aaaaaa", "open"],
+  ] as const)(
+    "#534 A3 A5 a state press, %s, whose 🆔 stands on another todo line writes nothing",
+    async (_, line, state) => {
+      // A copy pasted into another note: both lines would share one log line and
+      // one dependent, and the press cannot tell which of them it moves.
+      const daily = periodicNote("daily", new Date()).path;
+      const log = "## Done\n- ✅ 2026-10-17 a [[projects/kasten]] kt-aaaaaa\n";
+      const notes: Record<string, string> = {
+        "projects/kasten.md": `${line}\n`,
+        "projects/other.md": "# Other\n\n\n\n\n\n- [ ] a 🆔 kt-aaaaaa\n",
+        "deps.md": "- [b] c ⛔ kt-aaaaaa\n",
+        [daily]: log,
+      };
+      fetchNote.mockImplementation(async (path: string) => notes[path]);
+      fetchTodos.mockResolvedValue([
+        { path: "projects/kasten.md", line: 1, text: line, project: null },
+        { path: "projects/other.md", line: 7, text: "- [ ] a 🆔 kt-aaaaaa", project: null },
+        { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null },
+      ]);
+      searchNotes.mockResolvedValue([
+        { path: "projects/kasten.md", line: 1, text: line },
+        { path: "projects/other.md", line: 7, text: "- [ ] a 🆔 kt-aaaaaa" },
+        { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa" },
+        { path: daily, line: 2, text: "- ✅ 2026-10-17 a [[projects/kasten]] kt-aaaaaa" },
+      ]);
+
+      await expect(
+        cycleTodoInVault(
+          { path: "projects/kasten.md", line: 1, text: line },
+          "2026-10-18",
+          ["projects/kasten.md", "projects/other.md", "deps.md", daily],
+          state,
+        ),
+      ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/other.md line 7");
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(createNote).not.toHaveBeenCalled();
+    },
+  );
+
+  it("#534 I4 a state press whose 🆔 stands on several other lines names the first and counts the rest", async () => {
+    const line = "- [ ] a 🆔 kt-aaaaaa";
+    const note = `${line}\n${line}\n`;
+    fetchNote.mockResolvedValue(note);
+    fetchTodos.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line, project: null },
+      { path: "projects/kasten.md", line: 2, text: line, project: null },
+      { path: "a.md", line: 3, text: line, project: null },
+      { path: "b.md", line: 4, text: line, project: null },
+    ]);
+
+    await expect(
+      cycleTodoInVault(
+        { path: "projects/kasten.md", line: 1, text: line },
+        "2026-10-18",
+        ["projects/kasten.md", "a.md", "b.md"],
+        "doing",
+        [1, 2],
+      ),
+    ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/kasten.md line 2, and 2 more");
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("#534 I1 a state press whose 🆔 only a log, a session and a dependent name sets it done", async () => {
+    const daily = periodicNote("daily", new Date()).path;
+    const line = "- [/] a 🆔 kt-aaaaaa";
+    const logLine = "- ✅ 2026-10-17 a [[projects/kasten]] kt-aaaaaa";
+    const session = "- 09:12-      a [[projects/kasten]] kt-aaaaaa";
+    const notes: Record<string, string> = {
+      "projects/kasten.md": `${line}\n`,
+      "deps.md": "- [b] c ⛔ kt-aaaaaa\n",
+      [daily]: `## Done\n${logLine}\n## Time\n${session}\n`,
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    // `GET /api/todos` answers with running sessions beside the todos.
+    fetchTodos.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line, project: null },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null },
+      { path: daily, line: 4, text: session, project: null },
+    ]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa" },
+      { path: daily, line: 2, text: logLine },
+      { path: daily, line: 4, text: session },
+    ]);
+
+    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: line }, "2026-10-18", [
+      "projects/kasten.md",
+      "deps.md",
+      daily,
+    ]);
+
+    expect(saveNote).toHaveBeenCalledWith(
+      "projects/kasten.md",
+      "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa\n",
+      false,
+      noteBase(`${line}\n`),
+    );
+    expect(saveNote).toHaveBeenCalledWith(
+      "deps.md",
+      "- [ ] c ⛔ kt-aaaaaa\n",
+      false,
+      noteBase("- [b] c ⛔ kt-aaaaaa\n"),
+    );
+  });
+
+  it("#534 I2 a state press on a todo with no id searches nothing and sets it done", async () => {
+    fetchNote.mockResolvedValue("- [/] a\n");
+
+    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: "- [/] a" }, "2026-10-18", [
+      "projects/kasten.md",
+    ]);
+
+    expect(searchNotes).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledWith(
+      "projects/kasten.md",
+      expect.stringMatching(/^- \[x\] a ✅ 2026-10-18 🆔 kt-\w+\n$/),
+      false,
+      noteBase("- [/] a\n"),
+    );
+  });
+});
+
+describe("cycleTodoAside", () => {
+  it("#534 A4 a <leader>x into done whose 🆔 stands on another todo line logs nothing and unblocks nothing", async () => {
+    const daily = periodicNote("daily", new Date()).path;
+    const notes: Record<string, string> = {
+      "projects/other.md": "- [ ] a 🆔 kt-aaaaaa\n",
+      "deps.md": "- [b] c ⛔ kt-aaaaaa\n",
+      [daily]: "## Done\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    fetchTodos.mockResolvedValue([
+      { path: "projects/kasten.md", line: 3, text: "- [/] a 🆔 kt-aaaaaa", project: null },
+      { path: "projects/other.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa", project: null },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null },
+    ]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/other.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa" },
+    ]);
+
+    await expect(
+      cycleTodoAside(
+        "projects/kasten.md",
+        {
+          before: "- [/] a 🆔 kt-aaaaaa",
+          after: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
+          line: 3,
+        },
+        "2026-10-18",
+        ["projects/kasten.md", "projects/other.md", "deps.md", daily],
+      ),
+    ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/other.md line 1");
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("#534 A4 a <leader>x on a twin in its own note names the other twin, not the pressed line", async () => {
+    // The buffer is newer than the index, so the note's twins are two hits in it.
+    fetchTodos.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null },
+      { path: "projects/kasten.md", line: 2, text: "- [/] a 🆔 kt-aaaaaa", project: null },
+    ]);
+
+    await expect(
+      cycleTodoAside(
+        "projects/kasten.md",
+        {
+          before: "- [/] a 🆔 kt-aaaaaa",
+          after: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
+          line: 2,
+        },
+        "2026-10-18",
+        ["projects/kasten.md"],
+      ),
+    ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/kasten.md line 1");
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+  });
 });
 
 describe("toggleTimerInVault", () => {
@@ -625,6 +816,127 @@ describe("toggleTimerInVault", () => {
       false,
       noteBase("- [ ] written since\n- [ ] a\n- [ ] a\n"),
     );
+  });
+
+  it("#534 A1 A5 a timer press on either of two twins carrying one 🆔 writes nothing and names the other", async () => {
+    // The issue's copy-paste: a session started on one twin would be closed by
+    // a press on the other, and its minutes written onto the wrong line.
+    const line = "- [ ] a 🆔 kt-aaaaaa";
+    const notes: Record<string, string> = {
+      "projects/kasten.md": `${line}\n${line}\n`,
+      [daily]: "## Time\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line },
+      { path: "projects/kasten.md", line: 2, text: line },
+    ]);
+    const paths = ["projects/kasten.md", daily];
+
+    await expect(
+      toggleTimerInVault({ path: "projects/kasten.md", line: 2, text: line }, clock, paths, [1, 2]),
+    ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/kasten.md line 1");
+    await expect(
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, paths, [1, 2]),
+    ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/kasten.md line 2");
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("#534 A2 A5 a timer press whose 🆔 stands on a todo in another note writes nothing and names it", async () => {
+    const line = "- [ ] a 🆔 kt-aaaaaa";
+    const open = "- 09:12-      a [[projects/other]] kt-aaaaaa";
+    const notes: Record<string, string> = {
+      "projects/kasten.md": `${line}\n`,
+      [daily]: `## Time\n${open}\n`,
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line },
+      { path: "projects/other.md", line: 7, text: "- [/] a 🆔 kt-aaaaaa" },
+      { path: daily, line: 2, text: open },
+    ]);
+
+    await expect(
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, [
+        "projects/kasten.md",
+        "projects/other.md",
+        daily,
+      ]),
+    ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/other.md line 7");
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+  });
+
+  it("#534 I1 a timer press whose 🆔 only a log, a session and a dependent name starts a session", async () => {
+    const line = "- [ ] a 🆔 kt-aaaaaa";
+    const logLine = "- ✅ 2026-10-17 a [[projects/kasten]] kt-aaaaaa";
+    const closed = "- 09:00-10:00 a [[projects/kasten]] kt-aaaaaa";
+    const text = `## Done\n${logLine}\n## Time\n${closed}\n`;
+    const notes: Record<string, string> = { "projects/kasten.md": `${line}\n`, [daily]: text };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line },
+      { path: daily, line: 2, text: logLine },
+      { path: daily, line: 4, text: closed },
+      { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa" },
+    ]);
+
+    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, [
+      "projects/kasten.md",
+      "deps.md",
+      daily,
+    ]);
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      `${text}- 14:03-      a [[projects/kasten]] kt-aaaaaa\n`,
+      false,
+      noteBase(text),
+    );
+  });
+
+  it("#534 I2 a timer press on a todo with no id searches nothing and starts a session", async () => {
+    const notes: Record<string, string> = {
+      "projects/kasten.md": "- [ ] a\n",
+      [daily]: "## Time\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+
+    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock, [
+      "projects/kasten.md",
+      daily,
+    ]);
+
+    expect(searchNotes).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledWith(
+      daily,
+      expect.stringMatching(/^## Time\n- 14:03- {6}a \[\[projects\/kasten\]\] kt-\w+\n$/),
+      false,
+      noteBase("## Time\n"),
+    );
+  });
+
+  it("#534 I5 a timer press whose search fails writes nothing and says why", async () => {
+    const line = "- [ ] a 🆔 kt-aaaaaa";
+    const notes: Record<string, string> = {
+      "projects/kasten.md": `${line}\n`,
+      [daily]: "## Time\n",
+    };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockRejectedValue(new Error("GET /api/search failed with 500"));
+
+    await expect(
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, [
+        "projects/kasten.md",
+        daily,
+      ]),
+    ).rejects.toThrow("GET /api/search failed with 500");
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
   });
 });
 

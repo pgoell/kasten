@@ -188,7 +188,7 @@ function downloadAsset(path: string): void {
   download(path.slice(path.lastIndexOf("/") + 1), `/api/assets/${encodePath(path)}`);
 }
 
-/** The notice for a todo write from the pane that the vault refused or could not place. */
+/** The notice for a todo write from the pane or the editor that the vault refused or could not place. */
 function nothingMoved(error: unknown): string {
   return `Nothing moved: ${error instanceof Error ? error.message : "the vault refused the write"}`;
 }
@@ -1604,10 +1604,10 @@ function Home() {
     (path: string, cycle: TodoCycle) => {
       void cycleTodoAside(path, cycle, readClock(new Date()).date, data ?? []).then(
         todosWritten,
-        () => {
-          // The vault refused the write. The line in the buffer stands, and the
-          // log is one `<leader>x` away from being asked for again.
-        },
+        // The line in the buffer stands either way. The notice is what says the
+        // log and the dependents did not follow it, and why: a refused write, or
+        // an id another todo carries too, which no second press would mend.
+        (error: unknown) => setNotice(nothingMoved(error)),
       );
     },
     [data, todosWritten],

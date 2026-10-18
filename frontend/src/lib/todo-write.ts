@@ -477,6 +477,57 @@ export function cycleTodoWrites(input: CycleInput): Write[] {
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
 }
 
+/** One line the vault answered with, where it was found. */
+export interface LineHit {
+  path: string;
+  line: number;
+  text: string;
+}
+
+/**
+ * Where else `id` stands on a todo line, as the sentence a refused press says.
+ * Null where the pressed todo is the only one carrying it.
+ *
+ * Sessions, log lines and dependents name the id without carrying it, and none
+ * of them parses to a todo with this id, so none counts. A press goes by id to
+ * find its sessions and its dependents, and a pasted copy of the line would
+ * share both: neither line can be told from the other, so the press refuses
+ * rather than guess, and re-stamping one would break whatever names the id.
+ *
+ * `text` is the pressed note as the press just read it, and its other lines win
+ * over the hits for that note, which can lag a write behind. Without it, as
+ * from the editor whose buffer is newer than any read, a twin there is a second
+ * hit in that note: one hit is the pressed line itself, at `line` or wherever
+ * the index still holds it.
+ */
+export function otherTodoWithId(
+  id: string,
+  path: string,
+  line: number,
+  hits: LineHit[],
+  text?: string,
+): string | null {
+  const carries = (found: string) => parseTodo(found)?.id === id;
+  let here: { path: string; line: number }[];
+  if (text === undefined) {
+    here = hits.filter((hit) => hit.path === path && carries(hit.text));
+    const at = here.findIndex((hit) => hit.line === line);
+    here.splice(at === -1 ? 0 : at, 1);
+  } else {
+    here = text
+      .split("\n")
+      .flatMap((found, index) =>
+        index + 1 !== line && carries(found) ? [{ path, line: index + 1 }] : [],
+      );
+  }
+  const others = [...here, ...hits.filter((hit) => hit.path !== path && carries(hit.text))];
+
+  const [first] = others;
+  if (first === undefined) return null;
+  const more = others.length > 1 ? `, and ${others.length - 1} more` : "";
+  return `🆔 ${id} is on another todo too: ${first.path} line ${first.line}${more}`;
+}
+
 /** One line `searchNotes` answered with, and the note it was found in. */
 export interface SessionHit {
   path: string;

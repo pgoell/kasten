@@ -9,6 +9,7 @@ import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
 import type { PdfRenderer } from "@/lib/pdf-view";
+import type { TodoState } from "@/lib/todo";
 import { forgetQueues } from "@/lib/use-autosave";
 import { digestOf, type VaultEvent } from "@/lib/vault-events";
 import { routeTree } from "@/routeTree.gen";
@@ -200,9 +201,14 @@ vi.mock("@/lib/pdf-view", async (importOriginal) => {
 // The props the route last handed the todo pane. A card dropped on a lane
 // reaches the route as `onRefile(hit, project)`, which no key of the pane
 // makes: the drag itself is `todo-board.test.tsx`'s, and what is pinned here
-// is what the route does with the lane it names. The real pane still renders.
+// is what the route does with the lane it names. A card dropped on a column
+// reaches it as `onCycle(hit, state, twins)` the same way. The real pane still
+// renders.
 const paneProps = vi.hoisted(() => ({
-  current: null as { onRefile: (hit: TodoHit, project?: string) => void } | null,
+  current: null as {
+    onRefile: (hit: TodoHit, project?: string) => void;
+    onCycle: (hit: TodoHit, state?: TodoState, twins?: number[]) => void;
+  } | null,
 }));
 vi.mock("@/components/todo-pane", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/components/todo-pane")>();
@@ -3577,6 +3583,176 @@ describe("the route", () => {
 
       expect(written()?.[1]).toBe("- [ ] a");
       expect(written()?.[2]).toMatch(/^- \[x\] a/);
+    });
+  });
+
+  describe("a press on a todo whose 🆔 stands on another todo line", () => {
+    const PATH = "inbox.md";
+    const LINE = "- [/] a 🆔 kt-aaaaaa";
+    /** The issue's copy-paste: one todo line twice, id and all. */
+    const TWINS = [
+      { path: PATH, line: 1, text: LINE, project: null },
+      { path: PATH, line: 2, text: LINE, project: null },
+    ];
+    const DEPENDENT = { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa", project: null };
+    /** What a press on the second twin says. */
+    const SECOND = "Nothing moved: 🆔 kt-aaaaaa is on another todo too: inbox.md line 1";
+
+    /** The app over a vault holding the twins and a todo waiting on them. */
+    async function vault() {
+      const notes: Record<string, string> = {
+        ...VAULT,
+        [PATH]: `${LINE}\n${LINE}`,
+        [DEPENDENT.path]: DEPENDENT.text,
+      };
+      fetchFiles.mockImplementation(async () => Object.keys(notes));
+      fetchNote.mockImplementation(async (path: string) => notes[path]);
+      fetchTodos.mockResolvedValue([...TWINS, DEPENDENT]);
+      searchNotes.mockResolvedValue([...TWINS, DEPENDENT]);
+      const app = await renderApp();
+      await settle();
+      return app;
+    }
+
+    /** The same, with the pane open. */
+    async function listing(phone = false) {
+      const app = await vault();
+      if (phone) fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
+      else app.leader("g", "t");
+      await settle();
+      return app;
+    }
+
+    /** Nothing in the vault moved: no line, no log, no dependent. */
+    function wroteNothing() {
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(createNote).not.toHaveBeenCalled();
+    }
+
+    /** The second row, pressed with `key` in the desktop pane. */
+    async function pressSecond(app: Awaited<ReturnType<typeof renderApp>>, key: string) {
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+      fireEvent.keyDown(pane, { key: "j" });
+      fireEvent.keyDown(pane, { key });
+      await hashed();
+      await settle();
+    }
+
+    it("#534 A1 A6 the pane's t on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
+      const app = await listing();
+
+      await pressSecond(app, "t");
+
+      wroteNothing();
+      expect(app.notice()).toBe(SECOND);
+    });
+
+    it("#534 A3 A6 the pane's X on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
+      const app = await listing();
+
+      await pressSecond(app, "X");
+
+      wroteNothing();
+      expect(app.notice()).toBe(SECOND);
+    });
+
+    it("#534 A3 a card dropped on done carrying another todo's 🆔 writes nothing and names the other", async () => {
+      const app = await listing();
+
+      act(() => paneProps.current?.onCycle(TWINS[1] as TodoHit, "done", [1, 2]));
+      await hashed();
+      await settle();
+
+      wroteNothing();
+      expect(app.notice()).toBe(SECOND);
+    });
+
+    it("#534 A6 the phone strip's timer on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await listing(true);
+
+      fireEvent.click(screen.getAllByLabelText("more for a")[1] as HTMLElement);
+      fireEvent.click(screen.getByLabelText("timer a"));
+      await hashed();
+      await settle();
+
+      wroteNothing();
+      expect(app.notice()).toBe(SECOND);
+    });
+
+    it("#534 A6 the phone strip's done on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await listing(true);
+
+      fireEvent.click(screen.getAllByLabelText("more for a")[1] as HTMLElement);
+      fireEvent.click(screen.getByLabelText("done a"));
+      await hashed();
+      await settle();
+
+      wroteNothing();
+      expect(app.notice()).toBe(SECOND);
+    });
+
+    /**
+     * The buffer takes the press and autosave writes its own note, so what is
+     * refused is every other note: the log in today's, the dependent in its own.
+     * The notes the press wrote besides this one, which must be none.
+     */
+    const asideWrites = () => [
+      ...saveNote.mock.calls.map(([path]) => path).filter((path) => path !== PATH),
+      ...createNote.mock.calls.map(([path]) => path),
+    ];
+
+    it("#534 A4 A6 <leader>x on a twin carrying the other's 🆔 logs nothing, unblocks nothing and names the other", async () => {
+      const app = await vault();
+      app.click(PATH);
+      await settle();
+
+      // The cursor opens on the first twin.
+      app.leader("x");
+      await hashed();
+      await settle();
+
+      expect(app.text()).toContain("✅");
+      expect(asideWrites()).toEqual([]);
+      expect(app.notice()).toBe(
+        "Nothing moved: 🆔 kt-aaaaaa is on another todo too: inbox.md line 2",
+      );
+    });
+
+    it("#534 A4 A6 the palette's cycle with vim off on a twin carrying the other's 🆔 logs nothing and names the other", async () => {
+      localStorage.setItem("kasten.vim", "off");
+      try {
+        const app = await vault();
+        app.click(PATH);
+        await settle();
+
+        // No leader with vim off: `<leader>x` is the palette's row of that label.
+        app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+        await settle();
+        fireEvent.click(screen.getByRole("option", { name: /^Cycle the todo on this line/ }));
+        await hashed();
+        await settle();
+
+        expect(app.text()).toContain("✅");
+        expect(asideWrites()).toEqual([]);
+        expect(app.notice()).toBe(
+          "Nothing moved: 🆔 kt-aaaaaa is on another todo too: inbox.md line 2",
+        );
+      } finally {
+        localStorage.removeItem("kasten.vim");
+      }
+    });
+
+    it("#534 I5 a timer press whose search fails says Nothing moved and why", async () => {
+      const app = await listing();
+      searchNotes.mockRejectedValue(new Error("GET /api/search failed with 500"));
+
+      await pressSecond(app, "t");
+
+      wroteNothing();
+      expect(app.notice()).toBe("Nothing moved: GET /api/search failed with 500");
     });
   });
 });
