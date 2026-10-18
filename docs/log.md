@@ -465,3 +465,4 @@
 
 * **Update**: [The todo board](/explanation/the-todo-board.md#the-project-on-the-backend-and-the-tag-that-overrides-it) says why a todo's project is now worked out on the backend and answered by `GET /api/todos` (#395), and how a `#p/x` tag on a todo overrides its folder (#394).
 * **Update**: [HTTP API](/reference/http-api.md#get-apitodos) says `GET /api/todos` answers each todo with its `project`, and gives the rule. [Todo format](/reference/todo-format.md) and [Editor keys](/reference/editor-keys.md) name the `#p/x` tag as the first step of that rule (#395, #394).
+* **Update**: [The todo board](/explanation/the-todo-board.md#the-refile-key) says how `m` moves one todo into its project's note, and why the project's note is written first (#396).
