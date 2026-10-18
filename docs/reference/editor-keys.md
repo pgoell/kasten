@@ -1212,7 +1212,8 @@ as prose. It edits the buffer, so `u` undoes it and the autosave writes it.
 The walk is the work and nothing else. Review, blocked, waiting and rejected are
 not on it, and the seven `<leader>s` keys are how you reach any state from any
 other: `so` open, `sp` doing, `sv` review, `sx` done, `sb` blocked, `sw`
-waiting, `sr` rejected. A press of `<leader>x` on a review line ticks it done.
+waiting, `sr` rejected. On a line already in the state a key names, the key
+changes nothing: no second `- ✅` line, no cursor move, nothing to undo. A press of `<leader>x` on a review line ticks it done.
 `sw` stamps `👤` and today after the words and leaves the cursor on the date,
 where `a` then types
 [who the todo waits on](/reference/todo-format.md#waiting-on-somebody). They stamp what the
