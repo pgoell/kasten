@@ -33,6 +33,11 @@ other tab holding kasten follows at the same moment, not at its next keystroke.
 A browser that blocks site data cannot store the choice: the editor then goes
 by the pointer, and a toggle holds until the page is closed.
 
+The panes, splits and tabs this browser has open sit beside it, under
+`kasten.workspace.1` for a mouse and `kasten.workspace.coarse.1` for a finger,
+and each note's cursor and scroll under `kasten.positions.1`.
+[The workspace](/explanation/the-workspace.md) says why.
+
 Without vim the editor is a plain one. Every line can be typed into, live
 preview shows the source of the line the cursor is on and of the mark the
 cursor is in, and the line numbers count from the top.
