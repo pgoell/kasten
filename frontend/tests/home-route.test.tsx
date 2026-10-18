@@ -176,8 +176,10 @@ vi.mock("@/lib/api", () => ({
   // The autosave tells a save refused over its base from any other failure
   // by this class, which a factory leaving it out would hand it as undefined.
   ChangedOnDisk: class ChangedOnDisk extends Error {},
-  // The `## Done` log tells a create refused over a note already there by this.
+  // The `## Done` log tells a create refused over a note already there, and a
+  // read of a note not there yet, by these.
   NoteExists: class NoteExists extends Error {},
+  NoteMissing: class NoteMissing extends Error {},
 }));
 
 // The route imports `BookPane`, which imports foliate for its side effect. With

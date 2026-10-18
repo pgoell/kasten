@@ -1210,4 +1210,23 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
 
     expect(blockedLines(["- [b] c ⛔ kt-aaaaaa ⛔ kt-bbbbbb"], closed)).toEqual(new Map());
   });
+
+  /** kt-aaaaaa on two todos, and kt-yyyyyy on one still open. */
+  const TWIN_AND_OPEN = closedAmong(
+    ["- [x] a 🆔 kt-aaaaaa", "- [x] a 🆔 kt-aaaaaa", "- [ ] y 🆔 kt-yyyyyy"].map(todo),
+  );
+
+  it.each([
+    [
+      "blockedLines on an open dependent",
+      () => blockedLines(["- [ ] c ⛔ kt-aaaaaa ⛔ kt-yyyyyy"], TWIN_AND_OPEN).get(1),
+    ],
+    [
+      "blockLine adding an open blocker",
+      () => blockLine("- [ ] c ⛔ kt-aaaaaa", "kt-yyyyyy", TWIN_AND_OPEN),
+    ],
+  ])("#537 B1 a twinned blocker beside an open one still blocks, %s", (_, written) => {
+    // Whichever twin the ⛔ meant, the open blocker holds the line on its own.
+    expect(written()).toBe("- [b] c ⛔ kt-aaaaaa ⛔ kt-yyyyyy");
+  });
 });

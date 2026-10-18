@@ -119,4 +119,22 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
       ].join("\n"),
     );
   });
+
+  it("#537 A5 <leader>x leaves a dependent whose blocker another note carries too", () => {
+    // The open twin is in other.md, which only the vault's listing sees.
+    const doc = "- [x] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa ⛔ kt-dddddd\n- [/] d 🆔 kt-dddddd";
+    const view = new EditorView({
+      state: EditorState.create({
+        doc,
+        selection: { anchor: doc.lastIndexOf("- [/] d") },
+        extensions: [idElsewhere.of((id) => id === "kt-aaaaaa")],
+      }),
+    });
+
+    cycleTodoAtCursor(view);
+
+    expect(view.state.doc.toString()).toBe(
+      "- [x] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa ⛔ kt-dddddd\n- [x] d ✅ 2026-10-16 🆔 kt-dddddd",
+    );
+  });
 });

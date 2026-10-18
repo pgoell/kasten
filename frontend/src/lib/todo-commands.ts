@@ -5,6 +5,7 @@ import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
 import { nameAt, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo";
 import {
+  type Closed,
   closedAmong,
   cycleLines,
   doneLine,
@@ -136,15 +137,22 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   // moves its own line and what hangs off it, no log line and no dependent, and
   // the route refuses the rest and says why.
   const carried = parseTodo(line.text)?.id;
+  const elsewhere = state.facet(idElsewhere);
   const shared =
-    twinnedIn(lines, line.number) ||
-    (carried !== undefined && state.facet(idElsewhere)?.(carried) === true);
+    twinnedIn(lines, line.number) || (carried !== undefined && elsewhere?.(carried) === true);
+  // A blocker this note carries and another note carries too is twinned, which
+  // this document alone cannot see.
+  const here = closedAmong(lines.flatMap((text) => parseTodo(text) ?? []));
+  const closed: Closed = (blocker) => {
+    const answer = here(blocker);
+    return answer !== undefined && elsewhere?.(blocker) === true ? "twinned" : answer;
+  };
   const moved = cycleLines({
     lines,
     line: line.number,
     today,
     id,
-    closed: closedAmong(lines.flatMap((text) => parseTodo(text) ?? [])),
+    closed,
     state: want,
     shared,
   });

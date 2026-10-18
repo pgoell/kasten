@@ -11,6 +11,7 @@ import {
   fetchNote,
   fetchTodos,
   NoteExists,
+  NoteMissing,
   type SearchHit,
   saveNote,
   searchNotes,
@@ -240,8 +241,29 @@ async function writeBackBlocked(
  * The log goes through `updateNote`, which reads each note again on a refusal
  * and works the line out afresh. Two quick presses read today's note at once,
  * and a write naming that read as its base would refuse the second (#538).
+ *
+ * Presses run one after the other, in the order they were made. A reopen whose
+ * read came before the first press's save would find no line to drop, and the
+ * line would land after it and stay; and `## Done` keeps the order of the keys,
+ * whichever answers come back first. A failed press does not hold up the next.
  */
-export async function cycleTodoAside(
+export function cycleTodoAside(
+  path: string,
+  cycle: TodoCycle,
+  today: string,
+  paths: string[],
+): Promise<void> {
+  const turn = asideTurns.then(() => cycleAside(path, cycle, today, paths));
+  // Settled either way, so the next press waits on this one and never on why
+  // it failed.
+  asideTurns = Promise.allSettled([turn]);
+  return turn;
+}
+
+/** The press before this one, which the next waits on. */
+let asideTurns: Promise<unknown> = Promise.resolve();
+
+async function cycleAside(
   path: string,
   cycle: TodoCycle,
   today: string,
@@ -289,18 +311,27 @@ export async function cycleTodoAside(
     const visits = new Set([daily.path, ...Object.keys(logged)]);
     visits.delete(path);
     for (const notePath of visits) {
-      if (notePath === daily.path && !paths.includes(notePath)) {
+      // `paths` can be a listing behind a press that just made today's note,
+      // so a note it leaves out may still be on disk.
+      const unlisted = notePath === daily.path && !paths.includes(notePath);
+      if (unlisted) {
         const text = change(notePath)(daily.body);
-        if (text === null) continue;
-        try {
-          await createNote(notePath, text);
-          continue;
-        } catch (error) {
-          // A press just before this one made today's note: write into it.
-          if (!(error instanceof NoteExists)) throw error;
+        if (text !== null) {
+          try {
+            await createNote(notePath, text);
+            continue;
+          } catch (error) {
+            // A press just before this one made today's note: write into it.
+            if (!(error instanceof NoteExists)) throw error;
+          }
         }
       }
-      await updateNote(notePath, change(notePath));
+      try {
+        await updateNote(notePath, change(notePath));
+      } catch (error) {
+        // A reopen on a day with no note yet has no line to drop.
+        if (!(unlisted && error instanceof NoteMissing)) throw error;
+      }
     }
   }
 

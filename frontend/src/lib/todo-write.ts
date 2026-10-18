@@ -259,9 +259,10 @@ export function closedAmong(todos: Todo[]): Closed {
  * `[/]`, `[x]` and `[-]` are never touched, so a state set by hand cannot be
  * destroyed by a blocker moving.
  *
- * Nor is a line naming a twinned blocker, whatever its other blockers say: one
- * twin may be open and the other closed, and either state written here would
- * be a guess at which one the `⛔` meant.
+ * A line whose other blockers are all closed is not touched where one more is
+ * twinned: one twin may be open and the other closed, and either state written
+ * here would be a guess at which one the `⛔` meant. An open blocker beside it
+ * holds the line whichever twin was meant.
  */
 export function blockedLines(lines: string[], closed: Closed): Map<number, string> {
   const moved = new Map<number, string>();
@@ -272,9 +273,9 @@ export function blockedLines(lines: string[], closed: Closed): Map<number, strin
     if (todo.state !== "open" && todo.state !== "blocked") continue;
 
     const answers = todo.blockedBy.map(closed);
-    if (answers.includes("twinned")) continue;
     // Every blocker has to be closed, and one this cannot see reads as open.
-    const held = answers.some((answer) => answer !== true);
+    const held = answers.some((answer) => answer === false || answer === undefined);
+    if (!held && answers.includes("twinned")) continue;
     const state = held ? "blocked" : "open";
     if (todo.state !== state) moved.set(index + 1, patchLine(text, { ...todo, state }));
   }

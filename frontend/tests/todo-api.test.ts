@@ -1,4 +1,4 @@
-import { ChangedOnDisk, NoteExists } from "@/lib/api";
+import { ChangedOnDisk, NoteExists, NoteMissing } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { dailyDate, periodicNote } from "@/lib/periodic";
 import {
@@ -22,12 +22,13 @@ const { createNote, fetchNote, fetchTodos, saveNote, searchNotes, updateNote } =
   updateNote: vi.fn(),
 }));
 vi.mock("@/lib/api", async (importOriginal) => {
-  // The two refusals the writes tell apart by class, which a factory leaving
-  // them out would hand over as undefined.
+  // The refusals the writes tell apart by class, which a factory leaving them
+  // out would hand over as undefined.
   const real = await importOriginal<typeof import("@/lib/api")>();
   return {
     ChangedOnDisk: real.ChangedOnDisk,
     NoteExists: real.NoteExists,
+    NoteMissing: real.NoteMissing,
     createNote,
     fetchNote,
     fetchTodos,
@@ -798,7 +799,11 @@ describe("#538 two presses in flight on the ## Done log", () => {
 
   beforeEach(() => {
     notes = { [PATH]: DOC, [daily]: "## Done\n" };
-    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    fetchNote.mockImplementation(async (path: string) => {
+      const text = notes[path];
+      if (text === undefined) throw new NoteMissing(path);
+      return text;
+    });
     // The backend's check: a base the disk has moved past is a 409.
     saveNote.mockImplementation(
       async (path: string, text: string, _keepalive: boolean, base?: string) => {
@@ -926,6 +931,68 @@ describe("#538 two presses in flight on the ## Done log", () => {
     expect(logLines(daily)).toEqual([LOG_A, LOG_B]);
     expect(pressed.map((press) => press.status)).toEqual(["fulfilled", "fulfilled"]);
     expect(createNote).toHaveBeenCalledTimes(2);
+  });
+
+  /** A press taking a back out of done, a moment after it went in. */
+  const REOPEN_A = {
+    before: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
+    after: "- [ ] a 🆔 kt-aaaaaa",
+    line: 1,
+    doc: "- [ ] a 🆔 kt-aaaaaa\n- [/] b 🆔 kt-bbbbbb",
+  };
+
+  it("#538 I1 a quick reopen whose read comes before the first save still drops the line", async () => {
+    const pressed = await Promise.allSettled([
+      cycleTodoAside(PATH, INTO_A, "2026-10-18", [PATH, daily]),
+      cycleTodoAside(PATH, REOPEN_A, "2026-10-18", [PATH, daily]),
+    ]);
+
+    expect(logLines(daily)).toEqual([]);
+    expect(pressed.map((press) => press.status)).toEqual(["fulfilled", "fulfilled"]);
+  });
+
+  it("#538 A1 two presses into done land a then b when the second's reads answer first", async () => {
+    // Press a's search answers last, after every answer press b asks for.
+    let answer = () => {};
+    const late = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    searchNotes.mockImplementationOnce(async (id: string) => {
+      await late;
+      return hits(id);
+    });
+
+    const pressed = Promise.allSettled([
+      cycleTodoAside(PATH, INTO_A, "2026-10-18", [PATH, daily]),
+      cycleTodoAside(PATH, INTO_B, "2026-10-18", [PATH, daily]),
+    ]);
+    // A macrotask, so every answer already in hand lands before a's does.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    answer();
+
+    expect((await pressed).map((press) => press.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect(logLines(daily)).toEqual([LOG_A, LOG_B]);
+  });
+
+  it("#538 B1 a reopen before the listing names today's note drops its line", async () => {
+    // The press that made today's note is a moment old: neither the listing
+    // nor the index has caught up with it, the disk has.
+    notes[daily] = `## Done\n${LOG_A}\n`;
+    searchNotes.mockResolvedValue([]);
+
+    await cycleTodoAside(PATH, REOPEN_A, "2026-10-18", [PATH]);
+
+    expect(logLines(daily)).toEqual([]);
+  });
+
+  it("#538 B1 a reopen with no note today writes nothing and says nothing", async () => {
+    delete notes[daily];
+
+    await expect(cycleTodoAside(PATH, REOPEN_A, "2026-10-18", [PATH])).resolves.toBeUndefined();
+
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
+    expect(notes[daily]).toBeUndefined();
   });
 });
 
