@@ -15,6 +15,7 @@ import {
   waitOf,
   waitsFor,
 } from "@/lib/todo-view";
+import { closedAmong } from "@/lib/todo-write";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-08-10";
@@ -374,29 +375,48 @@ describe("waitOf", () => {
 });
 
 describe("waitsFor", () => {
-  const named = namedTodos([
+  const todos = [
     todo("- [/] ship the release 🆔 kt-000001"),
     todo("- [x] cut the branch ✅ 2026-08-09 🆔 kt-000002"),
-  ]);
+  ];
+  const named = namedTodos(todos);
+  const closed = closedAmong(todos);
 
   it("names every blocker still open by its words", () => {
-    expect(waitsFor(todo("- [b] write the docs ⛔ kt-000001"), named)).toEqual([
+    expect(waitsFor(todo("- [b] write the docs ⛔ kt-000001"), named, closed)).toEqual([
       "ship the release",
     ]);
   });
 
   it("leaves out a blocker already closed", () => {
-    expect(waitsFor(todo("- [b] a ⛔ kt-000001 ⛔ kt-000002"), named)).toEqual([
+    expect(waitsFor(todo("- [b] a ⛔ kt-000001 ⛔ kt-000002"), named, closed)).toEqual([
       "ship the release",
     ]);
   });
 
   it("names a blocker no note holds by its id", () => {
-    expect(waitsFor(todo("- [b] a ⛔ kt-ffffff"), named)).toEqual(["kt-ffffff"]);
+    expect(waitsFor(todo("- [b] a ⛔ kt-ffffff"), named, closed)).toEqual(["kt-ffffff"]);
   });
 
   it("says nothing for a todo naming no blocker", () => {
-    expect(waitsFor(todo("- [b] a"), named)).toEqual([]);
+    expect(waitsFor(todo("- [b] a"), named, closed)).toEqual([]);
+  });
+
+  it.each([
+    [
+      "open twin first",
+      ["- [ ] ship the release 🆔 kt-aaaaaa", "- [x] cut the branch 🆔 kt-aaaaaa"],
+    ],
+    [
+      "open twin last",
+      ["- [x] cut the branch 🆔 kt-aaaaaa", "- [ ] ship the release 🆔 kt-aaaaaa"],
+    ],
+  ])("#541 I1 holds a blocker two todos carry and names it by its id, %s", (_, lines) => {
+    const twins = lines.map((line) => todo(line));
+
+    expect(
+      waitsFor(todo("- [b] write the docs ⛔ kt-aaaaaa"), namedTodos(twins), closedAmong(twins)),
+    ).toEqual(["kt-aaaaaa"]);
   });
 });
 
@@ -404,19 +424,32 @@ describe("dependentsOf", () => {
   it("gathers the open todos waiting for each open todo", () => {
     const docs = todo("- [b] write the docs ⛔ kt-000001");
     const post = todo("- [/] write the post ⛔ kt-000001");
-    const waiters = dependentsOf([todo("- [/] ship the release 🆔 kt-000001"), docs, post]);
+    const todos = [todo("- [/] ship the release 🆔 kt-000001"), docs, post];
+    const waiters = dependentsOf(todos, closedAmong(todos));
 
     expect(waiters.get("kt-000001")).toEqual([docs, post]);
   });
 
   it("counts nothing finished, on either side", () => {
-    const waiters = dependentsOf([
+    const todos = [
       todo("- [ ] ship the release 🆔 kt-000001"),
       todo("- [x] cut the branch ✅ 2026-08-09 🆔 kt-000002"),
       todo("- [x] write the docs ✅ 2026-08-09 ⛔ kt-000001"),
       todo("- [ ] tag it ⛔ kt-000002"),
-    ]);
+    ];
+    const waiters = dependentsOf(todos, closedAmong(todos));
 
     expect(waiters.size).toBe(0);
+  });
+
+  it("#541 I2 counts an open waiter on an id two todos carry, the done twin listed last", () => {
+    const docs = todo("- [b] write the docs ⛔ kt-aaaaaa");
+    const todos = [
+      todo("- [ ] ship the release 🆔 kt-aaaaaa"),
+      todo("- [x] cut the branch 🆔 kt-aaaaaa"),
+      docs,
+    ];
+
+    expect(dependentsOf(todos, closedAmong(todos)).get("kt-aaaaaa")).toEqual([docs]);
   });
 });

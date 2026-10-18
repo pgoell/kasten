@@ -221,6 +221,18 @@ describe("the todo board", () => {
     expect(pane.card("draw the chart").textContent).toContain("↳ write the deck");
   });
 
+  it("#541 I4 a card waits on an id two todos carry, though the done twin is listed last", async () => {
+    const pane = await boardPane({
+      hits: [
+        { path: DAILY, line: 1, text: "- [ ] ship the release 🆔 kt-aaaaaa", project: null },
+        { path: DAILY, line: 2, text: "- [x] cut the branch 🆔 kt-aaaaaa", project: null },
+        { path: DAILY, line: 3, text: "- [b] write the docs ⛔ kt-aaaaaa", project: null },
+      ],
+    });
+
+    expect(pane.card("write the docs").textContent).toContain("⛔ kt-aaaaaa");
+  });
+
   it("A6 X moves the card to done through onCycle, and x cycles it", async () => {
     const pane = await boardPane();
     expect(pane.cursor()).toContain("send the invoice");

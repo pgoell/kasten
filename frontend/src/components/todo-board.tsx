@@ -15,6 +15,7 @@ import {
 } from "@/lib/todo-board";
 import { dropOf, pinnedBy, type Spot } from "@/lib/todo-drag";
 import { type Placed, waitsFor } from "@/lib/todo-view";
+import type { Closed } from "@/lib/todo-write";
 
 /** One todo the board draws, as the pane read it: the tree's todo, not the line's. */
 export interface Card {
@@ -89,6 +90,8 @@ interface TodoBoardProps {
   parents: Map<string, Placed>;
   /** What each `⛔` names. */
   named: Map<string, Todo>;
+  /** Which of those ids are closed, and which two todos carry. */
+  closed: Closed;
   /** `3/5` keyed by `path:line`. */
   progress: Map<string, string>;
   /** Every path in the vault, which `p` lists projects from and a link resolves against. */
@@ -119,6 +122,7 @@ export function TodoBoard({
   cards,
   parents,
   named,
+  closed,
   progress,
   files,
   today,
@@ -470,7 +474,7 @@ export function TodoBoard({
     const key = cardKey(hit);
     const focused = key === cursorKey;
     const parent = parents.get(key);
-    const blockers = waitsFor(todo, named);
+    const blockers = waitsFor(todo, named, closed);
     const face = (
       <button
         type="button"

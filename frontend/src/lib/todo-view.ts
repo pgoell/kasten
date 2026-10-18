@@ -9,6 +9,8 @@
 
 import { shiftDay } from "@/lib/clock";
 import { isOpen, type Todo } from "@/lib/todo";
+// The type alone: todo-write imports this module at runtime.
+import type { Closed } from "@/lib/todo-write";
 import { plainLinks } from "@/lib/wikilink";
 
 export type Section = "overdue" | "today" | "week" | "later" | "none";
@@ -264,12 +266,16 @@ export function namedTodos(todos: Todo[]): Map<string, Todo> {
  * A closed blocker holds nothing and is left out. One no note holds reads as
  * open, as it does to the cascade, and is named by its id, there being no
  * words to name it by.
+ *
+ * An id two todos carry is held and named by its id too: which twin the `⛔`
+ * meant cannot be told, so neither one's words or state may stand for it, and
+ * the write path leaves such a row `[b]`.
  */
-export function waitsFor(todo: Todo, named: Map<string, Todo>): string[] {
+export function waitsFor(todo: Todo, named: Map<string, Todo>, closed: Closed): string[] {
   const held: string[] = [];
   for (const id of todo.blockedBy) {
     const blocker = named.get(id);
-    if (blocker === undefined) held.push(id);
+    if (blocker === undefined || closed(id) === "twinned") held.push(id);
     else if (isOpen(blocker)) held.push(blocker.text);
   }
   return held;
@@ -279,16 +285,18 @@ export function waitsFor(todo: Todo, named: Map<string, Todo>): string[] {
  * The open todos waiting for each open todo, keyed by the blocker's id.
  *
  * Open on both sides: a finished todo waits for nothing, and nothing waits for
- * a finished one.
+ * a finished one. An id two todos carry counts as open, as `waitsFor` holds it:
+ * which twin was meant cannot be told.
  */
-export function dependentsOf(todos: Todo[]): Map<string, Todo[]> {
+export function dependentsOf(todos: Todo[], closed: Closed): Map<string, Todo[]> {
   const named = namedTodos(todos);
   const waiters = new Map<string, Todo[]>();
   for (const todo of todos) {
     if (!isOpen(todo)) continue;
     for (const id of todo.blockedBy) {
       const blocker = named.get(id);
-      if (blocker === undefined || !isOpen(blocker)) continue;
+      const held = closed(id) === "twinned" || (blocker !== undefined && isOpen(blocker));
+      if (!held) continue;
       waiters.set(id, [...(waiters.get(id) ?? []), todo]);
     }
   }

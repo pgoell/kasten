@@ -51,6 +51,7 @@ import {
   waitOf,
   waitsFor,
 } from "@/lib/todo-view";
+import { closedAmong } from "@/lib/todo-write";
 import { useViewport } from "@/lib/use-viewport";
 
 /** One line the vault answered with, read once. A line is one or the other. */
@@ -554,7 +555,8 @@ export function TodoPane({
   // vault answered with: a blocker the filter has hidden still blocks.
   const links = useMemo(() => {
     const todos = parsed.flatMap(({ todo }) => todo ?? []);
-    return { named: namedTodos(todos), dependents: dependentsOf(todos) };
+    const closed = closedAmong(todos);
+    return { named: namedTodos(todos), closed, dependents: dependentsOf(todos, closed) };
   }, [parsed]);
 
   /**
@@ -1116,6 +1118,7 @@ export function TodoPane({
           cards={cards}
           parents={forest.parents}
           named={links.named}
+          closed={links.closed}
           progress={progress}
           files={files ?? []}
           today={today}
@@ -1148,7 +1151,7 @@ export function TodoPane({
                   );
                   const time = clocks(todo);
                   const wait = waitOf(todo, today);
-                  const blockers = waitsFor(todo, links.named);
+                  const blockers = waitsFor(todo, links.named, links.closed);
                   const dependents =
                     todo.id !== undefined && isOpen(todo)
                       ? links.dependents.get(todo.id)

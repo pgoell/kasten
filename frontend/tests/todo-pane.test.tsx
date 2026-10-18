@@ -46,6 +46,13 @@ const TODOS = [
   { path: "daily/2026-08-10.md", line: 5, text: "- 09:12-10:32 wire up the pane" },
 ];
 
+/** #541: one id on two todos, the done twin listed last, and a todo waiting on it. */
+const TWINS = [
+  { path: "a.md", line: 1, text: "- [ ] ship the release 🆔 kt-aaaaaa" },
+  { path: "a.md", line: 2, text: "- [x] cut the branch 🆔 kt-aaaaaa" },
+  { path: "a.md", line: 3, text: "- [b] write the docs ⛔ kt-aaaaaa" },
+];
+
 /**
  * Every command, recording which one was reached.
  *
@@ -1218,6 +1225,19 @@ describe("the todo pane, picking what blocks a todo", () => {
     // A blocker already closed holds nothing.
     expect(tag).not.toContain("⛔");
   });
+
+  it("#541 A1 holds a row on an id two todos carry, though the done twin is listed last", async () => {
+    const pane = renderPane(TWINS);
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+
+    const [ship, docs] = pane.texts();
+    expect(docs).toContain("⛔ kt-aaaaaa");
+    // #541 I2: the open twin says something waits for it.
+    expect(ship).toContain("→ 1");
+    // #541 I3: the title names the id, not the done twin's words.
+    expect(screen.getByTitle(/^waits for:\s+kt-aaaaaa$/)).toBeDefined();
+    expect(screen.queryByTitle(/cut the branch/)).toBeNull();
+  });
 });
 
 describe("the todo pane by touch", () => {
@@ -1230,6 +1250,14 @@ describe("the todo pane by touch", () => {
     screen
       .getAllByRole("button")
       .find((button) => button.title !== "" && button.textContent?.includes(text));
+
+  it("#541 A2 holds a row on an id two todos carry, the done twin listed last", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane(TWINS);
+    await waitFor(() => expect(row("write the docs")).toBeDefined());
+
+    expect(row("write the docs")?.textContent).toContain("⛔ kt-aaaaaa");
+  });
 
   it("draws no button a mouse does not need", async () => {
     const pane = renderPane();
