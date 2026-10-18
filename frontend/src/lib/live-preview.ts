@@ -17,7 +17,7 @@ import { parseCallout } from "@/lib/callout";
 import { readClock } from "@/lib/clock";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths, imageSource } from "@/lib/image";
-import { linkAddress } from "@/lib/link-reference";
+import { linkAddress, unescaped } from "@/lib/link-reference";
 import { loadKatex } from "@/lib/math";
 import { type Drawing, drawMermaid, drawnMermaid } from "@/lib/mermaid";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -217,11 +217,13 @@ type Drawn =
  * Reads an `Image` node into what it is drawn as.
  *
  * An address `imageSource` cannot load renders as its source instead, since a
- * broken picture would hide what the text says was meant.
+ * broken picture would hide what the text says was meant. So does one with no
+ * address, `![a]()` or a `![a][ref]` no definition names, which `imageSource`
+ * would hand the assets route as the empty path.
  */
 function drawnImage(state: EditorState, node: SyntaxNode): Drawn | null {
-  const url = node.getChild("URL");
-  const address = url === null ? "" : state.doc.sliceString(url.from, url.to);
+  const address = linkAddress(node, state.doc);
+  if (!address) return null;
   // The video first: a YouTube link is an `https:` address, which
   // `imageSource` passes as it stands, so asked second it would be handed to an
   // `img` and draw as a broken picture.
@@ -334,11 +336,6 @@ class Player extends WidgetType {
  * other shape stays as its source rather than drawn half right.
  */
 const RUBY = /^<ruby>([^<]+)<rt>([^<]+)<\/rt><\/ruby>/;
-
-/** `text` with markdown's backslash escapes taken off, which the import puts on `*`, `_` and `[`. */
-function unescaped(text: string): string {
-  return text.replace(/\\([!-/:-@[-`{-~])/g, "$1");
-}
 
 /**
  * The reading over its base, the way Anki shows furigana.

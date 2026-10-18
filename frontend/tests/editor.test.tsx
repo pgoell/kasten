@@ -989,6 +989,56 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     expect(open.mock.calls).toEqual([OPENED]);
     open.mockRestore();
   });
+
+  // Spelled out rather than `OPENED`, so the test runs as it stands on the
+  // code before #546, where it was seen failing.
+  const BRACKETED = ["https://example.com", "_blank", "noopener"];
+
+  it("A1 opens [a](<https://example.com>) on ctrl+click and cmd+click, vim on and off (#446)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc={"intro\n\nsee [a](<https://example.com>) now"} />,
+    );
+
+    fireEvent.mouseDown(textIn(container, "a"), { ctrlKey: true });
+    fireEvent.mouseDown(textIn(container, "a"), { metaKey: true });
+    act(() => toggleVim());
+    fireEvent.mouseDown(textIn(container, "a"), { ctrlKey: true });
+
+    expect(open.mock.calls).toEqual([BRACKETED, BRACKETED, BRACKETED]);
+    open.mockRestore();
+  });
+
+  it("A2 opens [a](<https://example.com>) on a tap, vim on and off (#446)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc={"intro\n\nsee [a](<https://example.com>) now"} />,
+    );
+    const tap = () => {
+      fireEvent.pointerDown(textIn(container, "a"), { pointerType: "touch" });
+      fireEvent.click(textIn(container, "a"));
+    };
+
+    tap();
+    act(() => toggleVim());
+    tap();
+
+    expect(open.mock.calls).toEqual([BRACKETED, BRACKETED]);
+    open.mockRestore();
+  });
+
+  it.each([
+    ["a bare address", "see [a](https://x.y/a\\)b) now", "https://x.y/a)b"],
+    ["a definition's <address>", "see [a] now\n\n[a]: <https://x.y/a\\>b>", "https://x.y/a>b"],
+  ])("I4 opens %s with its backslash escape undone (#447)", (_, doc, address) => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} />);
+
+    fireEvent.mouseDown(textIn(container, "a"), { ctrlKey: true });
+
+    expect(open.mock.calls).toEqual([[address, "_blank", "noopener"]]);
+    open.mockRestore();
+  });
 });
 
 describe("Editor wikilink completion", () => {

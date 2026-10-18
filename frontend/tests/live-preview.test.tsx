@@ -838,10 +838,14 @@ describe("live preview", () => {
   });
 
   it("leaves a picture a picture", () => {
-    const { container } = renderEditor(<Editor initialDoc={"![shot](99 Misc/shot.png)\n"} />);
+    // `<>` around it, the way CommonMark writes an address with a space.
+    const { container } = renderEditor(<Editor initialDoc={"![shot](<99 Misc/shot.png>)\n"} />);
 
     expect(container.querySelector("iframe.cm-video")).toBeNull();
     expect(container.querySelector("img.cm-image")?.getAttribute("alt")).toBe("shot");
+    expect(container.querySelector("img.cm-image")?.getAttribute("src")).toBe(
+      "/api/assets/99 Misc/shot.png",
+    );
   });
 
   it("hides the backslash of an escape, which a card side opening with a fence carries", () => {
@@ -2120,6 +2124,14 @@ describe("a reference link with a definition (#439)", () => {
     expect(drawn(lineOf(view, 2))).toEqual(["see docs here", "docs"]);
   });
 
+  it("I4 takes a definition's <address> with \\> in it past what the parser has reached", () => {
+    const defined = "[a]: <https://x.y/a\\>b.png>";
+    const view = parsedShort("![a]", defined);
+
+    expect(syntaxTree(view.state).length).toBeLessThan(view.state.doc.length - defined.length);
+    expect(view.dom.querySelector("img.cm-image")?.getAttribute("src")).toBe("https://x.y/a>b.png");
+  });
+
   it.each([
     ["in a fence", "```\n[docs]: https://evil.example\n```"],
     ["continuing a paragraph", "some text\n[docs]: https://x.example"],
@@ -2667,5 +2679,147 @@ describe("an escape in a table cell (#512)", () => {
     const { container } = render(<NotePreview text={"| h |\n| - |\n| a \\| b |"} />);
 
     expect(container.querySelector(".cm-table-grid tbody td")?.textContent).toBe("a | b");
+  });
+});
+
+describe("a reference image (#547)", () => {
+  const VIM = [
+    ["vim on", true],
+    ["vim off", false],
+  ] as const;
+  const CAT = "https://example.com/cat.png";
+
+  function lit(vimOn: boolean): Extension[] {
+    return vimOn ? [vim(), livePreview(), vaultPaths.of([]), imagePaths.of([])] : plain(null);
+  }
+
+  function lineOf(view: EditorView, n: number): Element {
+    return view.contentDOM.querySelectorAll(".cm-line")[n] as Element;
+  }
+
+  /** The address and alt text of every picture drawn, in document order. */
+  function pictures(view: EditorView): [string | null, string | null][] {
+    return [...view.dom.querySelectorAll("img.cm-image")].map((img) => [
+      img.getAttribute("src"),
+      img.getAttribute("alt"),
+    ]);
+  }
+
+  it.each(VIM)("A4 draws ![cat][pic] with a definition below as the picture: %s", (_, vimOn) => {
+    const view = mount(`intro\n\n![cat][pic]\n\n[pic]: ${CAT}`, lit(vimOn));
+
+    expect(pictures(view)).toEqual([[CAT, "cat"]]);
+  });
+
+  it.each([
+    ["collapsed", "vim on", "![cat][]", true],
+    ["collapsed", "vim off", "![cat][]", false],
+    ["shortcut", "vim on", "![cat]", true],
+    ["shortcut", "vim off", "![cat]", false],
+  ] as const)("A5 draws a %s reference image as the picture: %s", (_, __, image, vimOn) => {
+    const view = mount(`intro\n\n${image}\n\n[cat]: ${CAT}`, lit(vimOn));
+
+    expect(pictures(view)).toEqual([[CAT, "cat"]]);
+  });
+
+  it("A6 draws ![a](<x.png>) as the vault's x.png, the brackets taken off", () => {
+    const view = mount("intro\n\n![a](<x.png>)", plain(null));
+
+    expect(pictures(view)).toEqual([["/api/assets/x.png", "a"]]);
+  });
+
+  it("A7 leaves an image defined as a script address as typed", () => {
+    const doc = [
+      "intro",
+      "",
+      "![a][js]",
+      "",
+      "![b][data]",
+      "",
+      "![c][vb]",
+      "",
+      "![d][ok]",
+      "",
+      "[js]: javascript:x",
+      "",
+      "[data]: data:image/png;base64,AA",
+      "",
+      "[vb]: vbscript:x",
+      "",
+      `[ok]: ${CAT}`,
+    ].join("\n");
+    const view = mount(doc, plain(null));
+
+    // One assertion: the code before #547 drew every reference image as a
+    // broken picture, scripts included, so neither half holds there.
+    expect({
+      typed: [2, 4, 6].map((n) => lineOf(view, n).textContent),
+      pictures: pictures(view),
+    }).toEqual({ typed: ["![a][js]", "![b][data]", "![c][vb]"], pictures: [[CAT, "d"]] });
+  });
+
+  it.each(VIM)(
+    "I1 shows a reference image's source with the cursor on its line: %s",
+    async (_, vimOn) => {
+      const doc = `intro\n\n![cat][pic]\n\n[pic]: ${CAT}`;
+      const view = mount(doc, lit(vimOn), doc.indexOf("![cat]"));
+      // Vim's normal mode draws the picture under the cursor too; insert mode
+      // hands the source back, as it does for an inline image.
+      if (vimOn) fireEvent.keyDown(view.contentDOM, { key: "i" });
+
+      await waitFor(() => expect(lineOf(view, 2).textContent).toBe("![cat][pic]"));
+      act(() => view.dispatch({ selection: { anchor: 0 } }));
+      expect(pictures(view)).toEqual([[CAT, "cat"]]);
+    },
+  );
+
+  it("I2 keeps an undefined ![alt][ref] as typed beside a defined one", () => {
+    const view = mount(`intro\n\n![alt][ref]\n\n![cat][pic]\n\n[pic]: ${CAT}`, plain(null));
+
+    expect({ typed: lineOf(view, 2).textContent, pictures: pictures(view) }).toEqual({
+      typed: "![alt][ref]",
+      pictures: [[CAT, "cat"]],
+    });
+  });
+
+  it("I3 draws a reference image in a table cell as the picture", () => {
+    const view = mount(`intro\n\n| a |\n| - |\n| ![cat][pic] |\n\n[pic]: ${CAT}`, plain(null));
+    const cell = view.dom.querySelector(".cm-table-grid tbody td");
+
+    expect(cell).not.toBeNull();
+    expect(cell?.querySelector("img.cm-image")?.getAttribute("src")).toBe(CAT);
+  });
+
+  it("I5 takes no definition for an image from a fenced code block", () => {
+    const doc = `intro\n\n![a][code]\n\n\`\`\`\n[code]: ${CAT}\n\`\`\`\n\n![cat][pic]\n\n[pic]: ${CAT}`;
+    const view = mount(doc, plain(null));
+
+    expect({ typed: lineOf(view, 2).textContent, pictures: pictures(view) }).toEqual({
+      typed: "![a][code]",
+      pictures: [[CAT, "cat"]],
+    });
+  });
+
+  it("I6 draws a reference image to a video as the player and to a sound as its control", () => {
+    const doc = [
+      "intro",
+      "",
+      "![v][clip]",
+      "",
+      "![s][word]",
+      "",
+      "[clip]: https://youtu.be/iDulhoQ2pro",
+      "",
+      "[word]: x.mp3",
+    ].join("\n");
+    const view = mount(doc, plain(null));
+
+    expect({
+      video: view.dom
+        .querySelector("iframe.cm-video")
+        ?.getAttribute("src")
+        ?.includes("/embed/iDulhoQ2pro"),
+      sound: view.dom.querySelector("audio.cm-audio")?.getAttribute("src"),
+    }).toEqual({ video: true, sound: "/api/assets/x.mp3" });
   });
 });

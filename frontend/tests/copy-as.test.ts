@@ -300,6 +300,47 @@ describe("an image with no address, and an address in angle brackets", () => {
   });
 });
 
+describe("a reference image and an escaped address (#547, #447)", () => {
+  it("A3 gives Slack and Teams [a](<x\\>y>) the address x>y", () => {
+    expect([toSlack("[a](<x\\>y>)"), toHtml("[a](<x\\>y>)")]).toEqual([
+      "a (x>y)",
+      '<p><a href="x&gt;y">a</a></p>',
+    ]);
+  });
+
+  it("A8 gives Slack and Teams ![cat][pic] what ![cat](url) gives", () => {
+    const url = "https://example.com/cat.png";
+
+    expect([toSlack(`![cat](${url})`), toHtml(`![cat](${url})`)]).toEqual([
+      `cat (${url})`,
+      `<p><a href="${url}">cat</a></p>`,
+    ]);
+    const note = `![cat][pic]\n\n[pic]: ${url}`;
+    expect([toSlack(note), toHtml(note)]).toEqual([
+      `cat (${url})`,
+      `<p><a href="${url}">cat</a></p>`,
+    ]);
+  });
+
+  it("I2 keeps ![alt][ref] with no definition as typed, and gives a defined one as its link", () => {
+    expect([toSlack("![alt][ref]"), toHtml("![alt][ref]")]).toEqual([
+      "![alt][ref]",
+      "<p>![alt][ref]</p>",
+    ]);
+    const note = "![alt][ref]\n\n[ref]: https://x.y/a.png";
+    expect([toSlack(note), toHtml(note)]).toEqual([
+      "alt (https://x.y/a.png)",
+      '<p><a href="https://x.y/a.png">alt</a></p>',
+    ]);
+  });
+
+  it("I4 undoes a backslash escape in a definition's <address> and in a bare (address)", () => {
+    expect([toSlack("[a]\n\n[a]: <https://x.y/a\\>b>"), toSlack("[a](https://x.y/a\\)b)")]).toEqual(
+      ["a (https://x.y/a>b)", "a (https://x.y/a)b)"],
+    );
+  });
+});
+
 describe("a wikilink's alias and heading", () => {
   it("writes an aliased wikilink as its alias", () => {
     expect(toSlack("see [[borges|Jorge]]")).toBe("see Jorge");

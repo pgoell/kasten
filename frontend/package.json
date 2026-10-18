@@ -61,5 +61,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.2.0",
     "vitest": "4.1.10"
+  },
+  "patchedDependencies": {
+    "@lezer/markdown@1.7.2": "patches/@lezer%2Fmarkdown@1.7.2.patch"
   }
 }

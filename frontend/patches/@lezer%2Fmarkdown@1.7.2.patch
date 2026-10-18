@@ -1,0 +1,32 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index a7f1502ce9663cff433857f3e353acff9b381a98..f74660a3767f2cbc56a3e2e33ff1843bcf8d2cad 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -1562,6 +1562,11 @@ function parseURL(text, start, offset) {
+     if (next == 60 /* '<' */) {
+         for (let pos = start + 1; pos < text.length; pos++) {
+             let ch = text.charCodeAt(pos);
++            // kasten: `\>` and `\<` are escaped, as CommonMark has it.
++            if (ch == 92 /* '\\' */ && pos + 1 < text.length && text.charCodeAt(pos + 1) != 10) {
++                pos++;
++                continue;
++            }
+             if (ch == 62 /* '>' */)
+                 return elt(Type.URL, start + offset, pos + 1 + offset);
+             if (ch == 60 || ch == 10 /* '<\n' */)
+diff --git a/dist/index.js b/dist/index.js
+index e5725e7b76c21832da1a3d2ed188ae042c06224c..b502c38f463afda9ef78b5dcd51a64f26e104972 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1560,6 +1560,11 @@ function parseURL(text, start, offset) {
+     if (next == 60 /* '<' */) {
+         for (let pos = start + 1; pos < text.length; pos++) {
+             let ch = text.charCodeAt(pos);
++            // kasten: `\>` and `\<` are escaped, as CommonMark has it.
++            if (ch == 92 /* '\\' */ && pos + 1 < text.length && text.charCodeAt(pos + 1) != 10) {
++                pos++;
++                continue;
++            }
+             if (ch == 62 /* '>' */)
+                 return elt(Type.URL, start + offset, pos + 1 + offset);
+             if (ch == 60 || ch == 10 /* '<\n' */)

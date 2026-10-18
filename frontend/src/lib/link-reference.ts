@@ -27,21 +27,25 @@ export function sourceOf(text: string): Source {
  */
 const HOLDERS = new Set(["Blockquote", "BulletList", "OrderedList", "ListItem"]);
 
-/** A definition on a line of its own, as CommonMark shapes one. */
-const DEFINITION = /^ {0,3}\[([^\]]+)\]:[ \t]*(<[^>\n]*>|\S+)/;
+/**
+ * A definition on a line of its own, as CommonMark shapes one. A `<url>` may
+ * hold `\>` and `\<`, which do not end it (#447).
+ */
+const DEFINITION = /^ {0,3}\[([^\]]+)\]:[ \t]*(<(?:\\.|[^<>\\\n])*>|\S+)/;
 
 const scanned = new WeakMap<Tree, Map<string, string>>();
 
 /**
- * The address of a `Link` or `Image`: its `(url)`, else, for a link with no
- * `(`, the address of the definition its label names. Null when it has none.
- * An image's reference stays as typed, live preview drawing no picture from it.
+ * The address of a `Link` or `Image`: its `(url)`, else, for one with no `(`,
+ * the address of the definition its label names. Null when it has none. An
+ * image reads a definition as a link does, so `![cat][pic]` draws the picture
+ * `![cat](url)` would (#547).
  */
 export function linkAddress(node: SyntaxNode, doc: Source): string | null {
   const url = node.getChild("URL");
-  if (url !== null) return unbracket(doc.sliceString(url.from, url.to));
+  if (url !== null) return unescaped(unbracket(doc.sliceString(url.from, url.to)));
   const marks = node.getChildren("LinkMark");
-  if (node.name !== "Link" || marks.length > 2) return null;
+  if (marks.length > 2) return null;
   const [open, close] = marks;
   if (!open || !close) return null;
   // The full form names its label; the shortcut and the collapsed `[text][]`
@@ -159,7 +163,7 @@ function collect(parent: SyntaxNode, doc: Source, found: Map<string, string>): v
 /** The first definition of a label is the one that counts, as CommonMark has it. */
 function add(found: Map<string, string>, label: string, url: string): void {
   const key = normal(label);
-  if (key !== "" && !found.has(key)) found.set(key, unbracket(url));
+  if (key !== "" && !found.has(key)) found.set(key, unescaped(unbracket(url)));
 }
 
 /** A label as CommonMark matches it: case and runs of space do not count. */
@@ -170,4 +174,13 @@ function normal(label: string): string {
 /** `<url>` is the same address as `url`; the brackets are syntax (#443). */
 function unbracket(url: string): string {
   return url.replace(/^<(.*)>$/, "$1");
+}
+
+/**
+ * `text` with markdown's backslash escapes taken off: CommonMark undoes them
+ * in an address, `a\)b` being `a)b` (#447), and the import puts them on a
+ * ruby's `*`, `_` and `[`.
+ */
+export function unescaped(text: string): string {
+  return text.replace(/\\([!-/:-@[-`{-~])/g, "$1");
 }

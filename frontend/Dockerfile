@@ -10,6 +10,8 @@ WORKDIR /app/frontend
 
 # Install from the manifests alone so the dependency layer survives source edits.
 COPY frontend/package.json frontend/bun.lock ./
+# The install applies these, the lockfile naming them.
+COPY frontend/patches ./patches
 RUN bun install --frozen-lockfile
 
 COPY frontend/ ./
