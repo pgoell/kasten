@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
+import { deckNotes } from "@/lib/review";
 import { shownCard } from "./review-card";
 import { stubCommands } from "./stub-commands";
 
@@ -23,26 +24,42 @@ const HITS = [
  * text of each. A sitting's own `fetchNote` mock, set later, replaces it.
  */
 function serveNotes(hits: api.SearchHit[]) {
-  vi.spyOn(api, "fetchNote").mockImplementation((path) =>
-    Promise.resolve(
-      hits
-        .filter((hit) => hit.path === path)
-        .map((hit) => hit.text)
-        .join("\n"),
-    ),
-  );
+  vi.spyOn(api, "fetchNote").mockImplementation((path) => Promise.resolve(noteOf(hits, path)));
 }
 
+function noteOf(hits: api.SearchHit[], path: string): string {
+  return hits
+    .filter((hit) => hit.path === path)
+    .map((hit) => hit.text)
+    .join("\n");
+}
+
+/**
+ * The pane on the deck overview, its decks drawn on the first render.
+ *
+ * The cache holds the scan and every deck note before the pane mounts. Left
+ * empty, the rows wait on the scan, a `setTimeout` for the result to reach
+ * React, a re-render that only then asks for the notes, those reads, another
+ * `setTimeout` and another re-render, all inside `findBy`'s one second. That
+ * chain ran out of the second on a loaded machine (#522). The reads still go
+ * out, as a refetch on mount, and `ReviewDecks reading the deck notes` below
+ * is where the wait itself is tested.
+ */
 async function renderPane() {
   vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
   serveNotes(HITS);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(["cards", false], HITS);
+  for (const path of deckNotes(HITS)) {
+    client.setQueryData(["cards", "note", path], noteOf(HITS, path));
+  }
   render(
     <QueryClientProvider client={client}>
       <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
     </QueryClientProvider>,
   );
-  await screen.findByRole("button", { name: /alpha/ });
+  // `get` and not `find`: nothing is left to wait on.
+  screen.getByRole("button", { name: /alpha/ });
   return screen.getByLabelText("review");
 }
 
