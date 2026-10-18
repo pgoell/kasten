@@ -376,6 +376,15 @@ describe("the editor focus", () => {
     expect(container.querySelector(".cm-content")).toHaveFocus();
   });
 
+  it("editor: A4 an editor of a pane without the focus takes no focus on mount", () => {
+    // A restored tab mounts every pane at once. Whichever mounted first would
+    // take the focus, and the route would follow it there and drop the zoom.
+    const { container } = render(<Editor initialDoc="plain" focused={false} />);
+
+    expect(container.querySelector(".cm-content")).not.toHaveFocus();
+    expect(document.body).toHaveFocus();
+  });
+
   it("leaves the focus alone when something else already holds it", () => {
     // Opening a note from the tree remounts the editor. Taking the focus on
     // every mount would end browsing with `j` and Enter after one note.

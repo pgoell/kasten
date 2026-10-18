@@ -787,6 +787,7 @@ export function Editor({
   // exactly once: to open a different note, remount with a `key`.
   const initialDocRef = useRef(initialDoc);
   const startLineRef = useRef(startLine);
+  const focusedRef = useRef(focused);
   const renderedRef = useRef(rendered);
   const pathsRef = useRef(paths);
   const imagesRef = useRef(images);
@@ -1044,8 +1045,11 @@ export function Editor({
     viewRef.current = view;
     // A freshly loaded page focuses nothing, and the first thing typed at it
     // goes nowhere. The editor is what the page is for, so it takes the focus.
-    // Not after a tap on a phone, for the reason the signal below gives.
-    if (!keyboardUnasked() && nothingFocused()) view.focus();
+    // Not after a tap on a phone, for the reason the signal below gives. Only
+    // the focused pane's, as on the way back into the tab: a restored tab
+    // mounts every pane at once, and the first to mount would take the focus,
+    // which the route follows to that pane and which turns its zoom off.
+    if (focusedRef.current && !keyboardUnasked() && nothingFocused()) view.focus();
 
     if (saved) {
       const restore = () => {
