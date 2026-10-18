@@ -50,6 +50,18 @@ afterEach(async () => {
     app = undefined;
   }
   vi.restoreAllMocks();
+  // A tap far from where the pictures sit. Chrome counts a tap on the spot of
+  // the one before as its second, so without this a test's tap on the picture
+  // reaches the click as `detail` 2 when the test before tapped there too, and
+  // a follow, which only the first click makes, never comes. The mouse needs
+  // nothing: every press here names its own `clickCount`.
+  const frame = window.frameElement?.getBoundingClientRect();
+  const corner = {
+    x: (frame?.left ?? 0) + window.innerWidth - 2,
+    y: (frame?.top ?? 0) + window.innerHeight - 2,
+  };
+  await cdp().send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [corner] });
+  await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: false });
   await page.viewport(414, 896);
 });
