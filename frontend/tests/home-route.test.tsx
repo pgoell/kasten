@@ -3085,7 +3085,7 @@ describe("the route", () => {
     const PROJECT_NOTE = "# FDE\n\n## TODOs\n- [ ] old";
     const ROW = { path: DAILY, line: 2, text: "- [ ] send the deck", project: PROJECT };
     const MOVED =
-      "Moved into 02 Projects/FDE/index.md. The history pane's restore on either note takes it back";
+      "Moved into 02 Projects/FDE/index.md. The history pane's restore on both notes takes it back";
 
     /** What the vault holds, which a test changes to move a note under the press. */
     let notes: Record<string, string>;
@@ -3181,13 +3181,105 @@ describe("the route", () => {
     });
 
     it("#396 I3 a second m after a half move takes the todo out without a second copy", async () => {
-      notes[TARGET] = `${PROJECT_NOTE}\n- [ ] send the deck\n  - [ ] draw the chart`;
+      const head = "- [ ] send the deck 🆔 kt-000001";
+      notes[DAILY] = SOURCE.join("\n").replace("- [ ] send the deck", head);
+      notes[TARGET] = `${PROJECT_NOTE}\n${head}\n  - [ ] draw the chart`;
+      fetchTodos.mockResolvedValue([{ ...ROW, text: head }]);
       const app = await renderApp();
       await settle();
 
       await refile(app);
 
       expect(saved()).toEqual([DAILY]);
+      expect(app.notice()).toBe(MOVED);
+    });
+
+    it("#396 B1 another todo of the same words in the project's note does not stand for this one", async () => {
+      // A recurring todo's earlier copy: no id, so the press cannot tell, and
+      // a second copy is the cost where the other way loses the part.
+      notes[TARGET] = `${PROJECT_NOTE}\n- [ ] send the deck`;
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saved()).toEqual([TARGET, DAILY]);
+      expect(saveNote).toHaveBeenCalledWith(
+        TARGET,
+        `${PROJECT_NOTE}\n- [ ] send the deck\n- [ ] send the deck\n  - [ ] draw the chart`,
+        false,
+        noteBase(notes[TARGET] as string),
+      );
+    });
+
+    it("#396 B3 two presses back to back on todos of one note move both", async () => {
+      // The vault keeps what is written, so the second press reads the first's.
+      saveNote.mockImplementation(async (path: string, content: string) => {
+        notes[path] = content;
+        return { path, content };
+      });
+      fetchTodos.mockResolvedValue([
+        ROW,
+        { path: DAILY, line: 4, text: "- [ ] buy milk", project: PROJECT },
+      ]);
+      const app = await renderApp();
+      await settle();
+      app.leader("g", "t");
+      await settle();
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+
+      fireEvent.keyDown(pane, { key: "m" });
+      fireEvent.keyDown(pane, { key: "j" });
+      fireEvent.keyDown(pane, { key: "m" });
+      await hashed();
+      await settle();
+
+      expect(notes[DAILY]).toBe(
+        [
+          "## TODOs",
+          "- send the deck [[02 Projects/FDE/index|FDE]]",
+          "- buy milk [[02 Projects/FDE/index|FDE]]",
+        ].join("\n"),
+      );
+      expect(notes[TARGET]).toBe(
+        `${PROJECT_NOTE}\n- [ ] send the deck\n  - [ ] draw the chart\n- [ ] buy milk`,
+      );
+      expect(app.notice()).toBe(MOVED);
+    });
+
+    it("#396 B4 two presses back to back on a project with no index.md make it once", async () => {
+      notes = Object.fromEntries(Object.entries(notes).filter(([path]) => path !== TARGET));
+      saveNote.mockImplementation(async (path: string, content: string) => {
+        notes[path] = content;
+        return { path, content };
+      });
+      createNote.mockImplementation(async (path: string, content: string) => {
+        if (notes[path] !== undefined) throw new Error(`POST /api/files/${path} failed with 409`);
+        notes[path] = content;
+        return { path, content };
+      });
+      fetchTodos.mockResolvedValue([
+        ROW,
+        { path: DAILY, line: 4, text: "- [ ] buy milk", project: PROJECT },
+      ]);
+      const app = await renderApp();
+      await settle();
+      app.leader("g", "t");
+      await settle();
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+
+      fireEvent.keyDown(pane, { key: "m" });
+      fireEvent.keyDown(pane, { key: "j" });
+      fireEvent.keyDown(pane, { key: "m" });
+      await hashed();
+      await settle();
+
+      expect(createNote).toHaveBeenCalledTimes(1);
+      expect(notes[TARGET]).toBe(
+        "## TODOs\n- [ ] send the deck\n  - [ ] draw the chart\n- [ ] buy milk\n",
+      );
       expect(app.notice()).toBe(MOVED);
     });
 

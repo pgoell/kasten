@@ -125,7 +125,7 @@ import {
   toggleTimerInVault,
 } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
-import { fileUnderTodos, projectNote, refileOf } from "@/lib/todo-refile";
+import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo-refile";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
@@ -1770,8 +1770,11 @@ function Home() {
         (text) => text,
         () => null,
       );
-      const moved = read === null ? null : refileOf(read, hit.line, project);
-      if (read === null || moved === null || read.split("\n")[hit.line - 1] !== hit.text) {
+      // By its text where a write since has shifted it, a press of `m` on
+      // another todo of this note among them: the list has not redrawn yet.
+      const at = read === null ? null : lineOf(read, hit.line, hit.text);
+      const moved = read === null || at === null ? null : refileOf(read, at, project);
+      if (moved === null) {
         setNotice("Nothing moved: that line has changed since it was listed");
         return;
       }
@@ -1790,8 +1793,14 @@ function Home() {
             (note) => note,
             () => null,
           );
-          if (made !== null) queryClient.setQueryData(["note", made.path], made.content);
-          return made !== null;
+          if (made === null) return false;
+          queryClient.setQueryData(["note", made.path], made.content);
+          // Into the listing at once, so a second press queued behind this one
+          // writes into the note rather than making it again and being refused.
+          queryClient.setQueryData<string[]>(["files"], (paths) =>
+            paths === undefined || paths.includes(made.path) ? paths : [...paths, made.path],
+          );
+          return true;
         }
         // Already there, from a press whose second write was refused: this
         // press finishes that move rather than copying the todo twice.
@@ -1835,12 +1844,9 @@ function Home() {
           }
           // The todo or a line under it changed since the copy was made, so
           // taking it out would lose what the copy does not hold.
-          const fresh = refileOf(text, hit.line, project);
-          if (
-            fresh === null ||
-            fresh.block !== moved.block ||
-            text.split("\n")[hit.line - 1] !== hit.text
-          ) {
+          const line = lineOf(text, hit.line, hit.text);
+          const fresh = line === null ? null : refileOf(text, line, project);
+          if (fresh === null || fresh.block !== moved.block) {
             left = stays(`${source} changed`);
             return null;
           }
@@ -1857,7 +1863,7 @@ function Home() {
       // The move went through the vault and not a buffer, so `u` cannot reach it.
       setNotice(
         taken
-          ? `Moved into ${target}. The history pane's restore on either note takes it back`
+          ? `Moved into ${target}. The history pane's restore on both notes takes it back`
           : left,
       );
     },

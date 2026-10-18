@@ -80,11 +80,51 @@ describe("refiling one todo (#396)", () => {
     expect(fileUnderTodos("# FDE", block)).toBe("# FDE\n\n## TODOs\n- [ ] buy milk\n  - [ ] oat\n");
   });
 
-  it("#396 I3 a note holding the todo already, by id or by line, takes no second copy", () => {
+  it("#396 I3 a note holding the whole block with its id already takes no second copy", () => {
+    const block = "- [ ] write 🆔 kt-000001\n  - [ ] draw";
+
+    expect(fileUnderTodos(`## TODOs\n- [ ] old\n${block}\n- [ ] after`, block)).toBeNull();
+  });
+
+  it("#396 B1 another todo of the same words is not the todo, so the block lands", () => {
+    // A recurring todo's earlier copy, which a match by line took for this one.
+    const text = "## TODOs\n- [ ] send minutes";
+
+    expect(fileUnderTodos(text, "- [ ] send minutes\n  - [ ] ask Ada")).toBe(
+      "## TODOs\n- [ ] send minutes\n- [ ] send minutes\n  - [ ] ask Ada",
+    );
+    expect(fileUnderTodos(text, "- [ ] send minutes")).toBe(
+      "## TODOs\n- [ ] send minutes\n- [ ] send minutes",
+    );
+  });
+
+  it("#396 B2 a copy whose parts were changed since takes the block again", () => {
+    // A half move, then a part added to the todo left behind: the copy by
+    // id is not the whole of it, and taking the source out would lose the part.
+    const copy = "## TODOs\n- [ ] write 🆔 kt-000001\n  - [ ] draw";
+    const edited = "- [ ] write 🆔 kt-000001\n  - [x] draw ✅ 2026-10-18\n  - [ ] send";
+
+    expect(fileUnderTodos(copy, edited)).toBe(`${copy}\n${edited}`);
     expect(
       fileUnderTodos("## TODOs\n- [/] write it 🆔 kt-000001", "- [ ] write 🆔 kt-000001"),
-    ).toBe(null);
-    expect(fileUnderTodos("## TODOs\n- [ ] buy milk", "- [ ] buy milk")).toBeNull();
-    expect(fileUnderTodos("## TODOs\n- [ ] buy oat", "- [ ] buy milk")).not.toBeNull();
+    ).toBe("## TODOs\n- [/] write it 🆔 kt-000001\n- [ ] write 🆔 kt-000001");
+  });
+
+  it("#396 A5 a part indented by spaces under a tab-indented todo moves with it, verbatim", () => {
+    const text = ["\t- [ ] x", "    - [ ] sub", "- [ ] next"].join("\n");
+
+    const moved = refileOf(text, 1, FDE);
+
+    expect(moved?.block).toBe(["- [ ] x", "    - [ ] sub"].join("\n"));
+    expect(moved?.left).toBe(["\t- x [[02 Projects/FDE/index|FDE]]", "- [ ] next"].join("\n"));
+  });
+
+  it("#396 A5 a part indented by tabs under a todo indented by spaces moves with it, verbatim", () => {
+    const text = ["  - [ ] x", "\t\t\t- [ ] sub", "- [ ] next"].join("\n");
+
+    const moved = refileOf(text, 1, FDE);
+
+    expect(moved?.block).toBe(["- [ ] x", "\t\t\t- [ ] sub"].join("\n"));
+    expect(moved?.left).toBe(["  - x [[02 Projects/FDE/index|FDE]]", "- [ ] next"].join("\n"));
   });
 });
