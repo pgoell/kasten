@@ -13,6 +13,7 @@
 import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
 import { parseCallout } from "@/lib/callout";
+import { linkAddress } from "@/lib/link-reference";
 import { Highlight } from "@/lib/markdown-highlight";
 import { MathSyntax } from "@/lib/math";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -135,20 +136,19 @@ function span(node: SyntaxNode, source: string, format: Format): string {
     case "Link":
     case "Image": {
       // `[label](url)`: the label runs from after the first bracket to the
-      // closing one, the second LinkMark.
+      // closing one, the second LinkMark, so a reference's `[label]` after it
+      // stays out.
       const close = node.getChildren("LinkMark")[1];
       const start = node.from + (node.name === "Image" ? 2 : 1);
       const label = inline(node, source, format, start, close ? close.from : node.to);
-      const url = node.getChild("URL");
-      // The URL node keeps the brackets of `(<url>)`, which are syntax: `<>`
-      // is an empty address (#443).
-      const address = url ? source.slice(url.from, url.to).replace(/^<(.*)>$/, "$1") : "";
+      // `<>` is an empty address (#443).
+      const address = linkAddress(node, (from, to) => source.slice(from, to)) ?? "";
       if (address) return link(label, address, format);
       // The parser reads any `[text]` or `![alt]` with no `(url)` as a link
-      // or an image. Nothing resolves a definition (#439), so it goes out as
-      // the editor shows it, brackets and any `[ref]` after them included
-      // (#442). `[a]()`, with its `(` mark, is a link to nowhere and goes out
-      // as its label.
+      // or an image. One no definition resolves (#439) goes out as the editor
+      // shows it, brackets and any `[ref]` after them included (#442).
+      // `[a]()`, with its `(` mark, is a link to nowhere and goes out as its
+      // label.
       if (close && node.getChildren("LinkMark").length < 3) {
         const open = node.name === "Image" ? "![" : "[";
         return `${open}${label}${prose(source.slice(close.from, node.to), format)}`;

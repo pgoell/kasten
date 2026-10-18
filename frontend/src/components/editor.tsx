@@ -25,6 +25,7 @@ import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
+import { linkAddress } from "@/lib/link-reference";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { noteSectionOf } from "@/lib/note-section";
@@ -344,7 +345,7 @@ interface UrlLink {
 }
 
 /**
- * The rendered `[text](url)` under the pointer, or null.
+ * The rendered `[text](url)` or reference link under the pointer, or null.
  *
  * Only an address with a scheme: a relative one would resolve against kasten's
  * own page, not the vault, and open nothing useful.
@@ -358,8 +359,7 @@ function urlUnder(event: Event, view: EditorView): UrlLink | null {
     node = node.parent
   ) {
     if (node.name !== "Link") continue;
-    const url = node.getChild("URL");
-    const address = url === null ? "" : view.state.sliceDoc(url.from, url.to);
+    const address = linkAddress(node, (from, to) => view.state.sliceDoc(from, to)) ?? "";
     return /^[a-z][a-z0-9+.-]*:/i.test(address) ? { address, from: node.from, to: node.to } : null;
   }
   return null;

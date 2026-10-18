@@ -877,6 +877,88 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     expect(open).toHaveBeenCalledWith("https://example.com/a", "_blank", "noopener");
     open.mockRestore();
   });
+
+  const OPENED = ["https://example.com/a", "_blank", "noopener"];
+
+  it.each([
+    ["a shortcut (A4)", "see [docs] here", "docs"],
+    ["a full (A6)", "see [the docs][docs] here", "the docs"],
+    ["a collapsed (A6)", "see [docs][] here", "docs"],
+  ])(
+    "opens %s reference link's address on ctrl+click and cmd+click, vim on and off",
+    (_, doc, text) => {
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      const { container } = render(
+        <Editor initialDoc={`intro\n\n${doc}\n\n[docs]: https://example.com/a`} />,
+      );
+
+      fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
+      fireEvent.mouseDown(textIn(container, text), { metaKey: true });
+      act(() => toggleVim());
+      fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
+
+      expect(open.mock.calls).toEqual([OPENED, OPENED, OPENED]);
+      open.mockRestore();
+    },
+  );
+
+  it.each([
+    ["a shortcut (A5)", "see [docs] here", "docs"],
+    ["a full (A6)", "see [the docs][docs] here", "the docs"],
+    ["a collapsed (A6)", "see [docs][] here", "docs"],
+  ])("opens %s reference link's address on a tap, vim on and off", (_, doc, text) => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc={`intro\n\n${doc}\n\n[docs]: https://example.com/a`} />,
+    );
+    const tap = () => {
+      fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
+      fireEvent.click(textIn(container, text));
+    };
+
+    tap();
+    act(() => toggleVim());
+    tap();
+
+    expect(open.mock.calls).toEqual([OPENED, OPENED]);
+    open.mockRestore();
+  });
+
+  it("opens nothing on a plain click on a reference link (I1)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc={"intro\n\nsee [docs] here\n\n[docs]: https://example.com/a"} />,
+    );
+
+    fireEvent.mouseDown(textIn(container, "docs"));
+    expect(open).not.toHaveBeenCalled();
+    fireEvent.mouseDown(textIn(container, "docs"), { ctrlKey: true });
+
+    expect(open.mock.calls).toEqual([OPENED]);
+    open.mockRestore();
+  });
+
+  it("leaves a tap on a reference link the cursor sits in to the cursor (I2)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { container } = render(
+      <Editor initialDoc={"[docs]: https://example.com/a\n\nsee [Docs] here"} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+    // `Docs` rather than `docs`, which the definition above spells first.
+    const tap = () => {
+      fireEvent.pointerDown(textIn(container, "Docs"), { pointerType: "touch" });
+      fireEvent.click(textIn(container, "Docs"));
+    };
+
+    // The first tap, from outside the link, shows the second one is turned
+    // away by the cursor and not by the link.
+    tap();
+    for (const key of ["G", "0", "f", "D"]) fireEvent.keyDown(content, { key });
+    tap();
+
+    expect(open.mock.calls).toEqual([OPENED]);
+    open.mockRestore();
+  });
 });
 
 describe("Editor wikilink completion", () => {

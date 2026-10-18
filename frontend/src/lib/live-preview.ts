@@ -17,6 +17,7 @@ import { parseCallout } from "@/lib/callout";
 import { readClock } from "@/lib/clock";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
 import { imagePaths, imageSource } from "@/lib/image";
+import { linkAddress } from "@/lib/link-reference";
 import { loadKatex } from "@/lib/math";
 import { type Drawing, drawMermaid, drawnMermaid } from "@/lib/mermaid";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -872,8 +873,15 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
   if (node.name === "Escape") return [{ text: whole.slice(1), class: null }];
   const inline = INLINE[node.name];
   if (!inline && node.name !== "Link") return null;
-  // A `[text]` with no `(url)` stays text, brackets and all: see the walk.
-  if (node.name === "Link" && node.getChildren("LinkMark").length < 3) return null;
+  // A `[text]` with no `(url)` and no definition stays text, brackets and all:
+  // see the walk.
+  if (
+    node.name === "Link" &&
+    node.getChildren("LinkMark").length < 3 &&
+    linkAddress(node, (from, to) => state.doc.sliceString(from, to)) === null
+  ) {
+    return null;
+  }
 
   // The first two marks, which is all an inline construct has and, on a link,
   // the `[` and `]` around the text rather than the `(url)` that does not show.
@@ -1711,12 +1719,16 @@ function build(state: EditorState): Live {
         const todo = parseTodo(line.text);
         if (todo !== null && node.from === line.from + todo.indent + 2) return;
         // The parser reads any `[text]` with no `(url)` as a link, `[!note]` on
-        // a quote line among them. Nothing resolves a definition (#439), so it
-        // is text and keeps its brackets, as Obsidian shows it. Told apart by
-        // the `(` mark rather than the URL: `[a]()` is a link to nowhere.
-        // The highlighter still colours a Link node as a link, so the mark
-        // takes that look back off, the cursor on it or not (#441).
-        if (node.node.getChildren("LinkMark").length < 3) {
+        // a quote line among them. One whose label a definition in the note
+        // names is a reference link and draws as the inline link below (#439).
+        // Any other is text and keeps its brackets, as Obsidian shows it. Told
+        // apart by the `(` mark rather than the URL: `[a]()` is a link to
+        // nowhere. The highlighter still colours a Link node as a link, so the
+        // mark takes that look back off, the cursor on it or not (#441).
+        if (
+          node.node.getChildren("LinkMark").length < 3 &&
+          linkAddress(node.node, (from, to) => state.doc.sliceString(from, to)) === null
+        ) {
           // A heading's colour sits on the same spans as the link's, so the
           // CSS has to be told to give it back. Read off the tree, because a
           // setext heading's line carries no heading class.
@@ -1733,7 +1745,7 @@ function build(state: EditorState): Live {
 
         // A link carries four marks, `[`, `]`, `(` and `)`. The first two
         // bracket the text worth showing; everything from the second to the end
-        // of the node is `](url)` and goes.
+        // of the node is `](url)`, or a reference's `][label]`, and goes.
         const marks: { from: number; to: number }[] = [];
         for (let child = node.node.firstChild; child; child = child.nextSibling) {
           if (child.name === "LinkMark") marks.push({ from: child.from, to: child.to });

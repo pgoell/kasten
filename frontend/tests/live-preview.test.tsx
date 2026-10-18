@@ -2053,6 +2053,129 @@ describe("a [text] with no (url) (#441)", () => {
   });
 });
 
+describe("a reference link with a definition (#439)", () => {
+  const VIM = [
+    ["vim on", true],
+    ["vim off", false],
+  ] as const;
+  const DEFINED = "[docs]: https://example.com";
+
+  function preview(vimOn: boolean): Extension[] {
+    return vimOn ? [vim(), livePreview(), vaultPaths.of([]), imagePaths.of([])] : plain(null);
+  }
+
+  function lineOf(view: EditorView, n: number): Element {
+    return view.contentDOM.querySelectorAll(".cm-line")[n] as Element;
+  }
+
+  /** What `element` shows, and the text of the link in it, read in one. */
+  function drawn(element: Element): [string | null, string | null | undefined] {
+    return [element.textContent, element.querySelector(".cm-link")?.textContent];
+  }
+
+  it.each(VIM)("A1 draws [docs] with a definition below as a link reading docs: %s", (_, vimOn) => {
+    const line = lineOf(mount(`intro\n\nsee [docs] here\n\n${DEFINED}`, preview(vimOn)), 2);
+
+    expect(drawn(line)).toEqual(["see docs here", "docs"]);
+  });
+
+  it("A2 matches the label regardless of case", () => {
+    const line = lineOf(mount(`intro\n\nsee [Docs] here\n\n${DEFINED}`, plain(null)), 2);
+
+    expect(drawn(line)).toEqual(["see Docs here", "Docs"]);
+  });
+
+  it("A3 takes a definition above the link", () => {
+    const line = lineOf(mount(`intro\n\n${DEFINED}\n\nsee [docs] here`, plain(null)), 4);
+
+    expect(drawn(line)).toEqual(["see docs here", "docs"]);
+  });
+
+  it.each([
+    ["full", "vim on", "see [the docs][docs] here", "see the docs here", "the docs", true],
+    ["full", "vim off", "see [the docs][docs] here", "see the docs here", "the docs", false],
+    ["collapsed", "vim on", "see [docs][] here", "see docs here", "docs", true],
+    ["collapsed", "vim off", "see [docs][] here", "see docs here", "docs", false],
+  ] as const)("A6 draws a %s reference as a link: %s", (_, __, doc, shown, text, vimOn) => {
+    const line = lineOf(mount(`intro\n\n${doc}\n\n${DEFINED}`, preview(vimOn)), 2);
+
+    expect(drawn(line)).toEqual([shown, text]);
+  });
+
+  it.each(VIM)(
+    "A7 keeps the brackets of an undefined [text] beside a defined one: %s",
+    (_, vimOn) => {
+      const view = mount(
+        `intro\n\nsee [text] here\n\nsee [docs] here\n\n${DEFINED}`,
+        preview(vimOn),
+      );
+
+      expect(lineOf(view, 2).textContent).toBe("see [text] here");
+      expect(lineOf(view, 2).querySelector(".cm-link")).toBeNull();
+      expect(lineOf(view, 4).textContent).toBe("see docs here");
+    },
+  );
+
+  it.each(VIM)("A8 leaves the definition line as typed: %s", (_, vimOn) => {
+    const view = mount(`intro\n\nsee [docs] here\n\n${DEFINED}`, preview(vimOn));
+
+    expect(lineOf(view, 4).textContent).toBe(DEFINED);
+    expect(lineOf(view, 2).textContent).toBe("see docs here");
+  });
+
+  it.each(VIM)("I1 shows the source with the cursor in the link: %s", async (_, vimOn) => {
+    const doc = `intro\n\nsee [docs] here\n\n${DEFINED}`;
+    const view = mount(doc, preview(vimOn), doc.indexOf("docs"));
+    // Vim's normal mode shows no link's source, an inline one's neither;
+    // insert mode does.
+    if (vimOn) fireEvent.keyDown(view.contentDOM, { key: "i" });
+
+    await waitFor(() => expect(lineOf(view, 2).textContent).toBe("see [docs] here"));
+    expect(lineOf(view, 2).querySelector(".cm-link")?.textContent).toBe("docs");
+  });
+
+  it("I3 keeps [text][label] as typed when only text is defined", () => {
+    const doc = `intro\n\nsee [docs][label] here\n\nsee [docs] here\n\n${DEFINED}`;
+    const view = mount(doc, plain(null));
+
+    expect(lineOf(view, 2).textContent).toBe("see [docs][label] here");
+    expect(lineOf(view, 2).querySelector(".cm-link")).toBeNull();
+    expect(lineOf(view, 4).textContent).toBe("see docs here");
+  });
+
+  it("I4 takes no definition from a fenced code block", () => {
+    const doc = `intro\n\nsee [code] here\n\n\`\`\`\n[code]: https://example.com\n\`\`\`\n\nsee [docs] here\n\n${DEFINED}`;
+    const view = mount(doc, plain(null));
+
+    // Counted from the end: the fence's own lines do not draw one apiece.
+    const lines = view.contentDOM.querySelectorAll(".cm-line");
+
+    expect(lineOf(view, 2).textContent).toBe("see [code] here");
+    expect(lineOf(view, 2).querySelector(".cm-link")).toBeNull();
+    expect(lines[lines.length - 3]?.textContent).toBe("see docs here");
+  });
+
+  it("I5 draws a reference link in a table cell as a link", () => {
+    const doc = `intro\n\n| a |\n| - |\n| [docs] |\n\n${DEFINED}`;
+    const view = mount(doc, plain(null));
+    const table = view.dom.querySelector(".cm-table-grid") as HTMLTableElement;
+
+    expect(drawn(table.querySelector("tbody td") as Element)).toEqual(["docs", "docs"]);
+  });
+
+  it("I8 leaves a defined [x] in a todo's box to the todo", () => {
+    const doc =
+      "intro\n\n- [x] done\n- [/] doing\n\nsee [x] here\n\n[x]: https://example.com\n\n[/]: https://example.com";
+    const view = mount(doc, plain(null));
+
+    expect(lineOf(view, 2).textContent).toBe("done");
+    expect(lineOf(view, 3).textContent).toBe("doing");
+    expect(view.contentDOM.querySelector(".cm-todo-done")).not.toBeNull();
+    expect(view.contentDOM.querySelector(".cm-todo-doing")).not.toBeNull();
+    expect(lineOf(view, 5).textContent).toBe("see x here");
+  });
+});
+
 describe("an escape the import writes (#342, #343)", () => {
   /** The text drawn for the document's last line, the cursor on the first. */
   function drawnLast(line: string, vimOn: boolean): string {
