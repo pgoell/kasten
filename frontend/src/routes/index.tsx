@@ -436,7 +436,15 @@ function Home() {
   // The whole workspace on every change, over whatever another kasten tab on
   // this device wrote: the last tab to move wins, and none listens for the
   // others, so two tabs never merge into a layout neither had open.
-  useEffect(() => saveWorkspace(coarse, layout, treeOpen), [coarse, layout, treeOpen]);
+  //
+  // The tree as a wide window last had it: a narrow one shuts the drawer
+  // whatever was saved, and writing that down would shut the desktop's panel
+  // too after a reload that only passed through a narrow window.
+  const wideTree = useRef(saved?.treeOpen ?? true);
+  useEffect(() => {
+    if (!narrow) wideTree.current = treeOpen;
+    saveWorkspace(coarse, layout, wideTree.current);
+  }, [coarse, layout, treeOpen, narrow]);
   // The drawer covers the pane, so it shuts whenever the focus is handed to
   // one, which every way of opening something ends with. It shuts as well when
   // the window turns narrow under an open panel, a phone turned upright being

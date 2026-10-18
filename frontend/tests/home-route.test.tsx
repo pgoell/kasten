@@ -1097,10 +1097,13 @@ describe("the route", () => {
     await app.navigate("/");
     await settle();
 
-    expect(app.held()?.label).toBe("Not saved: index");
-    app.click("index.md");
-    await settle();
+    // The return restores the pane the note was left in, which opens on the
+    // held text: the buffer holds it, so the bar reads the note rather than
+    // listing it among the others.
     expect(app.text()).toBe("he index note");
+    expect(heldText("index.md")?.content).toBe("he index note");
+    expect(app.status()).toBe("Could not save");
+    expect(app.held()).toBeNull();
   });
 
   it("writes nothing when the editor route is left while the note stands conflicted", async () => {
@@ -1114,9 +1117,12 @@ describe("the route", () => {
     await app.navigate("/");
     await settle();
 
-    expect(app.heldConflict()).toBe("Changed on disk: index");
-    expect(app.held()).toBeNull();
+    // The return restores the pane the note was left in, which opens on the
+    // kept text and stands conflicted again, writing nothing until asked.
+    expect(app.text()).toBe("he index note");
+    expect(app.status()).toBe("Changed on disk");
     expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
+    expect(saveNote).not.toHaveBeenCalled();
   });
 
   it("keeps a flush that fails after the note was reopened on screen, and saves it from there", async () => {
@@ -1549,6 +1555,9 @@ describe("the route", () => {
     await settle();
     await app.navigate("/capture");
     await settle();
+    // A fresh start, so the note is held and on screen nowhere: restored, its
+    // pane would stand conflicted and refuse the rename below.
+    localStorage.removeItem("kasten.workspace.1");
     await app.navigate("/");
     await settle();
     expect(heldText("index.md")).toMatchObject({ content: "he index note", conflicted: true });
@@ -2263,12 +2272,15 @@ describe("the route", () => {
       await settle();
       await app.navigate("/capture");
       await settle();
-      await app.navigate("/");
-      await settle();
-
+      // The vault answers with the other write before the return, as the disk
+      // does: the return reopens the note in its restored pane and reads it
+      // there, before any tap.
       fetchNote.mockImplementation(async (path: string) =>
         path === "index.md" ? "somebody else's note" : VAULT[path],
       );
+      await app.navigate("/");
+      await settle();
+
       fireEvent.click(screen.getByRole("button", { name: "File tree" }));
       app.click("index.md");
       await settle();
@@ -5786,6 +5798,21 @@ describe("the workspace across a reload", () => {
     stubMatchMedia({ [NARROW]: true });
     const narrow = await reload();
     expect(narrow.tree()).toBeNull();
+  });
+
+  it("workspace: A5 a narrow window in between leaves the desktop's open tree open", async () => {
+    const app = await renderApp();
+    await settle();
+    expect(app.tree()).not.toBeNull();
+
+    stubMatchMedia({ [NARROW]: true });
+    const narrow = await reload();
+    expect(narrow.tree()).toBeNull();
+    expect(saved()).toMatchObject({ treeOpen: true });
+
+    stubMatchMedia();
+    const wide = await reload();
+    expect(wide.tree()).not.toBeNull();
   });
 
   it("workspace: I1 a broken saved workspace starts clean and is removed", async () => {
