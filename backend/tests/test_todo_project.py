@@ -302,3 +302,22 @@ async def test_b2_line_the_editor_rejects_is_no_parent(client: AsyncClient, vaul
 
     assert found[line] is None
     assert found["  - [ ] book room"] is None
+
+
+async def test_b3_spaces_inside_a_link_are_squeezed(client: AsyncClient, vault: Path) -> None:
+    write(vault, "02 Projects/FDE/FDE Kickoff.md", "")
+    write(vault, DAILY, "- [ ] prep [[FDE  Kickoff]]\n- [ ] book [[FDE\tKickoff]]\n")
+
+    found = await projects(client)
+
+    assert found["- [ ] prep [[FDE  Kickoff]]"] == "02 Projects/FDE"
+    assert found["- [ ] book [[FDE\tKickoff]]"] == "02 Projects/FDE"
+
+
+async def test_b4_space_is_read_as_the_editor_reads_it(client: AsyncClient, vault: Path) -> None:
+    write(vault, "02 Projects/FDE/People/Vendor.md", "")
+    # U+FEFF is a space to the editor, so `⛔` has no value and the link stays in the words.
+    line = "- [w] chase 👤 Bob ⛔ \N{ZERO WIDTH NO-BREAK SPACE} [[Vendor]]"
+    write(vault, DAILY, f"{line}\n")
+
+    assert (await projects(client))[line] == "02 Projects/FDE"

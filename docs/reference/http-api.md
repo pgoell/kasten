@@ -764,12 +764,13 @@ it, and the closed ones are the half of that log that piles up. A stop reads the
 through `GET /api/search` on the todo's id instead, which is one narrow pass at
 the press rather than a growing answer on every fetch.
 
-The endpoint parses no todo's state or fields. It finds the lines that could be
-one and hands them over whole, because the editor has to parse a line anyway and
-two parsers in two languages drift. Whether one of them is open or overdue is
-read on the client, off the same module the editor draws a todo with. That is
-also how the client tells a session line from a todo, which is why one endpoint
-can answer both. The one thing the backend reads is `project`, below.
+The endpoint serves no todo's state or fields. It hands the lines over whole,
+because the editor has to parse a line anyway and two parsers in two languages
+drift. Whether one of them is open or overdue is read on the client, off the
+same module the editor draws a todo with. That is also how the client tells a
+session line from a todo, which is why one endpoint can answer both. The one
+thing the backend works out is `project`, below, and to find the words it reads
+a project from, it takes the fields off a line the way the editor does.
 
 ### The project
 

@@ -4,13 +4,14 @@ One rg pass over the notes, the same way search reads them and for the same
 reason: the files are the source of truth, so nothing here is indexed and
 nothing here can go stale.
 
-The backend does not parse a todo's state or fields. It finds the lines that
-could be one and hands them over whole, because the editor has to parse a line
-anyway and two parsers in two languages drift. The one thing it does read is
-the project, which needs only a line's indent, its tags and its links: an agent
-reading the endpoint then sees the lane the board draws, without a copy of the
-rule of its own. Links are read by `links.py`, whose rule both sides test
-against one file of cases.
+The backend hands each line over whole and serves no state or field, because
+the editor has to parse a line anyway and two parsers in two languages drift.
+The one thing it works out is the project, which needs a line's indent, its
+tags and its links: an agent reading the endpoint then sees the lane the board
+draws, without a copy of the rule of its own. To find the words the tags and
+links are read from, it takes the fields off the way the editor does, a port of
+`readFields` kept as narrow as that job. Links are read by `links.py`, whose
+rule both sides test against one file of cases.
 """
 
 import re
@@ -123,6 +124,13 @@ _VS = "\N{VARIATION SELECTOR-16}?"
 _CREATED = "\N{HEAVY PLUS SIGN}"
 _STOP = "📅|📆|🗓|⏳|🛫|" + _CREATED + "|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱"
 """Every marker but `🔁` and `👤`, each of which ends the other's free text."""
+_WORD = (
+    r"([^ \t\n\x0b\f\r\N{NO-BREAK SPACE}\N{OGHAM SPACE MARK}\N{EN QUAD}-\N{HAIR SPACE}"
+    r"\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}\N{NARROW NO-BREAK SPACE}"
+    r"\N{MEDIUM MATHEMATICAL SPACE}\N{IDEOGRAPHIC SPACE}\N{ZERO WIDTH NO-BREAK SPACE}]+)"
+)
+"""The editor's `(\\S+)`, spelled out: Python's `\\s` holds U+0085 and U+001C to
+U+001F, which the editor's does not, and leaves out U+FEFF, which it holds."""
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
 _BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*$"
 FIELDS = (
@@ -143,11 +151,11 @@ FIELDS = (
     re.compile(_CREATED + _VS + _DATE),
     re.compile("✅" + _VS + _DATE),
     re.compile("❌" + _VS + _DATE),
-    re.compile("⏲" + _VS + r"[ \t]+(\S+)"),
-    re.compile("⏱" + _VS + r"[ \t]+(\S+)"),
-    re.compile("🆔" + _VS + r"[ \t]+(\S+)"),
+    re.compile("⏲" + _VS + r"[ \t]+" + _WORD),
+    re.compile("⏱" + _VS + r"[ \t]+" + _WORD),
+    re.compile("🆔" + _VS + r"[ \t]+" + _WORD),
 )
-BLOCKED_BY = re.compile("⛔" + _VS + r"[ \t]+(\S+)")
+BLOCKED_BY = re.compile("⛔" + _VS + r"[ \t]+" + _WORD)
 WAITING = re.compile(
     "👤" + _VS + r"(?:" + _DATE + r")?(?:[ \t]+(.+?))??"
     r"(?=[ \t]+(?:" + _STOP + r"|🔁|#|" + _BLOCK_ID + r")|[ \t]*$)"
@@ -173,7 +181,8 @@ def _words(rest: str) -> str:
             mask = mask[: found.start()] + mask[found.end() :]
             if pattern is not BLOCKED_BY:
                 break
-    return text
+    # As the editor squeezes the words, so `[[FDE  Kickoff]]` names `FDE Kickoff`.
+    return re.sub(r"[ \t]+", " ", text)
 
 
 def _project_in(path: str, roots: tuple[str, ...]) -> str | None:
