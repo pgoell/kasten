@@ -166,6 +166,21 @@ function rowKey(hit: SearchHit): string {
   return `${hit.path}:${hit.line}`;
 }
 
+/**
+ * The lines of every listed todo in the hit's note with its very words, the
+ * hit's own among them, in order.
+ *
+ * From the listing the row was drawn from, not a fresh one: a write that finds
+ * two identical lines picks the one at the row's rank among them, and only the
+ * listing the reader saw says which rank that was.
+ */
+function twinsOf(listed: SearchHit[], hit: SearchHit): number[] {
+  return listed
+    .filter((row) => row.path === hit.path && row.text === hit.text)
+    .map((row) => row.line)
+    .sort((a, b) => a - b);
+}
+
 /** The rows the filter line keeps, the list's and the board's alike. */
 function narrow(rows: Row[], line: string, today: string): Row[] {
   const terms = parseFilter(line);
@@ -223,7 +238,7 @@ interface TodoPaneProps {
    * The hit rather than the todo: the write reads the note off disk again, and
    * the path and the line are how it finds the line to cycle.
    */
-  onCycle: (hit: SearchHit, state?: TodoState) => void;
+  onCycle: (hit: SearchHit, state?: TodoState, twins?: number[]) => void;
   /** Open the prompt that writes a todo into today's note. */
   onAdd: () => void;
   /**
@@ -263,7 +278,7 @@ interface TodoPaneProps {
    * The hit for the reason `onCycle` takes one: the write reads the note off
    * disk again, and the path and the line are how it finds the task line.
    */
-  onTimer: (hit: SearchHit) => void;
+  onTimer: (hit: SearchHit, twins?: number[]) => void;
   /**
    * Move the row's todo, with its parts, into its project's note.
    *
@@ -309,12 +324,12 @@ const ARMED_MS = 4000;
 export function TodoPane({
   commands,
   onOpen,
-  onCycle,
+  onCycle: cycle,
   onAdd,
   onSubtask,
   onEdit,
   onBlock,
-  onTimer,
+  onTimer: timer,
   onRefile,
   onNotice,
   focusSignal,
@@ -390,6 +405,12 @@ export function TodoPane({
   const [more, setMore] = useState<string | null>(null);
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
+
+  // Every press in here that writes a state or a timer, key, tap or drop on
+  // the board, goes through these two, so none of them leaves the twins off.
+  const onCycle = (hit: SearchHit, state?: TodoState) =>
+    cycle(hit, state, twinsOf(data ?? [], hit));
+  const onTimer = (hit: SearchHit) => timer(hit, twinsOf(data ?? [], hit));
 
   // The listing is already in the cache, put there by the route, so this asks
   // whether the vault holds the views note without a request, and without a

@@ -188,6 +188,11 @@ function downloadAsset(path: string): void {
   download(path.slice(path.lastIndexOf("/") + 1), `/api/assets/${encodePath(path)}`);
 }
 
+/** The notice for a todo write from the pane that the vault refused or could not place. */
+function nothingMoved(error: unknown): string {
+  return `Nothing moved: ${error instanceof Error ? error.message : "the vault refused the write"}`;
+}
+
 interface HomeSearch {
   /** Vault-relative path of the note in the focused pane, absent while it holds none. */
   note?: string;
@@ -1614,17 +1619,14 @@ function Home() {
    *
    * A refused write says so: a dropped card goes back to the column it left,
    * since the board draws the vault, and without a notice the drop would look
-   * ignored. A line that moved or became prose writes nothing and is no failure.
+   * ignored. A line the write can no longer find writes nothing and says so too.
    */
   const cycleTodo = useCallback(
-    (hit: SearchHit, state?: TodoState) => {
+    (hit: SearchHit, state?: TodoState, twins?: number[]) => {
       setNotice(undefined);
-      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state).then(
+      void cycleTodoInVault(hit, readClock(new Date()).date, data ?? [], state, twins).then(
         todosWritten,
-        (error: unknown) =>
-          setNotice(
-            `Nothing moved: ${error instanceof Error ? error.message : "the vault refused the write"}`,
-          ),
+        (error: unknown) => setNotice(nothingMoved(error)),
       );
     },
     [data, todosWritten],
@@ -1635,13 +1637,16 @@ function Home() {
    *
    * The whole clock, not just the day: a session line carries the time, and
    * reading it here keeps the pane and the rules below it functions of strings.
+   * A refused write says so, as a state's does: a row whose line has moved
+   * under it would otherwise look like a press that did nothing.
    */
   const toggleTimer = useCallback(
-    (hit: SearchHit) => {
-      void toggleTimerInVault(hit, readClock(new Date()), data ?? []).then(todosWritten, () => {
-        // The vault refused the write, or the note moved out from under the
-        // row. The list stays as it is, and the next event redraws it.
-      });
+    (hit: SearchHit, twins?: number[]) => {
+      setNotice(undefined);
+      void toggleTimerInVault(hit, readClock(new Date()), data ?? [], twins).then(
+        todosWritten,
+        (error: unknown) => setNotice(nothingMoved(error)),
+      );
     },
     [data, todosWritten],
   );
