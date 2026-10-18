@@ -33,10 +33,15 @@ function indentOf(line: string): string {
  * The line the row read, which a write landing since may have shifted: `line`
  * where it still says `text`, else the one line that does. Null where none
  * does, or several, since then which todo the row meant is a guess.
+ *
+ * Only a root todo is looked for. Its project hangs on its own line and its
+ * note, which the line found shares; a part's hangs on the todo above it, and
+ * the same words under another parent can be another project's todo.
  */
 export function lineOf(text: string, line: number, want: string): number | null {
   const lines = text.split("\n");
   if (lines[line - 1] === want) return line;
+  if (/^[ \t]/.test(want)) return null;
   const found = lines.flatMap((each, index) => (each === want ? [index + 1] : []));
   return found.length === 1 ? (found[0] ?? null) : null;
 }

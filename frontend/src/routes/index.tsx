@@ -1827,8 +1827,10 @@ function Home() {
         return;
       }
 
+      // Not "stays there": a part moved inside its parent's block a press
+      // earlier is gone from the source, so the notice asks for a look instead.
       const stays = (reason: string) =>
-        `Copied into ${target}; ${reason}, so the todo stays there too`;
+        `Copied into ${target}; ${reason}, so check ${source} before pressing again`;
       let left = stays(`${source} was not written`);
       const taken = await write(source, async () => {
         const now = busy(source);

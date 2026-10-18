@@ -1512,12 +1512,14 @@ once and in its note's write queue. Neither is written while it is open to type
 in, while a write of it is in the air, or while it holds text a failed save
 left, and the notice says which. Where the project's note is not written,
 nothing moves. Where the note the todo left changed since it was listed, or its
-write fails, the todo stays in both notes and the notice says so. A second `m`
+write fails, that note is not written: the notice says the todo was copied and
+asks you to check that note before pressing again. A second `m`
 then finishes the move without a second copy only where the todo carries a
 `🆔` and the project's note holds its whole block as it stands; otherwise it
 copies the todo again, since a duplicate can be deleted and a lost line cannot.
 A press right after another on the same note finds its todo by its words where
-the first press moved it. A todo with no project
+the first press moved it, when exactly one root todo has those words; a part
+whose line moved reads as changed. A todo with no project
 moves nowhere, and the notice names `p` and a `#p/x` tag; a todo already in its
 project's note stays. The way back is the
 [history pane](#the-history-pane)'s restore on each of the two notes: `u` in an

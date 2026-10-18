@@ -1,4 +1,4 @@
-import { fileUnderTodos, projectNote, refileOf } from "@/lib/todo-refile";
+import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo-refile";
 
 const FDE = "02 Projects/FDE";
 
@@ -126,5 +126,28 @@ describe("refiling one todo (#396)", () => {
 
     expect(moved?.block).toBe(["- [ ] x", "\t\t\t- [ ] sub"].join("\n"));
     expect(moved?.left).toBe(["  - x [[02 Projects/FDE/index|FDE]]", "- [ ] next"].join("\n"));
+  });
+
+  it("#396 B3 a root todo a write has shifted is found by its words", () => {
+    const text = ["## TODOs", "- send it [[02 Projects/FDE/index|FDE]]", "- [ ] x"].join("\n");
+
+    expect(lineOf(text, 3, "- [ ] x")).toBe(3);
+    expect(lineOf(text, 4, "- [ ] x")).toBe(3);
+    // Two lines of the same words: the row's own where it still says them,
+    // else nothing, since which one it meant is a guess.
+    expect(lineOf(`${text}\n- [ ] x`, 4, "- [ ] x")).toBe(4);
+    expect(lineOf(`${text}\n- [ ] x`, 9, "- [ ] x")).toBeNull();
+  });
+
+  it("#396 B a nested row whose line moved is not looked for, since its project hangs on its parent", () => {
+    // The row's own line ticked since; the same words sit under another
+    // project's parent further down, and moving those would file the wrong todo.
+    const text = ["## TODOs", "- [x] x ✅ 2026-10-18", "- [ ] plan #p/other", "  - [ ] x"].join(
+      "\n",
+    );
+
+    expect(lineOf(text, 2, "- [ ] x")).toBeNull();
+    expect(lineOf(text, 2, "  - [ ] x")).toBeNull();
+    expect(lineOf(text, 4, "  - [ ] x")).toBe(4);
   });
 });

@@ -3159,7 +3159,7 @@ describe("the route", () => {
 
       expect(saved()).toEqual([TARGET, DAILY]);
       expect(app.notice()).toBe(
-        "Copied into 02 Projects/FDE/index.md; daily.md was not written, so the todo stays there too",
+        "Copied into 02 Projects/FDE/index.md; daily.md was not written, so check daily.md before pressing again",
       );
     });
 
@@ -3176,7 +3176,7 @@ describe("the route", () => {
 
       expect(saved()).toEqual([TARGET]);
       expect(app.notice()).toBe(
-        "Copied into 02 Projects/FDE/index.md; daily.md changed, so the todo stays there too",
+        "Copied into 02 Projects/FDE/index.md; daily.md changed, so check daily.md before pressing again",
       );
     });
 
