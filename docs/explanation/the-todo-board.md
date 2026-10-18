@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The todo board
-description: Why the board is a view over todo lines that stay where they were typed, why a todo's project is read off its note's folder or a link on its line, and why the board ships without drag and drop.
+description: Why the board is a view over todo lines that stay where they were typed, why a todo's project is read off its note's folder or a link on its line, and how a dragged card moves.
 tags: [design, todos, board, projects]
 status: draft
 ---
@@ -211,8 +211,8 @@ keys make, so done runs the completion walk with no second copy of it.
   views narrow the board as they narrow the list.
 * On a phone the board shows one column at a time, with a tab per column.
   A tap on a card opens it; its `⋯` holds the states and `project`.
-* A move between lanes writes nothing. Drag and drop is left out, as the
-  outside view advised: the keys and the strip already move a card.
+* The first board left drag and drop out, as the outside view advised: the
+  keys and the strip already moved a card. It came later, below.
 
 ### The project on the backend, and the tag that overrides it
 
@@ -284,9 +284,29 @@ option C done one press at a time, so no bulk move happens.
   in an editor does not reach it: the move went through the vault, not
   through the buffer, as every key in the pane does.
 
-### Left for later
+### Drag and drop
 
-The critique raised these and the first board does without them. Each has an
-issue.
+A card can be dragged, as in Obsidian's Kanban plugin (#397). Drag adds a way
+to move a card; the keys and the strip stay as they are.
 
-* Drag and drop between columns and between lanes.
+* A drop on another column sets the state, through the write the state keys
+  make, so done still runs the completion walk.
+* A drop on another lane, with lanes by project, refiles the todo into that
+  project's note through the refile key's path: the project's note first, the
+  note the todo left only when it is unchanged. There is no second move.
+* A drop on the cell the card left, a drop outside the board, and a drag
+  that Escape cancels write nothing.
+* A drop that changes the lane and the column at once writes nothing and
+  says so: it would be two moves, and a half done one is harder to read than
+  none. A drop on "No project", or on a lane other than the one a `#p/x` tag
+  on the todo names, writes nothing either, since the tag would draw the
+  card back where it was. With lanes by kind only the column counts: a drop
+  writes no kind tag.
+* Order inside a column is not kept. The board has no stored order, the
+  cards follow the vault, and a position written into the note would be a
+  second source of truth beside the line.
+* On a phone a long press picks the card up. A finger that moves before
+  then scrolls. The card drops on a column's tab or on a lane of the column
+  shown.
+* A write that fails leaves the card where it was, since the board draws the
+  vault and not the drag, and the notice says so.
