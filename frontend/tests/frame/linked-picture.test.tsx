@@ -5,15 +5,20 @@
  * widget keeping it from the editor's tap and ctrl+click, so this runs where
  * picture-tap.test.tsx does: a real browser, a real finger from the DevTools
  * protocol, and the picture loaded from a canvas once its address is checked.
- * `window.open` is stubbed, so no tab opens.
+ * `window.open` is stubbed, so no tab opens. Two tests mount the app's own
+ * editor, whose ctrl+click and tap handlers sit beside the picture's and must
+ * not open the link a second time.
  */
 
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim as vimKeymap } from "@replit/codemirror-vim";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
+import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
+import { Editor } from "@/components/editor";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -32,11 +37,18 @@ const REFERENCED = ["A cat", "", REFERENCE, "", `[ref]: ${SITE}`].join("\n");
 const UNLINKED = ["A cat", "", IMAGE].join("\n");
 
 let view: EditorView | undefined;
+let app: { root: Root; host: HTMLElement } | undefined;
 
 afterEach(async () => {
   view?.dom.parentElement?.remove();
   view?.destroy();
   view = undefined;
+  if (app !== undefined) {
+    const { root, host } = app;
+    root.unmount();
+    host.remove();
+    app = undefined;
+  }
   vi.restoreAllMocks();
   await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: false });
   await page.viewport(414, 896);
@@ -76,10 +88,28 @@ function mount(doc: string, vim: boolean, height: number): EditorView {
   return view;
 }
 
+/**
+ * The app's own editor on `doc`, as the route mounts it, `height` tall. Vim
+ * is the setting's default, on for a mouse and off for a finger.
+ */
+function mountApp(doc: string, height: number): HTMLElement {
+  localStorage.removeItem("kasten.vim");
+  const host = document.body.appendChild(document.createElement("div"));
+  host.style.cssText = `width: 100%; height: ${height}px;`;
+  const root = createRoot(host);
+  root.render(
+    <QueryClientProvider client={new QueryClient()}>
+      <Editor initialDoc={doc} />
+    </QueryClientProvider>,
+  );
+  app = { root, host };
+  return host;
+}
+
 /** The picture, its address checked and then loaded from a canvas so it has a size. */
-async function loaded(at: EditorView): Promise<HTMLImageElement> {
-  await expect.poll(() => at.dom.querySelectorAll("img.cm-image").length).toBe(1);
-  const image = at.dom.querySelector("img.cm-image") as HTMLImageElement;
+async function loaded(within: Element): Promise<HTMLImageElement> {
+  await expect.poll(() => within.querySelectorAll("img.cm-image").length).toBe(1);
+  const image = within.querySelector("img.cm-image") as HTMLImageElement;
   expect(image.getAttribute("src")).toBe(CAT);
   image.src = picture("#61afef");
   await expect.poll(() => image.complete && image.naturalWidth > 0).toBe(true);
@@ -117,6 +147,16 @@ async function press(element: Element, modifiers: number): Promise<void> {
   const at = { x, y, modifiers, button: "left" as const, clickCount: 1 };
   await cdp().send("Input.dispatchMouseEvent", { type: "mousePressed", ...at });
   await cdp().send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+}
+
+/** Two clicks on `element` in quick succession, the second counted as the second. */
+async function doublePress(element: Element): Promise<void> {
+  const [x, y] = on(element);
+  for (const clickCount of [1, 2]) {
+    const at = { x, y, modifiers: 0, button: "left" as const, clickCount };
+    await cdp().send("Input.dispatchMouseEvent", { type: "mousePressed", ...at });
+    await cdp().send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+  }
 }
 
 /** Where `source` sits in `doc`. */
@@ -159,7 +199,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
   it.each(["off", "on"])("A1 a tap on a linked picture with vim %s opens the link", async (vim) => {
     await phone();
     const at = mount(NOTE, vim === "on", 896);
-    const image = await loaded(at);
+    const image = await loaded(at.dom);
     const open = stubOpen();
 
     await tap(image);
@@ -176,7 +216,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     async (kind, vim) => {
       await page.viewport(1280, 900);
       const at = mount(NOTE, vim === "on", 900);
-      const image = await loaded(at);
+      const image = await loaded(at.dom);
       const open = stubOpen();
 
       await press(image, kind === "ctrl" ? 2 : 0);
@@ -187,7 +227,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
   it("A3 a tap on a picture not inside a link moves the cursor onto it and opens nothing", async () => {
     await phone();
     const at = mount(UNLINKED, false, 896);
-    const image = await loaded(at);
+    const image = await loaded(at.dom);
     const open = stubOpen();
 
     await tap(image);
@@ -199,7 +239,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
   it("A3 a press on a picture not inside a link on a desktop moves the cursor onto it and opens nothing", async () => {
     await page.viewport(1280, 900);
     const at = mount(UNLINKED, false, 900);
-    const image = await loaded(at);
+    const image = await loaded(at.dom);
     const open = stubOpen();
 
     await press(image, 0);
@@ -214,7 +254,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
       const doc = ["A cat", "", linked(address)].join("\n");
       await phone();
       const at = mount(doc, false, 896);
-      const image = await loaded(at);
+      const image = await loaded(at.dom);
       const open = stubOpen();
 
       await tap(image);
@@ -227,7 +267,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
   it("I2 a tap on a picture inside a reference link opens the address its definition gives", async () => {
     await phone();
     const at = mount(REFERENCED, false, 896);
-    const image = await loaded(at);
+    const image = await loaded(at.dom);
     const open = stubOpen();
 
     await tap(image);
@@ -237,7 +277,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
   it("I3 a finger that lands on a linked picture and scrolls opens nothing", async () => {
     await phone();
     const at = mount(NOTE, false, 896);
-    const image = await loaded(at);
+    const image = await loaded(at.dom);
     const open = stubOpen();
 
     const [x, y] = on(image);
@@ -262,7 +302,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     // every character of the link is hidden, and `skipHidden` walks a cursor
     // forward off a hidden one.
     at.dispatch({ selection: { anchor: end } });
-    const image = await loaded(at);
+    const image = await loaded(at.dom);
     const open = stubOpen();
     const before = at.state;
 
@@ -273,5 +313,36 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     expect(at.state.selection.main.head).toBe(end);
     await settled();
     expect(open).not.toHaveBeenCalled();
+  });
+
+  it("A2 a ctrl press on a linked picture in the app's editor opens the link once", async () => {
+    await page.viewport(1280, 900);
+    const image = await loaded(mountApp(NOTE, 900));
+    const open = stubOpen();
+
+    await press(image, 2);
+    await settled();
+    expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
+  });
+
+  it("A1 a tap on a linked picture in the app's editor opens the link once", async () => {
+    await phone();
+    const image = await loaded(mountApp(NOTE, 896));
+    const open = stubOpen();
+
+    await tap(image);
+    await settled();
+    expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
+  });
+
+  it("B1 a double-click on a linked picture on a desktop opens the link once", async () => {
+    await page.viewport(1280, 900);
+    const at = mount(NOTE, false, 900);
+    const image = await loaded(at.dom);
+    const open = stubOpen();
+
+    await doublePress(image);
+    await settled();
+    expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
   });
 });

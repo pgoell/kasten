@@ -164,13 +164,15 @@ class Picture extends WidgetType {
     // (#558). The editor's own tap and ctrl+click never hear of a press the
     // widget swallowed, so the follow is here, under the rule `followOnTap`
     // keeps: a link the cursor is already in is one being edited.
-    image.addEventListener("click", () => {
+    image.addEventListener("click", (event) => {
       if (!image.isConnected) return;
       const at = view.posAtDOM(image);
       const link = urlLinkAt(syntaxTree(view.state).resolveInner(at, 1), view.state.doc);
       const head = view.state.selection.main.head;
       if (link !== null && (head < link.from || head > link.to)) {
-        window.open(link.address, "_blank", "noopener");
+        // A double-click sends a click for each press, and the follow leaves
+        // the cursor where it was, so the second would open a second tab.
+        if (event.detail <= 1) window.open(link.address, "_blank", "noopener");
       } else {
         view.dispatch({ selection: { anchor: at } });
       }
