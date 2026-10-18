@@ -44,6 +44,23 @@ async function renderRoute(hits: api.SearchHit[] = HITS, note = NOTE) {
   );
 }
 
+/**
+ * A button on the decks screen, asked for by role once the vault is read.
+ *
+ * Not `findByRole`. A role query works out every element's accessible name
+ * through jsdom's `getComputedStyle`: its first call here costs about 200 ms,
+ * and `findByRole` runs it again on every DOM change while the decks load.
+ * Measured alone, the wait took 320 ms, 280 of them in the query itself, while
+ * the decks reach the screen in 40 ms: the checks hold up the timers the decks
+ * arrive on. A loaded machine spent the whole second that way
+ * (#493). Waiting on the loading line costs a few ms, and the role query then
+ * runs once with no clock on it.
+ */
+async function findButton(name: string | RegExp): Promise<HTMLElement> {
+  await waitFor(() => expect(screen.queryByText("Reading the vault…")).toBeNull());
+  return screen.getByRole("button", { name });
+}
+
 describe("the review route", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -53,7 +70,7 @@ describe("the review route", () => {
     await renderRoute();
 
     // The exact name, because the deck row below names its parked count too.
-    fireEvent.click(await screen.findByRole("button", { name: "1 parked" }));
+    fireEvent.click(await findButton("1 parked"));
 
     expect(await screen.findByText("What is a VPC?")).toBeInTheDocument();
   });
@@ -84,7 +101,7 @@ describe("the review route on a phone", () => {
       .spyOn(api, "saveNote")
       .mockImplementation(async (path: string, content: string) => ({ path, content }));
 
-    fireEvent.click(await screen.findByRole("button", { name: /capitals/ }));
+    fireEvent.click(await findButton(/capitals/));
 
     expect(await shownCard()).toHaveTextContent(/^\[\.\.\.\]$/);
     fireEvent.click(screen.getByRole("button", { name: "Show answer" }));

@@ -351,6 +351,53 @@ describe("cycleTodoInVault", () => {
 
     expect(searchNotes).not.toHaveBeenCalled();
   });
+
+  it("searches nothing and writes nothing setting a done todo done", async () => {
+    // The press leaves the line as it was, so there is no log line to write or
+    // drop and no dependent to move.
+    const line = "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa";
+    fetchNote.mockResolvedValue(`${line}\n`);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: line },
+      "2026-10-18",
+      ["projects/kasten.md"],
+      "done",
+    );
+
+    expect(searchNotes).not.toHaveBeenCalled();
+    expect(fetchTodos).not.toHaveBeenCalled();
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(fetchNote).toHaveBeenCalledOnce();
+  });
+
+  it("writes nothing setting a done todo with no id done", async () => {
+    const line = "- [x] a ✅ 2026-10-18";
+    fetchNote.mockResolvedValue(`${line}\n`);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: line },
+      "2026-10-18",
+      ["projects/kasten.md"],
+      "done",
+    );
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing setting a blocked todo blocked", async () => {
+    const line = "- [b] a 🆔 kt-aaaaaa";
+    fetchNote.mockResolvedValue(`${line}\n`);
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: line },
+      "2026-10-18",
+      ["projects/kasten.md"],
+      "blocked",
+    );
+
+    expect(saveNote).not.toHaveBeenCalled();
+  });
 });
 
 describe("addTodoInVault", () => {

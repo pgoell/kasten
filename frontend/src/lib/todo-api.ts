@@ -295,9 +295,12 @@ export async function cycleTodoInVault(
   // The id goes only into the write, so stamping it before the search changes
   // nothing; it lets the press be read here, ahead of the search, as it will land.
   const id = newId();
-  const now = parseTodo(
-    state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id),
-  );
+  const pressed =
+    state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id);
+  // A press that leaves the line as it is, such as `X` on a done todo, has
+  // nothing to log, unblock or write, so it costs no search and no save.
+  if (pressed === line) return;
+  const now = parseTodo(pressed);
 
   // Only a press that enters or leaves done touches the log, and any todo with
   // an id that does may be named by a line already written: a hand or an agent
