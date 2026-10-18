@@ -4,7 +4,14 @@ import { readClock } from "@/lib/clock";
 import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
 import { nameAt, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo";
-import { closedAmong, cycleLines, doneLine, doneLineEdits, pressedLine } from "@/lib/todo-write";
+import {
+  closedAmong,
+  cycleLines,
+  doneLine,
+  doneLineEdits,
+  pressedLine,
+  twinnedIn,
+} from "@/lib/todo-write";
 
 /** Where the box ends on a line that has one, which is where the words start. */
 const BOX = /^[ \t]*- \[.\] /;
@@ -18,6 +25,11 @@ export interface TodoCycle {
   after: string;
   /** Which line it is, counting from one, the way a `SearchHit` counts. */
   line: number;
+  /**
+   * The whole buffer before the press. The route asks it whether the id stands
+   * on another todo line too: the disk can be an autosave behind the buffer.
+   */
+  doc: string;
 }
 
 export type CycleHandler = (cycle: TodoCycle) => void;
@@ -122,7 +134,9 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
         const held = state.doc.line(at);
         return { from: held.from, to: held.to, insert };
       }),
-      ...logEdits(doc, line.text, cycled, path),
+      // No log line for an id another todo line in here carries too: the route
+      // refuses the press beyond this line, and says why.
+      ...(twinnedIn(lines, line.number) ? [] : logEdits(doc, line.text, cycled, path)),
     ],
     state.doc.length,
   );
@@ -146,7 +160,7 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
     },
   });
 
-  cycleHandler?.({ before: line.text, after: cycled, line: line.number });
+  cycleHandler?.({ before: line.text, after: cycled, line: line.number, doc });
 }
 
 /**

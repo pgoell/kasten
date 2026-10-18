@@ -690,6 +690,7 @@ describe("cycleTodoAside", () => {
           before: "- [/] a 🆔 kt-aaaaaa",
           after: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
           line: 3,
+          doc: "# Kasten\n\n- [/] a 🆔 kt-aaaaaa",
         },
         "2026-10-18",
         ["projects/kasten.md", "projects/other.md", "deps.md", daily],
@@ -700,11 +701,36 @@ describe("cycleTodoAside", () => {
     expect(createNote).not.toHaveBeenCalled();
   });
 
-  it("#534 A4 a <leader>x on a twin in its own note names the other twin, not the pressed line", async () => {
-    // The buffer is newer than the index, so the note's twins are two hits in it.
+  it("#534 B2 a <leader>x whose twin the buffer no longer holds is not refused", async () => {
+    // The disk still holds the twin; the buffer changed its id an autosave ago.
+    const daily = periodicNote("daily", new Date()).path;
     fetchTodos.mockResolvedValue([
       { path: "projects/kasten.md", line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null },
       { path: "projects/kasten.md", line: 2, text: "- [/] a 🆔 kt-aaaaaa", project: null },
+    ]);
+
+    await cycleTodoAside(
+      "projects/kasten.md",
+      {
+        before: "- [/] a 🆔 kt-aaaaaa",
+        after: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
+        line: 1,
+        doc: "- [/] a 🆔 kt-aaaaaa\n- [/] a 🆔 kt-bbbbbb",
+      },
+      "2026-10-18",
+      ["projects/kasten.md"],
+    );
+
+    expect(createNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      expect.stringContaining("- ✅ 2026-10-18 a [[projects/kasten]] kt-aaaaaa"),
+    );
+  });
+
+  it("#534 B2 a <leader>x on a copy the disk does not hold yet is refused", async () => {
+    // `yy p` an autosave ago: the disk holds one line, the buffer two.
+    fetchTodos.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null },
     ]);
 
     await expect(
@@ -714,6 +740,7 @@ describe("cycleTodoAside", () => {
           before: "- [/] a 🆔 kt-aaaaaa",
           after: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
           line: 2,
+          doc: "- [/] a 🆔 kt-aaaaaa\n- [/] a 🆔 kt-aaaaaa",
         },
         "2026-10-18",
         ["projects/kasten.md"],

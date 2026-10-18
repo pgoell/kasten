@@ -756,6 +756,7 @@ describe("the leader key", () => {
       before: "- [/] wire up the pane 🆔 kt-3f9a2c",
       after: `- [x] wire up the pane ✅ ${TODAY} 🆔 kt-3f9a2c`,
       line: 1,
+      doc: "- [/] wire up the pane 🆔 kt-3f9a2c",
     });
   });
 

@@ -241,9 +241,10 @@ export async function cycleTodoAside(
 
   // Only an id the line had before the press can stand anywhere else, and only
   // a press that moves another note needs to know. The buffer keeps its line:
-  // the refusal covers what this would write beyond it.
+  // the refusal covers what this would write beyond it. This note is asked of
+  // the buffer, which the index can be an autosave behind.
   if (was?.id !== undefined && (logs || flips)) {
-    const other = otherTodoWithId(was.id, path, cycle.line, await fetchTodos());
+    const other = otherTodoWithId(was.id, path, cycle.line, await fetchTodos(), cycle.doc);
     if (other !== null) throw new Error(other);
   }
 

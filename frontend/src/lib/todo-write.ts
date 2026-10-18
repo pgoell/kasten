@@ -323,6 +323,16 @@ export interface CycleLinesInput {
   state?: TodoState;
 }
 
+/**
+ * Whether the todo on `line` carries an id another todo line in `lines` carries
+ * too. Such a press cannot tell whose log line or dependents it moves, so it
+ * moves only its own line. See `otherTodoWithId`.
+ */
+export function twinnedIn(lines: string[], line: number): boolean {
+  const id = parseTodo(lines[line - 1] ?? "")?.id;
+  return id !== undefined && otherTodoWithId(id, "", line, [], lines.join("\n")) !== null;
+}
+
 /** The line one press writes, whether it walks the cycle or names a state. */
 function pressed(line: string, today: string, id: string, state?: TodoState): string {
   return state === undefined ? cycleLine(line, today, id) : setStateOn(line, state, today, id);
@@ -408,8 +418,14 @@ export function cycleLines({
   // From the blocker's side and only from there: closing or reopening a todo
   // that carries an id is what moves the lines waiting on it. A press that
   // leaves the line no longer a todo moves nothing, nothing being able to
-  // resolve it any more.
-  if (was !== null && now?.id !== undefined && isOpen(was) !== isOpen(now)) {
+  // resolve it any more. Nor does one whose id a second todo line carries,
+  // whose dependents may be waiting on the other.
+  if (
+    was !== null &&
+    now?.id !== undefined &&
+    isOpen(was) !== isOpen(now) &&
+    !twinnedIn(lines, line)
+  ) {
     const after = [...lines];
     for (const [at, insert] of moved) after[at - 1] = insert;
     // The press is newer than whatever the caller can see, so this one id is
@@ -494,32 +510,23 @@ export interface LineHit {
  * share both: neither line can be told from the other, so the press refuses
  * rather than guess, and re-stamping one would break whatever names the id.
  *
- * `text` is the pressed note as the press just read it, and its other lines win
- * over the hits for that note, which can lag a write behind. Without it, as
- * from the editor whose buffer is newer than any read, a twin there is a second
- * hit in that note: one hit is the pressed line itself, at `line` or wherever
- * the index still holds it.
+ * `text` is the pressed note as the press just read it, or the buffer it was
+ * typed into, and its other lines win over the hits for that note, which can
+ * lag a write behind.
  */
 export function otherTodoWithId(
   id: string,
   path: string,
   line: number,
   hits: LineHit[],
-  text?: string,
+  text: string,
 ): string | null {
   const carries = (found: string) => parseTodo(found)?.id === id;
-  let here: { path: string; line: number }[];
-  if (text === undefined) {
-    here = hits.filter((hit) => hit.path === path && carries(hit.text));
-    const at = here.findIndex((hit) => hit.line === line);
-    here.splice(at === -1 ? 0 : at, 1);
-  } else {
-    here = text
-      .split("\n")
-      .flatMap((found, index) =>
-        index + 1 !== line && carries(found) ? [{ path, line: index + 1 }] : [],
-      );
-  }
+  const here = text
+    .split("\n")
+    .flatMap((found, index) =>
+      index + 1 !== line && carries(found) ? [{ path, line: index + 1 }] : [],
+    );
   const others = [...here, ...hits.filter((hit) => hit.path !== path && carries(hit.text))];
 
   const [first] = others;

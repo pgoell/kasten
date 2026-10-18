@@ -1246,11 +1246,14 @@ this note is part of the same buffer edit, so one `u` takes back all of it. A
 dependent in another note is a write the buffer cannot reach, like the log.
 
 The log and the dependents are found by the todo's `🆔`, so a press whose `🆔`
-stands on another todo line too, a pasted copy, writes neither. The line in the
-buffer stays as the press left it, and the notice says
-`Nothing moved: 🆔 <id> is on another todo too: <note> line <n>`. Change or
-delete the id on one of the two, and press again. A log or dependent write the
-vault refuses says `Nothing moved:` and the vault's reason.
+stands on another todo line too, a pasted copy, moves neither, in this note or
+any other. The line in the buffer stays as the press left it, and the notice
+says `Nothing moved: 🆔 <id> is on another todo too: <note> line <n>`. The copy
+is read off the buffer, so one pasted a moment ago counts and one you just
+changed does not. Fix the id on one of the two, then cycle the todo back round
+or tick it from the pane: a second press now would walk the line on past done.
+A log or dependent write the vault refuses says `Nothing moved:` and the
+vault's reason.
 
 `<leader>i` stamps an id on the todo the cursor is on, and does nothing to a
 line that is not a todo or that carries one already. It is how you name a todo
