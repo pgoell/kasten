@@ -453,9 +453,11 @@ async function renderApp(entry = "/") {
     /** The line diff the save detail opens on while the note stands conflicted. */
     diff: () => container.querySelector("[data-testid='conflict-diff']")?.textContent ?? null,
     /** Leave for another route or come back, the way a link does. */
-    navigate: (to: "/" | "/capture") =>
+    navigate: (to: "/" | "/capture", note?: string) =>
       act(async () => {
-        await router.navigate({ to });
+        await (to === "/" && note !== undefined
+          ? router.navigate({ to, search: { note } })
+          : router.navigate({ to }));
       }),
     /** Whether the bar's reading is wearing the flash a refusal raises. */
     flashing: () =>
@@ -5963,6 +5965,50 @@ describe("the workspace across a reload", () => {
     expect(app.held()?.title).toContain("other.md");
     expect(localStorage.getItem("kasten.held.2")).toBe(held);
     expect(localStorage.getItem(FINE)).not.toContain("typed and never saved");
+  });
+
+  it("workspace: I4 a pointer that changes mid-session saves under the key the layout came from", async () => {
+    const media = stubMatchMedia();
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+
+    await media.set(COARSE, true);
+    app.click("other.md");
+    await settle();
+
+    expect(localStorage.getItem(COARSE_KEY)).toBeNull();
+    expect(localStorage.getItem(FINE)).toContain("other.md");
+  });
+
+  it("workspace: I2 a return naming a conflicted note no saved pane holds reads the vault afresh", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    await app.navigate("/capture");
+    await settle();
+    // Left conflicted, and the vault came to hold the kept text since. The
+    // cache still holds the text from before, which a reopen must not take
+    // for the vault's.
+    holdText("index.md", {
+      content: "the kept text",
+      reason: "Changed on disk before the note was left",
+      conflicted: true,
+    });
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "index.md" ? "the kept text" : VAULT[path],
+    );
+    // Nothing saved, so the layout is the URL's note alone.
+    localStorage.removeItem(FINE);
+
+    await app.navigate("/", "index.md");
+    await settle();
+
+    expect(app.text()).toBe("the kept text");
+    expect(app.status()).toBe("Saved");
+    expect(heldText("index.md")).toBeUndefined();
   });
 
   /** index.md focused beside other.md, which holds text a failed write left. */

@@ -275,6 +275,10 @@ function Home() {
   // state so the layout and the tree start from the one read: a second read
   // would re-id every pane again for nothing.
   const [saved] = useState(() => loadWorkspace(coarse));
+  // The key it came from, which every save goes back to: a pointer that
+  // changes mid-session (a mouse plugged into a tablet) would otherwise write
+  // this layout over the other device's.
+  const [savedAs] = useState(coarse);
   // How the window is divided, and what is open in each division. Restored
   // from this device's saved workspace, then the URL's note opened over it:
   // a link that names a note wins, and a plain reload, whose URL names the
@@ -283,18 +287,24 @@ function Home() {
   // In the initializer and not an effect, so the first render already draws
   // the restored panes and no editor mounts on a pane about to be replaced.
   const [layout, setLayout] = useState<Layout>(() => {
-    if (saved === null) return emptyLayout(note, line);
+    const start =
+      saved === null
+        ? emptyLayout(note, line)
+        : note === undefined
+          ? saved.layout
+          : openOnTop(saved.layout, note, line);
     // A note left standing conflicted keeps the vault's text from before the
     // other write in the cache, which the effect on `held` below drops only
-    // where no pane reads it. A restored pane reads it from its first render,
-    // so it would open on that text as the vault's and never see the vault
-    // come to hold the kept text: dropped here, before any pane mounts.
-    for (const each of saved.layout.tabs.flatMap((tab) => panesOf(tab.root))) {
+    // where no pane reads it. A pane this layout starts with reads it from its
+    // first render, so it would open on that text as the vault's and never see
+    // the vault come to hold the kept text: dropped here, before any pane
+    // mounts, for every pane the first render draws.
+    for (const each of start.tabs.flatMap((tab) => panesOf(tab.root))) {
       if (each.path !== undefined && heldText(each.path)?.conflicted) {
         queryClient.removeQueries({ queryKey: ["note", each.path], exact: true });
       }
     }
-    return note === undefined ? saved.layout : openOnTop(saved.layout, note, line);
+    return start;
   });
   // Raised by every key that moves the focus, so the editor in the pane arrived
   // at takes it. A click raises nothing, having already moved the focus itself.
@@ -455,8 +465,8 @@ function Home() {
   const wideTree = useRef(saved?.treeOpen ?? true);
   useEffect(() => {
     if (!narrow) wideTree.current = treeOpen;
-    saveWorkspace(coarse, layout, wideTree.current);
-  }, [coarse, layout, treeOpen, narrow]);
+    saveWorkspace(savedAs, layout, wideTree.current);
+  }, [savedAs, layout, treeOpen, narrow]);
   // The drawer covers the pane, so it shuts whenever the focus is handed to
   // one, which every way of opening something ends with. It shuts as well when
   // the window turns narrow under an open panel, a phone turned upright being
