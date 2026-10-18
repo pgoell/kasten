@@ -69,13 +69,18 @@ its box as a link, brackets and all, and the bullet already hides that box and
 draws a symbol in its place. Two renderings of the same three characters can
 only disagree, so the link rendering stands down where a todo's box begins.
 
-The parser reads every `[text]` as a link, with or without an address. Only one
-with a `(…)` part draws as a link; `[text]` and `[text][ref]` stay as typed,
-brackets and all, as Obsidian shows them, and Copy as keeps the brackets too.
-They draw as plain text, with no link colour or underline, so in bold or a
-heading they look like the words around them. The highlighter still colours
-the node as a link, so a mark over it takes that look back off (#441).
-kasten does not look up `[text]: url` definitions (#439).
+The parser reads every `[text]` as a link, with or without an address. A
+reference link, `[text]`, `[text][]` or `[text][label]`, draws as a link when
+the note holds a definition `[label]: url` on a line of its own, anywhere in
+the note, the label matched without regard to case. It then draws, opens and
+copies as `[text](url)` does, through the same code: kasten has one link
+rendering, and a reference link only finds its address elsewhere. The
+definition line stays as typed, as Obsidian's live preview shows it, and Copy
+as leaves it out. A `[text]` whose label nothing defines stays as typed,
+brackets and all, as Obsidian shows it, and Copy as keeps the brackets too.
+Such text draws plain, with no link colour or underline, so in bold or a
+heading it looks like the words around it. The highlighter still colours the
+node as a link, so a mark over it takes that look back off (#441).
 
 ## The cursor never rests on a character you cannot see
 
