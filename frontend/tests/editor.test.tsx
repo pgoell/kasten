@@ -987,12 +987,15 @@ describe("Editor reopening a note where it was left (#495)", () => {
 
   /** Open the note, put the cursor and the scroll somewhere, and close it. */
   function leave(cursor: number, top = 0) {
+    // On screen, or the scroll read off it would not count.
+    const height = boxHigh(400);
     const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
     const view = viewIn(container);
     act(() => view.dispatch({ selection: { anchor: cursor } }));
     view.scrollDOM.scrollTop = top;
     fireEvent.scroll(view.scrollDOM);
     unmount();
+    height.mockRestore();
   }
 
   /**
@@ -1073,6 +1076,24 @@ describe("Editor reopening a note where it was left (#495)", () => {
 
     expect(JSON.parse(localStorage.getItem(KEY) as string)).toEqual([
       ["a.md", { anchor: IN_THREE, head: IN_THREE, top: 120 }],
+    ]);
+  });
+
+  it("editor: A6 a pane hidden by a zoom after it showed keeps its saved scroll", () => {
+    const height = boxHigh(400);
+    const { container, unmount } = render(<Editor initialDoc={DOC} path="a.md" />);
+    const view = viewIn(container);
+    view.scrollDOM.scrollTop = 120;
+    fireEvent.scroll(view.scrollDOM);
+
+    // Zoomed out of sight: no height, and the offset a browser reports then.
+    height.mockReturnValue(0);
+    view.scrollDOM.scrollTop = 0;
+    fireEvent.scroll(view.scrollDOM);
+    unmount();
+
+    expect(JSON.parse(localStorage.getItem(KEY) as string)).toEqual([
+      ["a.md", { anchor: 0, head: 0, top: 120 }],
     ]);
   });
 

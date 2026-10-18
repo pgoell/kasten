@@ -1079,7 +1079,9 @@ export function Editor({
 
     reveal();
     function onScroll() {
-      if (!shown) return;
+      // No height is a pane zoomed out of sight since it showed, whose
+      // scroller reads 0 wherever the reader left it.
+      if (!shown || view.scrollDOM.clientHeight === 0) return;
       top = view.scrollDOM.scrollTop;
       soon();
     }
