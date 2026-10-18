@@ -405,6 +405,24 @@ describe("cycleTodoWrites", () => {
     });
   });
 
+  it("logs a todo ticked out of review under today's Done heading, as out of doing", () => {
+    const review = NOTE.replace("- [/] wire up the pane", "- [r] wire up the pane");
+    const writes = cycleTodoWrites(press({ text: review }));
+
+    expect(writes).toHaveLength(2);
+    expect(writes[0]).toEqual({
+      path: NOTE_PATH,
+      text: review.replace(
+        "- [r] wire up the pane 📅 2026-08-14 ⏫ #kasten",
+        "- [x] wire up the pane 📅 2026-08-14 ⏫ ✅ 2026-08-10 🆔 kt-3f9a2c #kasten",
+      ),
+    });
+    expect(writes[1]).toEqual({
+      path: DAILY_PATH,
+      text: `${FRESH_DAILY.replace(/\n+$/, "")}\n\n## Done\n- ✅ 2026-08-10 wire up the pane #kasten [[projects/kasten]] kt-3f9a2c\n`,
+    });
+  });
+
   it("appends nothing where the id is already logged", () => {
     const already = [
       "# 2026-08-10 Monday",

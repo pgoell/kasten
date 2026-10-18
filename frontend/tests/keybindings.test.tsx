@@ -688,6 +688,29 @@ describe("the leader key", () => {
     expect(doc()).toMatch(/^- \[w\] wire up the pane 👤 \d{4}-\d{2}-\d{2}$/);
   });
 
+  it("sets a todo to waiting for review on leader s v", () => {
+    const { editor, doc } = open("- [ ] wire up the pane");
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "v" });
+
+    expect(doc()).toBe("- [r] wire up the pane");
+  });
+
+  it("takes leader s v back on one u", () => {
+    const note = "- [x] wire up the pane ✅ 2026-01-02";
+    const { editor, doc } = open(note);
+
+    fireEvent.keyDown(editor, { key: " " });
+    fireEvent.keyDown(editor, { key: "s" });
+    fireEvent.keyDown(editor, { key: "v" });
+    expect(doc()).toBe("- [r] wire up the pane");
+    fireEvent.keyDown(editor, { key: "u" });
+
+    expect(doc()).toBe(note);
+  });
+
   it("tidies the note's markdown on the leader's format key", () => {
     const { editor, doc } = open("* one   \n\n\n* two");
 

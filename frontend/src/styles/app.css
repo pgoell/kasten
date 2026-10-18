@@ -363,6 +363,14 @@ body {
   color: var(--color-one-yellow);
 }
 
+/* Purple, a colour no other state wears: the work is done and the owner's
+   check is what holds it, so it is neither waiting on others nor finished.
+   Not muted or struck either, being still open. */
+.cm-todo-review::before {
+  content: "◎ ";
+  color: var(--color-one-purple);
+}
+
 /* Red, so a dropped todo is not read as an open one: muted is what an empty box
    wears, and the two boxes differ by one stroke. */
 .cm-todo-rejected::before {

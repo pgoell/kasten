@@ -45,6 +45,7 @@ const PRIORITY_TERMS: Record<string, TodoPriority> = {
 const STATE_TERMS: Record<string, TodoState> = {
   "/open": "open",
   "/doing": "doing",
+  "/review": "review",
   "/done": "done",
   "/blocked": "blocked",
   "/waiting": "waiting",

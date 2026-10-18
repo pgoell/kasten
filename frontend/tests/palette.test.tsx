@@ -113,6 +113,18 @@ describe("the palette", () => {
     expect(row).toHaveClass("pointer-coarse:min-h-11");
   });
 
+  it("sets a todo to waiting for review from a tapped row, no vim in the editor", () => {
+    // A bare view: no vim, so the row is the whole way in, as on a phone.
+    const view = viewOf("- [ ] wire up the pane", 0);
+    const onClose = vi.fn();
+    render(<CommandPalette entries={paletteEntries(stubCommands(), view)} onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole("option", { name: /Set this todo to waiting for review/ }));
+
+    expect(view.state.doc.toString()).toBe("- [r] wire up the pane");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("prints the key beside the command", () => {
     render(<CommandPalette entries={paletteEntries(stubCommands(), null)} onClose={vi.fn()} />);
     expect(screen.getByRole("option", { name: /Find a note/ }).textContent).toContain("Space f f");

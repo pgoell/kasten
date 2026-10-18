@@ -596,6 +596,31 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("5 open, 1 blocked");
   });
 
+  it("draws a review row with its symbol, and not muted", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [r] write the parser 📅 2026-08-10" },
+      { path: "a.md", line: 2, text: "- [ ] buy milk 📅 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    const review = pane.rows().find((row) => row.textContent?.includes("write the parser"));
+    expect(review?.textContent).toContain("◎");
+    // Not held as blocked and waiting are: what it waits for is the owner's
+    // eye, so it has to stand out rather than fade.
+    expect(review?.className).toContain("text-one-fg");
+    expect(review?.className).not.toContain("text-one-muted");
+  });
+
+  it("counts the rows waiting for review in the footer", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [r] write the parser 📅 2026-08-10" },
+      { path: "a.md", line: 2, text: "- [ ] buy milk 📅 2026-08-10" },
+    ]);
+
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+    expect(pane.footer()).toContain("1 open, 0 blocked, 1 to review");
+  });
+
   it("names only the keys this phase binds", async () => {
     const pane = renderPane();
     await waitFor(() => expect(pane.rows()).toHaveLength(6));
@@ -606,7 +631,7 @@ describe("the todo pane", () => {
     expect(pane.footer()).toContain("i edit");
     expect(pane.footer()).toContain("d done");
     expect(pane.footer()).toContain("n next");
-    expect(pane.footer()).toContain("O P X B W R state");
+    expect(pane.footer()).toContain("O P V X B W R state");
     expect(pane.footer()).toContain("/ filter");
     expect(pane.footer()).toContain("q close");
     expect(pane.footer()).toContain("t timer");
@@ -787,6 +812,15 @@ describe("the todo pane", () => {
     pane.press("W");
 
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "waiting");
+  });
+
+  it("sets a row to review on V", async () => {
+    const pane = renderPane();
+    await waitFor(() => expect(pane.rows()).toHaveLength(6));
+
+    pane.press("V");
+
+    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "review");
   });
 
   it("starts or stops the timer on the row under the cursor on t", async () => {
@@ -976,6 +1010,7 @@ describe("the todo pane", () => {
     await waitFor(() => expect(pane.rows()).toHaveLength(6));
 
     // One press per view the defaults hold, which lands on the last of them.
+    pane.press("v");
     pane.press("v");
     pane.press("v");
     pane.press("v");
@@ -1235,6 +1270,38 @@ describe("the todo pane by touch", () => {
     expect(pane.onOpen).not.toHaveBeenCalled();
   });
 
+  it("ticks a review row done on the second tap of its state", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const hit = { path: "a.md", line: 1, text: "- [r] write the parser 📅 2026-08-10" };
+    const pane = renderPane([hit]);
+    await waitFor(() => expect(row("write the parser")).toBeDefined());
+    const state = screen.getByLabelText("cycle write the parser");
+    expect(state.textContent).toBe("◎");
+
+    fireEvent.click(state);
+    // Review leaves the walk for done, which is the owner's approval.
+    expect(state.textContent).toBe("☑?");
+    expect(pane.onCycle).not.toHaveBeenCalled();
+
+    fireEvent.click(state);
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(hit);
+  });
+
+  it("names the states in the strip in the order of the shifted keys", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    renderPane();
+    await waitFor(() => expect(row("buy milk")).toBeDefined());
+
+    fireEvent.click(screen.getByLabelText("more for buy milk"));
+
+    const states = ["open", "doing", "review", "done", "blocked", "waiting", "rejected"];
+    const labels = screen
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label") ?? "")
+      .filter((label) => states.some((one) => label === `${one} buy milk`));
+    expect(labels).toEqual(states.map((one) => `${one} buy milk`));
+  });
+
   it("asks about one row at a time", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
@@ -1450,6 +1517,7 @@ describe("the todo pane by touch", () => {
   it.each([
     ["open", "open"],
     ["doing", "doing"],
+    ["review", "review"],
     ["done", "done"],
     ["blocked", "blocked"],
     ["waiting", "waiting"],

@@ -10,12 +10,17 @@ import { shiftDay } from "@/lib/clock";
 import { endsOfWords, parseTodo, type Todo } from "@/lib/todo";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
-export type Column = "open" | "doing" | "waiting" | "blocked" | "done" | "rejected";
+export type Column = "open" | "doing" | "review" | "waiting" | "blocked" | "done" | "rejected";
 
-/** In the order the board draws them: the walk of the work, then where it ended. */
+/**
+ * In the order the board draws them: the walk of the work, then where it ended.
+ * Review follows doing because it is where an agent's doing ends, one tick
+ * short of done.
+ */
 export const COLUMNS: readonly Column[] = [
   "open",
   "doing",
+  "review",
   "waiting",
   "blocked",
   "done",
@@ -25,6 +30,7 @@ export const COLUMNS: readonly Column[] = [
 export const COLUMN_HEADING: Record<Column, string> = {
   open: "Open",
   doing: "Doing",
+  review: "Review",
   waiting: "Waiting",
   blocked: "Blocked",
   done: "Done",

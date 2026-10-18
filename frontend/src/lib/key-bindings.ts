@@ -435,6 +435,13 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
     label: "Set this todo to waiting on somebody",
     run: (view) => cycleTodoAtCursor(view, "waiting"),
   },
+  // `v` for verify, the one state not on its own first letter: `r` is spent on
+  // rejected.
+  {
+    key: "sv",
+    label: "Set this todo to waiting for review",
+    run: (view) => cycleTodoAtCursor(view, "review"),
+  },
   {
     key: "sr",
     label: "Set this todo to rejected",
@@ -684,6 +691,7 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
   { key: "p", label: "On the board: pick a project for the card" },
   { key: "O", label: "Set the todo under the cursor to open" },
   { key: "P", label: "Set the todo under the cursor to doing" },
+  { key: "V", label: "Set the todo under the cursor to waiting for review" },
   { key: "X", label: "Set the todo under the cursor to done" },
   { key: "B", label: "Set the todo under the cursor to blocked" },
   { key: "W", label: "Set the todo under the cursor to waiting on somebody" },

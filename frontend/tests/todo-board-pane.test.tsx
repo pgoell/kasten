@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo-view";
+import { DEFAULT_VIEWS, parseViews, VIEWS_NOTE } from "@/lib/todo-view";
 import { toggleVim } from "@/lib/vim-setting";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
@@ -158,12 +158,13 @@ describe("the todo board", () => {
     expect(pane.cards()).toHaveLength(0);
   });
 
-  it("A2 draws the six columns and leaves out what was finished before the last seven days", async () => {
+  it("A2 draws the seven columns and leaves out what was finished before the last seven days", async () => {
     const pane = await boardPane();
 
     expect(pane.columns()).toEqual([
       "Open 3",
       "Doing 1",
+      "Review 0",
       "Waiting 0",
       "Blocked 1",
       "Done 1",
@@ -283,6 +284,7 @@ describe("the todo board", () => {
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Open 3",
       "Doing 1",
+      "Review 0",
       "Waiting 0",
       "Blocked 1",
       "Done 1",
@@ -294,7 +296,16 @@ describe("the todo board", () => {
     expect(pane.texts()).toEqual([expect.stringContaining("gather numbers")]);
 
     fireEvent.click(screen.getByLabelText("more for gather numbers"));
-    for (const label of ["open", "doing", "done", "blocked", "waiting", "rejected", "project"]) {
+    for (const label of [
+      "open",
+      "doing",
+      "review",
+      "done",
+      "blocked",
+      "waiting",
+      "rejected",
+      "project",
+    ]) {
       expect(screen.getByLabelText(`${label} gather numbers`)).toBeDefined();
     }
     fireEvent.click(screen.getByLabelText("project gather numbers"));
@@ -340,7 +351,7 @@ describe("the todo board", () => {
 
     cleanup();
     const full = await boardPane();
-    // Waiting holds nothing.
+    // Review holds nothing.
     full.press("l");
     full.press("l");
     for (const key of ["j", "k", "x", "O", "Enter", "p"]) full.press(key);
@@ -376,7 +387,7 @@ describe("the todo board", () => {
 
   it("I5 a done card moved with O goes back to open through onCycle", async () => {
     const pane = await boardPane();
-    for (const key of ["l", "l", "l", "l"]) pane.press(key);
+    for (const key of ["l", "l", "l", "l", "l"]) pane.press(key);
     expect(pane.cursor()).toContain("gather numbers");
 
     pane.press("O");
@@ -413,6 +424,48 @@ describe("the todo board", () => {
 
     expect(pane.onCycle).toHaveBeenCalledTimes(1);
     expect(pane.onCycle).toHaveBeenCalledWith(CHART, "done");
+  });
+
+  it("#429 A4 a review card sits in a Review column after Doing, in a grid of seven", async () => {
+    const pane = await boardPane({
+      hits: [...BOARD, { path: DAILY, line: 9, text: "- [r] write the parser" }],
+    });
+
+    expect(pane.columns().slice(0, 3)).toEqual(["Open 3", "Doing 1", "Review 1"]);
+    // Seven columns, so the grid and every lane's span count seven.
+    const grid = screen.getAllByTestId("todo-column")[0]?.parentElement;
+    expect(grid?.className).toContain("grid-cols-7");
+    expect(grid?.innerHTML).not.toContain("col-span-6");
+  });
+
+  it("#429 A4 V moves the card to review through onCycle", async () => {
+    const pane = await boardPane();
+    expect(pane.cursor()).toContain("send the invoice");
+
+    pane.press("V");
+
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(INVOICE, "review");
+  });
+
+  it("#429 A4 a phone has a Review tab, and the card's strip sets review on one tap", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const review = { path: DAILY, line: 9, text: "- [r] write the parser" };
+    const pane = await boardPane({ hits: [...BOARD, review] });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Review 1" }));
+    expect(pane.texts()).toEqual([expect.stringContaining("write the parser")]);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Doing 1" }));
+    fireEvent.click(screen.getByLabelText("more for draw the chart"));
+    const states = ["open", "doing", "review", "done", "blocked", "waiting", "rejected"];
+    const labels = screen
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label") ?? "")
+      .filter((label) => states.some((one) => label === `${one} draw the chart`));
+    expect(labels).toEqual(states.map((one) => `${one} draw the chart`));
+
+    fireEvent.click(screen.getByLabelText("review draw the chart"));
+    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(CHART, "review");
   });
 
   it("A3 the lanes button switches lanes on a touch screen", async () => {
@@ -613,7 +666,9 @@ describe("the board by mouse (#419)", () => {
   async function viewsInHand(pane: ReturnType<typeof renderPane>) {
     fireEvent.click(button("view"));
     await waitFor(() => expect(pane.filter().value).toBe("due:today"));
-    for (let left = 0; left < 3; left++) fireEvent.click(button("view"));
+    // A tap for each view after the first, and one more past the last.
+    const views = parseViews(DEFAULT_VIEWS).length;
+    for (let left = 0; left < views; left++) fireEvent.click(button("view"));
     expect(pane.filter().value).toBe("");
   }
 

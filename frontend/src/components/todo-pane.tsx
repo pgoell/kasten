@@ -141,10 +141,14 @@ const GUTTER = 0.75;
 /** Which list the pane is showing. `d` and `n` each toggle their own back. */
 type Mode = "open" | "done" | "next";
 
-/** The state each shifted key names. `p` for in progress, `d` being spent. */
+/**
+ * The state each shifted key names. `p` for in progress, `d` being spent; `v`
+ * for verify, `r` being spent. The order is the `⋯` strip's.
+ */
 const SET: Record<string, TodoState> = {
   O: "open",
   P: "doing",
+  V: "review",
   X: "done",
   B: "blocked",
   W: "waiting",
@@ -633,6 +637,7 @@ export function TodoPane({
 
   const blocked = shown.filter(({ todo }) => todo.state === "blocked").length;
   const onSomebody = shown.filter(({ todo }) => todo.state === "waiting").length;
+  const toReview = shown.filter(({ todo }) => todo.state === "review").length;
 
   /**
    * Hand the focus back to the list, which is where the keys below act.
@@ -852,11 +857,12 @@ export function TodoPane({
         if (at !== undefined) onCycle(at.hit);
         break;
       // One key per state, shifted so every lowercase key keeps its meaning.
-      // The walk cannot reach blocked, waiting or rejected from here: a row
-      // leaves this list the moment it is done, and these are how you get to
-      // them.
+      // The walk cannot reach review, blocked, waiting or rejected from here: a
+      // row leaves this list the moment it is done, and these are how you get
+      // to them.
       case "O":
       case "P":
+      case "V":
       case "X":
       case "B":
       case "W":
@@ -1092,6 +1098,8 @@ export function TodoPane({
                     todo.id !== undefined && isOpen(todo)
                       ? links.dependents.get(todo.id)
                       : undefined;
+                  // Not review: what it waits on is the owner's own eye, so it
+                  // is drawn at full strength rather than faded out of sight.
                   const held = todo.state === "blocked" || todo.state === "waiting";
                   // One tab stop for the whole pane: tab reaches the cursor, and
                   // the vim keys move it from there.
@@ -1360,8 +1368,9 @@ export function TodoPane({
             `${shown.length} finished`
           ) : (
             <>
-              {shown.length - blocked - onSomebody} open, {blocked} blocked
+              {shown.length - blocked - onSomebody - toReview} open, {blocked} blocked
               {onSomebody > 0 && `, ${onSomebody} waiting`}
+              {toReview > 0 && `, ${toReview} to review`}
               {timers > 0 && `, ${timers} running`}
             </>
           )}
@@ -1370,13 +1379,13 @@ export function TodoPane({
           <span>j k move&ensp;&ensp;/ filter&ensp;&ensp;Enter pick&ensp;&ensp;Escape cancel</span>
         ) : board ? (
           <span>
-            h l column&ensp;&ensp;j k card&ensp;&ensp;x cycle&ensp;&ensp;O P X B W R
+            h l column&ensp;&ensp;j k card&ensp;&ensp;x cycle&ensp;&ensp;O P V X B W R
             state&ensp;&ensp;p project&ensp;&ensp;g lanes&ensp;&ensp;c list&ensp;&ensp;v
             view&ensp;&ensp;/ filter&ensp;&ensp;q close
           </span>
         ) : (
           <span>
-            x cycle&ensp;&ensp;O P X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
+            x cycle&ensp;&ensp;O P V X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
             edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;d done&ensp;&ensp;n
             next&ensp;&ensp;v view&ensp;&ensp;c board&ensp;&ensp;/ filter&ensp;&ensp;q
             close&ensp;&ensp;Escape editor

@@ -113,7 +113,8 @@ describe("kindOf", () => {
 
 describe("onBoard", () => {
   it("shows every open state", () => {
-    for (const box of [" ", "/", "w", "b"]) expect(onBoard(todo(`- [${box}] a`), TODAY)).toBe(true);
+    for (const box of [" ", "/", "r", "w", "b"])
+      expect(onBoard(todo(`- [${box}] a`), TODAY)).toBe(true);
   });
 
   it("shows done from six days back and not seven", () => {
@@ -135,7 +136,8 @@ describe("onBoard", () => {
 describe("columnOf", () => {
   it("puts a todo in the column of its state", () => {
     expect(columnOf(todo("- [w] a"))).toBe("waiting");
-    expect(COLUMNS).toEqual(["open", "doing", "waiting", "blocked", "done", "rejected"]);
+    expect(columnOf(todo("- [r] a"))).toBe("review");
+    expect(COLUMNS).toEqual(["open", "doing", "review", "waiting", "blocked", "done", "rejected"]);
   });
 });
 

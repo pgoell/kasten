@@ -31,6 +31,7 @@ export interface BoardKeys {
 const SET: Record<string, TodoState> = {
   O: "open",
   P: "doing",
+  V: "review",
   X: "done",
   B: "blocked",
   W: "waiting",
@@ -271,6 +272,7 @@ export function TodoBoard({
           break;
         case "O":
         case "P":
+        case "V":
         case "X":
         case "B":
         case "W":
@@ -469,7 +471,7 @@ export function TodoBoard({
             </div>
           ))
       ) : (
-        <div className="grid min-w-[54rem] grid-cols-6 gap-x-1">
+        <div className="grid min-w-[63rem] grid-cols-7 gap-x-1">
           {COLUMNS.map((name: Column, index) => (
             <div
               key={name}
@@ -480,8 +482,8 @@ export function TodoBoard({
             </div>
           ))}
           {lanes.map((lane) => (
-            <div key={lane.id} className="col-span-6 grid grid-cols-subgrid">
-              <h3 className={`${heading} col-span-6 border-t border-one-line`}>{lane.name}</h3>
+            <div key={lane.id} className="col-span-7 grid grid-cols-subgrid">
+              <h3 className={`${heading} col-span-7 border-t border-one-line`}>{lane.name}</h3>
               {lane.cells.map((cell, index) => (
                 <div key={COLUMNS[index]} className="min-w-0">
                   {cell.map(drawCard)}

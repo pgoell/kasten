@@ -644,6 +644,7 @@ like any other line of the vault.
 
 - today: due:today
 - doing: /doing
+- review: /review
 - important: !highest !high
 ```
 
@@ -651,7 +652,7 @@ A view is a list item at the left margin: the name up to the first colon, the
 filter terms after it, read by the table above. A filter carrying a colon of its
 own, `due:<7d`, splits where it should, the name never crossing one.
 
-The first `v` in a vault holding no such note writes it with those three views,
+The first `v` in a vault holding no such note writes it with those four views,
 the way the periodic keys make the note they open. Change them by opening the
 note.
 

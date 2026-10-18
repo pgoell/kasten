@@ -336,11 +336,16 @@ describe("parseViews", () => {
     expect(parseViews(DEFAULT_VIEWS).map((view) => view.name)).toEqual([
       "today",
       "doing",
+      "review",
       "important",
     ]);
   });
 
-  it("reads the same three views past the block the note opens with", () => {
+  it("writes a view of what waits for review, after doing", () => {
+    expect(parseViews(DEFAULT_VIEWS)[2]).toEqual({ name: "review", filter: "/review" });
+  });
+
+  it("reads the same four views past the block the note opens with", () => {
     // A line that is not a view is skipped, so the block costs the parse
     // nothing. The assertion above is what says the block did not eat a view.
     expect(DEFAULT_VIEWS.split("\n").slice(0, 3)).toEqual(["---", "type: Reference", "---"]);

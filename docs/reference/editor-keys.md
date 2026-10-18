@@ -1387,8 +1387,8 @@ state already being written on the line. A row
 [waiting on somebody](/reference/todo-format.md#waiting-on-somebody) is drawn
 the same way and says for how many days and on whom before its date,
 `👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. The footer counts the rows, so many open and so many
-blocked, how many are waiting where any are, how many wait for review where
-any do, and how many timers are going
+blocked, how many are waiting where any are, how many are to review where
+any are, and how many timers are going
 where any are.
 
 Only open todos are listed. One that is done or rejected is not work, and the

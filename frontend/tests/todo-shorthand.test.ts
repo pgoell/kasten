@@ -86,6 +86,13 @@ describe("matchesFilter", () => {
     expect(matches("- [b] wire up the pane", "/waiting")).toBe(false);
   });
 
+  it("keeps only the rows waiting for review on /review, and drops them on -/review", () => {
+    expect(matches("- [r] wire up the pane", "/review")).toBe(true);
+    expect(matches("- [/] wire up the pane", "/review")).toBe(false);
+    expect(matches("- [r] wire up the pane", "-/review")).toBe(false);
+    expect(matches("- [/] wire up the pane", "-/review")).toBe(true);
+  });
+
   it("drops a row carrying a negated term", () => {
     expect(matches("- [ ] wire up the pane #kasten", "-#kasten")).toBe(false);
     expect(matches("- [ ] call the dentist #health", "-#kasten")).toBe(true);

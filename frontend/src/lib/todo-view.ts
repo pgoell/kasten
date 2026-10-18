@@ -185,6 +185,7 @@ type: Reference
 
 - today: due:today
 - doing: /doing
+- review: /review
 - important: !highest !high
 `;
 
