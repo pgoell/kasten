@@ -62,10 +62,21 @@ export function linkAddress(node: SyntaxNode, doc: Source): string | null {
 
 /**
  * Hands `tree` the definitions of `note`. Copy as of a selection parses the
- * selection alone, and its links name definitions anywhere in the note.
+ * selection alone, and its links name definitions anywhere in the note. The
+ * selection's own still count for a label the note lacks, as when they sit in
+ * a fence the note reads as code.
  */
-export function lendDefinitions(tree: Tree, note: Tree, doc: Source): void {
-  scanned.set(tree, definitions(note.topNode, doc));
+export function lendDefinitions(tree: Tree, doc: Source, note: Tree, noteDoc: Source): void {
+  const merged = new Map(definitions(note.topNode, noteDoc));
+  for (const [label, url] of definitions(tree.topNode, doc)) {
+    if (!merged.has(label)) merged.set(label, url);
+  }
+  scanned.set(tree, merged);
+}
+
+/** An address that runs a script where it opens, never followed nor copied as a link. */
+export function isScript(address: string): boolean {
+  return /^(javascript|data|vbscript):/i.test(address);
 }
 
 /** The definitions of the note `top` heads, read once per parse. */
@@ -77,17 +88,60 @@ function definitions(top: SyntaxNode, doc: Source): Map<string, string> {
   const found = new Map<string, string>();
   collect(top, doc, found);
   // CodeMirror parses a long note a slice at a time, so its tree can stop
-  // short of a definition at the end. The rest is read by line, as a fence
-  // there would not be, until the tree reaches it. A fence's own tree ends
-  // short of the note too, and has no rest.
-  if (top.to < doc.length && (top.parent === null || top.parent.type.isTop)) {
-    for (const line of doc.sliceString(top.to).split("\n")) {
-      const match = DEFINITION.exec(line);
-      if (match?.[1] !== undefined && match[2] !== undefined) add(found, match[1], match[2]);
-    }
+  // short of a definition at the end. The rest is read by line until the tree
+  // reaches it, from the start of the line the tree stops in. A fence's own
+  // tree ends short of the note too, and has no rest. A tree that stops inside
+  // an open fence leaves the rest unknown: whether a later line is code or
+  // not turns on where that fence closes, which the parser will soon say.
+  if (top.to < doc.length && (top.parent === null || top.parent.type.isTop) && !inFence(top)) {
+    let start = top.to;
+    while (start > 0 && doc.sliceString(start - 1, start) !== "\n") start--;
+    scanLines(doc.sliceString(start), found);
   }
   if (tree !== null) scanned.set(tree, found);
   return found;
+}
+
+/** Whether the tree `top` heads stops inside a fence it has not seen close. */
+function inFence(top: SyntaxNode): boolean {
+  for (let node = top.resolveInner(top.to, -1); !node.type.isTop; node = node.parent ?? top) {
+    if (node.name === "FencedCode") return node.getChildren("CodeMark").length < 2;
+  }
+  return false;
+}
+
+/**
+ * The definitions in `text`, read by line as CommonMark would: none inside a
+ * fence, and none continuing a paragraph, which a definition cannot interrupt.
+ */
+function scanLines(text: string, found: Map<string, string>): void {
+  let fence: string | null = null;
+  // Whether a block can start on this line: the first, or after a blank line,
+  // a heading or another definition.
+  let opens = true;
+  for (const line of text.split("\n")) {
+    const mark = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence !== null) {
+      // Closed by a run of the same character, at least as long, alone.
+      if (
+        mark !== undefined &&
+        mark[0] === fence[0] &&
+        mark.length >= fence.length &&
+        line.trim() === mark
+      ) {
+        fence = null;
+      }
+      opens = fence === null;
+      continue;
+    }
+    if (mark !== undefined) {
+      fence = mark;
+      continue;
+    }
+    const match = opens ? DEFINITION.exec(line) : null;
+    if (match?.[1] !== undefined && match[2] !== undefined) add(found, match[1], match[2]);
+    opens = match !== null || line.trim() === "" || /^ {0,3}#{1,6}(\s|$)/.test(line);
+  }
 }
 
 /** The definitions under `parent`, in document order. */

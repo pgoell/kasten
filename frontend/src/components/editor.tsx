@@ -25,7 +25,7 @@ import { highlightAt } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
-import { linkAddress } from "@/lib/link-reference";
+import { isScript, linkAddress } from "@/lib/link-reference";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { noteSectionOf } from "@/lib/note-section";
@@ -363,8 +363,7 @@ function urlUnder(event: Event, view: EditorView): UrlLink | null {
   ) {
     if (node.name !== "Link") continue;
     const address = linkAddress(node, view.state.doc) ?? "";
-    const opens =
-      /^[a-z][a-z0-9+.-]*:/i.test(address) && !/^\s*(javascript|data|vbscript):/i.test(address);
+    const opens = /^[a-z][a-z0-9+.-]*:/i.test(address) && !isScript(address);
     return opens ? { address, from: node.from, to: node.to } : null;
   }
   return null;

@@ -13,7 +13,7 @@
 import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
 import { parseCallout } from "@/lib/callout";
-import { lendDefinitions, linkAddress, sourceOf } from "@/lib/link-reference";
+import { isScript, lendDefinitions, linkAddress, sourceOf } from "@/lib/link-reference";
 import { Highlight } from "@/lib/markdown-highlight";
 import { MathSyntax } from "@/lib/math";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -62,7 +62,7 @@ function render(markdown: string, format: Format, note?: string): string {
   const tree = notes.parse(source);
   if (note !== undefined) {
     const whole = noteBody(note);
-    lendDefinitions(tree, notes.parse(whole), sourceOf(whole));
+    lendDefinitions(tree, sourceOf(source), notes.parse(whole), sourceOf(whole));
   }
   return blocks(tree.topNode, source, format);
 }
@@ -149,6 +149,9 @@ function span(node: SyntaxNode, source: string, format: Format): string {
       const label = inline(node, source, format, start, close ? close.from : node.to);
       // `<>` is an empty address (#443).
       const address = linkAddress(node, sourceOf(source)) ?? "";
+      // A script would run in the chat's page on a click, so it goes out as
+      // the text alone (#549).
+      if (isScript(address)) return label;
       if (address) return link(label, address, format);
       // The parser reads any `[text]` or `![alt]` with no `(url)` as a link
       // or an image. One no definition resolves (#439) goes out as the editor

@@ -2092,19 +2092,44 @@ describe("a reference link with a definition (#439)", () => {
     expect(drawn(line)).toEqual(["see docs here", "docs"]);
   });
 
-  it("A3 takes a definition past what the parser has reached", () => {
+  /**
+   * A view of `intro`, `line` and a hundred thousand characters of filler
+   * before `tail`, its tree parsed past `line` and no further than the filler.
+   */
+  function parsedShort(line: string, tail: string): EditorView {
     const filler = "A paragraph that the parser has to walk through.\n\n".repeat(2000);
-    const doc = `intro\n\nsee [docs] here\n\n${filler}${DEFINED}`;
-    // Not `mount`, which parses to the end: the first parse stops a few
-    // thousand characters in and the rest lands later in slices.
+    const doc = `intro\n\n${line}\n\n${filler}${tail}`;
+    // Not `mount`, which parses to the end. The first parse stops when its
+    // time runs out, which on a busy machine can be before `line`, so it is
+    // carried that far and no further.
     const view = new EditorView({
       state: EditorState.create({ doc, extensions: [noteLanguage(), plain(null)] }),
       parent: document.body.appendChild(document.createElement("div")),
     });
     mounted.push(view);
+    act(() => {
+      forceParsing(view, `intro\n\n${line}\n\n`.length, 5000);
+    });
+    return view;
+  }
 
-    expect(syntaxTree(view.state).length).toBeLessThan(doc.length - DEFINED.length);
+  it("A3 takes a definition past what the parser has reached", () => {
+    const view = parsedShort("see [docs] here", DEFINED);
+
+    expect(syntaxTree(view.state).length).toBeLessThan(view.state.doc.length - DEFINED.length);
     expect(drawn(lineOf(view, 2))).toEqual(["see docs here", "docs"]);
+  });
+
+  it.each([
+    ["in a fence", "```\n[docs]: https://evil.example\n```"],
+    ["continuing a paragraph", "some text\n[docs]: https://x.example"],
+  ])("A3 takes no definition %s past what the parser has reached", (_, tail) => {
+    const ok = "[ok]: https://ok.example";
+    const view = parsedShort("see [docs] and [ok] here", `${tail}\n\n${ok}`);
+    const end = view.state.doc.length - tail.length - ok.length - 2;
+
+    expect(syntaxTree(view.state).length).toBeLessThan(end);
+    expect(drawn(lineOf(view, 2))).toEqual(["see [docs] and ok here", "ok"]);
   });
 
   it("A3 takes definitions under frontmatter, in a callout and in a list item", () => {

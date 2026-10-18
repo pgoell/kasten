@@ -202,6 +202,33 @@ describe("a reference link with a definition (#439)", () => {
     ]);
   });
 
+  it("copies a javascript:, data: or vbscript: address as its text (#549)", () => {
+    const note = [
+      "[safe] [inline](javascript:alert(1)) [ref] [d] [vb]",
+      "",
+      "[safe]: https://example.com",
+      "",
+      "[ref]: JavaScript:alert(1)",
+      "",
+      "[d]: data:text/html,x",
+      "",
+      "[vb]: vbscript:x",
+    ].join("\n");
+
+    expect(toSlack("[safe]\n\n[safe]: https://example.com")).toBe("safe (https://example.com)");
+    expect([toSlack(note), toHtml(note)]).toEqual([
+      "safe (https://example.com) inline ref d vb",
+      '<p><a href="https://example.com">safe</a> inline ref d vb</p>',
+    ]);
+  });
+
+  it("A9 keeps a selection's own definitions beside the note's", () => {
+    const part = "see [a]\n\n[a]: https://a.example";
+    const note = `intro\n\n\`\`\`md\n${part}\n\`\`\``;
+
+    expect(toSlack(part, note)).toBe("see a (https://a.example)");
+  });
+
   it("keeps a footnote as typed though its label is defined", () => {
     const note = `claim[^1] and [docs]\n\n[^1]: https://source.example\n\n${DEFINED}`;
 
