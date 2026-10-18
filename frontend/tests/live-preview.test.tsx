@@ -1,7 +1,8 @@
 /// <reference types="node" />
 
 import { readFileSync } from "node:fs";
-import { forceParsing } from "@codemirror/language";
+import { forceParsing, LanguageDescription, syntaxTree } from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
 import { EditorSelection, EditorState, type Extension, StateEffect } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView } from "@codemirror/view";
@@ -2091,6 +2092,49 @@ describe("a reference link with a definition (#439)", () => {
     expect(drawn(line)).toEqual(["see docs here", "docs"]);
   });
 
+  it("A3 takes a definition past what the parser has reached", () => {
+    const filler = "A paragraph that the parser has to walk through.\n\n".repeat(2000);
+    const doc = `intro\n\nsee [docs] here\n\n${filler}${DEFINED}`;
+    // Not `mount`, which parses to the end: the first parse stops a few
+    // thousand characters in and the rest lands later in slices.
+    const view = new EditorView({
+      state: EditorState.create({ doc, extensions: [noteLanguage(), plain(null)] }),
+      parent: document.body.appendChild(document.createElement("div")),
+    });
+    mounted.push(view);
+
+    expect(syntaxTree(view.state).length).toBeLessThan(doc.length - DEFINED.length);
+    expect(drawn(lineOf(view, 2))).toEqual(["see docs here", "docs"]);
+  });
+
+  it("A3 takes definitions under frontmatter, in a callout and in a list item", () => {
+    const doc = [
+      "---",
+      "id: x",
+      "---",
+      "intro",
+      "",
+      "> [!note] T",
+      ">",
+      "> [a]: https://a.example",
+      "",
+      "- item",
+      "",
+      "  [b]: https://b.example",
+      "",
+      "see [a] and [b] here",
+    ].join("\n");
+    const view = mount(doc, plain(null));
+    const last = [...view.contentDOM.querySelectorAll(".cm-line")].at(-1) as Element;
+
+    expect(view.contentDOM.textContent).toContain("[a]: https://a.example");
+    expect(view.contentDOM.textContent).toContain("[b]: https://b.example");
+    expect({
+      text: last.textContent,
+      links: [...last.querySelectorAll(".cm-link")].map((link) => link.textContent),
+    }).toEqual({ text: "see a and b here", links: ["a", "b"] });
+  });
+
   it.each([
     ["full", "vim on", "see [the docs][docs] here", "see the docs here", "the docs", true],
     ["full", "vim off", "see [the docs][docs] here", "see the docs here", "the docs", false],
@@ -2153,6 +2197,27 @@ describe("a reference link with a definition (#439)", () => {
     expect(lineOf(view, 2).textContent).toBe("see [code] here");
     expect(lineOf(view, 2).querySelector(".cm-link")).toBeNull();
     expect(lines[lines.length - 3]?.textContent).toBe("see docs here");
+  });
+
+  it("I4 takes no definition into a markdown fence from outside it", async () => {
+    // The fence's markdown parses as markdown only once that language loads.
+    await LanguageDescription.matchLanguageName(languages, "md", true)?.load();
+    const doc = `intro\n\n${DEFINED}\n\n\`\`\`md\nsee [docs] there\n\`\`\`\n\nsee [docs] here`;
+    const view = mount(doc, plain(null));
+    const lines = [...view.contentDOM.querySelectorAll(".cm-line")];
+    const fence = lines.find((line) => line.textContent?.includes("there")) as Element;
+
+    expect({ fence: drawn(fence), outside: drawn(lines.at(-1) as Element) }).toEqual({
+      fence: ["see [docs] there", undefined],
+      outside: ["see docs here", "docs"],
+    });
+  });
+
+  it("keeps a footnote's brackets though its label is defined", () => {
+    const doc = `intro\n\nclaim[^1] and [docs]\n\n[^1]: https://source.example\n\n${DEFINED}`;
+    const line = lineOf(mount(doc, plain(null)), 2);
+
+    expect(drawn(line)).toEqual(["claim[^1] and docs", "docs"]);
   });
 
   it("I5 draws a reference link in a table cell as a link", () => {

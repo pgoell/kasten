@@ -378,6 +378,20 @@ describe("what vim's own keys reach, by name", () => {
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith("Copied for Slack"));
   });
 
+  it("copies a selected reference link for Slack with the note's definition (A9)", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    const { container } = render(
+      <Editor initialDoc={"see [docs] here\n\n[docs]: https://example.com"} />,
+    );
+    const view = viewIn(container);
+
+    act(() => view.dispatch({ selection: { anchor: 0, head: "see [docs] here".length } }));
+    entry(view, "Copy for Slack").run();
+
+    expect(writeText.mock.calls).toEqual([["see docs (https://example.com) here"]]);
+  });
+
   it("copies an embed without its bang for Slack and as written as markdown", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });

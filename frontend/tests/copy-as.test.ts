@@ -193,6 +193,24 @@ describe("a reference link with a definition (#439)", () => {
     ]);
   });
 
+  it("A9 resolves a part of a note against the whole note's definitions", () => {
+    const note = `see [docs] here\n\n${DEFINED}`;
+
+    expect([toSlack("see [docs] here", note), toHtml("see [docs] here", note)]).toEqual([
+      "see docs (https://example.com) here",
+      '<p>see <a href="https://example.com">docs</a> here</p>',
+    ]);
+  });
+
+  it("keeps a footnote as typed though its label is defined", () => {
+    const note = `claim[^1] and [docs]\n\n[^1]: https://source.example\n\n${DEFINED}`;
+
+    expect([toSlack(note), toHtml(note)]).toEqual([
+      "claim[^1] and docs (https://example.com)",
+      '<p>claim[^1] and <a href="https://example.com">docs</a></p>',
+    ]);
+  });
+
   it("I6 takes the first of two definitions of one label", () => {
     const note = "[a]\n\n[a]: https://one.example\n\n[A]: https://two.example";
 

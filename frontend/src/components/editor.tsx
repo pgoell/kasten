@@ -261,17 +261,19 @@ function copySource(
 /** Put `source` on the clipboard, rewritten for where it is going. */
 function copyAs(view: EditorView, format: CopyFormat, source: string): void {
   const notice = view.state.facet(noticeHandler);
+  // A part of the note links to definitions anywhere in it.
+  const note = view.state.doc.toString();
   // Teams keeps the formatting of pasted HTML and reads no markup out of
   // text, so it gets HTML, with the markdown for anywhere that takes text.
   const written =
     format === "teams"
       ? navigator.clipboard.write([
           new ClipboardItem({
-            "text/html": new Blob([toHtml(source)], { type: "text/html" }),
+            "text/html": new Blob([toHtml(source, note)], { type: "text/html" }),
             "text/plain": new Blob([source], { type: "text/plain" }),
           }),
         ])
-      : navigator.clipboard.writeText(format === "slack" ? toSlack(source) : source);
+      : navigator.clipboard.writeText(format === "slack" ? toSlack(source, note) : source);
   written.then(
     () => notice?.(`Copied for ${COPY_FORMATS[format]}`),
     (error: DOMException) => notice?.(`Nothing copied: ${error.message}`),
@@ -348,7 +350,8 @@ interface UrlLink {
  * The rendered `[text](url)` or reference link under the pointer, or null.
  *
  * Only an address with a scheme: a relative one would resolve against kasten's
- * own page, not the vault, and open nothing useful.
+ * own page, not the vault, and open nothing useful. Never a script, which a
+ * note pasted from anywhere can carry and which would run as kasten (#548).
  */
 function urlUnder(event: Event, view: EditorView): UrlLink | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-link") : null;
@@ -359,8 +362,10 @@ function urlUnder(event: Event, view: EditorView): UrlLink | null {
     node = node.parent
   ) {
     if (node.name !== "Link") continue;
-    const address = linkAddress(node, (from, to) => view.state.sliceDoc(from, to)) ?? "";
-    return /^[a-z][a-z0-9+.-]*:/i.test(address) ? { address, from: node.from, to: node.to } : null;
+    const address = linkAddress(node, view.state.doc) ?? "";
+    const opens =
+      /^[a-z][a-z0-9+.-]*:/i.test(address) && !/^\s*(javascript|data|vbscript):/i.test(address);
+    return opens ? { address, from: node.from, to: node.to } : null;
   }
   return null;
 }

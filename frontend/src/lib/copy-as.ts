@@ -13,7 +13,7 @@
 import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
 import { parseCallout } from "@/lib/callout";
-import { linkAddress } from "@/lib/link-reference";
+import { lendDefinitions, linkAddress, sourceOf } from "@/lib/link-reference";
 import { Highlight } from "@/lib/markdown-highlight";
 import { MathSyntax } from "@/lib/math";
 import { noteBody } from "@/lib/note-frontmatter";
@@ -47,18 +47,24 @@ const MARKS = new Set([
 /** Blocks with nothing a reader of the chat should see. */
 const UNSEEN = new Set(["LinkReference", "CommentBlock", "ProcessingInstructionBlock"]);
 
-export function toSlack(markdown: string): string {
-  return render(markdown, "slack");
+/** `markdown` for Slack; `note`, when it is a part of one, holds its definitions. */
+export function toSlack(markdown: string, note?: string): string {
+  return render(markdown, "slack", note);
 }
 
-export function toHtml(markdown: string): string {
-  return render(markdown, "html");
+/** `markdown` for Teams; `note`, when it is a part of one, holds its definitions. */
+export function toHtml(markdown: string, note?: string): string {
+  return render(markdown, "html", note);
 }
 
-function render(markdown: string, format: Format): string {
+function render(markdown: string, format: Format, note?: string): string {
   const source = noteBody(markdown);
-  const top = notes.parse(source).topNode;
-  return blocks(top, source, format);
+  const tree = notes.parse(source);
+  if (note !== undefined) {
+    const whole = noteBody(note);
+    lendDefinitions(tree, notes.parse(whole), sourceOf(whole));
+  }
+  return blocks(tree.topNode, source, format);
 }
 
 function escapeHtml(text: string): string {
@@ -142,7 +148,7 @@ function span(node: SyntaxNode, source: string, format: Format): string {
       const start = node.from + (node.name === "Image" ? 2 : 1);
       const label = inline(node, source, format, start, close ? close.from : node.to);
       // `<>` is an empty address (#443).
-      const address = linkAddress(node, (from, to) => source.slice(from, to)) ?? "";
+      const address = linkAddress(node, sourceOf(source)) ?? "";
       if (address) return link(label, address, format);
       // The parser reads any `[text]` or `![alt]` with no `(url)` as a link
       // or an image. One no definition resolves (#439) goes out as the editor

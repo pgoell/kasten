@@ -878,7 +878,7 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
   if (
     node.name === "Link" &&
     node.getChildren("LinkMark").length < 3 &&
-    linkAddress(node, (from, to) => state.doc.sliceString(from, to)) === null
+    linkAddress(node, state.doc) === null
   ) {
     return null;
   }
@@ -1727,7 +1727,7 @@ function build(state: EditorState): Live {
         // mark takes that look back off, the cursor on it or not (#441).
         if (
           node.node.getChildren("LinkMark").length < 3 &&
-          linkAddress(node.node, (from, to) => state.doc.sliceString(from, to)) === null
+          linkAddress(node.node, state.doc) === null
         ) {
           // A heading's colour sits on the same spans as the link's, so the
           // CSS has to be told to give it back. Read off the tree, because a

@@ -924,6 +924,36 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     open.mockRestore();
   });
 
+  it("opens no javascript:, data: or vbscript: address on ctrl+click or a tap (#548)", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const doc = [
+      "intro",
+      "",
+      "see [safe] and [inline](javascript:alert(1)) and [ref] and [data] and [vb] here",
+      "",
+      "[safe]: https://example.com/a",
+      "",
+      "[ref]: JavaScript:alert(1)",
+      "",
+      "[data]: data:text/html,x",
+      "",
+      "[vb]: vbscript:x",
+    ];
+    const { container } = render(<Editor initialDoc={doc.join("\n")} />);
+    const both = (text: string) => {
+      fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
+      fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
+      fireEvent.click(textIn(container, text));
+    };
+
+    both("safe");
+    expect(open.mock.calls).toEqual([OPENED, OPENED]);
+    for (const text of ["inline", "ref", "data", "vb"]) both(text);
+
+    expect(open.mock.calls).toEqual([OPENED, OPENED]);
+    open.mockRestore();
+  });
+
   it("opens nothing on a plain click on a reference link (I1)", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { container } = render(
