@@ -3075,6 +3075,223 @@ describe("the route", () => {
       expect(fetchHistory).toHaveBeenCalledWith("index.md");
     });
   });
+
+  describe("refiling a todo into its project's note", () => {
+    const DAILY = "daily.md";
+    const PROJECT = "02 Projects/FDE";
+    const TARGET = "02 Projects/FDE/index.md";
+    /** A todo with a part, and one after it that stays. */
+    const SOURCE = ["## TODOs", "- [ ] send the deck", "  - [ ] draw the chart", "- [ ] buy milk"];
+    const PROJECT_NOTE = "# FDE\n\n## TODOs\n- [ ] old";
+    const ROW = { path: DAILY, line: 2, text: "- [ ] send the deck", project: PROJECT };
+    const MOVED =
+      "Moved into 02 Projects/FDE/index.md. The history pane's restore on either note takes it back";
+
+    /** What the vault holds, which a test changes to move a note under the press. */
+    let notes: Record<string, string>;
+
+    beforeEach(() => {
+      notes = { ...VAULT, [DAILY]: SOURCE.join("\n"), [TARGET]: PROJECT_NOTE };
+      fetchFiles.mockImplementation(async () => Object.keys(notes));
+      fetchNote.mockImplementation(async (path: string) => notes[path]);
+      fetchTodos.mockResolvedValue([ROW]);
+    });
+
+    /** The paths saved, in the order they went out. */
+    const saved = () => saveNote.mock.calls.map(([path]) => path);
+
+    /** `<leader>gt`, then `m` on the first row, and the writes it starts settled. */
+    async function refile(app: Awaited<ReturnType<typeof renderApp>>) {
+      app.leader("g", "t");
+      await settle();
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+      fireEvent.keyDown(pane, { key: "m" });
+      await hashed();
+      await settle();
+    }
+
+    it("#396 A1 I1 I2 I8 writes the project's note first, then the daily note, once each", async () => {
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saved()).toEqual([TARGET, DAILY]);
+      expect(saveNote).toHaveBeenCalledWith(
+        TARGET,
+        `${PROJECT_NOTE}\n- [ ] send the deck\n  - [ ] draw the chart`,
+        false,
+        noteBase(PROJECT_NOTE),
+      );
+      expect(saveNote).toHaveBeenCalledWith(
+        DAILY,
+        ["## TODOs", "- send the deck [[02 Projects/FDE/index|FDE]]", "- [ ] buy milk"].join("\n"),
+        false,
+        noteBase(SOURCE.join("\n")),
+      );
+      expect(app.cached(TARGET)).toBe(
+        `${PROJECT_NOTE}\n- [ ] send the deck\n  - [ ] draw the chart`,
+      );
+      expect(app.notice()).toBe(MOVED);
+    });
+
+    it("#396 I1 a project's note that is not written moves nothing, and says so", async () => {
+      saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saved()).toEqual([TARGET]);
+      expect(app.notice()).toBe("Nothing moved: 02 Projects/FDE/index.md was not written");
+    });
+
+    it("#396 I1 a daily note whose write fails keeps the todo in both, and says so", async () => {
+      saveNote.mockImplementation(async (path: string, content: string) => {
+        if (path === DAILY) throw new Error("PUT failed with 500");
+        return { path, content };
+      });
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saved()).toEqual([TARGET, DAILY]);
+      expect(app.notice()).toBe(
+        "Copied into 02 Projects/FDE/index.md; daily.md was not written, so the todo stays there too",
+      );
+    });
+
+    it("#396 I3 a part changed under the move keeps the todo in both, and says so", async () => {
+      const app = await renderApp();
+      await settle();
+      // Changed after the press read it and before its second write did.
+      saveNote.mockImplementationOnce(async (path: string, content: string) => {
+        notes[DAILY] = SOURCE.join("\n").replace("draw the chart", "draw the chart, bigger");
+        return { path, content };
+      });
+
+      await refile(app);
+
+      expect(saved()).toEqual([TARGET]);
+      expect(app.notice()).toBe(
+        "Copied into 02 Projects/FDE/index.md; daily.md changed, so the todo stays there too",
+      );
+    });
+
+    it("#396 I3 a second m after a half move takes the todo out without a second copy", async () => {
+      notes[TARGET] = `${PROJECT_NOTE}\n- [ ] send the deck\n  - [ ] draw the chart`;
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saved()).toEqual([DAILY]);
+      expect(app.notice()).toBe(MOVED);
+    });
+
+    it("#396 I4 writes nothing while the project's note holds text not yet saved", async () => {
+      holdText(TARGET, { content: "typed", reason: "PUT failed with 500", conflicted: false });
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: 02 Projects/FDE/index.md holds text not yet saved");
+    });
+
+    it("#396 I4 writes nothing while the daily note holds text not yet saved", async () => {
+      holdText(DAILY, { content: "typed", reason: "PUT failed with 500", conflicted: false });
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: daily.md holds text not yet saved");
+    });
+
+    it("#396 I4 writes nothing while a write of the daily note is still out", async () => {
+      // daily.md typed into in one pane, its quiet write hanging, and the todo
+      // pane opened in the other, as `#424` sets up the same tail.
+      const app = await renderApp();
+      await settle();
+      app.click(DAILY);
+      await settle();
+      app.leader("%");
+      await settle();
+      app.click("index.md");
+      await settle();
+      const panes = () => [...document.querySelectorAll<HTMLElement>(".cm-content")];
+      const holding = (text: string) =>
+        panes().find((each) => EditorView.findFromDOM(each)?.state.doc.toString() === text);
+      const daily = holding(SOURCE.join("\n")) as HTMLElement;
+      const index = holding("the index note") as HTMLElement;
+      daily.focus();
+      await settle();
+      fireEvent.keyDown(daily, { key: "x" });
+      saveNote.mockImplementationOnce(() => new Promise(() => {}));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2_000);
+      });
+      await hashed();
+      await settle();
+      expect(saved()).toEqual([DAILY]);
+      index.focus();
+      await settle();
+      for (const key of [" ", "g", "t"]) fireEvent.keyDown(index, { key });
+      await settle();
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+      fireEvent.keyDown(pane, { key: "m" });
+      await hashed();
+      await settle();
+
+      expect(saved()).toEqual([DAILY]);
+      expect(app.notice()).toBe("Nothing moved: daily.md is still being saved");
+    });
+
+    it("#396 I5 a todo with no project moves nothing, and names p and a #p/x tag", async () => {
+      fetchTodos.mockResolvedValue([{ ...ROW, project: null }]);
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(fetchNote).not.toHaveBeenCalledWith(DAILY);
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("That todo has no project: give it one with p or a #p/x tag");
+    });
+
+    it("#396 I6 a project folder with no index.md gets one holding the todo", async () => {
+      notes = Object.fromEntries(Object.entries(notes).filter(([path]) => path !== TARGET));
+      createNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(createNote).toHaveBeenCalledExactlyOnceWith(
+        TARGET,
+        "## TODOs\n- [ ] send the deck\n  - [ ] draw the chart\n",
+      );
+      expect(saved()).toEqual([DAILY]);
+      expect(app.notice()).toBe(MOVED);
+    });
+
+    it("#396 I7 a todo already in its project's note stays", async () => {
+      fetchTodos.mockResolvedValue([{ ...ROW, path: TARGET }]);
+      const app = await renderApp();
+      await settle();
+
+      await refile(app);
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("That todo is in its project's note already");
+    });
+  });
 });
 
 describe("a reader when the vault moves under it", () => {

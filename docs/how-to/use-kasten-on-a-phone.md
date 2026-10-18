@@ -88,6 +88,9 @@ To say a todo waits for another one, tap `⋯` at the end of its row, then
 `blocked by`, then the row of the todo that blocks it. `cancel` above the list
 takes it back.
 
+To move a todo into its project's note, tap `⋯` at the end of its row or
+card, then `refile`. The notice says where it went.
+
 To add a todo, tap `+` in the header.
 
 To tick a todo in the note you are writing, tap into its line, tap `run`, and
