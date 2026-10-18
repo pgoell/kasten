@@ -802,7 +802,8 @@ class TableGrid extends WidgetType {
     // A press in a cell follows a link where it would outside a table (#561): a
     // tap on the link's text or picture, ctrl+click on its text, any click on
     // its picture. The editor's own tap and ctrl+click read the link off
-    // `posAtDOM`, which lands on the block's edge, so they never find it here.
+    // `posAtDOM`, which lands on the block's edge, so they cannot find the
+    // cell's link, and a press followed here is kept from them.
     let tapped = false;
     const follows = (event: MouseEvent): string | null => {
       const target =
@@ -836,8 +837,14 @@ class TableGrid extends WidgetType {
       const address = follows(event);
       tapped = false;
       if (!block.isConnected) return;
-      if (address === null) view.dispatch({ selection: { anchor: view.posAtDOM(block) } });
-      else if (event.detail <= 1) window.open(address, "_blank", "noopener");
+      if (address === null) {
+        view.dispatch({ selection: { anchor: view.posAtDOM(block) } });
+        return;
+      }
+      // Stopped, or the editor's tap reads a link off the block's start too,
+      // which in a table with no outer pipes is the first cell's.
+      event.stopPropagation();
+      if (event.detail <= 1) window.open(address, "_blank", "noopener");
     });
     const table = block.appendChild(document.createElement("table"));
     table.className = "cm-table-grid";

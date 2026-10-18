@@ -383,6 +383,41 @@ describe("a tap or a press on a link in a table cell", () => {
     },
   );
 
+  // A table with no outer pipes starts with its first cell, so the editor's
+  // own tap and ctrl+click, reading the link off the block's start, find the
+  // header's link there. The block keeps a ctrl press from them at the press
+  // and a tap at its click.
+  it.each(["tap", "ctrl press"] as const)(
+    "B1 a %s on link text in a cell of a table whose first cell is a link opens only that link",
+    async (how) => {
+      const doc = [
+        "A table",
+        "",
+        "[h](https://h.com) | b",
+        "--- | ---",
+        `[text](${SITE}) | c`,
+      ].join("\n");
+      if (how === "tap") await phone();
+      else await page.viewport(1280, 900);
+      const host = mountApp(doc, how === "tap" ? 896 : 900);
+      await expect.poll(() => host.querySelector(".cm-table-block tbody .cm-link")).not.toBeNull();
+      const block = host.querySelector(".cm-table-block") as Element;
+      const open = stubOpen();
+
+      const text = block.querySelector("tbody .cm-link") as Element;
+      if (how === "tap") await tap(text);
+      else await press(text, 2);
+      await expect
+        .poll(() => open.mock.calls.length > 0 || !block.isConnected, {
+          message: "the press landing",
+        })
+        .toBe(true);
+      await settled();
+      expect.soft(block.isConnected, "the table stays drawn").toBe(true);
+      expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
+    },
+  );
+
   // Guard: `urlLinkAt` already turns both away, and the cell keeps opening the table.
   it.each(
     (["script", "schemeless"] as const).flatMap((kind) =>
