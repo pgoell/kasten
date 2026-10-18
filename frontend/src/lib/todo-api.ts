@@ -282,24 +282,42 @@ function sameTodo(text: string, hit: SearchHit): boolean {
   return was.text === now.text && was.indent === now.indent;
 }
 
+/**
+ * The line the row's todo sits on now, or null where the note no longer says.
+ *
+ * The row's own line, by its words where a write since has shifted it: a card
+ * held through a drag, or a key pressed just after an agent wrote above it,
+ * would otherwise press whatever todo sits at that number now. Short of that,
+ * the row's line where it is still this todo with only its state and stamps
+ * moved on: a second press before the list redraws, whose first press rewrote
+ * the line the row still holds the old words of.
+ *
+ * Twins, lines with the same words in one note, go by rank instead: the second
+ * of two listed is the second of two found. Words cannot tell them apart, so
+ * after a shift both readings above land on the wrong twin, and where their
+ * number changed nothing says which the row meant.
+ */
+function rowLine(text: string, hit: SearchHit, twins?: number[]): number | null {
+  if (twins !== undefined && twins.length > 1) {
+    const now = text.split("\n").flatMap((line, index) => (line === hit.text ? [index + 1] : []));
+    if (now.length !== twins.length) return null;
+    return now[twins.indexOf(hit.line)] ?? null;
+  }
+  return lineOf(text, hit.line, hit.text) ?? (sameTodo(text, hit) ? hit.line : null);
+}
+
 /** Read what the press needs, work out the writes, and send them. */
 export async function cycleTodoInVault(
   hit: SearchHit,
   today: string,
   paths: string[],
   state?: TodoState,
-  _twins?: number[],
+  twins?: number[],
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  // The row's own line, by its words where a write since has shifted it: a
-  // card held through a drag, or a key pressed just after an agent wrote above
-  // it, would otherwise set whatever todo sits at that number now.
-  // Short of that, the row's line where it is still this todo with only its
-  // state and stamps moved on: a second press before the list redraws, whose
-  // first press rewrote the line the row still holds the old words of.
-  const at = lineOf(text, hit.line, hit.text) ?? (sameTodo(text, hit) ? hit.line : null);
+  const at = rowLine(text, hit, twins);
   if (at === null) throw new Error("that line has changed since it was listed");
   const line = text.split("\n")[at - 1] ?? "";
   const todo = parseTodo(line);
@@ -371,11 +389,14 @@ export async function toggleTimerInVault(
   hit: SearchHit,
   clock: { date: string; time: string },
   paths: string[],
-  _twins?: number[],
+  twins?: number[],
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch.
   const text = await fetchNote(hit.path);
-  const todo = parseTodo(text.split("\n")[hit.line - 1] ?? "");
+  // The same reading a state press makes, so `t` never times another todo.
+  const at = rowLine(text, hit, twins);
+  if (at === null) throw new Error("that line has changed since it was listed");
+  const todo = parseTodo(text.split("\n")[at - 1] ?? "");
   if (todo === null) return;
 
   const notes: Record<string, string> = { [hit.path]: text };
@@ -397,7 +418,7 @@ export async function toggleTimerInVault(
 
   const writes = timerWrites({
     path: hit.path,
-    line: hit.line,
+    line: at,
     dailyPath: daily.path,
     notes,
     sessions,
