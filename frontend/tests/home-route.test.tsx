@@ -5965,6 +5965,56 @@ describe("the workspace across a reload", () => {
     expect(localStorage.getItem(FINE)).not.toContain("typed and never saved");
   });
 
+  /** index.md focused beside other.md, which holds text a failed write left. */
+  async function heldBeside() {
+    holdText("other.md", {
+      content: "typed and never saved",
+      reason: "PUT failed with 500",
+      conflicted: false,
+    });
+    seed([
+      {
+        id: "t",
+        root: {
+          id: "s",
+          dir: "row",
+          children: [
+            { id: "a", path: "index.md" },
+            { id: "b", path: "other.md" },
+          ],
+        },
+        focus: "a",
+      },
+    ]);
+    return reload();
+  }
+
+  /** The text of the editor in one pane, by position. */
+  const paneText = (index: number) =>
+    document.querySelectorAll(".cm-content")[index]?.textContent ?? null;
+
+  it("workspace: I5 held text of a restored pane out of focus comes back when the pane gets the focus by key", async () => {
+    const app = await heldBeside();
+
+    app.leader("o");
+    await settle();
+
+    expect(app.focusedPane()).toBe(1);
+    expect(paneText(1)).toBe("typed and never saved");
+    expect(app.status()).toBe("Could not save");
+  });
+
+  it("workspace: I5 held text of a restored pane out of focus comes back when the pane gets the focus by tap", async () => {
+    const app = await heldBeside();
+
+    act(() => app.focusPane(1));
+    await settle();
+
+    expect(app.focusedPane()).toBe(1);
+    expect(paneText(1)).toBe("typed and never saved");
+    expect(app.status()).toBe("Could not save");
+  });
+
   it("workspace: I7 storage refusing every touch still starts the app, nothing saved", async () => {
     const refused = () => {
       throw new DOMException("blocked", "SecurityError");

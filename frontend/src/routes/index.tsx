@@ -344,11 +344,12 @@ function Home() {
   const layoutNow = useRef(layout);
   layoutNow.current = layout;
   // What an unfocused pane's editor asks before it takes the vault's text.
-  // It refuses only in a pane showing the text held for its note as a
-  // conflict: that pane is where the reader left it, and a reload would put
-  // the vault's text there in its place, so coming back would find nothing
-  // to restore and read "Saved" under a bar saying the note changed on disk.
-  // A pane on that note that never showed the kept text takes the write, or
+  // It refuses only in a pane showing the text held for its note, conflicted
+  // or not: that pane is where the reader left it, or a restore opened it on
+  // that text, and a reload would put the vault's text there in its place, so
+  // coming back would find nothing to restore and read "Saved" over text the
+  // vault never took.
+  // A pane on that note that never showed the held text takes the write, or
   // it would sit on an old text that one keystroke writes back over the new.
   // One callback per pane, kept, so the editor's memo is not broken by a new
   // arrow each render.
@@ -361,7 +362,7 @@ function Home() {
         // Only an entry of the note `text` is: another note's never refuses.
         const entry = path === undefined ? undefined : heldText(path, text);
         const doc = docIn(id);
-        return !(entry?.conflicted && doc !== undefined && sameText(doc, entry.content));
+        return !(entry !== undefined && doc !== undefined && sameText(doc, entry.content));
       };
       standby.current.set(id, call);
     }
@@ -2496,13 +2497,17 @@ function Home() {
                         // reported alone: the note this reads is the one the
                         // autosave follows, which is the note in that pane.
                         onReload={focused ? reload : undefined}
-                        // The focused pane alone again: the autosave takes held
-                        // text through `allowReload`, which only this pane asks.
+                        // Every pane, not the focused one alone: a restored
+                        // pane out of focus has to open on the held text too,
+                        // or the autosave finds the vault's text on screen
+                        // when the focus arrives and never offers it (#495).
+                        // It takes the text on that arrival, the editor
+                        // showing it; till then `standbyReload` keeps it there.
                         // `held` is read for the re-render, `heldText` for the
                         // content, which the list does not carry. Against the
                         // cached text, the entry the autosave would take.
                         held={
-                          focused && held.some((each) => each.path === shown.path)
+                          held.some((each) => each.path === shown.path)
                             ? heldText(
                                 shown.path,
                                 queryClient.getQueryData<string>(["note", shown.path]),
