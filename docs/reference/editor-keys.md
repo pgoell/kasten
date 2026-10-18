@@ -1437,8 +1437,9 @@ Enter opens the note into this pane, which is what clicking a row in the file
 tree already does, and `<leader>gt` brings the list back in one press.
 
 `x` writes the vault rather than a buffer. The note the row names is read again
-first, so a row that has gone stale since the last fetch cycles nothing, and the
-note redraws in whatever pane is showing it. Ticking one done also writes the
+first. A root todo a write above has shifted is found by its words; a row whose
+todo cannot be found cycles nothing, and the notice says so. The note redraws
+in whatever pane is showing it. Ticking one done also writes the
 [done log](/reference/todo-format.md#the-done-log) line into today's daily note,
 and it carries the same three rules `<leader>x` carries: the parts go with a
 parent, a recurring todo gets its next copy, and the dependents of a todo that
@@ -1637,7 +1638,13 @@ adds a link to that `index.md` to the todo's words, as `i` would write it, and
 the todo stays in its note. A card that already links there writes nothing.
 
 A card moves through the write the state keys make in the list, so `X` runs
-everything a tick runs. Moving between lanes is not a thing the board does. The
+everything a tick runs. `m` moves a card into its project's note.
+
+A card can also be dragged, with the mouse or, on a phone, after a long press.
+Dropped on another column it takes that state through the same write; dropped
+on another project lane it moves into that project's note through `m`'s path.
+A drop on the cell it left, outside the board, or after Escape writes nothing,
+and a drop that changes lane and column at once is refused with a notice. The
 keys go to the pane and never to the editor, so vim mode on or off changes
 nothing here. The leader keys work as they do over the list.
 

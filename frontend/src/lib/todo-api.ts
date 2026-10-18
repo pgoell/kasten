@@ -270,6 +270,18 @@ export async function cycleTodoAside(
   }
 }
 
+/**
+ * Whether the row's line still holds the row's todo: the same words and depth,
+ * and the same id where both carry one. A press stamps the id the first time.
+ */
+function sameTodo(text: string, hit: SearchHit): boolean {
+  const was = parseTodo(hit.text);
+  const now = parseTodo(text.split("\n")[hit.line - 1] ?? "");
+  if (was === null || now === null) return false;
+  if (was.id !== undefined && now.id !== undefined && was.id !== now.id) return false;
+  return was.text === now.text && was.indent === now.indent;
+}
+
 /** Read what the press needs, work out the writes, and send them. */
 export async function cycleTodoInVault(
   hit: SearchHit,
@@ -283,7 +295,10 @@ export async function cycleTodoInVault(
   // The row's own line, by its words where a write since has shifted it: a
   // card held through a drag, or a key pressed just after an agent wrote above
   // it, would otherwise set whatever todo sits at that number now.
-  const at = lineOf(text, hit.line, hit.text);
+  // Short of that, the row's line where it is still this todo with only its
+  // state and stamps moved on: a second press before the list redraws, whose
+  // first press rewrote the line the row still holds the old words of.
+  const at = lineOf(text, hit.line, hit.text) ?? (sameTodo(text, hit) ? hit.line : null);
   if (at === null) throw new Error("that line has changed since it was listed");
   const line = text.split("\n")[at - 1] ?? "";
   const todo = parseTodo(line);

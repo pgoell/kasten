@@ -433,6 +433,26 @@ describe("cycleTodoInVault", () => {
 
     expect(saveNote).not.toHaveBeenCalled();
   });
+
+  it("#397 B a second state press before the redraw walks the same todo on", async () => {
+    // The first press landed `[/]` and stamped an id; the row still says what
+    // the list read before it.
+    fetchNote.mockResolvedValue("- [/] a 🆔 kt-aaaaaa\n");
+
+    await cycleTodoInVault(
+      { path: "projects/kasten.md", line: 1, text: "- [ ] a" },
+      "2026-10-18",
+      ["projects/kasten.md"],
+      "blocked",
+    );
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "projects/kasten.md",
+      "- [b] a 🆔 kt-aaaaaa\n",
+      false,
+      noteBase("- [/] a 🆔 kt-aaaaaa\n"),
+    );
+  });
 });
 
 describe("addTodoInVault", () => {
