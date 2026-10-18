@@ -454,3 +454,4 @@
 ## 2026-10-18
 
 * **Update**: [Todo format](/reference/todo-format.md#the-seven-states) gained a seventh state, `[r]` review, drawn `◎`: an agent's work is done and waits for the owner's check (#429). It counts as open, sits off the walk, and one press takes it to done with its `✅` and id. `<leader>sv`, `V` and the `⋯` strip's `review` set it, and `/review` keeps only those rows. [Editor keys](/reference/editor-keys.md#todos), [the todo board](/explanation/the-todo-board.md#the-board), [Use kasten on a phone](/how-to/use-kasten-on-a-phone.md#tick-a-todo) and [HTTP API](/reference/http-api.md#get-apitodos) name it, and the agent note tells an agent to set `[r]` and never tick the todo itself.
+* **Update**: [Editor keys](/reference/editor-keys.md#the-todo-pane) says the todo pane's footer shows only its count on a phone, without key hints, which had squeezed the count to a word per line (#488).

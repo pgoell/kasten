@@ -172,7 +172,7 @@ dimmed page around them.
 | A note | A tap on the text focuses the editor and puts the cursor there. A tap on a wikilink follows it. A tap on a callout's arrow folds or unfolds it | [Wikilinks](#wikilinks), [Callout format](/reference/callout-format.md#folding) |
 | The file tree | A tap on a note, an image or a page opens it. A tap on a folder folds or unfolds it. Two buttons in the header: new note, and hide the tree | [The file tree](#the-file-tree) |
 | An image | Two fingers zoom, one finger moves the zoomed picture. `delete` in the header, on its second tap | [The file tree](#the-file-tree) |
-| The todo pane | A tap on a row opens its line. The state symbol cycles the todo, on its second tap. `+` adds one. `done`, `next` and `view` change the list, and `board` turns it into the board. `⋯` opens a strip of states, `timer`, `part` and `edit` | [The todo pane](#the-todo-pane) |
+| The todo pane | A tap on a row opens its line. The state symbol cycles the todo, on its second tap. `+` adds one. `done`, `next` and `view` change the list, and `board` turns it into the board. `⋯` opens a strip of states, `timer`, `part` and `edit`. The footer shows the count alone, with no keys | [The todo pane](#the-todo-pane) |
 | The graph | One finger pans or drags a note, two zoom, a tap opens a note. A tap on a hollow ring asks before it makes the note. `fit`, `depth -` and `depth +` | [The graph pane](#the-graph-pane) |
 | A book | A swipe or a tap in the left or right quarter turns the page. `Contents` and `Take` at the foot | [The book pane](#the-book-pane) |
 | A video | A tap on the count goes to the next video. The player's controls are YouTube's own | [The video pane](#the-video-pane) |
@@ -1477,7 +1477,8 @@ and write exactly what those write.
 
 `b` says that the row's todo waits for another one. The list becomes the
 picker: a line under the header reads `⛔ pick what blocks:` and the todo's
-words, and the footer shows the four keys that still work. `j` and `k` move,
+words, and the footer shows the four keys that still work (on a phone, a
+`cancel` button in their place). `j` and `k` move,
 `/` narrows, Enter takes the row under the cursor as the blocker, and Escape
 gives the list back with nothing written. The picker lists every open todo,
 one whose `🛫` has not arrived among them, since a todo you cannot start yet
