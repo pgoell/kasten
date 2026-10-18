@@ -744,6 +744,12 @@ interface Span {
   class: string | null;
   /** The picture an `![](path)` or `![[x.png]]` draws, standing in for the text. */
   image?: Pictured;
+  /**
+   * The address the link around this span opens in a tab, if it opens one.
+   * Read here because the block cannot read it back: `posAtDOM` inside a block
+   * widget answers the block's own position, not the cell's.
+   */
+  address?: string;
 }
 
 /**
@@ -793,13 +799,45 @@ class TableGrid extends WidgetType {
     // against a height that is short by it.
     const block = document.createElement("div");
     block.className = "cm-table-block";
-    // A tap. CodeMirror leaves a touch to the selection the browser makes,
-    // and the browser makes none on a picture, so a finger on one would leave
-    // the table shut. A mouse got there on its press, which redrew the table
-    // as source and took this block off the page before the click.
-    block.addEventListener("click", () => {
+    // A press in a cell follows a link where it would outside a table (#561): a
+    // tap on the link's text or picture, ctrl+click on its text, any click on
+    // its picture. The editor's own tap and ctrl+click read the link off
+    // `posAtDOM`, which lands on the block's edge, so they never find it here.
+    let tapped = false;
+    const follows = (event: MouseEvent): string | null => {
+      const target =
+        event.target instanceof Element ? event.target.closest("[data-address]") : null;
+      if (!(target instanceof HTMLElement) || target.dataset.address === undefined) return null;
+      const always = tapped || target instanceof HTMLImageElement;
+      return always || event.ctrlKey || event.metaKey ? target.dataset.address : null;
+    };
+    // A finger the browser takes for a scroll cancels instead, and must not
+    // leave the next click armed.
+    block.addEventListener("pointerdown", (event) => {
+      tapped = event.pointerType === "touch";
+    });
+    block.addEventListener("pointercancel", () => {
+      tapped = false;
+    });
+    // CodeMirror moves the cursor in on a mouse's press, which redraws the
+    // table as source and takes this block off the page before the click. A
+    // press that follows is kept from it, so the follow happens at the click,
+    // where a double-click's second has `detail` 2 and opens no second tab.
+    block.addEventListener("mousedown", (event) => {
+      if (follows(event) === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    // Anything else opens the table. CodeMirror leaves a touch to the
+    // selection the browser makes, and the browser makes none on a picture,
+    // so a finger on one would leave the table shut. A mouse got there on its
+    // press, and the block is gone by the click.
+    block.addEventListener("click", (event) => {
+      const address = follows(event);
+      tapped = false;
       if (!block.isConnected) return;
-      view.dispatch({ selection: { anchor: view.posAtDOM(block) } });
+      if (address === null) view.dispatch({ selection: { anchor: view.posAtDOM(block) } });
+      else if (event.detail <= 1) window.open(address, "_blank", "noopener");
     });
     const table = block.appendChild(document.createElement("table"));
     table.className = "cm-table-grid";
@@ -814,7 +852,8 @@ class TableGrid extends WidgetType {
         if (align !== "none") cell.style.textAlign = align;
         for (const span of spans) {
           if (span.image) {
-            cell.append(pictureElement(view, span.image));
+            const image = cell.appendChild(pictureElement(view, span.image));
+            if (span.address !== undefined) image.dataset.address = span.address;
             continue;
           }
           if (span.class === null) {
@@ -824,6 +863,7 @@ class TableGrid extends WidgetType {
           const marked = document.createElement("span");
           marked.className = span.class;
           marked.textContent = span.text;
+          if (span.address !== undefined) marked.dataset.address = span.address;
           cell.append(marked);
         }
       });
@@ -956,10 +996,14 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
 
   // What the marks enclose is cut as a cell is, so a picture inside a link or
   // a bold run is drawn rather than shown as its source. A picture wears no
-  // class; the text around it wears this one beside any of its own.
-  return spansIn(state, node, open.to, close.from).map((span) =>
-    span.image ? span : { ...span, class: span.class ? `${className} ${span.class}` : className },
-  );
+  // class; the text around it wears this one beside any of its own. Inside a
+  // link that opens a tab, the picture and the text both carry its address.
+  const address = node.name === "Link" ? urlLinkAt(node, state.doc)?.address : undefined;
+  return spansIn(state, node, open.to, close.from).map((span) => ({
+    ...span,
+    ...(span.image ? {} : { class: span.class ? `${className} ${span.class}` : className }),
+    ...(address === undefined ? {} : { address }),
+  }));
 }
 
 /** The text of `parent` from `from` to `to`, cut at the constructs inside it. */
