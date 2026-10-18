@@ -201,8 +201,8 @@ keys make, so done runs the completion walk with no second copy of it.
 
 * Columns: open, doing, review, waiting, blocked, done and rejected. `[w]` has
   its own column because kasten writes it. Review sits after doing because it
-  is the next step in an agent's walk, the last stop before done. Done and rejected show the last seven
-  days, as `d` does in the list.
+  is the next step in an agent's walk, the last stop before done. Done and
+  rejected show the last seven days, as `d` does in the list.
 * Every todo is a card, a part too, naming the todo it is part of. A card
   shows the words, the priority, the due date, the parts count and what it
   waits for.

@@ -294,9 +294,11 @@ export async function cycleTodoInVault(
   // Only a press that enters or leaves done touches the log, and only a todo
   // that already carries an id can be named by a line already written. A todo
   // entering done with none needs no search: nothing can name a todo that has
-  // never had a name.
+  // never had a name. Review is one press from done as doing is, and an agent
+  // can put a ticked todo back in review with its log line still written.
   const named =
-    (todo.state === "doing" || todo.state === "done") && todo.id !== undefined
+    (todo.state === "doing" || todo.state === "review" || todo.state === "done") &&
+    todo.id !== undefined
       ? new Set((await searchNotes(todo.id)).map((found) => found.path))
       : new Set<string>();
 

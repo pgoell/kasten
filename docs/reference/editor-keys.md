@@ -255,10 +255,10 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>rf` | Open the rename prompt |
 | `<leader>so` | Set this todo to open |
 | `<leader>sp` | Set this todo to doing |
-| `<leader>sv` | Set this todo to waiting for review |
 | `<leader>sx` | Set this todo to done |
 | `<leader>sb` | Set this todo to blocked |
 | `<leader>sw` | Set this todo to waiting on somebody |
+| `<leader>sv` | Set this todo to waiting for review |
 | `<leader>sr` | Set this todo to rejected |
 | `<leader>th` | Go to the previous tab |
 | `<leader>tl` | Go to the next tab |

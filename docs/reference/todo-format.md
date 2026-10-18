@@ -132,9 +132,11 @@ always writes `[x]`. `[R]` is no todo: only the `x` has a capital that counts.
 
 Seven rather than the plugin's two, because blocked, waiting and rejected are
 things that happen to work and a todo that is neither open nor done has to be
-able to say which. `[/]` and `[-]` are what most Obsidian themes already style;
-`[r]`, `[b]` and `[w]` have no convention behind them and read as what they
-are. Obsidian shows a box it does not know as a task that is not done.
+able to say which. Review is the same kind of thing: the work is done and only
+the owner's check is left, which neither doing nor done can say. `[/]` and
+`[-]` are what most Obsidian themes already style; `[r]`, `[b]` and `[w]` have
+no convention behind them and read as what they are. Obsidian shows a box it
+does not know as a task that is not done.
 
 Blocked and waiting are two different holds. A blocked todo waits on another
 todo, which its `⛔` names. A waiting todo waits on somebody, for an approval or
@@ -164,12 +166,13 @@ A blocked todo is open work, and so are a waiting one and one in review.
 | `[-]` | a plain line | strips the `❌` it wrote |
 
 The walk is the work: not started, started, finished, and out of the list again.
-Review, blocked, waiting and rejected are things that happen to work rather than steps
-in it, so none is on the walk and each has [a key of its own](#setting-a-state). That
-is also what puts done last. A list of open work loses a row the moment it is
-done, so a walk with two closed states in it could never reach the second: from
-the todo pane the old order made blocked and rejected unreachable, because the
-row left the list at done and took the rest of the walk with it.
+Review, blocked, waiting and rejected are things that happen to work rather
+than steps in it, so none is on the walk and each has
+[a key of its own](#setting-a-state). That is also what puts done last. A list
+of open work loses a row the moment it is done, so a walk with two closed
+states in it could never reach the second: from the todo pane the old order
+made blocked and rejected unreachable, because the row left the list at done
+and took the rest of the walk with it.
 
 The walk picks a blocked line up where the work left off, at doing, rather than
 at the start of it. A todo somebody blocked is one somebody had begun. It picks

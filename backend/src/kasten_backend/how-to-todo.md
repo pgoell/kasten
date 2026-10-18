@@ -175,8 +175,8 @@ reads, so this vault opened in Obsidian shows working tasks.
 
 `[X]` reads as done too, because other editors write it that way. Write `[x]`.
 `[R]` is no todo at all. Open means neither done nor rejected, so a blocked
-todo is open work, and so are a waiting one and one in review. Entering rejected stamps `❌ <today>`, and leaving it drops that
-stamp.
+todo is open work, and so are a waiting one and one in review. Entering
+rejected stamps `❌ <today>`, and leaving it drops that stamp.
 
 Blocked waits on another todo, named by `⛔`. Waiting waits on a person, for an
 approval or an answer. To set a todo waiting, write the box `[w]` and put
@@ -189,6 +189,10 @@ Review is yours. When your work on a todo is done and the owner has to check
 it, write the box `[r]`. Never tick it `[x]` yourself: the owner ticks it once
 the check is done, and a tick of a parent ticks its `[r]` parts with it. Drop
 a `✅`, `❌` or `👤` the line carries from the state it leaves.
+
+A move from `[x]` to `[r]` leaves done, so it is the un-ticking walk with `[r]`
+in place of `[ ]`: take the `✅` off, delete its done log line wherever it
+sits, and put dependents back to `[b]`.
 
 ## The field order
 

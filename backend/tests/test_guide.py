@@ -38,6 +38,10 @@ async def test_the_guide_names_the_review_state(startup_vault: Path) -> None:
 
     assert "| `[r]` | review |" in text
     assert "[ /xXbwr-]" in text
+    # An agent moving a ticked todo back to review leaves done, so the guide
+    # has to send it through the un-ticking walk, done log line and all.
+    assert "from `[x]` to `[r]`" in text
+    assert "delete its done log line" in text
 
 
 async def test_startup_keeps_the_guide_the_vault_already_has(startup_vault: Path) -> None:

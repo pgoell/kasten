@@ -4,19 +4,28 @@ import {
   addSubtaskInVault,
   addTodoInVault,
   blockTodoInVault,
+  cycleTodoInVault,
   editTodoInVault,
 } from "@/lib/todo-api";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
 // do: what this half owns is which notes it reads and what it sends back.
-const { createNote, fetchNote, fetchTodos, saveNote, updateNote } = vi.hoisted(() => ({
+const { createNote, fetchNote, fetchTodos, saveNote, searchNotes, updateNote } = vi.hoisted(() => ({
   createNote: vi.fn(),
   fetchNote: vi.fn(),
   fetchTodos: vi.fn(),
   saveNote: vi.fn(),
+  searchNotes: vi.fn(),
   updateNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ createNote, fetchNote, fetchTodos, saveNote, updateNote }));
+vi.mock("@/lib/api", () => ({
+  createNote,
+  fetchNote,
+  fetchTodos,
+  saveNote,
+  searchNotes,
+  updateNote,
+}));
 
 beforeEach(() => {
   // One try over the fakes above. The retries on a 409 are `update-note.test.ts`'s.
@@ -32,6 +41,8 @@ beforeEach(() => {
   fetchTodos.mockResolvedValue([]);
   saveNote.mockReset();
   saveNote.mockResolvedValue(undefined);
+  searchNotes.mockReset();
+  searchNotes.mockResolvedValue([]);
 });
 
 const NOTE = ["# Kasten", "", "- [ ] call the dentist 📅 2026-08-14 🆔 kt-3f9a2c", ""].join("\n");
@@ -214,6 +225,34 @@ describe("addSubtaskInVault", () => {
     await addSubtaskInVault(HIT, "ring the practice", "2026-08-10");
 
     expect(saveNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("cycleTodoInVault", () => {
+  it("writes no second log line ticking a review todo whose day already logged it", async () => {
+    // An agent moved the todo back from done to review, and the line its first
+    // tick wrote is still under today's `## Done`.
+    const daily = periodicNote("daily", new Date()).path;
+    const line = "- [r] a 🆔 kt-aaaaaa";
+    const log = "## Done\n- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa\n";
+    const notes: Record<string, string> = { "projects/kasten.md": `${line}\n`, [daily]: log };
+    fetchNote.mockImplementation(async (path: string) => notes[path]);
+    searchNotes.mockResolvedValue([
+      { path: "projects/kasten.md", line: 1, text: line },
+      { path: daily, line: 2, text: "- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa" },
+    ]);
+
+    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: line }, "2026-08-10", [
+      "projects/kasten.md",
+      daily,
+    ]);
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "projects/kasten.md",
+      "- [x] a ✅ 2026-08-10 🆔 kt-aaaaaa\n",
+      false,
+      noteBase(`${line}\n`),
+    );
   });
 });
 
