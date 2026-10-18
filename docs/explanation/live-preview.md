@@ -264,7 +264,11 @@ first line of code into it.
 
 A table is drawn as a table. One widget stands in for every line of it, a real
 `<table>` with a head row, borders and each column's text on the side its dashes
-ask for, and the pipes are off the screen entirely. Put the cursor in it and the
+ask for, and the pipes are off the screen entirely. An `![](path)` in a cell
+draws as its picture, so two images in one row stand side by side. A sound or a
+video in a cell stays its source, and so does an address that cannot load. A
+table wider than the pane scrolls sideways inside its own block, and the note
+stays as wide as the pane. Put the cursor in it and the
 whole block comes back as source, in the monospaced face, with every mark in the
 cells on screen.
 

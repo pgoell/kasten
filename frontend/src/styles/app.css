@@ -675,6 +675,11 @@ body {
    words has no business running the full width of the note. */
 .cm-table-block {
   padding: 0.35em 0;
+  /* A table wider than the pane scrolls rather than widening the note. The
+     overflow alone does not do it: the table's width still counts towards the
+     editor's own, so the containment keeps it from counting at all. */
+  overflow-x: auto;
+  contain: inline-size;
 }
 
 .cm-table-grid {
