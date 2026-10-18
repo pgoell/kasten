@@ -16,6 +16,7 @@ import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/pdf-view";
 import { parseCards } from "@/lib/srs";
+import { notePath } from "@/lib/todo-commands";
 import { vimKeys } from "@/lib/vim-mode";
 import { vaultPaths } from "@/lib/wikilink";
 
@@ -2086,5 +2087,95 @@ describe("an escape the import writes (#342, #343)", () => {
     const { container } = render(<NotePreview text={"==a\\\\::b=="} />);
 
     expect(content(container)).toBe("a\\::b");
+  });
+});
+
+describe("an image in a table cell (#504)", () => {
+  /** A line above the table, so the cursor at offset zero is off it. */
+  function table(...rows: string[]): string {
+    return ["intro", "", ...rows].join("\n");
+  }
+
+  function lit(vimOn: boolean): Extension[] {
+    return vimOn ? [vim(), livePreview(), vaultPaths.of([]), imagePaths.of([])] : plain(null);
+  }
+
+  function cells(view: EditorView, selector = "tbody td"): HTMLElement[] {
+    return [...view.dom.querySelectorAll<HTMLElement>(`.cm-table-grid ${selector}`)];
+  }
+
+  it.each([
+    ["A1", "vim off", false],
+    ["A2", "vim on", true],
+  ] as const)("%s draws ![](path) in a cell as its picture, %s", (_, __, vimOn) => {
+    const doc = table("| a | b |", "| --- | --- |", "| ![](p.png) | ![](ftp://x/a.png) |");
+    const view = mount(doc, lit(vimOn));
+
+    const [drawn, refused] = cells(view);
+    expect(drawn?.querySelector("img.cm-image")?.getAttribute("src")).toBe("/api/assets/p.png");
+    // An address `imageSource` cannot load stays its source, as it does outside a table.
+    expect(refused?.querySelector("img")).toBeNull();
+    expect(refused?.textContent).toBe("![](ftp://x/a.png)");
+
+    act(() => view.dispatch({ selection: { anchor: doc.indexOf("p.png") } }));
+    expect(view.dom.querySelector(".cm-table-grid")).toBeNull();
+    expect(view.contentDOM.textContent).toContain("| ![](p.png) | ![](ftp://x/a.png) |");
+  });
+
+  it("A3 draws two percent-encoded images side by side in a note in a subfolder", () => {
+    const pbi = "99%20Misc/02%20Assets/01%20Images/aibi-judge-01-pbi.png";
+    const aibi = "99%20Misc/02%20Assets/01%20Images/aibi-judge-01-aibi.png";
+    const view = mount(
+      table("| Power BI | AI/BI |", "|---|---|", `| ![](${pbi}) | ![](${aibi}) |`),
+      [...plain(null), notePath.of("02 Projects/AIBI Migration Plugin/Judge Labels 2026-10-18.md")],
+    );
+
+    const row = view.dom.querySelector(".cm-table-grid tbody tr") as HTMLElement;
+    expect([...row.querySelectorAll("img.cm-image")].map((img) => img.getAttribute("src"))).toEqual(
+      [`/api/assets/${pbi}`, `/api/assets/${aibi}`],
+    );
+  });
+
+  it("I2 asks for a measurement when a picture in a cell loads", () => {
+    const view = mount(table("| a |", "| --- |", "| ![](p.png) |"), plain(null));
+    const measure = vi.spyOn(view, "requestMeasure");
+
+    const image = view.dom.querySelector(".cm-table-grid img.cm-image") as HTMLImageElement;
+    expect(image.referrerPolicy).toBe("no-referrer");
+    image.dispatchEvent(new Event("load"));
+    expect(measure).toHaveBeenCalled();
+  });
+
+  it("I3 keeps the text and marks beside a picture in a cell, alt carried", () => {
+    const view = mount(table("| a |", "| --- |", "| a ![x](p.png) **b** |"), plain(null));
+
+    const [cell] = cells(view);
+    expect(cell?.firstChild?.textContent).toBe("a ");
+    expect(cell?.querySelector("img.cm-image")?.getAttribute("alt")).toBe("x");
+    expect(cell?.querySelector(".cm-strong")?.textContent).toBe("b");
+  });
+
+  it("I4 leaves a sound and a video in a cell as source, a picture beside them drawn", () => {
+    const view = mount(
+      table(
+        "| a | b | c |",
+        "| - | - | - |",
+        "| ![](word.mp3) | ![](https://youtu.be/iDulhoQ2pro) | ![](p.png) |",
+      ),
+      plain(null),
+    );
+
+    const [sound, video, picture] = cells(view);
+    expect(sound?.textContent).toBe("![](word.mp3)");
+    expect(video?.textContent).toBe("![](https://youtu.be/iDulhoQ2pro)");
+    expect(view.dom.querySelectorAll(".cm-table-grid img")).toHaveLength(1);
+    expect(picture?.querySelector("img")?.getAttribute("src")).toBe("/api/assets/p.png");
+  });
+
+  it("I5 draws a picture in a header cell", () => {
+    const view = mount(table("| ![h](p.png) |", "| --- |", "| a |"), plain(null));
+
+    const [head] = cells(view, "thead th");
+    expect(head?.querySelector("img.cm-image")?.getAttribute("alt")).toBe("h");
   });
 });

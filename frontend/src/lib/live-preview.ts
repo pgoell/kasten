@@ -154,18 +154,58 @@ class Picture extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
-    const image = document.createElement("img");
-    image.className = "cm-image";
-    // Sites that refuse hotlinking mostly key on the referrer, and this one
-    // would name the note being read.
-    image.referrerPolicy = "no-referrer";
-    image.src = this.source;
-    // The alt text the note wrote, which is empty for most images and is the
-    // right value for one that carries no meaning of its own.
-    image.alt = this.alt;
-    image.addEventListener("load", () => view.requestMeasure());
-    return image;
+    return pictureElement(view, this.source, this.alt);
   }
+}
+
+/** The `img` a picture is drawn as, on a line of its own or in a table's cell. */
+function pictureElement(view: EditorView, source: string, alt: string): HTMLImageElement {
+  const image = document.createElement("img");
+  image.className = "cm-image";
+  // Sites that refuse hotlinking mostly key on the referrer, and this one
+  // would name the note being read.
+  image.referrerPolicy = "no-referrer";
+  image.src = source;
+  // The alt text the note wrote, which is empty for most images and is the
+  // right value for one that carries no meaning of its own.
+  image.alt = alt;
+  image.addEventListener("load", () => view.requestMeasure());
+  return image;
+}
+
+/** What an `![alt](address)` is drawn as, or null for one that stays its source. */
+type Drawn =
+  | { kind: "video"; id: string }
+  | { kind: "sound"; source: string }
+  | { kind: "picture"; source: string; alt: string };
+
+/**
+ * Reads an `Image` node into what it is drawn as.
+ *
+ * An address `imageSource` cannot load renders as its source instead, since a
+ * broken picture would hide what the text says was meant.
+ */
+function drawnImage(state: EditorState, node: SyntaxNode): Drawn | null {
+  const url = node.getChild("URL");
+  const address = url === null ? "" : state.doc.sliceString(url.from, url.to);
+  // The video first: a YouTube link is an `https:` address, which
+  // `imageSource` passes as it stands, so asked second it would be handed to an
+  // `img` and draw as a broken picture.
+  const video = videoId(address);
+  if (video !== null) return { kind: "video", id: video };
+  const source = imageSource(address);
+  if (source === null) return null;
+  // A sound before a picture, by its suffix: the browser would draw an `.mp3`
+  // handed to an `img` as a broken image.
+  if (isAudio(address)) return { kind: "sound", source };
+
+  const marks: SyntaxNode[] = [];
+  for (let child = node.firstChild; child; child = child.nextSibling) {
+    if (child.name === "LinkMark") marks.push(child);
+  }
+  const [open, close] = marks;
+  const alt = open && close ? state.doc.sliceString(open.to, close.from) : "";
+  return { kind: "picture", source, alt };
 }
 
 /**
@@ -626,6 +666,8 @@ interface Span {
   text: string;
   /** The class the construct wears, or null for text that carries none. */
   class: string | null;
+  /** The picture an `![](path)` draws, standing in for the text. */
+  image?: { source: string; alt: string };
 }
 
 /**
@@ -660,18 +702,29 @@ class TableGrid extends WidgetType {
    * mouse no way in. The keys have `w`, a search and a line jump, all of which
    * move by document position; `j` and `k` move by what is on the screen and
    * step over the whole block, which is the fast way past a long table.
+   *
+   * A wide table's block scrolls sideways with no scrollbar to press on, the
+   * stylesheet hiding every one, so no press here is the browser's to keep.
    */
   override ignoreEvent(): boolean {
     return false;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     // A block widget is measured by the box it hands back, and a margin sits
     // outside that box, so the space above and below the table is padding on a
     // wrapper. A margin on the table would leave the gutter counting lines
     // against a height that is short by it.
     const block = document.createElement("div");
     block.className = "cm-table-block";
+    // A tap. CodeMirror leaves a touch to the selection the browser makes,
+    // and the browser makes none on a picture, so a finger on one would leave
+    // the table shut. A mouse got there on its press, which redrew the table
+    // as source and took this block off the page before the click.
+    block.addEventListener("click", () => {
+      if (!block.isConnected) return;
+      view.dispatch({ selection: { anchor: view.posAtDOM(block) } });
+    });
     const table = block.appendChild(document.createElement("table"));
     table.className = "cm-table-grid";
     const head = table.createTHead();
@@ -684,6 +737,10 @@ class TableGrid extends WidgetType {
         const align = this.aligns[column] ?? "none";
         if (align !== "none") cell.style.textAlign = align;
         for (const span of spans) {
+          if (span.image) {
+            cell.append(pictureElement(view, span.image.source, span.image.alt));
+            continue;
+          }
           if (span.class === null) {
             cell.append(span.text);
             continue;
@@ -761,6 +818,14 @@ function fillDiagram(block: HTMLElement, drawing: Drawing, source: string): void
 function markedText(state: EditorState, node: SyntaxNode): Span | null {
   if (node.name === "Tag") {
     return { text: state.doc.sliceString(node.from, node.to), class: "cm-tag" };
+  }
+  // Only a picture: a player or a sound control has no business in a cell, so
+  // those stay their source, as an address that cannot load does.
+  if (node.name === "Image") {
+    const drawn = drawnImage(state, node);
+    if (drawn?.kind !== "picture") return null;
+    const image = { source: drawn.source, alt: drawn.alt };
+    return { text: state.doc.sliceString(node.from, node.to), class: null, image };
   }
   const inline = INLINE[node.name];
   if (!inline && node.name !== "Link") return null;
@@ -1533,42 +1598,21 @@ function build(state: EditorState): Live {
       // range has to be hidden as well as replaced: the cursor cannot rest
       // inside a widget, and `x` on the first character of one would delete a
       // bracket nobody can see.
-      //
-      // An address `imageSource` cannot load renders as its source instead,
-      // since a broken picture would hide what the text says was meant.
       if (isImage) {
-        const url = node.node.getChild("URL");
-        const address = url === null ? "" : state.doc.sliceString(url.from, url.to);
-        // The video first: an address is one or the other, and a YouTube link
-        // is not a path the vault holds, so `imageSource` would answer null for
-        // it anyway.
-        const video = videoId(address);
-        const source = imageSource(address);
         if (revealed) return;
-
-        const marks: { from: number; to: number }[] = [];
-        for (let child = node.node.firstChild; child; child = child.nextSibling) {
-          if (child.name === "LinkMark") marks.push({ from: child.from, to: child.to });
-        }
-        const [open, close] = marks;
-        const alt = open && close ? state.doc.sliceString(open.to, close.from) : "";
-
+        const drawn = drawnImage(state, node.node);
+        // Neither a video nor an image that can load, drawn as its own source
+        // for the reason `drawnImage` gives.
+        if (drawn === null) return;
         // The position the note remembers, so a clip picked up again opens where
         // the pane left it. Read here rather than held, the widget's `eq` being
         // what stops a later position remounting the frame.
-        // A sound before a picture, by its suffix: the browser would draw an
-        // `.mp3` handed to an `img` as a broken image.
-        const widget: WidgetType | null =
-          video !== null
-            ? new Player(video, watchedAt(state.doc.toString(), video))
-            : source === null
-              ? null
-              : isAudio(address)
-                ? new Sound(source)
-                : new Picture(source, alt);
-        // Neither a video nor an image that can load, drawn as its own source
-        // for the reason above.
-        if (widget === null) return;
+        const widget: WidgetType =
+          drawn.kind === "video"
+            ? new Player(drawn.id, watchedAt(state.doc.toString(), drawn.id))
+            : drawn.kind === "sound"
+              ? new Sound(drawn.source)
+              : new Picture(drawn.source, drawn.alt);
         decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
         hidden.push(HIDDEN.range(node.from, node.to));
         return;
