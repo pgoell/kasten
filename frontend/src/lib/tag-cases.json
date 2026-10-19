@@ -1,0 +1,27 @@
+[
+  { "id": "letters", "text": "a #tag #café #日本", "tags": ["#tag", "#café", "#日本"] },
+  { "id": "digit-first", "text": "call #1on1", "tags": ["#1on1"] },
+  { "id": "date-first", "text": "see #2026-10-13-x", "tags": ["#2026-10-13-x"] },
+  { "id": "digits-and-hyphens", "text": "#10-13-01", "tags": ["#10-13-01"] },
+  { "id": "all-digits", "text": "year #1984", "tags": [] },
+  { "id": "numbers-only", "text": "#Ⅳ #½ #²", "tags": [] },
+  { "id": "number-then-letter", "text": "#Ⅳx", "tags": ["#Ⅳx"] },
+  { "id": "no-letter", "text": "#_x #-", "tags": ["#_x", "#-"] },
+  {
+    "id": "punctuation",
+    "text": "(#p/fde), #x. #y: #z!",
+    "tags": ["#p/fde", "#x", "#y", "#z"]
+  },
+  { "id": "nested", "text": "#p/x/y", "tags": ["#p/x/y"] },
+  { "id": "glued", "text": "note#2x a.io/p#x ²#x", "tags": [] },
+  { "id": "code-span", "text": "`grep #client log` #real", "tags": ["#real"] },
+  { "id": "links", "text": "[[a #b]] [see #c](https://x.io/#d) #real", "tags": ["#real"] },
+  { "id": "heading", "text": "# Heading", "tags": [] },
+  {
+    "id": "deck",
+    "text": "(#flashcards/es) #flashcardsx #flashcards.",
+    "tags": ["#flashcards/es", "#flashcardsx", "#flashcards"]
+  },
+  { "id": "fence", "text": "```\ngrep #fenceonly\n```\n#real", "tags": ["#real"] },
+  { "id": "open-tilde-fence", "text": "#real\n~~~\n#inside", "tags": ["#real"] }
+]
