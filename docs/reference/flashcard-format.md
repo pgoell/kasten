@@ -154,9 +154,10 @@ both sides can be as long as you like.
 
 A `::` inside a code block is not a card, and neither is a `?` in one. That
 holds for a fence opened with backticks or tildes, one nobody closed (it runs to
-the end of the note), one inside a list item or a quote, and an indented block:
-four spaces or a tab after a blank line. A line indented under a list item, or
-directly under a line of prose, is no code block and stays a card.
+the end of the note), one inside a list item or a quote, and an indented code
+block as CommonMark and the editor read it, most often four spaces or a tab
+after a blank line. An indented line that only goes on with a paragraph or a
+list item is no code block and stays a card.
 
 ### As a cloze
 

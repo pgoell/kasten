@@ -3,8 +3,9 @@
  *
  * A change to which lines `parseCards` reads as code (#664) can drop or add
  * cards in the live vault without a test noticing. Run this on main and on the
- * branch over a copy of the vault and diff the two outputs. It reads notes the
- * way `decksFrom` does, so the counts are what the review overview sees.
+ * branch over a copy of the vault and diff the two outputs. It counts cards per
+ * deck as `parseCards` reads them, over every .md under the dir (archive too),
+ * so not the overview's numbers: no parent-deck rollup, no #review whole notes.
  *
  *   bun scripts/count-cards.ts <vault dir>
  *   bun scripts/count-cards.ts --time <note file>

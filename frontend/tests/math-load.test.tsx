@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { loadKatex } from "@/lib/math";
 import { finishParsing, renderStarved } from "./parsing";
@@ -78,7 +78,10 @@ describe("a failed KaTeX load", () => {
     first.unmount();
 
     network.down = false;
-    const { container } = render(<Editor initialDoc={"intro\n\narea $y$"} />);
+    // The second formula too, or only the idle parse 500 ms later reaches it,
+    // racing the wait below (#666).
+    const { container } = renderStarved(<Editor initialDoc={"intro\n\narea $y$"} />);
+    finishParsing(container);
 
     await waitFor(() => expect(drawn(container)).toEqual(["y"]));
   });
