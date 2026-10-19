@@ -38,10 +38,12 @@ export function watchPresses(): void {
  * Whether a click that follows `key`, an address or `NOTE`, repeats the press
  * before it and so follows nothing. Chrome counts any press close to the one
  * before as its second, so it is a repeat only when that press followed the
- * same. It counts as followed either way, so a third press is a repeat too.
+ * same, or followed a note: that redraws or scrolls the view, so nothing under
+ * the second press is what it was aimed at. It counts as followed either way,
+ * so a third press is a repeat too.
  */
 export function repeats(event: MouseEvent, key: string): boolean {
-  const again = event.detail > 1 && presses.repeat === key;
+  const again = event.detail > 1 && (presses.repeat === NOTE || presses.repeat === key);
   presses.followed = key;
   return again;
 }

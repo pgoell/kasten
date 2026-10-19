@@ -446,19 +446,19 @@ function followOnTap(): Extension {
       return false;
     },
     click(event, view) {
-      if (landed === null && landedUrl === null) return false;
       const note = landed;
-      const address = landedUrl;
+      const key = landed !== null ? NOTE : landedUrl;
       landed = null;
       landedUrl = null;
+      if (key === null) return false;
       // A double tap's second click is kept and does nothing (#569). Off a
       // table the first tap has put the cursor in the link, which turns the
       // second away too; in a drawn table the cursor never moves in. Chrome
       // counts any tap close to the one before as its second, so the click is
       // a repeat only when the tap before it followed the same (#572).
-      if (repeats(event, note !== null ? NOTE : (address as string))) return true;
+      if (repeats(event, key)) return true;
       if (note !== null) followLink(view, note);
-      else if (address !== null) window.open(address, "_blank", "noopener");
+      else window.open(key, "_blank", "noopener");
       return true;
     },
   });
