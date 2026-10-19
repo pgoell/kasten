@@ -172,7 +172,12 @@ const ORDER = [
   BLOCKED_BY,
 ];
 
-const TAG = /#[^\s#]+/g;
+/**
+ * The editor's tag shape from `tag.ts`, copied for the reason `WORD` is, so
+ * `(#next)` and `#next.` carry `#next` and `#123` carries nothing. The backend
+ * reads the same shape, which is what lets the pane and the endpoint agree.
+ */
+const TAG = /#[\p{L}_][\p{L}\p{N}_/-]*/gu;
 
 /**
  * What may not sit in front of a hash, the editor's rule in `tag.ts`, so

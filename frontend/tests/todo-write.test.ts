@@ -1265,3 +1265,13 @@ describe("#617 a hash in a span or an address is no tag", () => {
     });
   });
 });
+
+describe("#627 a tag ends where the editor's tag ends", () => {
+  it("#627 I2 @ takes off #agent in brackets or before a stop rather than adding a second", () => {
+    const press = (line: string) => agentPress([line], 1, TODAY, "kt-000001");
+
+    // Only the tag goes, so the brackets and the stop stay with the words.
+    expect.soft(press("- [ ] fix (#agent)")).toEqual({ line: "- [ ] fix ()" });
+    expect(press("- [ ] fix #agent.")).toEqual({ line: "- [ ] fix." });
+  });
+});

@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { CompletionContext } from "@codemirror/autocomplete";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
+import { noteLanguage } from "@/lib/note-language";
 import {
   FILE_SUFFIXES,
   outgoingLinks,
@@ -11,11 +13,18 @@ import {
   splitTarget,
   vaultPaths,
   WikiLink,
+  wikiLinkAt,
   wikiLinkCompletions,
   wikiLinkLands,
   wikiLinkPath,
   wikiLinkTargets,
 } from "@/lib/wikilink";
+
+// The real parse, watched, so a test can see how long following may parse for.
+vi.mock("@codemirror/language", async (importOriginal) => {
+  const language = await importOriginal<typeof import("@codemirror/language")>();
+  return { ...language, ensureSyntaxTree: vi.fn(language.ensureSyntaxTree) };
+});
 
 const PATHS = ["daily/2026-08-05.md", "index.md", "reading/borges.md"];
 
@@ -396,5 +405,32 @@ describe("plainLinks", () => {
     expect(plainLinks("ask Max for the script [not a link]")).toBe(
       "ask Max for the script [not a link]",
     );
+  });
+});
+
+describe("wikiLinkAt on a note longer than the first parse", () => {
+  // A new state parses the first 3000 characters at most and leaves the rest
+  // to a view's idle callback. A bare state has no view, so nothing parses the
+  // rest unless the reader does.
+  const filler = "A paragraph that the parser has to walk through.\n\n".repeat(200);
+
+  it("reads a link past the first parse at once (#628)", () => {
+    const doc = `${filler}see [[borges]] now`;
+    const state = EditorState.create({ doc, extensions: [noteLanguage()] });
+    const pos = doc.indexOf("[[") + 2;
+
+    expect(syntaxTree(state).length).toBeLessThan(pos);
+    expect(wikiLinkAt(state, pos)).toBe("borges");
+  });
+
+  it("answers null off a link past the first parse, parsing for a bounded time (#628)", () => {
+    const doc = `${filler}plain words\n\nsee [[borges]]`;
+    const state = EditorState.create({ doc, extensions: [noteLanguage()] });
+    const pos = doc.indexOf("plain");
+
+    expect(syntaxTree(state).length).toBeLessThan(pos);
+    expect(wikiLinkAt(state, pos)).toBeNull();
+    // Longer than CodeMirror's 50 ms default, and still a bound.
+    expect(ensureSyntaxTree).toHaveBeenCalledWith(state, state.doc.lineAt(pos).to, 200);
   });
 });

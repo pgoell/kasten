@@ -165,8 +165,12 @@ SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`")
 """A link, a markdown link and a code span: a marker inside one is not a field, nor a tag."""
 
 
-def _mask(text: str) -> str:
-    """`text` with every span blanked to no-break spaces, its spaces and offsets kept."""
+def mask(text: str) -> str:
+    """`text` with every span blanked to no-break spaces, its spaces and offsets kept.
+
+    Public because `tags.py` reads the tag vocabulary through it too, so that
+    completion offers no tag the board and the editor would not read as one.
+    """
     return SPANS.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), text)
 
 
@@ -179,11 +183,11 @@ def _words(rest: str) -> str:
     first match of each is tried, as in the editor; only `⛔` repeats.
     """
     text = rest
-    mask = _mask(rest)
+    masked = mask(rest)
     for pattern in (*FIELDS, BLOCKED_BY, WAITING):
-        while (found := pattern.search(mask)) is not None and any(found.groups()):
+        while (found := pattern.search(masked)) is not None and any(found.groups()):
             text = text[: found.start()] + text[found.end() :]
-            mask = mask[: found.start()] + mask[found.end() :]
+            masked = masked[: found.start()] + masked[found.end() :]
             if pattern is not BLOCKED_BY:
                 break
     # As the editor squeezes the words, so `[[FDE  Kickoff]]` names `FDE Kickoff`.
@@ -213,7 +217,7 @@ def _tag_project(text: str, folders: dict[str, str]) -> str | None:
     being one folder deep.
     """
     # Found on the mask and read off the words, the mask keeping every offset.
-    for found in TAG.finditer(_mask(text)):
+    for found in TAG.finditer(mask(text)):
         tag = text[found.start() : found.end()]
         if tag[1:3].lower() != "p/":
             continue

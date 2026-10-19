@@ -8,7 +8,7 @@
  */
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { type EditorState, Facet } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
 import type { Element, InlineContext, MarkdownConfig } from "@lezer/markdown";
@@ -166,9 +166,24 @@ export const vaultPaths = Facet.define<string[], string[] | null>({
   combine: (values) => values[0] ?? null,
 });
 
+/**
+ * How long following a link may parse to reach it, in milliseconds.
+ *
+ * A new state parses only the first few thousand characters and leaves the
+ * rest to an idle callback, so a link deep in a long note is not in the tree
+ * yet (#628). Following one is a key the user pressed, and rare, so it may
+ * wait longer than the 50 ms CodeMirror's default allows; the bound keeps a
+ * `gf` off any link on a huge note from stalling the key.
+ */
+const FOLLOW_PARSE_MS = 200;
+
 /** The note named by the link enclosing the position, looking one way only. */
 function enclosingLink(state: EditorState, pos: number, side: -1 | 1): string | null {
-  let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, side);
+  // To the end of the line and not just the cursor, so a link that opens at
+  // the cursor is in the tree whole whatever the parser does with a line.
+  const upto = state.doc.lineAt(pos).to;
+  const tree = ensureSyntaxTree(state, upto, FOLLOW_PARSE_MS) ?? syntaxTree(state);
+  let node: SyntaxNode | null = tree.resolveInner(pos, side);
   for (; node; node = node.parent) {
     if (node.name === "WikiLink") {
       return state.doc.sliceString(node.from + MARK, node.to - MARK).trim();

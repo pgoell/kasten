@@ -241,3 +241,12 @@ describe("#617 a hash in a span or an address is no tag", () => {
     expect(expandShorthand("see https://a.io/p#next #kasten", TODAY).tags).toEqual(["#kasten"]);
   });
 });
+
+describe("#627 a tag ends where the editor's tag ends", () => {
+  it("#627 I3 a saved view on #next lists a todo tagged in brackets", () => {
+    const [next] = parseViews("- next: #next");
+    if (next === undefined) throw new Error("no view in that note");
+
+    expect(matchesFilter(todo("- [ ] see (#next)"), parseFilter(next.filter), TODAY)).toBe(true);
+  });
+});

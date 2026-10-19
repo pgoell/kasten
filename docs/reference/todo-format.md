@@ -97,8 +97,10 @@ before them for words.
 Tags stay where they were typed, even on a line kasten writes new: `call the
 #health dentist` keeps its tag mid-sentence, because a tag belongs to the words.
 
-A tag is a `#` and what follows it up to a space or the next `#`, read on the
-words once the fields are out. A hash inside a code span, a markdown link or a
+A tag has the editor's shape: a `#`, then a letter or `_`, then letters,
+digits, `_`, `/` or `-`, read on the words once the fields are out. Any other
+character ends it, so `(#next)`, `#next,` and `#next.` carry `#next`, as does
+`#next` before a `:` or a `!`, and `#123` is no tag. A hash inside a code span, a markdown link or a
 `[[wikilink]]` is no tag, and neither is one straight after a letter, a digit,
 `_` or `/` of the words. So `` `grep #client log` ``,
 `[see](https://a.io/p#next)`, `https://a.io/p#next` and `[[note#p/x]]` carry no
@@ -637,8 +639,9 @@ of the words and before the fields. Pressed again on an open `[ ]` todo they tak
 it back off, which recalls the todo before the worker starts. The keys read
 `#agent` by [the rule for tags](#the-fields), so one inside a code span, a link
 or a web address is not the tag, and the keys leave it be; one after a comma, as
-in `fix,#agent`, is the tag, and a press takes it back. A press leaves the tag
-in, and says so, where taking it out would make a tag of what follows it, as
+in `fix,#agent`, is the tag, and a press takes it back. So are `(#agent)` and
+`#agent.`, and a press takes off the tag alone, leaving `()` or the stop. A
+press leaves the tag in, and says so, where taking it out would make a tag of what follows it, as
 in `fix,#agent#kasten`. Once the todo has moved
 on to another state, the keys leave the tag where it is. They refuse
 client work, a todo carrying `#client` or under one that does, because the

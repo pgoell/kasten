@@ -71,6 +71,14 @@ const VIM = [
   ["vim off", false],
 ] as const;
 
+// The first formula drawn fetches KaTeX and its stylesheet, and the widget
+// fills its box only when that lands. Cold, under a loaded full run, that took
+// longer than waitFor's one second, and the first test to draw math failed
+// (#630). Loading it once here leaves every test the cached module; the spy is
+// cleared before each, so the A8 tests still see only their own loads.
+beforeAll(async () => {
+  await loadKatex();
+});
 beforeEach(() => {
   localStorage.clear();
   vi.mocked(loadKatex).mockClear();

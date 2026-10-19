@@ -192,6 +192,27 @@ describe("Editor", () => {
     expect(onFollow).toHaveBeenCalledWith("borges");
   });
 
+  it("follows a link past the first parse on gf and on Enter, before the idle parse (#628)", () => {
+    // The first parse stops 3000 characters in, and a synchronous test never
+    // reaches the idle callback that parses the rest, so this is a note the
+    // background parse has not reached the end of yet.
+    const onFollow = vi.fn();
+    const filler = "A paragraph that the parser has to walk through.\n\n".repeat(200);
+    const { container } = render(
+      <Editor initialDoc={`${filler}see [[borges]] now`} onFollow={onFollow} />,
+    );
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "G" });
+    fireEvent.keyDown(content, { key: "w" });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+    // The handler opens nothing here, so the cursor is still in the link.
+    fireEvent.keyDown(content, { key: "Enter", keyCode: 13 });
+
+    expect(onFollow.mock.calls).toEqual([["borges"], ["borges"]]);
+  });
+
   it("follows the wikilink under the cursor on Enter", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);

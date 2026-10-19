@@ -185,6 +185,15 @@ async def test_i1_tag_beside_a_span_or_address(client: AsyncClient, vault: Path)
     assert found["- [ ] see https://a.io #p/fde"] == "02 Projects/FDE"
 
 
+async def test_627_tag_in_parentheses_reads_as_the_editor_reads_it(
+    client: AsyncClient, vault: Path
+) -> None:
+    projects_vault(vault)
+    write(vault, DAILY, "- [ ] see (#p/fde)\n")
+
+    assert (await projects(client))["- [ ] see (#p/fde)"] == "02 Projects/FDE"
+
+
 async def test_i2_unknown_tag_is_passed_over(client: AsyncClient, vault: Path) -> None:
     projects_vault(vault)
     write(vault, "02 Projects/FDE/index.md", "- [ ] a #p/ghost\n")

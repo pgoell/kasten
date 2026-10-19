@@ -660,3 +660,27 @@ describe("#617 a hash in a span or an address is no tag", () => {
     expect(parsed("- [ ] read [[note#p/x]]").tags).toEqual([]);
   });
 });
+
+describe("#627 a tag ends where the editor's tag ends", () => {
+  it("#627 A1 a bracket, comma, stop, colon or bang after a tag ends it", () => {
+    expect.soft(parsed("- [ ] see (#next)").tags).toEqual(["#next"]);
+    expect.soft(parsed("- [ ] see #next, then").tags).toEqual(["#next"]);
+    expect.soft(parsed("- [ ] see #next.").tags).toEqual(["#next"]);
+    expect.soft(parsed("- [ ] see #next: now").tags).toEqual(["#next"]);
+    expect(parsed("- [ ] see #next!").tags).toEqual(["#next"]);
+  });
+
+  // The backend's test_tags.py holds the same table, so the pane and the
+  // endpoint agree on what a line is tagged.
+  it.each([
+    ["#123", []],
+    ["note#2", []],
+    ["https://a.io/p#x", []],
+    ["#p/fde.", ["#p/fde"]],
+    ["#café", ["#café"]],
+    ["#a-b/c", ["#a-b/c"]],
+    ["#x#y", ["#x"]],
+  ])("#627 I1 reads the backend's tags off %s", (words, tags) => {
+    expect(parsed(`- [ ] ${words}`).tags).toEqual(tags);
+  });
+});

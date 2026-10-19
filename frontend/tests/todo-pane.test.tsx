@@ -535,6 +535,18 @@ describe("the todo pane", () => {
     expect(pane.texts()[0]).toContain("wire up the pane");
   });
 
+  it("#627 A2 the #next filter lists a todo tagged in brackets", async () => {
+    const pane = renderPane([
+      { path: "a.md", line: 1, text: "- [ ] see (#next)" },
+      { path: "a.md", line: 2, text: "- [ ] buy milk" },
+    ]);
+    await waitFor(() => expect(pane.rows()).toHaveLength(2));
+
+    pane.type("#next");
+
+    await waitFor(() => expect(pane.texts()).toEqual([expect.stringContaining("see")]));
+  });
+
   it("keeps the filter applied once escape hands the list back the focus", async () => {
     const pane = renderPane();
     await waitFor(() => expect(pane.rows()).toHaveLength(6));

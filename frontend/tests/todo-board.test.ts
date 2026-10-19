@@ -190,3 +190,10 @@ describe("#617 a hash in a span or an address is no tag", () => {
     expect(kindOf(todo("- [ ] run `grep #client log`"), [])).toBeNull();
   });
 });
+
+describe("#627 a tag ends where the editor's tag ends", () => {
+  it("#627 I3 a kind lane and a project pin read the tag without the bracket after it", () => {
+    expect.soft(kindOf(todo("- [ ] call (#client)"), [])).toBe("#client");
+    expect(todo("- [ ] see (#p/x)").tags).toEqual(["#p/x"]);
+  });
+});
