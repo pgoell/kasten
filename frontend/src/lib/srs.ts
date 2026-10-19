@@ -38,9 +38,9 @@
  * ```
  *
  * Which decks a card is in is read here, off `deck-tag.ts`'s rule, because this
- * is the reader that sees the note whole. The note's deck tags are the ones the
- * editor's parser draws, so a tag in a comment, a fence or the frontmatter names
- * no deck, as the editor shows none there. A `::` is a common enough thing to
+ * is the reader that sees the note whole. A deck tag inside an HTML comment,
+ * on one line or several, names no deck, the comments being found by the
+ * editor's parser, as the editor shows no tag there. A `::` is a common enough thing to
  * type that reading every one of them as a card would fill the queue with C++
  * and YAML, so a card in no deck at all is not a card, to the overview and the
  * sitting alike.
@@ -67,7 +67,7 @@ import {
   withoutToken,
 } from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
-import { cardTags, deckName, deckOf, onlyTags, withoutTags } from "@/lib/deck-tag";
+import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { noteLanguage } from "@/lib/note-language";
 
@@ -272,30 +272,28 @@ function clozeCards(
 const notes = noteLanguage().language.parser;
 
 /**
- * Every tag the editor draws in `text`, beside the index of the line it sits on.
+ * `text` with every HTML comment the editor finds blanked, each line where it was.
  *
- * The editor's parser and not a line at a time, because a comment, a fence or
- * a frontmatter block runs over several lines, and a reader of one line cannot
- * tell a tag inside one from a tag outside it. A deck tag the editor hides is
- * one the note does not carry.
+ * The editor's parser and not a line at a time, because a comment may run over
+ * several lines and a reader of one line cannot tell a tag inside one from a
+ * tag outside it. Comments only: the parser also hides tags in an HTML block
+ * such as `<img>`, which runs on to the blank line, and a deck tag under one
+ * is a deck the note always had. The newlines stay, so a line's index is the
+ * one card detection gave it.
  */
-function noteTags(text: string): { tag: string; line: number }[] {
-  const found: { tag: string; line: number }[] = [];
-  let line = 0;
-  let next = text.indexOf("\n");
+function withoutComments(text: string): string {
+  let out = "";
+  let at = 0;
   notes.parse(text).iterate({
     enter(node) {
-      if (node.name !== "Tag") return;
-      // The tags arrive in the order the text holds them, so the line only
-      // ever moves forward.
-      while (next !== -1 && next < node.from) {
-        line++;
-        next = text.indexOf("\n", next + 1);
-      }
-      found.push({ tag: text.slice(node.from, node.to), line });
+      if (node.name !== "CommentBlock" && node.name !== "Comment") return;
+      out += text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
+      at = node.to;
+      // Nothing inside a comment is a second comment.
+      return false;
     },
   });
-  return found;
+  return out + text.slice(at);
 }
 
 /**
@@ -439,10 +437,9 @@ export function parseCards(text: string, note = ""): Card[] {
   // Last, and before the sort, `owned` running in the order the cards were
   // pushed. Every tag no card claimed is the note's, and the two add rather
   // than replace: a card about two things is asked in both decks.
-  const noteDecks = noteTags(text).flatMap(({ tag, line }) => {
-    const deck = claimed.has(line) ? null : deckOf(tag);
-    return deck === null ? [] : [deck];
-  });
+  const noteDecks = withoutComments(text)
+    .split("\n")
+    .flatMap((line, at) => (fenced[at] || claimed.has(at) ? [] : deckTags(line)));
   for (const [at, card] of cards.entries()) {
     card.decks = [
       ...new Set([...noteDecks, ...(owned[at] ?? [])].map((tag) => deckName(tag, note))),

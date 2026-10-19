@@ -1260,3 +1260,13 @@ describe("#660 a schedule comment on its own line opens no comment block", () =>
     ]);
   });
 });
+
+describe("#660 only a comment hides a deck tag", () => {
+  it("#660 B a deck tag under an html block line still names its deck", () => {
+    expect(parseCards('<img src="a.png">\n#flashcards/x\n\nq::a')[0]?.decks).toEqual(["x"]);
+  });
+
+  it("#660 B a deck tag in a tilde fence still names its deck", () => {
+    expect(parseCards("~~~\n#flashcards/x\n~~~\n\nq::a")[0]?.decks).toEqual(["x"]);
+  });
+});

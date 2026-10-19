@@ -506,4 +506,4 @@
 
 ## 2026-10-20
 
-* **Update**: [Flashcard format](/reference/flashcard-format.md#what-makes-a-note-a-deck) says a deck tag where the editor draws no tag, in a comment over several lines, a code block or the frontmatter, names no deck (#660). A note whose frontmatter fence carries trailing spaces or CRLF line ends opens below the block, as for a plain `---` (#661).
+* **Update**: [Flashcard format](/reference/flashcard-format.md#what-makes-a-note-a-deck) says a deck tag inside an HTML comment, on one line or several, names no deck (#660). A note whose frontmatter fence carries trailing spaces or CRLF line ends opens below the block, as for a plain `---` (#661).

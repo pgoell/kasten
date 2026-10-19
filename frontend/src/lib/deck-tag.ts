@@ -3,10 +3,8 @@
  * another deck beside it.
  *
  * `srs.ts` reads it for every card it parses, which the overview counts and the
- * sitting asks, and `review.ts` for the decks above a deck. `srs.ts` finds a
- * note's tags with the editor's parser and a card's own at the head of its
- * line, and asks this file what deck each one names. The rule about what a tag
- * means is written once here.
+ * sitting asks, and `review.ts` for the decks above a deck. The rule about
+ * what a tag means is written once here.
  *
  * ```markdown
  * #flashcards/databases
@@ -53,17 +51,11 @@ const HEAD_TAGS = new RegExp(
   "u",
 );
 
-/** The deck one tag names, or null where it names none. A bare `#flashcards` is the empty name. */
-export function deckOf(tag: string): string | null {
-  const deck = DECK_TAG.exec(tag);
-  return deck === null ? null : (deck[1] ?? "");
-}
-
-/** Every deck named on the line. */
+/** Every deck named on the line. A bare `#flashcards` is the empty name. */
 export function deckTags(text: string): string[] {
   return tagsOf(text).flatMap(({ tag }) => {
-    const deck = deckOf(tag);
-    return deck === null ? [] : [deck];
+    const deck = DECK_TAG.exec(tag);
+    return deck === null ? [] : [deck[1] ?? ""];
   });
 }
 
