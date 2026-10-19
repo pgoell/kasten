@@ -458,10 +458,10 @@ describe("a tap or a press on a wikilink follows it once", () => {
   // A press on a picture never reaches the editor's own handlers, the widget
   // swallowing it. The picture is a linked one, which moves no cursor, above a
   // table, where a ctrl press moves none either, so nothing redraws between
-  // the presses. Its address opens only on a first click, so here it opens
-  // none. Presses with their count given, not taps: Chrome counts a tap as
-  // the next only within 20 pixels, and the table sits further from the
-  // picture than that.
+  // the presses. Its address is another target than the note, so its second
+  // click is no repeat and it opens (#572). Presses with their count given,
+  // not taps: Chrome counts a tap as the next only within 20 pixels, and the
+  // table sits further from the picture than that.
   it.each(VIMS)(
     "R5 #569 a ctrl press on a wikilink after a press on a picture beside it, within the double-click window, with vim %s follows",
     async (vim) => {
@@ -489,7 +489,7 @@ describe("a tap or a press on a wikilink follows it once", () => {
       await expect.poll(() => details.length, { message: "the clicks handled" }).toBe(3);
       await settled();
       expect(details, "the clicks' details").toEqual([1, 2, 3]);
-      expect.soft(open, "no tab opened").not.toHaveBeenCalled();
+      expect(open).toHaveBeenCalledExactlyOnceWith("https://x.com", "_blank", "noopener");
       expect(follow.mock.calls).toEqual([["A"], ["A"]]);
     },
   );

@@ -4,19 +4,22 @@
  *
  * Chrome counts a tap within about 20 pixels and 300 milliseconds of the one
  * before as its second, whatever the first landed on, so the click here
- * carries `detail` 2. It is a repeat only when the press before it followed,
- * as #571 has it for the editor's own handlers. This runs where
- * linked-picture.test.tsx does: a real browser, a real finger from the
- * DevTools protocol, and the pictures loaded from a canvas once their
- * addresses are checked. `window.open` is stubbed, so no tab opens.
+ * carries `detail` 2. It is a repeat only when the press before it followed
+ * the same target. This runs where linked-picture.test.tsx does: a real
+ * browser, a real finger from the DevTools protocol, and the pictures loaded
+ * from a canvas once their addresses are checked. `window.open` is stubbed,
+ * so no tab opens.
  */
 
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim as vimKeymap } from "@replit/codemirror-vim";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
+import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
+import { Editor } from "@/components/editor";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live-preview";
 import { noteLanguage } from "@/lib/note-language";
@@ -40,12 +43,20 @@ const CELLS = { "link text": tableOf(`[text](${SITE})`), "linked picture": table
 type Part = keyof typeof CELLS;
 
 let view: EditorView | undefined;
+let app: { root: Root; host: HTMLElement } | undefined;
 
 afterEach(async () => {
   view?.dom.parentElement?.remove();
   view?.destroy();
   view = undefined;
+  if (app !== undefined) {
+    const { root, host } = app;
+    root.unmount();
+    host.remove();
+    app = undefined;
+  }
   vi.restoreAllMocks();
+  localStorage.removeItem("kasten.vim");
   // A tap far from the links, as linked-picture.test.tsx has it: without it a
   // test's first tap reaches the click as `detail` 2 when the test before
   // tapped near there.
@@ -97,6 +108,27 @@ async function mount(doc: string, vim: string, touch: boolean): Promise<EditorVi
   });
   view.dom.style.height = "100%";
   return view;
+}
+
+/**
+ * The app's own editor on `doc` on a phone, as the route mounts it: the one
+ * place a tap on a markdown link's text follows it.
+ */
+async function mountApp(doc: string, vim: string): Promise<EditorView> {
+  await page.viewport(414, 896);
+  await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  localStorage.setItem("kasten.vim", vim);
+  const host = document.body.appendChild(document.createElement("div"));
+  host.style.cssText = "width: 100%; height: 896px;";
+  const root = createRoot(host);
+  root.render(
+    <QueryClientProvider client={new QueryClient()}>
+      <Editor initialDoc={doc} />
+    </QueryClientProvider>,
+  );
+  app = { root, host };
+  await expect.poll(() => host.querySelector(".cm-editor")).not.toBeNull();
+  return EditorView.findFromDOM(host.querySelector(".cm-editor") as HTMLElement) as EditorView;
 }
 
 /** Every picture in `at`, `count` of them, its address checked and then loaded from a canvas so it has a size. */
@@ -339,6 +371,50 @@ describe("a tap or a press on a link right after one beside it (#572)", () => {
       await allLanded(details, [1, 2, 3]);
       expect.soft(block.isConnected, "the table stays drawn").toBe(true);
       expect(open).toHaveBeenCalledExactlyOnceWith(SITE, "_blank", "noopener");
+    },
+  );
+
+  // The tap before followed, but another address: a press on another link
+  // right after a follow opens it, as Obsidian has it.
+  it.each(VIMS)(
+    "I5 #572 a tap on a linked picture right after a tap that followed another link beside it with vim %s opens it",
+    async (vim) => {
+      const other = "https://a.com";
+      const doc = ["A line", `[link](${other})`, LINKED].join("\n");
+      const at = await mountApp(doc, vim);
+      await loaded(at, 1);
+      const image = at.dom.querySelector("img.cm-image") as Element;
+      const link = at.contentDOM.querySelector(".cm-link") as Element;
+      const open = stubOpen();
+      const details = clicks(at);
+      // The foot of the link's text and the top of the picture under it.
+      const box = link.getBoundingClientRect();
+      const x = box.left + 4;
+      const first: [number, number] = [x, box.bottom - 1];
+      expect(
+        link.contains(document.elementFromPoint(...first)),
+        "the first point on the link",
+      ).toBe(true);
+
+      await tapAt(framed(first));
+      await expect.poll(() => details.length, { message: "the first click handled" }).toBe(1);
+      expect(open, "the first link followed").toHaveBeenCalledExactlyOnceWith(
+        other,
+        "_blank",
+        "noopener",
+      );
+      expect(image.isConnected, "the picture still drawn").toBe(true);
+      expect(at.state.selection.main.head, "the cursor before the picture").toBeLessThan(
+        doc.indexOf(LINKED),
+      );
+      const second: [number, number] = [x, image.getBoundingClientRect().top + 1];
+      expect(document.elementFromPoint(...second), "the second point on the picture").toBe(image);
+      await tapAt(framed(second));
+      await allLanded(details, [1, 2]);
+      expect(open.mock.calls).toEqual([
+        [other, "_blank", "noopener"],
+        [SITE, "_blank", "noopener"],
+      ]);
     },
   );
 });
