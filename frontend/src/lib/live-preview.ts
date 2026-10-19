@@ -814,10 +814,16 @@ class TableGrid extends WidgetType {
       event.target instanceof Element &&
       event.target.closest("[data-target]") !== null &&
       (tapped || event.ctrlKey || event.metaKey);
+    // The press's answer, kept for its click: ctrl let go between the two
+    // would otherwise open the table under the note just followed.
+    let leftToEditor = false;
     const follows = (event: MouseEvent): string | null => {
       const target =
         event.target instanceof Element ? event.target.closest("[data-address]") : null;
       if (!(target instanceof HTMLElement) || target.dataset.address === undefined) return null;
+      // A wikilink inside the link wins, as off a table, where the editor
+      // reads the wikilink first.
+      if (linked(event)) return null;
       const always = tapped || target instanceof HTMLImageElement;
       return always || event.ctrlKey || event.metaKey ? target.dataset.address : null;
     };
@@ -836,7 +842,11 @@ class TableGrid extends WidgetType {
     block.addEventListener("mousedown", (event) => {
       // A finger's press would leave the browser to put the caret at the
       // block's edge, which opens the table under the wikilink it follows.
-      if (tapped && linked(event)) {
+      // Kept from that, it moves no focus either, and the note opens off the
+      // focused pane (#361), so this one takes the focus first.
+      leftToEditor = linked(event);
+      if (tapped && leftToEditor) {
+        view.focus();
         event.preventDefault();
         return;
       }
@@ -850,7 +860,8 @@ class TableGrid extends WidgetType {
     // press, and the block is gone by the click.
     block.addEventListener("click", (event) => {
       const address = follows(event);
-      const wikilink = linked(event);
+      const wikilink = leftToEditor || linked(event);
+      leftToEditor = false;
       tapped = false;
       if (!block.isConnected || wikilink) return;
       if (address === null) {

@@ -1004,4 +1004,56 @@ describe("a tap or a press on a link in a table cell opens its own target", () =
       await openedOnly(at, from, block, follow, open);
     },
   );
+
+  // Off a table the wikilink wins over the link around it, `followOnClick`
+  // and the tap both reading it first, so a cell does the same.
+  it.each(BOTH)(
+    "R1 #567 a %s on a wikilink inside a link in a cell with vim %s opens the note",
+    async (how, vim) => {
+      const { doc } = linkedIn("[see [[x]]](https://a.com)");
+      const follow = vi.fn();
+      const { block, element } = await appWith(doc, how, vim, "tbody .cm-wikilink", {
+        onFollow: follow,
+      });
+      const open = stubOpen();
+      // Seen in the capture phase, before anything can stop it: a build that
+      // follows nothing changes nothing else to wait on.
+      let clicks = 0;
+      const count = () => clicks++;
+      document.addEventListener("click", count, true);
+      onTestFinished(() => document.removeEventListener("click", count, true));
+
+      await act(element, how);
+      await expect.poll(() => clicks, { message: "the click handled" }).toBe(1);
+      await settled();
+      expect.soft(block.isConnected, "the table stays drawn").toBe(true);
+      expect.soft(open, "no tab opened").not.toHaveBeenCalled();
+      expect(follow).toHaveBeenCalledExactlyOnceWith("x");
+    },
+  );
+
+  // The pane a link opens off is the focused one (#361), so a tap in an
+  // editor without the focus gives it the focus before following.
+  it.each(VIMS)(
+    "R2 #567 a tap on a wikilink in a cell of an editor without focus with vim %s focuses it before following",
+    async (vim) => {
+      const { doc } = linkedIn("[[Some note]]");
+      let focused: boolean | null = null;
+      const follow = vi.fn(() => {
+        focused = at.hasFocus;
+      });
+      const { at, block, element } = await appWith(doc, "tap", vim, "tbody .cm-wikilink", {
+        onFollow: follow,
+      });
+      const other = document.body.appendChild(document.createElement("input"));
+      onTestFinished(() => other.remove());
+      other.focus();
+      expect(at.hasFocus).toBe(false);
+      const open = stubOpen();
+
+      await act(element, "tap");
+      await followedNote(at, block, follow, open, "Some note");
+      expect(focused, "the editor focused when it follows").toBe(true);
+    },
+  );
 });
