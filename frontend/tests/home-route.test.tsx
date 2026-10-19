@@ -3,9 +3,11 @@ import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-library/react";
+import { useMemo } from "react";
+import { buildTree } from "@/components/file-explorer";
 import { ASSET_LIMIT_BYTES, ChangedOnDisk, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { noteCandidates } from "@/lib/fuzzy";
+import { folderCandidates, noteCandidates } from "@/lib/fuzzy";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
@@ -238,11 +240,33 @@ const outbox = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/outbox", () => outbox);
 
-// Counted, not replaced: the finders build their candidates through this, and
-// how often they do is what `the finders keep their candidates` pins.
+// Counted, not replaced: the finders and the prompts build their candidates
+// through these, and how often they do is what `the finders keep their
+// candidates` and `the tree keeps its rows` pin.
 vi.mock("@/lib/fuzzy", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/fuzzy")>();
-  return { ...real, noteCandidates: vi.fn(real.noteCandidates) };
+  return {
+    ...real,
+    noteCandidates: vi.fn(real.noteCandidates),
+    folderCandidates: vi.fn(real.folderCandidates),
+  };
+});
+
+// The tree calls `buildTree` inside its own module, which a mocked export does
+// not reach. So the panel is wrapped in a memo of its own over the same four
+// props, built through a counted `buildTree`: it builds exactly when the real
+// panel's memo does, and `the tree keeps its rows` counts that.
+vi.mock("@/components/file-explorer", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/components/file-explorer")>();
+  const buildTree = vi.fn(real.buildTree);
+  function FileExplorer(props: Parameters<typeof real.FileExplorer>[0]) {
+    useMemo(
+      () => buildTree(props.paths, props.images, props.html, props.pdfs),
+      [props.paths, props.images, props.html, props.pdfs],
+    );
+    return <real.FileExplorer {...props} />;
+  }
+  return { ...real, buildTree, FileExplorer };
 });
 
 const VAULT: Record<string, string> = {
@@ -4329,6 +4353,163 @@ describe("the finders keep their candidates", () => {
     await settle();
 
     expect(screen.queryByRole("option", { name: ARRIVED })).not.toBeNull();
+  });
+});
+
+describe("the tree keeps its rows", () => {
+  // One of each kind of row at the top, where the tree draws it unfolded, and
+  // one of each filed away in the archive.
+  const IMAGE = "shot.png";
+  const PAGE = "page.html";
+  const PDF = "plan.pdf";
+  const FILED_PDF = "98 Archive/old.pdf";
+  const FILED = ["98 Archive/old.png", "98 Archive/old.html", FILED_PDF];
+  const built = vi.mocked(buildTree);
+  const candidates = vi.mocked(noteCandidates);
+  const folders = vi.mocked(folderCandidates);
+  /** What a query that has not answered yet gets back, and keeps. */
+  const pending = () => new Promise<never>(() => {});
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchTags.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([IMAGE, FILED[0]]);
+    fetchHtml.mockResolvedValue([PAGE, FILED[1]]);
+    fetchAssets.mockResolvedValue([PDF, FILED_PDF]);
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await hashed();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  const row = (path: string) => document.querySelector(`[aria-label='Vault'] [title='${path}']`);
+
+  /** The index note open with a key pressed in it, so its buffer is dirty. */
+  async function dirtyNote(archive: boolean) {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.press("x");
+    if (archive) {
+      app.leader("a");
+      await settle();
+      app.expand("98 Archive");
+    }
+    return app;
+  }
+
+  /**
+   * An outside write to the focused note, which the route declines over the
+   * dirty buffer: `Home` renders again with every listing as it was.
+   */
+  async function declinedWrite() {
+    act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+    await settle();
+  }
+
+  /** The archived rows show with the archive on and stay out with it off. */
+  function archived(archive: boolean, paths: string[]) {
+    for (const path of paths) {
+      if (archive) expect.soft(row(path)).not.toBeNull();
+      else expect.soft(row(path)).toBeNull();
+    }
+  }
+
+  /** Every row on screen, then no build over a render that changed no listing. */
+  async function buildsOnce(archive: boolean) {
+    await dirtyNote(archive);
+    expect.soft(row(IMAGE)).not.toBeNull();
+    expect.soft(row(PAGE)).not.toBeNull();
+    expect.soft(row(PDF)).not.toBeNull();
+    archived(archive, FILED);
+    built.mockClear();
+
+    await declinedWrite();
+
+    expect(built).toHaveBeenCalledTimes(0);
+  }
+
+  /** The same while the images and pages have no answer yet. */
+  async function buildsOnceLoading(archive: boolean) {
+    fetchImages.mockReturnValue(pending());
+    fetchHtml.mockReturnValue(pending());
+    await dirtyNote(archive);
+    // No image or page row yet, there being no answer to draw them from.
+    expect.soft(row(IMAGE)).toBeNull();
+    expect.soft(row(PAGE)).toBeNull();
+    expect.soft(row(PDF)).not.toBeNull();
+    archived(archive, [FILED_PDF]);
+    built.mockClear();
+
+    await declinedWrite();
+
+    expect(built).toHaveBeenCalledTimes(0);
+  }
+
+  it("A1 the tree builds once while the route renders again, archive off", () => buildsOnce(false));
+
+  it("A2 the tree builds once while the route renders again, archive on", () => buildsOnce(true));
+
+  it("A3 the tree builds once while the images and pages load, archive off", () =>
+    buildsOnceLoading(false));
+
+  it("A3 the tree builds once while the images and pages load, archive on", () =>
+    buildsOnceLoading(true));
+
+  it("I1 an image that arrives while the tree shows is a row", async () => {
+    await dirtyNote(false);
+    expect.soft(row("new.png")).toBeNull();
+
+    fetchImages.mockResolvedValue([IMAGE, FILED[0], "new.png"]);
+    act(() => stream().send({ path: "", change: "listing", digest: null }));
+    await settle();
+
+    expect(row("new.png")).not.toBeNull();
+  });
+
+  it("I2 the terminal prompt builds its candidates once while the sessions load", async () => {
+    fetchTerminals.mockReturnValue(pending());
+    const app = await dirtyNote(false);
+    app.leader("c", "s");
+    await settle();
+    expect.soft(screen.queryByRole("dialog", { name: "Open terminal" })).not.toBeNull();
+    candidates.mockClear();
+
+    await declinedWrite();
+
+    expect(candidates).toHaveBeenCalledTimes(0);
+  });
+
+  it("I2 the note prompt builds its folders once while the listing loads", async () => {
+    // Opened from the note in the URL, the tree having no row to click while
+    // the listing loads. The prompt saves the note before it opens, so the
+    // buffer is clean and a write to it would be taken, not declined: a new
+    // tag vocabulary renders `Home` instead, every listing left as it was.
+    fetchFiles.mockReturnValue(pending());
+    const app = await renderApp("/?note=index.md");
+    await settle();
+    app.leader("c", "f");
+    await settle();
+    expect.soft(screen.queryByRole("dialog", { name: "New note" })).not.toBeNull();
+    folders.mockClear();
+
+    fetchTags.mockResolvedValue(["fresh"]);
+    act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+    await settle();
+
+    expect(folders).toHaveBeenCalledTimes(0);
   });
 });
 

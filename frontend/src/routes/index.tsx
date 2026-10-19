@@ -140,8 +140,11 @@ import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
 
-/** The book finder's list while the assets load: one array, so the finder's memo holds. */
-const NO_ASSETS: string[] = [];
+/**
+ * What a list prop gets while its query loads: one array, so the memo the
+ * component builds over it holds. A fresh `[]` per render builds it again.
+ */
+const LOADING: string[] = [];
 
 /** The document of the editor in pane `id` as it stands on screen, if it holds one. */
 function docIn(id: string): string | undefined {
@@ -279,6 +282,11 @@ function Home() {
   // each call and a finder keyed on `paths` would build its candidates again
   // on every render of the route (#586).
   const shown = useMemo(() => visible(data ?? [], archive), [data, archive]);
+  // The same for the tree's other rows, which it builds again whenever one of
+  // these arrives new (#589).
+  const shownImages = useMemo(() => visible(images ?? LOADING, archive), [images, archive]);
+  const shownHtml = useMemo(() => visible(html ?? LOADING, archive), [html, archive]);
+  const shownPdfs = useMemo(() => visible(pdfs, archive), [pdfs, archive]);
   const { note, line } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
@@ -2441,9 +2449,9 @@ function Home() {
           paths={shown}
           // The same archive filter the notes answer to. An image in the
           // archive is archived like everything else under that folder.
-          images={visible(images ?? [], archive)}
-          html={visible(html ?? [], archive)}
-          pdfs={visible(pdfs, archive)}
+          images={shownImages}
+          html={shownHtml}
+          pdfs={shownPdfs}
           // What the focused pane holds, whichever of the fields carries it. A
           // reader and an exam name the note they were opened from, so the tree
           // marks that note and `<leader>E` reaches it from either.
@@ -2790,7 +2798,7 @@ function Home() {
       )}
       {terminalPrompt && (
         <TerminalPrompt
-          sessions={terminals ?? []}
+          sessions={terminals ?? LOADING}
           onOpen={(session) => {
             setTerminalPrompt(false);
             // Through `moveTo` rather than `setLayout`, so opening a terminal
@@ -2833,7 +2841,7 @@ function Home() {
       {prompt !== null && (
         <NotePrompt
           mode={prompt.mode}
-          paths={data ?? []}
+          paths={data ?? LOADING}
           startPath={prompt.startPath}
           openNote={pane.path}
           onOpen={(path) => {
@@ -2890,7 +2898,7 @@ function Home() {
           paths={shown}
           // The query's own array, which keeps one identity across renders. A
           // fresh one each render would make the finder rank the list again.
-          books={assets ?? NO_ASSETS}
+          books={assets ?? LOADING}
           onOpen={(note) => {
             setBookFinderOpen(false);
             // Saved first for `openTodos`'s reason: the book replaces what the
