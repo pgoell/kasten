@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-library/react";
 import { ASSET_LIMIT_BYTES, ChangedOnDisk, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { noteCandidates } from "@/lib/fuzzy";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
@@ -236,6 +237,13 @@ const outbox = vi.hoisted(() => ({
   subscribe: vi.fn(() => () => {}),
 }));
 vi.mock("@/lib/outbox", () => outbox);
+
+// Counted, not replaced: the finders build their candidates through this, and
+// how often they do is what `the finders keep their candidates` pins.
+vi.mock("@/lib/fuzzy", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/fuzzy")>();
+  return { ...real, noteCandidates: vi.fn(real.noteCandidates) };
+});
 
 const VAULT: Record<string, string> = {
   "index.md": "the index note",
@@ -4196,6 +4204,131 @@ describe("the book finder", () => {
     expect.soft(app.panes()).toBe(2);
     expect.soft(document.querySelectorAll("foliate-view")).toHaveLength(1);
     expect.soft(app.focusedPane()).toBe(1);
+  });
+});
+
+describe("the finders keep their candidates", () => {
+  // A book beside its note, one more filed away in the archive, and a note that
+  // arrives later, read before it is listed so a highlight on it reads text.
+  const BOOK = "Books/DDIA.md";
+  const ARCHIVED = "98 Archive/Old Book.md";
+  const ARRIVED = "arrived.md";
+  const NOTES: Record<string, string> = {
+    ...VAULT,
+    [BOOK]: "# DDIA",
+    [ARCHIVED]: "# Old Book",
+    [ARRIVED]: "# Arrived",
+  };
+  const built = vi.mocked(noteCandidates);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), BOOK, ARCHIVED]);
+    fetchNote.mockImplementation(async (path: string) => NOTES[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([
+      BOOK.replace(/\.md$/, ".epub"),
+      ARCHIVED.replace(/\.md$/, ".epub"),
+    ]);
+    resetFoliateFake();
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await hashed();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  /**
+   * The index note open with a key pressed in it, so its buffer holds text the
+   * vault does not, then `keys` after the leader with the archive on or off.
+   */
+  async function finderOpen(keys: string[], archive: boolean) {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.press("x");
+    if (archive) {
+      app.leader("a");
+      await settle();
+    }
+    app.leader(...keys);
+    await settle();
+    return app;
+  }
+
+  /**
+   * An outside write to the focused note. Its buffer is dirty, so the route
+   * declines the reload and counts it in state of its own: `Home` renders
+   * again, and the listing, which already names the note, keeps its identity.
+   */
+  async function declinedWrite() {
+    act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+    await settle();
+  }
+
+  it("A1 the note finder builds its candidates once while the route renders again, archive off", async () => {
+    await finderOpen(["f", "f"], false);
+    // The note finder's rows are whole paths, and the book finder's names.
+    expect.soft(screen.queryByRole("option", { name: "other.md" })).not.toBeNull();
+    expect.soft(screen.queryByRole("option", { name: ARCHIVED })).toBeNull();
+    built.mockClear();
+
+    await declinedWrite();
+
+    expect(built).toHaveBeenCalledTimes(0);
+  });
+
+  it("A2 the note finder builds its candidates once while the route renders again, archive on", async () => {
+    await finderOpen(["f", "f"], true);
+    expect.soft(screen.queryByRole("option", { name: ARCHIVED })).not.toBeNull();
+    built.mockClear();
+
+    await declinedWrite();
+
+    expect(built).toHaveBeenCalledTimes(0);
+  });
+
+  it("A3 the book finder builds its candidates once while the route renders again, archive off", async () => {
+    await finderOpen(["f", "b"], false);
+    expect.soft(screen.queryByRole("option", { name: /^DDIA/ })).not.toBeNull();
+    expect.soft(screen.queryByRole("option", { name: /^Old Book/ })).toBeNull();
+    built.mockClear();
+
+    await declinedWrite();
+
+    expect(built).toHaveBeenCalledTimes(0);
+  });
+
+  it("A4 the book finder builds its candidates once while the route renders again, archive on", async () => {
+    await finderOpen(["f", "b"], true);
+    expect.soft(screen.queryByRole("option", { name: /^Old Book/ })).not.toBeNull();
+    built.mockClear();
+
+    await declinedWrite();
+
+    expect(built).toHaveBeenCalledTimes(0);
+  });
+
+  it("I1 a note that arrives while the note finder is open shows as a row", async () => {
+    await finderOpen(["f", "f"], false);
+    expect.soft(screen.queryByRole("option", { name: "other.md" })).not.toBeNull();
+    expect.soft(screen.queryByRole("option", { name: ARRIVED })).toBeNull();
+
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), BOOK, ARCHIVED, ARRIVED]);
+    act(() => stream().send({ path: ARRIVED, change: "written", digest: "b".repeat(64) }));
+    await settle();
+
+    expect(screen.queryByRole("option", { name: ARRIVED })).not.toBeNull();
   });
 });
 
