@@ -210,7 +210,10 @@ move-right, because the leader is registered in normal mode only.
 
 The tables follow the groups of the `<leader>?` panel, in the same order. The
 panel shows the leader keys apart from every other key, and with vim off it
-says that the command palette runs them by name.
+says that the command palette runs them by name. With vim off its Editor group
+also leaves out `gf` and Enter, the keys there that only vim resolves. Every
+group lines its keys up on the left, so the presses after `Space` read down one
+column.
 
 **Panes**
 
