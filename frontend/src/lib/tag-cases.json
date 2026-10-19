@@ -53,6 +53,8 @@
   { "id": "comment-indented", "text": "   <!-- x --> #hidden", "tags": [] },
   { "id": "comment-line-then-text", "text": "<!-- x --> #hidden\n#real", "tags": ["#real"] },
   { "id": "comment-never-closes", "text": "#real\n<!--\n#hidden", "tags": ["#real"] },
+  { "id": "comment-after-code-span", "text": "`a`<!-- y --> #t", "tags": ["#t"] },
+  { "id": "comment-after-code-span-unclosed", "text": "`a`<!-- y\n\n#t", "tags": ["#t"] },
   { "id": "unclosed-frontmatter", "text": "---\nref: x #abc\n\n#real", "tags": ["#abc", "#real"] },
   {
     "id": "frontmatter-trailing-space",

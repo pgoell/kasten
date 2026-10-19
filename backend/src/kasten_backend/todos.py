@@ -228,18 +228,20 @@ COMMENT_LINE = re.compile(r"^ {0,3}<!--", re.MULTILINE)
 """A `<!--` opening a line, three spaces in front at most: an HTML block by CommonMark."""
 
 
-def _comment_blocks(text: str) -> list[tuple[int, int]]:
-    """Where `text` holds an HTML block that a `COMMENT_LINE` opens.
+def _comment_blocks(text: str, base: str) -> list[tuple[int, int]]:
+    """Where `text` holds an HTML block that a `COMMENT_LINE` opens, read on `base`.
 
-    By CommonMark the block runs to the end of the first line holding `-->`,
-    the opener's own line counting, so `<!-- x --> #a` hides `#a`. One never
-    closed runs to the end of the note.
+    `base` is `text` with its code blanked to spaces, so a `<!--` in code opens
+    nothing. By CommonMark the block runs to the end of the first line holding
+    `-->`, the opener's own line counting, so `<!-- x --> #a` hides `#a`. One
+    never closed runs to the end of the note.
     """
     blocks: list[tuple[int, int]] = []
     end = 0
-    for found in COMMENT_LINE.finditer(text):
-        # A `<!--` inside a block already found opens nothing.
-        if found.start() < end:
+    for found in COMMENT_LINE.finditer(base):
+        # A `<!--` inside a block already found opens nothing, and nor does one
+        # whose spaces in front are a code span blanked, as in `` `a`<!-- ``.
+        if found.start() < end or text[found.start() : found.end()] != found[0]:
             continue
         close = text.find("-->", found.start())
         if close == -1:
@@ -287,7 +289,7 @@ def tags_in(text: str) -> list[tuple[int, int]]:
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
         base = _blanked(text, hidden, " ")
-        hidden += _comment_blocks(base)
+        hidden += _comment_blocks(text, base)
         hidden += [found.span() for found in COMMENT.finditer(base)]
     if not hidden:
         return line_tags(text)
