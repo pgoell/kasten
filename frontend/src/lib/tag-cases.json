@@ -38,5 +38,15 @@
     "tags": ["#p", "#q"]
   },
   { "id": "comment", "text": "a <!-- #hidden #flashcards/x --> #real", "tags": ["#real"] },
-  { "id": "comment-block", "text": "<!--\n#hidden\n-->\n#real", "tags": ["#real"] }
+  { "id": "comment-block", "text": "<!--\n#hidden\n-->\n#real", "tags": ["#real"] },
+  {
+    "id": "comment-opener-in-code",
+    "text": "`<!--` opens one #real\n\n<!-- note -->",
+    "tags": ["#real"]
+  },
+  {
+    "id": "comment-opener-in-fence",
+    "text": "```\n<!--\n```\n#real\n\n<!-- note -->",
+    "tags": ["#real"]
+  }
 ]

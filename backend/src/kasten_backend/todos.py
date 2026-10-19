@@ -222,16 +222,18 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     a tag that another does not. The frontmatter, HTML comments and code, fenced,
     indented or inline, are blanked first, the offsets kept.
     """
-    hidden = [found.span() for found in COMMENT.finditer(text)]
     body = body_start(text)
-    if body:
-        hidden.append((0, body))
-    # Most notes hold no fence and no indented hash, and for those the parse
-    # `code_spans` makes is skipped: it is most of the time a vault's tags take.
-    if "```" in text or "~~~" in text or INDENTED.search(text, body):
+    hidden = [(0, body)] if body else []
+    # Most notes hold no fence, comment or indented hash, and for those the
+    # parse `code_spans` makes is skipped: it is most of the time a vault's
+    # tags take.
+    if "```" in text or "~~~" in text or "<!--" in text or INDENTED.search(text, body):
         # The block as spaces, which the parser reads as blank lines, so an
         # indented line under it opens code as it does under a blank line.
-        hidden += code_spans(_blanked(text, [(0, body)], " "), indented=True)
+        hidden += code_spans(_blanked(text, hidden, " "), indented=True)
+        # Looked for with the code blanked: a `<!--` in code opens no comment,
+        # and paired with a real `-->` below it would hide the tags between.
+        hidden += [found.span() for found in COMMENT.finditer(_blanked(text, hidden, " "))]
     if not hidden:
         return line_tags(text)
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))
