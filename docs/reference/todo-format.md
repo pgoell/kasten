@@ -97,6 +97,13 @@ before them for words.
 Tags stay where they were typed, even on a line kasten writes new: `call the
 #health dentist` keeps its tag mid-sentence, because a tag belongs to the words.
 
+A tag is a `#` and what follows it up to a space or the next `#`. A hash
+inside a code span, a markdown link or a `[[wikilink]]` is no tag, and neither
+is one straight after a letter, a digit, `_` or `/`. So `` `grep #client log` ``,
+`[see](https://a.io/p#next)`, `https://a.io/p#next` and `[[note#p/x]]` carry no
+tag, and the words keep them as typed. The filter line, the saved views, the
+client mark, the board and the add prompt all read tags this way.
+
 `⛔` may appear more than once, each naming another todo's id, and every one is
 kept in the order it was written. Every other field appears once.
 
@@ -624,9 +631,11 @@ todo as surely as a key does.
 `@` in [the todo pane](/reference/editor-keys.md#the-todo-pane) and
 `<leader>@` in [the editor](/reference/editor-keys.md#todos) write it, at the end
 of the words and before the fields. Pressed again on an open `[ ]` todo they take
-it back off, which recalls the todo before the worker starts. A `#agent` inside
-a code span, a link or a web address is not the tag, and the keys leave it be. Once the todo has
-moved on to another state, the keys leave the tag where it is. They refuse
+it back off, which recalls the todo before the worker starts. The keys read
+`#agent` by [the rule for tags](#the-fields), so one inside a code span, a link
+or a web address is not the tag, and the keys leave it be; one after a comma, as
+in `fix,#agent`, is the tag, and a press takes it back. Once the todo has moved
+on to another state, the keys leave the tag where it is. They refuse
 client work, a todo carrying `#client` or under one that does, because the
 worker skips it. The saved view `- agent: #agent` lists every todo sent.
 

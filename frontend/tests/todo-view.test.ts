@@ -3,6 +3,7 @@ import {
   DEFAULT_VIEWS,
   dependentsOf,
   inherited,
+  isClient,
   type Node,
   namedTodos,
   nextActionOf,
@@ -451,5 +452,14 @@ describe("dependentsOf", () => {
     ];
 
     expect(dependentsOf(todos, closedAmong(todos)).get("kt-aaaaaa")).toEqual([docs]);
+  });
+});
+
+describe("#617 a hash in a span or an address is no tag", () => {
+  it("#617 A5 a #client in a code span draws no client mark and passes none down", () => {
+    const [parent] = inherited(treeOf(placed("- [ ] run `grep #client log`", "  - [ ] part")));
+
+    expect.soft(isClient(todo("- [ ] run `grep #client log`"))).toBe(false);
+    expect(parent?.children[0]?.todo.tags).toEqual([]);
   });
 });

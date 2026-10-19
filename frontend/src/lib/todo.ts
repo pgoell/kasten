@@ -172,8 +172,14 @@ const ORDER = [
   BLOCKED_BY,
 ];
 
-/** Exported because `todo-shorthand.ts` fills the same `Todo.tags` from it. */
-export const TAG = /#[^\s#]+/g;
+const TAG = /#[^\s#]+/g;
+
+/**
+ * What may not sit in front of a hash, the editor's rule in `tag.ts`, so
+ * `note#2` and `https://a.io/p#next` carry no tag. Copied rather than imported,
+ * which would pull CodeMirror into every reader of a todo.
+ */
+const WORD = /[\p{L}\p{N}_/]$/u;
 
 /**
  * A link, a markdown link and a code span: a marker inside one is not a field.
@@ -195,6 +201,20 @@ const BLOCK_ID = /\^[\w-]+[ \t]*$/;
  */
 export function masked(text: string): string {
   return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "\u00A0"));
+}
+
+/**
+ * Every tag `text` carries and where it starts, the one reading `Todo.tags`,
+ * quick add and `@` share. Found on the mask, so a hash in a link or a code
+ * span is text, and read off the text.
+ */
+export function tagsOf(text: string): { tag: string; at: number }[] {
+  return [...masked(text).matchAll(TAG)]
+    .filter((found) => !WORD.test(text.slice(0, found.index)))
+    .map((found) => ({
+      tag: text.slice(found.index, found.index + found[0].length),
+      at: found.index,
+    }));
 }
 
 /** A field found on the mask: where it sits in the text, and its values read off the text. */
@@ -260,7 +280,7 @@ function readFields(rest: string): Fields {
 
   return {
     text,
-    tags: text.match(TAG) ?? [],
+    tags: tagsOf(text).map((found) => found.tag),
     due,
     scheduled,
     start,

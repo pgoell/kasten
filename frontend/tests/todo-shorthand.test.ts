@@ -1,5 +1,6 @@
 import { formatTodo, parseTodo, type Todo } from "@/lib/todo";
 import { expandShorthand, matchesFilter, parseFilter } from "@/lib/todo-shorthand";
+import { parseViews } from "@/lib/todo-view";
 
 /** A Monday, which is what the weekday cases below are counted from. */
 const TODAY = "2026-08-10";
@@ -220,5 +221,23 @@ describe("expandShorthand", () => {
 
     expect(todo.recurrence).toBeUndefined();
     expect(todo.text).toBe("water the plants every:fortnight");
+  });
+});
+
+describe("#617 a hash in a span or an address is no tag", () => {
+  it("#617 A5 the filter #client and a saved view #agent leave such a todo out", () => {
+    const [agent] = parseViews("- agent: #agent");
+    if (agent === undefined) throw new Error("no view in that note");
+
+    expect.soft(matches("- [ ] run `grep #client log`", "#client")).toBe(false);
+    expect.soft(matches("- [ ] see https://a.io/p#client", "#client")).toBe(false);
+    expect(
+      matchesFilter(todo("- [ ] run `echo #agent now`"), parseFilter(agent.filter), TODAY),
+    ).toBe(false);
+  });
+
+  it("#617 I3 quick add reads no tag in a code span or an address", () => {
+    expect.soft(expandShorthand("run `grep #client log`", TODAY).tags).toEqual([]);
+    expect(expandShorthand("see https://a.io/p#next #kasten", TODAY).tags).toEqual(["#kasten"]);
   });
 });

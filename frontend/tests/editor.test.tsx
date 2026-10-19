@@ -1,7 +1,9 @@
 import { acceptCompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";
+import { forceParsing } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { act, fireEvent, render } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { Editor } from "@/components/editor";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { vimModeField } from "@/lib/vim-mode";
@@ -32,6 +34,36 @@ function deleteCurrentLine(container: HTMLElement) {
   fireEvent.keyDown(content, { key: "d" });
   fireEvent.keyDown(content, { key: "d" });
   return content.textContent;
+}
+
+/**
+ * Finish parsing the document, the way the browser does when it is idle.
+ *
+ * CodeMirror parses for 20 ms on a new state and leaves the rest to an idle
+ * callback that a synchronous test never reaches. On a loaded machine the 20 ms
+ * run out before the link is parsed, and then no `.cm-wikilink` is drawn and
+ * `gf` finds no link (#618).
+ */
+function finishParsing(container: HTMLElement) {
+  const view = EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement);
+  act(() => forceParsing(view as EditorView, (view as EditorView).state.doc.length, 5000));
+}
+
+/**
+ * Make the clock jump on every read while `render` runs, so the first parse
+ * stops after its first step, the way it does on a loaded machine.
+ */
+function renderStarved(ui: ReactElement) {
+  let now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => {
+    now += 25;
+    return now;
+  });
+  try {
+    return render(ui);
+  } finally {
+    clock.mockRestore();
+  }
 }
 
 /** A passage a note took out of a book, and the block that carries it. */
@@ -108,6 +140,7 @@ describe("Editor", () => {
   it("follows the wikilink under the cursor on gf", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+    finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
 
     // `w` twice, so the cursor sits in the link rather than on the word before
@@ -122,6 +155,7 @@ describe("Editor", () => {
   it("names the note without the spaces written around it", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="[[ borges ]]" onFollow={onFollow} />);
+    finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(content, { key: "g" });
@@ -135,6 +169,20 @@ describe("Editor", () => {
     // end of the line: it lands past the link, painted at the end of the name.
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]]" onFollow={onFollow} />);
+    finishParsing(container);
+    const content = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(content, { key: "$" });
+    fireEvent.keyDown(content, { key: "g" });
+    fireEvent.keyDown(content, { key: "f" });
+
+    expect(onFollow).toHaveBeenCalledWith("borges");
+  });
+
+  it("follows a link the line ends on when the first parse runs out of time (#618)", () => {
+    const onFollow = vi.fn();
+    const { container } = renderStarved(<Editor initialDoc="see [[borges]]" onFollow={onFollow} />);
+    finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(content, { key: "$" });
@@ -147,6 +195,7 @@ describe("Editor", () => {
   it("follows the wikilink under the cursor on Enter", () => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+    finishParsing(container);
     const content = container.querySelector(".cm-content") as HTMLElement;
 
     fireEvent.keyDown(content, { key: "w" });
@@ -781,6 +830,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     (_, doc, text, target) => {
       const onFollow = vi.fn();
       const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} onFollow={onFollow} />);
+      finishParsing(container);
 
       fireEvent.mouseDown(textIn(container, text), { ctrlKey: true });
       fireEvent.mouseDown(textIn(container, text), { metaKey: true });
@@ -794,6 +844,7 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
   it.each(CASES)("follows a link in %s on a tap, vim on and off (A4)", (_, doc, text, target) => {
     const onFollow = vi.fn();
     const { container } = render(<Editor initialDoc={`intro\n\n${doc}`} onFollow={onFollow} />);
+    finishParsing(container);
     const tap = () => {
       fireEvent.pointerDown(textIn(container, text), { pointerType: "touch" });
       fireEvent.click(textIn(container, text));
@@ -804,6 +855,24 @@ describe("Editor following a link inside bold or another mark (#432)", () => {
     tap();
 
     expect(onFollow.mock.calls).toEqual([[target], [target]]);
+  });
+
+  it("follows a link in italic on a tap when the first parse runs out of time (#618)", () => {
+    const onFollow = vi.fn();
+    const { container } = renderStarved(
+      <Editor initialDoc={"intro\n\nsee *[[borges]]* now"} onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const tap = () => {
+      fireEvent.pointerDown(textIn(container, "borges"), { pointerType: "touch" });
+      fireEvent.click(textIn(container, "borges"));
+    };
+
+    tap();
+    act(() => toggleVim());
+    tap();
+
+    expect(onFollow.mock.calls).toEqual([["borges"], ["borges"]]);
   });
 
   it("opens a markdown link's address in bold on ctrl+click (I3)", () => {

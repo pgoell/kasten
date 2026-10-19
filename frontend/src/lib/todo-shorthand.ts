@@ -12,7 +12,7 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { TAG, type Todo, type TodoPriority, type TodoState } from "@/lib/todo";
+import { type Todo, type TodoPriority, type TodoState, tagsOf } from "@/lib/todo";
 import { formatRecurrence, parseRecurrence } from "@/lib/todo-recur";
 import { parseDuration } from "@/lib/todo-time";
 
@@ -278,7 +278,7 @@ export function expandShorthand(input: string, today: string): Todo {
     indent: 0,
     state: "open",
     text,
-    tags: text.match(TAG) ?? [],
+    tags: tagsOf(text).map((found) => found.tag),
     ...dates,
     priority,
     recurrence,

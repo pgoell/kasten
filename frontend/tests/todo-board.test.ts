@@ -8,6 +8,7 @@ import {
   projectChoices,
   withProjectLink,
 } from "@/lib/todo-board";
+import { pinnedBy } from "@/lib/todo-drag";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-10-16";
@@ -180,5 +181,12 @@ describe("laneName", () => {
   it("names a lane by the project's folder, or as no project", () => {
     expect(laneName("02 Projects/FDE")).toBe("FDE");
     expect(laneName(null)).toBe("No project");
+  });
+});
+
+describe("#617 a hash in a span or an address is no tag", () => {
+  it("#617 A6 a #p/x or a kind in a code span puts the card in no lane of it", () => {
+    expect.soft(pinnedBy(todo("- [ ] run `ls #p/x log`").tags)).toBe(false);
+    expect(kindOf(todo("- [ ] run `grep #client log`"), [])).toBeNull();
   });
 });

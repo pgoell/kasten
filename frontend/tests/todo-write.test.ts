@@ -1,6 +1,7 @@
 import { parseTodo, type Todo, type TodoState } from "@/lib/todo";
 import {
   addTodoWrites,
+  agentPress,
   applyBlocked,
   blockedLines,
   blockLine,
@@ -1228,5 +1229,14 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
   ])("#537 B1 a twinned blocker beside an open one still blocks, %s", (_, written) => {
     // Whichever twin the ⛔ meant, the open blocker holds the line on its own.
     expect(written()).toBe("- [b] c ⛔ kt-aaaaaa ⛔ kt-yyyyyy");
+  });
+});
+
+describe("#617 a hash in a span or an address is no tag", () => {
+  it("#617 I5 @ reads #agent as parseTodo does, taking back one hard against a comma", () => {
+    const line = "- [ ] fix the build,#agent";
+
+    expect.soft(todo(line).tags).toEqual(["#agent"]);
+    expect(agentPress([line], 1, TODAY, "kt-000001")).toEqual({ line: "- [ ] fix the build," });
   });
 });

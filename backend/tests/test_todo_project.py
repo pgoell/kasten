@@ -143,6 +143,23 @@ async def test_a1_every_hit_carries_a_project(client: AsyncClient, vault: Path) 
     ]
 
 
+async def test_a4_tag_in_a_span_or_address_files_nothing(client: AsyncClient, vault: Path) -> None:
+    projects_vault(vault)
+    lines = [
+        "- [ ] run `x #p/fde`",
+        "- [ ] read [docs](https://a.io/?#p/fde)",
+        "- [ ] read [#p/fde](x)",
+        # No span, but the `/` before the `#` already makes it no tag.
+        "- [ ] see https://a.io/#p/fde",
+    ]
+    write(vault, "02 Projects/Atlas/index.md", "\n".join(lines) + "\n")
+
+    found = await projects(client)
+
+    # Each falls through to the folder, which a tag read would have beaten.
+    assert {line: found[line] for line in lines} == dict.fromkeys(lines, "02 Projects/Atlas")
+
+
 async def test_i1_tag_beats_the_folder(client: AsyncClient, vault: Path) -> None:
     projects_vault(vault)
     write(vault, "02 Projects/FDE/index.md", "- [ ] a #p/atlas\n")
@@ -156,6 +173,16 @@ async def test_i1_tag_beats_a_link(client: AsyncClient, vault: Path) -> None:
     write(vault, DAILY, f"{line}\n")
 
     assert (await projects(client))[line] == "02 Projects/Atlas"
+
+
+async def test_i1_tag_beside_a_span_or_address(client: AsyncClient, vault: Path) -> None:
+    projects_vault(vault)
+    write(vault, DAILY, "- [ ] `grep x` #p/fde\n- [ ] see https://a.io #p/fde\n")
+
+    found = await projects(client)
+
+    assert found["- [ ] `grep x` #p/fde"] == "02 Projects/FDE"
+    assert found["- [ ] see https://a.io #p/fde"] == "02 Projects/FDE"
 
 
 async def test_i2_unknown_tag_is_passed_over(client: AsyncClient, vault: Path) -> None:
@@ -196,6 +223,14 @@ async def test_i4_nested_tag_names_its_first_segment(client: AsyncClient, vault:
     write(vault, DAILY, "- [ ] a #p/fde/workshops\n")
 
     assert (await projects(client))["- [ ] a #p/fde/workshops"] == "02 Projects/FDE"
+
+
+async def test_i4_heading_in_a_link_is_no_tag(client: AsyncClient, vault: Path) -> None:
+    projects_vault(vault)
+    # Louise is in no project, so a link fallback cannot hide a tag read.
+    write(vault, DAILY, "- [ ] ask [[Louise#p/fde]]\n")
+
+    assert (await projects(client))["- [ ] ask [[Louise#p/fde]]"] is None
 
 
 async def test_i5_first_tag_that_names_a_folder_wins(client: AsyncClient, vault: Path) -> None:

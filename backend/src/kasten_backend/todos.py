@@ -99,8 +99,8 @@ TAG = re.compile(r"(?<![\w/])#[^\W\d][\w/-]*")
 `[^\\W\\d]` is a letter or an underscore. A lookbehind here where `tags.TAG`
 consumes a character, because rg's engine has none and this one does. So
 `#p/fde.` at the end of a sentence reads as `#p/fde`, and `[[note#p/x]]` holds
-no tag. A link or a code span is not masked, because the board's own tag
-reading does not mask one either.
+no tag. It runs on words with every span masked, as the board's own tag reading
+does, so `#p/x` in a code span or anywhere in a link is no tag.
 """
 
 LINE = re.compile(
@@ -162,7 +162,12 @@ WAITING = re.compile(
 )
 
 SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`")
-"""A link, a markdown link and a code span: a marker inside one is not a field."""
+"""A link, a markdown link and a code span: a marker inside one is not a field, nor a tag."""
+
+
+def _mask(text: str) -> str:
+    """`text` with every span blanked to no-break spaces, its spaces and offsets kept."""
+    return SPANS.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), text)
 
 
 def _words(rest: str) -> str:
@@ -174,7 +179,7 @@ def _words(rest: str) -> str:
     first match of each is tried, as in the editor; only `⛔` repeats.
     """
     text = rest
-    mask = SPANS.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), rest)
+    mask = _mask(rest)
     for pattern in (*FIELDS, BLOCKED_BY, WAITING):
         while (found := pattern.search(mask)) is not None and any(found.groups()):
             text = text[: found.start()] + text[found.end() :]
@@ -207,7 +212,9 @@ def _tag_project(text: str, folders: dict[str, str]) -> str | None:
     would otherwise make a project nobody made. `#p/x/y` names `x`, a project
     being one folder deep.
     """
-    for tag in TAG.findall(text):
+    # Found on the mask and read off the words, the mask keeping every offset.
+    for found in TAG.finditer(_mask(text)):
+        tag = text[found.start() : found.end()]
         if tag[1:3].lower() != "p/":
             continue
         folder = folders.get(_spoken(tag[3:].split("/")[0]))
