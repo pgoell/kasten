@@ -140,6 +140,18 @@ describe("the palette", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("#523 A9 sends a todo to the agent from a tapped row, no vim in the editor", () => {
+    // A bare view, as on a phone or with vim off: the row is the whole way in.
+    const view = viewOf("- [ ] wire up the pane 📅 2026-10-20", 0);
+    render(<CommandPalette entries={paletteEntries(stubCommands(), view)} onClose={vi.fn()} />);
+
+    const row = screen.queryByRole("option", { name: /Send this todo to the agent/ });
+    expect.soft(row).not.toBeNull();
+    if (row) fireEvent.click(row);
+
+    expect(view.state.doc.toString()).toBe("- [ ] wire up the pane #agent 📅 2026-10-20");
+  });
+
   it("writes and reports nothing from a tapped done row on a done todo, no vim in the editor", () => {
     const tap = (path: string) => {
       const note = `- [x] a ✅ ${readClock(new Date()).date}`;

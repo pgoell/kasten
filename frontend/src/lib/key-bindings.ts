@@ -9,7 +9,7 @@ import {
 } from "@/lib/format-commands";
 import { toggleImageAtCursor } from "@/lib/image";
 import type { MoveMode } from "@/lib/move";
-import { cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
+import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo-commands";
 import { writeTranscript } from "@/lib/transcript";
 
 /**
@@ -420,6 +420,9 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
   // `i` is free after the leader, and cannot collide with vim's own `i`, which
   // needs no leader in front of it.
   { key: "i", label: "Stamp an id on this todo", run: stampIdAtCursor },
+  // `@` for the agent, the mark that addresses somebody. Free after the leader,
+  // and vim's own `@`, which replays a macro, needs no leader in front of it.
+  { key: "@", label: "Send this todo to the agent, or take it back", run: agentTodoAtCursor },
   // The `c` group's shape, `ci` for create image, though the key toggles rather
   // than only creates: pressed on a link it makes an image of it, pressed on an
   // image it hands the link back, and pressed on neither it writes the brackets
@@ -699,6 +702,7 @@ export const TODO_PANE: readonly { key: string; label: string }[] = [
     key: "t",
     label: "Start a timer on the todo under the cursor, or stop the ones it has running",
   },
+  { key: "@", label: "Send the todo under the cursor to the agent, or take it back" },
   { key: "d", label: "Show what was finished in the last seven days" },
   { key: "n", label: "Show one next action per task" },
   { key: "v", label: "Show the next saved view, or all todos again" },

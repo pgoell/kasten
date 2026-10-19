@@ -353,6 +353,26 @@ export function endsOfWords(line: string, fields?: number[]): number[] {
 }
 
 /**
+ * Where the words of a todo line end: before its first field that parses, else
+ * before a trailing `^blockid`, else at the line's end. An offset into the
+ * whole line, so a tag written there leaves every other byte where it was.
+ *
+ * Only fields that parse count, as for a stamp: `📅 friday` is words.
+ */
+export function wordsEnd(line: string): number {
+  const found = LINE.exec(line);
+  if (found?.[3] === undefined) return line.length;
+  const rest = found[3];
+  const offset = line.length - rest.length;
+  const mask = masked(rest);
+  const fields = ORDER.flatMap((pattern) => {
+    const field = find(pattern, rest, mask);
+    return field === null ? [] : [offset + field.from];
+  });
+  return endsOfWords(line, fields)[0] ?? line.length;
+}
+
+/**
  * The fields a state change or a field write puts on or takes off, each
  * spelled as `tail` spells it. In `ORDER`'s sequence, so a stop writing `⏱` and
  * `🆔` together finds the one when it places the other. `⛔` is not here: a

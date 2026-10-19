@@ -19,8 +19,10 @@ import {
   parseTodo,
   patchLine,
   setStateOn,
+  TAG,
   type Todo,
   type TodoState,
+  wordsEnd,
 } from "@/lib/todo";
 import { nextOccurrence } from "@/lib/todo-recur";
 import {
@@ -30,7 +32,7 @@ import {
   parseSession,
   type Session,
 } from "@/lib/todo-time";
-import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
+import { descendants, inherited, isClient, type Node, type Placed, treeOf } from "@/lib/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
 export interface Write {
@@ -473,6 +475,80 @@ export function cycleLines({
   }
 
   return moved;
+}
+
+/** The tag the agent worker picks a todo up by. */
+export const AGENT = "#agent";
+
+/**
+ * Whether the todo on `line` is client work, by its own tag or a todo above it.
+ * The pane's reading, `inherited`, so the two places `@` is pressed agree: only
+ * a todo passes client down, and prose between is read through.
+ */
+function clientAt(lines: string[], line: number): boolean {
+  const placed: Placed[] = [];
+  for (const [index, text] of lines.entries()) {
+    const todo = parseTodo(text);
+    if (todo !== null) placed.push({ line: index + 1, todo });
+  }
+  const node = inherited(treeOf(placed))
+    .flatMap((root) => [root, ...descendants(root)])
+    .find((found) => found.line === line);
+  return node !== undefined && isClient(node.todo);
+}
+
+/**
+ * What `@` makes of line `at` (counting from one) of `lines`: the line to write,
+ * or the sentence for the foot when it writes nothing.
+ *
+ * Only the tag moves. Written in at the end of the words rather than through
+ * `patchLine`, whose rebuild would put the tag after any words typed past the
+ * fields; taken out with the one space before it. A plain line becomes an open
+ * todo first, the way the state keys make one.
+ */
+export function agentPress(
+  lines: string[],
+  at: number,
+  today: string,
+  id: string,
+): { line: string } | { why: string } {
+  const before = lines[at - 1] ?? "";
+  if (before.trim() === "") return { why: "there is no todo on that line" };
+
+  const plain = parseTodo(before) === null;
+  const line = plain ? (pressedLine(before, today, id, "open") ?? before) : before;
+  const todo = parseTodo(line);
+  if (todo === null) return { why: "there is no todo on that line" };
+
+  // The worker leaves client work alone, so handing it over would only park it.
+  const read = [...lines];
+  read[at - 1] = line;
+  if (clientAt(read, at)) return { why: "the agent skips client work" };
+
+  if (!todo.tags.includes(AGENT)) {
+    const end = wordsEnd(line);
+    // A space after as well where a field sits hard against the words, or the
+    // tag would read the marker in as part of itself.
+    const after = /^(?:[ \t]|$)/.test(line.slice(end)) ? "" : " ";
+    return { line: `${line.slice(0, end)} ${AGENT}${after}${line.slice(end)}` };
+  }
+  // A plain line already naming the agent only needed its box.
+  if (plain) return { line };
+  // Taken back only while nobody has started on it: past open, the worker may
+  // already hold it, and pulling the tag would not stop it.
+  if (todo.state !== "open") return { why: "that todo is already with the agent" };
+
+  // `TAG` is the parser's own reading, so `#agents` and `#agent/x` stay.
+  let out = line;
+  for (const found of [...line.matchAll(TAG)].reverse()) {
+    if (found[0] !== AGENT) continue;
+    let from = found.index;
+    let to = from + AGENT.length;
+    if (/[ \t]/.test(out[from - 1] ?? "")) from -= 1;
+    else if (/[ \t]/.test(out[to] ?? "")) to += 1;
+    out = out.slice(0, from) + out.slice(to);
+  }
+  return { line: out };
 }
 
 /** Every note one press of the cycle changes, in the order they should be sent. */

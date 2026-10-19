@@ -120,7 +120,7 @@ describe("KeyHelp", () => {
       "This note": ["rf", "df", "du", "w", "="],
       "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
       "Panes to open": ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
-      Todos: ["x", "i", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
+      Todos: ["x", "i", "@", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
       Toggles: ["a", "b", "p", "e", "E", "v"],
       Help: ["?", ":"],
     };
@@ -257,6 +257,23 @@ describe("KeyHelp", () => {
     // a table that never had the row, and a missing `c` left the board with no
     // way in that the panel named.
     expect(group("Todo pane").getByText("c").nextElementSibling).toHaveTextContent(/board/);
+  });
+
+  it("#523 A10 lists Space @ in the Todos group", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    // Written out, as `c` above is: the loops pass over a table without the row.
+    // The label read as text, empty where the row is missing, so a missing row
+    // fails the comparison rather than the matcher.
+    const label = group("Todos").queryByText("Space @")?.nextElementSibling?.textContent ?? "";
+    expect(label).toContain("Send this todo to the agent, or take it back");
+  });
+
+  it("#523 A10 lists @ among the todo pane keys", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    const label = group("Todo pane").queryByText("@")?.nextElementSibling?.textContent ?? "";
+    expect(label).toContain("Send the todo under the cursor to the agent, or take it back");
   });
 
   it("lists every screen reached by typing its address", () => {

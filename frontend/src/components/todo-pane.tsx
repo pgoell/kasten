@@ -281,6 +281,13 @@ interface TodoPaneProps {
    */
   onTimer: (hit: SearchHit, twins?: number[]) => void;
   /**
+   * Tag the row's todo `#agent` for the worker, or take the tag back off.
+   *
+   * The hit for the reason `onCycle` takes one: the write reads the note off
+   * disk again, and the path and the line are how it finds the task line.
+   */
+  onAgent: (hit: SearchHit, twins?: number[]) => void;
+  /**
    * Move the row's todo, with its parts, into its project's note.
    *
    * The `TodoHit` rather than a bare hit, because the project it moves to is
@@ -331,6 +338,7 @@ export function TodoPane({
   onEdit,
   onBlock,
   onTimer: timer,
+  onAgent: agent,
   onRefile,
   onNotice,
   focusSignal,
@@ -407,8 +415,8 @@ export function TodoPane({
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
 
-  // Every press in here that writes a state or a timer, key, tap or drop on
-  // the board, goes through these two, so none of them leaves the twins off.
+  // Every press in here that writes a state, a timer or the agent's tag, key,
+  // tap or drop on the board, goes through these, so none leaves the twins off.
   // Only where there are twins: one line or none is the row's own, and the
   // press goes out with the arguments it was made with.
   const onCycle = (...args: [hit: SearchHit, state?: TodoState]) => {
@@ -420,6 +428,11 @@ export function TodoPane({
     const twins = twinsOf(data ?? [], hit);
     if (twins.length > 1) timer(hit, twins);
     else timer(hit);
+  };
+  const onAgent = (hit: SearchHit) => {
+    const twins = twinsOf(data ?? [], hit);
+    if (twins.length > 1) agent(hit, twins);
+    else agent(hit);
   };
 
   // The listing is already in the cache, put there by the route, so this asks
@@ -925,6 +938,11 @@ export function TodoPane({
       case "t":
         if (at !== undefined) onTimer(at.hit);
         break;
+      // `#agent` without typing it, the tag the worker picks todos up by. The
+      // write decides add or take off, from the line as the note holds it.
+      case "@":
+        if (at !== undefined) onAgent(at.hit);
+        break;
       // One todo per press, so no bulk move ever happens.
       case "m":
         if (at !== undefined) onRefile(at.hit);
@@ -1335,6 +1353,7 @@ export function TodoPane({
                     ["edit", () => edit(hit)],
                     ["blocked by", () => block(hit)],
                     ["refile", () => onRefile(hit)],
+                    ["agent", () => onAgent(hit)],
                   ];
                   return (
                     <div key={key}>
@@ -1447,9 +1466,9 @@ export function TodoPane({
         ) : (
           <span>
             x cycle&ensp;&ensp;O P V X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
-            edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;m refile&ensp;&ensp;d
-            done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;c board&ensp;&ensp;/
-            filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
+            edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;m refile&ensp;&ensp;@
+            agent&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;c
+            board&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
           </span>
         )}
       </footer>

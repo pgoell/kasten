@@ -49,6 +49,7 @@ async function mount(width: number, height: number) {
         onEdit={() => {}}
         onBlock={() => {}}
         onTimer={() => {}}
+        onAgent={() => {}}
         onRefile={(hit) => refiled.push(hit)}
         onNotice={() => {}}
         focusSignal={0}

@@ -177,7 +177,7 @@ dimmed page around them.
 | A note | A tap on the text focuses the editor and puts the cursor there. A tap on a wikilink follows it. A tap on a callout's arrow folds or unfolds it | [Wikilinks](#wikilinks), [Callout format](/reference/callout-format.md#folding) |
 | The file tree | A tap on a note, an image or a page opens it. A tap on a folder folds or unfolds it. Two buttons in the header: new note, and hide the tree | [The file tree](#the-file-tree) |
 | An image | Two fingers zoom, one finger moves the zoomed picture. `delete` in the header, on its second tap | [The file tree](#the-file-tree) |
-| The todo pane | A tap on a row opens its line. The state symbol cycles the todo, on its second tap. `+` adds one. `done`, `next` and `view` change the list, and `board` turns it into the board. `⋯` opens a strip of states, `timer`, `part` and `edit`. The footer shows the count alone, with no keys | [The todo pane](#the-todo-pane) |
+| The todo pane | A tap on a row opens its line. The state symbol cycles the todo, on its second tap. `+` adds one. `done`, `next` and `view` change the list, and `board` turns it into the board. `⋯` opens a strip of states, `timer`, `part`, `edit`, `blocked by`, `refile` and `agent`. The footer shows the count alone, with no keys | [The todo pane](#the-todo-pane) |
 | The graph | One finger pans or drags a note, two zoom, a tap opens a note. A tap on a hollow ring asks before it makes the note. `fit`, `depth -` and `depth +` | [The graph pane](#the-graph-pane) |
 | A book | A swipe or a tap in the left or right quarter turns the page. `Contents` and `Take` at the foot | [The book pane](#the-book-pane) |
 | A video | A tap on the count goes to the next video. The player's controls are YouTube's own | [The video pane](#the-video-pane) |
@@ -308,6 +308,7 @@ column.
 | --- | --- |
 | `<leader>x` | Cycle the todo on this line |
 | `<leader>i` | Stamp an id on the todo on this line |
+| `<leader>@` | Send this todo to the agent, or take it back |
 | `<leader>so` | Set this todo to open |
 | `<leader>sp` | Set this todo to doing |
 | `<leader>sx` | Set this todo to done |
@@ -1330,6 +1331,20 @@ vault's reason.
 line that is not a todo or that carries one already. It is how you name a todo
 that is still open, so a `⛔` on another line has something to point at.
 
+`<leader>@` sends the todo the cursor is on to
+[the agent worker](/reference/todo-format.md#agent-work): it writes `#agent` at
+the end of the words, before the fields, and moves nothing else on the line. On
+a plain line it makes a todo first, as `<leader>so` does. Pressed again on an
+open `[ ]` todo it takes the tag back off, which recalls the todo before the
+worker runs it. On a todo in any other state that carries the tag it changes
+nothing, and the notice says
+`Nothing moved: that todo is already with the agent`. On a todo carrying
+`#client`, or under a todo that does, it writes nothing, and the notice says
+`Nothing moved: the agent skips client work`. It edits the buffer, so `u` undoes
+it. vim's own `@`, which replays a macro, has no leader in front of it and works
+as before. With vim off, and on a phone, the palette's
+"Send this todo to the agent, or take it back" does the same.
+
 The editor draws each state as a symbol in place of its box, `☐ ◐ ◎ ☑ ⊘ ◷ ☒`, and
 mutes and strikes through a line that is done or rejected. A due date that has
 passed is drawn in red, behind any of `📅 📆 🗓`, with or without the variation
@@ -1516,6 +1531,7 @@ session lines `GET /api/todos` also matches are not todos, so neither is here.
 | `s` | Add a part of the todo under the cursor |
 | `i` | Edit the row's own line, in place, with the fields it has not got under it |
 | `t` | Start a timer on the todo under the cursor, or stop the ones it has running |
+| `@` | Send the todo under the cursor to the agent, or take it back |
 | `d` | Show what was finished in the last seven days |
 | `n` | Show one next action per task |
 | `v` | Show the next saved view, or all todos again |
@@ -1560,6 +1576,15 @@ there is no clock ticking on it, and a session lands in `⏱` when it is stopped
 Where a write since the list was drawn moved the row's todo so that `t` cannot
 tell which line it is, `t` writes nothing and the notice says
 `Nothing moved: that line has changed since it was listed`, as a state key does.
+
+`@` sends the row's todo to [the agent worker](/reference/todo-format.md#agent-work)
+by writing `#agent` on its line, and takes the tag back off an open `[ ]` todo,
+by the rules of `<leader>@` in [Todos](#todos): a todo in another state keeps
+the tag, and client work is refused, each with its sentence in the notice. It
+writes the way `m` does, in the note's write queue and naming the text it read,
+so a note holding text not yet saved, open to type in or still being saved is
+not written, and the notice says why. It works on the list, not on the board.
+On a phone the row's `⋯` strip carries `agent`, which does the same.
 
 `t`, `x`, a state key and a dropped card find a todo's sessions, log line and
 dependents by its `🆔`. Where that `🆔` stands on another todo line too, a

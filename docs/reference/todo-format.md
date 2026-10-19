@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Todo format
-description: The line a todo is written on, every field it carries, the seven states, the cycle, the done log, the time log, the tag that marks client work, the terms that filter one, and the note that saves them.
+description: The line a todo is written on, every field it carries, the seven states, the cycle, the done log, the time log, the tag that marks client work, the tag that hands a todo to the agent worker, the terms that filter one, and the note that saves them.
 resource: frontend/src/lib/todo.ts
 tags: [vault, todos, format, frontend]
 status: stable
@@ -609,6 +609,26 @@ makes a [saved view](#saved-views):
 The tag is fixed, as `#next` is. A vault that never writes it sees no change.
 [The agent note](#the-agent-note) states the same order, so an agent that ranks
 todos weights client work the way the pane does.
+
+## Agent work
+
+`#agent` on a todo hands it to the agent worker, a job on the server that picks
+up open todos carrying the tag and works on them. The tag is the one thing the
+worker reads, so typing it by hand sends a todo as surely as a key does.
+
+```markdown
+- [ ] summarise the meeting notes #agent 📅 2026-10-20
+```
+
+`@` in [the todo pane](/reference/editor-keys.md#the-todo-pane) and
+`<leader>@` in [the editor](/reference/editor-keys.md#todos) write it, at the end
+of the words and before the fields. Pressed again on an open `[ ]` todo they take
+it back off, which recalls the todo before the worker starts. Once the todo has
+moved on to another state, the keys leave the tag where it is. They refuse
+client work, a todo carrying `#client` or under one that does, because the
+worker skips it. The saved view `- agent: #agent` lists every todo sent.
+
+The tag is fixed, as `#client` is. A vault that never writes it sees no change.
 
 ## Filter terms
 

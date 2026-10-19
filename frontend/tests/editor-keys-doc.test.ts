@@ -88,7 +88,7 @@ const LEADER_GROUPS: Record<string, string[]> = {
   "This note": ["rf", "df", "du", "w", "="],
   "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
   "Panes to open": ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
-  Todos: ["x", "i", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
+  Todos: ["x", "i", "@", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
   Toggles: ["a", "b", "p", "e", "E", "v"],
   Help: ["?", ":"],
 };

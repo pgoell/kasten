@@ -121,6 +121,7 @@ import { newId, parseTodo, type TodoState } from "@/lib/todo";
 import {
   addSubtaskInVault,
   addTodoInVault,
+  agentTodoIn,
   blockTodoInVault,
   cycleTodoAside,
   cycleTodoInVault,
@@ -1680,6 +1681,72 @@ function Home() {
   );
 
   /**
+   * Hand one todo to the agent worker, or take it back, from the pane's `@`.
+   *
+   * In the note's queue with `m`'s guards, asked before and again inside the
+   * write, for `m`'s reasons: the press was made in the pane, not in the note,
+   * and an editor holding it would save its own copy over the tag. The rule
+   * reads the note as the write finds it, so a second press before the list
+   * redraws sees the first's tag and takes it off again.
+   */
+  const agentTodo = useCallback(
+    async (hit: SearchHit, twins?: number[]) => {
+      setNotice(undefined);
+      const note = hit.path;
+      const busy = (): string | null => {
+        if (heldText(note) !== undefined) return `${note} holds text not yet saved`;
+        const focused = focusedNote.current;
+        if (focused.path === note) return `${note} is open to type in`;
+        if (focused.isWriting(note)) return `${note} is still being saved`;
+        return null;
+      };
+      const before = busy();
+      if (before !== null) {
+        setNotice(`Nothing moved: ${before}`);
+        return;
+      }
+
+      let why = nothingMoved(undefined);
+      const today = readClock(new Date()).date;
+      const tagged = await write(note, async () => {
+        const now = busy();
+        if (now !== null) {
+          why = `Nothing moved: ${now}`;
+          return false;
+        }
+        const written = await updateNote(note, (text) => {
+          const again = busy();
+          if (again !== null) {
+            why = `Nothing moved: ${again}`;
+            return null;
+          }
+          const pressed = agentTodoIn(text, hit, today, twins);
+          if ("why" in pressed) {
+            why = `Nothing moved: ${pressed.why}`;
+            return null;
+          }
+          return pressed.text;
+        }).then(
+          (landed) => landed,
+          // A 500, the network, or refused over its base three times.
+          (error: unknown) => {
+            why = nothingMoved(error);
+            return null;
+          },
+        );
+        if (written !== null) queryClient.setQueryData(["note", note], written.content);
+        return written !== null;
+      });
+      if (!tagged) {
+        setNotice(why);
+        return;
+      }
+      todosWritten();
+    },
+    [queryClient, write, todosWritten],
+  );
+
+  /**
    * Put a typed todo under `## TODOs` in today's note, from the pane's `a`, or
    * beside the row `s` opened on as a part of it.
    *
@@ -2605,6 +2672,7 @@ function Home() {
                     onEdit={editTodo}
                     onBlock={blockTodo}
                     onTimer={toggleTimer}
+                    onAgent={(hit, twins) => void agentTodo(hit, twins)}
                     onRefile={(hit, project) => void refileTodo(hit, project)}
                     onNotice={setNotice}
                     archive={archive}

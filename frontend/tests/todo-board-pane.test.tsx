@@ -96,6 +96,7 @@ function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = {}) {
         onEdit={onEdit}
         onBlock={vi.fn()}
         onTimer={vi.fn()}
+        onAgent={vi.fn()}
         onRefile={onRefile}
         onNotice={onNotice}
         focusSignal={focusSignal}

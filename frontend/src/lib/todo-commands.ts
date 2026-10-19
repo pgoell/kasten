@@ -1,10 +1,12 @@
-import { ChangeSet, Facet } from "@codemirror/state";
+import { ChangeSet, Facet, type Line } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
+import { noticeHandler } from "@/lib/image";
 import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
 import { nameAt, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo";
 import {
+  agentPress,
   type Closed,
   closedAmong,
   cycleLines,
@@ -204,9 +206,15 @@ export function stampIdAtCursor(view: EditorView): void {
   // as long as that todo exists.
   if (todo === null || todo.id !== undefined) return;
 
-  // Only the span that differs is replaced, so the cursor and the rest of the
-  // line map through the change untouched.
-  const patched = patchLine(line.text, { ...todo, id: newId() });
+  replaceLine(view, line, patchLine(line.text, { ...todo, id: newId() }));
+}
+
+/**
+ * Write `patched` over `line`, replacing only the span that differs, so the
+ * cursor and the rest of the line map through the change untouched and one `u`
+ * takes it back.
+ */
+function replaceLine(view: EditorView, line: Line, patched: string): void {
   let start = 0;
   while (start < patched.length && patched[start] === line.text[start]) start += 1;
   let end = 0;
@@ -224,4 +232,25 @@ export function stampIdAtCursor(view: EditorView): void {
       insert: patched.slice(start, patched.length - end),
     },
   });
+}
+
+/**
+ * Hand the todo under the cursor to the agent worker, or take it back: `#agent`
+ * on or off the line, and nothing else moved. A press that writes nothing says
+ * why at the foot, as the pane's `@` does.
+ */
+export function agentTodoAtCursor(view: EditorView): void {
+  const { state } = view;
+  const line = state.doc.lineAt(state.selection.main.head);
+  const pressed = agentPress(
+    state.doc.toString().split("\n"),
+    line.number,
+    readClock(new Date()).date,
+    newId(),
+  );
+  if ("why" in pressed) {
+    state.facet(noticeHandler)?.(`Nothing moved: ${pressed.why}`);
+    return;
+  }
+  replaceLine(view, line, pressed.line);
 }

@@ -3625,6 +3625,205 @@ describe("the route", () => {
     });
   });
 
+  describe("sending a todo to the agent worker", () => {
+    const PATH = "inbox.md";
+    const ROW = { path: PATH, line: 2, text: "- [ ] send the deck 📅 2026-10-20", project: null };
+
+    /** What the vault holds, which the writes change as a real vault would. */
+    let notes: Record<string, string>;
+
+    /** The pane listing `rows` over `text` in `PATH`, opened by the toolbar on a phone. */
+    async function listing(rows: TodoHit[], text: string, phone = false) {
+      notes = { ...VAULT, [PATH]: text };
+      fetchFiles.mockImplementation(async () => Object.keys(notes));
+      fetchNote.mockImplementation(async (path: string) => notes[path]);
+      saveNote.mockImplementation(async (path: string, content: string) => {
+        notes[path] = content;
+        return { path, content };
+      });
+      fetchTodos.mockResolvedValue(rows);
+      const app = await renderApp();
+      await settle();
+      if (phone) fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
+      else app.leader("g", "t");
+      await settle();
+      return app;
+    }
+
+    /** `keys` pressed in the desktop pane, and the writes they start settled. */
+    async function press(app: Awaited<ReturnType<typeof renderApp>>, ...keys: string[]) {
+      const pane = app.todoPane() as HTMLElement;
+      pane.focus();
+      for (const key of keys) fireEvent.keyDown(pane, { key });
+      await hashed();
+      await settle();
+    }
+
+    /** The paths saved, in the order they went out. */
+    const saved = () => saveNote.mock.calls.map(([path]) => path);
+
+    it("#523 A1 the pane's @ adds #agent before the fields", async () => {
+      const app = await listing([ROW], `## TODOs\n${ROW.text}\n- [ ] buy milk`);
+
+      await press(app, "@");
+
+      expect(notes[PATH]).toBe(
+        "## TODOs\n- [ ] send the deck #agent 📅 2026-10-20\n- [ ] buy milk",
+      );
+    });
+
+    it("#523 A1 the pane's @ adds #agent to a todo in progress", async () => {
+      const row = { ...ROW, text: "- [/] send the deck" };
+      const app = await listing([row], `## TODOs\n${row.text}`);
+
+      await press(app, "@");
+
+      expect(notes[PATH]).toBe("## TODOs\n- [/] send the deck #agent");
+    });
+
+    it("#523 A2 the pane's @ on an open todo carrying #agent takes it off", async () => {
+      const row = { ...ROW, text: "- [ ] send the deck #agent 📅 2026-10-20" };
+      const app = await listing([row], `## TODOs\n${row.text}`);
+
+      await press(app, "@");
+
+      expect(notes[PATH]).toBe("## TODOs\n- [ ] send the deck 📅 2026-10-20");
+    });
+
+    it("#523 A3 the pane's @ on a todo in progress carrying #agent leaves it and says so", async () => {
+      const row = { ...ROW, text: "- [/] send the deck #agent" };
+      const app = await listing([row], `## TODOs\n${row.text}`);
+
+      await press(app, "@");
+
+      expect.soft(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: that todo is already with the agent");
+    });
+
+    it("#523 A5 the pane's @ on a todo carrying #client writes nothing and says why", async () => {
+      const row = { ...ROW, text: "- [ ] bill them #client" };
+      const app = await listing([row], `## TODOs\n${row.text}`);
+
+      await press(app, "@");
+
+      expect.soft(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: the agent skips client work");
+    });
+
+    it("#523 A5 the pane's @ on a part of a #client todo writes nothing and says why", async () => {
+      const row = { ...ROW, line: 3, text: "  - [ ] send the invoice" };
+      const app = await listing([row], `## TODOs\n- [ ] the job #client\n${row.text}`);
+
+      await press(app, "@");
+
+      expect.soft(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: the agent skips client work");
+    });
+
+    it("#523 A7 the pane's @ changes the tag and not one other byte of the note", async () => {
+      const text = [
+        "---",
+        "id: inbox",
+        "---",
+        "## TODOs",
+        "- [ ] send the deck #p/fde ⏫ 📅 2026-10-20 🆔 kt-abc123",
+        "  - [ ] draw the chart",
+        "",
+        "Some prose with #agent in it.",
+        "",
+      ].join("\n");
+      const row = {
+        ...ROW,
+        line: 5,
+        text: "- [ ] send the deck #p/fde ⏫ 📅 2026-10-20 🆔 kt-abc123",
+      };
+      const app = await listing([row], text);
+
+      await press(app, "@");
+
+      expect(notes[PATH]).toBe(text.replace("#p/fde ⏫", "#p/fde #agent ⏫"));
+    });
+
+    it("#523 A8 I3 the pane's @ writes nothing while the note holds text not yet saved", async () => {
+      holdText(PATH, { content: "typed", reason: "PUT failed with 500", conflicted: false });
+      const app = await listing([ROW], `## TODOs\n${ROW.text}`);
+
+      await press(app, "@");
+
+      expect.soft(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: inbox.md holds text not yet saved");
+    });
+
+    it("#523 A8 I3 the pane's @ that the vault refuses says Nothing moved and why", async () => {
+      const app = await listing([ROW], `## TODOs\n${ROW.text}`);
+      saveNote.mockRejectedValue(new Error("PUT failed with 500"));
+
+      await press(app, "@");
+
+      expect(app.notice()).toBe("Nothing moved: PUT failed with 500");
+    });
+
+    it("#523 A9 the phone strip's agent adds #agent", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await listing([ROW], `## TODOs\n${ROW.text}`, true);
+
+      fireEvent.click(screen.getByLabelText("more for send the deck"));
+      // Queried, not got, so a strip without the button fails on the note below.
+      const agent = screen.queryByLabelText("agent send the deck");
+      expect.soft(agent, "the strip holds agent").not.toBeNull();
+      if (agent !== null) fireEvent.click(agent);
+      await hashed();
+      await settle();
+
+      expect(notes[PATH]).toBe("## TODOs\n- [ ] send the deck #agent 📅 2026-10-20");
+    });
+
+    it("#523 A10 the pane's footer names @ agent", async () => {
+      await listing([ROW], `## TODOs\n${ROW.text}`);
+
+      expect(screen.getByTestId("todo-footer").textContent).toContain("@ agent");
+    });
+
+    it("#523 I2 the pane's @ tags its todo after a line was written above it", async () => {
+      const app = await listing([ROW], `## TODOs\n- [ ] new one\n${ROW.text}`);
+
+      await press(app, "@");
+
+      expect(notes[PATH]).toBe("## TODOs\n- [ ] new one\n- [ ] send the deck #agent 📅 2026-10-20");
+    });
+
+    it("#523 I2 the pane's @ on a twin tags that twin after a shift", async () => {
+      const twins = [
+        { path: PATH, line: 1, text: "- [ ] a", project: null },
+        { path: PATH, line: 2, text: "- [ ] a", project: null },
+      ];
+      const app = await listing(twins, "## TODOs\n- [ ] a\n- [ ] a");
+
+      await press(app, "j", "@");
+
+      expect(notes[PATH]).toBe("## TODOs\n- [ ] a\n- [ ] a #agent");
+    });
+
+    it("#523 I2 the pane's @ on a line gone since the listing writes nothing and says so", async () => {
+      const app = await listing([ROW], "## TODOs\n- [ ] buy milk");
+
+      await press(app, "@");
+
+      expect.soft(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: that line has changed since it was listed");
+    });
+
+    it("#523 I5 two @ before the list redraws add the tag and take it off again", async () => {
+      const text = `## TODOs\n${ROW.text}`;
+      const app = await listing([ROW], text);
+
+      await press(app, "@", "@");
+
+      expect.soft(notes[PATH]).toBe(text);
+      expect(saved()).toEqual([PATH, PATH]);
+    });
+  });
+
   describe("a press on a todo whose 🆔 stands on another todo line", () => {
     const PATH = "inbox.md";
     const LINE = "- [/] a 🆔 kt-aaaaaa";
