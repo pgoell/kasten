@@ -1,6 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { type ITheme, Terminal } from "@xterm/xterm";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { keyBytes, type TerminalKey, TerminalKeys, withCtrl } from "@/components/terminal-keys";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
 import "@xterm/xterm/css/xterm.css";
@@ -76,8 +76,12 @@ export function TerminalPane({
   // the `EventSource` invalidates `data` on every vault write, so an agent
   // writing notes in a terminal would tear down its own socket and lose its
   // scrollback.
+  //
+  // Written in a layout effect, which runs in the commit's own task, so a
+  // chord pressed between the commit and the passive effects runs the new
+  // commands rather than the ones before.
   const commandsRef = useRef(commands);
-  useEffect(() => {
+  useLayoutEffect(() => {
     commandsRef.current = commands;
   });
 

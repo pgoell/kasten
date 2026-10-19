@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { keyBytes, withCtrl } from "@/components/terminal-keys";
 import { TerminalPane } from "@/components/terminal-pane";
+import { type EditorCommands, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { encodeInput } from "@/lib/ttyd";
 import { COARSE, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
@@ -10,8 +12,15 @@ import { stubCommands } from "./stub-commands";
 // the terminal that answers it is what got written.
 const { written, term } = vi.hoisted(() => ({
   written: [] as unknown[],
-  /** What the keyboard under the row would do: type, and switch DECCKM. */
-  term: { type: (_data: string) => {}, modes: { applicationCursorKeysMode: false } },
+  /**
+   * What the keyboard under the row would do: type, and switch DECCKM. `keys`
+   * is the pane's own key handler, which a hardware key reaches first.
+   */
+  term: {
+    type: (_data: string) => {},
+    keys: (_event: KeyboardEvent): boolean => true,
+    modes: { applicationCursorKeysMode: false },
+  },
 }));
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
@@ -19,7 +28,9 @@ vi.mock("@xterm/xterm", () => ({
     rows = 24;
     modes = term.modes;
     open() {}
-    attachCustomKeyEventHandler() {}
+    attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean) {
+      term.keys = handler;
+    }
     loadAddon() {}
     write(data: unknown) {
       written.push(data);
@@ -82,6 +93,21 @@ function socket(): FakeSocket {
   return FakeSocket.last;
 }
 
+/**
+ * A parent whose layout effect presses a bound chord when `press` turns true.
+ *
+ * A child's layout effects run before its parent's, so the chord lands after
+ * the pane has committed the render with the new `commands` and before any
+ * passive effect of it has run, which `rerender` cannot reach: it flushes the
+ * passive effects before it returns.
+ */
+function PressOnCommit({ commands, press }: { commands: EditorCommands; press: boolean }) {
+  useLayoutEffect(() => {
+    if (press) term.keys(new KeyboardEvent("keydown", { key: "O", ...TERMINAL_CHORD }));
+  }, [press]);
+  return <TerminalPane session="notes" commands={commands} />;
+}
+
 /** Everything the pane wrote into the terminal, as one string. */
 function screenText(): string {
   return written.filter((chunk) => typeof chunk === "string").join("");
@@ -136,6 +162,16 @@ describe("TerminalPane", () => {
     open.onclose?.({ code: 1005 });
 
     expect(screenText()).toBe("");
+  });
+
+  it("runs a chord that lands before the passive effects of a render on the new commands", () => {
+    const old = stubCommands();
+    const fresh = stubCommands();
+    const { rerender } = render(<PressOnCommit commands={old} press={false} />);
+
+    rerender(<PressOnCommit commands={fresh} press />);
+
+    expect([old.nextPane.mock.calls.length, fresh.nextPane.mock.calls.length]).toEqual([0, 1]);
   });
 
   describe("key row", () => {
