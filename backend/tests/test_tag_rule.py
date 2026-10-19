@@ -31,8 +31,8 @@ def write(vault: Path, path: str, text: str) -> None:
 
 
 def todo_tags(text: str) -> list[str]:
-    """The tags `todos.py` reads off a line: `TAG` on the line with its spans masked."""
-    return [text[found.start() : found.end()] for found in todos.TAG.finditer(todos.mask(text))]
+    """The tags `todos.py` reads off a whole line, its spans masked."""
+    return [text[start:end] for start, end in todos.line_tags(text)]
 
 
 def mention_tags(text: str) -> list[str]:
@@ -173,6 +173,37 @@ async def test_642_i2_a_block_that_never_closes_is_no_frontmatter(tmp_path: Path
     write(tmp_path, "lower.md", "body\n\n---\nref: x #def\n---\n")
 
     assert await find_tags(tmp_path) == ["#abc", "#def"]
+
+
+async def test_648_a4_a_comment_opening_a_line_hides_its_line_in_a_note_read_whole(
+    tmp_path: Path,
+) -> None:
+    # The fence sends the note to `tags_in`, which the one-line row never reaches.
+    write(tmp_path, "note.md", "<!-- x --> #hidden\n#real\n~~~\n~~~\n")
+
+    assert await find_tags(tmp_path) == ["#real"]
+
+
+async def test_651_a6_a_spaced_fence_opens_no_frontmatter_in_a_note_read_whole(
+    tmp_path: Path,
+) -> None:
+    # The fence sends the note to `tags_in`, which skips the block `body_start` finds.
+    write(tmp_path, "note.md", ' ---\ncolor: "#fff"\n---\n#real\n~~~\n~~~\n')
+
+    assert await find_tags(tmp_path) == ["#fff", "#real"]
+
+
+async def test_653_b_a_comment_after_a_box_or_mid_line_hides_no_tag(tmp_path: Path) -> None:
+    # The box opens the paragraph, and text opens the line, so each `<!--` is
+    # an inline comment: the block rule is for a reader holding a whole line.
+    write(tmp_path, "note.md", "a <!-- x -->#b\n")
+    folders = {"x": "02 Projects/x"}
+
+    assert {
+        "project": todos._tag_project("<!-- x --> #p/x", folders),
+        "words": todos._words("<!-- x --> 📅 2026-10-20 go"),
+        "tags": await find_tags(tmp_path),
+    } == {"project": "02 Projects/x", "words": "<!-- x --> go", "tags": ["#b"]}
 
 
 def test_i5_name_inside_a_digit_first_tag_is_no_mention() -> None:

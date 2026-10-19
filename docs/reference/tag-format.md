@@ -34,6 +34,12 @@ finder that leaves a name inside a tag alone.
    the end of the note. An indented block is code as CommonMark reads it, four
    spaces or a tab after a blank line; a line indented under a list item goes
    on with the item and keeps its tags. A comment may run over several lines.
+6. A line that opens with `<!--`, three spaces in front at most and outside
+   code, starts an HTML block, as CommonMark reads it. The block ends with the
+   first line holding `-->`, that whole line included, or else with the note,
+   and no hash in it is a tag. So `<!-- x --> #a` carries no tag, while
+   `text <!-- x --> #a` carries `#a`: a `<!--` after other text is a comment
+   and no more. A `<!--` in code opens nothing.
 
 `# Heading`, a hash and a space, opens a heading and is no tag.
 
@@ -41,8 +47,10 @@ A hash in the frontmatter, `color: "#fff"`, is no tag. As in Obsidian, the
 block's `tags` field names tags instead: `tags: [agent, design]`, a list of
 `- agent` lines, or one value, each with a hash or without, and each a tag only
 when the rule above makes `#` and the value one. The frontmatter is the block
-`frontmatter.py` reads: three dashes on line 1 open it and the next three close
-it, so a note whose block never closes has none. The editor draws no tag from
+`frontmatter.py` reads: three dashes at the start of line 1, with nothing after
+them but spaces or tabs, open it, and the next line of three dashes closes it.
+So ` ---`, a space in front, opens no block, and a note whose block never
+closes has none. The editor draws no tag from
 the field; `GET /api/tags` and the graph read it.
 
 A deck tag is a tag by this rule that is `#flashcards` or starts

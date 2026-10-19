@@ -6,6 +6,7 @@ import type {
   MarkdownConfig,
 } from "@lezer/markdown";
 import type katex from "katex";
+import { loadOnce } from "@/lib/load-once";
 
 /** `$`, which the parser sees as a code point rather than a string. */
 const DOLLAR = 36;
@@ -145,8 +146,6 @@ export const MathSyntax: MarkdownConfig = {
   ],
 };
 
-let loading: Promise<typeof katex> | null = null;
-
 /**
  * KaTeX and its stylesheet, fetched the first time a note holds math.
  *
@@ -155,16 +154,10 @@ let loading: Promise<typeof katex> | null = null;
  * whether or not a note held a formula. Its own module so a test can see
  * whether it was asked for.
  *
- * A failed load is forgotten, so the next formula asks again (#637): kept, one
- * fetch lost while offline would leave every formula as source until reload.
+ * A failed load is forgotten, so the next formula asks again (#637).
  */
-export function loadKatex(): Promise<typeof katex> {
-  loading ??= Promise.all([import("katex"), import("katex/dist/katex.min.css")]).then(
+export const loadKatex: () => Promise<typeof katex> = loadOnce(() =>
+  Promise.all([import("katex"), import("katex/dist/katex.min.css")]).then(
     ([module]) => module.default,
-    (error: unknown) => {
-      loading = null;
-      throw error;
-    },
-  );
-  return loading;
-}
+  ),
+);

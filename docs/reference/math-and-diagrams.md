@@ -117,7 +117,10 @@ so a typo is something you can see and fix.
 KaTeX and its stylesheet load the first time a note holds math, and mermaid
 the first time a note holds a diagram. A note with neither fetches neither.
 When KaTeX fails to load, a formula shows its source, and the next formula
-drawn tries the load again.
+drawn tries the load again. When mermaid fails to load, a diagram shows the
+error above its source, and the next diagram drawn, the same one or another,
+tries the load again. A diagram mermaid cannot read keeps its error and loads
+nothing new.
 
 ## Limits on a diagram
 

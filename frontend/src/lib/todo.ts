@@ -13,7 +13,7 @@
  * stays where links find it.
  */
 
-import { masked, SPANS, tagsOf } from "@/lib/tag-rule";
+import { masked, SPANS, tagsOf, wordTags } from "@/lib/tag-rule";
 
 export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "review" | "rejected";
 export type TodoPriority = "highest" | "high" | "medium" | "low" | "lowest";
@@ -179,7 +179,7 @@ const ORDER = [
  * pane, saved views and quick add read a tag the way the editor draws one.
  * Exported from here too, where their readers have always found them.
  */
-export { masked, SPANS, tagsOf };
+export { masked, SPANS, tagsOf, wordTags };
 
 /** `👤` too: its name runs to the next marker, so words after it would be who the todo waits on. */
 const MARKER = /📅|📆|🗓|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|🏁|➕|✅|❌|⏲|⏱|🆔|⛔|👤/gu;
@@ -258,7 +258,7 @@ function read(rest: string): { fields: Fields; tags: { tag: string; at: number }
 
   // Read before the spaces close up, while `origin` still lines up. Closing
   // them up changes no tag, as a tag holds no space.
-  const tags = tagsOf(text).map(({ tag, at }) => ({ tag, at: origin[at] ?? at }));
+  const tags = wordTags(text).map(({ tag, at }) => ({ tag, at: origin[at] ?? at }));
 
   // Taking a field out of the middle leaves two spaces where there was one.
   text = text.replace(/[ \t]+/g, " ").trim();

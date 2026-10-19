@@ -45,8 +45,8 @@ describe("readField", () => {
   });
 
   it("takes a fence carrying trailing spaces, and one ending in a carriage return", () => {
-    // Python strips both ends of the line before comparing, and
-    // `String.prototype.trim` agrees.
+    // Python strips the end of the opening line and both ends of the closing
+    // one before comparing, and the reader here agrees.
     const spaced = note("---   ", `reading: ${CFI}`, "---   ", "# DDIA");
     const returned = note("---\r", `reading: ${CFI}`, "---\r", "# DDIA");
 
@@ -61,6 +61,20 @@ describe("readField", () => {
     const text = note("---", "shelf:", "  reading: no", "---", "# DDIA");
 
     expect(readField(text, "reading")).toBeUndefined();
+  });
+
+  it("#651 I7 reads a note opening ` ---` as having no block, as frontmatter.py does", () => {
+    // `_closing` wants the opening fence at the very start of the note: ` ---`
+    // is a horizontal rule, so a field below it is the note's text.
+    const text = note(" ---", 'color: "#fff"', "---", "# DDIA");
+
+    expect({
+      read: readField(text, "color"),
+      set: setField(text, "reading", CFI),
+    }).toEqual({
+      read: undefined,
+      set: note("---", `reading: ${CFI}`, "---", text),
+    });
   });
 });
 

@@ -4,7 +4,7 @@ import { noteLanguage } from "@/lib/note-language";
 import { parseCards } from "@/lib/srs";
 import cases from "@/lib/tag-cases.json";
 import { parseTodo, tagsOf } from "@/lib/todo";
-import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
+import { expandShorthand, matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import { parseViews } from "@/lib/todo-view";
 
 // docs/reference/tag-format.md: every reader runs the whole table, a reader of
@@ -60,6 +60,20 @@ describe("#640 every frontend reader runs the tag table", () => {
     expect(table(lines, (one) => deckTags(one.text))).toEqual(
       table(lines, (one) => decksOf(one.tags)),
     );
+  });
+});
+
+describe("#653 a comment opening a todo's words is no block", () => {
+  it("#653 B a todo and a quick add whose words open with <!-- keep their tags and fields", () => {
+    // The box opens the paragraph, so `<!--` after it is an inline comment:
+    // the comment block rule is for a reader holding a whole line.
+    const todo = parseTodo("- [ ] <!-- x --> #p 📅 2026-10-20");
+
+    expect({
+      tags: todo?.tags,
+      due: todo?.due,
+      quick: expandShorthand("<!-- x --> #p", "2026-10-19").tags,
+    }).toEqual({ tags: ["#p"], due: "2026-10-20", quick: ["#p"] });
   });
 });
 

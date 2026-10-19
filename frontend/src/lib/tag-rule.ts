@@ -40,6 +40,21 @@ export const GLUED = /[\p{L}\p{N}_/]$/u;
 export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->/g;
 
 /**
+ * `SPANS` and, first, a comment opening the line, for a reader holding a whole
+ * line. A `<!--` that opens the line, three spaces in front at most, opens an
+ * HTML block by CommonMark, and the block takes the whole line, `-->` or not,
+ * so the editor draws no tag after it. Not in `SPANS`: a todo's words open with
+ * `<!--` only after the box, which opens the paragraph, so there it is a
+ * comment and no more. `todos.LINE_SPANS` in the backend is the same pattern.
+ */
+const LINE_SPANS = new RegExp(String.raw`^ {0,3}<!--[^\n]*|${SPANS.source}`, "g");
+
+/** `text` with every one of `spans` blanked to the same length. */
+function blanked(text: string, spans: RegExp): string {
+  return text.replace(spans, (span) => span.replace(/[^ \t]/g, "\u00A0"));
+}
+
+/**
  * `text` with every span blanked to the same length, so a marker inside one
  * matches nothing and every offset still lines up with the text. The filler
  * keeps the spaces and is a no-break space: no field, tag or block id reads it,
@@ -47,21 +62,35 @@ export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^
  * no value and stays words rather than reading the span's first word.
  */
 export function masked(text: string): string {
-  return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "\u00A0"));
+  return blanked(text, SPANS);
 }
 
-/**
- * Every tag one line carries and where it starts. Found on the mask, so a hash
- * in a link or a code span is text, and read off the text.
- *
- * A line at a time, so it knows nothing of fences: a reader of a whole note
- * skips the fenced lines itself, as `srs.ts` does.
- */
-export function tagsOf(text: string): { tag: string; at: number }[] {
-  return [...masked(text).matchAll(TAGS)]
+/** The tags `mask` holds, read off `text`. */
+function tagsOn(mask: string, text: string): { tag: string; at: number }[] {
+  return [...mask.matchAll(TAGS)]
     .filter((found) => !GLUED.test(text.slice(0, found.index)))
     .map((found) => ({
       tag: text.slice(found.index, found.index + found[0].length),
       at: found.index,
     }));
+}
+
+/**
+ * Every tag one line carries and where it starts. Found on the mask, so a hash
+ * in a link, a code span or a comment opening the line is text, and read off
+ * the text.
+ *
+ * A line at a time, so it knows nothing of fences: a reader of a whole note
+ * skips the fenced lines itself, as `srs.ts` does.
+ */
+export function tagsOf(text: string): { tag: string; at: number }[] {
+  return tagsOn(blanked(text, LINE_SPANS), text);
+}
+
+/**
+ * `tagsOf` for text that opens no line, the words after a todo's box or typed
+ * into quick add, where a `<!--` in front is a comment and opens no block.
+ */
+export function wordTags(text: string): { tag: string; at: number }[] {
+  return tagsOn(masked(text), text);
 }

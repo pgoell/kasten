@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from kasten_backend.frontmatter import stamp, with_type
+from kasten_backend.frontmatter import _split, body_start, stamp, with_type
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
 LATER = datetime(2026, 8, 6, 13, 30, tzinfo=UTC)
@@ -151,3 +151,25 @@ def test_leaves_a_typed_note_byte_for_byte_alone() -> None:
     content = "---\ntype: Source\n---\n"
 
     assert with_type(content) == content
+
+
+def test_651_a6_a_fence_after_a_space_opens_no_block() -> None:
+    # ` ---` is a horizontal rule to Obsidian and the editor, so what follows
+    # it is the note's text and its hash a tag.
+    content = ' ---\ncolor: "#fff"\n---\n'
+
+    assert {"body": body_start(content), "split": _split(content)} == {
+        "body": 0,
+        "split": ([], content.split("\n")),
+    }
+
+
+def test_651_i7_a_save_puts_the_block_above_a_note_opening_with_a_spaced_fence() -> None:
+    content = ' ---\ncolor: "#fff"\n---\n'
+
+    stamped = stamp(content, now=NOW)
+
+    assert {"fields": set(fields(stamped)), "body": body(stamped)} == {
+        "fields": {"id", "created", "type", "modified"},
+        "body": content,
+    }

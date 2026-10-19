@@ -445,7 +445,8 @@ Lists every tag written anywhere in the vault, once each, sorted.
 A tag is what the [tag rule](/reference/tag-format.md) calls one, the rule the
 editor, the todo board and the graph read by too. So `#!/bin/sh`, `#1984` and
 `note#2` are no tags, and nor is a hash inside a code span, a fenced or indented
-code block, an HTML comment, the frontmatter, a `[[wikilink]]` or a
+code block, an HTML comment, a line a `<!--` opens and the block it starts,
+the frontmatter, a `[[wikilink]]` or a
 `[text](url)`. The same tag written outside those anywhere is still offered. The
 frontmatter's `tags` field adds its values, as Obsidian reads them.
 

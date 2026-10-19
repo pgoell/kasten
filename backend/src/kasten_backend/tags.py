@@ -1,7 +1,7 @@
 """Every tag written in the vault, for the completion that offers one and for the graph.
 
 Two rg passes. One matches every span and every hash that could open a tag, and
-each match is read by `todos.line_tags`, as the board reads a todo's line. The
+each match is read by `todos.word_tags`, as the board reads a todo's words. The
 other names the notes that may hold a fence, a comment over several lines,
 indented code, or a frontmatter with a hash or a `tags` field in it. Those are
 read whole by `todos.tags_in` instead, because only a whole note says where a
@@ -69,11 +69,21 @@ _RUN = r"#[\p{L}\p{N}_/-]+"
 _SPAN_OR_TAG = rf"(?:{todos.SPANS.pattern})(?:{_RUN})?|(?:^|[^\p{{L}}\p{{N}}_/]){_RUN}"
 """A span or what could be a tag, the span tried first at each place, as rg alternates.
 
-A superset of the rule, numbers alone included, which `todos.line_tags` then
+A superset of the rule, numbers alone included, which `todos.word_tags` then
 narrows on each match. The character in front of the hash is consumed rather
 than looked behind, because rg's engine has no lookbehind. A span is consumed
 whole, so no hash inside one comes back on its own, and a tag straight after a
 span rides along with it, the span masked to no word in front of the hash.
+"""
+
+_LINE_PASS = rf"{todos.COMMENT_OPENING}|({_SPAN_OR_TAG})"
+"""`_SPAN_OR_TAG`, and first a comment opening the line, which takes the line.
+
+rg's `^` is a line's start, so the first alternative matches only there, and
+`--replace '${1}'` prints it as nothing: no hash on that line is a tag. Each
+other match comes back whole, and `todos.word_tags` reads it as the words it
+is, since a match starting `<!--` in the middle of a line, its tag riding
+along, opens no block.
 """
 
 FENCE = r"```|~~~"
@@ -100,7 +110,11 @@ block holds an id and two dates, stay on the line pass.
 """
 
 OPEN_COMMENT = r"<!--(?:[^-\n]|-[^-\n]|--+[^->\n])*-*$"
-"""A comment still open at the end of its line. One closed on its line the line pass masks."""
+"""A comment still open at the end of its line.
+
+One closed on its line the line pass masks, and it skips the whole line of
+one that opens the line, as `_LINE_PASS` says.
+"""
 
 MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|^(?: {{4}}|\t)[^\n]*#"
 """What says a note's lines cannot be read one at a time.
@@ -136,7 +150,12 @@ async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str
     # one line per note to read, rather than a line per fence: a hit is most of
     # what a scan costs in Python.
     matches, marks = await asyncio.gather(
-        scan_vault(root, ("--only-matching", "-e", _SPAN_OR_TAG), MOST_MATCHES, skip),
+        scan_vault(
+            root,
+            ("--only-matching", "--replace", "${1}", "-e", _LINE_PASS),
+            MOST_MATCHES,
+            skip,
+        ),
         scan_vault(
             root,
             ("--multiline", "--only-matching", "--replace", "#", "--max-count", "1", "-e", MARKS),
@@ -148,7 +167,7 @@ async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str
     tagged: dict[str, set[str]] = {}
     for hit in matches:
         if hit.path not in whole:
-            found = {hit.text[start:end] for start, end in todos.line_tags(hit.text)}
+            found = {hit.text[start:end] for start, end in todos.word_tags(hit.text)}
             tagged.setdefault(hit.path, set()).update(found)
     # Reading those notes in Python would hold the event loop for the whole
     # of it, where rg above held it for none.

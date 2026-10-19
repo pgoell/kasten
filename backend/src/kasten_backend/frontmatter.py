@@ -80,8 +80,12 @@ def _split(content: str) -> tuple[list[str], list[str]]:
 
 
 def _closing(lines: list[str]) -> int | None:
-    """Which line closes the block, or None when there is no block."""
-    if lines[0].strip() != FENCE:
+    """Which line closes the block, or None when there is no block.
+
+    Only a fence at the very start opens one, spaces or tabs after it: ` ---`
+    is a horizontal rule to Obsidian and to the editor, and so it is here.
+    """
+    if lines[0].rstrip(" \t\r") != FENCE:
         return None
 
     return next((i for i, line in enumerate(lines[1:], 1) if line.strip() == FENCE), None)

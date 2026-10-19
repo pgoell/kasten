@@ -32,12 +32,14 @@ const KEY = /^([A-Za-z_][\w-]*)\s*:/;
  * The mirror of `_split` (`frontmatter.py:40-55`): no block unless the first
  * line is a fence and a later line is one too. An opening fence with no partner
  * is a horizontal rule, and reading one as a block that never ends would
- * swallow the note under it. Both ends of the line are trimmed, the way Python
- * strips them, so `---   ` is a fence and so is one ending `---\r`.
+ * swallow the note under it. The opening line is trimmed at its end only, of
+ * spaces, tabs and `\r`, as Python's `rstrip(" \t\r")` does, so `---   ` opens
+ * a block and ` ---` does not. The closing line is trimmed at both ends, the way
+ * Python strips it.
  */
 function split(text: string): { block: string[]; body: string[] } | null {
   const lines = text.split("\n");
-  if (lines[0]?.trim() !== FENCE) return null;
+  if (lines[0]?.replace(/[ \t\r]+$/, "") !== FENCE) return null;
 
   const end = lines.findIndex((line, index) => index > 0 && line.trim() === FENCE);
   if (end === -1) return null;

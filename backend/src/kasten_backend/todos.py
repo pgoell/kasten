@@ -177,6 +177,22 @@ A marker inside one is not a field, nor a tag. The editor's `SPANS` in
 `tag-rule.ts` is the same pattern, and rg reads it too, through `tags.py`.
 """
 
+COMMENT_OPENING = r"^ {0,3}<!--[^\n]*"
+LINE_SPANS = re.compile(f"{COMMENT_OPENING}|{SPANS.pattern}")
+"""`SPANS` and, first, a comment opening the line, for a reader holding a whole line.
+
+A `<!--` that opens the line, three spaces in front at most, opens an HTML
+block by CommonMark, and the block takes the whole line, `-->` or not, so the
+editor draws no tag after it. Not in `SPANS`: a todo's words open with `<!--`
+only after the box, which opens the paragraph, so there it is a comment and no
+more. The editor's `LINE_SPANS` in `tag-rule.ts` is the same pattern.
+"""
+
+
+def _masked(text: str, spans: re.Pattern[str]) -> str:
+    """`text` with every one of `spans` blanked to no-break spaces, its spaces and offsets kept."""
+    return spans.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), text)
+
 
 def mask(text: str) -> str:
     """`text` with every span blanked to no-break spaces, its spaces and offsets kept.
@@ -184,20 +200,56 @@ def mask(text: str) -> str:
     Public because `tags.py` reads the tag vocabulary through it too, so that
     completion offers no tag the board and the editor would not read as one.
     """
-    return SPANS.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), text)
+    return _masked(text, SPANS)
+
+
+def word_tags(text: str) -> list[tuple[int, int]]:
+    """Where `text`, which opens no line, holds a tag, as `(start, end)` offsets.
+
+    The words after a todo's box, or a span rg matched in the middle of a line,
+    where a `<!--` in front is a comment and opens no block.
+    """
+    return [found.span() for found in TAG.finditer(mask(text))]
 
 
 def line_tags(text: str) -> list[tuple[int, int]]:
     """Where one line holds a tag, as `(start, end)` offsets, its spans and links masked.
 
-    A line on its own is no fence, so a todo whose words open with three
-    backticks keeps its tags, as the editor's `tagsOf` reads them.
+    A line on its own is no fence, so a line opening with three backticks
+    keeps its tags, as the editor's `tagsOf` reads them.
     """
-    return [found.span() for found in TAG.finditer(mask(text))]
+    return [found.span() for found in TAG.finditer(_masked(text, LINE_SPANS))]
 
 
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 """An HTML comment, over as many lines as it runs."""
+
+COMMENT_LINE = re.compile(r"^ {0,3}<!--", re.MULTILINE)
+"""A `<!--` opening a line, three spaces in front at most: an HTML block by CommonMark."""
+
+
+def _comment_blocks(text: str) -> list[tuple[int, int]]:
+    """Where `text` holds an HTML block that a `COMMENT_LINE` opens.
+
+    By CommonMark the block runs to the end of the first line holding `-->`,
+    the opener's own line counting, so `<!-- x --> #a` hides `#a`. One never
+    closed runs to the end of the note.
+    """
+    blocks: list[tuple[int, int]] = []
+    end = 0
+    for found in COMMENT_LINE.finditer(text):
+        # A `<!--` inside a block already found opens nothing.
+        if found.start() < end:
+            continue
+        close = text.find("-->", found.start())
+        if close == -1:
+            blocks.append((found.start(), len(text)))
+            break
+        end = text.find("\n", close)
+        end = len(text) if end == -1 else end
+        blocks.append((found.start(), end))
+    return blocks
+
 
 INDENTED = re.compile(r"^(?: {4}|\t).*#", re.MULTILINE)
 """A line indented as far as code is, holding a hash: what may be a tag in code."""
@@ -219,8 +271,9 @@ def tags_in(text: str) -> list[tuple[int, int]]:
 
     `GET /api/tags`, the graph and the mentions all read a note's tags here, and
     the todos read a line's through `line_tags`, so none of them can call a hash
-    a tag that another does not. The frontmatter, HTML comments and code, fenced,
-    indented or inline, are blanked first, the offsets kept.
+    a tag that another does not. The frontmatter, HTML comments, the HTML blocks
+    a `<!--` opening a line starts, and code, fenced, indented or inline, are
+    blanked first, the offsets kept.
     """
     body = body_start(text)
     hidden = [(0, body)] if body else []
@@ -233,7 +286,9 @@ def tags_in(text: str) -> list[tuple[int, int]]:
         hidden += code_spans(_blanked(text, hidden, " "), indented=True)
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
-        hidden += [found.span() for found in COMMENT.finditer(_blanked(text, hidden, " "))]
+        base = _blanked(text, hidden, " ")
+        hidden += _comment_blocks(base)
+        hidden += [found.span() for found in COMMENT.finditer(base)]
     if not hidden:
         return line_tags(text)
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))
@@ -281,7 +336,7 @@ def _tag_project(text: str, folders: dict[str, str]) -> str | None:
     would otherwise make a project nobody made. `#p/x/y` names `x`, a project
     being one folder deep.
     """
-    for start, end in line_tags(text):
+    for start, end in word_tags(text):
         tag = text[start:end]
         if tag[1:3].lower() != "p/":
             continue
