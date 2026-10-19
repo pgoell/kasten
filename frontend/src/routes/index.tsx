@@ -2892,8 +2892,11 @@ function Home() {
             // Saved first for `openTodos`'s reason: the book replaces what the
             // pane holds, and the editor it unmounts would take unsaved text
             // with it. The reader finds the `reading:` place in the note itself.
+            // A failed save leaves the note where it was, but the finder hands
+            // no focus back once a row is taken, so the pane is asked to take it.
             void (async () => {
               if (await saveFirst()) moveTo((previous) => openBookInFocused(previous, note));
+              else refocusPane();
             })();
           }}
           onClose={() => setBookFinderOpen(false)}

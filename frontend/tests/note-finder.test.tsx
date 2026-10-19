@@ -467,6 +467,18 @@ describe("the book finder", () => {
     expect(finder.names()).toEqual(["DDIA", "Refactoring", "Root"]);
   });
 
+  it("lists all of more than twenty books", () => {
+    // The note finder mounts twenty rows; a book left past them would be one
+    // nobody finds without already knowing its name.
+    const notes = Array.from({ length: 25 }, (_, index) => `Books/Book ${index}.md`);
+    const finder = renderBooks(
+      notes,
+      notes.map((note) => note.replace(/\.md$/, ".epub")),
+    );
+
+    expect(finder.names()).toHaveLength(25);
+  });
+
   it("takes Plan.EPUB for no book of Plan.md, and an epub with no note for none", () => {
     // The pairing `resolve_book` makes: the note's path with `.epub` for `.md`,
     // spelt exactly so.

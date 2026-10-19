@@ -152,10 +152,12 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: 
   // the best of it rather than the first slice of it. An empty query matches
   // everything, so without the cut a keystroke reconciles one button per note
   // in the vault, which is most of what it would cost.
-  const notes = useMemo(
-    () => rankCandidates(candidates, typed).slice(0, VISIBLE_NOTES),
-    [candidates, typed],
-  );
+  // Books go uncut: a shelf is tens, not thousands, and a book past the cut
+  // would be one only its name could find.
+  const notes = useMemo(() => {
+    const ranked = rankCandidates(candidates, typed);
+    return book ? ranked : ranked.slice(0, VISIBLE_NOTES);
+  }, [candidates, typed, book]);
   // A fresh listing from the tree can shorten the list under the highlight.
   // Typing cannot: it puts the highlight back on the first row.
   const cursor = Math.min(active, Math.max(notes.length - 1, 0));

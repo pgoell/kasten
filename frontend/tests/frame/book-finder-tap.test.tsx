@@ -57,14 +57,18 @@ const ASSETS = [
 let root: Root | undefined;
 let host: HTMLElement | undefined;
 
-async function mount(onOpen: (path: string) => void): Promise<void> {
+async function mount(
+  onOpen: (path: string) => void,
+  paths = PATHS,
+  assets = ASSETS,
+): Promise<void> {
   host = document.body.appendChild(document.createElement("div"));
   host.className = "h-dvh bg-one-bg";
   root = createRoot(host);
   await act(async () => {
     root?.render(
       <QueryClientProvider client={new QueryClient()}>
-        <NoteFinder paths={PATHS} books={ASSETS} onOpen={onOpen} onClose={() => {}} />
+        <NoteFinder paths={paths} books={assets} onOpen={onOpen} onClose={() => {}} />
       </QueryClientProvider>,
     );
   });
@@ -160,6 +164,32 @@ describe("the book finder on a phone (#502)", () => {
       );
       expect.soft(name, book).toBeDefined();
       expect.soft(name?.scrollWidth ?? 1, book).toBeLessThanOrEqual(name?.clientWidth ?? 0);
+    }
+  });
+
+  it("scrolls a shelf of forty books inside the panel, at phone and at desktop width", async () => {
+    // Every book is listed, so a long shelf is longer than the panel, and the
+    // list has to scroll inside it rather than run off the bottom of the window.
+    const notes = Array.from({ length: 40 }, (_, index) => `${BOOKS}/Book ${index}.md`);
+    const epubs = notes.map((note) => note.replace(/\.md$/, ".epub"));
+    for (const [width, height] of [
+      [414, 896],
+      [1280, 900],
+    ] as const) {
+      await page.viewport(width, height);
+      await mount(() => {}, notes, epubs);
+      await expect.poll(() => rows().length).toBeGreaterThan(0);
+
+      const list = document.querySelector<HTMLElement>('[role="listbox"]');
+      expect.soft(rows(), `${width}`).toHaveLength(40);
+      expect.soft(list?.scrollHeight ?? 0, `${width}`).toBeGreaterThan(list?.clientHeight ?? 0);
+      expect
+        .soft(list?.getBoundingClientRect().bottom ?? Number.POSITIVE_INFINITY, `${width}`)
+        .toBeLessThanOrEqual(height);
+      await act(async () => root?.unmount());
+      host?.remove();
+      root = undefined;
+      host = undefined;
     }
   });
 

@@ -4127,6 +4127,48 @@ describe("the book finder", () => {
     expect.soft(document.querySelector(".cm-content")?.textContent).toBe("he index note");
   });
 
+  it("I1 keeps the focus in the note when the write before the book fails", async () => {
+    const app = await opened();
+    app.press("x");
+    saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
+
+    app.leader("f", "b");
+    await settle();
+    expect.soft(finder()).not.toBeNull();
+    await enter();
+
+    // The finder gives no focus back once a row is taken, so with no pane
+    // change to take it either the keys would land on the body.
+    expect(document.querySelector(".cm-content")?.contains(document.activeElement)).toBe(true);
+  });
+
+  it("A8 on a phone a tap through run, Find a book and a book row opens the book alone in the one pane", async () => {
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      const app = await renderApp();
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+      const row = screen.queryByRole("option", { name: /^Find a book/ });
+      expect.soft(row).not.toBeNull();
+      if (row) fireEvent.click(row);
+      await settle();
+      const book = screen.queryByRole("option", { name: /^DDIA/ });
+      expect.soft(book).not.toBeNull();
+      if (book) fireEvent.click(book);
+      await hashed();
+      await settle();
+
+      expect.soft(app.reader()).not.toBeNull();
+      expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+      expect.soft(app.panes()).toBe(1);
+      expect.soft(bookNoteEdited()).toBe(false);
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+  });
+
   it("I2 moves to a reader already open on the book rather than opening a second", async () => {
     const app = await renderApp();
     await settle();
