@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import type { Mock } from "vitest";
 import { VideoPane } from "@/components/video-pane";
 import { stubCommands } from "./stub-commands";
@@ -65,6 +65,33 @@ function Route({ onWatched }: { onWatched: Mock<(id: string, seconds: number) =>
           if (onWatched.mock.calls.length < 5) setMark((was) => was + 1);
         }}
       />
+    </QueryClientProvider>
+  );
+}
+
+/**
+ * A parent whose layout effect has the player stop when `stop` turns true.
+ *
+ * A child's layout effects run before its parent's, so the stop lands after the
+ * pane has committed the render with the new `onWatched` and before any
+ * passive effect of it has run, which is the gap `rerender` cannot reach: it
+ * flushes the passive effects before it returns.
+ */
+function StopOnCommit({
+  client,
+  onWatched,
+  stop,
+}: {
+  client: QueryClient;
+  onWatched: (id: string, seconds: number) => void;
+  stop: boolean;
+}) {
+  useLayoutEffect(() => {
+    if (stop) reports(2, 30);
+  }, [stop]);
+  return (
+    <QueryClientProvider client={client}>
+      <VideoPane note={NOTE} commands={stubCommands()} onWatched={onWatched} />
     </QueryClientProvider>
   );
 }
@@ -220,6 +247,19 @@ describe("the video pane", () => {
 
     expect(later.mock.calls).toEqual([["dQw4w9WgXcQ", 30]]);
     expect(onWatched).not.toHaveBeenCalled();
+  });
+
+  it("reports a stop that lands before the passive effects of a render to the new onWatched", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const old = vi.fn();
+    const fresh = vi.fn();
+    const { rerender } = render(<StopOnCommit client={client} onWatched={old} stop={false} />);
+
+    await screen.findByTitle("video");
+    reports(1, 12);
+    rerender(<StopOnCommit client={client} onWatched={fresh} stop />);
+
+    expect([old.mock.calls, fresh.mock.calls]).toEqual([[], [["dQw4w9WgXcQ", 30]]]);
   });
 
   it("opens at the second the note remembers", async () => {

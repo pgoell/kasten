@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fetchNote } from "@/lib/api";
 import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
@@ -112,8 +112,12 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
   // builds `onWatched` fresh on every render, and a `report` keyed on it would
   // hand the effect below a new cleanup each time, which reports, which writes
   // the note, which renders the route again.
+  //
+  // Written in a layout effect, which runs in the commit's own task: a stop
+  // heard between the commit and the passive effects would otherwise report
+  // through the callback before, which holds the note's old path.
   const onWatchedRef = useRef(onWatched);
-  useEffect(() => {
+  useLayoutEffect(() => {
     onWatchedRef.current = onWatched;
   });
 
