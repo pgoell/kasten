@@ -320,30 +320,47 @@ const byName = viewCommands.of({
  *
  * A double-click follows once, on its first press (#569). The second is still
  * kept from CodeMirror, which would select a word in the link and put the
- * cursor there.
+ * cursor there. The browser counts any press close to the one before as its
+ * second, so a press is a repeat only when the press before it followed.
  */
-const followOnClick = EditorView.domEventHandlers({
-  mousedown(event, view) {
-    if (!event.ctrlKey && !event.metaKey) return false;
-    const target = linkUnder(event, view);
-    if (target !== null) {
-      // Returning true makes CodeMirror cancel the mousedown, and with it the
-      // focus the browser would have moved here. The pane a link opens off is
-      // the focused one, so a click in another pane takes the focus first, the
-      // way Obsidian splits off the pane you clicked (#361). The focus event
-      // runs inside this call, so the layout hears of it before the open.
-      if (event.detail <= 1) {
-        view.focus();
-        followLink(view, target);
+function followOnClick(): Extension {
+  let followed = false;
+  let repeat = false;
+  return EditorView.domEventHandlers({
+    // Every press passes here, where a table cell's link followed by the block
+    // keeps its mousedown from this editor.
+    pointerdown() {
+      repeat = followed;
+      followed = false;
+      return false;
+    },
+    mousedown(event, view) {
+      if (!event.ctrlKey && !event.metaKey) return false;
+      const again = event.detail > 1 && repeat;
+      const target = linkUnder(event, view);
+      if (target !== null) {
+        // Returning true makes CodeMirror cancel the mousedown, and with it the
+        // focus the browser would have moved here. The pane a link opens off is
+        // the focused one, so a click in another pane takes the focus first, the
+        // way Obsidian splits off the pane you clicked (#361). The focus event
+        // runs inside this call, so the layout hears of it before the open.
+        if (!again) {
+          view.focus();
+          followLink(view, target);
+          followed = true;
+        }
+        return true;
+      }
+      const link = urlUnder(event, view);
+      if (link === null) return false;
+      if (!again) {
+        window.open(link.address, "_blank", "noopener");
+        followed = true;
       }
       return true;
-    }
-    const link = urlUnder(event, view);
-    if (link === null) return false;
-    if (event.detail <= 1) window.open(link.address, "_blank", "noopener");
-    return true;
-  },
-});
+    },
+  });
+}
 
 /**
  * The rendered `[text](url)` or reference link under the pointer, if it opens in a tab.
@@ -404,8 +421,13 @@ function wikiLinkRangeUnder(event: Event, view: EditorView): { from: number; to:
 function followOnTap(): Extension {
   let landed: string | null = null;
   let landedUrl: string | null = null;
+  // Whether the last tap followed, and so whether this one may repeat it.
+  let followed = false;
+  let repeat = false;
   return EditorView.domEventHandlers({
     pointerdown(event, view) {
+      repeat = followed;
+      followed = false;
       const touch = event.pointerType === "touch";
       const head = view.state.selection.main.head;
       const target = touch ? linkUnder(event, view) : null;
@@ -416,8 +438,14 @@ function followOnTap(): Extension {
       // The link the cursor is in by its place, not its name: another link to
       // the same note is not the one being edited (#568). Both ends count, as
       // in `wikiLinkAt`, which is where `$` lands on a line ending in a link.
+      // The name still has to match: between `[[a]][[b]]` the cursor touches
+      // both, and `wikiLinkAt` says which one it is in.
       const range = target === null || drawn ? null : wikiLinkRangeUnder(event, view);
-      const editing = range !== null && range.from <= head && head <= range.to;
+      const editing =
+        range !== null &&
+        range.from <= head &&
+        head <= range.to &&
+        wikiLinkAt(view.state, head) === target;
       landed = editing ? null : target;
       const link = touch ? urlUnder(event, view) : null;
       landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
@@ -438,10 +466,13 @@ function followOnTap(): Extension {
       landedUrl = null;
       // A double tap's second click is kept and does nothing (#569). Off a
       // table the first tap has put the cursor in the link, which turns the
-      // second away too; in a drawn table the cursor never moves in.
-      if (event.detail > 1) return true;
+      // second away too; in a drawn table the cursor never moves in. Chrome
+      // counts any tap close to the one before as its second, so the click is
+      // a repeat only when the tap before it followed.
+      if (event.detail > 1 && repeat) return true;
       if (note !== null) followLink(view, note);
       else if (address !== null) window.open(address, "_blank", "noopener");
+      followed = true;
       return true;
     },
   });
@@ -1076,7 +1107,7 @@ export function Editor({
           // every paste that carries text.
           imagePaste(),
           noticeHandler.of((message) => onNoticeRef.current?.(message)),
-          followOnClick,
+          followOnClick(),
           followOnTap(),
           byName,
           vault.of(

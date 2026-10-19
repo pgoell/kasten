@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
 import { createRoot, type Root } from "react-dom/client";
-import { cdp, page } from "vitest/browser";
+import { cdp, page, userEvent } from "vitest/browser";
 import { Editor } from "@/components/editor";
 import "@/styles/app.css";
 
@@ -91,6 +91,18 @@ function on(element: Element): [number, number] {
 function framed([x, y]: [number, number]): [number, number] {
   const frame = window.frameElement?.getBoundingClientRect();
   return [x + (frame?.left ?? 0), y + (frame?.top ?? 0)];
+}
+
+/** The page coordinates `dx` across from position `pos`, as the DevTools protocol takes them. */
+function textAt(at: EditorView, pos: number, dx: number): [number, number] {
+  const coords = at.coordsAtPos(pos) as { left: number; top: number; bottom: number };
+  return framed([coords.left + dx, (coords.top + coords.bottom) / 2]);
+}
+
+/** The page coordinates just inside `element`'s left edge. */
+function leftOf(element: Element): [number, number] {
+  const box = element.getBoundingClientRect();
+  return framed([box.left + 2, box.top + box.height / 2]);
 }
 
 /** A finger put down at `x`, `y` in the page and lifted again. */
@@ -324,6 +336,77 @@ describe("a tap or a press on a wikilink follows it once", () => {
       await settled();
       expect(details, "two first clicks").toEqual([1, 1]);
       expect(follow.mock.calls).toEqual([["One"], ["Two"]]);
+    },
+  );
+
+  // Chrome counts a tap close to the one before as its second, whatever the
+  // first landed on, so a second click is only a repeat when the first followed.
+  it.each(VIMS)(
+    "R1 #569 a tap on a wikilink right after a tap on the text beside it with vim %s follows it",
+    async (vim) => {
+      const { at, follow } = await appWith("word [[Some note]]", "tap", vim, ".cm-wikilink");
+      const details = clicks(at);
+      // The end of the word and the start of the link: within the 20 pixels
+      // Chrome counts a tap after another as its second.
+      const word = textAt(at, "word".length, -2);
+      const link = leftOf(linkOn(at, 0));
+
+      await tapAt(word);
+      await tapAt(link);
+      await bothLanded(details);
+      expect(follow).toHaveBeenCalledExactlyOnceWith("Some note");
+    },
+  );
+
+  it.each(PRESSES)(
+    "R1 #569 a %s press on a wikilink right after a plain click beside it with vim %s follows it",
+    async (how, vim) => {
+      const { at, follow } = await appWith("word [[Some note]]", how, vim, ".cm-wikilink");
+      const details = clicks(at);
+      const word = textAt(at, "word".length, -2);
+      const link = leftOf(linkOn(at, 0));
+
+      await pressAt(word, 0);
+      await pressAt(link, how === "ctrl" ? 2 : 4, 2);
+      await bothLanded(details);
+      expect(follow).toHaveBeenCalledExactlyOnceWith("Some note");
+    },
+  );
+
+  it.each(VIMS)(
+    "R2 a tap on a wikilink with vim %s follows it while the cursor rests between it and the next link",
+    async (vim) => {
+      const { at, follow } = await appWith("[[a]][[b]]", "tap", vim, ".cm-wikilink");
+      // From inside the second link, which shows its `[[`, as a step left
+      // from there goes: from anywhere else the cursor is walked off the
+      // hidden `[[` into the link. vim's normal mode shows no marks, so the
+      // cursor rests here only in insert mode.
+      if (vim === "on") {
+        at.focus();
+        await userEvent.keyboard("i");
+      }
+      at.dispatch({ selection: { anchor: 7 } });
+      at.dispatch({ selection: { anchor: 5 } });
+      await settled();
+      expect(at.state.selection.main.head, "the cursor between the links").toBe(5);
+
+      await act(linkOn(at, 0), "tap");
+      await landed(at, follow, 5);
+      expect(follow).toHaveBeenCalledExactlyOnceWith("a");
+    },
+  );
+
+  it.each(PRESSES)(
+    "R3 #569 a double %s press on a markdown link with vim %s opens one tab",
+    async (how, vim) => {
+      const { at } = await appWith("A line\n[t](https://a.com) two", how, vim, ".cm-link");
+      const open = stubOpen();
+      const details = clicks(at);
+
+      // The text's own span, nested in the link's.
+      await twice(at.contentDOM.querySelector(".cm-link span") as Element, how);
+      await bothLanded(details);
+      expect(open).toHaveBeenCalledExactlyOnceWith("https://a.com", "_blank", "noopener");
     },
   );
 });
