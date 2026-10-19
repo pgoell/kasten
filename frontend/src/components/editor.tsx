@@ -12,6 +12,7 @@ import {
 } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import type { SyntaxNode } from "@lezer/common";
 import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
@@ -316,6 +317,10 @@ const byName = viewCommands.of({
  *
  * A markdown link to an address opens it in a new tab, so the note stays open
  * behind it.
+ *
+ * A double-click follows once, on its first press (#569). The second is still
+ * kept from CodeMirror, which would select a word in the link and put the
+ * cursor there.
  */
 const followOnClick = EditorView.domEventHandlers({
   mousedown(event, view) {
@@ -327,13 +332,15 @@ const followOnClick = EditorView.domEventHandlers({
       // the focused one, so a click in another pane takes the focus first, the
       // way Obsidian splits off the pane you clicked (#361). The focus event
       // runs inside this call, so the layout hears of it before the open.
-      view.focus();
-      followLink(view, target);
+      if (event.detail <= 1) {
+        view.focus();
+        followLink(view, target);
+      }
       return true;
     }
     const link = urlUnder(event, view);
     if (link === null) return false;
-    window.open(link.address, "_blank", "noopener");
+    if (event.detail <= 1) window.open(link.address, "_blank", "noopener");
     return true;
   },
 });
@@ -367,6 +374,20 @@ function linkUnder(event: Event, view: EditorView): string | null {
 }
 
 /**
+ * Where the rendered `[[link]]` under the pointer starts and ends, off a drawn table.
+ *
+ * Looking forwards only: the span starts past the hidden `[[`, or past the
+ * alias bar, so the position is always inside the link.
+ */
+function wikiLinkRangeUnder(event: Event, view: EditorView): { from: number; to: number } | null {
+  const element = event.target instanceof HTMLElement ? event.target.closest(".cm-wikilink") : null;
+  if (element === null) return null;
+  let node: SyntaxNode | null = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
+  for (; node; node = node.parent) if (node.name === "WikiLink") return node;
+  return null;
+}
+
+/**
  * A tap follows a link, a finger having no ctrl to hold.
  *
  * Read on the way down and acted on at the click, because the two halves are
@@ -377,7 +398,8 @@ function linkUnder(event: Event, view: EditorView): string | null {
  *
  * A link the cursor is already in is one being edited, and a tap in it moves
  * the cursor as a tap anywhere else does. The way into a link is from beside
- * it. A markdown link to an address opens in a new tab, as on ctrl+click.
+ * it. A markdown link to an address opens in a new tab, as on ctrl+click. A
+ * double tap follows once, as a double-click does.
  */
 function followOnTap(): Extension {
   let landed: string | null = null;
@@ -391,7 +413,11 @@ function followOnTap(): Extension {
       // its source while it is, so one of the same name elsewhere is not it.
       const drawn =
         event.target instanceof Element && event.target.closest(".cm-table-block") !== null;
-      const editing = !drawn && wikiLinkAt(view.state, head) === target;
+      // The link the cursor is in by its place, not its name: another link to
+      // the same note is not the one being edited (#568). Both ends count, as
+      // in `wikiLinkAt`, which is where `$` lands on a line ending in a link.
+      const range = target === null || drawn ? null : wikiLinkRangeUnder(event, view);
+      const editing = range !== null && range.from <= head && head <= range.to;
       landed = editing ? null : target;
       const link = touch ? urlUnder(event, view) : null;
       landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
@@ -404,12 +430,18 @@ function followOnTap(): Extension {
       landedUrl = null;
       return false;
     },
-    click(_event, view) {
-      if (landed !== null) followLink(view, landed);
-      else if (landedUrl !== null) window.open(landedUrl, "_blank", "noopener");
-      else return false;
+    click(event, view) {
+      if (landed === null && landedUrl === null) return false;
+      const note = landed;
+      const address = landedUrl;
       landed = null;
       landedUrl = null;
+      // A double tap's second click is kept and does nothing (#569). Off a
+      // table the first tap has put the cursor in the link, which turns the
+      // second away too; in a drawn table the cursor never moves in.
+      if (event.detail > 1) return true;
+      if (note !== null) followLink(view, note);
+      else if (address !== null) window.open(address, "_blank", "noopener");
       return true;
     },
   });
