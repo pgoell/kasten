@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
 import { encodePath } from "@/lib/note-path";
 
@@ -35,8 +35,10 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
   const [pending, setPending] = useState("");
   // Off a ref, because the route hands a new `onFocus` on every render and the
   // listener below would come off the window and go back on with each (#592).
+  // Written in a layout effect, which runs in the commit's own task, so a click
+  // heard between the commit and the passive effects reaches the new one.
   const onFocusRef = useRef(onFocus);
-  useEffect(() => {
+  useLayoutEffect(() => {
     onFocusRef.current = onFocus;
   });
 
