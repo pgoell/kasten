@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BookContents, type TocItem, type TocRow, tocRows } from "@/components/book-contents";
 import { type BookBeside, fetchBook, fetchNote, uploadAsset } from "@/lib/api";
 import { BACKING, backImages, INK } from "@/lib/book-backing";
@@ -622,6 +622,10 @@ export function BookPane({
   // view is built in one effect keyed on the bytes, and naming these in its
   // dependencies would rebuild it every time the route's memo took a new
   // identity, which is on every vault write.
+  //
+  // Written in a layout effect, which runs in the commit's own task: a
+  // relocate heard between the commit and the passive effects would otherwise
+  // write the place through the `onMoved` before, which holds the old path.
   const commandsRef = useRef(commands);
   const onFocusRef = useRef(onFocus);
   const onMovedRef = useRef(onMoved);
@@ -632,7 +636,7 @@ export function BookPane({
   // with no dependencies, so that the effect naming it rebuilds no book, and a
   // seek into a pdf needs the bytes.
   const besideRef = useRef<BookBeside | undefined>(undefined);
-  useEffect(() => {
+  useLayoutEffect(() => {
     commandsRef.current = commands;
     onFocusRef.current = onFocus;
     onMovedRef.current = onMoved;

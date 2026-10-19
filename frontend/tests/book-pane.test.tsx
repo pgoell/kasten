@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import { StrictMode } from "react";
+import { StrictMode, useLayoutEffect } from "react";
 import type { TocItem } from "@/components/book-contents";
 import { BookPane } from "@/components/book-pane";
 import { addHighlight } from "@/lib/highlight";
@@ -1168,6 +1168,57 @@ describe("where the reader got to", () => {
     act(() => view.emitRelocate({ reason: "page" }));
 
     expect(pane.onMoved).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A parent whose layout effect turns the page when `move` turns true.
+   *
+   * A child's layout effects run before its parent's, so the turn lands after
+   * the pane has committed the render with the new `onMoved` and before any
+   * passive effect of it has run, which `rerender` cannot reach: it flushes the
+   * passive effects before it returns.
+   */
+  function MoveOnCommit({
+    client,
+    onMoved,
+    move,
+  }: {
+    client: QueryClient;
+    onMoved: (cfi: string) => void;
+    move: boolean;
+  }) {
+    useLayoutEffect(() => {
+      if (move) lastView().emitRelocate({ reason: "page" });
+    }, [move]);
+    return (
+      <QueryClientProvider client={client}>
+        <BookPane
+          note={NOTE}
+          commands={stubCommands()}
+          onFocus={vi.fn()}
+          onMoved={onMoved}
+          onLeaving={vi.fn()}
+          onTake={vi.fn()}
+          onNotice={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+  }
+
+  it("reports a relocate that lands before the passive effects of a render to the new onMoved", async () => {
+    // The new `onMoved` is the one a folder move hands the pane, holding the
+    // note's new path.
+    FakeView.cfis = ["first", "second"];
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const old = vi.fn();
+    const fresh = vi.fn();
+    const { rerender } = render(<MoveOnCommit client={client} onMoved={old} move={false} />);
+    await waitFor(() => expect(lastView().started).toBe(true));
+    relocate({ reason: "page" });
+
+    rerender(<MoveOnCommit client={client} onMoved={fresh} move />);
+
+    expect([old.mock.calls, fresh.mock.calls]).toEqual([[], [["second"]]]);
   });
 });
 
