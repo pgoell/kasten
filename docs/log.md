@@ -485,3 +485,4 @@
 * **Update**: [Editor keys](/reference/editor-keys.md) says a tap on a linked picture, or on a link in a table cell, opens it right after a tap beside it (#572).
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) cuts the leader table into the groups the `<leader>?` panel shows, every leader key in a named group (#516).
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) says the `<leader>?` panel lines its keys up on the left (#580) and leaves `gf` and Enter out of its Editor group with vim off (#581).
+* **Update**: [Editor keys](/reference/editor-keys.md#leader) gained `<leader>fb`, the book finder, which lists every note with an epub beside it and opens the chosen book in the reader without its note (#502).
