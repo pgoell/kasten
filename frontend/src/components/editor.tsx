@@ -1038,6 +1038,7 @@ export function Editor({
             findNote: () => commandsRef.current?.findNote(),
             searchNotes: () => commandsRef.current?.searchNotes(),
             findTodos: () => commandsRef.current?.findTodos(),
+            findBook: () => commandsRef.current?.findBook(),
             openTodos: () => commandsRef.current?.openTodos(),
             showBacklinks: () => commandsRef.current?.showBacklinks(),
             showLinksOut: () => commandsRef.current?.showLinksOut(),

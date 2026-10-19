@@ -115,7 +115,7 @@ describe("KeyHelp", () => {
     const groups: Record<string, string[]> = {
       Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
       Tabs: ["ct", "tl", "th"],
-      Find: ["ff", "fg", "ft"],
+      Find: ["fb", "ff", "fg", "ft"],
       "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
       "This note": ["rf", "df", "du", "w", "="],
       "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
@@ -126,7 +126,9 @@ describe("KeyHelp", () => {
     };
     for (const [title, keys] of Object.entries(groups)) {
       for (const key of keys) {
-        expect(group(title).getByText(leaderKey(key))).toBeInTheDocument();
+        // Soft and a query, so a key missing from one group still lets every
+        // other group, and the tab row below, be checked.
+        expect.soft(group(title).queryByText(leaderKey(key)), key).not.toBeNull();
       }
     }
     expect(group("Tabs").getByText("Go to a tab by number")).toBeInTheDocument();
@@ -330,6 +332,7 @@ describe("the key tables", () => {
       findNote: () => {},
       searchNotes: () => {},
       findTodos: () => {},
+      findBook: () => {},
       openTodos: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},
@@ -397,6 +400,7 @@ describe("the key tables", () => {
       findNote: () => {},
       searchNotes: () => {},
       findTodos: () => {},
+      findBook: () => {},
       openTodos: () => {},
       showBacklinks: () => {},
       showLinksOut: () => {},

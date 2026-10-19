@@ -88,6 +88,7 @@ import {
   mapPanes,
   nextPane,
   openBookBeside,
+  openBookInFocused,
   openChatInFocused,
   openExamInFocused,
   openGraphBeside,
@@ -138,6 +139,9 @@ import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
 const IGNORE = () => {};
+
+/** The book finder's list while the assets load: one array, so the finder's memo holds. */
+const NO_ASSETS: string[] = [];
 
 /** The document of the editor in pane `id` as it stands on screen, if it holds one. */
 function docIn(id: string): string | undefined {
@@ -515,6 +519,9 @@ function Home() {
   // A flag like the search's: the vault holds one set of todos and the panel
   // asks for all of them, so there is nothing here to start from.
   const [todosOpen, setTodosOpen] = useState(false);
+  // Apart from `finderOpen` though the panel is the same: the outgoing links
+  // share that flag's onOpen, and this one opens a book where that opens a note.
+  const [bookFinderOpen, setBookFinderOpen] = useState(false);
   const [terminalPrompt, setTerminalPrompt] = useState(false);
   // A flag like the terminal's: what the prompt takes is typed, not picked, so
   // there is nothing to open it on.
@@ -2116,6 +2123,9 @@ function Home() {
       searchNotes: () => setSearchOpen(true),
       // The same, and for the same reason.
       findTodos: () => setTodosOpen(true),
+      // The same, and for the same reason. The save is asked when a book is
+      // picked, below where the panel is drawn.
+      findBook: () => setBookFinderOpen(true),
       // Saved first, unlike the three above: this one replaces what the pane
       // holds, which unmounts the editor in it and would take unsaved text with
       // it. The same rule `closeNote` follows.
@@ -2869,6 +2879,24 @@ function Home() {
             setFinderOpen(false);
             setLinksOut(null);
           }}
+        />
+      )}
+      {bookFinderOpen && (
+        <NoteFinder
+          paths={visible(data ?? [], archive)}
+          // The query's own array, which keeps one identity across renders. A
+          // fresh one each render would make the finder rank the list again.
+          books={assets ?? NO_ASSETS}
+          onOpen={(note) => {
+            setBookFinderOpen(false);
+            // Saved first for `openTodos`'s reason: the book replaces what the
+            // pane holds, and the editor it unmounts would take unsaved text
+            // with it. The reader finds the `reading:` place in the note itself.
+            void (async () => {
+              if (await saveFirst()) moveTo((previous) => openBookInFocused(previous, note));
+            })();
+          }}
+          onClose={() => setBookFinderOpen(false)}
         />
       )}
       {/* One panel for all three, because backlinks and todos are the same list

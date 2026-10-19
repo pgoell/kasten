@@ -83,7 +83,7 @@ describe("the todo pane on the reference page", () => {
 const LEADER_GROUPS: Record<string, string[]> = {
   Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
   Tabs: ["ct", "tl", "th", "1", "0"],
-  Find: ["ff", "fg", "ft"],
+  Find: ["fb", "ff", "fg", "ft"],
   "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
   "This note": ["rf", "df", "du", "w", "="],
   "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
@@ -107,7 +107,7 @@ describe("the leader keys on the reference page", () => {
         .flatMap((row) => [...row])
         .map((key) => key.replace(/^<leader>/, ""));
       documented.set(title, new Set(keys));
-      expect(new Set(keys), title).toEqual(new Set(LEADER_GROUPS[title]));
+      expect.soft(new Set(keys), title).toEqual(new Set(LEADER_GROUPS[title]));
     }
 
     // A binding added to the code but not to the page fails here.

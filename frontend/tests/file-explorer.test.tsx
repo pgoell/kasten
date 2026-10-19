@@ -88,6 +88,7 @@ function Harness({
         findNote: onFindNote ?? (() => {}),
         searchNotes: onSearchNotes ?? (() => {}),
         findTodos: () => {},
+        findBook: () => {},
         openTodos: () => {},
         showBacklinks: () => {},
         showLinksOut: () => {},

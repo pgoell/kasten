@@ -63,7 +63,7 @@ const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
     keys: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
   },
   { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
-  { title: "Find", keys: ["ff", "fg", "ft"] },
+  { title: "Find", keys: ["fb", "ff", "fg", "ft"] },
   { title: "Create and capture", keys: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"] },
   { title: "This note", keys: ["rf", "df", "du", "w", "="] },
   { title: "Periodic notes", keys: ["gd", "gw", "gm", "gq", "gy"] },

@@ -246,6 +246,7 @@ column.
 
 | Key | Does |
 | --- | --- |
+| `<leader>fb` | Open the book finder |
 | `<leader>ff` | Open the note finder |
 | `<leader>fg` | Open search over note content |
 | `<leader>ft` | Open the todo overlay |
@@ -2594,8 +2595,8 @@ into the finder has to name a path, and the finder never writes.
 | Key | Does |
 | --- | --- |
 | any character | Narrow the list to the notes the query reads into |
-| Down / Ctrl+n / Tab | Move the highlight down one row |
-| Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
+| Down / Ctrl+j / Ctrl+n / Tab | Move the highlight down one row |
+| Up / Ctrl+k / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the highlighted note |
 | Escape | Close, and hand the focus back |
 
@@ -2608,6 +2609,9 @@ terminal fuzzy finder. There is nothing here to complete: Enter opens the row
 under the highlight whatever the input says. It is answered even with an empty
 list, which is the one place the key would otherwise take the focus out of the
 panel and not bring it back.
+
+Ctrl+j and Ctrl+k are vim's `j` and `k`. A bare `j` or `k` is a letter of a
+name, so it types into the filter.
 
 The list ranks every note in the vault, then shows the best twenty. The query
 reads as a subsequence, so `kap` finds `projects/kasten/api-design.md`. A run of
@@ -2628,6 +2632,19 @@ read says `could not read this note`, and Enter still opens it.
 The line underneath says `no notes match` for a query that reads into nothing,
 and `the vault has no notes` for a vault with nothing in it yet. Enter does
 nothing in either case.
+
+### The book finder
+
+`<leader>fb` opens the same panel over the books alone: the notes with an
+`.epub` beside them, a note with a `.pdf` being a document and not a book. Each
+row shows the book's name and its folder, and the archive stays out unless
+`<leader>a` is on. The keys are the note finder's: the arrows, Ctrl+j and
+Ctrl+k, Ctrl+n and Ctrl+p, and Tab walk the list, and a bare `j` or `k` types
+into the filter. Enter, or a tap on a row,
+opens the book in the focused pane in place of what it held, at the note's
+`reading:` place, and leaves the note shut. A book already open in a pane of
+the tab gets the focus instead of a second reader. With vim off, and on a
+phone, the palette row `Find a book` opens the finder.
 
 ## The note search
 

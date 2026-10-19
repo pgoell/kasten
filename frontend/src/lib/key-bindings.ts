@@ -58,6 +58,8 @@ export interface EditorCommands {
   searchNotes(): void;
   /** Open the todo overlay, which ranks every todo the vault holds. */
   findTodos(): void;
+  /** Open the book finder, which lists every note with an epub beside it. */
+  findBook(): void;
   /** Put the todo list in the focused pane, replacing whatever was there. */
   openTodos(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
@@ -268,6 +270,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // name, so it sits beside the note and the line rather than under `g`, which
   // is where the pane holding the same list lives.
   { key: "ft", label: "Find a todo", command: "findTodos" },
+  // The fourth of the `f` group, for the reason `ft` is in it: a book is picked
+  // by name. It opens the reader and not the note, which is what sets it apart
+  // from `ff` and from `gr`, the key that needs the note open first.
+  { key: "fb", label: "Find a book", command: "findBook" },
   // `g` for go, then the direction. Obsidian calls the pair backlinks and
   // outgoing links, and `b` and `o` are those two words. Neither can be a bare
   // letter: `b` folds the tree away and `o` opens a line in vim.

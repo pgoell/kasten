@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
+import { noteName } from "@/lib/note-path";
 import {
   BACKDROP,
   BODY,
@@ -14,6 +15,7 @@ import {
   PANE,
   PANE_MESSAGE,
   PANEL,
+  PANEL_NARROW,
   PANEL_WIDE,
   ROW,
   STATUS,
@@ -35,6 +37,15 @@ interface NoteFinderProps {
    * it and a note that links nowhere are not the same emptiness.
    */
   outgoing?: boolean;
+  /**
+   * The vault's assets, which makes this the book finder.
+   *
+   * The rows are then the notes in `paths` with an epub beside them, and
+   * opening one hands over the note's path, which is what the book pane takes.
+   * `paths` still decides what is listed at all, so the archive stays out the
+   * way it does for notes.
+   */
+  books?: string[];
 }
 
 /** Rows the list will mount. Beyond this, another keystroke narrows faster than a scroll. */
@@ -55,9 +66,31 @@ const PREVIEW_DELAY_MS = 80;
  * An empty list has two reasons and they are not the same problem: a vault with
  * nothing in it yet, and a query that reads into none of what is there.
  */
-function hint(listed: number, matches: number, outgoing: boolean): string {
-  if (listed === 0) return outgoing ? "this note links nowhere" : "the vault has no notes";
-  return matches === 0 ? "no notes match" : "";
+function hint(listed: number, matches: number, outgoing: boolean, book: boolean): string {
+  if (listed === 0) {
+    if (book) return "the vault has no books";
+    return outgoing ? "this note links nowhere" : "the vault has no notes";
+  }
+  if (matches > 0) return "";
+  return book ? "no books match" : "no notes match";
+}
+
+/**
+ * The notes in `paths` with an epub beside them.
+ *
+ * The same pairing as `resolve_book` on the backend, suffix and case alike, so
+ * `Plan.EPUB` is no book of `Plan.md` here either. A pdf pairs there too but is
+ * a document rather than a book (`note-path.ts`), and stays out.
+ */
+function withBooks(paths: string[], books: string[]): string[] {
+  const epubs = new Set(books);
+  return paths.filter((path) => path.endsWith(".md") && epubs.has(`${path.slice(0, -3)}.epub`));
+}
+
+/** The folder a book sits in, and nothing for one at the vault's root. */
+function folderOf(path: string): string {
+  const slash = path.lastIndexOf("/");
+  return slash === -1 ? "" : path.slice(0, slash);
 }
 
 /**
@@ -86,8 +119,13 @@ function previewText(status: "pending" | "error"): string {
  * to. Nothing about ranking, previewing or opening a note changes when the
  * list is twelve notes rather than the vault, which is why that is a mode of
  * this rather than a panel of its own.
+ *
+ * `books` is the same again over the notes that have a book, without the
+ * preview: an epub's note says little the name does not, and the reader is
+ * where the book is.
  */
-export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFinderProps) {
+export function NoteFinder({ paths, onOpen, onClose, outgoing = false, books }: NoteFinderProps) {
+  const book = books !== undefined;
   const [query, setQuery] = useState("");
   /** Which note Enter would open. */
   const [active, setActive] = useState(0);
@@ -102,8 +140,14 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
   // takes preparing 10,000 paths off the typing path entirely. That asks one
   // thing of the caller: hand over the same array each render. The route passes
   // what the query cache holds, and a listing filtered or sorted at the call
-  // site would be a new array every time and undo all of this.
-  const candidates = useMemo(() => noteCandidates(paths), [paths]);
+  // site would be a new array every time and undo all of this. The books are
+  // picked out in a memo of their own for the same reason, and the note finder
+  // keeps `paths` itself, so its candidates follow the very array handed over.
+  const listed = useMemo(
+    () => (books === undefined ? paths : withBooks(paths, books)),
+    [paths, books],
+  );
+  const candidates = useMemo(() => noteCandidates(listed), [listed]);
   // Ranked over the whole vault and cut afterwards, so the rows on screen are
   // the best of it rather than the first slice of it. An empty query matches
   // everything, so without the cut a keystroke reconciles one button per note
@@ -122,17 +166,19 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
   // walking the list cost one read instead of one per row.
   const [reading, setReading] = useState<string>();
 
-  // Nothing is read in a narrow window, which has no pane to show it in.
+  // Nothing is read in a narrow window, which has no pane to show it in, nor
+  // for a book, which has none at all.
   const { narrow } = useViewport();
+  const previewing = !narrow && !book;
 
   useEffect(() => {
-    if (narrow || highlighted === undefined) {
+    if (!previewing || highlighted === undefined) {
       setReading(undefined);
       return;
     }
     const timer = setTimeout(() => setReading(highlighted), PREVIEW_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [highlighted, narrow]);
+  }, [highlighted, previewing]);
 
   // The key `NoteEditor` reads, on purpose: a note that is open is already here
   // and costs nothing to show, and a note read here is one the editor will not
@@ -180,12 +226,12 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
   function onKeyDown(event: React.KeyboardEvent) {
     // Tab walks the list rather than completing anything, the way it does in a
     // terminal fuzzy finder. There is nothing here to complete: Enter opens the
-    // row under the highlight whatever the input says.
+    // row under the highlight whatever the input says. Ctrl+J and Ctrl+K are
+    // vim's j and k; bare, they are letters of a name and belong to the input.
     const tab = event.key === "Tab";
-    const down =
-      event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n");
-    const up =
-      event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p");
+    const ctrl = (key: string) => event.ctrlKey && event.key === key;
+    const down = event.key === "ArrowDown" || (tab && !event.shiftKey) || ctrl("n") || ctrl("j");
+    const up = event.key === "ArrowUp" || (tab && event.shiftKey) || ctrl("p") || ctrl("k");
 
     if (down || up) {
       // Without this the arrows take the caret to one end of the input, which
@@ -220,16 +266,17 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={outgoing ? "Outgoing links" : "Find note"}
+      aria-label={book ? "Find book" : outgoing ? "Outgoing links" : "Find note"}
       tabIndex={-1}
       onKeyDown={onKeyDown}
       {...closeOnBackdrop(onClose)}
       className={BACKDROP}
     >
-      <div className={`${PANEL} ${PANEL_WIDE}`}>
+      {/* One column for books, which have no pane to sit beside. */}
+      <div className={`${PANEL} ${book ? PANEL_NARROW : PANEL_WIDE}`}>
         <div className={HEADER_ROW}>
           <label htmlFor={`${listId}-query`} className={LABEL}>
-            {outgoing ? "links out" : "find note"}
+            {book ? "find book" : outgoing ? "links out" : "find note"}
           </label>
           <input
             id={`${listId}-query`}
@@ -250,12 +297,19 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
         </div>
 
         {/* A fixed height rather than one the content sets, so the pane does not
-            jump about as the list narrows under it. */}
-        <div className={BODY}>
+            jump about as the list narrows under it. Books have no pane, so
+            their list takes the height it needs, capped by the panel. */}
+        <div className={book ? "flex min-h-0" : BODY}>
           {notes.length > 0 && (
             // A div rather than a list, because a listbox is not a list of items
-            // to a screen reader and marking it as both says it twice.
-            <div id={listId} role="listbox" aria-label="Notes" className={LIST}>
+            // to a screen reader and marking it as both says it twice. A book's
+            // list has the panel to itself, there being no pane beside it.
+            <div
+              id={listId}
+              role="listbox"
+              aria-label={book ? "Books" : "Notes"}
+              className={book ? "w-full overflow-auto py-1" : LIST}
+            >
               {notes.map((path, index) => (
                 <button
                   key={path}
@@ -268,17 +322,31 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
                   // open. A click still lands here, and opens the same note.
                   tabIndex={-1}
                   onClick={() => accept(path)}
-                  className={`${ROW} ${TAP} truncate ${
+                  className={`${ROW} ${TAP} ${book ? "flex gap-3" : "truncate"} ${
                     index === cursor ? "bg-one-hover text-one-accent" : "text-one-fg"
                   }`}
                 >
-                  {path}
+                  {book ? (
+                    // The folder, so the subfolders of a books folder read as
+                    // groups. Dimmer, because the name is what is looked for,
+                    // and the one that gives way: a folder runs from the
+                    // vault's root, and sharing the row out evenly clipped a
+                    // four-letter name to two on a phone.
+                    <>
+                      <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
+                      <span className="ml-auto min-w-0 truncate text-one-muted">
+                        {folderOf(path)}
+                      </span>
+                    </>
+                  ) : (
+                    path
+                  )}
                 </button>
               ))}
             </div>
           )}
 
-          {!narrow && highlighted !== undefined && (
+          {previewing && highlighted !== undefined && (
             // Rendered the way the editor renders it, so the pane shows the
             // note as opening it will. It used to be plain text, on the
             // grounds that this pane is for telling two notes apart rather
@@ -303,7 +371,7 @@ export function NoteFinder({ paths, onOpen, onClose, outgoing = false }: NoteFin
 
         {/* An <output> rather than a <p role="status">: same announcement, and
             the element carries it without the attribute. */}
-        <output className={STATUS}>{hint(paths.length, notes.length, outgoing)}</output>
+        <output className={STATUS}>{hint(listed.length, notes.length, outgoing, book)}</output>
       </div>
     </div>
   );

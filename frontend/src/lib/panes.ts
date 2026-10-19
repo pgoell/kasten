@@ -430,6 +430,24 @@ export function openBookBeside(layout: Layout, note: string): Layout {
 }
 
 /**
+ * Put a note's book in the focused pane, or go to the one already reading it.
+ *
+ * Over the pane, where `openBookBeside` splits: the book finder (#502) picks a
+ * book and not a note, so there is no note on screen to keep beside it. The
+ * reuse is the same, so a book picked twice is one reader.
+ */
+export function openBookInFocused(layout: Layout, note: string): Layout {
+  const reading = tabPanes(layout).find((pane) => pane.book === note);
+  if (reading) return focusPane(layout, reading.id);
+
+  const tab = activeTab(layout);
+  return withTab(layout, {
+    ...tab,
+    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, book: note }),
+  });
+}
+
+/**
  * Play a note's video in a new pane beside it, or go to the one already playing it.
  *
  * Beside and not over, following `openBookBeside` down to the reuse: watching

@@ -25,6 +25,7 @@ function stubCommands() {
     findNote: vi.fn(),
     searchNotes: vi.fn(),
     findTodos: vi.fn(),
+    findBook: vi.fn(),
     openTodos: vi.fn(),
     showBacklinks: vi.fn(),
     showLinksOut: vi.fn(),
