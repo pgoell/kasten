@@ -25,6 +25,7 @@ import { noteLanguage } from "@/lib/note-language";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/pdf-view";
+import { presses, watchPresses } from "@/lib/presses";
 import { readRelation } from "@/lib/relation";
 import { type Align, alignsOf, isRow } from "@/lib/table";
 import { DUE, masked, parseTodo } from "@/lib/todo";
@@ -172,7 +173,12 @@ class Picture extends WidgetType {
       if (link !== null && (head < link.from || head > link.to)) {
         // A double-click sends a click for each press, and the follow leaves
         // the cursor where it was, so the second would open a second tab.
-        if (event.detail <= 1) window.open(link.address, "_blank", "noopener");
+        // Chrome counts any press close to the one before as its second, so
+        // the click is a repeat only when the press before it followed, a
+        // dropped one included (#572).
+        const again = event.detail > 1 && presses.repeat;
+        presses.followed = true;
+        if (!again) window.open(link.address, "_blank", "noopener");
       } else {
         view.dispatch({ selection: { anchor: at } });
       }
@@ -838,7 +844,7 @@ class TableGrid extends WidgetType {
     // CodeMirror moves the cursor in on a mouse's press, which redraws the
     // table as source and takes this block off the page before the click. A
     // press that follows is kept from it, so the follow happens at the click,
-    // where a double-click's second has `detail` 2 and opens no second tab.
+    // where a double-click's second is a repeat and opens no second tab.
     block.addEventListener("mousedown", (event) => {
       // A finger's press would leave the browser to put the caret at the
       // block's edge, which opens the table under the wikilink it follows.
@@ -869,7 +875,11 @@ class TableGrid extends WidgetType {
         return;
       }
       event.stopPropagation();
-      if (event.detail <= 1) window.open(address, "_blank", "noopener");
+      // A click with `detail` 2 is a repeat only when the press before it
+      // followed, as on the picture's own click (#572).
+      const again = event.detail > 1 && presses.repeat;
+      presses.followed = true;
+      if (!again) window.open(address, "_blank", "noopener");
     });
     const table = block.appendChild(document.createElement("table"));
     table.className = "cm-table-grid";
@@ -2169,6 +2179,9 @@ const nudgeSelection = EditorState.transactionFilter.of((tr) => {
 });
 
 export function livePreview(): Extension {
+  // The picture's and the table's follows read the presses too, and a view
+  // may be mounted without the editor that would watch them.
+  watchPresses();
   return [vimModeState(), folds, live, foldClicks, nudgeSelection];
 }
 
@@ -2184,5 +2197,7 @@ export function livePreview(): Extension {
  * preview opens and shuts by click as it does in the editor.
  */
 export function renderedMarkdown(): Extension {
+  // For the reason `livePreview` watches them: a preview may be the only view.
+  watchPresses();
   return [vimModeField, folds, live, foldClicks];
 }

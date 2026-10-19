@@ -32,6 +32,7 @@ import { noteSectionOf } from "@/lib/note-section";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { type CopyFormat, slashCompletions, viewCommands } from "@/lib/palette";
 import { readPosition, writePosition } from "@/lib/positions";
+import { presses, watchPresses } from "@/lib/presses";
 import { moveCell } from "@/lib/table";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo-commands";
@@ -351,31 +352,6 @@ function followOnClick(): Extension {
       return true;
     },
   });
-}
-
-/**
- * Whether the last press anywhere followed a link, and whether the press now
- * down may repeat it (#569).
- *
- * One for the module, kept by one listener on the document in the capture
- * phase, rather than one per view: a press on a widget never reaches the
- * view's own handlers, a press may land in another pane, and a follow rebuilds
- * the view for the note it opens, under the second press of a double tap.
- */
-const presses = { followed: false, repeat: false };
-let watchingPresses = false;
-
-function watchPresses(): void {
-  if (watchingPresses) return;
-  watchingPresses = true;
-  document.addEventListener(
-    "pointerdown",
-    () => {
-      presses.repeat = presses.followed;
-      presses.followed = false;
-    },
-    true,
-  );
 }
 
 /** The `[[link]]` around `pos`, looking one way only. */
