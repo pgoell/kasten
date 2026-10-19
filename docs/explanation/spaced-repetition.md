@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Spaced repetition
-description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, and why the review has two front ends.
+description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, why the review has two front ends, and why a daily limit counts off the schedule.
 resource: frontend/src/lib/srs.ts
 tags: [design, vault, review, flashcards]
 status: stable
@@ -153,6 +153,23 @@ respectively. That split is the property to keep. A rule that lived in the pane
 and not in the route would be a rule that is true at a desk and false on a
 phone, and the file on disk would be the thing that disagreed with itself.
 
+## Daily limits count off the schedule
+
+A daily limit has to know what was answered today, and the note holds no
+history: three numbers per card, which obsidian-spaced-repetition reads too, so
+a fourth was not on offer. A store of its own in the browser or the database
+would count wrong after a reload on another device.
+
+The three numbers are enough. Every rating writes a due date of today plus the
+interval, so a card whose two agree was answered today, and a first answer
+always lands on the starting ease with a gap of 1 or 4. Two rare cases read
+wrong, both named in [the format](/reference/flashcard-format.md#daily-limits),
+and the cost of either is one card more or less in a day's sitting.
+
+The limits themselves live in a note, `decks.md`, rather than in settings, for
+the reason the schedule does: the vault is the record, and its history shows
+when a limit changed. The setting is only the default for a vault with no note.
+
 ## What is deliberately not here
 
 Each of these is a real feature of Anki, left out on purpose:
@@ -162,9 +179,6 @@ Each of these is a real feature of Anki, left out on purpose:
 * **Media in an imported deck.** The media map in a current `.apkg` is
   zstd-compressed protobuf, and reading it without the schema is not a stdlib
   job. The import reports how many cards lost one rather than hiding it.
-* **A daily new-card limit.** Anki has one because it assumes a queue shared
-  across every deck. Add one when a 2,000 card import makes the first sitting
-  absurd.
 * **Interval fuzz.** Cards imported on one day come due on one day. Add it when
   the bunching is felt.
 * **Undo.** A rating is written immediately, and the schedule before it is in

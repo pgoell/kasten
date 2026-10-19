@@ -97,6 +97,20 @@ class Settings(BaseSettings):
     wherever you put it, and only the import has to be told where to start.
     """
 
+    review_new_per_day: int | None = None
+    """How many new cards a deck's sitting introduces a day, or None for every one.
+
+    The default for a deck the config note `decks.md` names no limit for, nor
+    any deck above it. A setting and not only the note because a 2,000 card
+    import should not make the first sitting absurd in a vault nobody configured.
+    """
+
+    review_reviews_per_day: int | None = None
+    """How many due cards a deck's sitting asks a day, or None for every one.
+
+    The other half of `review_new_per_day`, read the same way.
+    """
+
     trash_days: int = 30
     """How long a deleted note waits in `.trash` before it is dropped for good.
 

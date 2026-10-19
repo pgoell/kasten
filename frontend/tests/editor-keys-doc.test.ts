@@ -93,6 +93,34 @@ const LEADER_GROUPS: Record<string, string[]> = {
   Help: ["?", ":"],
 };
 
+describe("the deck folds on the reference pages (#517)", () => {
+  it("#517 A6 both key tables name za and the import guide names the Import entry", () => {
+    const format = readFileSync("../docs/reference/flashcard-format.md", "utf-8");
+    const sitting = format.slice(format.indexOf("\n## Sitting one\n"));
+    const formatKeys = rows(sitting.slice(0, sitting.indexOf("\n### ")));
+    const guide = readFileSync("../docs/how-to/import-an-anki-deck.md", "utf-8");
+    const importIt = guide.slice(
+      guide.indexOf("\n## Import it\n"),
+      guide.indexOf("\n## From a link\n"),
+    );
+
+    // Soft, so a page that misses one still reports the other two.
+    expect
+      .soft(
+        formatKeys.some((row) => row.has("za")),
+        "flashcard-format.md",
+      )
+      .toBe(true);
+    expect
+      .soft(
+        rows(section("## The review pane")).some((row) => row.has("za")),
+        "editor-keys.md",
+      )
+      .toBe(true);
+    expect.soft(importIt, "import-an-anki-deck.md").toContain("**Import**");
+  });
+});
+
 describe("the leader keys on the reference page", () => {
   it("the editor keys page groups the leader keys as the panel does", () => {
     const leader = section("## Leader");

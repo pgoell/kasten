@@ -7,7 +7,7 @@ import { readClock } from "@/lib/clock";
 import { inDeck } from "@/lib/deck-tag";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
-import type { Deck } from "@/lib/review";
+import { type Deck, decksFrom } from "@/lib/review";
 import {
   appendStub,
   type Card,
@@ -22,6 +22,7 @@ import {
   writeNoteSuspended,
   writeSchedule,
 } from "@/lib/srs";
+import { useReviewLimits } from "@/lib/use-review-limits";
 import { useSittingWrites } from "@/lib/use-sitting-writes";
 
 /**
@@ -134,8 +135,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   const write = useSittingWrites(setTexts, setFailed);
 
   const today = useMemo(() => readClock(new Date()).date, []);
+  const limits = useReviewLimits();
 
   useEffect(() => {
+    // Before any note is read: a queue built without the limits would ask the
+    // whole deck, and nothing cuts a running sitting down afterwards.
+    if (limits === undefined) return;
     let live = true;
     // All of them before any of them is asked. A deck spanning three notes is
     // three reads at the start rather than one on the card that first needs it,
@@ -157,10 +162,22 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         // has to keep them: the queue addresses a card by its ordinal, so a
         // card taken out of the array renumbers the ones behind it.
         const asked = seats.filter(({ card }) => card.parked === null);
+        const due = asked.filter(({ card }) => isDue(card, today));
+        const fresh = asked.filter(({ card }) => card.held === null);
+        // The deck's row as the overview counts it, off the same notes and the
+        // same limits, so the sitting asks exactly what the row promised. A
+        // whole note has no row here and no limit.
+        const row = deck.whole
+          ? undefined
+          : decksFrom(
+              [...texts].map(([path, text]) => ({ path, text })),
+              today,
+              limits,
+            ).find((each) => !each.whole && each.name === deck.name);
         setQueue(
           [
-            ...asked.filter(({ card }) => isDue(card, today)),
-            ...asked.filter(({ card }) => card.held === null),
+            ...due.slice(0, row?.due ?? due.length),
+            ...fresh.slice(0, row?.fresh ?? fresh.length),
           ].map(({ note, at }) => ({ note, at })),
         );
       },
@@ -171,7 +188,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     return () => {
       live = false;
     };
-  }, [deck, today]);
+  }, [deck, today, limits]);
 
   const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
   const seat = queue[0];

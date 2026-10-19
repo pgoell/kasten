@@ -684,6 +684,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Review Limits
+         * @description Name the daily limits a deck gets where the config note sets none.
+         *
+         *     Only the default. The per-deck limits live in a note the client reads like
+         *     any other, so the vault holds them and its history shows who changed them.
+         */
+        get: operations["read_review_limits_api_review_limits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tags": {
         parameters: {
             query?: never;
@@ -1679,6 +1702,16 @@ export interface components {
             path: string;
         };
         /**
+         * ReviewLimits
+         * @description The daily limits a deck falls back on, None meaning no limit.
+         */
+        ReviewLimits: {
+            /** New Per Day */
+            new_per_day: number | null;
+            /** Reviews Per Day */
+            reviews_per_day: number | null;
+        };
+        /**
          * Save
          * @description A whole note, and the digest of the one the caller read.
          */
@@ -2582,6 +2615,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_review_limits_api_review_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewLimits"];
                 };
             };
         };

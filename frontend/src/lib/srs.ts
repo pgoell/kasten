@@ -463,6 +463,26 @@ export function nextSchedule(held: Schedule | null, rating: Rating, today: strin
   return { due: shiftDay(today, interval), interval, ease };
 }
 
+/**
+ * What answering the card today was, read off its schedule, or null where nothing did.
+ *
+ * The comment holds three numbers and no history, and obsidian-spaced-repetition
+ * reads those three, so a fourth was not an option. What is there is enough:
+ * every rating above writes a due date of today plus the interval, so a card
+ * whose two agree was answered today. A first answer always lands on the
+ * starting ease with a gap of 1 or 4, which is what tells a card introduced
+ * today from a review done today.
+ *
+ * Read off the vault, so a reload or a second device counts the same. The cost
+ * is two mistakes, both rare: a new card asked a second time in its first
+ * sitting, after an again, reads as a review, and a review that lands back on
+ * the starting ease with a gap of 1 or 4 reads as new.
+ */
+export function answeredToday(held: Schedule | null, today: string): "new" | "review" | null {
+  if (held === null || held.due !== shiftDay(today, held.interval)) return null;
+  return held.ease === NEW_EASE && (held.interval === 1 || held.interval === 4) ? "new" : "review";
+}
+
 /** `next` written as the comment that goes in the note, named by its number on a cloze. */
 function comment(next: Schedule, cloze: number | null = null): string {
   return `<!--SR:${cloze === null ? "" : `c${cloze}`}!${next.due},${next.interval},${next.ease}-->`;

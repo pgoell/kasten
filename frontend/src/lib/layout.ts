@@ -38,6 +38,9 @@ export let VIEWS_NOTE = "99 Misc/01 Config/todo-views.md";
 /** The note whose one link names the book being read, which `<leader>gc` opens. */
 export let READING_NOTE = "99 Misc/01 Config/reading-now.md";
 
+/** The note naming each deck's daily limits on new cards and reviews. */
+export let DECKS_NOTE = "99 Misc/01 Config/decks.md";
+
 /** Take the folders the backend named, from here on. */
 export function applyLayout(layout: Layout): void {
   INBOX = layout.inbox;
@@ -47,4 +50,5 @@ export function applyLayout(layout: Layout): void {
   ONTOLOGY_NOTE = `${layout.config}/01 Agents/Ontology.md`;
   VIEWS_NOTE = `${layout.config}/todo-views.md`;
   READING_NOTE = `${layout.config}/reading-now.md`;
+  DECKS_NOTE = `${layout.config}/decks.md`;
 }

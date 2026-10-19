@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API
 
-The backend serves thirty-six endpoints under `/api/`. Twenty-two read,
+The backend serves thirty-seven endpoints under `/api/`. Twenty-three read,
 thirteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
@@ -550,6 +550,21 @@ of [filing a deck away](/reference/flashcard-format.md#filing-one-away): moving
 the note into the archive takes it out of the review and changes nothing else.
 
 A vault directory that does not exist reads as an empty one.
+
+## GET /api/review/limits
+
+Names the daily limits a deck falls back on where
+[`decks.md`](/reference/flashcard-format.md#daily-limits) sets none, read off
+[`KASTEN_REVIEW_NEW_PER_DAY`](/reference/configuration.md#kasten_review_new_per_day)
+and [`KASTEN_REVIEW_REVIEWS_PER_DAY`](/reference/configuration.md#kasten_review_reviews_per_day).
+`null` means no limit.
+
+```json
+{ "new_per_day": 20, "reviews_per_day": null }
+```
+
+Only the default. The limits per deck live in a note the client reads like any
+other, so the vault holds them and its history shows each change.
 
 ## POST /api/anki
 

@@ -1131,6 +1131,25 @@
         }
       }
     },
+    "/api/review/limits": {
+      "get": {
+        "summary": "Read Review Limits",
+        "description": "Name the daily limits a deck gets where the config note sets none.\n\nOnly the default. The per-deck limits live in a note the client reads like\nany other, so the vault holds them and its history shows who changed them.",
+        "operationId": "read_review_limits_api_review_limits_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewLimits"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tags": {
       "get": {
         "summary": "List Tags",
@@ -2845,6 +2864,39 @@
         ],
         "title": "Restored",
         "description": "Where a restored note or folder landed, which is where it was."
+      },
+      "ReviewLimits": {
+        "properties": {
+          "new_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Per Day"
+          },
+          "reviews_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviews Per Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_per_day",
+          "reviews_per_day"
+        ],
+        "title": "ReviewLimits",
+        "description": "The daily limits a deck falls back on, None meaning no limit."
       },
       "Save": {
         "properties": {

@@ -211,6 +211,19 @@ export async function fetchCards(archive = false): Promise<SearchHit[]> {
   return data;
 }
 
+export type ReviewLimits = components["schemas"]["ReviewLimits"];
+
+/** The daily limits a deck gets where `decks.md` names none, null for no limit. */
+export async function fetchReviewLimits(): Promise<ReviewLimits> {
+  const { data, response } = await client.GET("/api/review/limits");
+
+  if (!data) {
+    throw new Error(`GET /api/review/limits failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /**
  * Every line in the vault holding `query`, as the backend found them.
  *

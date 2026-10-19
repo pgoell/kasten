@@ -20,11 +20,11 @@
  * one parser the overview and the sitting cannot disagree on what a card is.
  */
 
-import type { SearchHit } from "@/lib/api";
+import type { ReviewLimits, SearchHit } from "@/lib/api";
 import { type Divided, divide, parks, suspended } from "@/lib/card-line";
 import { deckPath, withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
-import { parseCards, readNoteSchedule, readNoteSuspended } from "@/lib/srs";
+import { answeredToday, parseCards, readNoteSchedule, readNoteSuspended } from "@/lib/srs";
 
 /** One deck as the overview draws it. */
 export interface Deck {
@@ -66,6 +66,77 @@ export interface DeckNote {
   text: string;
 }
 
+/**
+ * What the daily limits are read from, as `useReviewLimits` hands them over.
+ *
+ * The raw text of the config note rather than what it says, so the one reading
+ * of it is here beside the counts it caps.
+ */
+export interface Limits {
+  /** `decks.md`, or null where it is missing or could not be read. */
+  note: string | null;
+  /** What a deck falls back on where neither it nor a deck above it sets a limit. */
+  defaults: ReviewLimits;
+}
+
+/** What one line of `decks.md` sets, each half left out where the line does not name it. */
+interface DeckLimit {
+  fresh?: number;
+  due?: number;
+}
+
+/** `trivia/geography: 20 new, 200 reviews`, with an optional `- ` in front. */
+const LIMIT_LINE = /^(?:-\s+)?([^:]+):(.+)$/;
+
+/** One half of the line's value, `20 new` or `200 reviews`. */
+const LIMIT_HALF = /^(\d+)\s+(new|reviews?)$/;
+
+/**
+ * Each deck's limits as `decks.md` writes them, keyed by the name the overview shows.
+ *
+ * A line that does not read as one is skipped, whatever else it holds: the note
+ * is a note, with frontmatter and perhaps a sentence about why, and a typo in
+ * one line should cost that line and not the sitting.
+ */
+function limitsIn(note: string): Map<string, DeckLimit> {
+  const decks = new Map<string, DeckLimit>();
+  for (const line of note.split("\n")) {
+    const [, name, value] = LIMIT_LINE.exec(line.trim()) ?? [];
+    if (name === undefined || value === undefined) continue;
+    const limit: DeckLimit = {};
+    let read = true;
+    for (const half of value.split(",")) {
+      const [, count, kind] = LIMIT_HALF.exec(half.trim()) ?? [];
+      if (count === undefined) read = false;
+      else if (kind === "new") limit.fresh = Number(count);
+      else limit.due = Number(count);
+    }
+    if (read) decks.set(name.trim(), limit);
+  }
+  return decks;
+}
+
+/**
+ * The limit binding a sitting of `name`, null for none.
+ *
+ * Its own line's, else the nearest deck above that sets one, else the default.
+ * Each half on its own, so a subdeck that sets only new cards still takes its
+ * parent's reviews.
+ */
+function limitOf(
+  name: string,
+  decks: Map<string, DeckLimit>,
+  defaults: ReviewLimits,
+): { fresh: number | null; due: number | null } {
+  const lines = deckPath(name)
+    .reverse()
+    .flatMap((deck) => decks.get(deck) ?? []);
+  return {
+    fresh: lines.find((line) => line.fresh !== undefined)?.fresh ?? defaults.new_per_day,
+    due: lines.find((line) => line.due !== undefined)?.due ?? defaults.reviews_per_day,
+  };
+}
+
 /** The tag marking a whole note as the thing to be reviewed. */
 const REVIEW_TAG = /#review(?![\w/-])/;
 
@@ -102,11 +173,21 @@ export function deckNotes(hits: SearchHit[]): string[] {
   return [...notes];
 }
 
-/** Every deck the notes hold, sorted by name. */
-export function decksFrom(notes: DeckNote[], today: string): Deck[] {
+/**
+ * Every deck the notes hold, sorted by name.
+ *
+ * With `limits`, a deck's `due` and `fresh` are what today's sitting of it
+ * offers, its daily limits less what was answered today. The sitting builds its
+ * queue off this same row, which is what keeps the two from disagreeing. Only
+ * the limit of the deck sat binds, over every card under it: a parent's sitting
+ * ignores the limits its subdecks set, the way it asks their cards as its own.
+ */
+export function decksFrom(notes: DeckNote[], today: string, limits?: Limits): Deck[] {
   // Keyed by name, so one tag in three notes is one deck. A whole note is keyed
   // by its path instead: it is not a tag, and nothing should merge with it.
   const decks = new Map<string, Deck>();
+  /** Per deck, the cards answered today: reviews done, and new cards introduced. */
+  const answered = new Map<string, { due: number; fresh: number }>();
   const bump = (key: string, deck: Deck) => {
     const held = decks.get(key);
     if (held === undefined) {
@@ -147,10 +228,16 @@ export function decksFrom(notes: DeckNote[], today: string): Deck[] {
     }
 
     for (const card of asked) {
+      // A parked card counts against no limit, the way it is asked in no sitting.
+      const done = card.parked === null ? answeredToday(card.held, today) : null;
       // Every deck above the one named counts the card too, the way `inDeck`
       // asks it in a sitting of any of them, and the Set is what keeps a card
       // tagged `databases` and `databases/postgres` counted once in the parent.
       for (const deck of new Set(card.decks.flatMap(deckPath))) {
+        const tally = answered.get(deck) ?? { due: 0, fresh: 0 };
+        if (done === "review") tally.due += 1;
+        if (done === "new") tally.fresh += 1;
+        answered.set(deck, tally);
         bump(deck, {
           name: deck,
           notes: [note],
@@ -161,6 +248,21 @@ export function decksFrom(notes: DeckNote[], today: string): Deck[] {
           parked: card.parked !== null ? 1 : 0,
           whole: false,
         });
+      }
+    }
+  }
+
+  if (limits !== undefined) {
+    const set = limitsIn(limits.note ?? "");
+    for (const [key, deck] of answered) {
+      const held = decks.get(key);
+      // A whole note is keyed apart and never here: it is one thing to re-read,
+      // and a limit on it would be a limit of one.
+      if (held === undefined) continue;
+      const limit = limitOf(key, set, limits.defaults);
+      if (limit.due !== null) held.due = Math.max(0, Math.min(held.due, limit.due - deck.due));
+      if (limit.fresh !== null) {
+        held.fresh = Math.max(0, Math.min(held.fresh, limit.fresh - deck.fresh));
       }
     }
   }

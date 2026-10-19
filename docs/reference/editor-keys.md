@@ -1355,6 +1355,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | --- | --- |
 | `j`, `k` | Walk the decks on the overview, or the rows on the parked list |
 | `l` | Start the sitting on the deck under the cursor |
+| `za` | Fold or unfold the deck under the cursor |
 | `p` | Open [the parked list](/reference/flashcard-format.md#parking-a-card) |
 | `h` | Leave the sitting or the parked list, back to the decks |
 | `Space`, `Enter` | Show the answer |
@@ -1373,7 +1374,12 @@ deck with nothing waiting is skipped: its row is disabled and cannot be sat, and
 a deck holding nothing but parked cards is one of those, its row saying how many
 so a `0 new` is never a mystery.
 A deck [under another](/reference/flashcard-format.md#a-deck-inside-a-deck) is
-one row like any other, so `j` walks parents and children alike.
+one row like any other, so `j` walks parents and children alike, and skips the
+rows a fold hides. `za` on a deck with decks under it folds or unfolds them, and
+on a deck with none it folds the deck above and moves the cursor up to it, the
+way `za` inside a fold closes it in vim. A `z` followed by any other key is
+dropped, and that key does what it always does. `l` on a folded deck sits
+everything under it.
 
 Each of the three screens scopes its own keys. `j` and `k` walk deck rows on the
 overview and parked rows on the parked list, and neither can reach the other's.

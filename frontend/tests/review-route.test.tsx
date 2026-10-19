@@ -85,6 +85,8 @@ describe("the review route on a phone", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    // A fold is kept in localStorage.
+    localStorage.clear();
   });
 
   it("A8 a nested cloze is rated by tap at phone width", async () => {
@@ -125,5 +127,72 @@ describe("the review route on a phone", () => {
       /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1![\d-]+,1,250--> <!--SR:c2![\d-]+,1,250-->\n$/,
     );
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
+  });
+
+  it("#517 A4 a tap on the toggle folds and unfolds, a parent with nothing to offer too", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    // One parked card, so neither row has anything to sit.
+    await renderRoute(
+      [
+        { path: "t.md", line: 1, text: "#flashcards/trivia/geography" },
+        { path: "t.md", line: 2, text: "a::b !suspended" },
+      ],
+      "#flashcards/trivia/geography\na::b !suspended\n",
+    );
+    const parent = await findButton(/^trivia/);
+    const child = () => document.querySelector('button[data-deck="trivia/geography"]');
+
+    expect(child()).toBeNull();
+    const toggle = screen.getByRole("button", { name: "unfold trivia" });
+    expect(parent).toBeDisabled();
+    expect(toggle).toHaveClass("min-h-11", "min-w-11");
+    expect(toggle.parentElement).toBe(parent.parentElement);
+
+    fireEvent.click(toggle);
+    expect(child()).not.toBeNull();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAccessibleName("fold trivia");
+    // A row with nothing to fold keeps a gutter as wide as the toggle.
+    expect(child()?.previousElementSibling).toHaveClass("min-w-11");
+
+    fireEvent.click(toggle);
+    expect(child()).toBeNull();
+  });
+});
+
+describe("the review route under a daily limit", () => {
+  const DUE = "<!--SR:!2000-01-01,4,250-->";
+  const CARDS = `#flashcards/alpha\na::b ${DUE}\nc::d ${DUE}\ne::f ${DUE}\ng::h\ni::j\nk::l\n`;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("A12 draws a deck's row with the due and new counts its decks.md line allows", async () => {
+    // `renderRoute` with one change: the config note answers with the limit.
+    vi.spyOn(api, "fetchCards").mockResolvedValue(
+      CARDS.split("\n").map((text, at) => ({ path: "a.md", line: at + 1, text })),
+    );
+    vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+      Promise.resolve(path === "99 Misc/01 Config/decks.md" ? "alpha: 1 new, 2 reviews\n" : CARDS),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const router = createRouter({
+      routeTree,
+      context: { queryClient },
+      history: createMemoryHistory({ initialEntries: ["/review"] }),
+    });
+    await act(async () => {
+      await router.load();
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    const row = await findButton(/^alpha/);
+    expect(row).toHaveTextContent("2 due");
+    expect(row).toHaveTextContent("1 new");
   });
 });

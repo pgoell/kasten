@@ -20,11 +20,12 @@ format and the older one are read, so no compatibility option needs setting.
 
 ## Import it
 
-Open `/review`, either on a phone or through `<leader>gs` in the app. To carry
-Anki's schedule, tick **Carry Anki's schedule** first; it is off by default.
-Press **Import an Anki deck** and pick the `.apkg`.
+Open `/review`, either on a phone or through `<leader>gs` in the app, and open
+**Import** above the decks; it stays closed until you do. To carry Anki's
+schedule, tick **Carry Anki's schedule** first; it is off by default. Press
+**Import an Anki deck** and pick the `.apkg`.
 
-The line under the button says what arrived: how many decks and cards, how many
+The line under the buttons says what arrived: how many decks and cards, how many
 the import added, updated and kept, how many Anki no longer has, and how many
 image and sound files came with them.
 
@@ -115,7 +116,8 @@ The tag cannot hold a space, so a deck called `AWS Certification` is tagged
 A subdeck stays a subdeck. `Trivia::Geography` is tagged
 `#flashcards/Trivia/Geography`, and the review draws it
 [under `Trivia`](/reference/flashcard-format.md#a-deck-inside-a-deck), which
-asks it along with everything else filed there.
+asks it along with everything else filed there. `Trivia` starts folded, so
+press the arrow beside it, or `za` in the pane, to see `Geography`.
 
 `03 Flashcards` is
 [KASTEN_FLASHCARDS_PATH](/reference/configuration.md#kasten_flashcards_path).

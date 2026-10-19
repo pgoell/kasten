@@ -1,8 +1,48 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type AnkiImport, fetchCards, fetchNote, importAnki, importAnkiLink } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review";
+import { useReviewLimits } from "@/lib/use-review-limits";
+
+/**
+ * The decks unfolded by hand, per browser.
+ *
+ * The open ones and not the folded ones, because folded is where every deck
+ * below the top level starts: an imported Anki tree of two hundred subdecks
+ * would otherwise open as two hundred rows.
+ */
+const FOLDS_KEY = "kasten.review.folds.1";
+
+/** Blocked site data throws a `DOMException`, and a broken value is no list. */
+function readUnfolded(): Set<string> {
+  let raw: string | null;
+  try {
+    raw = localStorage.getItem(FOLDS_KEY);
+  } catch (error) {
+    if (error instanceof DOMException) return new Set();
+    throw error;
+  }
+  if (raw === null) return new Set();
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((name) => typeof name === "string")) {
+      return new Set(parsed);
+    }
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+  }
+  return new Set();
+}
+
+function writeUnfolded(unfolded: Set<string>): void {
+  try {
+    localStorage.setItem(FOLDS_KEY, JSON.stringify([...unfolded]));
+  } catch (error) {
+    // Blocked, or full. The fold still holds until the page goes.
+    if (!(error instanceof DOMException)) throw error;
+  }
+}
 
 /** How far under another deck this one sits, `databases/postgres` being one. */
 function depthOf(name: string): number {
@@ -12,6 +52,12 @@ function depthOf(name: string): number {
 /** What the row calls it: the last part of the path, the rest being the rows above. */
 function leafOf(name: string): string {
   return name.slice(name.lastIndexOf("/") + 1);
+}
+
+/** Every deck above this one, nearest last: `a`, `a/b` for `a/b/c`. */
+function ancestorsOf(name: string): string[] {
+  const parts = name.split("/");
+  return parts.slice(1).map((_, at) => parts.slice(0, at + 1).join("/"));
 }
 
 /** The line under the import row, one for a file and a link alike. */
@@ -46,7 +92,16 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   const [carry, setCarry] = useState(false);
   const [link, setLink] = useState("");
   const [linking, setLinking] = useState(false);
+  const [unfolded, setUnfolded] = useState(readUnfolded);
+  const picker = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  function toggleFold(name: string) {
+    const next = new Set(unfolded);
+    if (!next.delete(name)) next.add(name);
+    setUnfolded(next);
+    writeUnfolded(next);
+  }
 
   /** Run one import, from a file or a link, and say on the line how it went. */
   function runImport(started: Promise<AnkiImport>): Promise<boolean> {
@@ -82,8 +137,13 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
     })),
   });
 
-  // Until the last note is in, so a vault of decks never flashes "No decks".
-  const isPending = scanning || reads.some((read) => read.isPending);
+  // The same limits the sitting reads, so a row counts what its sitting asks.
+  const limits = useReviewLimits();
+
+  // Until the last note is in, so a vault of decks never flashes "No decks",
+  // and until the limits are. Rows drawn before then count no limit; the
+  // sitting waits for the limits itself, so what it asks never rests on that.
+  const isPending = scanning || reads.some((read) => read.isPending) || limits === undefined;
 
   const today = readClock(new Date()).date;
   const decks = decksFrom(
@@ -92,6 +152,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
       return text === undefined ? [] : [{ path, text }];
     }),
     today,
+    limits,
   );
   // Top-level rows only. A deck counts every card under it, so summing all of
   // them would count a card in `databases/postgres` again for `databases`, and
@@ -99,6 +160,18 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
   const top = decks.filter((deck) => depthOf(deck.name) === 0);
   const waiting = top.reduce((count, deck) => count + deck.due + deck.fresh, 0);
   const parked = top.reduce((count, deck) => count + deck.parked, 0);
+
+  // A whole note is never a parent, even one whose name holds a slash: no
+  // deck of cards sits under it, and folding it would hide nothing.
+  const tagged = new Set(decks.filter((deck) => !deck.whole).map((deck) => deck.name));
+  const parents = new Set([...tagged].flatMap(ancestorsOf).filter((name) => tagged.has(name)));
+  // Gone rather than drawn hidden, so `j` in the pane walks only what shows.
+  // A folded row still counts every card under it, as `decksFrom` counts it.
+  const shown = decks.filter(
+    (deck) =>
+      deck.whole ||
+      ancestorsOf(deck.name).every((above) => !parents.has(above) || unfolded.has(above)),
+  );
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
@@ -121,26 +194,44 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
         )}
       </header>
 
-      <div className="border-one-line border-b px-3 text-[13px] text-one-muted">
+      {/* Closed until asked for, since an import is rare beside a sitting.
+          `details` hides what it holds rather than unmounting it, so closing
+          it keeps the summary line, the tick and a half-typed link. */}
+      <details className="border-one-line border-b px-3 text-[13px] text-one-muted">
+        {/* Not `flex`: the browser draws the open and closed triangle only on
+            a summary left as a list item, and that triangle is what says this
+            line opens. */}
+        <summary className="min-h-11 cursor-pointer content-center hover:text-one-accent">
+          Import
+        </summary>
         <div className="flex flex-wrap items-center gap-x-6">
-          <label className="flex min-h-11 cursor-pointer items-center hover:text-one-accent">
-            {/* A plain file input rather than a prompt of our own: the browser
-                already has a file picker, and this one has to work on a phone. */}
-            <input
-              type="file"
-              accept=".apkg"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                // The value is cleared so picking the same file twice fires twice,
-                // which is what a failed import wants to let you retry.
-                event.target.value = "";
-                if (file === undefined) return;
-                void runImport(importAnki(file, carry));
-              }}
-            />
-            <span>Import an Anki deck</span>
-          </label>
+          {/* A plain file input rather than a prompt of our own: the browser
+              already has a file picker, and this one has to work on a phone.
+              Hidden, because a file input draws as grey text that reads as no
+              control, and the button below presses it. */}
+          <input
+            ref={picker}
+            type="file"
+            accept=".apkg"
+            aria-label="Import an Anki deck"
+            tabIndex={-1}
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              // The value is cleared so picking the same file twice fires twice,
+              // which is what a failed import wants to let you retry.
+              event.target.value = "";
+              if (file === undefined) return;
+              void runImport(importAnki(file, carry));
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => picker.current?.click()}
+            className="my-1 min-h-11 rounded border border-one-line px-3 text-one-fg hover:border-one-accent hover:text-one-accent"
+          >
+            Import an Anki deck
+          </button>
           {/* Off by default: a re-import keeps the schedule kasten has been
               building unless you say Anki's is the one to trust. */}
           <label className="flex min-h-11 cursor-pointer items-center gap-2 hover:text-one-accent">
@@ -195,7 +286,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
           </form>
         </div>
         {imported !== null && <p className="truncate pb-2 text-one-fg">{imported}</p>}
-      </div>
+      </details>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {isPending && <p className="text-one-muted text-[13px]">Reading the vault…</p>}
@@ -212,8 +303,27 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
             which is what each of the two is unique by: one tag is one deck
             however many notes carry it. */}
         <ul className="space-y-2">
-          {decks.map((deck) => (
-            <li key={deck.whole ? deck.notes[0] : deck.name}>
+          {shown.map((deck) => (
+            <li key={deck.whole ? deck.notes[0] : deck.name} className="flex items-center gap-1">
+              {/* Beside the row and not inside it: a button in a button is no
+                  valid page, and a parent with nothing to offer is a disabled
+                  row that still has to fold. */}
+              {!deck.whole && parents.has(deck.name) ? (
+                <button
+                  type="button"
+                  data-fold={deck.name}
+                  aria-expanded={unfolded.has(deck.name)}
+                  aria-label={`${unfolded.has(deck.name) ? "fold" : "unfold"} ${deck.name}`}
+                  onClick={() => toggleFold(deck.name)}
+                  className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-one-muted hover:text-one-accent"
+                >
+                  {unfolded.has(deck.name) ? "▾" : "▸"}
+                </button>
+              ) : (
+                // As wide as the toggle, so every name starts on one line. A
+                // list with no folds at all needs no gutter.
+                parents.size > 0 && <span aria-hidden="true" className="min-w-11 shrink-0" />
+              )}
               <button
                 type="button"
                 onClick={() => onPick(deck)}
@@ -224,7 +334,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
                 // deck above one it finds, so the row it belongs under is
                 // always there and the full path would only repeat it.
                 style={{ paddingLeft: `${0.75 + depthOf(deck.name) * 0.75}rem` }}
-                className="flex min-h-11 w-full items-center gap-3 rounded border border-one-line px-3 py-2 text-left hover:border-one-accent disabled:opacity-50"
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded border border-one-line px-3 py-2 text-left hover:border-one-accent disabled:opacity-50"
               >
                 <span className="min-w-0 flex-1 truncate text-[13px]">{leafOf(deck.name)}</span>
                 <span className="text-[12px] text-one-accent">{deck.due} due</span>

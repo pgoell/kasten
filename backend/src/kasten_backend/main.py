@@ -441,6 +441,13 @@ class Layout(BaseModel):
     config: str
 
 
+class ReviewLimits(BaseModel):
+    """The daily limits a deck falls back on, None meaning no limit."""
+
+    new_per_day: int | None
+    reviews_per_day: int | None
+
+
 class Restored(BaseModel):
     """Where a restored note or folder landed, which is where it was."""
 
@@ -919,6 +926,21 @@ async def list_cards(
     """
     hits = await find_cards(settings.vault_path, None if archive else settings.archive_path)
     return [SearchHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
+
+
+@app.get("/api/review/limits")
+async def read_review_limits(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ReviewLimits:
+    """Name the daily limits a deck gets where the config note sets none.
+
+    Only the default. The per-deck limits live in a note the client reads like
+    any other, so the vault holds them and its history shows who changed them.
+    """
+    return ReviewLimits(
+        new_per_day=settings.review_new_per_day,
+        reviews_per_day=settings.review_reviews_per_day,
+    )
 
 
 @app.get("/api/tags")

@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Flashcard format
-description: The two ways a card is written and the cloze, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, and the keys a sitting takes.
+description: The two ways a card is written and the cloze, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, the keys a sitting takes, and the daily limits on new cards and reviews.
 resource: frontend/src/lib/srs.ts
 tags: [vault, review, flashcards, format, frontend]
 status: stable
@@ -96,6 +96,11 @@ which deck one of them lands in.
 The slashes in the tag are a path. `#flashcards/databases/postgres` makes a deck
 called `postgres` under a deck called `databases`, and the overview draws both
 rows, the child indented under its parent and called by its last part.
+
+A deck with decks under it has an arrow beside its row that folds them away
+and brings them back, a tap on a phone and `za` in the pane. Every deck below
+the top level starts folded, and each browser keeps what you unfold. A folded
+row still counts due, new and parked for everything under it.
 
 ```markdown
 #flashcards/databases/postgres
@@ -353,6 +358,7 @@ Two places, the same session in both:
 | --- | --- |
 | `j`, `k` | Walk the decks on the overview, or the rows on the parked list |
 | `l` | Start the sitting on the deck under the cursor |
+| `za` | Fold or unfold the deck under the cursor; on a deck with none under it, fold the deck above |
 | `p` | Open the parked list |
 | `h` | Leave the sitting or the parked list, back to the decks |
 | `Space`, `Enter` | Show the answer |
@@ -396,6 +402,50 @@ Cards come due first and new second, each in its note's order and the notes in
 the order the deck found them. Nothing is shuffled: a deck written in an order
 was written in that order on purpose.
 
+## Daily limits
+
+A deck can cap how many new cards and how many reviews a day's sitting asks.
+One note holds the limits, `decks.md` in the config folder, which is
+`99 Misc/01 Config/decks.md` unless
+[`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders) names
+another. One line per deck:
+
+```markdown
+- trivia: 20 new, 200 reviews
+- trivia/geography: 5 new
+- aws: 50 reviews
+```
+
+The name is the deck's as the overview writes it, a subdeck with its full path.
+Either half may go, and so may the `- `. A line that does not read this way is
+skipped and the rest still count, so the note can carry frontmatter and a
+sentence about why. A vault with no `decks.md` has no limits per deck, and no
+error says so.
+
+Each half of a deck's limit is its own line's, else that of the nearest deck
+above it that sets one, else the default
+[`KASTEN_REVIEW_NEW_PER_DAY`](/reference/configuration.md#kasten_review_new_per_day)
+or [`KASTEN_REVIEW_REVIEWS_PER_DAY`](/reference/configuration.md#kasten_review_reviews_per_day),
+else no limit. Above, `trivia/geography` takes 5 new cards and 200 reviews.
+
+A sitting is bound by the limit of the deck you sat and by no other. Sitting
+`trivia` asks at most 20 new cards across everything under it, whatever the
+subdecks set; sitting `trivia/geography` asks at most 5. The cards answered
+today count against the deck you sit, across every card under it.
+
+The count of what was answered today comes off the schedule in the note, so a
+reload and a second device read the same number. A card whose due date is today
+plus its interval was answered today, and one that also sits on ease 250 with an
+interval of 1 or 4 was new. Two cases read wrong: a new card asked a second time
+in its first sitting, after an `Again`, counts as a review, and a review that
+lands back on ease 250 with an interval of 1 or 4 counts as new.
+
+The overview shows what today's sitting will ask, its limit less what was
+answered today, and the sitting asks exactly that. A deck with nothing left
+under its limits reads `0` due and `0` new and cannot be sat. A [parked](#parking-a-card) card counts against no limit and
+the parked count does not change. A [whole note for review](#a-whole-note-for-review)
+takes no limit.
+
 ## Typing the answer
 
 `Type` in the header swaps the reveal button for a text field. Submitting it
@@ -429,8 +479,6 @@ it is.
 * **Reversed cards.** `:::` and `??` ask the same pair backwards in
   obsidian-spaced-repetition. Here they are ordinary text. Write the reverse as
   a second card.
-* **A daily limit on new cards.** Every new card in a deck is offered, except
-  the ones [parked](#parking-a-card).
 * **An imported card's Anki id.** `<!--anki:1700000000001:0:5d41402a-->` at the end of
   a card's last line is what [a re-import](/how-to/import-an-anki-deck.md#import-a-newer-version-of-a-deck)
   finds the card by. The review takes it off both sides and never shows it,

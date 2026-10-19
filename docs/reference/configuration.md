@@ -136,6 +136,31 @@ the number in front is one vault's filing convention and not kasten's.
 Only the import knows this folder exists. A deck written by hand lives wherever
 you put it and is found by its tag, so nothing else in kasten reads this.
 
+## KASTEN_REVIEW_NEW_PER_DAY
+
+How many new cards a sitting of a deck introduces a day.
+
+| | |
+| --- | --- |
+| Default | unset, which means no limit |
+| Read by | `GET /api/review/limits` |
+
+The fallback for a deck that neither
+[`decks.md`](/reference/flashcard-format.md#daily-limits) nor a deck above it
+gives a limit. Set it so a 2,000 card import does not make the first sitting
+absurd in a vault where nobody wrote `decks.md`.
+
+## KASTEN_REVIEW_REVIEWS_PER_DAY
+
+How many due cards a sitting of a deck asks a day.
+
+| | |
+| --- | --- |
+| Default | unset, which means no limit |
+| Read by | `GET /api/review/limits` |
+
+The other half of `KASTEN_REVIEW_NEW_PER_DAY`, read the same way.
+
 ## KASTEN_TRASH_DAYS
 
 ```

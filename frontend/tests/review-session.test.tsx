@@ -904,3 +904,60 @@ describe("ReviewSession playing a card's sounds", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("ReviewSession under a daily limit", () => {
+  const TRIVIA: Deck = {
+    name: "trivia",
+    notes: ["decks/trivia.md"],
+    due: 2,
+    fresh: 1,
+    parked: 0,
+    whole: false,
+  };
+  const DUE = "<!--SR:!2020-01-01,3,250-->";
+  const CARDS =
+    "#flashcards/trivia\n\n" +
+    `Due one?::a ${DUE}\n\nDue two?::a ${DUE}\n\nDue three?::a ${DUE}\n\n` +
+    "New one?::a\n\nNew two?::a\n\nNew three?::a\n";
+
+  function renderLimited() {
+    vi.spyOn(api, "fetchNote").mockImplementation((path: string) =>
+      Promise.resolve(path === "99 Misc/01 Config/decks.md" ? "trivia: 1 new, 2 reviews\n" : CARDS),
+    );
+    vi.spyOn(api, "saveNote").mockImplementation((path: string, content: string) =>
+      Promise.resolve({ path, content }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={TRIVIA} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("A12 asks no more cards than the deck's limits in decks.md allow", async () => {
+    renderLimited();
+    await shownCard();
+
+    expect(screen.getByText("3 left")).toBeInTheDocument();
+  });
+
+  it("I2 asks exactly the due and new cards the overview row promised, then stops", async () => {
+    renderLimited();
+
+    const asked: string[] = [];
+    for (let turn = 0; turn < 3; turn += 1) {
+      asked.push((await shownCard()).textContent ?? "");
+      fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+      fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    }
+
+    expect(asked).toEqual(["Due one?", "Due two?", "New one?"]);
+    expect(await screen.findByTestId("review-done")).toHaveTextContent("3 answered");
+  });
+});

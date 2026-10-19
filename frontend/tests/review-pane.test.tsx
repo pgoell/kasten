@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
+import * as review from "@/lib/review";
 import { deckNotes } from "@/lib/review";
 import { shownCard } from "./review-card";
 import { stubCommands } from "./stub-commands";
@@ -141,6 +142,9 @@ describe("ReviewPane on a nested deck", () => {
     { path: "d.md", line: 2, text: "a::b" },
   ];
 
+  // An unfold is kept in localStorage, so it is put back for whoever runs next.
+  afterEach(() => localStorage.clear());
+
   it("draws the deck under its parent, called by its last part", async () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(NESTED);
     serveNotes(NESTED);
@@ -150,8 +154,10 @@ describe("ReviewPane on a nested deck", () => {
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
+    // A subdeck starts folded away (#517).
+    fireEvent.click(screen.getByRole("button", { name: "unfold databases" }));
 
-    const parent = screen.getByRole("button", { name: /databases/ });
+    const parent = screen.getByRole("button", { name: /^databases/ });
     const child = screen.getByRole("button", { name: /postgres/ });
     expect(parent).toHaveAttribute("data-deck", "databases");
     expect(child).toHaveAttribute("data-deck", "databases/postgres");
@@ -168,9 +174,171 @@ describe("ReviewPane on a nested deck", () => {
       </QueryClientProvider>,
     );
 
-    screen.getByRole("button", { name: /postgres/ });
+    // The parent, the subdeck being folded away (#517).
+    screen.getByRole("button", { name: /^databases/ });
 
     expect(screen.getByText(/to go/).textContent).toBe("1 to go");
+  });
+});
+
+describe("ReviewPane folding the deck list (#517)", () => {
+  /** A parent with one due, one new and one parked card below it, and a deck after it. */
+  const TREE = [
+    { path: "d.md", line: 1, text: "#flashcards/databases/postgres" },
+    { path: "d.md", line: 2, text: "a::b" },
+    { path: "d.md", line: 3, text: "c::d <!--SR:!2000-01-01,4,250-->" },
+    { path: "d.md", line: 4, text: "e::f !suspended" },
+    { path: "z.md", line: 1, text: "#flashcards/zz" },
+    { path: "z.md", line: 2, text: "g::h" },
+  ];
+  const FOLDS = "kasten.review.folds.1";
+
+  // Folds and the vim setting live in localStorage, so each test starts bare.
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+  afterEach(() => localStorage.clear());
+
+  function renderTree() {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(TREE);
+    serveNotes(TREE);
+    render(
+      <QueryClientProvider client={seededClient(TREE)}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    screen.getByRole("button", { name: /^zz/ });
+    return screen.getByLabelText("review");
+  }
+
+  const row = (name: string) => document.querySelector(`button[data-deck="${name}"]`);
+  const press = (pane: HTMLElement, ...keys: string[]) => {
+    for (const key of keys) fireEvent.keyDown(pane, { key });
+  };
+
+  it("#517 A1 folds a deck's subdecks behind a toggle, folded at first and kept per deck", () => {
+    renderTree();
+
+    expect(row("databases/postgres")).toBeNull();
+    const toggle = screen.getByRole("button", { name: "unfold databases" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /fold zz/ })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(row("databases/postgres")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "fold databases" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    // A remount reads the fold back.
+    cleanup();
+    renderTree();
+    expect(row("databases/postgres")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "fold databases" }));
+    expect(row("databases/postgres")).toBeNull();
+  });
+
+  it("#517 A2 a folded deck counts due, new and parked for everything under it", () => {
+    renderTree();
+
+    expect(row("databases/postgres")).toBeNull();
+    const parent = row("databases");
+    expect(parent).toHaveTextContent("1 due");
+    expect(parent).toHaveTextContent("1 new");
+    expect(parent).toHaveTextContent("1 parked");
+  });
+
+  it.each(["on", "off"])(
+    "#517 A3 za folds and unfolds the deck under the cursor, vim %s",
+    (vim) => {
+      localStorage.setItem("kasten.vim", vim);
+      localStorage.setItem(FOLDS, JSON.stringify(["databases"]));
+      const pane = renderTree();
+
+      press(pane, "j");
+      expect(document.activeElement).toBe(row("databases"));
+      press(pane, "z", "a");
+      expect(row("databases/postgres")).toBeNull();
+      expect(document.activeElement).toBe(row("databases"));
+
+      press(pane, "z", "a");
+      expect(row("databases/postgres")).not.toBeNull();
+    },
+  );
+
+  it("#517 A3 a z followed by another key leaves that key its own", () => {
+    localStorage.setItem(FOLDS, JSON.stringify(["databases"]));
+    const pane = renderTree();
+
+    press(pane, "j", "z", "j");
+    expect(document.activeElement).toBe(row("databases/postgres"));
+    press(pane, "k", "z", "a");
+    expect(row("databases/postgres")).toBeNull();
+  });
+
+  it("#517 I4 za on a subdeck folds its parent and moves the cursor to the parent's row", () => {
+    localStorage.setItem(FOLDS, JSON.stringify(["databases"]));
+    const pane = renderTree();
+
+    press(pane, "j", "j");
+    expect(document.activeElement).toBe(row("databases/postgres"));
+    press(pane, "z", "a");
+
+    expect(row("databases/postgres")).toBeNull();
+    expect(document.activeElement).toBe(row("databases"));
+  });
+
+  it("#517 I4 za on a subdeck under a parent with nothing to offer moves the cursor to its toggle", () => {
+    // A parent disabled above a subdeck that can be sat, which a daily limit
+    // on the parent alone makes and the counts of today's cards never do.
+    vi.spyOn(review, "decksFrom").mockReturnValue([
+      { name: "trivia", notes: ["d.md"], due: 0, fresh: 0, parked: 0, whole: false },
+      { name: "trivia/geography", notes: ["d.md"], due: 0, fresh: 1, parked: 0, whole: false },
+    ]);
+    localStorage.setItem(FOLDS, JSON.stringify(["trivia"]));
+    vi.spyOn(api, "fetchCards").mockResolvedValue(TREE);
+    serveNotes(TREE);
+    render(
+      <QueryClientProvider client={seededClient(TREE)}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const pane = screen.getByLabelText("review");
+
+    press(pane, "j");
+    expect(document.activeElement).toBe(row("trivia/geography"));
+    press(pane, "z", "a");
+
+    expect(row("trivia/geography")).toBeNull();
+    expect(row("trivia")).toBeDisabled();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "unfold trivia" }));
+  });
+
+  it("#517 I5 j skips the rows a fold hides, and l on a folded deck sits all of it", async () => {
+    const pane = renderTree();
+    vi.spyOn(api, "fetchNote").mockResolvedValue(noteOf(TREE, "d.md"));
+
+    press(pane, "j", "j");
+    expect(document.activeElement).toBe(row("zz"));
+
+    press(pane, "k", "l");
+    expect(await shownCard()).toBeInTheDocument();
+  });
+
+  it("#517 I6 unreadable fold storage leaves everything below the top level folded", () => {
+    const blocked = () => {
+      throw new DOMException("blocked", "SecurityError");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(blocked);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(blocked);
+    renderTree();
+
+    expect(row("databases/postgres")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "unfold databases" }));
+    expect(row("databases/postgres")).not.toBeNull();
   });
 });
 
@@ -511,6 +679,63 @@ describe("ReviewDecks reading the deck notes", () => {
     fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
     expect(imported).toHaveBeenLastCalledWith(deck, true);
   });
+
+  it("#517 A5 the Anki import is a bordered button behind one Import entry", () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    const opened: HTMLInputElement[] = [];
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (
+      this: HTMLInputElement,
+    ) {
+      opened.push(this);
+    });
+    renderDecks(HITS);
+    screen.getByRole("button", { name: /alpha/ });
+
+    expect(screen.getByLabelText("a link to an Anki deck")).not.toBeVisible();
+    fireEvent.click(screen.getByText("Import"));
+    expect(screen.getByLabelText("a link to an Anki deck")).toBeVisible();
+
+    const button = screen.getByRole("button", { name: "Import an Anki deck" });
+    expect(button.tagName).toBe("BUTTON");
+    expect(button).toHaveClass("border", "min-h-11");
+    fireEvent.click(button);
+    expect(opened).toEqual([screen.getByLabelText("Import an Anki deck")]);
+  });
+
+  it("#517 I8 closing and opening Import keeps the last import's line and the tick", async () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    vi.spyOn(api, "importAnki").mockResolvedValue({
+      notes: ["Anki/AWS.md"],
+      cards: 120,
+      media: 0,
+      added: 5,
+      updated: 3,
+      kept: 110,
+      removed: 2,
+    });
+    renderDecks(HITS);
+    screen.getByRole("button", { name: /alpha/ });
+    const carry = screen.getByRole("checkbox", { name: "Carry Anki's schedule" });
+
+    expect(carry).not.toBeVisible();
+    const entry = screen.getByText("Import");
+    fireEvent.click(entry);
+    fireEvent.click(carry);
+    fireEvent.change(screen.getByLabelText("Import an Anki deck"), {
+      target: { files: [new File(["apkg"], "aws.apkg")] },
+    });
+    const line = await screen.findByText(
+      "1 deck, 120 cards: 5 added, 3 updated, 110 kept, 2 removed in Anki",
+    );
+
+    fireEvent.click(entry);
+    expect(line).not.toBeVisible();
+    fireEvent.click(entry);
+    expect(line).toBeVisible();
+    expect(carry).toBeChecked();
+  });
 });
 
 describe("ReviewDecks importing from a link", () => {
@@ -734,5 +959,69 @@ describe("ReviewPane on a nested cloze", () => {
       /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1![\d-]+,1,250--> <!--SR:c2![\d-]+,1,250-->\n$/,
     );
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
+  });
+});
+
+describe("ReviewPane under a daily limit", () => {
+  const DUE = "<!--SR:!2000-01-01,4,250-->";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+  afterEach(() => localStorage.clear());
+
+  /** The pane over `hits`, with `limits` as the vault's `decks.md`. */
+  function renderLimited(hits: api.SearchHit[], limits: string) {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(hits);
+    vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+      Promise.resolve(path === "99 Misc/01 Config/decks.md" ? limits : noteOf(hits, path)),
+    );
+    render(
+      <QueryClientProvider client={seededClient(hits)}>
+        <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+  }
+
+  const row = (name: string) => document.querySelector(`button[data-deck="${name}"]`);
+
+  it("A11 draws a deck's row with the due and new counts its decks.md line allows", async () => {
+    renderLimited(
+      [
+        { path: "a.md", line: 1, text: "#flashcards/alpha" },
+        { path: "a.md", line: 2, text: `a::b ${DUE}` },
+        { path: "a.md", line: 3, text: `c::d ${DUE}` },
+        { path: "a.md", line: 4, text: `e::f ${DUE}` },
+        { path: "a.md", line: 5, text: "g::h" },
+        { path: "a.md", line: 6, text: "i::j" },
+        { path: "a.md", line: 7, text: "k::l" },
+      ],
+      "alpha: 1 new, 2 reviews\n",
+    );
+
+    await waitFor(() => expect(row("alpha")).toHaveTextContent("2 due"));
+    expect(row("alpha")).toHaveTextContent("1 new");
+  });
+
+  it("A11 draws a folded parent with the counts its own limit allows", async () => {
+    renderLimited(
+      [
+        { path: "g.md", line: 1, text: "#flashcards/trivia/geography" },
+        { path: "g.md", line: 2, text: "a::b" },
+        { path: "g.md", line: 3, text: "c::d" },
+        { path: "h.md", line: 1, text: "#flashcards/trivia/history" },
+        { path: "h.md", line: 2, text: "e::f" },
+        { path: "h.md", line: 3, text: "g::h" },
+      ],
+      "trivia: 3 new\ntrivia/geography: 1 new\n",
+    );
+
+    await waitFor(() => expect(row("trivia")).toHaveTextContent("3 new"));
+    expect(row("trivia/geography")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "unfold trivia" }));
+    expect(row("trivia/geography")).toHaveTextContent("1 new");
+    expect(row("trivia/history")).toHaveTextContent("2 new");
   });
 });
