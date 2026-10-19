@@ -116,3 +116,13 @@ async def test_implied_5_tag_in_and_out_of_a_span_on_one_line(
 
     assert response.status_code == 200
     assert response.json() == ["#x"]
+
+
+async def test_finding_b_tag_on_a_line_over_64_kib(client: AsyncClient, vault: Path) -> None:
+    # Longer than asyncio's 64 KiB line limit, as a pasted inline SVG is.
+    write(vault, "one.md", "word " * 14_000 + "#x and `#hidden`\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.status_code == 200
+    assert response.json() == ["#x"]

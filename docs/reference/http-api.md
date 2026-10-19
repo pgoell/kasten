@@ -442,13 +442,14 @@ Lists every tag written anywhere in the vault, once each, sorted.
 ["#databases", "#dbt", "#flashcards/databases"]
 ```
 
-One `rg` pass, carrying the same flags search carries, finds the lines that may
-hold a tag, and each tag is read off its line the way the todo board reads one.
-Only the tags come back: which note holds a tag is a search, and this answers
-what the editor completes an open `#` from. The pattern is the editor's own, so
-`#!/bin/sh`, `#anchor` and `note#2` are not tags here either, and nor is a hash
-inside a code span, a `[[wikilink]]` or a `[text](url)`. The same tag written
-outside a span anywhere is still offered.
+One `rg` pass, carrying the same flags search carries, matches every tag and
+every code span and link, a span taken whole, and each tag is read off its match
+the way the todo board reads one. Only the tags come back, never the lines
+holding them, so a note with one huge line still answers. Which note holds a
+tag is a search, and this answers what the editor completes an open `#` from.
+The pattern is the editor's own, so `#!/bin/sh`, `#anchor` and `note#2` are not
+tags here either, and nor is a hash inside a code span, a `[[wikilink]]` or a
+`[text](url)`. The same tag written outside a span anywhere is still offered.
 
 It takes no `archive`, unlike the scans below. What is filed away is out of a
 search because it is not what is being looked for; a tag is a word you are
