@@ -50,8 +50,9 @@ to the other.
   live note to an archived one is dropped rather than drawn as missing.
 * **A node's type** is the `type` field between a fence on line 1 and the fence
   closing it. `type:` further down is prose. A note with no block has none.
-* **A node's tags** are every `#tag` in the note, by the rule
-  [`GET /api/tags`](/reference/http-api.md#get-apitags) reads.
+* **A node's tags** are every `#tag` in the note, by the
+  [tag rule](/reference/tag-format.md). A hash in a code span, a fenced code
+  block or a link is no tag, so `tag:` never keeps a note for one.
 
 ## Filters
 

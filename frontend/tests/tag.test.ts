@@ -55,4 +55,13 @@ describe("tagCompletions", () => {
   it("offers nothing where the vocabulary is not known", () => {
     expect(complete("about #db")).toBeNull();
   });
+
+  it("#640 I6 offers nothing inside a fenced code block or a code span", () => {
+    expect.soft(complete("```\ngrep #d", TAGS)).toBeNull();
+    expect(complete("run `grep #d log`", TAGS, false, "run `grep #d".length)).toBeNull();
+  });
+
+  it("#640 I7 offers #1on1 while a tag that starts with a digit is typed", () => {
+    expect(complete("call #1o", ["#1on1"])?.options.map(({ label }) => label)).toEqual(["#1on1"]);
+  });
 });

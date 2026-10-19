@@ -15,9 +15,11 @@ rule both sides test against one file of cases.
 """
 
 import re
+import sys
+import unicodedata
 from typing import TYPE_CHECKING
 
-from kasten_backend.links import WIKILINK, link_path
+from kasten_backend.links import WIKILINK, code_spans, link_path
 from kasten_backend.search import scan_vault
 
 if TYPE_CHECKING:
@@ -93,14 +95,20 @@ people live in `03 Areas/08 People`. A tag would have to spell an area's
 number, `06 Allianz Direct`, which nobody types.
 """
 
-TAG = re.compile(r"(?<![\w/])#[^\W\d][\w/-]*")
-"""`#tag`, as `tags.TAG` reads one, spelled for `re`, which has no `\\p{L}`.
+# Every Unicode number, `\p{N}`, which `re` cannot name. `\d` is only the
+# decimal digits, so `Ⅳ`, `½` and `²` would pass for a tag's non-number. One
+# walk over the code points at import, a fraction of a second.
+_NUMBERS = re.escape(
+    "".join(c for c in map(chr, range(sys.maxunicode + 1)) if unicodedata.category(c)[0] == "N")
+)
 
-`[^\\W\\d]` is a letter or an underscore. A lookbehind here where `tags.TAG`
-consumes a character, because rg's engine has none and this one does. So
-`#p/fde.` at the end of a sentence reads as `#p/fde`, and `[[note#p/x]]` holds
-no tag. It runs on words with every span masked, as the board's own tag reading
-does, so `#p/x` in a code span or anywhere in a link is no tag.
+TAG = re.compile(r"(?<![\w/])#(?=[\w/-]*(?:[^\W" + _NUMBERS + r"]|[/-]))[\w/-]+")
+"""`#tag` by the rule in `docs/reference/tag-format.md`.
+
+`\\w` is a letter, a number or `_`, as `[\\p{L}\\p{N}_]` is. The lookahead wants
+one character of the run that is no number, so `#1on1` is a tag and `#1984`
+none. A lookbehind keeps `note#2x` and `a.io/p#x` out. Run it on text with
+every span masked, as `tags_in` does, or a hash in code or a link reads as one.
 """
 
 LINE = re.compile(
@@ -174,6 +182,32 @@ def mask(text: str) -> str:
     return SPANS.sub(lambda span: re.sub(r"[^ \t]", "\N{NO-BREAK SPACE}", span[0]), text)
 
 
+def line_tags(text: str) -> list[tuple[int, int]]:
+    """Where one line holds a tag, as `(start, end)` offsets, its spans and links masked.
+
+    A line on its own is no fence, so a todo whose words open with three
+    backticks keeps its tags, as the editor's `tagsOf` reads them.
+    """
+    return [found.span() for found in TAG.finditer(mask(text))]
+
+
+def tags_in(text: str) -> list[tuple[int, int]]:
+    """Where a whole note holds a tag, as `(start, end)` offsets.
+
+    `GET /api/tags`, the graph and the mentions all read a note's tags here, and
+    the todos read a line's through `line_tags`, so none of them can call a hash
+    a tag that another does not. Code, fenced or inline, is blanked first, the
+    offsets kept.
+    """
+    blanked = list(text)
+    for start, end in code_spans(text):
+        for index in range(start, end):
+            # A line break stays, or a fence's lines would run into one.
+            if blanked[index] != "\n":
+                blanked[index] = "\N{NO-BREAK SPACE}"
+    return line_tags("".join(blanked))
+
+
 def _words(rest: str) -> str:
     """A todo's words: what follows the box with every field taken out, as `readFields` leaves it.
 
@@ -216,9 +250,8 @@ def _tag_project(text: str, folders: dict[str, str]) -> str | None:
     would otherwise make a project nobody made. `#p/x/y` names `x`, a project
     being one folder deep.
     """
-    # Found on the mask and read off the words, the mask keeping every offset.
-    for found in TAG.finditer(mask(text)):
-        tag = text[found.start() : found.end()]
+    for start, end in line_tags(text):
+        tag = text[start:end]
         if tag[1:3].lower() != "p/":
             continue
         folder = folders.get(_spoken(tag[3:].split("/")[0]))

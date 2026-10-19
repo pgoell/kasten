@@ -13,6 +13,8 @@
  * stays where links find it.
  */
 
+import { masked, SPANS, tagsOf } from "@/lib/tag-rule";
+
 export type TodoState = "open" | "doing" | "done" | "blocked" | "waiting" | "review" | "rejected";
 export type TodoPriority = "highest" | "high" | "medium" | "low" | "lowest";
 
@@ -173,54 +175,16 @@ const ORDER = [
 ];
 
 /**
- * The editor's tag shape from `tag.ts`, copied for the reason `WORD` is, so
- * `(#next)` and `#next.` carry `#next` and `#123` carries nothing. The backend
- * reads the same shape, which is what lets the pane and the endpoint agree.
+ * The spans, the mask and a line's tags live with the tag rule, so the todo
+ * pane, saved views and quick add read a tag the way the editor draws one.
+ * Exported from here too, where their readers have always found them.
  */
-const TAG = /#[\p{L}_][\p{L}\p{N}_/-]*/gu;
-
-/**
- * What may not sit in front of a hash, the editor's rule in `tag.ts`, so
- * `note#2` and `https://a.io/p#next` carry no tag. Copied rather than imported,
- * which would pull CodeMirror into every reader of a todo.
- */
-const WORD = /[\p{L}\p{N}_/]$/u;
-
-/**
- * A link, a markdown link and a code span: a marker inside one is not a field.
- * Global, so use it through `matchAll` or `replace` only, never `exec`.
- */
-export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`/g;
+export { masked, SPANS, tagsOf };
 
 /** `👤` too: its name runs to the next marker, so words after it would be who the todo waits on. */
 const MARKER = /📅|📆|🗓|⏳|🛫|🔺|⏫|🔼|🔽|⏬|🔁|🏁|➕|✅|❌|⏲|⏱|🆔|⛔|👤/gu;
 
 const BLOCK_ID = /\^[\w-]+[ \t]*$/;
-
-/**
- * `text` with every span blanked to the same length, so a marker inside one
- * matches nothing and every offset still lines up with the text. The filler
- * keeps the spaces and is a no-break space: no field, tag or block id reads it,
- * and neither `\S` nor `[ \t]` takes it, so a marker straight before a span has
- * no value and stays words rather than reading the span's first word.
- */
-export function masked(text: string): string {
-  return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "\u00A0"));
-}
-
-/**
- * Every tag `text` carries and where it starts, the one reading `Todo.tags`,
- * quick add and `@` share. Found on the mask, so a hash in a link or a code
- * span is text, and read off the text.
- */
-export function tagsOf(text: string): { tag: string; at: number }[] {
-  return [...masked(text).matchAll(TAG)]
-    .filter((found) => !WORD.test(text.slice(0, found.index)))
-    .map((found) => ({
-      tag: text.slice(found.index, found.index + found[0].length),
-      at: found.index,
-    }));
-}
 
 /** A field found on the mask: where it sits in the text, and its values read off the text. */
 interface Found {

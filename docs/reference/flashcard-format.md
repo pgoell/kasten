@@ -36,6 +36,12 @@ The tag. `#flashcards` anywhere in the note makes every card in it a card, and
 `#flashcards/aws` puts them in a deck called `aws`. A card in no deck is no
 card, whatever is written in it.
 
+A deck tag is a tag by [the one tag rule](/reference/tag-format.md), so it ends
+where any tag ends: `(#flashcards/es)` names the deck `es`, not `es)`, and
+`#flashcardsx` is another tag and names no deck. A deck tag at the head of a
+card counts as the card's only when a space follows it, so
+`#flashcards/es) q::a` puts the whole note in `es`, not just that card.
+
 That rule is load-bearing rather than decorative. `::` is a common thing to
 type, in C++, in YAML and in prose, and reading every one of them as a question
 would fill the queue with code samples. The tag is what makes the loose match

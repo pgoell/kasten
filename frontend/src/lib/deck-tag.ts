@@ -28,8 +28,14 @@
  * under `dbt` alone.
  */
 
-/** `#flashcards`, and the deck it names. A bare tag names none and reads as "". */
-const DECK_TAG = /#flashcards(?:\/([^\s#]+))?/g;
+import { TAG_CHARS, TAG_SOURCE, tagsOf } from "@/lib/tag-rule";
+
+/**
+ * `#flashcards`, and the deck it names after the slash. A tag by `tag-rule.ts`'s
+ * rule and no other shape, so `(#flashcards/es)` names `es` and `#flashcardsx`
+ * names nothing, as the editor draws them.
+ */
+const DECK_TAG = /^#flashcards(?:\/(.*))?$/u;
 
 /**
  * Deck tags at the head of a line that goes on into something else.
@@ -37,13 +43,20 @@ const DECK_TAG = /#flashcards(?:\/([^\s#]+))?/g;
  * The head and not anywhere on the line, which is the plugin's rule and the
  * only place a tag can sit without landing in the middle of a card's answer.
  * A line holding nothing but tags is the note's, so the space and the `\S` are
- * what tell the two apart.
+ * what tell the two apart. Each tag runs on tag characters only, so it ends
+ * where `deckTags` ends it, and a tag closed by `)` heads no card.
  */
-const HEAD_TAGS = /^[ \t]*((?:#flashcards(?:\/[^\s#]+)?[ \t]+)+)(?=\S)/;
+const HEAD_TAGS = new RegExp(
+  String.raw`^[ \t]*((?:#flashcards(?:\/${TAG_CHARS}*)?[ \t]+)+)(?=\S)`,
+  "u",
+);
 
 /** Every deck named on the line. A bare `#flashcards` is the empty name. */
 export function deckTags(text: string): string[] {
-  return [...text.matchAll(DECK_TAG)].map((found) => found[1] ?? "");
+  return tagsOf(text).flatMap(({ tag }) => {
+    const deck = DECK_TAG.exec(tag);
+    return deck === null ? [] : [deck[1] ?? ""];
+  });
 }
 
 /** The decks the card this line opens is in, or null where it opens none. */
@@ -60,11 +73,12 @@ export function withoutTags(text: string): string {
 /**
  * A line holding tags and nothing else, which is the note's rather than a card's.
  *
- * Any tag and not only `#flashcards`, the shape being `tag.ts`'s: what this
+ * Any tag and not only `#flashcards`, by `tag-rule.ts`'s rule: what this
  * answers is whether the line is worth reading as part of a question, and a
- * line of topics is no more part of one than the deck tag is.
+ * line of topics is no more part of one than the deck tag is. The tags stand
+ * apart, since a hash glued to a tag is no tag.
  */
-const ONLY_TAGS = /^[ \t]*(?:#[\p{L}_][\p{L}\p{N}_/-]*[ \t]*)+$/u;
+const ONLY_TAGS = new RegExp(String.raw`^[ \t]*${TAG_SOURCE}(?:[ \t]+${TAG_SOURCE})*[ \t]*$`, "u");
 
 /** Whether the line is tags and nothing else. */
 export function onlyTags(text: string): boolean {

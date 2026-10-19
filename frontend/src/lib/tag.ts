@@ -1,28 +1,27 @@
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
+import { syntaxTree } from "@codemirror/language";
 import { Facet } from "@codemirror/state";
+import type { SyntaxNode } from "@lezer/common";
 import type { MarkdownConfig } from "@lezer/markdown";
+import { GLUED, LEADING_TAG, TAG_CHARS } from "@/lib/tag-rule";
 
 /** `#`, which the parser sees as a code point rather than a string. */
 const HASH = 35;
 
-/**
- * The tag itself: a letter after the hash, then letters, digits and separators.
- *
- * Looser than this and every `#!/bin/sh` and `#1` in a note turns into a tag.
- * `todo.ts` reads a todo's tags with a wider pattern, because a line already
- * known to be a todo can afford one.
- */
-const TAG = /^#[\p{L}_][\p{L}\p{N}_/-]*/u;
-
-/** What may not sit in front of a hash, so `note#2` is not a tag. */
-const WORD = /[\p{L}\p{N}_/]/u;
+/** The rest of a link's text: up to a `]` that a `(` or a `[` follows. */
+const LINK_TEXT = /^[^\]\n]*\][([]/;
 
 /**
- * `#tag`, the way Obsidian writes one.
+ * `#tag`, the way Obsidian writes one, by the rule in `tag-rule.ts` that the
+ * todo pane and the decks read by too.
  *
  * A parser extension rather than a regex over the text, so the hash inside a
  * code span, a fenced block or a URL is left alone: inline parsers are never
- * asked about a range another parser has already taken.
+ * asked about a range another parser has already taken. A link's text is the
+ * exception, parsed inline before the `](` that makes it a link, so a hash
+ * is refused while a `[` stands open and the next `]` opens an address or a
+ * reference. A bracket that makes no link, `see [ #x` or `[[a #z`, keeps the
+ * tag, as `tagsOf` does.
  *
  * Nothing is hidden and nothing stands in for the hash. A tag is what somebody
  * typed, so `live-preview.ts` colours it and leaves it on the screen whichever
@@ -34,8 +33,10 @@ export const Tag: MarkdownConfig = {
     {
       name: "Tag",
       parse(cx, next, pos) {
-        if (next !== HASH || WORD.test(cx.slice(pos - 1, pos))) return -1;
-        const match = TAG.exec(cx.slice(pos, cx.end));
+        if (next !== HASH || GLUED.test(cx.slice(pos - 1, pos))) return -1;
+        const rest = cx.slice(pos, cx.end);
+        if (cx.hasOpenLink && LINK_TEXT.test(rest)) return -1;
+        const match = LEADING_TAG.exec(rest);
         if (match === null) return -1;
         return cx.addElement(cx.elt("Tag", pos, pos + match[0].length));
       },
@@ -57,8 +58,24 @@ export const vaultTags = Facet.define<string[], string[] | null>({
   combine: (values) => values[0] ?? null,
 });
 
-/** What has been typed into an open `#`, which is what a completion completes. */
-const TYPED = /#[\p{L}\p{N}_/-]*/u;
+/**
+ * What has been typed into an open `#`, which is what a completion completes.
+ * Any run of tag characters, numbers alone too, so `#1` already offers `#1on1`
+ * though it draws no tag yet.
+ */
+const TYPED = new RegExp(`#${TAG_CHARS}*`, "u");
+
+/** Where a hash is code, which the parser never draws as a tag. */
+const CODE = new Set(["InlineCode", "FencedCode", "CodeBlock"]);
+
+/** Whether `pos` sits in code, looked up the way the parser left it. */
+function inCode(context: CompletionContext, pos: number): boolean {
+  for (let node: SyntaxNode | null = syntaxTree(context.state).resolveInner(pos, -1); node; ) {
+    if (CODE.has(node.name)) return true;
+    node = node.parent;
+  }
+  return false;
+}
 
 /**
  * Every tag in the vault, offered on an open `#`.
@@ -78,7 +95,8 @@ export function tagCompletions(context: CompletionContext): CompletionResult | n
   const open = context.matchBefore(TYPED);
   if (!open) return null;
   // The parser's rule, so nothing is offered where a tag would not be drawn.
-  if (WORD.test(context.state.sliceDoc(open.from - 1, open.from))) return null;
+  if (GLUED.test(context.state.sliceDoc(open.from - 1, open.from))) return null;
+  if (inCode(context, open.to)) return null;
 
   // A hash alone at the start of a line is a heading being opened, which is
   // what that key is mostly reached for. One letter tells the two apart, and

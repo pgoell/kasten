@@ -2,9 +2,11 @@
 
 Built from the vault on every request, the way search, todos and tags are, and
 for the same reason: the files are the source of truth, and a graph held
-anywhere else is one that can disagree with them. Three rg passes read what the
-graph needs, the lines holding a link, the frontmatter fences with the `type`
-between them, and the tags, and at 10,000 notes that is tens of milliseconds.
+anywhere else is one that can disagree with them. Two rg passes read the lines
+holding a link and the frontmatter fences with the `type` between them, and at
+10,000 notes that is tens of milliseconds. The tags come from `tags.py`, which
+reads whole each note holding a hash that could open one, since a fenced block
+hides a tag and only the whole note says where one runs.
 
 One query language serves the graph pane's filter box, `GET /api/graph` and the
 agent's `query_graph`, and this module is its only reader. The pane sends what
@@ -27,7 +29,7 @@ from pydantic import BaseModel
 
 from kasten_backend.links import named_path, names_a_file, split_target
 from kasten_backend.search import scan_vault
-from kasten_backend.tags import TAG
+from kasten_backend.tags import tags_by_note
 from kasten_backend.vault import SUFFIX, list_markdown_files
 
 if TYPE_CHECKING:
@@ -35,7 +37,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 MOST_LINES = 200_000
-"""How many lines one of the three scans reads at most.
+"""How many lines one of the two scans reads at most.
 
 A backstop against a generated file rather than a limit on a vault: the
 10,000 note vault the ranking is measured on holds about 50,000 lines with a
@@ -239,20 +241,17 @@ async def read_graph(root: Path, skip: str | None = None) -> _Vault:
         scan_vault(
             root, ("--max-count", "3", "-e", r"^---\s*$", "-e", r"^type:"), MOST_LINES, skip
         ),
-        scan_vault(root, ("--only-matching", "-e", TAG), MOST_LINES, skip),
+        tags_by_note(root, skip),
     )
 
     types = _types(fences)
-    tagged: dict[str, set[str]] = defaultdict(set)
-    for hit in tags:
-        tagged[hit.path].add(hit.text[hit.text.rindex("#") :])
 
     nodes = {
         path: GraphNode(
             path=path,
             name=_name(path),
             type=types.get(path),
-            tags=sorted(tagged.get(path, ())),
+            tags=sorted(tags.get(path, ())),
             missing=False,
         )
         for path in paths

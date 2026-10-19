@@ -97,10 +97,11 @@ before them for words.
 Tags stay where they were typed, even on a line kasten writes new: `call the
 #health dentist` keeps its tag mid-sentence, because a tag belongs to the words.
 
-A tag has the editor's shape: a `#`, then a letter or `_`, then letters,
-digits, `_`, `/` or `-`, read on the words once the fields are out. Any other
-character ends it, so `(#next)`, `#next,` and `#next.` carry `#next`, as does
-`#next` before a `:` or a `!`, and `#123` is no tag. A hash inside a code span, a markdown link or a
+A tag follows [the one tag rule](/reference/tag-format.md): a `#`, then
+letters, numbers, `_`, `/` or `-`, at least one of them not a number, read on
+the words once the fields are out. So `call #1on1` carries `#1on1`, and `#1984`
+is no tag. Any other character ends it, so `(#next)`, `#next,` and `#next.`
+carry `#next`, as does `#next` before a `:` or a `!`. A hash inside a code span, a markdown link or a
 `[[wikilink]]` is no tag, and neither is one straight after a letter, a digit,
 `_` or `/` of the words. So `` `grep #client log` ``,
 `[see](https://a.io/p#next)`, `https://a.io/p#next` and `[[note#p/x]]` carry no

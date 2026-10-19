@@ -442,14 +442,17 @@ Lists every tag written anywhere in the vault, once each, sorted.
 ["#databases", "#dbt", "#flashcards/databases"]
 ```
 
-One `rg` pass, carrying the same flags search carries, matches every tag and
-every code span and link, a span taken whole, and each tag is read off its match
-the way the todo board reads one. Only the tags come back, never the lines
-holding them, so a note with one huge line still answers. Which note holds a
-tag is a search, and this answers what the editor completes an open `#` from.
-The pattern is the editor's own, so `#!/bin/sh`, `#anchor` and `note#2` are not
-tags here either, and nor is a hash inside a code span, a `[[wikilink]]` or a
-`[text](url)`. The same tag written outside a span anywhere is still offered.
+A tag is what the [tag rule](/reference/tag-format.md) calls one, the rule the
+editor, the todo board and the graph read by too. So `#!/bin/sh`, `#1984` and
+`note#2` are no tags, and nor is a hash inside a code span, a fenced code block,
+a `[[wikilink]]` or a `[text](url)`. The same tag written outside those anywhere
+is still offered.
+
+`rg`, carrying the same flags search carries, names the notes holding a `#`
+that could open a tag, and the backend reads each of those whole, since only
+the whole note says where a fenced block opens and closes. Only the tags come back, never the lines
+holding them. Which note holds a tag is a search, and this answers what the
+editor completes an open `#` from.
 
 It takes no `archive`, unlike the scans below. What is filed away is out of a
 search because it is not what is being looked for; a tag is a word you are
@@ -490,10 +493,12 @@ written.
 `depth` edges of it, either way along an edge. `depth` runs from 0 to 5 and is 1
 when not given. It is the local graph.
 
-Nothing is indexed. Three `rg` passes read the lines holding `[[`, the
-frontmatter fences with the `type` between them, and the tags, with the flags
-search carries, so the graph sees exactly the notes `GET /api/files` lists. The
-prod vault, 312 notes and 1,181 edges, answers in about 50ms.
+Nothing is indexed. Two `rg` passes read the lines holding `[[` and the
+frontmatter fences with the `type` between them, with the flags search carries,
+so the graph sees exactly the notes `GET /api/files` lists. A node's tags are
+read the way `GET /api/tags` reads them, by the
+[tag rule](/reference/tag-format.md). The prod vault, 312 notes and 1,181
+edges, answers in about 50ms.
 
 `archive` defaults to false for the reason it does on a search. A link from a
 live note to an archived one is then dropped rather than drawn as a note nobody

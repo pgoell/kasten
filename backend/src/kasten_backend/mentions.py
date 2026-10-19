@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from kasten_backend.frontmatter import aliases, body_start
 from kasten_backend.links import MARKDOWN_LINK, SUFFIX, WIKILINK, code_spans
 from kasten_backend.search import notes_holding
+from kasten_backend.todos import tags_in
 from kasten_backend.vault import read_note
 
 if TYPE_CHECKING:
@@ -70,22 +71,18 @@ def matcher(ordered: list[str]) -> re.Pattern[str]:
     return re.compile(rf"(?<![^\W_])(?:{groups})(?![^\W_])", re.IGNORECASE)
 
 
-TAG = re.compile(r"(?<![\w/])#[^\W\d][\w/-]*")
-r"""`#tag`, as `tags.TAG` spells it for rg, in Python's terms.
-
-Python's `re` has no `\p{L}`, so a letter is `[^\W\d]` and a letter, digit or
-underscore is `\w`. Close enough for a span to skip: a name linked inside a tag
-would end the tag at the brackets.
-"""
-
 BARE_URL = re.compile(r"https?://\S+")
 """An address written out with no link around it, which a `[[link]]` inside would break."""
 
 
 def skipped(text: str) -> list[tuple[int, int]]:
-    """Where a name is not a mention: the block, code, links, tags and bare addresses."""
-    spans = [(0, body_start(text)), *code_spans(text)]
-    for pattern in (WIKILINK, MARKDOWN_LINK, TAG, BARE_URL):
+    """Where a name is not a mention: the block, code, links, tags and bare addresses.
+
+    The tags are the ones `todos.tags_in` reads, so a name inside `#2026-10-13-x`
+    is skipped because that is a tag everywhere else too.
+    """
+    spans = [(0, body_start(text)), *code_spans(text), *tags_in(text)]
+    for pattern in (WIKILINK, MARKDOWN_LINK, BARE_URL):
         spans += [match.span() for match in pattern.finditer(text)]
     return spans
 
