@@ -28,6 +28,15 @@ ten words. It is a backstop against a generated file, the way `MOST_CARDS` is,
 and not a limit on how many tags a person may own.
 """
 
+MOST_MATCHES = 2_000_000
+"""How many spans and could-be tags the line pass reads at most.
+
+Its own backstop and far above `MOST_TAGS`, because most of what it matches is
+links and code, which are no tags. Stopping it at `MOST_TAGS` would kill rg
+part way through a parallel walk, and which notes lost their tags would differ
+from one call to the next.
+"""
+
 
 def _read(root: Path, paths: list[str]) -> dict[str, set[str]]:
     """The tags of each note in `paths`, read in path order, up to `MOST_TAGS` in all."""
@@ -77,8 +86,8 @@ async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str
     # Only the matches come back, so a line past the 64 KiB a stream reader
     # takes, a pasted inline SVG, cannot stop either scan.
     matches, fences = await asyncio.gather(
-        scan_vault(root, ("--only-matching", "-e", _SPAN_OR_TAG), MOST_TAGS, skip),
-        scan_vault(root, ("--only-matching", "--max-count", "1", "-e", FENCE), MOST_TAGS, skip),
+        scan_vault(root, ("--only-matching", "-e", _SPAN_OR_TAG), MOST_MATCHES, skip),
+        scan_vault(root, ("--only-matching", "--max-count", "1", "-e", FENCE), MOST_MATCHES, skip),
     )
     fenced = {hit.path for hit in fences}
     tagged: dict[str, set[str]] = {}

@@ -111,6 +111,17 @@ async def test_b_note_gone_between_scan_and_read_is_skipped(
     assert await tags.find_tags(tmp_path) == ["#kept"]
 
 
+async def test_b_spans_do_not_count_toward_the_tag_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for index in range(5):
+        write(tmp_path, f"{index}.md", f"`a` `b` [[c]] [d](e) #1984 #t{index}\n")
+    # Five tags under the cap, thirty matches over it.
+    monkeypatch.setattr(tags, "MOST_TAGS", 6)
+
+    assert await tags.find_tags(tmp_path) == [f"#t{index}" for index in range(5)]
+
+
 def test_i5_name_inside_a_digit_first_tag_is_no_mention() -> None:
     text = "see #2026-10-13-x"
 
