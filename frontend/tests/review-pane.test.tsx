@@ -453,22 +453,29 @@ describe("ReviewPane undoing the last step (#600)", () => {
   /**
    * The pane's sitting of `beta`, its vault answering each write with what was sent.
    *
-   * Only `b.md` reads as `note`, so `decks.md` reads the same before and after
-   * the rating's refetch, and the sitting is not built again under the test.
+   * Only `b.md` reads as `note`. `decks.md` reads empty, and `rated` once a
+   * write has gone out, so a test can change it under the rating's refetch;
+   * `late.reads` counts those reads.
    */
-  async function sitBeta(note: string, commands = stubCommands()) {
+  async function sitBeta(note: string, commands = stubCommands(), rated = "") {
     const pane = await renderPane(commands);
-    vi.spyOn(api, "fetchNote").mockImplementation((path) =>
-      Promise.resolve(path === "b.md" ? note : ""),
-    );
     const saved = vi
       .spyOn(api, "saveNote")
       .mockImplementation(async (path: string, content: string) => ({ path, content }));
+    const late = { reads: 0 };
+    vi.spyOn(api, "fetchNote").mockImplementation((path) => {
+      if (path === "b.md") return Promise.resolve(note);
+      if (path !== "99 Misc/01 Config/decks.md" || saved.mock.calls.length === 0) {
+        return Promise.resolve("");
+      }
+      late.reads += 1;
+      return Promise.resolve(rated);
+    });
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "j" });
     fireEvent.keyDown(pane, { key: "l" });
     expect(await shownCard()).toHaveTextContent("c");
-    return { pane, saved };
+    return { pane, saved, late };
   }
 
   it.each(["on", "off"])(
@@ -488,6 +495,22 @@ describe("ReviewPane undoing the last step (#600)", () => {
       expect(saved.mock.calls[1]?.[1]).toBe(TWO);
       await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("c"));
       expect(screen.getByTestId("review-back")).toHaveTextContent("d");
+    },
+  );
+
+  it.each(["on", "off"])(
+    "#612 A5 a rating's refetch of a changed decks.md leaves the pane's sitting as it was, vim %s",
+    async (vim) => {
+      localStorage.setItem("kasten.vim", vim);
+      const { pane, late } = await sitBeta(TWO, stubCommands(), "beta: 1 new\n");
+
+      fireEvent.keyDown(pane, { key: " " });
+      fireEvent.keyDown(pane, { key: "3" });
+      await waitFor(() => expect(late.reads).toBeGreaterThan(0));
+      await act(async () => {});
+
+      expect(screen.getByText(/^\d+ left$/).textContent).toBe("1 left");
+      expect(screen.getByTestId("review-card")).toHaveTextContent("e");
     },
   );
 

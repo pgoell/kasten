@@ -185,6 +185,40 @@ describe("the review route on a phone", () => {
     expect(center).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("review-card")).toHaveClass("text-center");
   });
+
+  it("#612 A5 a tapped rating's refetch of a changed decks.md leaves the sitting as it was", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const two = "#flashcards/alpha\na::b\nc::d\n";
+    await renderRoute(
+      [
+        { path: "a.md", line: 1, text: "#flashcards/alpha" },
+        { path: "a.md", line: 2, text: "a::b" },
+        { path: "a.md", line: 3, text: "c::d" },
+      ],
+      two,
+    );
+    const saved = vi
+      .spyOn(api, "saveNote")
+      .mockImplementation(async (path: string, content: string) => ({ path, content }));
+    // `decks.md` caps the deck at one new card once the rating has gone out.
+    const late = { reads: 0 };
+    vi.spyOn(api, "fetchNote").mockImplementation(async (path) => {
+      if (path !== "99 Misc/01 Config/decks.md") return two;
+      if (saved.mock.calls.length === 0) return "";
+      late.reads += 1;
+      return "alpha: 1 new\n";
+    });
+
+    fireEvent.click(await findButton(/alpha/));
+    expect(await shownCard()).toHaveTextContent("a");
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await waitFor(() => expect(late.reads).toBeGreaterThan(0));
+    await act(async () => {});
+
+    expect(screen.getByText(/^\d+ left$/).textContent).toBe("1 left");
+    expect(screen.getByTestId("review-card")).toHaveTextContent("c");
+  });
 });
 
 describe("the review route under a daily limit", () => {

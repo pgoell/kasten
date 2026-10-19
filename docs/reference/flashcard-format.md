@@ -459,6 +459,9 @@ under its limits reads `0` due and `0` new and cannot be sat. A [parked](#parkin
 the parked count does not change. A [whole note for review](#a-whole-note-for-review)
 takes no limit.
 
+A sitting keeps the limits it started with. A change to `decks.md` applies from
+the next sitting.
+
 ## Typing the answer
 
 `Type` in the header swaps the reveal button for a text field. Submitting it

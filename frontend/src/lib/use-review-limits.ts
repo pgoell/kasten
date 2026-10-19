@@ -11,9 +11,8 @@ const NONE = { new_per_day: null, reviews_per_day: null };
  *
  * Under `cards`, so the invalidation every rating already sends refetches it
  * and an edit to `decks.md` reaches the overview the way an edit to a deck does.
- * The answer is a plain object so the query's structural sharing hands back the
- * same one when nothing changed, and a sitting keyed on it is not rebuilt
- * halfway through by its own writes.
+ * A sitting does not follow it there: it keeps the limits it started with, and
+ * an edit to `decks.md` reaches the next sitting.
  *
  * Neither read can fail the screen. A vault with no `decks.md` is the usual
  * case, and a limit is a convenience: a sitting with none beats no sitting.

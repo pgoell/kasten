@@ -7,7 +7,7 @@ import { readClock } from "@/lib/clock";
 import { inDeck } from "@/lib/deck-tag";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
-import { type Deck, decksFrom } from "@/lib/review";
+import { type Deck, decksFrom, type Limits } from "@/lib/review";
 import {
   appendStub,
   type Card,
@@ -172,11 +172,20 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   const write = useSittingWrites(setTexts, unwritten);
 
   const today = useMemo(() => readClock(new Date()).date, []);
-  const limits = useReviewLimits();
+  const read = useReviewLimits();
+  // The first limits read, kept for the whole sitting. Every rating refetches
+  // them, and a `decks.md` that answers differently by then would otherwise
+  // build the queue again under the sitting: the count jumps back and a card
+  // rated `again` loses its second asking. A change takes effect at the next
+  // sitting, as in Anki.
+  const [limits, setLimits] = useState<Limits>();
+  useEffect(() => {
+    if (read !== undefined) setLimits((was) => was ?? read);
+  }, [read]);
 
   useEffect(() => {
     // Before any note is read: a queue built without the limits would ask the
-    // whole deck, and nothing cuts a running sitting down afterwards.
+    // whole deck, and the limits that arrive later never rebuild it.
     if (limits === undefined) return;
     let live = true;
     // All of them before any of them is asked. A deck spanning three notes is
