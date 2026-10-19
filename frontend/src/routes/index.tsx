@@ -2044,6 +2044,12 @@ function Home() {
   const openReadingBook = useCallback(async () => {
     setNotice(undefined);
 
+    // Saved before anything is read, for two reasons: the book replaces what
+    // the pane holds, as the book finder's does, and the pane may hold the
+    // config note itself, whose new link would otherwise be read as the old.
+    // A failed save keeps the note where it is.
+    if (!(await saveFirst())) return;
+
     // The listings through the cache the route's own queries fill, so a press
     // right after load waits for them rather than refusing over a vault it
     // has not been told about yet.
@@ -2084,9 +2090,8 @@ function Home() {
       return;
     }
 
-    // Saved first for the book finder's reason: the book replaces what the
-    // pane holds. The reader finds the `reading:` place in the note itself.
-    if (await saveFirst()) moveTo((previous) => openBookInFocused(previous, note));
+    // The reader finds the `reading:` place in the note itself.
+    moveTo((previous) => openBookInFocused(previous, note));
   }, [queryClient, saveFirst, moveTo]);
 
   const commands = useMemo<TreeCommands>(

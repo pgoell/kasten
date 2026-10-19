@@ -740,16 +740,17 @@ no one path to name: the pair is a convention, and which of the two you meant is
 not something the reader can know. A file the reader cannot open draws the same
 panel.
 
-`<leader>gc` opens the book you are reading now, from anywhere and with no note
-open. It reads `reading-now.md` in the config folder, `99 Misc/01 Config` unless
+`<leader>gc` opens the book you are reading now, from any pane with a leader,
+and with no note open. It reads `reading-now.md` in the config folder, `99 Misc/01 Config` unless
 [`KASTEN_CONFIG_PATH`](/reference/configuration.md#the-vaults-folders) names
 another, and follows the first `[[wikilink]]` in it to a book's note. The book
 fills the focused pane in place of what it held, as the book finder's Enter
 does, with unsaved text saved first, at the note's `reading:` place and without
 the note. A `.pdf` beside the note counts, as for `<leader>gr`. You write that
 file by hand, and kasten never creates it or sets the book. It is read afresh
-on each press, so editing the link changes the book the next press opens. A missing file, a file
-with no link, a link that names no note, and a note with nothing beside it are
+on each press, after unsaved text in the focused pane is saved, so editing the
+link changes the book the next press opens. A missing file, a file with no
+link, a link that names no note, and a note with nothing beside it are
 each refused in one sentence at the foot of the window, such as
 `99 Misc/01 Config/reading-now.md is not there`, and the next press clears it.
 With vim off, and on a phone, the palette row `Read the current book` runs it.

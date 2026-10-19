@@ -4505,6 +4505,37 @@ describe("reading the current book", () => {
     expect.soft(app.notice()).toBe(`Nothing to read beside ${BARE}`);
   });
 
+  it("I3 saves an edit to reading-now.md open in the focused pane before it reads it", async () => {
+    // What the vault holds is what was last saved, so the press reads the new
+    // link only if the edit was written first.
+    saveNote.mockImplementation(async (path: string, content: string) => {
+      if (path === READING) reading = content;
+      return { path, content };
+    });
+    fetchBook.mockImplementation(async (note: string) => beside(note, ".pdf"));
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    await settle();
+    app.expand("01 Config");
+    await settle();
+    app.click(READING);
+    await settle();
+    // The brackets drawn away by the live preview, so the name alone.
+    expect(app.text()).toBe("The Expectant Father");
+
+    // Written into the buffer the way a keystroke is, and pressed at once,
+    // inside the autosave's quiet period.
+    const view = EditorView.findFromDOM(document.querySelector(".cm-content") as HTMLElement);
+    act(() =>
+      view?.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "[[Paper]]" } }),
+    );
+    await press(app);
+
+    expect.soft(fetchBook).toHaveBeenCalledWith(PAPER);
+    expect.soft(fetchBook).not.toHaveBeenCalledWith(BOOK);
+  });
+
   it("I4 writes the unsaved text of the focused note before the book replaces it", async () => {
     const app = await opened();
     app.press("x");
