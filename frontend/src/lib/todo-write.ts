@@ -21,7 +21,7 @@ import {
   setStateOn,
   type Todo,
   type TodoState,
-  tagsOf,
+  todoTagsOn,
   wordsEnd,
 } from "@/lib/todo";
 import { nextOccurrence } from "@/lib/todo-recur";
@@ -498,12 +498,12 @@ function clientAt(lines: string[], line: number): boolean {
 }
 
 /**
- * Where `line` carries `#agent` as a tag of its own, as offsets. `tagsOf` is
- * the parser's reading, so `#agents` and `#agent/x` are other tags, and one in
- * a code span, a link or `https://a.io/p#agent` is text.
+ * Where `line` carries `#agent` as a tag of its own, as offsets. The parser's
+ * own reading, so `#agents` and `#agent/x` are other tags, and one in a code
+ * span, a link, `https://a.io/p#agent` or a field's value is text.
  */
 function agentTags(line: string): number[] {
-  return tagsOf(line)
+  return todoTagsOn(line)
     .filter((found) => found.tag === AGENT)
     .map((found) => found.at);
 }
@@ -556,6 +556,12 @@ export function agentPress(
   for (const at of tags.reverse()) {
     const from = /[ \t]/.test(out[at - 1] ?? "") ? at - 1 : at;
     out = out.slice(0, from) + out.slice(at + AGENT.length);
+  }
+  // `fix,#agent#kasten` would leave `#kasten` after the comma, a tag it was
+  // not, so a take-back that changes any other tag writes nothing.
+  const others = todo.tags.filter((tag) => tag !== AGENT).join(" ");
+  if (parseTodo(out)?.tags.join(" ") !== others) {
+    return { why: "taking #agent out would make a tag of what follows it" };
   }
   return { line: out };
 }

@@ -97,12 +97,15 @@ before them for words.
 Tags stay where they were typed, even on a line kasten writes new: `call the
 #health dentist` keeps its tag mid-sentence, because a tag belongs to the words.
 
-A tag is a `#` and what follows it up to a space or the next `#`. A hash
-inside a code span, a markdown link or a `[[wikilink]]` is no tag, and neither
-is one straight after a letter, a digit, `_` or `/`. So `` `grep #client log` ``,
+A tag is a `#` and what follows it up to a space or the next `#`, read on the
+words once the fields are out. A hash inside a code span, a markdown link or a
+`[[wikilink]]` is no tag, and neither is one straight after a letter, a digit,
+`_` or `/` of the words. So `` `grep #client log` ``,
 `[see](https://a.io/p#next)`, `https://a.io/p#next` and `[[note#p/x]]` carry no
-tag, and the words keep them as typed. The filter line, the saved views, the
-client mark, the board and the add prompt all read tags this way.
+tag, and the words keep them as typed. A field's value is not words:
+`📅 2026-10-20#next` carries `#next`, while `🆔 kt-3f9a2c,#next` carries none,
+the hash being part of the id. The filter line, the saved views, the client mark,
+the board and the add prompt all read tags this way.
 
 `⛔` may appear more than once, each naming another todo's id, and every one is
 kept in the order it was written. Every other field appears once.
@@ -634,7 +637,9 @@ of the words and before the fields. Pressed again on an open `[ ]` todo they tak
 it back off, which recalls the todo before the worker starts. The keys read
 `#agent` by [the rule for tags](#the-fields), so one inside a code span, a link
 or a web address is not the tag, and the keys leave it be; one after a comma, as
-in `fix,#agent`, is the tag, and a press takes it back. Once the todo has moved
+in `fix,#agent`, is the tag, and a press takes it back. A press leaves the tag
+in, and says so, where taking it out would make a tag of what follows it, as
+in `fix,#agent#kasten`. Once the todo has moved
 on to another state, the keys leave the tag where it is. They refuse
 client work, a todo carrying `#client` or under one that does, because the
 worker skips it. The saved view `- agent: #agent` lists every todo sent.

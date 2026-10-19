@@ -243,15 +243,27 @@ type Fields = Omit<Todo, "indent" | "state">;
 
 /** Every field written after the box, taken off the words that carried them. */
 function readFields(rest: string): Fields {
+  return read(rest).fields;
+}
+
+/**
+ * `readFields`, and where each tag starts in `rest`. A tag is read on the
+ * words once the fields are out, so `📅 2026-10-20#agent` carries one and
+ * `🆔 kt-a,#agent` none; `origin` keeps each kept character's offset in `rest`
+ * so `@` can find that same tag on the line.
+ */
+function read(rest: string): { fields: Fields; tags: { tag: string; at: number }[] } {
   let text = rest;
   let mask = masked(rest);
+  let origin = Array.from({ length: rest.length }, (_, at) => at);
 
-  // The mask is cut with the text, so the two stay in step.
+  // The mask and the offsets are cut with the text, so the three stay in step.
   function take(pattern: RegExp): (string | undefined)[] {
     const found = find(pattern, text, mask);
     if (found === null) return [];
     text = text.slice(0, found.from) + text.slice(found.to);
     mask = mask.slice(0, found.from) + mask.slice(found.to);
+    origin = [...origin.slice(0, found.from), ...origin.slice(found.to)];
     return found.values;
   }
 
@@ -275,12 +287,16 @@ function readFields(rest: string): Fields {
 
   const [waitingSince, waitingOn] = take(WAITING);
 
+  // Read before the spaces close up, while `origin` still lines up. Closing
+  // them up changes no tag, as a tag holds no space.
+  const tags = tagsOf(text).map(({ tag, at }) => ({ tag, at: origin[at] ?? at }));
+
   // Taking a field out of the middle leaves two spaces where there was one.
   text = text.replace(/[ \t]+/g, " ").trim();
 
-  return {
+  const fields = {
     text,
-    tags: tagsOf(text).map((found) => found.tag),
+    tags: tags.map((found) => found.tag),
     due,
     scheduled,
     start,
@@ -297,6 +313,18 @@ function readFields(rest: string): Fields {
     waitingSince,
     waitingOn,
   };
+  return { fields, tags };
+}
+
+/**
+ * Every tag a todo line carries, exactly as `parseTodo` reads them, each with
+ * where it starts in the line. None on a line that is not a todo.
+ */
+export function todoTagsOn(line: string): { tag: string; at: number }[] {
+  const rest = LINE.exec(line)?.[3];
+  if (rest === undefined) return [];
+  const offset = line.length - rest.length;
+  return read(rest).tags.map(({ tag, at }) => ({ tag, at: offset + at }));
 }
 
 export function parseTodo(line: string): Todo | null {
