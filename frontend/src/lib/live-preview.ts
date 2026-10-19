@@ -750,6 +750,8 @@ interface Span {
    * widget answers the block's own position, not the cell's.
    */
   address?: string;
+  /** The note the wikilink this span draws names, as `wikiLinkAt` reads it, for the same reason. */
+  target?: string;
 }
 
 /**
@@ -801,10 +803,17 @@ class TableGrid extends WidgetType {
     block.className = "cm-table-block";
     // A press in a cell follows a link where it would outside a table (#561): a
     // tap on the link's text or picture, ctrl+click on its text, any click on
-    // its picture. The editor's own tap and ctrl+click read the link off
-    // `posAtDOM`, which lands on the block's edge, so they cannot find the
-    // cell's link, and a press followed here is kept from them.
+    // its picture. `posAtDOM` lands on the block's edge, so the editor's own
+    // tap and ctrl+click turn away from a link in a cell, and a press followed
+    // here is kept from them.
     let tapped = false;
+    // A wikilink is the exception: the editor follows it itself, off the
+    // cell's `data-target` (#564), so a tap or ctrl+click on one is left to
+    // reach the editor and only kept from opening the table.
+    const linked = (event: MouseEvent): boolean =>
+      event.target instanceof Element &&
+      event.target.closest("[data-target]") !== null &&
+      (tapped || event.ctrlKey || event.metaKey);
     const follows = (event: MouseEvent): string | null => {
       const target =
         event.target instanceof Element ? event.target.closest("[data-address]") : null;
@@ -825,6 +834,12 @@ class TableGrid extends WidgetType {
     // press that follows is kept from it, so the follow happens at the click,
     // where a double-click's second has `detail` 2 and opens no second tab.
     block.addEventListener("mousedown", (event) => {
+      // A finger's press would leave the browser to put the caret at the
+      // block's edge, which opens the table under the wikilink it follows.
+      if (tapped && linked(event)) {
+        event.preventDefault();
+        return;
+      }
       if (follows(event) === null) return;
       event.preventDefault();
       event.stopPropagation();
@@ -835,14 +850,13 @@ class TableGrid extends WidgetType {
     // press, and the block is gone by the click.
     block.addEventListener("click", (event) => {
       const address = follows(event);
+      const wikilink = linked(event);
       tapped = false;
-      if (!block.isConnected) return;
+      if (!block.isConnected || wikilink) return;
       if (address === null) {
         view.dispatch({ selection: { anchor: view.posAtDOM(block) } });
         return;
       }
-      // Stopped, or the editor's tap reads a link off the block's start too,
-      // which in a table with no outer pipes is the first cell's.
       event.stopPropagation();
       if (event.detail <= 1) window.open(address, "_blank", "noopener");
     });
@@ -871,6 +885,7 @@ class TableGrid extends WidgetType {
           marked.className = span.class;
           marked.textContent = span.text;
           if (span.address !== undefined) marked.dataset.address = span.address;
+          if (span.target !== undefined) marked.dataset.target = span.target;
           cell.append(marked);
         }
       });
@@ -990,7 +1005,12 @@ function markedText(state: EditorState, node: SyntaxNode): Span[] | null {
     const paths = state.facet(vaultPaths);
     const dead = paths !== null && !wikiLinkLands(text, paths);
     const alias = splitTarget(text).alias;
-    return [{ text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className }];
+    // The bar's backslash is the table's, so the target is the one the same
+    // link hands on off a table.
+    const target = text.replace("\\|", "|").trim();
+    return [
+      { text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className, target },
+    ];
   }
 
   // GFM takes a `\|` in a cell as a bar before it reads the code span, so its

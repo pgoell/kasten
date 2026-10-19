@@ -338,10 +338,15 @@ const followOnClick = EditorView.domEventHandlers({
   },
 });
 
-/** The rendered `[text](url)` or reference link under the pointer, if it opens in a tab. */
+/**
+ * The rendered `[text](url)` or reference link under the pointer, if it opens in a tab.
+ *
+ * None in a drawn table: `posAtDOM` there answers the block's start, which is
+ * another cell's link (#565), and the block opens a cell's address itself.
+ */
 function urlUnder(event: Event, view: EditorView): UrlLink | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-link") : null;
-  if (element === null) return null;
+  if (element === null || element.closest(".cm-table-block") !== null) return null;
   const node = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
   return urlLinkAt(node, view.state.doc);
 }
@@ -350,11 +355,14 @@ function urlUnder(event: Event, view: EditorView): UrlLink | null {
  * The note the rendered link under the pointer names, or null off one.
  *
  * The nearest link span, not the target itself: inside bold or another mark
- * the text sits in a span of its own nested in the link's (#432).
+ * the text sits in a span of its own nested in the link's (#432). In a drawn
+ * table the span carries its target, `posAtDOM` answering the block's start.
  */
 function linkUnder(event: Event, view: EditorView): string | null {
-  const element = event.target instanceof HTMLElement ? event.target.closest(".cm-wikilink") : null;
+  const element =
+    event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(".cm-wikilink") : null;
   if (element === null) return null;
+  if (element.closest(".cm-table-block") !== null) return element.dataset.target ?? null;
   return wikiLinkAt(view.state, view.posAtDOM(element));
 }
 
@@ -379,7 +387,11 @@ function followOnTap(): Extension {
       const touch = event.pointerType === "touch";
       const head = view.state.selection.main.head;
       const target = touch ? linkUnder(event, view) : null;
-      const editing = wikiLinkAt(view.state, head) === target;
+      // The cursor is never in a link a drawn table shows, the table showing
+      // its source while it is, so one of the same name elsewhere is not it.
+      const drawn =
+        event.target instanceof Element && event.target.closest(".cm-table-block") !== null;
+      const editing = !drawn && wikiLinkAt(view.state, head) === target;
       landed = editing ? null : target;
       const link = touch ? urlUnder(event, view) : null;
       landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
