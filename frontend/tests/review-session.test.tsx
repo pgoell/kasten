@@ -1217,7 +1217,7 @@ describe("ReviewSession undoing the last step (#600)", () => {
     fireEvent.click(undo as HTMLElement);
     await act(async () => {});
     expect(saved).toHaveBeenCalledTimes(1);
-    expect(undoButton()).toBeDisabled();
+    expect(undoButton()).toHaveAttribute("aria-disabled", "true");
 
     await act(async () => answer?.());
 
@@ -1375,9 +1375,13 @@ describe("ReviewSession undoing the last step (#600)", () => {
 
     expect(screen.getByTestId("review-card")).toHaveTextContent("What is B?");
     for (const name of ["Show answer", "Suspend", "Jot"]) {
-      expect(screen.getByRole("button", { name })).toBeDisabled();
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-disabled", "true");
     }
-    // The pane's keys, which reach these and not the buttons.
+    // Taps on the greyed buttons, and the pane's keys, which reach the same
+    // callbacks.
+    for (const name of ["Show answer", "Suspend", "Jot"]) {
+      fireEvent.click(screen.getByRole("button", { name }));
+    }
     act(() => {
       held.controls?.reveal();
       held.controls?.capture();
@@ -1438,5 +1442,75 @@ describe("ReviewSession undoing the last step (#600)", () => {
     expect(vault.disk).toContain("What is a VPC?::A private cloud\n");
     expect(vault.disk).toContain("What is a moved block?::");
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("#600 B4 a jot held through an undo lands in the note it was opened on", async () => {
+    const disk = new Map([
+      ["x.md", "#flashcards/aws\n\nWhat is A?::a\n"],
+      ["y.md", "#flashcards/aws\n\nWhat is B?::b\n"],
+    ]);
+    vi.spyOn(api, "fetchNote").mockImplementation(async (path: string) => disk.get(path) ?? "");
+    const saved = vi
+      .spyOn(api, "saveNote")
+      .mockImplementation(async (path: string, content: string) => {
+        disk.set(path, content);
+        return { path, content };
+      });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={{ ...DECK, notes: ["x.md", "y.md"], fresh: 2 }} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await shownCard();
+    await rate("Good");
+    // Opened on B, which lives in y.md.
+    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q?" } });
+
+    const undo = undoButton();
+    expect(undo).not.toBeNull();
+    fireEvent.click(undo as HTMLElement);
+    await backOn("What is A?");
+    fireEvent.submit(screen.getByTestId("review-capture"));
+    await act(async () => {});
+
+    expect(saved).toHaveBeenCalledTimes(3);
+    expect(saved.mock.calls[2]?.[0]).toBe("y.md");
+    expect(disk.get("y.md")).toContain("Q?::");
+    expect(disk.get("x.md")).not.toContain("Q?");
+  });
+
+  it("#600 B5 Jot it and Check are disabled while an undo is out, their text kept", async () => {
+    localStorage.setItem("kasten.review.typing", "on");
+    const { saved } = renderVault();
+    await shownCard();
+    fireEvent.submit(screen.getByTestId("review-typed"));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.change(screen.getByLabelText("a new question"), { target: { value: "Q?" } });
+    fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "Storage" } });
+    let release: (() => void) | undefined;
+    saved.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          release = () => resolve({ path, content });
+        }),
+    );
+
+    const undo = undoButton();
+    expect(undo).not.toBeNull();
+    fireEvent.click(undo as HTMLElement);
+    await act(async () => {});
+
+    expect(screen.getByRole("button", { name: "Jot it" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Check" })).toBeDisabled();
+    expect(screen.getByLabelText("a new question")).toHaveValue("Q?");
+    expect(screen.getByLabelText("your answer")).toHaveValue("Storage");
+
+    await act(async () => release?.());
+    await backOn("What is a VPC?");
+    expect(screen.getByRole("button", { name: "Jot it" })).not.toBeDisabled();
   });
 });

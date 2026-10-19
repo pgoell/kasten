@@ -59,7 +59,7 @@ const RATINGS: { rating: Rating; label: string }[] = [
  */
 const BUTTON =
   "min-h-11 rounded border border-one-line px-4 py-2 text-[13px] text-one-fg " +
-  "hover:border-one-accent hover:text-one-accent active:bg-one-panel disabled:opacity-50";
+  "hover:border-one-accent hover:text-one-accent active:bg-one-panel disabled:opacity-50 aria-disabled:opacity-50";
 
 interface ReviewSessionProps {
   deck: Deck;
@@ -154,6 +154,8 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   const [done, setDone] = useState(0);
   /** The question being jotted, or null while the capture line is closed. */
   const [jotting, setJotting] = useState<string | null>(null);
+  /** The note the open capture line writes into. */
+  const [jotNote, setJotNote] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const [center, setCenter] = useState(() => localStorage.getItem(CENTER_KEY) === "on");
   /** The sentence at the foot, which a refused undo words apart from a failed write. */
@@ -413,14 +415,14 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   function jot(question: string) {
     // Kept in the line while an undo is out: written behind it, the jot would
     // name the text the undo replaces and be refused, losing the question.
-    if (texts === null || seat === undefined || undoing) return;
-    const text = texts.get(seat.note);
+    if (texts === null || jotNote === null || undoing) return;
+    const text = texts.get(jotNote);
     if (text === undefined || question.trim() === "") return;
 
     const next = appendStub(text, question.trim());
-    setTexts((was) => new Map(was).set(seat.note, next));
+    setTexts((was) => new Map(was).set(jotNote, next));
     setJotting(null);
-    write(seat.note, text, next);
+    write(jotNote, text, next);
   }
 
   // A toggle, because the second press is the only way to shut the line
@@ -428,9 +430,16 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   // Nothing on the done screen, where the controls stay up for Undo alone and a
   // jot would have no note to go into, nor while an undo is out.
   const capture = useCallback(() => {
-    if (card === undefined || undoing) return;
-    setJotting((was) => (was === null ? "" : null));
-  }, [card, undoing]);
+    if (seat === undefined || card === undefined || undoing) return;
+    if (jotting !== null) {
+      setJotting(null);
+      return;
+    }
+    setJotting("");
+    // The note the line was opened on, which an undo landing under a held
+    // question can take off the screen.
+    setJotNote(seat.note);
+  }, [card, jotting, seat, undoing]);
 
   const jotOpen = jotting !== null;
 
@@ -511,13 +520,17 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           </button>
         )}
         {/* Drawn while there is a step to take back, the done screen included,
-            and greyed while the undo is out so a second tap sends nothing. */}
+            and greyed while the undo is out so a second tap sends nothing.
+            `aria-disabled` and not `disabled` here and on Suspend, Jot and
+            Show answer: the browser blurs a focused button it disables, which
+            takes the focus out of the pane and its keys with it. The callbacks
+            refuse while the undo is out. */}
         {(step !== null || undoing) && (
           <button
             type="button"
             onClick={undo}
-            disabled={undoing}
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent disabled:opacity-50 pointer-coarse:min-w-11"
+            aria-disabled={undoing}
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
           >
             Undo
           </button>
@@ -528,8 +541,8 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={suspend}
-            disabled={undoing}
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent"
+            aria-disabled={undoing}
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent aria-disabled:opacity-50"
           >
             Suspend
           </button>
@@ -538,11 +551,11 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={capture}
-            disabled={undoing}
+            aria-disabled={undoing}
             aria-expanded={jotOpen}
             // Three letters are narrower than a thumb, which the height alone
             // does not make up for.
-            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent pointer-coarse:min-w-11"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent aria-disabled:opacity-50 pointer-coarse:min-w-11"
           >
             Jot
           </button>
@@ -593,7 +606,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             placeholder="A question to answer later"
             className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[13px] text-one-fg outline-none focus:border-one-accent pointer-coarse:text-base"
           />
-          <button type="submit" className={BUTTON}>
+          {/* Disabled while an undo is out, the question kept in the field
+              for the next submit. */}
+          <button type="submit" disabled={undoing} className={BUTTON}>
             Jot it
           </button>
         </form>
@@ -692,7 +707,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
                 className="min-h-11 min-w-0 flex-1 rounded border border-one-line bg-transparent px-3 text-[15px] text-one-fg outline-none focus:border-one-accent pointer-coarse:text-base"
               />
               {/* Submitting the form is what the phone keyboard's Go key does. */}
-              <button type="submit" className={BUTTON}>
+              <button type="submit" disabled={undoing} className={BUTTON}>
                 Check
               </button>
             </form>
@@ -700,7 +715,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             <button
               type="button"
               onClick={reveal}
-              disabled={undoing}
+              aria-disabled={undoing}
               className={`${BUTTON} w-full`}
             >
               Show answer

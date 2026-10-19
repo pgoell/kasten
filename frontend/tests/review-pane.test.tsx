@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewPane } from "@/components/review-pane";
 import * as api from "@/lib/api";
@@ -520,6 +520,40 @@ describe("ReviewPane undoing the last step (#600)", () => {
 
     expect(commands.toggleTree).toHaveBeenCalledOnce();
     expect(screen.getByTestId("review-done")).toBeInTheDocument();
+  });
+
+  it("#600 B6 a header button clicked before u keeps the focus, and the keys, in the pane", async () => {
+    const { pane, saved } = await sitBeta(TWO);
+    const suspend = screen.getByRole("button", { name: "Suspend" });
+    // A mouse click focuses the button before it presses it.
+    suspend.focus();
+    fireEvent.click(suspend);
+    expect(screen.getByTestId("review-card")).toHaveTextContent("e");
+    await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+    let release: (() => void) | undefined;
+    saved.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          release = () => resolve({ path, content });
+        }),
+    );
+
+    fireEvent.keyDown(suspend, { key: "u" });
+    await waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
+
+    // Greyed and still focused while the undo is out: a disabled button would
+    // have handed the focus to the body.
+    expect(suspend).toHaveAttribute("aria-disabled", "true");
+    expect(suspend).not.toBeDisabled();
+    expect(document.activeElement).toBe(suspend);
+
+    await act(async () => release?.());
+    await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("c"));
+    expect(pane.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "3" });
+
+    await waitFor(() => expect(saved).toHaveBeenCalledTimes(3));
+    expect(screen.getByTestId("review-card")).toHaveTextContent("e");
   });
 });
 
