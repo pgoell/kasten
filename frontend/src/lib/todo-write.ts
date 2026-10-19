@@ -16,6 +16,7 @@ import {
   cycleLine,
   formatTodo,
   isOpen,
+  masked,
   parseTodo,
   patchLine,
   setStateOn,
@@ -498,6 +499,18 @@ function clientAt(lines: string[], line: number): boolean {
 }
 
 /**
+ * Where `line` carries `#agent` as a tag of its own, as offsets. `TAG` is the
+ * parser's reading, so `#agents` and `#agent/x` are other tags; it runs on the
+ * mask, so one inside a code span or a link is text, and one with no space
+ * before it is part of a word, `https://a.io/p#agent`.
+ */
+function agentTags(line: string): number[] {
+  return [...masked(line).matchAll(TAG)]
+    .filter((found) => found[0] === AGENT && /[ \t]/.test(line[found.index - 1] ?? ""))
+    .map((found) => found.index);
+}
+
+/**
  * What `@` makes of line `at` (counting from one) of `lines`: the line to write,
  * or the sentence for the foot when it writes nothing.
  *
@@ -525,12 +538,12 @@ export function agentPress(
   read[at - 1] = line;
   if (clientAt(read, at)) return { why: "the agent skips client work" };
 
-  if (!todo.tags.includes(AGENT)) {
+  const tags = agentTags(line);
+  if (tags.length === 0) {
+    // A space before and none after, so taking it back out with the space
+    // before gives the line back byte for byte.
     const end = wordsEnd(line);
-    // A space after as well where a field sits hard against the words, or the
-    // tag would read the marker in as part of itself.
-    const after = /^(?:[ \t]|$)/.test(line.slice(end)) ? "" : " ";
-    return { line: `${line.slice(0, end)} ${AGENT}${after}${line.slice(end)}` };
+    return { line: `${line.slice(0, end)} ${AGENT}${line.slice(end)}` };
   }
   // A plain line already naming the agent only needed its box.
   if (plain) return { line };
@@ -538,16 +551,10 @@ export function agentPress(
   // already hold it, and pulling the tag would not stop it.
   if (todo.state !== "open") return { why: "that todo is already with the agent" };
 
-  // `TAG` is the parser's own reading, so `#agents` and `#agent/x` stay.
+  // Each with the space before it, which `agentTags` makes sure is there. Last
+  // first, so the earlier offsets still hold.
   let out = line;
-  for (const found of [...line.matchAll(TAG)].reverse()) {
-    if (found[0] !== AGENT) continue;
-    let from = found.index;
-    let to = from + AGENT.length;
-    if (/[ \t]/.test(out[from - 1] ?? "")) from -= 1;
-    else if (/[ \t]/.test(out[to] ?? "")) to += 1;
-    out = out.slice(0, from) + out.slice(to);
-  }
+  for (const at of tags.reverse()) out = out.slice(0, at - 1) + out.slice(at + AGENT.length);
   return { line: out };
 }
 

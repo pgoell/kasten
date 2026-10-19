@@ -355,7 +355,8 @@ export function endsOfWords(line: string, fields?: number[]): number[] {
 /**
  * Where the words of a todo line end: before its first field that parses, else
  * before a trailing `^blockid`, else at the line's end. An offset into the
- * whole line, so a tag written there leaves every other byte where it was.
+ * whole line, so a tag written there leaves every other byte where it was, and
+ * a space or the line's end always follows it.
  *
  * Only fields that parse count, as for a stamp: `📅 friday` is words.
  */
@@ -369,7 +370,12 @@ export function wordsEnd(line: string): number {
     const field = find(pattern, rest, mask);
     return field === null ? [] : [offset + field.from];
   });
-  return endsOfWords(line, fields)[0] ?? line.length;
+  // Only a place a space or the line's end follows. That rules out a `^` with
+  // no space before it, `2^10` being words and no block id, and a field typed
+  // hard against the words, `foo📅`: a tag there would need a space after it
+  // too, which taking the tag back out could not tell from one typed.
+  const spaced = endsOfWords(line, fields).filter((at) => /^(?:[ \t]|$)/.test(line.slice(at)));
+  return spaced[0] ?? line.length;
 }
 
 /**

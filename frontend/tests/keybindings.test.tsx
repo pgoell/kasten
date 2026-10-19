@@ -1146,6 +1146,48 @@ describe("#523 the agent key", () => {
     expect(docs).toEqual([`- [ ] call ada #agent ➕ ${TODAY}`, "call ada"]);
   });
 
+  it("#523 A7 <leader>@ reads 2^10 as words, not a block id", () => {
+    const { doc } = pressAgent("- [ ] compute 2^10");
+
+    expect(doc).toBe("- [ ] compute 2^10 #agent");
+  });
+
+  it("#523 A7 <leader>@ twice on 2^10 gives the line back byte for byte", () => {
+    const { docs } = pressAgent("- [ ] compute 2^10", ["G"], [" ", "@"]);
+
+    expect(docs).toEqual(["- [ ] compute 2^10 #agent", "- [ ] compute 2^10"]);
+  });
+
+  it("#523 A7 <leader>@ twice on a field hard against the words gives the line back byte for byte", () => {
+    const { docs } = pressAgent("- [ ] foo📅 2026-10-20", ["G"], [" ", "@"]);
+
+    expect(docs).toEqual(["- [ ] foo📅 2026-10-20 #agent", "- [ ] foo📅 2026-10-20"]);
+  });
+
+  it("#523 B <leader>@ adds #agent past a code span holding #agent, the span untouched", () => {
+    const { doc } = pressAgent("- [ ] run `grep #agent log`");
+
+    expect(doc).toBe("- [ ] run `grep #agent log` #agent");
+  });
+
+  it("#523 B <leader>@ adds #agent past a link holding #agent, the link untouched", () => {
+    const { doc } = pressAgent("- [ ] read [[notes#agent]]");
+
+    expect(doc).toBe("- [ ] read [[notes#agent]] #agent");
+  });
+
+  it("#523 B <leader>@ adds #agent past a URL ending #agent, the URL untouched", () => {
+    const { doc } = pressAgent("- [ ] see https://a.io/p#agent");
+
+    expect(doc).toBe("- [ ] see https://a.io/p#agent #agent");
+  });
+
+  it("#523 B <leader>@ on a doing todo with #agent only in a span adds the tag", () => {
+    const { doc } = pressAgent("- [/] run `grep #agent log`");
+
+    expect(doc).toBe("- [/] run `grep #agent log` #agent");
+  });
+
   it("#523 A10 vim's own @ still replays a macro", () => {
     const { editor, doc } = open("abc");
 

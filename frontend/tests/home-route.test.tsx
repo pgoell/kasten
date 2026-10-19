@@ -3822,6 +3822,32 @@ describe("the route", () => {
       expect.soft(notes[PATH]).toBe(text);
       expect(saved()).toEqual([PATH, PATH]);
     });
+
+    /** `- [ ] foo` and the same words tagged, both listed. */
+    const FOOS = [
+      { path: PATH, line: 2, text: "- [ ] foo", project: null },
+      { path: PATH, line: 3, text: "- [ ] foo #agent", project: null },
+    ];
+
+    it("#523 B1 the pane's @ on a row whose line was deleted leaves the tag on the todo below", async () => {
+      // Line 2 deleted by another writer since the listing: line 2 is now the
+      // tagged todo, which is not the row pressed.
+      const app = await listing(FOOS, "## TODOs\n- [ ] foo #agent");
+
+      await press(app, "@");
+
+      expect.soft(saveNote).not.toHaveBeenCalled();
+      expect(app.notice()).toBe("Nothing moved: that line has changed since it was listed");
+    });
+
+    it("#523 B1 three quick @ on two rows of the same words each press their own todo", async () => {
+      const app = await listing(FOOS, "## TODOs\n- [ ] foo\n- [ ] foo #agent");
+
+      // The second row off, the first on, the second on again, before a redraw.
+      await press(app, "j", "@", "k", "@", "j", "@");
+
+      expect(notes[PATH]).toBe("## TODOs\n- [ ] foo #agent\n- [ ] foo #agent");
+    });
   });
 
   describe("a press on a todo whose 🆔 stands on another todo line", () => {

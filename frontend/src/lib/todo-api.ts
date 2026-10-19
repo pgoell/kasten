@@ -25,7 +25,6 @@ import { lineOf } from "@/lib/todo-refile";
 import { expandShorthand } from "@/lib/todo-shorthand";
 import { parseSession } from "@/lib/todo-time";
 import {
-  AGENT,
   addTodoWrites,
   agentPress,
   applyBlocked,
@@ -397,48 +396,29 @@ function rowLine(text: string, hit: SearchHit, twins?: number[]): number | null 
 }
 
 /**
- * Whether the row's line holds the row's todo with only `#agent` put on or
- * taken off: a second `@` before the list redraws, whose first press changed
- * the words `rowLine` looks for. A state press changes no words, so it never
- * needed this.
- */
-function sameButAgent(lines: string[], hit: SearchHit): boolean {
-  const was = parseTodo(hit.text);
-  const now = parseTodo(lines[hit.line - 1] ?? "");
-  if (was === null || now === null) return false;
-  if (was.id !== undefined && now.id !== undefined && was.id !== now.id) return false;
-  const bare = (words: string) =>
-    words
-      .split(" ")
-      .filter((word) => word !== AGENT)
-      .join(" ");
-  return bare(was.text) === bare(now.text) && was.indent === now.indent;
-}
-
-/**
- * The note as `@` on the row leaves it, or why it leaves it as it is.
+ * The note as `@` on the row leaves it, and the line it wrote, or why it leaves
+ * the note as it is.
  *
  * Of the note's text rather than the vault: the route reads and saves it inside
  * its write queue, with the guards a note open to type in needs, as `m` does.
  * The row is found the way a state press finds it, so `@` never tags another
- * todo, and one line is all that changes.
+ * todo, and one line is all that changes. A second press before the list
+ * redraws comes with the line the first wrote, which the route kept: the words
+ * changed, and nothing in the note can tell this todo from another of them.
  */
 export function agentTodoIn(
   text: string,
   hit: SearchHit,
   today: string,
   twins?: number[],
-): { text: string } | { why: string } {
-  const lines = text.split("\n");
-  // Not for twins: after a shift the row's number may hold the other one, which
-  // is why `rowLine` reads them by rank alone.
-  const alone = twins === undefined || twins.length <= 1;
-  const at = rowLine(text, hit, twins) ?? (alone && sameButAgent(lines, hit) ? hit.line : null);
+): { text: string; line: string } | { why: string } {
+  const at = rowLine(text, hit, twins);
   if (at === null) return { why: "that line has changed since it was listed" };
+  const lines = text.split("\n");
   const pressed = agentPress(lines, at, today, newId());
   if ("why" in pressed) return pressed;
   lines[at - 1] = pressed.line;
-  return { text: lines.join("\n") };
+  return { text: lines.join("\n"), line: pressed.line };
 }
 
 /** Read what the press needs, work out the writes, and send them. */

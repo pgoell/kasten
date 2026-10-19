@@ -612,9 +612,10 @@ todos weights client work the way the pane does.
 
 ## Agent work
 
-`#agent` on a todo hands it to the agent worker, a job on the server that picks
-up open todos carrying the tag and works on them. The tag is the one thing the
-worker reads, so typing it by hand sends a todo as surely as a key does.
+`#agent` on a todo hands it to the agent worker, a job on the server, designed
+but not built yet, that is to pick up open todos carrying the tag and work on
+them. The tag is the one thing the worker reads, so typing it by hand sends a
+todo as surely as a key does.
 
 ```markdown
 - [ ] summarise the meeting notes #agent 📅 2026-10-20
@@ -623,7 +624,8 @@ worker reads, so typing it by hand sends a todo as surely as a key does.
 `@` in [the todo pane](/reference/editor-keys.md#the-todo-pane) and
 `<leader>@` in [the editor](/reference/editor-keys.md#todos) write it, at the end
 of the words and before the fields. Pressed again on an open `[ ]` todo they take
-it back off, which recalls the todo before the worker starts. Once the todo has
+it back off, which recalls the todo before the worker starts. A `#agent` inside
+a code span, a link or a web address is not the tag, and the keys leave it be. Once the todo has
 moved on to another state, the keys leave the tag where it is. They refuse
 client work, a todo carrying `#client` or under one that does, because the
 worker skips it. The saved view `- agent: #agent` lists every todo sent.

@@ -1689,10 +1689,27 @@ function Home() {
    * reads the note as the write finds it, so a second press before the list
    * redraws sees the first's tag and takes it off again.
    */
+  /**
+   * The line each `@` wrote, by the row it was pressed on: path, line and the
+   * words listed. A second `@` on that row before the list redraws changed
+   * words the row no longer shows, and going by these is how it finds its own
+   * todo and never another with the same words.
+   */
+  const agentLines = useRef(new Map<string, { listing: number; line: string }>());
   const agentTodo = useCallback(
     async (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
       const note = hit.path;
+      // The listing the row was drawn from, by when it arrived: a line kept
+      // from a press on an older listing says nothing about a row of this one.
+      const listing = Math.max(
+        0,
+        ...queryClient
+          .getQueryCache()
+          .findAll({ queryKey: ["todos"] })
+          .map((query) => query.state.dataUpdatedAt),
+      );
+      const row = `${note}\n${hit.line}\n${hit.text}`;
       const busy = (): string | null => {
         if (heldText(note) !== undefined) return `${note} holds text not yet saved`;
         const focused = focusedNote.current;
@@ -1714,17 +1731,28 @@ function Home() {
           why = `Nothing moved: ${now}`;
           return false;
         }
+        // Read here, behind the press before it in the queue, which is what
+        // puts the line it wrote in the map. Used once: the press about to go
+        // out leaves a newer line, or none to go by.
+        const kept = agentLines.current.get(row);
+        agentLines.current.delete(row);
+        const mine = kept?.listing === listing;
+        // The words the note now holds for this row, so `rowLine` finds it
+        // exactly. The twins were counted on the listed words, not these.
+        const pressing = mine ? { ...hit, text: kept.line } : hit;
+        let line = "";
         const written = await updateNote(note, (text) => {
           const again = busy();
           if (again !== null) {
             why = `Nothing moved: ${again}`;
             return null;
           }
-          const pressed = agentTodoIn(text, hit, today, twins);
+          const pressed = agentTodoIn(text, pressing, today, mine ? undefined : twins);
           if ("why" in pressed) {
             why = `Nothing moved: ${pressed.why}`;
             return null;
           }
+          line = pressed.line;
           return pressed.text;
         }).then(
           (landed) => landed,
@@ -1734,8 +1762,14 @@ function Home() {
             return null;
           },
         );
-        if (written !== null) queryClient.setQueryData(["note", note], written.content);
-        return written !== null;
+        if (written === null) return false;
+        queryClient.setQueryData(["note", note], written.content);
+        // Lines kept from an older listing go: no row drawn now carries them.
+        for (const [key, each] of agentLines.current) {
+          if (each.listing !== listing) agentLines.current.delete(key);
+        }
+        agentLines.current.set(row, { listing, line });
+        return true;
       });
       if (!tagged) {
         setNotice(why);
