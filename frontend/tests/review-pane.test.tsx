@@ -61,13 +61,13 @@ function seededClient(hits: api.SearchHit[], archive = false) {
  * out, as a refetch on mount, and `ReviewDecks reading the deck notes` below
  * is where the wait itself is tested.
  */
-async function renderPane() {
+async function renderPane(commands = stubCommands()) {
   vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
   serveNotes(HITS);
   const client = seededClient(HITS);
   render(
     <QueryClientProvider client={client}>
-      <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
+      <ReviewPane commands={commands} onClose={vi.fn()} onOpen={vi.fn()} />
     </QueryClientProvider>,
   );
   // `get` and not `find`: nothing is left to wait on.
@@ -456,8 +456,8 @@ describe("ReviewPane undoing the last step (#600)", () => {
    * Only `b.md` reads as `note`, so `decks.md` reads the same before and after
    * the rating's refetch, and the sitting is not built again under the test.
    */
-  async function sitBeta(note: string) {
-    const pane = await renderPane();
+  async function sitBeta(note: string, commands = stubCommands()) {
+    const pane = await renderPane(commands);
     vi.spyOn(api, "fetchNote").mockImplementation((path) =>
       Promise.resolve(path === "b.md" ? note : ""),
     );
@@ -505,6 +505,21 @@ describe("ReviewPane undoing the last step (#600)", () => {
     expect(saved.mock.calls[1]?.[1]).toBe("#flashcards/beta\n\nc::d\n");
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("c"));
     expect(screen.getByTestId("review-back")).toHaveTextContent("d");
+  });
+
+  it("#600 B3 space on the done screen holding Undo starts the leader, and reveals nothing", async () => {
+    const commands = stubCommands();
+    const { pane } = await sitBeta("#flashcards/beta\n\nc::d\n", commands);
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "3" });
+    expect(screen.getByTestId("review-done")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeNull();
+
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "b" });
+
+    expect(commands.toggleTree).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("review-done")).toBeInTheDocument();
   });
 });
 

@@ -7,6 +7,9 @@ import { noteBase } from "@/lib/note-base";
 import { type Deck, decksFrom } from "@/lib/review";
 import { shownCard } from "./review-card";
 
+/** What the session hands a shell to put its keys over. */
+type ReviewControls = Parameters<NonNullable<Parameters<typeof ReviewSession>[0]["onControls"]>>[0];
+
 const DECK: Deck = {
   name: "aws",
   notes: ["decks/aws.md"],
@@ -1322,5 +1325,118 @@ describe("ReviewSession undoing the last step (#600)", () => {
     expect(saved).toHaveBeenCalledTimes(2);
     expect(vault.disk).toBe(TWO);
     expect(screen.getByTestId("review-card")).toHaveTextContent("What is S3?");
+  });
+
+  it("#600 B1 nothing rates, parks, turns or jots the next card while an undo is out", async () => {
+    // A in one note and B in another, so nothing done to B waits behind the
+    // undo's write in the queue of A's note.
+    const disk = new Map([
+      ["x.md", "#flashcards/aws\n\nWhat is A?::a\n"],
+      ["y.md", "#flashcards/aws\n\nWhat is B?::b\n"],
+    ]);
+    vi.spyOn(api, "fetchNote").mockImplementation(async (path: string) => disk.get(path) ?? "");
+    const saved = vi
+      .spyOn(api, "saveNote")
+      .mockImplementation(async (path: string, content: string) => {
+        disk.set(path, content);
+        return { path, content };
+      });
+    // What the pane's keys reach, kept as the session hands it over.
+    const held: { controls: ReviewControls } = { controls: null };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession
+          deck={{ ...DECK, notes: ["x.md", "y.md"], fresh: 2 }}
+          onLeave={vi.fn()}
+          onControls={(given) => {
+            held.controls = given;
+          }}
+        />
+      </QueryClientProvider>,
+    );
+    await shownCard();
+    await rate("Good");
+    let release: (() => void) | undefined;
+    saved.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          release = () => {
+            disk.set(path, content);
+            resolve({ path, content });
+          };
+        }),
+    );
+
+    const undo = undoButton();
+    expect(undo).not.toBeNull();
+    fireEvent.click(undo as HTMLElement);
+    await act(async () => {});
+
+    expect(screen.getByTestId("review-card")).toHaveTextContent("What is B?");
+    for (const name of ["Show answer", "Suspend", "Jot"]) {
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+    }
+    // The pane's keys, which reach these and not the buttons.
+    act(() => {
+      held.controls?.reveal();
+      held.controls?.capture();
+      held.controls?.rate("good");
+      held.controls?.suspend();
+    });
+    expect(screen.queryByTestId("review-back")).toBeNull();
+    expect(screen.queryByTestId("review-capture")).toBeNull();
+    expect(saved).toHaveBeenCalledTimes(2);
+
+    await act(async () => release?.());
+
+    // A back revealed, then B asked once: nothing done while the undo was out
+    // came back through its landing.
+    await backOn("What is A?");
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    await act(async () => {});
+    await rate("Good");
+    expect(await screen.findByTestId("review-done")).toHaveTextContent("2 answered");
+    expect(saved).toHaveBeenCalledTimes(4);
+  });
+
+  it("#600 B2 a jot sent while an undo is out stays in its line and goes once the undo lands", async () => {
+    const { vault, saved } = renderVault();
+    await shownCard();
+    await rate("Good");
+    fireEvent.click(screen.getByRole("button", { name: "Jot" }));
+    fireEvent.change(screen.getByLabelText("a new question"), {
+      target: { value: "What is a moved block?" },
+    });
+    let release: (() => void) | undefined;
+    saved.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          release = () => {
+            vault.disk = content;
+            resolve({ path, content });
+          };
+        }),
+    );
+
+    const undo = undoButton();
+    expect(undo).not.toBeNull();
+    fireEvent.click(undo as HTMLElement);
+    await act(async () => {});
+    fireEvent.submit(screen.getByTestId("review-capture"));
+    await act(async () => {});
+
+    expect(saved).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("a new question")).toHaveValue("What is a moved block?");
+
+    await act(async () => release?.());
+    await backOn("What is a VPC?");
+    fireEvent.submit(screen.getByTestId("review-capture"));
+    await act(async () => {});
+
+    expect(saved).toHaveBeenCalledTimes(3);
+    expect(vault.disk).toContain("What is a VPC?::A private cloud\n");
+    expect(vault.disk).toContain("What is a moved block?::");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

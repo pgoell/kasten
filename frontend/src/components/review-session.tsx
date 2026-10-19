@@ -59,7 +59,7 @@ const RATINGS: { rating: Rating; label: string }[] = [
  */
 const BUTTON =
   "min-h-11 rounded border border-one-line px-4 py-2 text-[13px] text-one-fg " +
-  "hover:border-one-accent hover:text-one-accent active:bg-one-panel";
+  "hover:border-one-accent hover:text-one-accent active:bg-one-panel disabled:opacity-50";
 
 interface ReviewSessionProps {
   deck: Deck;
@@ -74,6 +74,8 @@ interface ReviewSessionProps {
    */
   onControls?: (
     controls: {
+      /** Whether a card is on screen, which the done screen holding Undo has not. */
+      showing: boolean;
       reveal: () => void;
       rate: (rating: Rating) => void;
       suspend: () => void;
@@ -309,7 +311,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
   const rate = useCallback(
     (rating: Rating) => {
-      if (texts === null || seat === undefined) return;
+      // Held while an undo is out: its landing puts back the queue and the
+      // count as they stood before the step, over anything done meanwhile.
+      if (texts === null || seat === undefined || undoing) return;
       const text = texts.get(seat.note);
       const held = cards.get(seat.note)?.[seat.at];
       if (text === undefined || held === undefined) return;
@@ -333,7 +337,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       setStep({ note: seat.note, text, next, queue, done, typed });
       write(seat.note, text, next);
     },
-    [cards, deck, done, play, queue, seat, texts, today, typed, write],
+    [cards, deck, done, play, queue, seat, texts, today, typed, undoing, write],
   );
 
   /**
@@ -345,7 +349,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
    * card it did before.
    */
   const suspend = useCallback(() => {
-    if (texts === null || seat === undefined) return;
+    if (texts === null || seat === undefined || undoing) return;
     const text = texts.get(seat.note);
     const held = cards.get(seat.note)?.[seat.at];
     if (text === undefined || held === undefined) return;
@@ -370,7 +374,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
     setStep({ note: seat.note, text, next, queue, done, typed });
     write(seat.note, text, next);
-  }, [cards, deck, done, play, queue, seat, texts, typed, write]);
+  }, [cards, deck, done, play, queue, seat, texts, typed, undoing, write]);
 
   /**
    * Take back the last rating or suspend: the note's old text, and the card on
@@ -407,7 +411,9 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
    * rather than stopping to open the note.
    */
   function jot(question: string) {
-    if (texts === null || seat === undefined) return;
+    // Kept in the line while an undo is out: written behind it, the jot would
+    // name the text the undo replaces and be refused, losing the question.
+    if (texts === null || seat === undefined || undoing) return;
     const text = texts.get(seat.note);
     if (text === undefined || question.trim() === "") return;
 
@@ -420,11 +426,11 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   // A toggle, because the second press is the only way to shut the line
   // without writing a card: `Escape` is not bound here and a phone has none.
   // Nothing on the done screen, where the controls stay up for Undo alone and a
-  // jot would have no note to go into.
+  // jot would have no note to go into, nor while an undo is out.
   const capture = useCallback(() => {
-    if (card === undefined) return;
+    if (card === undefined || undoing) return;
     setJotting((was) => (was === null ? "" : null));
-  }, [card]);
+  }, [card, undoing]);
 
   const jotOpen = jotting !== null;
 
@@ -441,11 +447,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   }, [jotOpen]);
 
   const reveal = useCallback(() => {
+    if (card === undefined || undoing) return;
     setRevealed(true);
     // Once, on the turn: a second space on an answer already showing is not a
     // request to hear it again, `r` and Replay being that.
-    if (card !== undefined && !shown) play(soundsIn(card.back));
-  }, [card, play, shown]);
+    if (!shown) play(soundsIn(card.back));
+  }, [card, play, shown, undoing]);
 
   const replay = useCallback(() => play(sounds), [play, sounds]);
 
@@ -464,10 +471,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   }, []);
 
   // Held on the done screen too while a step is, so `u` can bring back the
-  // last card of the deck.
+  // last card of the deck. `showing` tells the pane there is no card there, so
+  // its `space` is the leader again rather than a reveal of nothing.
   useEffect(() => {
+    const showing = card !== undefined;
     onControls?.(
-      card === undefined && step === null ? null : { reveal, rate, suspend, capture, replay, undo },
+      !showing && step === null ? null : { showing, reveal, rate, suspend, capture, replay, undo },
     );
     return () => onControls?.(null);
   }, [capture, card, onControls, rate, replay, reveal, step, suspend, undo]);
@@ -519,6 +528,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={suspend}
+            disabled={undoing}
             className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent"
           >
             Suspend
@@ -528,6 +538,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={capture}
+            disabled={undoing}
             aria-expanded={jotOpen}
             // Three letters are narrower than a thumb, which the height alone
             // does not make up for.
@@ -652,6 +663,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
                   key={rating}
                   type="button"
                   onClick={() => rate(rating)}
+                  disabled={undoing}
                   className={BUTTON}
                   data-rating={rating}
                 >
@@ -685,7 +697,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
               </button>
             </form>
           ) : (
-            <button type="button" onClick={reveal} className={`${BUTTON} w-full`}>
+            <button
+              type="button"
+              onClick={reveal}
+              disabled={undoing}
+              className={`${BUTTON} w-full`}
+            >
               Show answer
             </button>
           )}

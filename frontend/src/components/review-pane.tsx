@@ -51,6 +51,7 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
   const [screen, setScreen] = useState<Screen>({ at: "decks" });
   const [pending, setPending] = useState("");
   const controls = useRef<{
+    showing: boolean;
     reveal: () => void;
     rate: (rating: Rating) => void;
     suspend: () => void;
@@ -175,7 +176,8 @@ export function ReviewPane({ commands, onClose, onOpen, focusSignal }: ReviewPan
       return;
     }
 
-    if (key === " " && controls.current === null) {
+    // The leader wherever no card is on screen, the done screen holding Undo too.
+    if (key === " " && !controls.current?.showing) {
       setPending(key);
       event.preventDefault();
       return;

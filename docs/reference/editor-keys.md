@@ -1407,7 +1407,8 @@ down, so a `1` in a question is a digit and not a rating.
 note gets back the text it held before, and the card comes back revealed at the
 head of the queue, its answer off today's count. It works on the done screen
 too, so a misclick on the last card is not the end of it. One step only: after
-an undo there is nothing more to take back. Where the note changed since the
+an undo there is nothing more to take back. Until the undo has been written, the
+keys and buttons that rate, park, turn or jot wait. Where the note changed since the
 step, in another pane, on disk or by a jot of this sitting, the undo writes
 nothing and the foot of the pane says so. `u` on the parked list puts a row back
 instead, each screen scoping its own keys.
