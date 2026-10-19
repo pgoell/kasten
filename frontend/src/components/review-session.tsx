@@ -172,7 +172,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   const write = useSittingWrites(setTexts, unwritten);
 
   const today = useMemo(() => readClock(new Date()).date, []);
-  const read = useReviewLimits();
+  const read = useReviewLimits(true);
   // The first limits read, kept for the whole sitting. Every rating refetches
   // them, and a `decks.md` that answers differently by then would otherwise
   // build the queue again under the sitting: the count jumps back and a card
@@ -185,7 +185,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
   useEffect(() => {
     // Before any note is read: a queue built without the limits would ask the
-    // whole deck, and the limits that arrive later never rebuild it.
+    // whole deck, and the latch above keeps later limits from rebuilding it.
     if (limits === undefined) return;
     let live = true;
     // All of them before any of them is asked. A deck spanning three notes is

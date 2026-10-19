@@ -4,7 +4,7 @@ import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
-import { type Deck, decksFrom } from "@/lib/review";
+import { type Deck, decksFrom, type Limits } from "@/lib/review";
 import { shownCard } from "./review-card";
 
 /** What the session hands a shell to put its keys over. */
@@ -924,7 +924,8 @@ describe("ReviewSession under a daily limit", () => {
     `Due one?::a ${DUE}\n\nDue two?::a ${DUE}\n\nDue three?::a ${DUE}\n\n` +
     "New one?::a\n\nNew two?::a\n\nNew three?::a\n";
 
-  function renderLimited() {
+  /** `cached` is a stale answer the limits query already holds, as the overview leaves it. */
+  function renderLimited(cached?: Limits) {
     vi.spyOn(api, "fetchNote").mockImplementation((path: string) =>
       Promise.resolve(path === "99 Misc/01 Config/decks.md" ? "trivia: 1 new, 2 reviews\n" : CARDS),
     );
@@ -932,6 +933,7 @@ describe("ReviewSession under a daily limit", () => {
       Promise.resolve({ path, content }),
     );
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    if (cached !== undefined) client.setQueryData(["cards", "limits"], cached);
     render(
       <QueryClientProvider client={client}>
         <ReviewSession deck={TRIVIA} onLeave={vi.fn()} />
@@ -963,6 +965,14 @@ describe("ReviewSession under a daily limit", () => {
 
     expect(asked).toEqual(["Due one?", "Due two?", "New one?"]);
     expect(await screen.findByTestId("review-done")).toHaveTextContent("3 answered");
+  });
+
+  it("#612 B1 a sitting started on a stale cache of the limits waits for their refetch", async () => {
+    // Read before `decks.md` gained its line, which invalidated nothing.
+    renderLimited({ note: "", defaults: { new_per_day: null, reviews_per_day: null } });
+    await shownCard();
+
+    expect(screen.getByText(/^\d+ left$/).textContent).toBe("3 left");
   });
 });
 

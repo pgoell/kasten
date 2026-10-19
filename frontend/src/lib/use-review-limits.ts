@@ -16,9 +16,13 @@ const NONE = { new_per_day: null, reviews_per_day: null };
  *
  * Neither read can fail the screen. A vault with no `decks.md` is the usual
  * case, and a limit is a convenience: a sitting with none beats no sitting.
+ *
+ * `current` holds back a stale cached answer until the refetch on mount lands.
+ * A sitting keeps the first answer it sees, and an edit to `decks.md` since the
+ * overview read it invalidates nothing, so a stale one would outlive the edit.
  */
-export function useReviewLimits(): Limits | undefined {
-  const { data } = useQuery({
+export function useReviewLimits(current = false): Limits | undefined {
+  const { data, isFetchedAfterMount, isStale } = useQuery({
     queryKey: ["cards", "limits"],
     queryFn: async (): Promise<Limits> => {
       const [note, defaults] = await Promise.all([
@@ -34,5 +38,5 @@ export function useReviewLimits(): Limits | undefined {
       return { note, defaults };
     },
   });
-  return data;
+  return current && isStale && !isFetchedAfterMount ? undefined : data;
 }
