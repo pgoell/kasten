@@ -108,10 +108,19 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
   }
   const source = id === undefined ? null : (opened.current?.url ?? null);
 
+  // Read through a ref, the way `book-pane.tsx` reads its callbacks. The route
+  // builds `onWatched` fresh on every render, and a `report` keyed on it would
+  // hand the effect below a new cleanup each time, which reports, which writes
+  // the note, which renders the route again.
+  const onWatchedRef = useRef(onWatched);
+  useEffect(() => {
+    onWatchedRef.current = onWatched;
+  });
+
   /** Say where the player got to, which is the note's to keep. */
   const report = useCallback(() => {
-    if (id !== undefined && second.current > 0) onWatched(id, second.current);
-  }, [id, onWatched]);
+    if (id !== undefined && second.current > 0) onWatchedRef.current(id, second.current);
+  }, [id]);
 
   // On the way out as well as on every stop: closing the pane is the other way
   // a session ends, and the position would otherwise be the one from the last

@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import type { Mock } from "vitest";
 import { VideoPane } from "@/components/video-pane";
 import { stubCommands } from "./stub-commands";
 
@@ -18,24 +20,53 @@ beforeEach(() => {
 
 function open(commands = stubCommands(), onWatched = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const view = (playSignal: number) => (
+  const view = (playSignal: number, watched = onWatched) => (
     <QueryClientProvider client={client}>
       <VideoPane
         note={NOTE}
         commands={commands}
         focusSignal={1}
         playSignal={playSignal}
-        onWatched={onWatched}
+        onWatched={watched}
       />
     </QueryClientProvider>
   );
-  const { container, rerender } = render(view(0));
+  const { container, rerender, unmount } = render(view(0));
   return {
     commands,
     onWatched,
     pane: container.querySelector("[data-video-pane]") as HTMLElement,
     press: (count: number) => rerender(view(count)),
+    // The route's render, which hands the pane a new `onWatched` every time.
+    renderAgain: (watched: typeof onWatched) => rerender(view(0, watched)),
+    unmount,
   };
+}
+
+/**
+ * The route as far as the pane can tell: a parent that renders again on every
+ * report, the way `setMark` makes it, with a new inline `onWatched` each time.
+ *
+ * Bounded at five so that a pane which reports on every render shows up as a
+ * count and not as a test that never ends.
+ */
+function Route({ onWatched }: { onWatched: Mock<(id: string, seconds: number) => void> }) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  const [, setMark] = useState(0);
+  return (
+    <QueryClientProvider client={client}>
+      <VideoPane
+        note={NOTE}
+        commands={stubCommands()}
+        onWatched={(id, seconds) => {
+          onWatched(id, seconds);
+          if (onWatched.mock.calls.length < 5) setMark((was) => was + 1);
+        }}
+      />
+    </QueryClientProvider>
+  );
 }
 
 /** What the player says when it starts and stops, which is the only way to know. */
@@ -126,6 +157,69 @@ describe("the video pane", () => {
 
     reports(2, 30);
     expect(onWatched).toHaveBeenCalledWith("dQw4w9WgXcQ", 30);
+  });
+
+  it("does not report again when the pane renders with a new onWatched", async () => {
+    const { onWatched, renderAgain } = open();
+    const later = [vi.fn(), vi.fn(), vi.fn()];
+
+    await screen.findByTitle("video");
+    reports(1, 12);
+    for (const watched of later) renderAgain(watched);
+
+    // A render is not a stop, and the route renders on every vault write.
+    expect([onWatched, ...later].flatMap((watched) => watched.mock.calls)).toEqual([]);
+  });
+
+  it("reports a stop once under a route that renders again on each report", async () => {
+    const onWatched = vi.fn();
+    render(<Route onWatched={onWatched} />);
+
+    await screen.findByTitle("video");
+    act(() => reports(1, 12));
+    act(() => reports(2, 30));
+
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 30]]);
+  });
+
+  it("reports the old video once on a change of video after a render", async () => {
+    fetchNote.mockResolvedValue(
+      "[one](https://youtu.be/dQw4w9WgXcQ)\n[two](https://youtu.be/iDulhoQ2pro)\n",
+    );
+    const { onWatched, pane, renderAgain } = open();
+    const later = vi.fn();
+
+    await screen.findByTitle("video");
+    reports(1, 12);
+    renderAgain(later);
+    fireEvent.keyDown(pane, { key: "n" });
+
+    expect([...onWatched.mock.calls, ...later.mock.calls]).toEqual([["dQw4w9WgXcQ", 12]]);
+  });
+
+  it("reports once when the pane closes after a render", async () => {
+    const { onWatched, renderAgain, unmount } = open();
+    const later = vi.fn();
+
+    await screen.findByTitle("video");
+    reports(1, 12);
+    renderAgain(later);
+    unmount();
+
+    expect([...onWatched.mock.calls, ...later.mock.calls]).toEqual([["dQw4w9WgXcQ", 12]]);
+  });
+
+  it("reports a stop to the newest onWatched and never to the one before", async () => {
+    const { onWatched, renderAgain } = open();
+    const later = vi.fn();
+
+    await screen.findByTitle("video");
+    reports(1, 12);
+    renderAgain(later);
+    reports(2, 30);
+
+    expect(later.mock.calls).toEqual([["dQw4w9WgXcQ", 30]]);
+    expect(onWatched).not.toHaveBeenCalled();
   });
 
   it("opens at the second the note remembers", async () => {
