@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import { buildTree } from "@/components/file-explorer";
-import { ASSET_LIMIT_BYTES, ChangedOnDisk, type TodoHit } from "@/lib/api";
+import { ASSET_LIMIT_BYTES, ChangedOnDisk, NoteMissing, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { folderCandidates, lineCandidates, noteCandidates } from "@/lib/fuzzy";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
@@ -4230,6 +4230,354 @@ describe("the book finder", () => {
     expect.soft(app.panes()).toBe(2);
     expect.soft(document.querySelectorAll("foliate-view")).toHaveLength(1);
     expect.soft(app.focusedPane()).toBe(1);
+  });
+});
+
+describe("reading the current book", () => {
+  // Spelled out rather than imported, so the fake below keys on the default
+  // layout's path whatever the route makes of it.
+  const READING = "99 Misc/01 Config/reading-now.md";
+  const BOOK = "04 Ressources/02 Literature/01 Books/The Expectant Father.md";
+  const PAPER = "Papers/Paper.md";
+  const BARE = "Notes/Bare.md";
+  const PLACE = "epubcfi(/6/4!/4/4/1:0)";
+  const NOTES: Record<string, string> = {
+    ...VAULT,
+    [BOOK]: ["---", "id: father", `reading: ${PLACE}`, "---", "# The Expectant Father"].join("\n"),
+    [PAPER]: "# Paper",
+    [BARE]: "# Bare",
+  };
+  /** What reading-now.md holds on disk, or null for a vault without it. */
+  let reading: string | null;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    reading = "[[The Expectant Father]]";
+    // The config note is listed even where it is gone, so only its read can
+    // say it is not there.
+    fetchFiles.mockResolvedValue([...Object.keys(NOTES), READING]);
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path !== READING) return NOTES[path];
+      if (reading === null) throw new NoteMissing(path);
+      return reading;
+    });
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchBook.mockImplementation(async (note: string) => beside(note));
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue([BOOK.replace(/\.md$/, ".epub"), PAPER.replace(/\.md$/, ".pdf")]);
+    resetFoliateFake();
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await hashed();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  /** Open the index note, which is what the focused pane holds before the press. */
+  async function opened() {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    return app;
+  }
+
+  /** Space g c, and every answer it waits on. */
+  async function press(app: Awaited<ReturnType<typeof renderApp>>) {
+    app.leader("g", "c");
+    await hashed();
+    await settle();
+  }
+
+  /** Whether an editor anywhere on the page holds the book's note. */
+  const bookNoteEdited = () =>
+    [...document.querySelectorAll(".cm-content")].some((editor) =>
+      editor.textContent?.includes("The Expectant Father"),
+    );
+
+  it("A1 opens the linked book in the focused pane on its own, with no split and no note", async () => {
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.reader()).not.toBeNull();
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+    expect.soft(app.panes()).toBe(1);
+    expect.soft(bookNoteEdited()).toBe(false);
+    // Replaced, not split: the note the pane held is gone with its editor.
+    expect.soft(document.querySelector(".cm-content")).toBeNull();
+    expect.soft(app.notice()).toBeNull();
+  });
+
+  it("A2 hands the reader the book's note, so it opens at the note's reading: place", async () => {
+    const app = await opened();
+
+    await press(app);
+    await settle();
+
+    // The pane's book is the note's path, which is what the reader asks the
+    // vault about and reads `reading:` out of.
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+    expect.soft(fetchNote).toHaveBeenCalledWith(BOOK);
+    expect.soft(FakeView.made.at(-1)?.inits[0]).toEqual({ lastLocation: PLACE });
+  });
+
+  it("A3 says so when reading-now.md is not there", async () => {
+    reading = null;
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.notice()).toBe(`${READING} is not there`);
+    expect.soft(app.reader()).toBeNull();
+    expect.soft(app.text()).toBe("the index note");
+  });
+
+  it("A4 says so when reading-now.md holds no link", async () => {
+    reading = "The Expectant Father, chapter three";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.notice()).toBe(`${READING} links no book note`);
+    expect.soft(app.reader()).toBeNull();
+  });
+
+  it("A5 names the link when it names no note", async () => {
+    reading = "[[Nowhere]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.notice()).toBe("[[Nowhere]] in reading-now.md names no note");
+    expect.soft(app.reader()).toBeNull();
+  });
+
+  it("A6 says nothing is beside the note before the pane is swapped", async () => {
+    reading = "[[Bare]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(app.notice()).toBe(`Nothing to read beside ${BARE}`);
+    // No reader drawing its own "nothing to read beside" panel either.
+    expect.soft(app.readerPane()).toBeNull();
+    expect.soft(fetchBook).not.toHaveBeenCalled();
+    expect.soft(app.text()).toBe("the index note");
+  });
+
+  it("A6 waits for the listings before it refuses, on a press right after load", async () => {
+    // Both held, so the press lands before the route knows a note or a book.
+    let files: (paths: string[]) => void = () => {};
+    let assets: (paths: string[]) => void = () => {};
+    fetchFiles.mockReturnValue(
+      new Promise<string[]>((resolve) => {
+        files = resolve;
+      }),
+    );
+    fetchAssets.mockReturnValue(
+      new Promise<string[]>((resolve) => {
+        assets = resolve;
+      }),
+    );
+    const app = await renderApp();
+    await settle();
+
+    await press(app);
+    act(() => {
+      files([...Object.keys(NOTES), READING]);
+      assets([BOOK.replace(/\.md$/, ".epub")]);
+    });
+    await hashed();
+    await settle();
+
+    expect.soft(app.notice()).toBeNull();
+    expect.soft(app.reader()).not.toBeNull();
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+  });
+
+  it("A9 opens from the palette's Read the current book row with vim off", async () => {
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      const app = await opened();
+      app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+      await settle();
+      const row = screen.queryByRole("option", { name: /^Read the current book/ });
+      expect.soft(row).not.toBeNull();
+      if (row) fireEvent.click(row);
+      await hashed();
+      await settle();
+
+      expect.soft(app.reader()).not.toBeNull();
+      expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+  });
+
+  it("A11 a bare name finds the note in any folder, whatever its case", async () => {
+    reading = "[[the expectant father]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+    expect.soft(app.notice()).toBeNull();
+  });
+
+  it("A11 a path is taken as written, not looked up by its last name", async () => {
+    reading = "[[Elsewhere/The Expectant Father]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect
+      .soft(app.notice())
+      .toBe("[[Elsewhere/The Expectant Father]] in reading-now.md names no note");
+    expect.soft(fetchBook).not.toHaveBeenCalled();
+  });
+
+  it("A11 drops the alias and the heading", async () => {
+    reading = "[[The Expectant Father#Part two|the book]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+    expect.soft(app.notice()).toBeNull();
+  });
+
+  it("I1 opens with no note open", async () => {
+    const app = await renderApp();
+    await settle();
+
+    await press(app);
+
+    expect.soft(app.reader()).not.toBeNull();
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+  });
+
+  it("I1 opens from the todo pane, which holds no note", async () => {
+    const app = await opened();
+    app.leader("g", "t");
+    await settle();
+    const pane = app.todoPane() as HTMLElement;
+    expect.soft(pane).not.toBeNull();
+
+    for (const key of [" ", "g", "c"]) fireEvent.keyDown(pane, { key });
+    await hashed();
+    await settle();
+
+    expect.soft(app.reader()).not.toBeNull();
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+  });
+
+  it("I2 the next press clears a refusal, and the book it opens leaves no notice", async () => {
+    reading = null;
+    const app = await opened();
+    await press(app);
+    expect.soft(app.notice()).toBe(`${READING} is not there`);
+
+    reading = "[[The Expectant Father]]";
+    await press(app);
+
+    expect.soft(app.notice()).toBeNull();
+    expect.soft(app.reader()).not.toBeNull();
+  });
+
+  it("I3 reads reading-now.md afresh on each press", async () => {
+    reading = "[[Nowhere]]";
+    const app = await opened();
+    await press(app);
+    expect.soft(app.notice()).toBe("[[Nowhere]] in reading-now.md names no note");
+
+    reading = "[[Bare]]";
+    await press(app);
+
+    expect.soft(app.notice()).toBe(`Nothing to read beside ${BARE}`);
+  });
+
+  it("I4 writes the unsaved text of the focused note before the book replaces it", async () => {
+    const app = await opened();
+    app.press("x");
+    expect(app.text()).toBe("he index note");
+
+    await press(app);
+
+    expect
+      .soft(saveNote)
+      .toHaveBeenCalledWith("index.md", "he index note", false, await baseOf("the index note"));
+    expect.soft(app.reader()).not.toBeNull();
+  });
+
+  it("I4 keeps the note in place when the write before the book fails", async () => {
+    const app = await opened();
+    app.press("x");
+    saveNote.mockRejectedValueOnce(new Error("PUT failed with 500"));
+
+    await press(app);
+
+    // Asked for, so a key that wrote nothing cannot pass for one that kept it.
+    expect
+      .soft(saveNote)
+      .toHaveBeenCalledWith("index.md", "he index note", false, await baseOf("the index note"));
+    expect.soft(app.reader()).toBeNull();
+    expect.soft(document.querySelector(".cm-content")?.textContent).toBe("he index note");
+  });
+
+  it("I5 opens a pdf beside the note", async () => {
+    reading = "[[Paper]]";
+    fetchBook.mockImplementation(async (note: string) => beside(note, ".pdf"));
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(fetchBook).toHaveBeenCalledWith(PAPER);
+    expect.soft(app.notice()).toBeNull();
+    expect.soft(document.querySelector(".cm-content")).toBeNull();
+  });
+
+  it("I6 takes the first of several links", async () => {
+    reading = "Now [[The Expectant Father]], then [[Paper]]";
+    const app = await opened();
+
+    await press(app);
+
+    expect.soft(fetchBook).toHaveBeenCalledWith(BOOK);
+    expect.soft(fetchBook).not.toHaveBeenCalledWith(PAPER);
+  });
+
+  it("I8 changes nothing when the focused pane already reads that book", async () => {
+    const app = await opened();
+    await press(app);
+    const built = FakeView.made.length;
+    expect.soft(built).toBe(1);
+
+    // From the reader, which has no leader, so through its palette chord.
+    // Looked up, so a reader that never opened leaves the assertions below to
+    // say so.
+    const pane = app.readerPane();
+    if (pane) fireEvent.keyDown(pane, { key: "P", ctrlKey: true, shiftKey: true });
+    await settle();
+    const row = screen.queryByRole("option", { name: /^Read the current book/ });
+    if (row) fireEvent.click(row);
+    await hashed();
+    await settle();
+
+    // The second press ran, or nothing changing would prove nothing.
+    expect.soft(fetchNote.mock.calls.filter(([path]) => path === READING)).toHaveLength(2);
+    expect.soft(app.panes()).toBe(1);
+    expect.soft(document.querySelectorAll("foliate-view")).toHaveLength(1);
+    expect.soft(FakeView.made).toHaveLength(built);
+    expect.soft(app.notice()).toBeNull();
   });
 });
 

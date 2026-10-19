@@ -486,3 +486,4 @@
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) cuts the leader table into the groups the `<leader>?` panel shows, every leader key in a named group (#516).
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) says the `<leader>?` panel lines its keys up on the left (#580) and leaves `gf` and Enter out of its Editor group with vim off (#581).
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) gained `<leader>fb`, the book finder, which lists every note with an epub beside it and opens the chosen book in the reader without its note (#502).
+* **Update**: [Editor keys](/reference/editor-keys.md#the-book-pane) gained `<leader>gc`, which opens the book that `reading-now.md` links to in the focused pane, and says how it refuses. [Configuration](/reference/configuration.md#the-vaults-folders) names `reading-now.md` among the config folder's files and says kasten only reads it (#503).

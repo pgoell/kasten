@@ -1048,6 +1048,7 @@ export function Editor({
             openQuarterly: () => commandsRef.current?.openQuarterly(),
             openYearly: () => commandsRef.current?.openYearly(),
             openBook: () => commandsRef.current?.openBook(),
+            openReadingBook: () => commandsRef.current?.openReadingBook(),
             openPerson: () => commandsRef.current?.openPerson(),
             openHistory: () => commandsRef.current?.openHistory(),
             openGraph: () => commandsRef.current?.openGraph(),

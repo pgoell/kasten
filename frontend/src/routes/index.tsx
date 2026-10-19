@@ -51,6 +51,7 @@ import {
   fetchTrash,
   fetchVersion,
   type Mention,
+  NoteMissing,
   restoreEntry,
   type SearchHit,
   saveNote,
@@ -65,6 +66,7 @@ import { queryEmbedSource } from "@/lib/embed";
 import { heldText, moveHeld, sameText, useHeld } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
+import { READING_NOTE } from "@/lib/layout";
 import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import type { MoveMode } from "@/lib/move";
 import { noteBase } from "@/lib/note-base";
@@ -134,7 +136,14 @@ import { useNoteWrites } from "@/lib/use-note-writes";
 import { useViewport } from "@/lib/use-viewport";
 import { parseVaultEvent } from "@/lib/vault-events";
 import { setWatched } from "@/lib/video";
-import { namesAFile, outgoingLinks, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
+import {
+  namesAFile,
+  outgoingLinks,
+  pdfPage,
+  splitTarget,
+  wikiLinkPath,
+  wikiLinkTargets,
+} from "@/lib/wikilink";
 import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 
 /** What an unfocused pane's editor reports its typing to, which is nowhere. */
@@ -2023,6 +2032,63 @@ function Home() {
     [queryClient, openInPane],
   );
 
+  /**
+   * Open the book `READING_NOTE` links in the focused pane, over what it held.
+   *
+   * The config note is read fresh on every press rather than out of the cache
+   * or the listing: it is a file edited by hand and by agents, and a 404 is
+   * the one answer that says it is not there. Every refusal is checked before
+   * the pane changes, so a note with nothing beside it is a sentence at the
+   * foot of the window and not a reader drawing its own empty panel.
+   */
+  const openReadingBook = useCallback(async () => {
+    setNotice(undefined);
+
+    // The listings through the cache the route's own queries fill, so a press
+    // right after load waits for them rather than refusing over a vault it
+    // has not been told about yet.
+    let text: string;
+    let paths: string[];
+    let books: string[];
+    try {
+      [text, paths, books] = await Promise.all([
+        fetchNote(READING_NOTE),
+        queryClient.ensureQueryData({ queryKey: ["files"], queryFn: fetchFiles }),
+        queryClient.ensureQueryData({ queryKey: ["assets"], queryFn: fetchAssets }),
+      ]);
+    } catch (error: unknown) {
+      if (error instanceof NoteMissing) setNotice(`${READING_NOTE} is not there`);
+      else setNotice(error instanceof Error ? error.message : `${READING_NOTE} could not be read`);
+      return;
+    }
+
+    const target = wikiLinkTargets(text)[0];
+    if (target === undefined || splitTarget(target).name === "") {
+      setNotice(`${READING_NOTE} links no book note`);
+      return;
+    }
+
+    // `wikiLinkPath` falls back to the inbox for a name nothing answers to, a
+    // path the listing does not hold, so the listing is what says no note.
+    const note = wikiLinkPath(target, paths);
+    if (!note.endsWith(".md") || !paths.includes(note)) {
+      setNotice(`[[${target}]] in ${noteName(READING_NOTE)}.md names no note`);
+      return;
+    }
+
+    // The backend's pairing, suffix and case alike, which `withBooks` in the
+    // book finder follows too. Both suffixes, the reader opening either.
+    const stem = note.slice(0, -".md".length);
+    if (!books.some((path) => path === `${stem}.epub` || path === `${stem}.pdf`)) {
+      setNotice(`Nothing to read beside ${note}`);
+      return;
+    }
+
+    // Saved first for the book finder's reason: the book replaces what the
+    // pane holds. The reader finds the `reading:` place in the note itself.
+    if (await saveFirst()) moveTo((previous) => openBookInFocused(previous, note));
+  }, [queryClient, saveFirst, moveTo]);
+
   const commands = useMemo<TreeCommands>(
     () => ({
       toggleTree: () => setTreeOpen((previous) => !previous),
@@ -2191,6 +2257,8 @@ function Home() {
         const note = pane.path;
         moveTo((previous) => openBookBeside(previous, note));
       },
+      // Written above, for the refusals it carries.
+      openReadingBook: () => void openReadingBook(),
       // Needs a person's note in the focused pane, which is what the type in
       // its frontmatter says. Read out of the cache the editor filled, so a
       // `type: Person` typed and not yet saved is not seen until the autosave
@@ -2370,6 +2438,7 @@ function Home() {
       discardFolder,
       discardImage,
       restoreDeleted,
+      openReadingBook,
       pane.path,
       pane.term,
       pane.chat,

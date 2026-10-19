@@ -98,6 +98,7 @@ function Harness({
         openQuarterly: () => {},
         openYearly: () => {},
         openBook: () => {},
+        openReadingBook: () => {},
         openPerson: () => {},
         openHistory: () => {},
         openGraph: () => {},

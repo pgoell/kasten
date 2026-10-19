@@ -8,6 +8,7 @@ import {
   IMAGE_FOLDER as LAYOUT_IMAGES,
   type Layout,
   PERIODIC,
+  READING_NOTE,
 } from "@/lib/layout";
 import { bookNote, importedNote } from "@/lib/note-path";
 import { ONTOLOGY_NOTE } from "@/lib/ontology";
@@ -83,5 +84,9 @@ describe("a layout the backend served", () => {
     expect(IMAGE_FOLDER).toBe("Attachments");
     expect(ONTOLOGY_NOTE).toBe("Meta/01 Agents/Ontology.md");
     expect(VIEWS_NOTE).toBe("Meta/todo-views.md");
+  });
+
+  it("puts the reading note beside the other config notes", () => {
+    expect(READING_NOTE).toBe("Meta/reading-now.md");
   });
 });

@@ -84,7 +84,7 @@ editor, and the startup notes and the agent instructions spell them as set.
 | `KASTEN_INBOX_PATH` | `00 Inbox` | a note made from a `[[link]]` nothing answers to, a clipped page, an imported markdown file; books in `02 Books` and documents in `02 Documents` under it; an agent's notes in `00 Agent` under it |
 | `KASTEN_PERIODIC_PATH` | `01 Periodic` | the periodic notes, in `00 Daily`, `01 Weekly`, `02 Monthly`, `03 Quarterly` and `04 Yearly` under it, and the dump |
 | `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted or dropped into a note |
-| `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md` and `todo-views.md`, and the ontology and three agent guides in `01 Agents` under it |
+| `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md`, `todo-views.md` and `reading-now.md`, and the ontology and three agent guides in `01 Agents` under it |
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
 
 Only the parent folders are settings. The subfolders under them keep their
@@ -93,6 +93,14 @@ names, so one setting moves a whole group and the list stays short.
 The startup notes are written into `KASTEN_CONFIG_PATH` only when missing, so
 changing it on a running vault writes a fresh set in the new place and leaves
 the old ones where they are. Move them yourself if you want to keep your edits.
+
+`reading-now.md` is not a startup note. You write it, and kasten only reads it:
+nothing creates it or changes it, except a move of the book's note, which
+rewrites the link as it rewrites any other. Its body holds one `[[wikilink]]` to
+the note of the book you are reading, such as `[[The Expectant Father]]`, and
+the link resolves by the vault's usual rule. With several links the first one
+counts. [`<leader>gc`](/reference/editor-keys.md#the-book-pane) reads it afresh
+on each press and opens that book.
 
 Changing a folder setting moves nothing. Notes already in the old folder stay
 there, and the links to them keep working.

@@ -87,7 +87,7 @@ const LEADER_GROUPS: Record<string, string[]> = {
   "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
   "This note": ["rf", "df", "du", "w", "="],
   "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
-  "Panes to open": ["gb", "go", "gr", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
+  "Panes to open": ["gb", "go", "gr", "gc", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
   Todos: ["x", "i", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
   Toggles: ["a", "b", "p", "e", "E", "v"],
   Help: ["?", ":"],

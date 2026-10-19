@@ -82,6 +82,15 @@ export interface EditorCommands {
   /** Read the focused pane's note's book in a pane beside it. */
   openBook(): void;
   /**
+   * Read the book `READING_NOTE` links, in the focused pane, at its note's place.
+   *
+   * Needs no note open: the config note names the book, so the key works from
+   * any pane. A config note that names nothing readable says why at the foot
+   * of the window rather than doing nothing, the reader having asked for one
+   * book in particular.
+   */
+  openReadingBook(): void;
+  /**
    * Show the card for the person whose note the focused pane holds, beside it.
    *
    * Needs a person's note open, the way `openBook` needs a note with a book. A
@@ -279,6 +288,10 @@ export const LEADER: readonly LeaderBinding[] = [
   // outgoing links, and `b` and `o` are those two words. Neither can be a bare
   // letter: `b` folds the tree away and `o` opens a line in vim.
   { key: "gb", label: "Show what links here", command: "showBacklinks" },
+  // `g` for go and `c` for current, the book you are in the middle of. Over
+  // the pane like `fb`, not beside like `gr`: the note it reads is a config
+  // note, and nothing on screen is the book's own note to keep beside it.
+  { key: "gc", label: "Read the current book", command: "openReadingBook" },
   // The rest of the `g` group is the five periodic notes, each on the first
   // letter of what it covers. `go` is spent above, so the month takes `m` and
   // nothing here has to move for it.
@@ -288,8 +301,8 @@ export const LEADER: readonly LeaderBinding[] = [
   // anything until you finish.
   { key: "ge", label: "Sit this note as a practice exam", command: "openExam" },
   // `g` for go and `g` for graph. Doubled rather than on a letter of its own
-  // because the group's letters are spent, and `gg` is the key vim already
-  // spends on going to the top of everything.
+  // because the letter was spent when the graph came, and `gg` is the key vim
+  // already spends on going to the top of everything.
   { key: "gg", label: "Open the graph of the whole vault", command: "openGraph" },
   // `g` for go and `h` for history. It sits with `gp` and `gr`: all three put
   // something about the note in a pane beside it, here its older versions.
@@ -298,9 +311,8 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "gl", label: "Show the graph around this note beside it", command: "openLocalGraph" },
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
-  // `g` for go and `p` for person, the one letter of the group still free. It
-  // sits with `gr` and `gv`: all three put what the note is about in a pane
-  // beside the note itself.
+  // `g` for go and `p` for person. It sits with `gr` and `gv`: all three put
+  // what the note is about in a pane beside the note itself.
   { key: "gp", label: "Show this person's card beside their note", command: "openPerson" },
   { key: "gq", label: "Open this quarter's note", command: "openQuarterly" },
   // `g` for go and `r` for read. The book is the note's path with the suffix

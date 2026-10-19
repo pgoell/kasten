@@ -116,6 +116,18 @@ describe("the palette", () => {
     expect(row).toHaveClass("pointer-coarse:min-h-11");
   });
 
+  it("offers Read the current book and runs it from a tapped row", () => {
+    const commands = stubCommands();
+    render(<CommandPalette entries={paletteEntries(commands, null)} onClose={() => {}} />);
+
+    // Looked up rather than got, so a missing row is an assertion that fails.
+    const row = screen.queryByRole("option", { name: /^Read the current book/ });
+    expect.soft(row).not.toBeNull();
+    if (row) fireEvent.click(row);
+
+    expect(commands.openReadingBook).toHaveBeenCalledTimes(1);
+  });
+
   it("sets a todo to waiting for review from a tapped row, no vim in the editor", () => {
     // A bare view: no vim, so the row is the whole way in, as on a phone.
     const view = viewOf("- [ ] wire up the pane", 0);
