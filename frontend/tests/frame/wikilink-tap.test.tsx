@@ -13,6 +13,7 @@ import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
+import { useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { cdp, page, userEvent } from "vitest/browser";
 import { Editor } from "@/components/editor";
@@ -143,6 +144,19 @@ function clicks(at: EditorView): number[] {
   const details: number[] = [];
   at.dom.addEventListener("click", (event) => details.push(event.detail), true);
   return details;
+}
+
+const CAT = "https://example.com/cat.png";
+
+/** A 320 by 180 PNG in one colour, as a data URL, for a picture to have a size. */
+function picture(): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = 320;
+  canvas.height = 180;
+  const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+  context.fillStyle = "#61afef";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/png");
 }
 
 /** `window.open`, stubbed so a follow is seen and no tab opens. */
@@ -407,6 +421,148 @@ describe("a tap or a press on a wikilink follows it once", () => {
       await twice(at.contentDOM.querySelector(".cm-link span") as Element, how);
       await bothLanded(details);
       expect(open).toHaveBeenCalledExactlyOnceWith("https://a.com", "_blank", "noopener");
+    },
+  );
+
+  it.each(PRESSES)(
+    "R4 #569 a triple %s press on a markdown link with vim %s opens one tab",
+    async (how, vim) => {
+      const { at } = await appWith("A line\n[t](https://a.com) two", how, vim, ".cm-link");
+      const open = stubOpen();
+      const details = clicks(at);
+
+      const point = on(at.contentDOM.querySelector(".cm-link span") as Element);
+      for (const count of [1, 2, 3]) await pressAt(point, how === "ctrl" ? 2 : 4, count);
+      await expect.poll(() => details.length, { message: "the clicks handled" }).toBe(3);
+      await settled();
+      expect(details, "the clicks' details").toEqual([1, 2, 3]);
+      expect(open).toHaveBeenCalledExactlyOnceWith("https://a.com", "_blank", "noopener");
+    },
+  );
+
+  it.each(VIMS)(
+    "R4 #569 a triple tap on a wikilink in a cell with vim %s follows once",
+    async (vim) => {
+      const { at, follow } = await appWith(CELL, "tap", vim, ".cm-table-block .cm-wikilink");
+      const details = clicks(at);
+
+      const point = on(cellLink(at));
+      for (let tap = 0; tap < 3; tap++) await tapAt(point);
+      await expect.poll(() => details.length, { message: "the clicks handled" }).toBe(3);
+      await settled();
+      expect(details, "the clicks' details").toEqual([1, 2, 3]);
+      expect(follow).toHaveBeenCalledExactlyOnceWith("Some note");
+    },
+  );
+
+  // A press on a picture never reaches the editor's own handlers, the widget
+  // swallowing it. The picture is a linked one, which moves no cursor, above a
+  // table, where a ctrl press moves none either, so nothing redraws between
+  // the presses. Its address opens only on a first click, so here it opens
+  // none. Presses with their count given, not taps: Chrome counts a tap as
+  // the next only within 20 pixels, and the table sits further from the
+  // picture than that.
+  it.each(VIMS)(
+    "R5 #569 a ctrl press on a wikilink after a press on a picture beside it, within the double-click window, with vim %s follows",
+    async (vim) => {
+      // A line first, for the cursor: on the picture's line it shows the source.
+      const doc = [
+        "A line",
+        `[![a](${CAT})](https://x.com)`,
+        "| [[A]] | b |",
+        "| --- | --- |",
+        "| c | d |",
+      ].join("\n");
+      const { at, follow } = await appWith(doc, "ctrl", vim, ".cm-table-block .cm-wikilink");
+      await expect.poll(() => at.contentDOM.querySelector("img.cm-image")).not.toBeNull();
+      const image = at.contentDOM.querySelector("img.cm-image") as HTMLImageElement;
+      image.src = picture();
+      await expect.poll(() => image.complete && image.naturalWidth > 0).toBe(true);
+      const open = stubOpen();
+      const details = clicks(at);
+      const onLink = on(at.dom.querySelector(".cm-table-block thead .cm-wikilink") as Element);
+      const onPicture = on(image);
+
+      await pressAt(onLink, 2, 1);
+      await pressAt(onPicture, 0, 2);
+      await pressAt(onLink, 2, 3);
+      await expect.poll(() => details.length, { message: "the clicks handled" }).toBe(3);
+      await settled();
+      expect(details, "the clicks' details").toEqual([1, 2, 3]);
+      expect.soft(open, "no tab opened").not.toHaveBeenCalled();
+      expect(follow.mock.calls).toEqual([["A"], ["A"]]);
+    },
+  );
+
+  it.each(VIMS)(
+    "R6 #568 a tap on the first of two adjacent wikilinks to one note with vim %s follows while the cursor rests between them",
+    async (vim) => {
+      const { at, follow } = await appWith("[[a]][[a]]", "tap", vim, ".cm-wikilink");
+      // As in R2: from inside the second link, in insert mode for vim.
+      if (vim === "on") {
+        at.focus();
+        await userEvent.keyboard("i");
+      }
+      at.dispatch({ selection: { anchor: 7 } });
+      at.dispatch({ selection: { anchor: 5 } });
+      await settled();
+      expect(at.state.selection.main.head, "the cursor between the links").toBe(5);
+
+      await act(linkOn(at, 0), "tap");
+      await landed(at, follow, 5);
+      expect(follow).toHaveBeenCalledExactlyOnceWith("a");
+    },
+  );
+
+  // The route keys the editor on the note's path, so a follow builds a new
+  // view, and the second tap of the double tap lands in it.
+  it.each(VIMS)(
+    "R7 #569 a double tap on a wikilink whose note opens with a link at the same spot follows once with vim %s",
+    async (vim) => {
+      const notes: Record<string, string> = {
+        "first.md": "A line\n[[Y]] two",
+        "Y.md": "A line\n[[Z]] two",
+      };
+      const follow = vi.fn();
+      function Notes() {
+        const [path, setPath] = useState("first.md");
+        return (
+          <Editor
+            key={path}
+            path={path}
+            initialDoc={notes[path] ?? ""}
+            onFollow={(target) => {
+              follow(target);
+              setPath(`${target}.md`);
+            }}
+          />
+        );
+      }
+      await page.viewport(414, 896);
+      await cdp().send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+      localStorage.setItem("kasten.vim", vim);
+      const host = document.body.appendChild(document.createElement("div"));
+      host.style.cssText = "width: 100%; height: 896px;";
+      const root = createRoot(host);
+      root.render(
+        <QueryClientProvider client={new QueryClient()}>
+          <Notes />
+        </QueryClientProvider>,
+      );
+      app = { root, host };
+      await expect.poll(() => host.querySelector(".cm-wikilink")).not.toBeNull();
+      // On the document: the editor the second click lands in is not the first.
+      const details: number[] = [];
+      const count = (event: MouseEvent) => details.push(event.detail);
+      document.addEventListener("click", count, true);
+      onTestFinished(() => document.removeEventListener("click", count, true));
+
+      const point = on(host.querySelector(".cm-wikilink") as Element);
+      await tapAt(point);
+      await tapAt(point);
+      await bothLanded(details);
+      expect(host.querySelector(".cm-wikilink")?.textContent, "the note followed to").toBe("Z");
+      expect(follow).toHaveBeenCalledExactlyOnceWith("Y");
     },
   );
 });

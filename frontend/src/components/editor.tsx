@@ -324,19 +324,12 @@ const byName = viewCommands.of({
  * second, so a press is a repeat only when the press before it followed.
  */
 function followOnClick(): Extension {
-  let followed = false;
-  let repeat = false;
+  watchPresses();
   return EditorView.domEventHandlers({
-    // Every press passes here, where a table cell's link followed by the block
-    // keeps its mousedown from this editor.
-    pointerdown() {
-      repeat = followed;
-      followed = false;
-      return false;
-    },
     mousedown(event, view) {
       if (!event.ctrlKey && !event.metaKey) return false;
-      const again = event.detail > 1 && repeat;
+      // A repeat dropped still counts as followed, so a third press is one too.
+      const again = event.detail > 1 && presses.repeat;
       const target = linkUnder(event, view);
       if (target !== null) {
         // Returning true makes CodeMirror cancel the mousedown, and with it the
@@ -347,19 +340,49 @@ function followOnClick(): Extension {
         if (!again) {
           view.focus();
           followLink(view, target);
-          followed = true;
         }
+        presses.followed = true;
         return true;
       }
       const link = urlUnder(event, view);
       if (link === null) return false;
-      if (!again) {
-        window.open(link.address, "_blank", "noopener");
-        followed = true;
-      }
+      if (!again) window.open(link.address, "_blank", "noopener");
+      presses.followed = true;
       return true;
     },
   });
+}
+
+/**
+ * Whether the last press anywhere followed a link, and whether the press now
+ * down may repeat it (#569).
+ *
+ * One for the module, kept by one listener on the document in the capture
+ * phase, rather than one per view: a press on a widget never reaches the
+ * view's own handlers, a press may land in another pane, and a follow rebuilds
+ * the view for the note it opens, under the second press of a double tap.
+ */
+const presses = { followed: false, repeat: false };
+let watchingPresses = false;
+
+function watchPresses(): void {
+  if (watchingPresses) return;
+  watchingPresses = true;
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      presses.repeat = presses.followed;
+      presses.followed = false;
+    },
+    true,
+  );
+}
+
+/** The `[[link]]` around `pos`, looking one way only. */
+function wikiLinkNode(state: EditorState, pos: number, side: -1 | 1): SyntaxNode | null {
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, side);
+  for (; node; node = node.parent) if (node.name === "WikiLink") return node;
+  return null;
 }
 
 /**
@@ -396,12 +419,10 @@ function linkUnder(event: Event, view: EditorView): string | null {
  * Looking forwards only: the span starts past the hidden `[[`, or past the
  * alias bar, so the position is always inside the link.
  */
-function wikiLinkRangeUnder(event: Event, view: EditorView): { from: number; to: number } | null {
+function wikiLinkRangeUnder(event: Event, view: EditorView): SyntaxNode | null {
   const element = event.target instanceof HTMLElement ? event.target.closest(".cm-wikilink") : null;
   if (element === null) return null;
-  let node: SyntaxNode | null = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
-  for (; node; node = node.parent) if (node.name === "WikiLink") return node;
-  return null;
+  return wikiLinkNode(view.state, view.posAtDOM(element), 1);
 }
 
 /**
@@ -421,13 +442,9 @@ function wikiLinkRangeUnder(event: Event, view: EditorView): { from: number; to:
 function followOnTap(): Extension {
   let landed: string | null = null;
   let landedUrl: string | null = null;
-  // Whether the last tap followed, and so whether this one may repeat it.
-  let followed = false;
-  let repeat = false;
+  watchPresses();
   return EditorView.domEventHandlers({
     pointerdown(event, view) {
-      repeat = followed;
-      followed = false;
       const touch = event.pointerType === "touch";
       const head = view.state.selection.main.head;
       const target = touch ? linkUnder(event, view) : null;
@@ -438,14 +455,11 @@ function followOnTap(): Extension {
       // The link the cursor is in by its place, not its name: another link to
       // the same note is not the one being edited (#568). Both ends count, as
       // in `wikiLinkAt`, which is where `$` lands on a line ending in a link.
-      // The name still has to match: between `[[a]][[b]]` the cursor touches
-      // both, and `wikiLinkAt` says which one it is in.
+      // Between `[[a]][[b]]` the cursor touches both, and it is in the one
+      // `wikiLinkAt` would read, forwards first.
       const range = target === null || drawn ? null : wikiLinkRangeUnder(event, view);
-      const editing =
-        range !== null &&
-        range.from <= head &&
-        head <= range.to &&
-        wikiLinkAt(view.state, head) === target;
+      const here = wikiLinkNode(view.state, head, 1) ?? wikiLinkNode(view.state, head, -1);
+      const editing = range !== null && here !== null && here.from === range.from;
       landed = editing ? null : target;
       const link = touch ? urlUnder(event, view) : null;
       landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
@@ -468,11 +482,11 @@ function followOnTap(): Extension {
       // table the first tap has put the cursor in the link, which turns the
       // second away too; in a drawn table the cursor never moves in. Chrome
       // counts any tap close to the one before as its second, so the click is
-      // a repeat only when the tap before it followed.
-      if (event.detail > 1 && repeat) return true;
+      // a repeat only when the tap before it followed, a dropped one included.
+      presses.followed = true;
+      if (event.detail > 1 && presses.repeat) return true;
       if (note !== null) followLink(view, note);
       else if (address !== null) window.open(address, "_blank", "noopener");
-      followed = true;
       return true;
     },
   });
