@@ -32,7 +32,7 @@ import { noteSectionOf } from "@/lib/note-section";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { type CopyFormat, slashCompletions, viewCommands } from "@/lib/palette";
 import { readPosition, writePosition } from "@/lib/positions";
-import { presses, watchPresses } from "@/lib/presses";
+import { NOTE, repeats, watchPresses } from "@/lib/presses";
 import { moveCell } from "@/lib/table";
 import { tagCompletions, vaultTags } from "@/lib/tag";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo-commands";
@@ -322,15 +322,14 @@ const byName = viewCommands.of({
  * A double-click follows once, on its first press (#569). The second is still
  * kept from CodeMirror, which would select a word in the link and put the
  * cursor there. The browser counts any press close to the one before as its
- * second, so a press is a repeat only when the press before it followed.
+ * second, so a press is a repeat only when the press before it followed the
+ * same (#572).
  */
 function followOnClick(): Extension {
   watchPresses();
   return EditorView.domEventHandlers({
     mousedown(event, view) {
       if (!event.ctrlKey && !event.metaKey) return false;
-      // A repeat dropped still counts as followed, so a third press is one too.
-      const again = event.detail > 1 && presses.repeat;
       const target = linkUnder(event, view);
       if (target !== null) {
         // Returning true makes CodeMirror cancel the mousedown, and with it the
@@ -338,17 +337,15 @@ function followOnClick(): Extension {
         // the focused one, so a click in another pane takes the focus first, the
         // way Obsidian splits off the pane you clicked (#361). The focus event
         // runs inside this call, so the layout hears of it before the open.
-        if (!again) {
+        if (!repeats(event, NOTE)) {
           view.focus();
           followLink(view, target);
         }
-        presses.followed = true;
         return true;
       }
       const link = urlUnder(event, view);
       if (link === null) return false;
-      if (!again) window.open(link.address, "_blank", "noopener");
-      presses.followed = true;
+      if (!repeats(event, link.address)) window.open(link.address, "_blank", "noopener");
       return true;
     },
   });
@@ -458,9 +455,8 @@ function followOnTap(): Extension {
       // table the first tap has put the cursor in the link, which turns the
       // second away too; in a drawn table the cursor never moves in. Chrome
       // counts any tap close to the one before as its second, so the click is
-      // a repeat only when the tap before it followed, a dropped one included.
-      presses.followed = true;
-      if (event.detail > 1 && presses.repeat) return true;
+      // a repeat only when the tap before it followed the same (#572).
+      if (repeats(event, note !== null ? NOTE : (address as string))) return true;
       if (note !== null) followLink(view, note);
       else if (address !== null) window.open(address, "_blank", "noopener");
       return true;

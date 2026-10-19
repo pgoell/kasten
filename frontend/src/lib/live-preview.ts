@@ -25,7 +25,7 @@ import { noteLanguage } from "@/lib/note-language";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/pdf-view";
-import { presses, watchPresses } from "@/lib/presses";
+import { repeats, watchPresses } from "@/lib/presses";
 import { readRelation } from "@/lib/relation";
 import { type Align, alignsOf, isRow } from "@/lib/table";
 import { DUE, masked, parseTodo } from "@/lib/todo";
@@ -174,11 +174,9 @@ class Picture extends WidgetType {
         // A double-click sends a click for each press, and the follow leaves
         // the cursor where it was, so the second would open a second tab.
         // Chrome counts any press close to the one before as its second, so
-        // the click is a repeat only when the press before it followed, a
-        // dropped one included (#572).
-        const again = event.detail > 1 && presses.repeat;
-        presses.followed = true;
-        if (!again) window.open(link.address, "_blank", "noopener");
+        // the click is a repeat only when the press before it followed the
+        // same address (#572).
+        if (!repeats(event, link.address)) window.open(link.address, "_blank", "noopener");
       } else {
         view.dispatch({ selection: { anchor: at } });
       }
@@ -876,10 +874,8 @@ class TableGrid extends WidgetType {
       }
       event.stopPropagation();
       // A click with `detail` 2 is a repeat only when the press before it
-      // followed, as on the picture's own click (#572).
-      const again = event.detail > 1 && presses.repeat;
-      presses.followed = true;
-      if (!again) window.open(address, "_blank", "noopener");
+      // followed the same address, as on the picture's own click (#572).
+      if (!repeats(event, address)) window.open(address, "_blank", "noopener");
     });
     const table = block.appendChild(document.createElement("table"));
     table.className = "cm-table-grid";
