@@ -275,6 +275,10 @@ function Home() {
    * finished work would be the mode you forgot you were in.
    */
   const [archive, setArchive] = useState(false);
+  // One array per listing and toggle, because `visible` filters into a new one
+  // each call and a finder keyed on `paths` would build its candidates again
+  // on every render of the route (#586).
+  const shown = useMemo(() => visible(data ?? [], archive), [data, archive]);
   const { note, line } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
@@ -2434,7 +2438,7 @@ function Home() {
           // Filtered here rather than at the fetch. The unfiltered listing is
           // what resolves a `[[wikilink]]`, so the editors below still get
           // `data` whole and `gf` into the archive works with this off.
-          paths={visible(data ?? [], archive)}
+          paths={shown}
           // The same archive filter the notes answer to. An image in the
           // archive is archived like everything else under that folder.
           images={visible(images ?? [], archive)}
@@ -2864,7 +2868,7 @@ function Home() {
         <NoteFinder
           // The outgoing links are left whole: a link this note really holds is
           // worth showing wherever it points, archive included.
-          paths={linksOut ?? visible(data ?? [], archive)}
+          paths={linksOut ?? shown}
           outgoing={linksOut !== null}
           onOpen={(path) => {
             setFinderOpen(false);
@@ -2883,7 +2887,7 @@ function Home() {
       )}
       {bookFinderOpen && (
         <NoteFinder
-          paths={visible(data ?? [], archive)}
+          paths={shown}
           // The query's own array, which keeps one identity across renders. A
           // fresh one each render would make the finder rank the list again.
           books={assets ?? NO_ASSETS}
