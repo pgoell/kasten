@@ -56,8 +56,8 @@ the field; `GET /api/tags` and the graph read it.
 A deck tag is a tag by this rule that is `#flashcards` or starts
 `#flashcards/`, so `(#flashcards/es)` names the deck `es` and `#flashcardsx`
 names none. The deck reader skips rule 5 in part: it reads no deck tag in an
-HTML comment or a fence opened with backticks, but still reads one in a fence
-opened with tildes, an indented code block or the frontmatter. See
+HTML comment or any code block, fenced or indented, but still reads one in the
+frontmatter or on a line under an HTML block such as `<img>`. See
 [Flashcard format](/reference/flashcard-format.md).
 
 ## The cases

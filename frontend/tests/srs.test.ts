@@ -1265,8 +1265,61 @@ describe("#660 only a comment hides a deck tag", () => {
   it("#660 B a deck tag under an html block line still names its deck", () => {
     expect(parseCards('<img src="a.png">\n#flashcards/x\n\nq::a')[0]?.decks).toEqual(["x"]);
   });
+});
 
-  it("#660 B a deck tag in a tilde fence still names its deck", () => {
-    expect(parseCards("~~~\n#flashcards/x\n~~~\n\nq::a")[0]?.decks).toEqual(["x"]);
+describe("#664 a code block holds no card and no deck tag", () => {
+  /** The fronts of the cards the note holds, in the order written. */
+  const fronts = (text: string) => parseCards(text).map((card) => card.front);
+
+  it("#664 A1 a :: line inside a tilde fence is no card", () => {
+    expect(fronts("#flashcards/a\n\n~~~\nstd::vector\n~~~\n\nq::a\n")).toEqual(["q"]);
+  });
+
+  it.each([
+    ["four spaces", "    "],
+    ["a tab", "\t"],
+  ])("#664 A2 a :: line in an indented code block is no card, indented by %s", (_, indent) => {
+    expect(fronts(`#flashcards/a\n\nprose\n\n${indent}std::vector\n\nq::a\n`)).toEqual(["q"]);
+  });
+
+  it("#664 A3 a tilde fence holding a :: and a deck tag makes no card and no deck", () => {
+    const text = "#flashcards/a\n\nq::a\n\n~~~\n#flashcards/x\nstd::vector\n~~~\n";
+
+    expect(parseCards(text).map(({ front, decks }) => ({ front, decks }))).toEqual([
+      { front: "q", decks: ["a"] },
+    ]);
+  });
+
+  it("#664 I1 a :: line inside a backtick fence, and the fence lines, are no card", () => {
+    expect(fronts("#flashcards/a\n\n```a::b\nstd::vector\n```\n\nq::a\n")).toEqual(["q"]);
+  });
+
+  it.each([
+    ["a tilde fence", "~~~\nq\n?\na\n~~~\n"],
+    ["an indented block", "prose\n\n    q\n    ?\n    a\n"],
+  ])("#664 I2 a ? card inside %s is no card", (_, code) => {
+    expect(fronts(`#flashcards/a\n\n${code}`)).toEqual([]);
+  });
+
+  it("#664 I3 a tilde fence nobody closed hides every card under it", () => {
+    expect(fronts("#flashcards/a\n\nq::a\n\n~~~\nb::c\n\nd::e\n")).toEqual(["q"]);
+  });
+
+  it("#664 I4 a line indented under a list item or a paragraph line is still a card", () => {
+    expect(fronts("#flashcards/a\n\n- item\n\n    q::a\n\nprose\n    r::b\n")).toEqual(["q", "r"]);
+  });
+
+  it.each([
+    ["a tilde fence", "~~~\n#flashcards/x\n~~~"],
+    ["an indented code block", "prose\n\n    #flashcards/x"],
+  ])("#664 I5 a deck tag inside %s names no deck", (_, code) => {
+    expect(only(`${code}\n\nq::a`).decks).toEqual([]);
+  });
+
+  it("#664 I6 a fence inside a list item or a blockquote hides its cards", () => {
+    const text =
+      "#flashcards/a\n\n- item\n  ~~~\n  std::vector\n  ~~~\n\n> ```\n> q::a\n> ```\n\nr::b\n";
+
+    expect(fronts(text)).toEqual(["r"]);
   });
 });

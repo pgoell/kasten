@@ -39,8 +39,8 @@ card, whatever is written in it.
 A deck tag is a tag by [the one tag rule](/reference/tag-format.md), so it ends
 where any tag ends: `(#flashcards/es)` names the deck `es`, not `es)`, and
 `#flashcardsx` is another tag and names no deck. A deck tag inside an HTML
-comment, on one line or several, names no deck. A deck tag at the head of a
-card counts as the card's only when a space follows it, so
+comment, on one line or several, or inside a code block names no deck. A deck
+tag at the head of a card counts as the card's only when a space follows it, so
 `#flashcards/es) q::a` puts the whole note in `es`, not just that card.
 
 That rule is load-bearing rather than decorative. `::` is a common thing to
@@ -152,7 +152,11 @@ A `?` on a line of its own divides them. The question runs back to the blank
 line or heading above, the answer forward to the blank line or heading below, so
 both sides can be as long as you like.
 
-A `::` inside a fenced code block is not a card, and neither is a `?` in one.
+A `::` inside a code block is not a card, and neither is a `?` in one. That
+holds for a fence opened with backticks or tildes, one nobody closed (it runs to
+the end of the note), one inside a list item or a quote, and an indented block:
+four spaces or a tab after a blank line. A line indented under a list item, or
+directly under a line of prose, is no code block and stays a card.
 
 ### As a cloze
 

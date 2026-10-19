@@ -8,7 +8,6 @@ import {
   clozeTarget,
   colons,
   divide,
-  fences,
   holdsCloze,
   SR,
   suspended,
@@ -166,18 +165,6 @@ describe("a nested cloze line", () => {
     expect(clozePlain(`${CANBERRA} <!--SR:c2!2026-08-20,4,270-->`)).toBe(
       "Canberra was founded in 1913",
     );
-  });
-});
-
-describe("fences", () => {
-  it("marks the lines inside a fenced block and the markers themselves", () => {
-    expect(fences(["a::b", "```", "c::d", "```", "e::f"])).toEqual([
-      false,
-      true,
-      true,
-      true,
-      false,
-    ]);
   });
 });
 

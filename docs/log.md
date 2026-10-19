@@ -507,3 +507,4 @@
 ## 2026-10-20
 
 * **Update**: [Flashcard format](/reference/flashcard-format.md#what-makes-a-note-a-deck) says a deck tag inside an HTML comment, on one line or several, names no deck (#660). A note whose frontmatter fence carries trailing spaces or CRLF line ends opens below the block, as for a plain `---` (#661).
+* **Update**: [Flashcard format](/reference/flashcard-format.md) says a card or a deck tag in any code block is none: a fence opened with tildes, one nobody closed, one in a list item or quote, or an indented block, as well as a backtick fence. [Tag format](/reference/tag-format.md#the-rule) says the deck reader now reads no deck tag in any code block (#664).

@@ -39,8 +39,9 @@
  *
  * Which decks a card is in is read here, off `deck-tag.ts`'s rule, because this
  * is the reader that sees the note whole. A deck tag inside an HTML comment,
- * on one line or several, names no deck, the comments being found by the
- * editor's parser, as the editor shows no tag there. A `::` is a common enough thing to
+ * on one line or several, or inside a code block names no deck, and a code
+ * block holds no card, the comments and code being found by the editor's
+ * parser, as the editor shows no tag there. A `::` is a common enough thing to
  * type that reading every one of them as a card would fill the queue with C++
  * and YAML, so a card in no deck at all is not a card, to the overview and the
  * sitting alike.
@@ -55,7 +56,6 @@ import {
   clozeTarget,
   colons,
   divide,
-  fences,
   holdsCloze,
   parks,
   SR,
@@ -271,29 +271,63 @@ function clozeCards(
  */
 const notes = noteLanguage().language.parser;
 
+/** What the editor's parser makes of a note, as far as cards and deck tags care. */
+interface Read {
+  /** The note with every HTML comment blanked, each line where it was. */
+  uncommented: string;
+  /** Per line of the note, whether it is code, fence lines included. */
+  code: boolean[];
+}
+
 /**
- * `text` with every HTML comment the editor finds blanked, each line where it was.
+ * The note's comments and code blocks, as the editor finds them.
  *
  * The editor's parser and not a line at a time, because a comment may run over
  * several lines and a reader of one line cannot tell a tag inside one from a
- * tag outside it. Comments only: the parser also hides tags in an HTML block
- * such as `<img>`, which runs on to the blank line, and a deck tag under one
- * is a deck the note always had. The newlines stay, so a line's index is the
- * one card detection gave it.
+ * tag outside it. It is the parser that knows a `~~~` fence, a fence nobody
+ * closed, one inside a list item or quote, and an indented block from a line
+ * that goes on with a paragraph or item (#664). One parse for both, a deck note
+ * being long enough for a second to show.
+ *
+ * Comments and code only: the parser also hides tags in an HTML block such as
+ * `<img>`, which runs on to the blank line, and a deck tag under one is a deck
+ * the note always had. The newlines stay, so a line's index is the one card
+ * detection gave it.
  */
-function withoutComments(text: string): string {
-  let out = "";
+function read(text: string): Read {
+  let uncommented = "";
   let at = 0;
+  const spans: [number, number][] = [];
   notes.parse(text).iterate({
     enter(node) {
+      if (node.name === "FencedCode" || node.name === "CodeBlock") {
+        spans.push([node.from, node.to]);
+        // Nothing inside code is a comment, whatever language the fence names.
+        return false;
+      }
       if (node.name !== "CommentBlock" && node.name !== "Comment") return;
-      out += text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
+      uncommented +=
+        text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
       at = node.to;
       // Nothing inside a comment is a second comment.
       return false;
     },
   });
-  return out + text.slice(at);
+  uncommented += text.slice(at);
+
+  // A line is code where a span overlaps it. Overlap and not the line of
+  // `to`, as a block may end before its last newline or after it.
+  const code: boolean[] = [];
+  let start = 0;
+  let next = 0;
+  for (const line of text.split("\n")) {
+    const end = start + line.length;
+    while ((spans[next]?.[1] ?? Infinity) <= start) next++;
+    const [from, to] = spans[next] ?? [Infinity, Infinity];
+    code.push(from <= end && start < to);
+    start = end + 1;
+  }
+  return { uncommented, code };
 }
 
 /**
@@ -305,7 +339,7 @@ function withoutComments(text: string): string {
  */
 export function parseCards(text: string, note = ""): Card[] {
   const lines = text.split("\n");
-  const fenced = fences(lines);
+  const { uncommented, code } = read(text);
   const taken = lines.map(() => false);
   const cards: Card[] = [];
   /** The decks each card names at its own head, in the order they are pushed. */
@@ -314,7 +348,7 @@ export function parseCards(text: string, note = ""): Card[] {
   const claimed = new Set<number>();
 
   for (const [at, line] of lines.entries()) {
-    if (fenced[at] || line.trim() !== "?") continue;
+    if (code[at] || line.trim() !== "?") continue;
 
     // The front runs back to the blank line or heading above it. A `?` with
     // nothing over it is a line of prose, not a card missing its question.
@@ -394,7 +428,7 @@ export function parseCards(text: string, note = ""): Card[] {
   }
 
   for (const [at, line] of lines.entries()) {
-    if (fenced[at] || taken[at]) continue;
+    if (code[at] || taken[at]) continue;
 
     // Before the divider: `{{c1::Paris}}` holds a `::` that divides nothing,
     // and a cloze is never a question waiting on its answer.
@@ -437,9 +471,9 @@ export function parseCards(text: string, note = ""): Card[] {
   // Last, and before the sort, `owned` running in the order the cards were
   // pushed. Every tag no card claimed is the note's, and the two add rather
   // than replace: a card about two things is asked in both decks.
-  const noteDecks = withoutComments(text)
+  const noteDecks = uncommented
     .split("\n")
-    .flatMap((line, at) => (fenced[at] || claimed.has(at) ? [] : deckTags(line)));
+    .flatMap((line, at) => (code[at] || claimed.has(at) ? [] : deckTags(line)));
   for (const [at, card] of cards.entries()) {
     card.decks = [
       ...new Set([...noteDecks, ...(owned[at] ?? [])].map((tag) => deckName(tag, note))),

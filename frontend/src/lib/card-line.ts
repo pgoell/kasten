@@ -1,23 +1,11 @@
 /**
  * What makes a line a card the sitting will ask.
  *
- * The sibling of `deck-tag.ts`. `srs.ts` parses with these, and `review.ts`
- * picks the notes holding a parked line with them, so a rule about a card's
- * line is written once here.
+ * The sibling of `deck-tag.ts`. `srs.ts` reads a card's line with these, and
+ * `review.ts` picks the notes holding a parked line with them, so a rule about
+ * a card's line is written once here. Which lines are code is not one line's
+ * question: `srs.ts` asks the editor's parser.
  */
-
-/** Which lines sit inside a fenced code block, so `std::vector` is not a card. */
-export function fences(lines: string[]): boolean[] {
-  let inside = false;
-  return lines.map((line) => {
-    if (line.trimStart().startsWith("```")) {
-      inside = !inside;
-      // The fence itself is never a card either way.
-      return true;
-    }
-    return inside;
-  });
-}
 
 /** What parks a finished card by hand, written beside its schedule. */
 export const SUSPEND_TOKEN = "!suspended";
