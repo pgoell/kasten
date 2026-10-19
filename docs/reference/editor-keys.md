@@ -1381,6 +1381,12 @@ way `za` inside a fold closes it in vim. A `z` followed by any other key is
 dropped, and that key does what it always does. `l` on a folded deck sits
 everything under it.
 
+A parent whose daily limit leaves it nothing to offer can still hold a subdeck
+with cards. Its row is disabled, so `j` and `k` stop on its fold arrow instead,
+where `za` and `l` both fold and unfold and the cursor stays on the arrow. On a
+deck with none under it whose parent row is disabled, `za` moves the cursor to
+that arrow.
+
 Each of the three screens scopes its own keys. `j` and `k` walk deck rows on the
 overview and parked rows on the parked list, and neither can reach the other's.
 

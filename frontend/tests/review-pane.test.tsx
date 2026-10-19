@@ -308,13 +308,20 @@ describe("ReviewPane folding the deck list (#517)", () => {
     );
     const pane = screen.getByLabelText("review");
 
-    press(pane, "j");
+    // The first `j` stops on the disabled parent's toggle, the second on the subdeck.
+    press(pane, "j", "j");
     expect(document.activeElement).toBe(row("trivia/geography"));
     press(pane, "z", "a");
 
     expect(row("trivia/geography")).toBeNull();
     expect(row("trivia")).toBeDisabled();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "unfold trivia" }));
+
+    // From the toggle, `l` unfolds and keeps the cursor there, and `j` walks on.
+    press(pane, "l");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "fold trivia" }));
+    press(pane, "j");
+    expect(document.activeElement).toBe(row("trivia/geography"));
   });
 
   it("#517 I5 j skips the rows a fold hides, and l on a folded deck sits all of it", async () => {
@@ -977,11 +984,13 @@ describe("ReviewPane under a daily limit", () => {
     vi.spyOn(api, "fetchNote").mockImplementation((path) =>
       Promise.resolve(path === "99 Misc/01 Config/decks.md" ? limits : noteOf(hits, path)),
     );
+    const client = seededClient(hits);
     render(
-      <QueryClientProvider client={seededClient(hits)}>
+      <QueryClientProvider client={client}>
         <ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
+    return client;
   }
 
   const row = (name: string) => document.querySelector(`button[data-deck="${name}"]`);
@@ -1023,5 +1032,39 @@ describe("ReviewPane under a daily limit", () => {
     fireEvent.click(screen.getByRole("button", { name: "unfold trivia" }));
     expect(row("trivia/geography")).toHaveTextContent("1 new");
     expect(row("trivia/history")).toHaveTextContent("2 new");
+  });
+
+  it("#517 j and k stop on the toggle of a parent its limit empties, and za and j reach the subdeck", async () => {
+    const hits = [
+      { path: "a.md", line: 1, text: "#flashcards/alpha" },
+      { path: "a.md", line: 2, text: "a::b" },
+      { path: "g.md", line: 1, text: "#flashcards/trivia/geography" },
+      { path: "g.md", line: 2, text: "c::d" },
+      { path: "g.md", line: 3, text: "e::f" },
+    ];
+    const client = renderLimited(hits, "trivia: 0 new, 0 reviews\ntrivia/geography: 5 new\n");
+    // Every read in, the limits among them, so the rows count what they allow.
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    const pane = screen.getByLabelText("review");
+    const press = (key: string) => fireEvent.keyDown(pane, { key });
+
+    press("j");
+    press("j");
+    expect(document.activeElement, "j stops on the trivia toggle").toHaveAttribute(
+      "data-fold",
+      "trivia",
+    );
+    press("k");
+    expect(document.activeElement).toBe(row("alpha"));
+    press("j");
+    press("z");
+    press("a");
+    expect(row("trivia/geography")).not.toBeNull();
+    expect(row("trivia")).toBeDisabled();
+
+    press("j");
+    expect(document.activeElement).toBe(row("trivia/geography"));
+    press("l");
+    expect(await shownCard()).toHaveTextContent(/^(c|e)$/);
   });
 });
