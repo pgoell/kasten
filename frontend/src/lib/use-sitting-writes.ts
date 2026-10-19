@@ -17,16 +17,19 @@ import { noteBase } from "@/lib/note-base";
  * that never landed, the vault refuses it, and it fails out loud like the one
  * before it. A failure also reads the note again, so the screen holds the
  * vault's text and the next change is made against that.
+ *
+ * Each write answers, once settled, what it failed with or null where it
+ * landed, so the sitting's undo puts the card back only for a write that took.
  */
 export function useSittingWrites(
   setTexts: Dispatch<SetStateAction<Map<string, string> | null>>,
   setFailed: (message: string) => void,
-): (note: string, prev: string, next: string) => void {
+): (note: string, prev: string, next: string) => Promise<unknown> {
   const queryClient = useQueryClient();
   /** Per note, each text sent and seen to land, and what the vault answered for it. */
   const landed = useRef(new Map<string, Map<string, string>>());
   /** The last write queued for each note, settled whatever came of it. */
-  const chains = useRef(new Map<string, Promise<void>>());
+  const chains = useRef(new Map<string, Promise<unknown>>());
 
   return useCallback(
     (note: string, prev: string, next: string) => {
@@ -53,17 +56,19 @@ export function useSittingWrites(
           () => null,
         );
         if (fresh !== null) setTexts((was) => (was === null ? was : new Map(was).set(note, fresh)));
+        return error;
       };
 
       // At once where nothing is queued, so the write leaves with the tap.
       const queued = chains.current.get(note);
       const sent = queued === undefined ? send() : queued.then(send);
-      const settled = sent.then(undefined, fail);
+      const settled = sent.then(() => null, fail);
       chains.current.set(note, settled);
       // Gone once settled with nothing behind it, so the next change is at once too.
       void settled.then(() => {
         if (chains.current.get(note) === settled) chains.current.delete(note);
       });
+      return settled;
     },
     [queryClient, setFailed, setTexts],
   );

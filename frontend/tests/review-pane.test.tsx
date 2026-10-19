@@ -439,6 +439,75 @@ describe("ReviewPane suspending the card on screen", () => {
   });
 });
 
+describe("ReviewPane undoing the last step (#600)", () => {
+  const TWO = "#flashcards/beta\n\nc::d\n\ne::f\n";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  /**
+   * The pane's sitting of `beta`, its vault answering each write with what was sent.
+   *
+   * Only `b.md` reads as `note`, so `decks.md` reads the same before and after
+   * the rating's refetch, and the sitting is not built again under the test.
+   */
+  async function sitBeta(note: string) {
+    const pane = await renderPane();
+    vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+      Promise.resolve(path === "b.md" ? note : ""),
+    );
+    const saved = vi
+      .spyOn(api, "saveNote")
+      .mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    expect(await shownCard()).toHaveTextContent("c");
+    return { pane, saved };
+  }
+
+  it.each(["on", "off"])(
+    "#600 A5 u takes back the last rating on the sitting screen, vim %s",
+    async (vim) => {
+      localStorage.setItem("kasten.vim", vim);
+      const { pane, saved } = await sitBeta(TWO);
+
+      fireEvent.keyDown(pane, { key: " " });
+      fireEvent.keyDown(pane, { key: "3" });
+      expect(screen.getByTestId("review-card")).toHaveTextContent("e");
+      await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+
+      fireEvent.keyDown(pane, { key: "u" });
+
+      await waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
+      expect(saved.mock.calls[1]?.[1]).toBe(TWO);
+      await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("c"));
+      expect(screen.getByTestId("review-back")).toHaveTextContent("d");
+    },
+  );
+
+  it("#600 I1 u on the done screen brings back the last card rated", async () => {
+    const { pane, saved } = await sitBeta("#flashcards/beta\n\nc::d\n");
+
+    fireEvent.keyDown(pane, { key: " " });
+    fireEvent.keyDown(pane, { key: "3" });
+    expect(screen.getByTestId("review-done")).toBeInTheDocument();
+    await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+
+    fireEvent.keyDown(pane, { key: "u" });
+
+    await waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
+    expect(saved.mock.calls[1]?.[1]).toBe("#flashcards/beta\n\nc::d\n");
+    await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("c"));
+    expect(screen.getByTestId("review-back")).toHaveTextContent("d");
+  });
+});
+
 describe("ReviewPane replaying a card's sound", () => {
   const SOUNDED = "#flashcards/beta\n\nc ![](beta%20media/c.mp3)::d ![](beta%20media/d.mp3)\n";
 

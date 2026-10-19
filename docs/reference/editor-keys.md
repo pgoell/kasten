@@ -1363,7 +1363,7 @@ of each is waiting. Picking one starts a sitting, one card at a time.
 | `s` | Park the card on screen, before or after the answer |
 | `n` | Jot a new question into the note the card came from, or put the open jot line away unwritten |
 | `r` | Play the sounds of the side showing again: the question's before the answer, the answer's after |
-| `u` | Put the parked row under the cursor back |
+| `u` | In a sitting, undo the last rating or suspend; on the parked list, put the row under the cursor back |
 | `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
 
@@ -1402,6 +1402,18 @@ question alone. `n` opens a line for a question you thought of mid-sitting, whic
 is written at the end of the note the card came from and waits on the parked list
 until you answer it. While that line has the cursor the pane's own keys stand
 down, so a `1` in a question is a digit and not a rating.
+
+`u`, or the Undo button in the header, takes back the last rating or suspend: the
+note gets back the text it held before, and the card comes back revealed at the
+head of the queue, its answer off today's count. It works on the done screen
+too, so a misclick on the last card is not the end of it. One step only: after
+an undo there is nothing more to take back. Where the note changed since the
+step, in another pane, on disk or by a jot of this sitting, the undo writes
+nothing and the foot of the pane says so. `u` on the parked list puts a row back
+instead, each screen scoping its own keys.
+
+The Center button in the header puts the card in the middle of the pane, across
+and down, and the browser keeps the choice for the next sitting. It has no key.
 
 Everything the keys reach is also a button, because the same two components draw
 `/review`, which is [the phone's way in](/reference/flashcard-format.md#sitting-one)

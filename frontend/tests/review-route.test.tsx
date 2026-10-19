@@ -158,6 +158,33 @@ describe("the review route on a phone", () => {
     fireEvent.click(toggle);
     expect(child()).toBeNull();
   });
+
+  it("#600 A11 Undo and Center work by tap at phone width", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    await renderRoute();
+    const saved = vi
+      .spyOn(api, "saveNote")
+      .mockImplementation(async (path: string, content: string) => ({ path, content }));
+
+    fireEvent.click(await findButton(/alpha/));
+    expect(await shownCard()).toHaveTextContent("a");
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    expect(await screen.findByTestId("review-done")).toBeInTheDocument();
+
+    const undo = screen.queryByRole("button", { name: "Undo" });
+    expect(undo).not.toBeNull();
+    fireEvent.click(undo as HTMLElement);
+
+    await waitFor(() => expect(screen.getByTestId("review-back")).toHaveTextContent("b"));
+    expect(saved.mock.calls[1]?.[1]).toBe(NOTE);
+
+    const center = screen.getByRole("button", { name: "Center" });
+    expect(center).toHaveClass("min-h-11");
+    fireEvent.click(center);
+    expect(center).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("review-card")).toHaveClass("text-center");
+  });
 });
 
 describe("the review route under a daily limit", () => {

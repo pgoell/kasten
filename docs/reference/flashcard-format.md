@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Flashcard format
-description: The two ways a card is written and the cloze, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, the keys a sitting takes, and the daily limits on new cards and reviews.
+description: The two ways a card is written and the cloze, the comment holding its schedule, the tags that put a note and a single card in a deck, how a deck sits inside another, the frontmatter a whole note under review carries, the keys a sitting takes, its Undo and Center, and the daily limits on new cards and reviews.
 resource: frontend/src/lib/srs.ts
 tags: [vault, review, flashcards, format, frontend]
 status: stable
@@ -365,9 +365,22 @@ Two places, the same session in both:
 | `1` `2` `3` `4` | Again, Hard, Good, Easy |
 | `s` | Park the card on screen |
 | `n` | Jot a new question into the note the card came from |
-| `u` | Put the parked row under the cursor back |
+| `u` | In a sitting, undo the last rating or suspend; on the parked list, put the row under the cursor back |
 | `o` | Open the note the parked row is written in |
 | `q` | Close the pane |
+
+Undo, `u` in the pane and a button in the header in both places, takes back
+the last rating or suspend, the last card of the deck included. The note gets
+back the text it held before, so the schedule or the `!suspended` token is gone
+and the card counts against [today's limits](#daily-limits) as it did before
+you answered it. The card comes back revealed at the head of the queue, and a
+cloze's other numbers that a suspend took out come back with it. Undo holds one
+step. It writes nothing where the note changed since that step, in another
+pane, on disk or by a jot, and says so at the foot.
+
+Center, a toggle in the header, puts the front and the back in the middle of
+the pane, across and down. The browser keeps it, so it holds across sittings
+and reloads. Off draws the card at the top left.
 
 The leader still works inside the pane, so `<leader>o` and the rest reach the
 other panes mid-sitting.

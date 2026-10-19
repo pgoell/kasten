@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
-import { fetchNote } from "@/lib/api";
+import { ChangedOnDisk, fetchNote } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
 import { unescaped } from "@/lib/card-line";
 import { readClock } from "@/lib/clock";
@@ -35,6 +35,12 @@ import { useSittingWrites } from "@/lib/use-sitting-writes";
  * on every card.
  */
 const TYPING_KEY = "kasten.review.typing";
+
+/** Where the Center toggle is kept, for the reason the typing toggle is. */
+const CENTER_KEY = "kasten.review.center";
+
+/** What the sitting refuses an undo with when the note moved on since the step. */
+const MOVED_ON = "The note changed since that step, so it was not undone.";
 
 /** The four ratings, in the order they are drawn and keyed. */
 const RATINGS: { rating: Rating; label: string }[] = [
@@ -73,6 +79,7 @@ interface ReviewSessionProps {
       suspend: () => void;
       capture: () => void;
       replay: () => void;
+      undo: () => void;
     } | null,
   ) => void;
 }
@@ -104,6 +111,24 @@ interface Seat {
 }
 
 /**
+ * The last rating or suspend, held so Undo can take it back.
+ *
+ * The whole queue and not the one seat: `again` moved the seat to the back and
+ * a suspend took a cloze's siblings out with it, so only the queue as it stood
+ * puts every seat back where it was.
+ */
+interface Step {
+  note: string;
+  /** The note before the step, which the undo writes back. */
+  text: string;
+  /** The note the step sent, which the undo names as its base. */
+  next: string;
+  queue: Seat[];
+  done: number;
+  typed: string;
+}
+
+/**
  * One deck, one card at a time.
  *
  * Every note the deck draws from is read once, at the start, and every rating
@@ -128,11 +153,19 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
   /** The question being jotted, or null while the capture line is closed. */
   const [jotting, setJotting] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
+  const [center, setCenter] = useState(() => localStorage.getItem(CENTER_KEY) === "on");
+  /** The sentence at the foot, which a refused undo words apart from a failed write. */
   const [failed, setFailed] = useState<string | null>(null);
+  const [step, setStep] = useState<Step | null>(null);
+  const [undoing, setUndoing] = useState(false);
+  const unwritten = useCallback(
+    (message: string) => setFailed(`The note could not be written: ${message}`),
+    [],
+  );
   // A failed write puts its message in the bar and the session carries on,
   // because a rating that vanished silently would be a card you answer again
   // tomorrow believing you had not.
-  const write = useSittingWrites(setTexts, setFailed);
+  const write = useSittingWrites(setTexts, unwritten);
 
   const today = useMemo(() => readClock(new Date()).date, []);
   const limits = useReviewLimits();
@@ -182,13 +215,15 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         );
       },
       (error: unknown) => {
-        if (live) setFailed(error instanceof Error ? error.message : "could not read the note");
+        if (live) {
+          unwritten(error instanceof Error ? error.message : "could not read the note");
+        }
       },
     );
     return () => {
       live = false;
     };
-  }, [deck, today, limits]);
+  }, [deck, today, limits, unwritten]);
 
   const cards = useMemo(() => cardsOf(deck, texts ?? new Map()), [deck, texts]);
   const seat = queue[0];
@@ -295,9 +330,10 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
       const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
       play(following === undefined ? [] : soundsShowing(following, false));
 
+      setStep({ note: seat.note, text, next, queue, done, typed });
       write(seat.note, text, next);
     },
-    [cards, deck, play, queue, seat, texts, today, write],
+    [cards, deck, done, play, queue, seat, texts, today, typed, write],
   );
 
   /**
@@ -332,8 +368,35 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     const following = coming === undefined ? undefined : cards.get(coming.note)?.[coming.at];
     play(following === undefined ? [] : soundsShowing(following, false));
 
+    setStep({ note: seat.note, text, next, queue, done, typed });
     write(seat.note, text, next);
-  }, [cards, deck, play, queue, seat, texts, write]);
+  }, [cards, deck, done, play, queue, seat, texts, typed, write]);
+
+  /**
+   * Take back the last rating or suspend: the note's old text, and the card on
+   * screen again, revealed, at the head of the queue.
+   *
+   * The write names what the step sent as its base, which the write queue turns
+   * into what the vault answered for it. Anything written over the note since,
+   * a jot of this sitting's own included, leaves that base stale and the vault
+   * refuses, so an undo never erases newer text. The card comes back only once
+   * the write has landed. One step: the step goes whatever came of it.
+   */
+  const undo = useCallback(() => {
+    if (step === null || undoing) return;
+    setStep(null);
+    setUndoing(true);
+    void write(step.note, step.next, step.text).then((error) => {
+      setUndoing(false);
+      if (error instanceof ChangedOnDisk) setFailed(MOVED_ON);
+      if (error !== null) return;
+      setTexts((was) => (was === null ? was : new Map(was).set(step.note, step.text)));
+      setQueue(step.queue);
+      setRevealed(true);
+      setTyped(step.typed);
+      setDone(step.done);
+    });
+  }, [step, undoing, write]);
 
   /**
    * Write what was jotted at the end of the note the card on screen came from.
@@ -356,9 +419,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
   // A toggle, because the second press is the only way to shut the line
   // without writing a card: `Escape` is not bound here and a phone has none.
+  // Nothing on the done screen, where the controls stay up for Undo alone and a
+  // jot would have no note to go into.
   const capture = useCallback(() => {
+    if (card === undefined) return;
     setJotting((was) => (was === null ? "" : null));
-  }, []);
+  }, [card]);
 
   const jotOpen = jotting !== null;
 
@@ -390,16 +456,29 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
     });
   }, []);
 
+  const toggleCenter = useCallback(() => {
+    setCenter((on) => {
+      localStorage.setItem(CENTER_KEY, on ? "off" : "on");
+      return !on;
+    });
+  }, []);
+
+  // Held on the done screen too while a step is, so `u` can bring back the
+  // last card of the deck.
   useEffect(() => {
-    onControls?.(card === undefined ? null : { reveal, rate, suspend, capture, replay });
+    onControls?.(
+      card === undefined && step === null ? null : { reveal, rate, suspend, capture, replay, undo },
+    );
     return () => onControls?.(null);
-  }, [capture, card, onControls, rate, replay, reveal, suspend]);
+  }, [capture, card, onControls, rate, replay, reveal, step, suspend, undo]);
 
   return (
     <div className="flex h-full flex-col bg-one-bg font-mono text-one-fg">
-      {/* Seven things share this row, and at a phone's width the gaps between
-          them are what the deck's name is squeezed out by. */}
-      <header className="flex items-center gap-3 border-one-line border-b px-3 py-2 max-md:gap-1">
+      {/* Nine things share this row, and at a phone's width the gaps between
+          them are what the deck's name is squeezed out by. A card with a sound
+          puts Replay beside Undo, which is more than a phone holds, so there
+          the row wraps rather than pushing Center off the screen. */}
+      <header className="flex items-center gap-3 border-one-line border-b px-3 py-2 max-md:flex-wrap max-md:justify-end max-md:gap-1">
         <button
           type="button"
           onClick={onLeave}
@@ -417,9 +496,21 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={replay}
-            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent pointer-coarse:min-w-11"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent pointer-coarse:min-w-11"
           >
             Replay
+          </button>
+        )}
+        {/* Drawn while there is a step to take back, the done screen included,
+            and greyed while the undo is out so a second tap sends nothing. */}
+        {(step !== null || undoing) && (
+          <button
+            type="button"
+            onClick={undo}
+            disabled={undoing}
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent disabled:opacity-50 pointer-coarse:min-w-11"
+          >
+            Undo
           </button>
         )}
         {/* Beside Type and before the reveal, because a card you want out of
@@ -428,7 +519,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           <button
             type="button"
             onClick={suspend}
-            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent"
           >
             Suspend
           </button>
@@ -440,7 +531,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
             aria-expanded={jotOpen}
             // Three letters are narrower than a thumb, which the height alone
             // does not make up for.
-            className="min-h-11 px-2 text-[11px] text-one-muted uppercase tracking-wider hover:text-one-accent pointer-coarse:min-w-11"
+            className="min-h-11 px-2 text-[11px] max-md:px-1 text-one-muted uppercase tracking-wider hover:text-one-accent pointer-coarse:min-w-11"
           >
             Jot
           </button>
@@ -449,11 +540,21 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
           type="button"
           onClick={toggleTyping}
           aria-pressed={typing}
-          className={`min-h-11 px-2 text-[11px] uppercase tracking-wider pointer-coarse:min-w-11 ${
+          className={`min-h-11 px-2 text-[11px] max-md:px-1 uppercase tracking-wider pointer-coarse:min-w-11 ${
             typing ? "text-one-accent" : "text-one-muted"
           }`}
         >
           Type
+        </button>
+        <button
+          type="button"
+          onClick={toggleCenter}
+          aria-pressed={center}
+          className={`min-h-11 px-2 text-[11px] max-md:px-1 uppercase tracking-wider ${
+            center ? "text-one-accent" : "text-one-muted"
+          }`}
+        >
+          Center
         </button>
       </header>
 
@@ -487,7 +588,12 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         </form>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px]">
+      {/* Centred by the card's own auto margins and never by `justify-center`
+          here: a card taller than the pane would be pushed past the top of the
+          scroll, where nothing can reach it. */}
+      <div
+        className={`min-h-0 flex-1 overflow-auto px-4 py-6 text-[15px] ${center ? "flex flex-col" : ""}`}
+      >
         {texts === null && failed === null && <p className="text-one-muted">Reading the deck…</p>}
 
         {card === undefined && texts !== null && (
@@ -498,7 +604,10 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
         )}
 
         {card !== undefined && (
-          <div data-testid="review-card">
+          <div
+            data-testid="review-card"
+            className={center ? "review-center my-auto w-full text-center" : undefined}
+          >
             {/* Rendered the way the editor renders it, so a card holding a
                 table is asked as a table and not as a row of pipes. Keyed on
                 the text because the preview reads it once, on mount. */}
@@ -529,7 +638,7 @@ export function ReviewSession({ deck, onLeave, onControls }: ReviewSessionProps)
 
         {failed !== null && (
           <p role="alert" className="mt-6 text-one-muted">
-            The note could not be written: {failed}
+            {failed}
           </p>
         )}
       </div>

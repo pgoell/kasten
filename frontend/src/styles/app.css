@@ -771,3 +771,9 @@ body {
 .review-back .cm-content {
   color: var(--color-one-accent);
 }
+
+/* A centred card's sound player. Tailwind's preflight makes an audio element
+   a block, which `text-align` cannot centre. */
+.review-center .cm-audio {
+  margin-inline: auto;
+}
