@@ -628,8 +628,20 @@ describe("a tap or a press on a wikilink follows it once", () => {
       document.addEventListener("click", count, true);
       onTestFinished(() => document.removeEventListener("click", count, true));
 
-      const point = on(host.querySelector(".cm-wikilink") as Element);
+      const link = host.querySelector(".cm-wikilink") as Element;
+      const box = link.getBoundingClientRect();
+      const local: [number, number] = [box.left + box.width / 2, box.top + box.height / 2];
+      const point = on(link);
       await tapAt(point);
+      // The new note mounts in a later task than the follow, which a slow
+      // runner lets the second tap beat, landing on the old view. So the
+      // second waits until the new note's link is under the finger; one that
+      // then comes too late for Chrome to count as the second fails below.
+      await expect
+        .poll(() => document.elementFromPoint(...local)?.closest(OPENED[kind].selector) ?? null, {
+          message: "the new note's link under the finger",
+        })
+        .not.toBeNull();
       await tapAt(point);
       await bothLanded(details);
       const second = targets[1];
