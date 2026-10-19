@@ -1164,6 +1164,13 @@ describe("#523 the agent key", () => {
     expect(docs).toEqual(["- [ ] foo📅 2026-10-20 #agent", "- [ ] foo📅 2026-10-20"]);
   });
 
+  it("#523 A7 <leader>@ twice on words hard against two fields puts #agent past both and gives the line back", () => {
+    const line = "- [ ] foo📅 2026-10-20 ⏳ 2026-10-21 ^blk1";
+    const { docs } = pressAgent(line, ["G"], [" ", "@"]);
+
+    expect(docs).toEqual(["- [ ] foo📅 2026-10-20 ⏳ 2026-10-21 #agent ^blk1", line]);
+  });
+
   it("#523 B <leader>@ adds #agent past a code span holding #agent, the span untouched", () => {
     const { doc } = pressAgent("- [ ] run `grep #agent log`");
 

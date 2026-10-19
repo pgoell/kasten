@@ -3848,6 +3848,26 @@ describe("the route", () => {
 
       expect(notes[PATH]).toBe("## TODOs\n- [ ] foo #agent\n- [ ] foo #agent");
     });
+
+    it("#523 B2 a second @ whose line now has a twin below a deleted line writes nothing and says so", async () => {
+      const rows = [
+        { path: PATH, line: 2, text: "- [ ] x", project: null },
+        ...FOOS.map((row) => ({ ...row, line: row.line + 1 })),
+      ];
+      const app = await listing(rows, "## TODOs\n- [ ] x\n- [ ] foo\n- [ ] foo #agent");
+      // Another writer takes `x` out the moment the first press lands, before
+      // the second reads the note: the pressed todo is now line 2, and line 3
+      // holds the other one, word for word the same.
+      saveNote.mockImplementationOnce(async (path: string, content: string) => {
+        notes[path] = content.replace("- [ ] x\n", "");
+        return { path, content };
+      });
+
+      await press(app, "j", "@", "@");
+
+      expect.soft(app.notice()).toBe("Nothing moved: that line has changed since it was listed");
+      expect(notes[PATH]).toBe("## TODOs\n- [ ] foo #agent\n- [ ] foo #agent");
+    });
   });
 
   describe("a press on a todo whose 🆔 stands on another todo line", () => {

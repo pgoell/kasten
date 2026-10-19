@@ -370,12 +370,17 @@ export function wordsEnd(line: string): number {
     const field = find(pattern, rest, mask);
     return field === null ? [] : [offset + field.from];
   });
-  // Only a place a space or the line's end follows. That rules out a `^` with
-  // no space before it, `2^10` being words and no block id, and a field typed
-  // hard against the words, `foo📅`: a tag there would need a space after it
-  // too, which taking the tag back out could not tell from one typed.
-  const spaced = endsOfWords(line, fields).filter((at) => /^(?:[ \t]|$)/.test(line.slice(at)));
-  return spaced[0] ?? line.length;
+  // Only a place a space or the line's end follows. A field typed hard against
+  // the words, `foo📅`, would need a space after the tag too, which taking the
+  // tag back out could not tell from one typed; the tag then goes past every
+  // field rather than between two of them. A `^` with no space before it is
+  // ruled out the same way, `2^10` being words and no block id.
+  const spaced = (at: number) => /^(?:[ \t]|$)/.test(line.slice(at));
+  const ends = endsOfWords(line, fields);
+  const first = ends[0] ?? line.length;
+  if (spaced(first)) return first;
+  // Past the fields: the block id's place, then the line's end.
+  return ends.slice(fields.length).find(spaced) ?? line.length;
 }
 
 /**

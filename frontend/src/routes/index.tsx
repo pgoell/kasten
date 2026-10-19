@@ -1687,28 +1687,18 @@ function Home() {
    * write, for `m`'s reasons: the press was made in the pane, not in the note,
    * and an editor holding it would save its own copy over the tag. The rule
    * reads the note as the write finds it, so a second press before the list
-   * redraws sees the first's tag and takes it off again.
-   */
-  /**
-   * The line each `@` wrote, by the row it was pressed on: path, line and the
-   * words listed. A second `@` on that row before the list redraws changed
-   * words the row no longer shows, and going by these is how it finds its own
-   * todo and never another with the same words.
+   * redraws sees the first's tag and takes it off again: it goes by the line
+   * the first wrote, kept in `agentLines`, because the row still shows the
+   * words from before.
    */
   const agentLines = useRef(new Map<string, { listing: number; line: string }>());
   const agentTodo = useCallback(
     async (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
       const note = hit.path;
-      // The listing the row was drawn from, by when it arrived: a line kept
-      // from a press on an older listing says nothing about a row of this one.
-      const listing = Math.max(
-        0,
-        ...queryClient
-          .getQueryCache()
-          .findAll({ queryKey: ["todos"] })
-          .map((query) => query.state.dataUpdatedAt),
-      );
+      // The pane's listing the row was drawn from, by when it arrived: a line
+      // kept from a press on an older listing says nothing about a row of this.
+      const listing = queryClient.getQueryState(["todos", archive])?.dataUpdatedAt ?? 0;
       const row = `${note}\n${hit.line}\n${hit.text}`;
       const busy = (): string | null => {
         if (heldText(note) !== undefined) return `${note} holds text not yet saved`;
@@ -1732,10 +1722,9 @@ function Home() {
           return false;
         }
         // Read here, behind the press before it in the queue, which is what
-        // puts the line it wrote in the map. Used once: the press about to go
-        // out leaves a newer line, or none to go by.
+        // puts the line it wrote in the map. Replaced only once this press
+        // lands, so one refused leaves it for the next.
         const kept = agentLines.current.get(row);
-        agentLines.current.delete(row);
         const mine = kept?.listing === listing;
         // The words the note now holds for this row, so `rowLine` finds it
         // exactly. The twins were counted on the listed words, not these.
@@ -1745,6 +1734,12 @@ function Home() {
           const again = busy();
           if (again !== null) {
             why = `Nothing moved: ${again}`;
+            return null;
+          }
+          // The kept line names this todo only while no other line says the
+          // same: a write since may have shifted a twin onto its number.
+          if (mine && text.split("\n").filter((each) => each === kept.line).length !== 1) {
+            why = "Nothing moved: that line has changed since it was listed";
             return null;
           }
           const pressed = agentTodoIn(text, pressing, today, mine ? undefined : twins);
@@ -1777,7 +1772,7 @@ function Home() {
       }
       todosWritten();
     },
-    [queryClient, write, todosWritten],
+    [queryClient, write, todosWritten, archive],
   );
 
   /**
