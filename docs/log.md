@@ -483,3 +483,4 @@
 * **Update**: [Live preview and the vim mode](/explanation/live-preview.md#the-three-blocks) and [Editor keys](/reference/editor-keys.md) say a wikilink in a table cell follows on a tap or Ctrl+click (#564), and that each link in a cell opens its own target (#565).
 * **Update**: [Editor keys](/reference/editor-keys.md) says a tap on a wikilink follows it while the cursor rests in another link to the same note (#568), and that a double tap or double Ctrl+click follows once (#569).
 * **Update**: [Editor keys](/reference/editor-keys.md) says a tap on a linked picture, or on a link in a table cell, opens it right after a tap beside it (#572).
+* **Update**: [Editor keys](/reference/editor-keys.md#leader) cuts the leader table into the groups the `<leader>?` panel shows, every leader key in a named group (#516).
