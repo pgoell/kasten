@@ -32,11 +32,12 @@ const TAGS = new RegExp(TAG_SOURCE, "gu");
 export const GLUED = /[\p{L}\p{N}_/]$/u;
 
 /**
- * A link, a markdown link and a code span: a hash inside one is no tag, and a
- * todo's field marker inside one is no field.
+ * A link, a markdown link, a code span and an HTML comment closed on its line:
+ * a hash inside one is no tag, and a todo's field marker inside one is no
+ * field. `todos.SPANS` in the backend is the same pattern.
  * Global, so use it through `matchAll` or `replace` only, never `exec`.
  */
-export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`/g;
+export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->/g;
 
 /**
  * `text` with every span blanked to the same length, so a marker inside one

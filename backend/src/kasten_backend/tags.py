@@ -2,9 +2,12 @@
 
 Two rg passes. One matches every span and every hash that could open a tag, and
 each match is read by `todos.line_tags`, as the board reads a todo's line. The
-other names the notes that may hold a fenced block, and those are read whole by
-`todos.tags_in` instead, because only a whole note says where a fence opens and
-closes, and rg reads one line at a time. Either way the reader is the one the
+other names the notes that may hold a fence, a comment over several lines,
+indented code, or a frontmatter with a hash or a `tags` field in it. Those are
+read whole by `todos.tags_in` instead, because only a whole note says where a
+block opens and closes, and the line pass reads one line at a time. Most notes
+carry a frontmatter of an id and dates and none of the rest, so they stay on
+the line pass. Either way the reader is the one the
 board, the graph and the mentions use, so completion offers no tag the editor
 would not read as one. The notes are the source of truth, so nothing here is
 indexed and nothing here can go stale.
@@ -13,7 +16,7 @@ indexed and nothing here can go stale.
 import asyncio
 from typing import TYPE_CHECKING
 
-from kasten_backend import todos
+from kasten_backend import frontmatter, todos
 from kasten_backend.search import scan_vault
 from kasten_backend.vault import read_note
 
@@ -54,8 +57,9 @@ def _read(root: Path, paths: list[str]) -> dict[str, set[str]]:
         if text is None:
             continue
         found = todos.tags_in(text)
-        tagged[path] = {text[start:end] for start, end in found}
-        count += len(found)
+        fields = field_tags(text)
+        tagged[path] = {text[start:end] for start, end in found} | fields
+        count += len(found) + len(fields)
         if count >= MOST_TAGS:
             break
     return tagged
@@ -80,24 +84,75 @@ the fence ends. Unanchored, so a fence in a list item or a blockquote is caught
 too, and the cost of a wrong guess is one note read rather than a wrong tag.
 """
 
+BLOCK = (
+    r"\A---[ \t]*\r?\n"
+    r"(?:(?:[^-\n]|-[^-\n]|--[^-\n])[^\n]*\n|-{0,2}\r?\n)*?"
+    r"(?:[^\n]*#|tags[ \t]*:)"
+)
+"""A frontmatter holding a hash or a `tags` field before its closing fence.
+
+Line 1 opens it and the first line of three dashes closes it, as
+`frontmatter.py` reads the block; a line merely starting with them closes it
+here too, which only costs a note read whole. One that never closes matches
+as well, and the reading whole then finds no block. A block with no hash in
+it carries nothing the line pass could take for a tag, so most notes, whose
+block holds an id and two dates, stay on the line pass.
+"""
+
+OPEN_COMMENT = r"<!--(?:[^-\n]|-[^-\n]|--+[^->\n])*-*$"
+"""A comment still open at the end of its line. One closed on its line the line pass masks."""
+
+MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|^(?: {{4}}|\t)[^\n]*#"
+"""What says a note's lines cannot be read one at a time.
+
+A frontmatter with a hash or a tags field in it, a fence, a comment over
+several lines, and a hash as far in as code is: only the whole note says where
+each of those starts and ends. Matched over the whole note, since the block is
+several lines, and replaced by one character, so a long line comes back short.
+Not by none: rg 14 then prints no line for a match of this pattern, where it
+prints one for a fence alone.
+"""
+
+
+def field_tags(text: str) -> set[str]:
+    """The tags the frontmatter's `tags` field names, each with its hash, by the tag rule.
+
+    Obsidian reads a tag in the block from that field alone, written with a hash
+    or without, so `tags: [a, b/c]` carries `#a` and `#b/c`, and `tags: [1984]`
+    none, as `#1984` would carry none in the text.
+    """
+    found = set()
+    for value in frontmatter.tags(text):
+        tag = value if value.startswith("#") else f"#{value}"
+        if todos.TAG.fullmatch(tag):
+            found.add(tag)
+    return found
+
 
 async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str]]:
     """The tags of every note under `root` outside the `skip` folder that holds one."""
     # Only the matches come back, so a line past the 64 KiB a stream reader
-    # takes, a pasted inline SVG, cannot stop either scan.
-    matches, fences = await asyncio.gather(
+    # takes, a pasted inline SVG, cannot stop either scan. The second answers
+    # one line per note to read, rather than a line per fence: a hit is most of
+    # what a scan costs in Python.
+    matches, marks = await asyncio.gather(
         scan_vault(root, ("--only-matching", "-e", _SPAN_OR_TAG), MOST_MATCHES, skip),
-        scan_vault(root, ("--only-matching", "--max-count", "1", "-e", FENCE), MOST_MATCHES, skip),
+        scan_vault(
+            root,
+            ("--multiline", "--only-matching", "--replace", "#", "--max-count", "1", "-e", MARKS),
+            MOST_MATCHES,
+            skip,
+        ),
     )
-    fenced = {hit.path for hit in fences}
+    whole = {hit.path for hit in marks}
     tagged: dict[str, set[str]] = {}
     for hit in matches:
-        if hit.path not in fenced:
+        if hit.path not in whole:
             found = {hit.text[start:end] for start, end in todos.line_tags(hit.text)}
             tagged.setdefault(hit.path, set()).update(found)
-    # Reading the fenced notes in Python would hold the event loop for the whole
+    # Reading those notes in Python would hold the event loop for the whole
     # of it, where rg above held it for none.
-    tagged.update(await asyncio.to_thread(_read, root, sorted(fenced)))
+    tagged.update(await asyncio.to_thread(_read, root, sorted(whole)))
     return tagged
 
 

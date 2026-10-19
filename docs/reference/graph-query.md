@@ -51,8 +51,10 @@ to the other.
 * **A node's type** is the `type` field between a fence on line 1 and the fence
   closing it. `type:` further down is prose. A note with no block has none.
 * **A node's tags** are every `#tag` in the note, by the
-  [tag rule](/reference/tag-format.md). A hash in a code span, a fenced code
-  block or a link is no tag, so `tag:` never keeps a note for one.
+  [tag rule](/reference/tag-format.md), and the values of its frontmatter
+  `tags` field. A hash in a code span, a fenced or indented code block, an HTML
+  comment, the frontmatter or a link is no tag, so `tag:` never keeps a note
+  for one.
 
 ## Filters
 

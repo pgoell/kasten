@@ -158,12 +158,26 @@ export function highlightBlocks(note: string): HighlightBlock[] {
 /**
  * The quote of the block `line` sits in, or null outside one.
  *
- * The whole note is scanned on every press, measured at 0.2ms on a note holding
- * two hundred highlights. A reader that walked out from the cursor instead would
- * be faster and would need the block rule written twice.
+ * All of `note` is scanned, measured at 0.2ms on a note holding two hundred
+ * highlights. A reader that walked out from the cursor instead would need the
+ * block rule written twice; `mayBeHighlightLine` is how the editor hands this
+ * less than a whole note.
  */
 export function highlightAt(note: string, line: number): string[] | null {
   return (
     highlightBlocks(note).find((block) => line >= block.from && line <= block.to)?.quote ?? null
   );
+}
+
+/**
+ * Whether `line` could be one of a block's lines: a quote line, the blank line
+ * under the quote, or an anchor.
+ *
+ * What lets a caller hand `highlightAt` only the run of such lines around the
+ * cursor rather than the whole note (#638). Every block lies inside one run,
+ * and a run starts below a line that is no quote, so the reader finds the same
+ * blocks in it that it finds in the note.
+ */
+export function mayBeHighlightLine(line: string): boolean {
+  return line.startsWith(">") || line.trim() === "" || ANCHOR.test(line);
 }

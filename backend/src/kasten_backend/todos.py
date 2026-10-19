@@ -19,6 +19,7 @@ import sys
 import unicodedata
 from typing import TYPE_CHECKING
 
+from kasten_backend.frontmatter import body_start
 from kasten_backend.links import WIKILINK, code_spans, link_path
 from kasten_backend.search import scan_vault
 
@@ -169,8 +170,12 @@ WAITING = re.compile(
     r"(?=[ \t]+(?:" + _STOP + r"|🔁|#|" + _BLOCK_ID + r")|[ \t]*$)"
 )
 
-SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`")
-"""A link, a markdown link and a code span: a marker inside one is not a field, nor a tag."""
+SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->")
+"""A link, a markdown link, a code span and an HTML comment closed on its line.
+
+A marker inside one is not a field, nor a tag. The editor's `SPANS` in
+`tag-rule.ts` is the same pattern, and rg reads it too, through `tags.py`.
+"""
 
 
 def mask(text: str) -> str:
@@ -191,26 +196,45 @@ def line_tags(text: str) -> list[tuple[int, int]]:
     return [found.span() for found in TAG.finditer(mask(text))]
 
 
+COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+"""An HTML comment, over as many lines as it runs."""
+
+INDENTED = re.compile(r"^(?: {4}|\t).*#", re.MULTILINE)
+"""A line indented as far as code is, holding a hash: what may be a tag in code."""
+
+
+def _blanked(text: str, spans: list[tuple[int, int]], filler: str) -> str:
+    """`text` with every span blanked to `filler`, its line breaks and offsets kept."""
+    blanked = list(text)
+    for start, end in spans:
+        for index in range(start, end):
+            # A line break stays, or a fence's lines would run into one.
+            if blanked[index] != "\n":
+                blanked[index] = filler
+    return "".join(blanked)
+
+
 def tags_in(text: str) -> list[tuple[int, int]]:
     """Where a whole note holds a tag, as `(start, end)` offsets.
 
     `GET /api/tags`, the graph and the mentions all read a note's tags here, and
     the todos read a line's through `line_tags`, so none of them can call a hash
-    a tag that another does not. Code, fenced or inline, is blanked first, the
-    offsets kept.
+    a tag that another does not. The frontmatter, HTML comments and code, fenced,
+    indented or inline, are blanked first, the offsets kept.
     """
-    # Most notes hold no fence, and for those the line reader's span mask is
-    # the whole job: `code_spans` and the blanking below are most of the time a
-    # vault's tags take.
-    if "```" not in text and "~~~" not in text:
+    hidden = [found.span() for found in COMMENT.finditer(text)]
+    body = body_start(text)
+    if body:
+        hidden.append((0, body))
+    # Most notes hold no fence and no indented hash, and for those the parse
+    # `code_spans` makes is skipped: it is most of the time a vault's tags take.
+    if "```" in text or "~~~" in text or INDENTED.search(text, body):
+        # The block as spaces, which the parser reads as blank lines, so an
+        # indented line under it opens code as it does under a blank line.
+        hidden += code_spans(_blanked(text, [(0, body)], " "), indented=True)
+    if not hidden:
         return line_tags(text)
-    blanked = list(text)
-    for start, end in code_spans(text):
-        for index in range(start, end):
-            # A line break stays, or a fence's lines would run into one.
-            if blanked[index] != "\n":
-                blanked[index] = "\N{NO-BREAK SPACE}"
-    return line_tags("".join(blanked))
+    return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))
 
 
 def _words(rest: str) -> str:

@@ -200,8 +200,12 @@ function enclosingLink(state: EditorState, pos: number, side: -1 | 1): string | 
  * the hidden `[[` ends has just entered; backwards finds the one it has just
  * left, which is where `$` lands on a line ending in a link and where the
  * caret is painted against the last letter of the name either way.
+ *
+ * A link opens and closes on one line, so a line with no `[[` holds none, and
+ * that is answered without waiting on the parse a long note needs (#638).
  */
 export function wikiLinkAt(state: EditorState, pos: number): string | null {
+  if (!state.doc.lineAt(pos).text.includes("[[")) return null;
   return enclosingLink(state, pos, 1) ?? enclosingLink(state, pos, -1);
 }
 

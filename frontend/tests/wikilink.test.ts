@@ -424,7 +424,9 @@ describe("wikiLinkAt on a note longer than the first parse", () => {
   });
 
   it("answers null off a link past the first parse, parsing for a bounded time (#628)", () => {
-    const doc = `${filler}plain words\n\nsee [[borges]]`;
+    // The link on the cursor's line, as a line holding none is answered
+    // without a parse (#638).
+    const doc = `${filler}plain words, see [[borges]]`;
     const state = EditorState.create({ doc, extensions: [noteLanguage()] });
     const pos = doc.indexOf("plain");
 

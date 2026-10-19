@@ -23,5 +23,20 @@
     "tags": ["#flashcards/es", "#flashcardsx", "#flashcards"]
   },
   { "id": "fence", "text": "```\ngrep #fenceonly\n```\n#real", "tags": ["#real"] },
-  { "id": "open-tilde-fence", "text": "#real\n~~~\n#inside", "tags": ["#real"] }
+  { "id": "open-tilde-fence", "text": "#real\n~~~\n#inside", "tags": ["#real"] },
+  {
+    "id": "frontmatter",
+    "text": "---\ncolor: \"#fff\"\nref: x #abc\n---\n#real",
+    "tags": ["#real"]
+  },
+  { "id": "rule-lower-down", "text": "#a\n\n---\nref: x #b\n\n---", "tags": ["#a", "#b"] },
+  { "id": "indented-code", "text": "para\n\n    #indented\n\n#real", "tags": ["#real"] },
+  { "id": "tab-code", "text": "para\n\n\t#indented\n\n#real", "tags": ["#real"] },
+  {
+    "id": "list-continuation",
+    "text": "- [ ] a\n    - [ ] x #p\n\n    more #q",
+    "tags": ["#p", "#q"]
+  },
+  { "id": "comment", "text": "a <!-- #hidden #flashcards/x --> #real", "tags": ["#real"] },
+  { "id": "comment-block", "text": "<!--\n#hidden\n-->\n#real", "tags": ["#real"] }
 ]

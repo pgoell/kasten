@@ -1,15 +1,11 @@
-import { GFM, parser } from "@lezer/markdown";
 import { describe, expect, it } from "vitest";
 import { cardTags, deckTags, withoutTags } from "@/lib/deck-tag";
-import { Highlight } from "@/lib/markdown-highlight";
-import { MathSyntax } from "@/lib/math";
+import { noteLanguage } from "@/lib/note-language";
 import { parseCards } from "@/lib/srs";
-import { Tag } from "@/lib/tag";
 import cases from "@/lib/tag-cases.json";
 import { parseTodo, tagsOf } from "@/lib/todo";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import { parseViews } from "@/lib/todo-view";
-import { WikiLink } from "@/lib/wikilink";
 
 // docs/reference/tag-format.md: every reader runs the whole table, a reader of
 // one line the cases of one line. One expect per reader, so a run on main shows
@@ -17,8 +13,11 @@ import { WikiLink } from "@/lib/wikilink";
 
 type Case = (typeof cases)[number];
 
-/** kasten's markdown, as `copy-as.ts` configures it and the editor draws it. */
-const notes = parser.configure([GFM, Highlight, MathSyntax, Tag, WikiLink]);
+/**
+ * kasten's markdown under its frontmatter, as the editor parses a note. The
+ * frontmatter wrapper is what keeps a hash in the block from drawing as a tag.
+ */
+const notes = noteLanguage().language.parser;
 
 /** The tags the editor's parser draws in `text`, in order. */
 function drawn(text: string): string[] {

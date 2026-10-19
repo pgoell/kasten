@@ -22,14 +22,27 @@ MOST_SECONDS = 2.0
 
 
 def note(index: int) -> str:
-    """A note with a heading, three tags, a code span, a link and every fifth a fence."""
-    text = (
+    """A note with a heading, three tags, a code span, a link, and on some the rest.
+
+    Most notes open with a frontmatter, as most of a real vault's do, and a few
+    of those carry a hash and a `tags` field. Every fifth holds a fence, and a
+    few hold a comment or an indented line under a list item.
+    """
+    text = ""
+    if index % 7:
+        styled = 'color: "#fff"\ntags: [field]\n' if index % 10 == 0 else ""
+        text += f"---\nid: {index}\ncreated: 2026-10-19\n{styled}---\n"
+    text += (
         f"# Note {index}\n\n"
         f"Some prose about #topic{index % 50} and #area/{index % 7}, with `code #nope`.\n"
         f"See [[Note {index + 1}]] and [a site](https://x.io/#anchor) for #shared.\n"
     )
     if index % 5 == 0:
         text += "\n```sh\ngrep #inside log\n```\n"
+    if index % 11 == 0:
+        text += "\n<!-- #hidden -->\n"
+    if index % 20 == 0:
+        text += "\n- an item\n    more about #continued\n"
     return text + "\nMore prose. " * 20 + "\n"
 
 
@@ -55,8 +68,8 @@ async def test_find_tags_and_graph_over_a_generated_vault(tmp_path: Path) -> Non
         graphs.append(time.perf_counter() - start)
     timed("read_graph", graphs)
 
-    assert "#shared" in found
-    assert "#inside" not in found
+    assert {"#shared", "#field", "#continued"} <= set(found)
+    assert not {"#inside", "#fff", "#hidden"} & set(found)
     assert len(graph.nodes) == NOTES + 1
     assert statistics.median(durations) < MOST_SECONDS
     assert statistics.median(graphs) < MOST_SECONDS

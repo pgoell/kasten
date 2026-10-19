@@ -28,11 +28,22 @@ finder that leaves a name inside a tag alone.
    `#y:` and `#z!` carry `#x`, `#y` and `#z`.
 4. The character in front of the hash is not a letter, a number, `_` or `/`. So
    `note#2x`, `https://a.io/p#x` and `²#x` carry no tag.
-5. A hash inside a code span, a fenced code block, a wikilink or a markdown link
-   (its text or its address) is no tag. A fence opened with tildes is a fence
-   too, and one nobody closed runs to the end of the note.
+5. A hash inside a code span, a fenced code block, an indented code block, an
+   HTML comment, a wikilink or a markdown link (its text or its address) is no
+   tag. A fence opened with tildes is a fence too, and one nobody closed runs to
+   the end of the note. An indented block is code as CommonMark reads it, four
+   spaces or a tab after a blank line; a line indented under a list item goes
+   on with the item and keeps its tags. A comment may run over several lines.
 
 `# Heading`, a hash and a space, opens a heading and is no tag.
+
+A hash in the frontmatter, `color: "#fff"`, is no tag. As in Obsidian, the
+block's `tags` field names tags instead: `tags: [agent, design]`, a list of
+`- agent` lines, or one value, each with a hash or without, and each a tag only
+when the rule above makes `#` and the value one. The frontmatter is the block
+`frontmatter.py` reads: three dashes on line 1 open it and the next three close
+it, so a note whose block never closes has none. The editor draws no tag from
+the field; `GET /api/tags` and the graph read it.
 
 A deck tag is a tag by this rule that is `#flashcards` or starts
 `#flashcards/`, so `(#flashcards/es)` names the deck `es` and `#flashcardsx`
@@ -44,4 +55,6 @@ names none. See [Flashcard format](/reference/flashcard-format.md).
 tags it carries in order. Every reader runs the whole table in its own tests,
 frontend and backend both. A reader that reads one line at a time runs the cases
 of one line; a reader that reads a whole note runs them all. A change to the
-rule is a change to that table first.
+rule is a change to that table first. The `tags` field has no row there, since
+the editor draws nothing from it; its cases sit in the backend's
+`test_tag_rule.py`.

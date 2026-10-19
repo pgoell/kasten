@@ -122,6 +122,59 @@ async def test_b_spans_do_not_count_toward_the_tag_cap(
     assert await tags.find_tags(tmp_path) == [f"#t{index}" for index in range(5)]
 
 
+async def test_642_a2_graph_tag_filter_skips_a_hash_in_the_frontmatter(vault: Path) -> None:
+    write(vault, "styled.md", '---\ncolor: "#fff"\nref: x #fff\n---\nbody\n')
+    write(vault, "tagged.md", "#fff\n")
+
+    graph = await query_graph(vault, "tag:fff")
+
+    assert {node.path for node in graph.nodes} == {"tagged.md"}
+
+
+async def test_642_a3_find_tags_reads_the_frontmatter_tags_field(tmp_path: Path) -> None:
+    write(tmp_path, "flow.md", "---\ntags: [agent, design/ui]\n---\n")
+    write(tmp_path, "block.md", "---\ntags:\n  - '#review'\n  - later\n---\n")
+    write(tmp_path, "single.md", "---\ntags: solo\n---\n")
+
+    assert await find_tags(tmp_path) == ["#agent", "#design/ui", "#later", "#review", "#solo"]
+
+
+async def test_642_a3_graph_reads_the_frontmatter_tags_field(vault: Path) -> None:
+    write(vault, "flow.md", "---\ntags: [agent, design/ui]\n---\n")
+    write(vault, "block.md", "---\ntags:\n  - '#review'\n  - later\n---\n")
+    write(vault, "single.md", "---\ntags: solo\n---\n")
+
+    graph = await read_graph(vault)
+    filtered = await query_graph(vault, "tag:design")
+
+    assert {
+        "nodes": {path: graph.nodes[path].tags for path in ("flow.md", "block.md", "single.md")},
+        "filtered": {node.path for node in filtered.nodes},
+    } == {
+        "nodes": {
+            "flow.md": ["#agent", "#design/ui"],
+            "block.md": ["#later", "#review"],
+            "single.md": ["#solo"],
+        },
+        "filtered": {"flow.md"},
+    }
+
+
+async def test_642_i3_a_tags_field_value_follows_the_tag_rule(tmp_path: Path) -> None:
+    write(tmp_path, "note.md", "---\ntags: [1984, ½, ok]\n---\n")
+
+    assert await find_tags(tmp_path) == ["#ok"]
+
+
+async def test_642_i2_a_block_that_never_closes_is_no_frontmatter(tmp_path: Path) -> None:
+    # The first is read whole, its hash after a `---` on line 1, and the second
+    # a line at a time, its `---` lower down.
+    write(tmp_path, "unclosed.md", "---\nref: x #abc\n")
+    write(tmp_path, "lower.md", "body\n\n---\nref: x #def\n---\n")
+
+    assert await find_tags(tmp_path) == ["#abc", "#def"]
+
+
 def test_i5_name_inside_a_digit_first_tag_is_no_mention() -> None:
     text = "see #2026-10-13-x"
 

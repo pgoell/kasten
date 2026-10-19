@@ -444,16 +444,20 @@ Lists every tag written anywhere in the vault, once each, sorted.
 
 A tag is what the [tag rule](/reference/tag-format.md) calls one, the rule the
 editor, the todo board and the graph read by too. So `#!/bin/sh`, `#1984` and
-`note#2` are no tags, and nor is a hash inside a code span, a fenced code block,
-a `[[wikilink]]` or a `[text](url)`. The same tag written outside those anywhere
-is still offered.
+`note#2` are no tags, and nor is a hash inside a code span, a fenced or indented
+code block, an HTML comment, the frontmatter, a `[[wikilink]]` or a
+`[text](url)`. The same tag written outside those anywhere is still offered. The
+frontmatter's `tags` field adds its values, as Obsidian reads them.
 
 Two `rg` passes carry the same flags search carries. One matches every span and
 every hash that could open a tag, and each match is read as the todo board reads
-a line. The other names the notes holding three backticks or tildes, and the
-backend reads each of those whole, since only the whole note says where a fenced
-block opens and closes. Only the tags come back, never the lines
-holding them. Which note holds a tag is a search, and this answers what the
+a line. The other reads each note whole and names those holding three backticks
+or tildes, a comment left open at the end of its line, a hash on a line indented
+four spaces or a tab, or a frontmatter with a hash or a `tags` field in it. The
+backend reads each of those whole, since only the whole note says where a block
+opens and closes. Most notes carry a frontmatter of an id and dates and none of
+the rest, so the first pass alone reads them. Only the tags come back, never the
+lines holding them. Which note holds a tag is a search, and this answers what the
 editor completes an open `#` from.
 
 It takes no `archive`, unlike the scans below. What is filed away is out of a

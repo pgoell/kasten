@@ -454,14 +454,21 @@ class Formula extends WidgetType {
     const box = document.createElement(this.display ? "div" : "span");
     box.className = this.display ? "cm-math-block" : "cm-math";
     box.textContent = this.source;
-    void loadKatex().then((katex) => {
-      katex.render(this.source, box, {
-        displayMode: this.display,
-        throwOnError: false,
-        errorColor: "var(--color-one-warn)",
-      });
-      view.requestMeasure();
-    });
+    void loadKatex().then(
+      (katex) => {
+        katex.render(this.source, box, {
+          displayMode: this.display,
+          throwOnError: false,
+          errorColor: "var(--color-one-warn)",
+        });
+        view.requestMeasure();
+      },
+      // A load that failed leaves the source in the box, and the next formula
+      // drawn asks for KaTeX again (#637).
+      (error: unknown) => {
+        if (!(error instanceof Error)) throw error;
+      },
+    );
     return box;
   }
 }

@@ -1,0 +1,73 @@
+import { render, waitFor } from "@testing-library/react";
+import { Editor } from "@/components/editor";
+import { loadKatex } from "@/lib/math";
+
+// Spied, so a test can wait on the load the formula asked for.
+vi.mock("@/lib/math", { spy: true });
+
+/** Whether the next fetch of KaTeX fails, the way a chunk does while offline. */
+const network = vi.hoisted(() => ({ down: false }));
+
+// A factory that throws is not cached, so the next import runs it again: the
+// shape of a chunk fetch that failed once and may succeed when asked again.
+vi.mock("katex", async (importOriginal) => {
+  if (network.down) throw new TypeError("Failed to fetch dynamically imported module");
+  return importOriginal();
+});
+
+/** The source of every formula KaTeX drew, which it writes into the MathML it hides. */
+function drawn(container: HTMLElement): string[] {
+  return [...container.querySelectorAll(".cm-math .katex-mathml annotation")].map(
+    (node) => node.textContent ?? "",
+  );
+}
+
+/** Wait for the last load asked for to fail, rather than for a time. */
+async function failed(): Promise<void> {
+  await expect(vi.mocked(loadKatex).mock.results.at(-1)?.value).rejects.toThrow();
+}
+
+beforeEach(() => {
+  localStorage.setItem("kasten.vim", "on");
+  vi.mocked(loadKatex).mockClear();
+});
+afterEach(() => {
+  network.down = false;
+  localStorage.clear();
+});
+
+// In this order: a load that succeeds is kept for the rest of the file, so the
+// test that needs every load to fail runs before the one that ends in a draw.
+describe("a failed KaTeX load", () => {
+  it("#637 I5 leaves the formula as its source and logs no unhandled rejection", async () => {
+    const unhandled: unknown[] = [];
+    const listen = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", listen);
+    try {
+      network.down = true;
+      const { container } = render(<Editor initialDoc={"intro\n\narea $x$"} />);
+      await failed();
+      // Node reports a rejection nobody handled once the microtasks drain.
+      await new Promise((done) => setTimeout(done, 0));
+
+      expect(container.querySelector(".cm-math")?.textContent).toBe("x");
+      expect(drawn(container)).toEqual([]);
+      expect(unhandled).toHaveLength(0);
+    } finally {
+      process.off("unhandledRejection", listen);
+    }
+  });
+
+  it("#637 A8 the next formula tries the load again and draws, with no reload", async () => {
+    network.down = true;
+    const first = render(<Editor initialDoc={"intro\n\narea $x$"} />);
+    await failed();
+    expect(drawn(first.container)).toEqual([]);
+    first.unmount();
+
+    network.down = false;
+    const { container } = render(<Editor initialDoc={"intro\n\narea $y$"} />);
+
+    await waitFor(() => expect(drawn(container)).toEqual(["y"]));
+  });
+});

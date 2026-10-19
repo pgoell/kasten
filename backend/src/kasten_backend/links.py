@@ -165,7 +165,7 @@ def _respell(name: str, new: str) -> str:
     return stem if "/" in name else stem.rsplit("/", 1)[-1]
 
 
-def code_spans(text: str) -> list[tuple[int, int]]:
+def code_spans(text: str, *, indented: bool = False) -> list[tuple[int, int]]:
     """Where `text` holds code, as `(start, end)` offsets: fenced blocks and inline spans.
 
     A `[[x]]` in code is an example of the syntax and not a link, so a move
@@ -177,7 +177,9 @@ def code_spans(text: str) -> list[tuple[int, int]]:
 
     An indented block is not read as code, though the parser finds those too.
     Four spaces is also how a list item continues, and reading them as code
-    would hide links nobody asked to hide.
+    would hide links nobody asked to hide. `indented` reads them all the same,
+    for the tags: the editor draws no tag in one, and the parser already tells
+    a continued list item from code.
 
     Where the reading is in doubt the text is not code: a link wrongly taken
     for code is left pointing at nothing, and one wrongly taken for a link is
@@ -198,9 +200,10 @@ def code_spans(text: str) -> list[tuple[int, int]]:
     # Every fence opens with three backticks or tildes in a row, so a note with
     # neither has none, and skips the parse that is most of a long note's time.
     fenced = []
-    if "```" in text or "~~~" in text:
+    kinds = ("fence", "code_block") if indented else ("fence",)
+    if indented or "```" in text or "~~~" in text:
         for token in FENCES.parse(text.replace("\r", " ")):
-            if token.type == "fence" and token.map is not None:
+            if token.type in kinds and token.map is not None:
                 fenced.append((token.map[0], token.map[1]))
 
     spans = []

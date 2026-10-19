@@ -102,14 +102,24 @@ def body_start(content: str) -> int:
 
 
 def aliases(content: str) -> list[str]:
-    """The other names the block gives the note, in the order it gives them.
+    """The other names the block gives the note, in the order it gives them."""
+    return _list(content, "aliases")
 
-    Obsidian's three spellings: a flow list `aliases: [a, b]`, a block list of
+
+def tags(content: str) -> list[str]:
+    """The tags the block's `tags` field gives the note, as written, a hash or none."""
+    return _list(content, "tags")
+
+
+def _list(content: str, name: str) -> list[str]:
+    """The values the block's field `name` holds, in the order it holds them.
+
+    Obsidian's three spellings: a flow list `name: [a, b]`, a block list of
     `- a` lines under the key, and one bare string. Read as lines like the rest
-    of this module, so a quoted name loses its quotes and nothing more.
+    of this module, so a quoted value loses its quotes and nothing more.
     """
     block, _ = _split(content)
-    index = next((i for i, line in enumerate(block) if _key(line) == "aliases"), None)
+    index = next((i for i, line in enumerate(block) if _key(line) == name), None)
     if index is None:
         return []
 

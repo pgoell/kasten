@@ -101,8 +101,8 @@ A tag follows [the one tag rule](/reference/tag-format.md): a `#`, then
 letters, numbers, `_`, `/` or `-`, at least one of them not a number, read on
 the words once the fields are out. So `call #1on1` carries `#1on1`, and `#1984`
 is no tag. Any other character ends it, so `(#next)`, `#next,` and `#next.`
-carry `#next`, as does `#next` before a `:` or a `!`. A hash inside a code span, a markdown link or a
-`[[wikilink]]` is no tag, and neither is one straight after a letter, a digit,
+carry `#next`, as does `#next` before a `:` or a `!`. A hash inside a code span, a markdown link, a
+`[[wikilink]]` or an HTML comment closed on the line is no tag, and neither is one straight after a letter, a digit,
 `_` or `/` of the words. So `` `grep #client log` ``,
 `[see](https://a.io/p#next)`, `https://a.io/p#next` and `[[note#p/x]]` carry no
 tag, and the words keep them as typed. A field's value is not words:

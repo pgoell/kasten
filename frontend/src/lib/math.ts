@@ -154,10 +154,17 @@ let loading: Promise<typeof katex> | null = null;
  * bundle: a static one would put KaTeX, 75 kB gzipped, on every editor page
  * whether or not a note held a formula. Its own module so a test can see
  * whether it was asked for.
+ *
+ * A failed load is forgotten, so the next formula asks again (#637): kept, one
+ * fetch lost while offline would leave every formula as source until reload.
  */
 export function loadKatex(): Promise<typeof katex> {
   loading ??= Promise.all([import("katex"), import("katex/dist/katex.min.css")]).then(
     ([module]) => module.default,
+    (error: unknown) => {
+      loading = null;
+      throw error;
+    },
   );
   return loading;
 }

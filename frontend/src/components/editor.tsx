@@ -8,6 +8,7 @@ import {
   EditorState,
   type Extension,
   Facet,
+  type Text,
   Transaction,
 } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -21,7 +22,7 @@ import { toHtml, toSlack } from "@/lib/copy-as";
 import { editorCommands } from "@/lib/editor-commands";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { toggleMark } from "@/lib/format-commands";
-import { highlightAt } from "@/lib/highlight";
+import { highlightAt, mayBeHighlightLine } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
@@ -113,6 +114,22 @@ function followLink(view: EditorView, target: string) {
 }
 
 /**
+ * The quote of the highlight block line `at` sits in, or null outside one.
+ *
+ * Read from the run of lines around `at` that could belong to a block and not
+ * from the whole note, which Enter off a link would otherwise copy on every
+ * press (#638). A prose line reads nothing past itself.
+ */
+function highlightNear(doc: Text, at: number): string[] | null {
+  if (!mayBeHighlightLine(doc.line(at).text)) return null;
+  let first = at;
+  while (first > 1 && mayBeHighlightLine(doc.line(first - 1).text)) first -= 1;
+  let last = at;
+  while (last < doc.lines && mayBeHighlightLine(doc.line(last + 1).text)) last += 1;
+  return highlightAt(doc.sliceString(doc.line(first).from, doc.line(last).to), at - first + 1);
+}
+
+/**
  * Open what the cursor's line names, vim's own go-to-file.
  *
  * Two readers, in this order. A `[[link]]` under the cursor is a link even
@@ -129,7 +146,7 @@ function follow(view: EditorView): boolean {
   }
 
   const { doc } = view.state;
-  const quote = highlightAt(doc.toString(), doc.lineAt(view.state.selection.main.head).number);
+  const quote = highlightNear(doc, doc.lineAt(view.state.selection.main.head).number);
   if (quote === null) return false;
   // True whether or not a handler is installed, which is what the wikilink
   // branch above does: the only editor with no callback is the empty pane, and
