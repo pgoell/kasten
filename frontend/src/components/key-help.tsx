@@ -15,6 +15,7 @@ import {
   TREE,
 } from "@/lib/key-bindings";
 import { closeOnBackdrop, HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
+import { useVim } from "@/lib/vim-setting";
 
 /**
  * `Ctrl Shift H`, built from `TERMINAL_CHORD` so the panel follows a retune.
@@ -53,16 +54,26 @@ const TAB_DIGITS = "tab digits";
  * `LEADER` is alphabetical, which is the order for a table nobody reads and
  * the wrong one for a panel somebody scans: `cf`, `df` and `rf` are one job in
  * three places. The order inside a group is this list's. A key named nowhere
- * here falls into the last group rather than off the panel, so a new binding
- * needs no edit in this file to show up.
+ * here is not drawn, so a new binding needs an entry here, and a test fails
+ * until it has one.
  */
 const LEADER_GROUPS: readonly { title: string; keys: readonly string[] }[] = [
-  { title: "Panes", keys: ["%", '"', "h", "j", "k", "l", "o", "q"] },
+  {
+    title: "Panes",
+    keys: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
+  },
   { title: "Tabs", keys: ["ct", "tl", "th", TAB_DIGITS] },
-  { title: "Notes", keys: ["cf", "rf", "df", "du", "cw", "cm", "w"] },
   { title: "Find", keys: ["ff", "fg", "ft"] },
-  { title: "Go to", keys: ["gd", "gw", "gm", "gq", "gy", "gb", "go", "gr", "ge", "gs", "gt"] },
-  { title: "Todos", keys: ["x", "i", "so", "sp", "sx", "sb", "sr"] },
+  { title: "Create and capture", keys: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"] },
+  { title: "This note", keys: ["rf", "df", "du", "w", "="] },
+  { title: "Periodic notes", keys: ["gd", "gw", "gm", "gq", "gy"] },
+  {
+    title: "Panes to open",
+    keys: ["gb", "go", "gr", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
+  },
+  { title: "Todos", keys: ["x", "i", "so", "sp", "sx", "sb", "sw", "sv", "sr"] },
+  { title: "Toggles", keys: ["a", "b", "p", "e", "E", "v"] },
+  { title: "Help", keys: ["?", ":"] },
 ];
 
 /** The leader groups above, filled from the two tables the keys live in. */
@@ -75,25 +86,49 @@ function leaderGroups(): Group[] {
     label: "Go to a tab by number",
   });
 
-  const named = LEADER_GROUPS.map(({ title, keys }) => ({
+  return LEADER_GROUPS.map(({ title, keys }) => ({
     title,
     keys: keys.flatMap((key) => {
       const row = rows.get(key);
-      rows.delete(key);
       return row ? [row] : [];
     }),
   }));
+}
 
-  // Whatever was named nowhere above, in the table's own order: the toggles,
-  // the terminal, the formatter and this panel's own key.
-  return [...named, { title: "The rest", keys: [...rows.values()] }];
+/**
+ * One block of groups, in a grid rather than CSS columns: columns place a
+ * group by the heights before it, so where one lands moved with the window.
+ * A grid keeps reading order, left to right and row by row.
+ */
+function Block({
+  title,
+  intro,
+  groups,
+  className = "",
+}: {
+  title: string;
+  intro?: string;
+  groups: Group[];
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <h2 className="mb-1 text-[12px] font-semibold tracking-wider text-one-fg uppercase">
+        {title}
+      </h2>
+      {intro && <p className="mb-2 text-[12px] text-one-muted">{intro}</p>}
+      <div className="grid grid-cols-1 items-start gap-x-8 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
+        {groups.map((group) => (
+          <Table key={group.title} {...group} />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function Table({ title, keys }: Group) {
   return (
-    // A group is one card and a card never straddles two columns, so the panel
-    // reflows as the window changes without cutting a group in half.
-    <section className="mb-4 break-inside-avoid">
+    <section className="min-w-0">
       <h3 className={`${LABEL} mb-1`}>{title}</h3>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-[13px] leading-snug">
         {keys.map(({ key, label }) => (
@@ -114,12 +149,14 @@ function Table({ title, keys }: Group) {
  * registrations are built from, so a key cannot appear here and be missing
  * from the editor.
  *
- * It is laid out in columns rather than one long list because the map is
- * ninety-odd keys: a single column is a page and a half of scrolling, and the
- * point of the panel is answering a question at a glance.
+ * Two blocks, the leader keys and the rest, each a grid of up to three
+ * columns rather than one long list: the map is a hundred-odd keys, a single
+ * column is pages of scrolling, and the point of the panel is answering a
+ * question at a glance. A phone gets the one column.
  */
 export function KeyHelp({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
+  const vimOn = useVim();
 
   // The panel takes the focus so its own keys reach it, rather than reaching
   // whatever was focused when it opened, and hands it back on the way out.
@@ -133,8 +170,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  const groups: Group[] = [
-    ...leaderGroups(),
+  const others: Group[] = [
     {
       title: "Editor",
       keys: [
@@ -180,10 +216,23 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
         <div className={HEADER_ROW}>
           <span className={LABEL}>Keys</span>
         </div>
-        <div className="min-h-0 columns-1 gap-x-8 overflow-auto px-4 py-3 md:columns-2 xl:columns-3">
-          {groups.map((group) => (
-            <Table key={group.title} {...group} />
-          ))}
+        <div className="min-h-0 overflow-auto px-4 py-3">
+          <Block
+            title="Leader keys"
+            // With vim off there is no normal mode and so no leader, but every
+            // one of these is a palette command under the same label.
+            intro={
+              vimOn
+                ? "These start with Space, in normal mode."
+                : `Vim is off, so run these from the command palette (${chordLabel("P")}), each by the same label.`
+            }
+            groups={leaderGroups()}
+          />
+          <Block
+            title="Other keys"
+            groups={others}
+            className="mt-4 border-t border-one-selection pt-4"
+          />
         </div>
         <p className={STATUS}>Escape or q to close, or a tap outside</p>
       </div>

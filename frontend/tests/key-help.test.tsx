@@ -84,6 +84,98 @@ describe("KeyHelp", () => {
     expect(screen.getByText("Space r f").nextElementSibling).toHaveTextContent("Rename the note");
   });
 
+  it("puts every leader key in a named group", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    // Written out rather than read off the panel, so a catchall group added
+    // back under any name fails here.
+    const titles = [
+      "Panes",
+      "Tabs",
+      "Find",
+      "Create and capture",
+      "This note",
+      "Periodic notes",
+      "Panes to open",
+      "Todos",
+      "Toggles",
+      "Help",
+    ];
+    for (const { key } of [...LEADER, ...LEADER_EDITS]) {
+      const title = screen.getByText(leaderKey(key)).closest("section")?.querySelector("h3");
+      expect(titles, key).toContain(title?.textContent);
+    }
+  });
+
+  it("groups the leader keys as the issue names them", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    // #516's table, written out: a key moved to another group fails here even
+    // though it still has a name above it.
+    const groups: Record<string, string[]> = {
+      Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
+      Tabs: ["ct", "tl", "th"],
+      Find: ["ff", "fg", "ft"],
+      "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
+      "This note": ["rf", "df", "du", "w", "="],
+      "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
+      "Panes to open": ["gb", "go", "gr", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
+      Todos: ["x", "i", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
+      Toggles: ["a", "b", "p", "e", "E", "v"],
+      Help: ["?", ":"],
+    };
+    for (const [title, keys] of Object.entries(groups)) {
+      for (const key of keys) {
+        expect(group(title).getByText(leaderKey(key))).toBeInTheDocument();
+      }
+    }
+    expect(group("Tabs").getByText("Go to a tab by number")).toBeInTheDocument();
+  });
+
+  it("sets the leader keys apart from the other keys", () => {
+    render(<KeyHelp onClose={() => {}} />);
+
+    const leader = [
+      "Panes",
+      "Tabs",
+      "Find",
+      "Create and capture",
+      "This note",
+      "Periodic notes",
+      "Panes to open",
+      "Todos",
+      "Toggles",
+      "Help",
+    ];
+    const other = ["Editor", "Terminal", "File tree", "Todo pane", "Screens you type"];
+    const titles = (block: string) =>
+      group(block)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent);
+
+    expect(titles("Leader keys")).toEqual(leader);
+    expect(titles("Other keys")).toEqual(other);
+  });
+
+  it("says how to reach the leader keys, with vim on and off", () => {
+    // With vim off there is no leader at all, so the panel has to say where
+    // the same commands went.
+    try {
+      localStorage.setItem("kasten.vim", "on");
+      const { unmount } = render(<KeyHelp onClose={() => {}} />);
+      expect.soft(screen.queryByText(/start with Space, in normal mode/)).toBeInTheDocument();
+      unmount();
+
+      localStorage.setItem("kasten.vim", "off");
+      render(<KeyHelp onClose={() => {}} />);
+      expect(
+        screen.queryByText(/Vim is off.*command palette \(Ctrl Shift P\)/),
+      ).toBeInTheDocument();
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+  });
+
   it("lists every formatting key", () => {
     render(<KeyHelp onClose={() => {}} />);
 

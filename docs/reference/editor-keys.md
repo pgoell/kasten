@@ -208,45 +208,15 @@ The leader is the space bar, in normal mode. Vim ships `<Space>` bound to `l`,
 and kasten unmaps it so a sequence can begin there. Visual mode keeps
 move-right, because the leader is registered in normal mode only.
 
+The tables follow the groups of the `<leader>?` panel, in the same order.
+
+**Panes**
+
 | Key | Does |
 | --- | --- |
-| `<leader>b` | Fold the file tree away, or bring it back |
-| `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
-| `<leader>cc` | Open the chat with Claude Code in the focused pane |
-| `<leader>cd` | Capture a thought into the `## Dump` of today's note |
-| `<leader>cf` | Open the new note prompt |
-| `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
-| `<leader>cm` | Import markdown files from your disk into the inbox |
-| `<leader>cs` | Open a terminal, on a herdr session you name |
-| `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
-| `<leader>ct` | Start a tab, on one empty pane |
-| `<leader>cv` | Write the transcript of this note's video into the note |
-| `<leader>cw` | Import a web page into the inbox |
-| `<leader>df` | Move the open note into the trash |
-| `<leader>du` | Put the last deleted note or folder back |
-| `<leader>e` | Move the focus to the file tree |
-| `<leader>E` | Unfold the tree down to the open note and put its cursor there |
-| `<leader>ff` | Open the note finder |
-| `<leader>fg` | Open search over note content |
-| `<leader>ft` | Open the todo overlay |
-| `<leader>gb` | Show what links to the open note |
-| `<leader>gd` | Open today's note |
-| `<leader>ge` | Sit the open note as a practice exam |
-| `<leader>gg` | Put the graph of the whole vault in the focused pane |
-| `<leader>gh` | Show this note's history in a pane beside it |
-| `<leader>gl` | Show the graph around this note in a pane beside it |
-| `<leader>gm` | Open this month's note |
-| `<leader>go` | Show what the open note links to |
-| `<leader>gp` | Show this person's card in a pane beside their note |
-| `<leader>gq` | Open this quarter's note |
-| `<leader>gr` | Read this note's book in a pane beside it |
-| `<leader>gs` | Put the review in the focused pane |
-| `<leader>gt` | Put the todo list in the focused pane |
-| `<leader>gv` | Watch this note's video in a pane beside it |
-| `<leader>gw` | Open this week's note |
-| `<leader>gy` | Open this year's note |
+| `<leader>%` | Split the pane left and right |
+| `<leader>"` | Split the pane top and bottom |
 | `<leader>h` | Move to the pane on the left |
-| `<leader>i` | Stamp an id on the todo on this line |
 | `<leader>j` | Move to the pane below |
 | `<leader>k` | Move to the pane above |
 | `<leader>l` | Move to the pane on the right |
@@ -255,9 +225,82 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>K` | Swap this pane with the one above |
 | `<leader>L` | Swap this pane with the one on the right |
 | `<leader>o` | Move to the next pane |
-| `<leader>p` | Turn live preview off, or back on |
+| `<leader>z` | Draw this pane on its own, or put the tab back |
 | `<leader>q` | Close the note, then the pane, then the tab |
+
+**Tabs**
+
+| Key | Does |
+| --- | --- |
+| `<leader>ct` | Start a tab, on one empty pane |
+| `<leader>tl` | Go to the next tab |
+| `<leader>th` | Go to the previous tab |
+| `<leader>1` to `<leader>0` | Go to a tab by number |
+
+**Find**
+
+| Key | Does |
+| --- | --- |
+| `<leader>ff` | Open the note finder |
+| `<leader>fg` | Open search over note content |
+| `<leader>ft` | Open the todo overlay |
+
+**Create and capture**
+
+| Key | Does |
+| --- | --- |
+| `<leader>cf` | Open the new note prompt |
+| `<leader>cd` | Capture a thought into the `## Dump` of today's note |
+| `<leader>cw` | Import a web page into the inbox |
+| `<leader>cm` | Import markdown files from your disk into the inbox |
+| `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
+| `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
+| `<leader>cv` | Write the transcript of this note's video into the note |
+| `<leader>cc` | Open the chat with Claude Code in the focused pane |
+| `<leader>cs` | Open a terminal, on a herdr session you name |
+
+**This note**
+
+| Key | Does |
+| --- | --- |
 | `<leader>rf` | Open the rename prompt |
+| `<leader>df` | Move the open note into the trash |
+| `<leader>du` | Put the last deleted note or folder back |
+| `<leader>w` | Download what this pane holds as a file |
+| `<leader>=` | Tidy the markdown in this note |
+
+**Periodic notes**
+
+| Key | Does |
+| --- | --- |
+| `<leader>gd` | Open today's note |
+| `<leader>gw` | Open this week's note |
+| `<leader>gm` | Open this month's note |
+| `<leader>gq` | Open this quarter's note |
+| `<leader>gy` | Open this year's note |
+
+**Panes to open**
+
+| Key | Does |
+| --- | --- |
+| `<leader>gb` | Show what links to the open note |
+| `<leader>go` | Show what the open note links to |
+| `<leader>gr` | Read this note's book in a pane beside it |
+| `<leader>gp` | Show this person's card in a pane beside their note |
+| `<leader>gh` | Show this note's history in a pane beside it |
+| `<leader>gl` | Show the graph around this note in a pane beside it |
+| `<leader>gv` | Watch this note's video in a pane beside it |
+| `<leader>ge` | Sit the open note as a practice exam |
+| `<leader>gs` | Put the review in the focused pane |
+| `<leader>gt` | Put the todo list in the focused pane |
+| `<leader>gg` | Put the graph of the whole vault in the focused pane |
+
+**Todos**
+
+| Key | Does |
+| --- | --- |
+| `<leader>x` | Cycle the todo on this line |
+| `<leader>i` | Stamp an id on the todo on this line |
 | `<leader>so` | Set this todo to open |
 | `<leader>sp` | Set this todo to doing |
 | `<leader>sx` | Set this todo to done |
@@ -265,16 +308,22 @@ move-right, because the leader is registered in normal mode only.
 | `<leader>sw` | Set this todo to waiting on somebody |
 | `<leader>sv` | Set this todo to waiting for review |
 | `<leader>sr` | Set this todo to rejected |
-| `<leader>th` | Go to the previous tab |
-| `<leader>tl` | Go to the next tab |
+
+**Toggles**
+
+| Key | Does |
+| --- | --- |
+| `<leader>a` | Show or hide the archive in the tree, the finder, search and the todos |
+| `<leader>b` | Fold the file tree away, or bring it back |
+| `<leader>p` | Turn live preview off, or back on |
+| `<leader>e` | Move the focus to the file tree |
+| `<leader>E` | Unfold the tree down to the open note and put its cursor there |
 | `<leader>v` | Play or pause this note's video |
-| `<leader>w` | Download what this pane holds as a file |
-| `<leader>x` | Cycle the todo on this line |
-| `<leader>z` | Draw this pane on its own, or put the tab back |
-| `<leader>=` | Tidy the markdown in this note |
-| `<leader>%` | Split the pane left and right |
-| `<leader>"` | Split the pane top and bottom |
-| `<leader>1` to `<leader>0` | Go to a tab by number |
+
+**Help**
+
+| Key | Does |
+| --- | --- |
 | `<leader>?` | Show every binding on this page, in the app |
 | `<leader>:` | Run a command by name, in [the command palette](#the-command-palette) |
 

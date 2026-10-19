@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { TODO_PANE } from "@/lib/key-bindings";
+import { LEADER, LEADER_EDITS, TODO_PANE } from "@/lib/key-bindings";
 
 /**
  * The reference page, read off the file rather than copied, so the panel's
@@ -71,6 +71,49 @@ describe("the todo pane on the reference page", () => {
       for (const press of row) {
         expect(named, `${press} is on the board but not on the panel`).toContain(press);
       }
+    }
+  });
+});
+
+/**
+ * The groups of the `<leader>?` panel, written out here so the page is held to
+ * them (#516). The tab row names `<leader>1` to `<leader>0`, so Tabs ends in
+ * those two.
+ */
+const LEADER_GROUPS: Record<string, string[]> = {
+  Panes: ["%", '"', "h", "j", "k", "l", "H", "J", "K", "L", "o", "z", "q"],
+  Tabs: ["ct", "tl", "th", "1", "0"],
+  Find: ["ff", "fg", "ft"],
+  "Create and capture": ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"],
+  "This note": ["rf", "df", "du", "w", "="],
+  "Periodic notes": ["gd", "gw", "gm", "gq", "gy"],
+  "Panes to open": ["gb", "go", "gr", "gp", "gh", "gl", "gv", "ge", "gs", "gt", "gg"],
+  Todos: ["x", "i", "so", "sp", "sx", "sb", "sw", "sv", "sr"],
+  Toggles: ["a", "b", "p", "e", "E", "v"],
+  Help: ["?", ":"],
+};
+
+describe("the leader keys on the reference page", () => {
+  it("the editor keys page groups the leader keys as the panel does", () => {
+    const leader = section("## Leader");
+    const documented = new Map<string, Set<string>>();
+    for (const title of Object.keys(LEADER_GROUPS)) {
+      const label = `\n**${title}**\n\n`;
+      const start = leader.indexOf(label);
+      expect(start, `no **${title}** label under ## Leader`).toBeGreaterThan(-1);
+      const table = leader.slice(start + label.length);
+      const end = table.indexOf("\n\n");
+      const keys = rows(end === -1 ? table : table.slice(0, end))
+        .flatMap((row) => [...row])
+        .map((key) => key.replace(/^<leader>/, ""));
+      documented.set(title, new Set(keys));
+      expect(new Set(keys), title).toEqual(new Set(LEADER_GROUPS[title]));
+    }
+
+    // A binding added to the code but not to the page fails here.
+    for (const { key } of [...LEADER, ...LEADER_EDITS]) {
+      const homes = [...documented].filter(([, keys]) => keys.has(key)).map(([title]) => title);
+      expect(homes, `<leader>${key} is in ${homes.length} groups`).toHaveLength(1);
     }
   });
 });
