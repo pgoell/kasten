@@ -29,7 +29,7 @@ import { ReviewPane } from "@/components/review-pane";
 import { StatusBar } from "@/components/status-bar";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TerminalPrompt } from "@/components/terminal-prompt";
-import { TodoPane } from "@/components/todo-pane";
+import { type AgentRow, TodoPane } from "@/components/todo-pane";
 import { TodoPrompt } from "@/components/todo-prompt";
 import { Toolbar } from "@/components/toolbar";
 import { VideoPane } from "@/components/video-pane";
@@ -520,7 +520,14 @@ function Home() {
   const [helpOpen, setHelpOpen] = useState(false);
   // The editor the palette opened over, held so its edits and inserts have a
   // buffer to write into. null inside means it opened over a pane with none.
-  const [palette, setPalette] = useState<{ view: EditorView | null } | null>(null);
+  // `row` is the todo pane's cursor row where it opened over that pane, taken
+  // then, so the entry acts on the row the reader was looking at.
+  const [palette, setPalette] = useState<{
+    view: EditorView | null;
+    row: AgentRow | null;
+  } | null>(null);
+  // The focused todo pane's cursor row, which only that pane writes.
+  const todoRow = useRef<AgentRow | null>(null);
   // What the prompt is doing and where it starts, and null while it is closed.
   // One piece of state for both, because a create opening on the vault root
   // starts at "" and that still has to read as open.
@@ -2237,9 +2244,8 @@ function Home() {
       showHelp: () => setHelpOpen(true),
       openPalette: () => {
         const focused = document.activeElement;
-        setPalette({
-          view: focused instanceof HTMLElement ? EditorView.findFromDOM(focused) : null,
-        });
+        const view = focused instanceof HTMLElement ? EditorView.findFromDOM(focused) : null;
+        setPalette({ view, row: view === null ? todoRow.current : null });
       },
       // No `saveFirst`: this opens nothing and moves no path, it only changes
       // what four lookups answer with.
@@ -2558,10 +2564,23 @@ function Home() {
   // The palette's rows, built only while it is open. One array per open,
   // because the palette ranks its rows again whenever `entries` arrives new and
   // an event renders the route under it (#592).
-  const entries = useMemo(
-    () => (palette === null ? null : paletteEntries(commands, palette.view)),
-    [commands, palette],
-  );
+  const entries = useMemo(() => {
+    if (palette === null) return null;
+    const listed = paletteEntries(commands, palette.view);
+    const row = palette.row;
+    if (row === null) return listed;
+    // The pane's `@`, which is no leader key and so in no list above: named
+    // here so the palette finds it by name and teaches the key, as it does the
+    // rest. Only over the todo pane, the one place there is a row to act on.
+    return [
+      ...listed,
+      {
+        label: "Send the todo under the cursor to the agent, or take it back",
+        keys: "@",
+        run: () => void agentTodo(row.hit, row.twins),
+      },
+    ];
+  }, [commands, palette, agentTodo]);
 
   /**
    * Read the open note off the vault again and answer with its text, `:e`.
@@ -2702,6 +2721,7 @@ function Home() {
                     onBlock={blockTodo}
                     onTimer={toggleTimer}
                     onAgent={(hit, twins) => void agentTodo(hit, twins)}
+                    cursorRow={focused ? todoRow : undefined}
                     onRefile={(hit, project) => void refileTodo(hit, project)}
                     onNotice={setNotice}
                     archive={archive}

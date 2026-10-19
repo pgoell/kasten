@@ -1585,6 +1585,9 @@ writes the way `m` does, in the note's write queue and naming the text it read,
 so a note holding text not yet saved, open to type in or still being saved is
 not written, and the notice says why. It works on the list, not on the board.
 On a phone the row's `⋯` strip carries `agent`, which does the same.
+The palette opened over the todo pane lists it too, as "Send the todo under the
+cursor to the agent, or take it back", acting on the row under the cursor; over
+a note or any other pane it does not.
 
 `t`, `x`, a state key and a dropped card find a todo's sessions, log line and
 dependents by its `🆔`. Where that `🆔` stands on another todo line too, a

@@ -228,6 +228,12 @@ const CURSOR = [
   "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
 ].join(" ");
 
+/** The row the pane's `@` acts on, with its twins where it has any. */
+export interface AgentRow {
+  hit: SearchHit;
+  twins?: number[];
+}
+
 interface TodoPaneProps {
   /** Reached by a leader sequence typed here, so every leader key still works. */
   commands: EditorCommands;
@@ -288,6 +294,15 @@ interface TodoPaneProps {
    */
   onAgent: (hit: SearchHit, twins?: number[]) => void;
   /**
+   * Where this pane puts the row `@` would act on, or null where `@` would do
+   * nothing, for the palette's entry of that key to read as it opens.
+   *
+   * A ref and not a callback, so a move of the cursor renders nothing else.
+   * The route hands it only to the focused pane, which is the one the palette
+   * opens over.
+   */
+  cursorRow?: { current: AgentRow | null };
+  /**
    * Move the row's todo, with its parts, into its project's note.
    *
    * The `TodoHit` rather than a bare hit, because the project it moves to is
@@ -339,6 +354,7 @@ export function TodoPane({
   onBlock,
   onTimer: timer,
   onAgent: agent,
+  cursorRow,
   onRefile,
   onNotice,
   focusSignal,
@@ -698,6 +714,22 @@ export function TodoPane({
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
   const at = rows[cursor];
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
+
+  // After every render, as `@` reads `at` at the press: none on the board,
+  // which drops the key, or in the picker, which takes only its own.
+  useEffect(() => {
+    if (cursorRow === undefined) return;
+    if (board || picking !== null || at === undefined) {
+      cursorRow.current = null;
+    } else {
+      const twins = twinsOf(data ?? [], at.hit);
+      cursorRow.current = { hit: at.hit, twins: twins.length > 1 ? twins : undefined };
+    }
+    // A pane that loses the focus, or closes, leaves no row behind it.
+    return () => {
+      cursorRow.current = null;
+    };
+  });
 
   const blocked = shown.filter(({ todo }) => todo.state === "blocked").length;
   const onSomebody = shown.filter(({ todo }) => todo.state === "waiting").length;

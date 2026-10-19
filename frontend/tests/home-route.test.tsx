@@ -3784,6 +3784,35 @@ describe("the route", () => {
       expect(screen.getByTestId("todo-footer").textContent).toContain("@ agent");
     });
 
+    /** The palette's row for the pane's `@`, or null where it lists none. */
+    const agentEntry = () =>
+      screen.queryByRole("option", { name: /^Send the todo under the cursor to the agent/ });
+
+    it("#523 A10 the palette over the todo pane sends the row's todo to the agent", async () => {
+      const app = await listing([ROW], `## TODOs\n${ROW.text}`);
+
+      await press(app, " ", ":");
+      const entry = agentEntry();
+      expect.soft(entry, "the palette lists the pane's @").not.toBeNull();
+      if (entry !== null) fireEvent.click(entry);
+      await hashed();
+      await settle();
+
+      expect(notes[PATH]).toBe("## TODOs\n- [ ] send the deck #agent 📅 2026-10-20");
+    });
+
+    it("#523 A10 the palette over a note lists no pane agent entry", async () => {
+      const app = await listing([ROW], `## TODOs\n${ROW.text}`);
+      // Back to a note in the focused pane, then the palette over its editor.
+      app.click("index.md");
+      await settle();
+      app.leader(":");
+      await settle();
+
+      expect.soft(screen.queryByRole("dialog", { name: "Run a command" })).not.toBeNull();
+      expect(agentEntry()).toBeNull();
+    });
+
     it("#523 I2 the pane's @ tags its todo after a line was written above it", async () => {
       const app = await listing([ROW], `## TODOs\n- [ ] new one\n${ROW.text}`);
 
