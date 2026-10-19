@@ -208,7 +208,9 @@ The leader is the space bar, in normal mode. Vim ships `<Space>` bound to `l`,
 and kasten unmaps it so a sequence can begin there. Visual mode keeps
 move-right, because the leader is registered in normal mode only.
 
-The tables follow the groups of the `<leader>?` panel, in the same order.
+The tables follow the groups of the `<leader>?` panel, in the same order. The
+panel shows the leader keys apart from every other key, and with vim off it
+says that the command palette runs them by name.
 
 **Panes**
 
