@@ -15,7 +15,7 @@ import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { backticks } from "@/lib/backticks";
 import { toHtml, toSlack } from "@/lib/copy-as";
 import { editorCommands } from "@/lib/editor-commands";
@@ -850,7 +850,14 @@ export function Editor({
   const onReloadRef = useRef(onReload);
   const embedsRef = useRef(embeds);
 
-  useEffect(() => {
+  // Written in a layout effect, which runs in the commit's own task, so no
+  // keystroke or `:w` can land between the commit and the write. A passive
+  // effect leaves that gap open, and the route hands `onChange` a new callback
+  // as its pane gains the focus: an edit in the gap went to the one before.
+  // Not in the render body, which would close the gap too but can hand the ref
+  // a callback from a render React then throws away, a concurrent render or
+  // StrictMode's second one.
+  useLayoutEffect(() => {
     commandsRef.current = commands;
     onChangeRef.current = onChange;
     onSaveRef.current = onSave;

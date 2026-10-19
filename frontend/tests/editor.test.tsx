@@ -2,10 +2,12 @@ import { acceptCompletion, completionStatus, startCompletion } from "@codemirror
 import { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { act, fireEvent, render } from "@testing-library/react";
+import { type ComponentProps, useLayoutEffect, useRef } from "react";
 import { Editor } from "@/components/editor";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { vimModeField } from "@/lib/vim-mode";
 import { toggleVim } from "@/lib/vim-setting";
+import { stubCommands } from "./stub-commands";
 
 /**
  * Run an ex command, the way a user types one.
@@ -1443,5 +1445,131 @@ describe("Editor reopening a note where it was left (#495)", () => {
     unmount();
 
     expect(localStorage.getItem(KEY)).toBe(stored);
+  });
+});
+
+/**
+ * An editor whose parent runs `fire` from its own layout effect when `flipped`
+ * turns true.
+ *
+ * A child's layout effects run before its parent's, so `fire` lands after the
+ * editor has committed the render with the new props and before any passive
+ * effect of it has run, which is the gap `rerender` cannot reach: it flushes
+ * the passive effects before it returns.
+ */
+function FireOnCommit({
+  flipped,
+  fire,
+  ...props
+}: ComponentProps<typeof Editor> & { flipped: boolean; fire: (host: HTMLElement) => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (flipped) fire(host.current as HTMLElement);
+  }, [flipped, fire]);
+  return (
+    <div ref={host}>
+      <Editor {...props} />
+    </div>
+  );
+}
+
+describe("Editor handing an event to the callback of the render just committed", () => {
+  afterEach(() => localStorage.clear());
+
+  it("#602 a change that lands before the passive effects of a render reaches the new onChange", () => {
+    localStorage.setItem("kasten.vim", "off");
+    const prev = vi.fn();
+    const next = vi.fn();
+    const type = (host: HTMLElement) => {
+      const view = EditorView.findFromDOM(host.querySelector(".cm-editor") as HTMLElement);
+      view?.dispatch({ changes: { from: 5, insert: " more" } });
+    };
+    const { rerender } = render(
+      <FireOnCommit initialDoc="hello" onChange={prev} flipped={false} fire={type} />,
+    );
+
+    rerender(<FireOnCommit initialDoc="hello" onChange={next} flipped fire={type} />);
+
+    expect([prev.mock.calls, next.mock.calls]).toEqual([[], [["hello more"]]]);
+  });
+
+  it("#602 a :w that lands before the passive effects of a render reaches the new onSave", () => {
+    const prev = vi.fn();
+    const next = vi.fn();
+    const write = (host: HTMLElement) => runExCommand(host, "w");
+    const { rerender } = render(
+      <FireOnCommit initialDoc="# hello" onSave={prev} flipped={false} fire={write} />,
+    );
+
+    rerender(<FireOnCommit initialDoc="# hello" onSave={next} flipped fire={write} />);
+
+    expect([prev.mock.calls, next.mock.calls]).toEqual([[], [["# hello"]]]);
+  });
+
+  it("#602 a :e that lands before the passive effects of a render reaches the new onReload", () => {
+    const prev = vi.fn(() => Promise.resolve(null));
+    const next = vi.fn(() => Promise.resolve(null));
+    const reread = (host: HTMLElement) => runExCommand(host, "e");
+    const { rerender } = render(
+      <FireOnCommit initialDoc="hello" onReload={prev} flipped={false} fire={reread} />,
+    );
+
+    rerender(<FireOnCommit initialDoc="hello" onReload={next} flipped fire={reread} />);
+
+    expect([prev.mock.calls, next.mock.calls]).toEqual([[], [[false]]]);
+  });
+
+  it("#602 vault text handed in the same render as a new allowReload asks the new one", () => {
+    // The guard's one reader is the reload effect, declared after the ref is
+    // written, so this held with the write in a passive effect too. It is here
+    // to keep that order.
+    const DOC = "one\ntwo";
+    const APPENDED = `${DOC}\nthree`;
+    const prev = vi.fn(() => true);
+    const next = vi.fn(() => true);
+    const { rerender } = render(<Editor initialDoc={DOC} allowReload={prev} />);
+
+    rerender(<Editor initialDoc={DOC} allowReload={next} reloadDoc={APPENDED} />);
+
+    expect([prev.mock.calls, next.mock.calls]).toEqual([[], [[APPENDED]]]);
+  });
+
+  it("#602 a gf and a command that land before the passive effects of a render reach the new callbacks", () => {
+    const prevFollow = vi.fn();
+    const nextFollow = vi.fn();
+    const prevCommands = stubCommands();
+    const nextCommands = stubCommands();
+    const press = (host: HTMLElement) => {
+      const content = host.querySelector(".cm-content") as HTMLElement;
+      fireEvent.keyDown(content, { key: "g" });
+      fireEvent.keyDown(content, { key: "f" });
+      fireEvent.keyDown(content, { key: "p", ctrlKey: true, shiftKey: true });
+    };
+    const { rerender } = render(
+      <FireOnCommit
+        initialDoc="[[borges]]"
+        onFollow={prevFollow}
+        commands={prevCommands}
+        flipped={false}
+        fire={press}
+      />,
+    );
+
+    rerender(
+      <FireOnCommit
+        initialDoc="[[borges]]"
+        onFollow={nextFollow}
+        commands={nextCommands}
+        flipped
+        fire={press}
+      />,
+    );
+
+    expect([
+      prevFollow.mock.calls,
+      nextFollow.mock.calls,
+      prevCommands.openPalette.mock.calls.length,
+      nextCommands.openPalette.mock.calls.length,
+    ]).toEqual([[], [["borges"]], 0, 1]);
   });
 });

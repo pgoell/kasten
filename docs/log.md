@@ -486,3 +486,4 @@
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) cuts the leader table into the groups the `<leader>?` panel shows, every leader key in a named group (#516).
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) says the `<leader>?` panel lines its keys up on the left (#580) and leaves `gf` and Enter out of its Editor group with vim off (#581).
 * **Update**: [Editor keys](/reference/editor-keys.md#leader) gained `<leader>fb`, the book finder, which lists every note with an epub beside it and opens the chosen book in the reader without its note (#502).
+* **Update**: [Save path orderings](/reference/save-path-orderings.md) gained rows 130 to 133: a change, a `:w` or a `:e` right after a render reaches the callback that render handed the editor, and vault text asks the `allowReload` of its own render (#602).
