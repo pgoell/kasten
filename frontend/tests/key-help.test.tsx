@@ -200,6 +200,26 @@ describe("KeyHelp", () => {
     }
   });
 
+  it("lists only the editor keys that work, with vim on and off", () => {
+    // `gf` and `Enter` follow a link through vim alone (#581), while the
+    // formatting and indent keys are CodeMirror's and work either way.
+    try {
+      localStorage.setItem("kasten.vim", "on");
+      const { unmount } = render(<KeyHelp onClose={() => {}} />);
+      expect.soft(group("Editor").queryByText("gf / Enter")).toBeInTheDocument();
+      unmount();
+
+      localStorage.setItem("kasten.vim", "off");
+      render(<KeyHelp onClose={() => {}} />);
+      for (const { label } of [...FORMAT, ...INDENT]) {
+        expect.soft(group("Editor").queryByText(label), label).toBeInTheDocument();
+      }
+      expect(group("Editor").queryByText("gf / Enter")).not.toBeInTheDocument();
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+  });
+
   it("lists every terminal chord, spelled the way it is pressed", () => {
     render(<KeyHelp onClose={() => {}} />);
 

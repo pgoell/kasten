@@ -32,6 +32,59 @@ function cards(at: HTMLElement): { title: string; card: HTMLElement }[] {
   }));
 }
 
+/**
+ * Check that every key in every card starts at its card's first key's left edge (#580).
+ *
+ * The text is measured and not the `dt`: a `dt` is a grid item stretched to
+ * its column, so its own box starts at the same left edge whatever the text
+ * inside it does, and right-aligned keys would pass.
+ */
+function expectKeysLinedUp(at: HTMLElement, width: number) {
+  for (const { title, card } of cards(at)) {
+    const lefts = [...card.querySelectorAll("dt")].map((dt) => {
+      const range = document.createRange();
+      range.selectNodeContents(dt);
+      return { key: dt.textContent ?? "", left: range.getBoundingClientRect().left };
+    });
+    const [first] = lefts;
+    for (const { key, left } of lefts) {
+      expect.soft(left, `${width}: ${title}: ${key}`).toBe(first?.left);
+    }
+  }
+}
+
+/** Render the panel with vim set to `vim`, and check its keys line up at both widths. */
+async function keysLineUp(vim: "on" | "off") {
+  try {
+    localStorage.setItem("kasten.vim", vim);
+    await page.viewport(1280, 800);
+    host = document.body.appendChild(document.createElement("div"));
+    root = createRoot(host);
+    root.render(<KeyHelp onClose={() => {}} />);
+    const at = host;
+    await expect.poll(() => cards(at).length).toBeGreaterThan(0);
+    const panel = at.querySelector('[role="dialog"]')?.firstElementChild as HTMLElement;
+
+    expectKeysLinedUp(at, 1280);
+    await shot(panel, `key-help-1280-vim-${vim}`);
+
+    await page.viewport(414, 896);
+    expectKeysLinedUp(at, 414);
+    await shot(panel, `key-help-414-vim-${vim}`);
+  } finally {
+    localStorage.removeItem("kasten.vim");
+    await page.viewport(414, 896);
+  }
+}
+
+it("key help lines its keys up on the left, vim on", async () => {
+  await keysLineUp("on");
+});
+
+it("key help lines its keys up on the left, vim off", async () => {
+  await keysLineUp("off");
+});
+
 it("key help lays its groups out in reading order, at desktop and at phone width", async () => {
   try {
     await page.viewport(1280, 800);

@@ -133,7 +133,7 @@ function Table({ title, keys }: Group) {
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-[13px] leading-snug">
         {keys.map(({ key, label }) => (
           <div key={key} className="contents">
-            <dt className="text-right whitespace-nowrap text-one-accent">{key}</dt>
+            <dt className="whitespace-nowrap text-one-accent">{key}</dt>
             <dd className="text-one-muted">{label}</dd>
           </div>
         ))}
@@ -176,7 +176,9 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
       keys: [
         ...FORMAT.map(({ key, label }) => ({ key: readable(key), label })),
         ...INDENT,
-        ...FOLLOW,
+        // Only vim resolves `gf` and its Enter, so with vim off the row names
+        // keys that do nothing: see "Vim on or off" in docs/reference/editor-keys.md.
+        ...(vimOn ? FOLLOW : []),
       ],
     },
     // Its own group because these are not leader keys and cannot be: the leader
