@@ -46,7 +46,7 @@ export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`/g;
  * no value and stays words rather than reading the span's first word.
  */
 export function masked(text: string): string {
-  return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, " "));
+  return text.replace(SPANS, (span) => span.replace(/[^ \t]/g, "\u00A0"));
 }
 
 /**

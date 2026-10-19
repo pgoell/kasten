@@ -1,12 +1,13 @@
 """Every tag written in the vault, for the completion that offers one and for the graph.
 
-rg names the notes holding a hash that could open a tag, and Python reads those
-whole, because only a whole note says where a fenced block opens and closes,
-and rg reads one line at a time. Each note's tags are then read by
-`todos.tags_in`, the reader the todos' `line_tags` sits under, so completion
-offers no tag the board, the graph and the editor would not read as one. The
-notes are the source of truth, so nothing here is indexed and nothing here can
-go stale.
+Two rg passes. One matches every span and every hash that could open a tag, and
+each match is read by `todos.line_tags`, as the board reads a todo's line. The
+other names the notes that may hold a fenced block, and those are read whole by
+`todos.tags_in` instead, because only a whole note says where a fence opens and
+closes, and rg reads one line at a time. Either way the reader is the one the
+board, the graph and the mentions use, so completion offers no tag the editor
+would not read as one. The notes are the source of truth, so nothing here is
+indexed and nothing here can go stale.
 """
 
 import asyncio
@@ -35,9 +36,10 @@ def _read(root: Path, paths: list[str]) -> dict[str, set[str]]:
     for path in sorted(paths):
         try:
             text = read_note(root, path)
-        except UnicodeDecodeError:
+        except UnicodeDecodeError, OSError:
             # A note that is not UTF-8 is one the client cannot open either, and
-            # it should not empty every other note's tags.
+            # one deleted or locked since rg named it is one it cannot reach;
+            # neither should empty every other note's tags.
             continue
         # None when the note went between rg naming it and this reading it.
         if text is None:
@@ -50,26 +52,44 @@ def _read(root: Path, paths: list[str]) -> dict[str, set[str]]:
     return tagged
 
 
-MAYBE_TAG = r"(?:^|[^\p{L}\p{N}_/])#[\p{L}\p{N}_/-]"
-"""A hash that could open a tag, which a note must hold for it to be read whole.
+_RUN = r"#[\p{L}\p{N}_/-]+"
+_SPAN_OR_TAG = rf"(?:{todos.SPANS.pattern})(?:{_RUN})?|(?:^|[^\p{{L}}\p{{N}}_/]){_RUN}"
+"""A span or what could be a tag, the span tried first at each place, as rg alternates.
 
-A superset of the rule, a hash in code included, and narrow enough that a note
-whose only hash opens a `# Heading` is not read. A consumed character in front
-rather than a lookbehind, because rg's engine has none.
+A superset of the rule, numbers alone included, which `todos.line_tags` then
+narrows on each match. The character in front of the hash is consumed rather
+than looked behind, because rg's engine has no lookbehind. A span is consumed
+whole, so no hash inside one comes back on its own, and a tag straight after a
+span rides along with it, the span masked to no word in front of the hash.
+"""
+
+FENCE = r"```|~~~"
+"""Three backticks or tildes anywhere on a line: a superset of a fence opening.
+
+A note holding one is read whole instead, since only the whole note says where
+the fence ends. Unanchored, so a fence in a list item or a blockquote is caught
+too, and the cost of a wrong guess is one note read rather than a wrong tag.
 """
 
 
 async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str]]:
     """The tags of every note under `root` outside the `skip` folder that holds one."""
-    # One match per note is all that says it may hold a tag, and only the match
-    # comes back, so a line past the 64 KiB a stream reader takes cannot stop it.
-    hits = await scan_vault(
-        root, ("--only-matching", "--max-count", "1", "-e", MAYBE_TAG), MOST_TAGS, skip
+    # Only the matches come back, so a line past the 64 KiB a stream reader
+    # takes, a pasted inline SVG, cannot stop either scan.
+    matches, fences = await asyncio.gather(
+        scan_vault(root, ("--only-matching", "-e", _SPAN_OR_TAG), MOST_TAGS, skip),
+        scan_vault(root, ("--only-matching", "--max-count", "1", "-e", FENCE), MOST_TAGS, skip),
     )
-    paths = list({hit.path for hit in hits})
-    # Reading every note with a hash in Python would hold the event loop for the
-    # whole of it, where rg above held it for none.
-    return await asyncio.to_thread(_read, root, paths)
+    fenced = {hit.path for hit in fences}
+    tagged: dict[str, set[str]] = {}
+    for hit in matches:
+        if hit.path not in fenced:
+            found = {hit.text[start:end] for start, end in todos.line_tags(hit.text)}
+            tagged.setdefault(hit.path, set()).update(found)
+    # Reading the fenced notes in Python would hold the event loop for the whole
+    # of it, where rg above held it for none.
+    tagged.update(await asyncio.to_thread(_read, root, sorted(fenced)))
+    return tagged
 
 
 async def find_tags(root: Path) -> list[str]:

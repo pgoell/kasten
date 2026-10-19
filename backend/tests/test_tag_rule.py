@@ -8,10 +8,15 @@ them all, each case its own vault so the answer says which case it came from.
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from kasten_backend import mentions, todos
+from kasten_backend import mentions, tags, todos
 from kasten_backend.graph import query_graph, read_graph
 from kasten_backend.tags import find_tags
+from kasten_backend.vault import read_note
+
+if TYPE_CHECKING:
+    import pytest
 
 CASES = json.loads(
     (Path(__file__).parents[2] / "frontend/src/lib/tag-cases.json").read_text(encoding="utf-8")
@@ -86,6 +91,24 @@ def test_b_todo_line_opening_with_backticks_is_no_fence() -> None:
     folders = {"x": "02 Projects/x"}
 
     assert todos._tag_project("```x #p/x", folders) == "02 Projects/x"
+
+
+async def test_b_note_gone_between_scan_and_read_is_skipped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A fence in each, as only a note that may hold one is read whole.
+    write(tmp_path, "gone.md", "#gone\n~~~\n~~~\n")
+    write(tmp_path, "kept.md", "#kept\n~~~\n~~~\n")
+
+    def read(root: Path, path: str) -> str | None:
+        # As though the note were deleted after rg named it.
+        if path == "gone.md":
+            raise FileNotFoundError(path)
+        return read_note(root, path)
+
+    monkeypatch.setattr(tags, "read_note", read)
+
+    assert await tags.find_tags(tmp_path) == ["#kept"]
 
 
 def test_i5_name_inside_a_digit_first_tag_is_no_mention() -> None:

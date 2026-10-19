@@ -2038,6 +2038,15 @@ def test_writes_a_deck_as_a_tagged_note() -> None:
     )
 
 
+def test_writes_a_deck_name_as_a_tag_read_whole() -> None:
+    # `:` ends a tag, so `2:-Dakuten-Katakana` would land in a deck called `2`.
+    decks = read_apkg(
+        apkg(((1, SOLO, "alone"),), ((11, 1, 100, 0),), ((100, "2: Dakuten Katakana"),))
+    )
+
+    assert as_note(decks[0]).split("\n")[0] == "#flashcards/2-Dakuten-Katakana"
+
+
 def test_parks_a_card_whose_back_adds_nothing() -> None:
     decks = read_apkg(apkg(((1, SOLO, "alone"),), ((11, 1, 100, 0),)))
 

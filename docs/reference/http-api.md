@@ -448,9 +448,11 @@ editor, the todo board and the graph read by too. So `#!/bin/sh`, `#1984` and
 a `[[wikilink]]` or a `[text](url)`. The same tag written outside those anywhere
 is still offered.
 
-`rg`, carrying the same flags search carries, names the notes holding a `#`
-that could open a tag, and the backend reads each of those whole, since only
-the whole note says where a fenced block opens and closes. Only the tags come back, never the lines
+Two `rg` passes carry the same flags search carries. One matches every span and
+every hash that could open a tag, and each match is read as the todo board reads
+a line. The other names the notes holding three backticks or tildes, and the
+backend reads each of those whole, since only the whole note says where a fenced
+block opens and closes. Only the tags come back, never the lines
 holding them. Which note holds a tag is a search, and this answers what the
 editor completes an open `#` from.
 

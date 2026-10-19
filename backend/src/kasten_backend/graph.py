@@ -5,8 +5,8 @@ for the same reason: the files are the source of truth, and a graph held
 anywhere else is one that can disagree with them. Two rg passes read the lines
 holding a link and the frontmatter fences with the `type` between them, and at
 10,000 notes that is tens of milliseconds. The tags come from `tags.py`, which
-reads whole each note holding a hash that could open one, since a fenced block
-hides a tag and only the whole note says where one runs.
+reads them the way every other part of the backend does, a note that may hold
+a fenced block read whole.
 
 One query language serves the graph pane's filter box, `GET /api/graph` and the
 agent's `query_graph`, and this module is its only reader. The pane sends what

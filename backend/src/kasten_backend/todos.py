@@ -199,6 +199,11 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     a tag that another does not. Code, fenced or inline, is blanked first, the
     offsets kept.
     """
+    # Most notes hold no fence, and for those the line reader's span mask is
+    # the whole job: `code_spans` and the blanking below are most of the time a
+    # vault's tags take.
+    if "```" not in text and "~~~" not in text:
+        return line_tags(text)
     blanked = list(text)
     for start, end in code_spans(text):
         for index in range(start, end):

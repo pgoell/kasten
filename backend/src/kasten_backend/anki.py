@@ -892,10 +892,13 @@ def as_note(deck: Deck) -> str:
     its last line, which is how `merge` finds it when the deck comes again. A
     card holding `reviews` takes their schedules as a rating would write them.
     """
-    # A tag runs to the first space, so a deck called "AWS Certification" would
-    # otherwise land in a deck called `AWS` with the rest of its name read as
-    # prose. The note's `# heading` is not the deck name; the tag is.
-    head = [f"#flashcards/{re.sub(r'\s+', '-', deck.name)}", ""]
+    # A tag ends at the first character that is not a letter, a number, `_`,
+    # `-` or `/` (`docs/reference/tag-format.md`), so a deck called
+    # "JLPT: N5" would otherwise land in a deck called `JLPT` with the rest of
+    # its name read as prose. Each run of those becomes one `-`; a `/` stays,
+    # being how a nested deck is named. The note's `# heading` is not the deck
+    # name; the tag is.
+    head = [f"#flashcards/{re.sub(r'[^\w/-]+', '-', deck.name)}", ""]
     body: list[str] = []
     for card in note_cards(deck):
         _place(body, _with_state(_marked(card, _lines(card)), False, _carried(card)))
