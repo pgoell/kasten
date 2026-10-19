@@ -29,7 +29,10 @@ afterEach(async () => {
     app = undefined;
   }
   vi.restoreAllMocks();
-  localStorage.removeItem("kasten.vim");
+  // All of it, not only the vim setting: the editor keeps each note's cursor
+  // by path (`kasten.positions.1`), and R7 and R8 both open `Y.md`, so R7's
+  // cursor on line 2 would open R8's note with that line showing its source.
+  localStorage.clear();
   // A tap far from the links. Chrome counts a tap on the spot of the one
   // before as its second, so without this a test's tap on a link reaches the
   // click as `detail` 2 when the test before tapped there too.
