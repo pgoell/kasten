@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import { buildTree } from "@/components/file-explorer";
 import { ASSET_LIMIT_BYTES, ChangedOnDisk, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { folderCandidates, noteCandidates } from "@/lib/fuzzy";
+import { folderCandidates, lineCandidates, noteCandidates } from "@/lib/fuzzy";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { ONTOLOGY_NOTE, relationCompletions } from "@/lib/ontology";
@@ -240,15 +240,17 @@ const outbox = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/outbox", () => outbox);
 
-// Counted, not replaced: the finders and the prompts build their candidates
-// through these, and how often they do is what `the finders keep their
-// candidates` and `the tree keeps its rows` pin.
+// Counted, not replaced: the finders, the prompts and the palette build their
+// candidates through these, and how often they do is what `the finders keep
+// their candidates`, `the tree keeps its rows` and `the palette keeps its rows`
+// pin.
 vi.mock("@/lib/fuzzy", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/fuzzy")>();
   return {
     ...real,
     noteCandidates: vi.fn(real.noteCandidates),
     folderCandidates: vi.fn(real.folderCandidates),
+    lineCandidates: vi.fn(real.lineCandidates),
   };
 });
 
@@ -4510,6 +4512,196 @@ describe("the tree keeps its rows", () => {
     await settle();
 
     expect(folders).toHaveBeenCalledTimes(0);
+  });
+});
+
+describe("the palette keeps its rows", () => {
+  const PAGE = "page.html";
+  const OTHER_PAGE = "other.html";
+  const ranked = vi.mocked(lineCandidates);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("scrollTo", () => {});
+    FakeEventSource.last = undefined;
+    fetchFiles.mockResolvedValue(Object.keys(VAULT));
+    fetchNote.mockImplementation(async (path: string) => VAULT[path]);
+    saveNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    fetchTodos.mockResolvedValue([]);
+    fetchTags.mockResolvedValue([]);
+    fetchImages.mockResolvedValue([]);
+    fetchHtml.mockResolvedValue([PAGE, OTHER_PAGE]);
+    fetchAssets.mockResolvedValue([]);
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await hashed();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetAllMocks();
+  });
+
+  const option = (name: string | RegExp) => screen.queryByRole("option", { name });
+  const editorText = () =>
+    EditorView.findFromDOM(
+      document.querySelector(".cm-editor") as HTMLElement,
+    )?.state.doc.toString();
+
+  /**
+   * An outside write that brings a new tag. The tags are a query of `Home`'s
+   * own, so the route renders again whatever the buffer holds, and with vim off
+   * a pressed key dirties nothing for a declined write to stand on. No listing
+   * and no command changes.
+   */
+  async function rerender() {
+    fetchTags.mockResolvedValue(["fresh"]);
+    act(() => stream().send({ path: "index.md", change: "written", digest: "a".repeat(64) }));
+    await settle();
+  }
+
+  /** The index note open in the one pane. */
+  async function noteOpen() {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    return app;
+  }
+
+  /**
+   * A routed row and an insert on screen across a render, then no ranking over
+   * it. The insert says the palette sits over the note's editor.
+   */
+  async function ranksOnce() {
+    expect.soft(option("Toggle vim keys")).not.toBeNull();
+    expect.soft(option("Heading 1")).not.toBeNull();
+    ranked.mockClear();
+
+    await rerender();
+
+    expect.soft(option("Toggle vim keys")).not.toBeNull();
+    expect.soft(option("Heading 1")).not.toBeNull();
+    expect(ranked).toHaveBeenCalledTimes(0);
+  }
+
+  it("#592 A1 A5 the palette opened over a note with vim on builds its candidates once while the route renders again", async () => {
+    const app = await noteOpen();
+    app.leader(":");
+    await settle();
+
+    await ranksOnce();
+  });
+
+  it("#592 A2 A5 the palette opened by its chord with vim off builds its candidates once while the route renders again", async () => {
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      const app = await noteOpen();
+      app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
+      await settle();
+
+      await ranksOnce();
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+  });
+
+  it("#592 A3 A5 the palette opened from the toolbar on a phone builds its candidates once while the route renders again", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    // From the URL, the tree being a drawer that is shut.
+    await renderApp("/?note=index.md");
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+    await settle();
+
+    await ranksOnce();
+  });
+
+  it("#592 I1 a palette row taken after the route rendered again runs its command", async () => {
+    const app = await noteOpen();
+    app.leader(":");
+    await settle();
+    await rerender();
+
+    // Named with its key after it.
+    const row = option(/^Show the keys/);
+    expect.soft(row).not.toBeNull();
+    if (row) fireEvent.click(row);
+    await settle();
+
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).not.toBeNull();
+  });
+
+  it("#592 I3 an insert row taken after the route rendered again writes into the note it was opened over", async () => {
+    const app = await noteOpen();
+    app.leader(":");
+    await settle();
+    await rerender();
+
+    const row = option("Wikilink");
+    expect.soft(row).not.toBeNull();
+    if (row) fireEvent.click(row);
+    await settle();
+
+    expect(editorText()).toContain("[[]]");
+  });
+
+  /** The page's frame, by the path it shows. */
+  const frame = (path: string) =>
+    document.querySelector(`[data-html-pane] iframe[title='${path}']`) as HTMLIFrameElement;
+
+  /**
+   * A click into `path`'s frame, as the window sees one: the frame the active
+   * element when the window loses the focus. Faked rather than focused, so no
+   * focus event reaches an ancestor that could move the pane on its own.
+   */
+  function clickInto(path: string) {
+    const active = vi.spyOn(document, "activeElement", "get").mockReturnValue(frame(path));
+    fireEvent.blur(window);
+    active.mockRestore();
+  }
+
+  it("#592 A4 an open html pane adds its window blur listener once while the route renders again", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click(PAGE);
+    await settle();
+    expect.soft(frame(PAGE)).not.toBeNull();
+    const added = vi.spyOn(window, "addEventListener");
+    added.mockClear();
+
+    await rerender();
+
+    expect.soft(frame(PAGE)).not.toBeNull();
+    expect(added.mock.calls.filter(([type]) => type === "blur")).toHaveLength(0);
+  });
+
+  it("#592 I2 a click into either of two html panes' frames after the route rendered again focuses that pane", async () => {
+    // The index note splits, the new pane takes one page and the first pane
+    // the other, leaving the focus on the first.
+    const app = await noteOpen();
+    app.leader("%");
+    await settle();
+    app.click(PAGE);
+    await settle();
+    app.focusPane(0);
+    await settle();
+    app.click(OTHER_PAGE);
+    await settle();
+    await rerender();
+    expect.soft(frame(PAGE)).not.toBeNull();
+    expect.soft(frame(OTHER_PAGE)).not.toBeNull();
+    expect.soft(app.focusedPane()).toBe(0);
+
+    clickInto(PAGE);
+    await settle();
+    expect.soft(app.focusedPane()).toBe(1);
+
+    clickInto(OTHER_PAGE);
+    await settle();
+    expect(app.focusedPane()).toBe(0);
   });
 });
 

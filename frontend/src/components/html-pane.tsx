@@ -33,6 +33,12 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
   const frame = useRef<HTMLIFrameElement>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
+  // Off a ref, because the route hands a new `onFocus` on every render and the
+  // listener below would come off the window and go back on with each (#592).
+  const onFocusRef = useRef(onFocus);
+  useEffect(() => {
+    onFocusRef.current = onFocus;
+  });
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
@@ -43,11 +49,11 @@ export function HtmlPane({ path, commands, focusSignal, onFocus }: HtmlPaneProps
   // the frame is the active element, so that is how the click is seen.
   useEffect(() => {
     function onBlur() {
-      if (document.activeElement === frame.current) onFocus();
+      if (document.activeElement === frame.current) onFocusRef.current();
     }
     window.addEventListener("blur", onBlur);
     return () => window.removeEventListener("blur", onBlur);
-  }, [onFocus]);
+  }, []);
 
   // The leader block the image pane carries, with nothing bound beside it.
   function onKeyDown(event: React.KeyboardEvent) {

@@ -2385,6 +2385,13 @@ function Home() {
       queryClient,
     ],
   );
+  // The palette's rows, built only while it is open. One array per open,
+  // because the palette ranks its rows again whenever `entries` arrives new and
+  // an event renders the route under it (#592).
+  const entries = useMemo(
+    () => (palette === null ? null : paletteEntries(commands, palette.view)),
+    [commands, palette],
+  );
 
   /**
    * Read the open note off the vault again and answer with its text, `:e`.
@@ -2781,12 +2788,7 @@ function Home() {
       />
       {phone && <Toolbar commands={commands} split={panes.length > 1} inert={narrow && treeOpen} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
-      {palette && (
-        <CommandPalette
-          entries={paletteEntries(commands, palette.view)}
-          onClose={() => setPalette(null)}
-        />
-      )}
+      {entries && <CommandPalette entries={entries} onClose={() => setPalette(null)} />}
       {clipPrompt && (
         <ClipPrompt
           onClip={clip}
