@@ -67,8 +67,8 @@ async def test_a3_graph_node_tags_read_the_table(tmp_path: Path) -> None:
 
 
 def test_a3_mentions_skip_the_tags_of_the_table() -> None:
-    assert {case["id"]: mention_tags(case["text"]) for case in LINES} == {
-        case["id"]: case["tags"] for case in LINES
+    assert {case["id"]: mention_tags(case["text"]) for case in CASES} == {
+        case["id"]: case["tags"] for case in CASES
     }
 
 

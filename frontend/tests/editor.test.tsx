@@ -494,6 +494,9 @@ describe("the editor focus", () => {
 describe("Editor opened on a line", () => {
   const DOC = "one\ntwo\nthree\nfour";
 
+  // A test that turns vim off leaves the choice in the store.
+  afterEach(() => localStorage.clear());
+
   it("puts the cursor on the line it was opened at", () => {
     const { container } = render(<Editor initialDoc={DOC} startLine={3} />);
 
@@ -529,6 +532,50 @@ describe("Editor opened on a line", () => {
     const { container } = render(<Editor initialDoc={"---\nid: 1\n---\nNotes"} />);
 
     expect(deleteCurrentLine(container)).toBe("---id: 1---");
+  });
+
+  // The fences are the ones the highlighting and `frontmatter.py` take, so a
+  // block they draw is a block the cursor starts below (#661).
+  it("editor: A3 starts below a frontmatter whose opening fence has a trailing space", () => {
+    const { container } = render(<Editor initialDoc={"--- \nid: x\n---\nbody"} />);
+
+    expect(deleteCurrentLine(container)).toBe("--- id: x---");
+  });
+
+  it("editor: I5 starts below a frontmatter whose closing fence has a trailing space and tab", () => {
+    const { container } = render(<Editor initialDoc={"---\nid: x\n--- \t\nbody"} />);
+
+    expect(deleteCurrentLine(container)).toBe("---id: x--- \t");
+  });
+
+  it("editor: I5 starts below a frontmatter with CRLF line ends", () => {
+    // The editor holds the lines without their `\r`, so the offset has to be
+    // counted in its text and not in the string handed in.
+    const { container } = render(<Editor initialDoc={"---\r\nid: x\r\n---\r\nbody"} />);
+
+    expect(deleteCurrentLine(container)).toBe("---id: x---");
+  });
+
+  it("editor: I6 starts at the top when the opening fence has a space in front", () => {
+    const { container } = render(<Editor initialDoc={" ---\nid: x\n---\nbody"} />);
+
+    expect(deleteCurrentLine(container)).toBe("id: x---body");
+  });
+
+  it("editor: I6 starts at the top when the frontmatter never closes", () => {
+    const { container } = render(<Editor initialDoc={"---\nid: x\nbody"} />);
+
+    expect(deleteCurrentLine(container)).toBe("id: xbody");
+  });
+
+  it("editor: I7 starts below a frontmatter with a trailing-space fence with vim off", () => {
+    act(() => toggleVim());
+    const { container } = render(<Editor initialDoc={"--- \nid: x\n---\nbody"} />);
+    const view = EditorView.findFromDOM(
+      container.querySelector(".cm-editor") as HTMLElement,
+    ) as EditorView;
+
+    expect(view.state.selection.main.head).toBe("--- \nid: x\n---\n".length);
   });
 });
 

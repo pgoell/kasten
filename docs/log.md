@@ -503,3 +503,7 @@
 * **Update**: [Tag format](/reference/tag-format.md#the-rule) says a hash in an indented code block, an HTML comment or the frontmatter is no tag, and that the frontmatter's `tags` field names tags as in Obsidian. [HTTP API](/reference/http-api.md#get-apitags) says what the second `rg` pass now looks for, and [Graph query](/reference/graph-query.md) and [Todo format](/reference/todo-format.md#the-fields) name the new places (#642, #643).
 * **Update**: [Math and diagrams](/reference/math-and-diagrams.md#loading) says a formula shows its source when KaTeX fails to load, and the next formula tries the load again (#637). Enter off a link in vim now reads only the cursor's line and changes no page (#638).
 * **Update**: [Tag format](/reference/tag-format.md#the-rule) says a line that opens with `<!--` starts a comment block that ends with the line holding `-->`, or with the note, and that only a `---` at the start of line 1 opens a frontmatter, which the editor now reads too: one that never closes is none (#648, #650, #651, #649). [Math and diagrams](/reference/math-and-diagrams.md#loading) says a failed diagram load retries, as KaTeX's does (#647).
+
+## 2026-10-20
+
+* **Update**: [Flashcard format](/reference/flashcard-format.md#what-makes-a-note-a-deck) says a deck tag where the editor draws no tag, in a comment over several lines, a code block or the frontmatter, names no deck (#660). A note whose frontmatter fence carries trailing spaces or CRLF line ends opens below the block, as for a plain `---` (#661).

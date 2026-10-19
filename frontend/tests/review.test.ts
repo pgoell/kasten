@@ -663,3 +663,17 @@ describe("decksFrom with daily limits", () => {
     expect(named(decks, "tls")).toMatchObject({ fresh: 1 });
   });
 });
+
+describe("#660 decksFrom on a deck tag inside a comment", () => {
+  it("#660 I4 the overview counts no card in a deck its tag names only inside a comment", () => {
+    const decks = decksFrom(
+      [
+        { path: "closed.md", text: "<!--\n#flashcards/x\n-->\nQ::A" },
+        { path: "open.md", text: "<!--\n#flashcards/x\nQ::A" },
+      ],
+      TODAY,
+    );
+
+    expect(decks).toEqual([]);
+  });
+});

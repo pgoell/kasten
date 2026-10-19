@@ -38,7 +38,9 @@
  * ```
  *
  * Which decks a card is in is read here, off `deck-tag.ts`'s rule, because this
- * is the reader that sees the note whole. A `::` is a common enough thing to
+ * is the reader that sees the note whole. The note's deck tags are the ones the
+ * editor's parser draws, so a tag in a comment, a fence or the frontmatter names
+ * no deck, as the editor shows none there. A `::` is a common enough thing to
  * type that reading every one of them as a card would fill the queue with C++
  * and YAML, so a card in no deck at all is not a card, to the overview and the
  * sitting alike.
@@ -65,8 +67,9 @@ import {
   withoutToken,
 } from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
-import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
+import { cardTags, deckName, deckOf, onlyTags, withoutTags } from "@/lib/deck-tag";
 import { readField, setField } from "@/lib/note-frontmatter";
+import { noteLanguage } from "@/lib/note-language";
 
 /** How well a card went, in the four steps Anki asks for. */
 export type Rating = "again" | "hard" | "good" | "easy";
@@ -263,6 +266,39 @@ function clozeCards(
 }
 
 /**
+ * kasten's markdown under its frontmatter, as the editor parses a note. One
+ * for the module, the parser holding no state between two notes.
+ */
+const notes = noteLanguage().language.parser;
+
+/**
+ * Every tag the editor draws in `text`, beside the index of the line it sits on.
+ *
+ * The editor's parser and not a line at a time, because a comment, a fence or
+ * a frontmatter block runs over several lines, and a reader of one line cannot
+ * tell a tag inside one from a tag outside it. A deck tag the editor hides is
+ * one the note does not carry.
+ */
+function noteTags(text: string): { tag: string; line: number }[] {
+  const found: { tag: string; line: number }[] = [];
+  let line = 0;
+  let next = text.indexOf("\n");
+  notes.parse(text).iterate({
+    enter(node) {
+      if (node.name !== "Tag") return;
+      // The tags arrive in the order the text holds them, so the line only
+      // ever moves forward.
+      while (next !== -1 && next < node.from) {
+        line++;
+        next = text.indexOf("\n", next + 1);
+      }
+      found.push({ tag: text.slice(node.from, node.to), line });
+    },
+  });
+  return found;
+}
+
+/**
  * Every card the note holds, in the order they are written.
  *
  * Two passes rather than one. The `?` cards are found first and their lines
@@ -403,9 +439,10 @@ export function parseCards(text: string, note = ""): Card[] {
   // Last, and before the sort, `owned` running in the order the cards were
   // pushed. Every tag no card claimed is the note's, and the two add rather
   // than replace: a card about two things is asked in both decks.
-  const noteDecks = lines.flatMap((line, at) =>
-    fenced[at] || claimed.has(at) ? [] : deckTags(line),
-  );
+  const noteDecks = noteTags(text).flatMap(({ tag, line }) => {
+    const deck = claimed.has(line) ? null : deckOf(tag);
+    return deck === null ? [] : [deck];
+  });
   for (const [at, card] of cards.entries()) {
     card.decks = [
       ...new Set([...noteDecks, ...(owned[at] ?? [])].map((tag) => deckName(tag, note))),

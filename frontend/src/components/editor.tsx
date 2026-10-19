@@ -22,6 +22,7 @@ import { toHtml, toSlack } from "@/lib/copy-as";
 import { editorCommands } from "@/lib/editor-commands";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { toggleMark } from "@/lib/format-commands";
+import { belowFrontmatter } from "@/lib/frontmatter-language";
 import { highlightAt, mayBeHighlightLine } from "@/lib/highlight";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import { type EditorCommands, FORMAT } from "@/lib/key-bindings";
@@ -640,25 +641,6 @@ function takeVaultText(view: EditorView, text: string, allowed?: (text: string) 
 }
 
 /**
- * Where the note itself starts, past the frontmatter the vault writes.
- *
- * The block is three fields nobody types, and a new note is nothing else, so
- * the top of the document is between the fences and the first keystroke would
- * land in the dates. Read off the text rather than the syntax tree: the state
- * is being built here and has no tree yet.
- */
-function noteStart(doc: string): number {
-  const lines = doc.split("\n");
-  const fence = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
-  if (fence === -1) return 0;
-
-  const past = lines.slice(0, fence + 1).reduce((at, line) => at + line.length + 1, 0);
-  // A note that is only its block ends at the closing fence, and there is no
-  // line below to sit on.
-  return Math.min(past, doc.length);
-}
-
-/**
  * Whether nobody on the page holds the focus.
  *
  * The editor takes it in that case and only that case. The file tree and the
@@ -902,9 +884,13 @@ export function Editor({
     // there. Read and not restored only to be moved, which would scroll twice.
     const saved =
       path === undefined || startLineRef.current !== undefined ? undefined : readPosition(path);
+    // The text as CodeMirror holds it, which is not the string handed in when
+    // that has `\r\n` line ends: the editor keeps a `\n` alone, and every
+    // offset below counts in its text.
+    const doc = EditorState.create({ doc: initialDocRef.current }).doc;
     // A note edited elsewhere since can end before the saved cursor, and
     // CodeMirror throws on a selection past the end rather than clamping.
-    const length = initialDocRef.current.length;
+    const length = doc.length;
     // The scroller's offset as last seen, kept here and not read at the end:
     // React runs the cleanup after the host has left the page, and a detached
     // element reports 0, which would overwrite every note's scroll with the top.
@@ -955,10 +941,15 @@ export function Editor({
 
     const view = new EditorView({
       state: EditorState.create({
-        doc: initialDocRef.current,
+        doc,
+        // With nothing saved, the note opens below its frontmatter. The block
+        // is three fields nobody types, and a new note is nothing else, so the
+        // top of the document is between the fences and the first keystroke
+        // would land in the dates. Read off the text rather than the syntax
+        // tree: the state is being built here and has no tree yet.
         selection: saved
           ? { anchor: Math.min(saved.anchor, length), head: Math.min(saved.head, length) }
-          : { anchor: noteStart(initialDocRef.current) },
+          : { anchor: belowFrontmatter(doc.toString()) },
         extensions: [
           // Must come first: whichever keymap is registered earliest wins, and
           // vim's bindings have to beat the ones basicSetup installs.

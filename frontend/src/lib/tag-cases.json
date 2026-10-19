@@ -65,5 +65,16 @@
     "id": "frontmatter-opened-by-space",
     "text": " ---\ncolor: \"#fff\"\n---\n#real",
     "tags": ["#fff", "#real"]
+  },
+  {
+    "id": "comment-block-deck",
+    "text": "<!--\n#flashcards/x\n-->\n#flashcards/z",
+    "tags": ["#flashcards/z"]
+  },
+  { "id": "comment-never-closes-deck", "text": "#real\n<!--\n#flashcards/x", "tags": ["#real"] },
+  {
+    "id": "comment-opener-in-fence-deck",
+    "text": "```\n<!--\n```\n#flashcards/y\n\n<!-- note -->",
+    "tags": ["#flashcards/y"]
   }
 ]

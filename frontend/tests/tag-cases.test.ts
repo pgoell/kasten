@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardTags, deckTags, withoutTags } from "@/lib/deck-tag";
+import { cardTags, deckName, deckTags, withoutTags } from "@/lib/deck-tag";
 import { noteLanguage } from "@/lib/note-language";
 import { parseCards } from "@/lib/srs";
 import cases from "@/lib/tag-cases.json";
@@ -32,6 +32,9 @@ function drawn(text: string): string[] {
 
 const lines = cases.filter((one) => !one.text.includes("\n"));
 
+/** The note the cards of a case sit in, which names the deck of a bare `#flashcards`. */
+const NOTE = "cases";
+
 /** Each case's id beside what `read` makes of it. */
 function table<T>(of: Case[], read: (one: Case) => T): Record<string, T> {
   return Object.fromEntries(of.map((one) => [one.id, read(one)]));
@@ -59,6 +62,14 @@ describe("#640 every frontend reader runs the tag table", () => {
   it("#640 A3 deckTags reads the deck tags of every one-line case", () => {
     expect(table(lines, (one) => deckTags(one.text))).toEqual(
       table(lines, (one) => decksOf(one.tags)),
+    );
+  });
+
+  it("#660 I1 parseCards reads the deck tags of every case", () => {
+    // A card under each case, so the case's tags are the note's decks. The
+    // blank line keeps the card out of the case's own last paragraph.
+    expect(table(cases, (one) => parseCards(`${one.text}\n\na::b\n`, NOTE)[0]?.decks)).toEqual(
+      table(cases, (one) => [...new Set(decksOf(one.tags).map((deck) => deckName(deck, NOTE)))]),
     );
   });
 });

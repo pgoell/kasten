@@ -75,6 +75,21 @@ function block(input: Input, reach: number): { open: number; from: number; to: n
 }
 
 /**
+ * Where the text under the block starts: past its closing line, or 0 when
+ * there is no block. The editor opens a note there, and asks here so that it
+ * draws the line the highlighting draws.
+ */
+export function belowFrontmatter(doc: string): number {
+  const input: Input = {
+    length: doc.length,
+    lineChunks: false,
+    chunk: (from) => doc.slice(from),
+    read: (from, to) => doc.slice(from, to),
+  };
+  return block(input, doc.length)?.to ?? 0;
+}
+
+/**
  * The note's outer tree up to `reach`: a block and the body under it, or only
  * a body.
  */
