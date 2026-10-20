@@ -107,6 +107,8 @@ def links() -> list[Link]:
                         destination(source, path),
                     )
                 )
+    # An empty scan would pass every link test, so a broken walk must fail here.
+    assert len(found) > 100, f"only {len(found)} links found"
     return found
 
 
@@ -139,6 +141,15 @@ def has_type(page: Path) -> bool:
         return False
     end = lines.index("---", 1)
     return any(re.match(r"type:\s*\S", line) for line in lines[1:end])
+
+
+def topic_index(page: Path) -> Path | None:
+    # A page cut from a topic page sits in a folder named for it, and the topic page
+    # lists it. Log days are the exception: docs/log.md lists them.
+    if page.is_relative_to(DOCS / "log"):
+        return DOCS / "log.md"
+    topic = page.parent.with_suffix(".md")
+    return topic if topic.exists() else None
 
 
 def typed_pages() -> list[Path]:
@@ -180,12 +191,20 @@ def test_every_page_carries_a_type() -> None:
 
 def test_every_page_is_linked_from_an_index() -> None:
     # A link from a page to itself does not make it reachable, so it is not counted.
-    linked = {
-        link.dest
-        for link in links()
-        if link.source.is_relative_to(DOCS) and link.dest != link.source
-    }
-    orphans = sorted(
-        rel(page) for page in DOCS.rglob("*.md") if page != DOCS / "index.md" and page not in linked
-    )
-    assert not orphans, "pages no other docs page links to:\n" + "\n".join(orphans)
+    linked_from: dict[Path, set[Path]] = {}
+    for link in links():
+        if link.source.is_relative_to(DOCS) and link.dest != link.source:
+            linked_from.setdefault(link.dest, set()).add(link.source)
+
+    unlisted = []
+    for page in sorted(DOCS.rglob("*.md")):
+        if page == DOCS / "index.md":
+            continue
+        sources = linked_from.get(page, set())
+        topic = topic_index(page)
+        if topic is not None:
+            if topic not in sources:
+                unlisted.append(f"{rel(page)} is not linked from its topic index {rel(topic)}")
+        elif not any(source.name == "index.md" for source in sources):
+            unlisted.append(f"{rel(page)} is not linked from any index.md")
+    assert not unlisted, "\n".join(unlisted)
