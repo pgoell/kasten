@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.68.10"
+    "version": "0.68.11"
   },
   "paths": {
     "/agent/notes/{path}": {
