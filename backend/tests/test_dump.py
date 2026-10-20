@@ -9,7 +9,7 @@ from backend.tests.conftest import JJ, descriptions
 from kasten_backend import agent
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
-from kasten_backend.periodic import daily_note
+from kasten_backend.periodic import append_dump, daily_note
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -83,6 +83,68 @@ async def test_appends_at_the_end_when_the_dump_is_last(client: AsyncClient, vau
 
     # A `###` is part of what was dumped, so the section runs past it.
     assert body((vault / DAY).read_text()).endswith("still the dump\n\ntrimmed\n")
+
+
+def test_a_dump_inside_a_fence_is_not_the_section() -> None:
+    text = "# d\n\n```\n## Dump\n```\n\n## Dump\nold thought\n"
+
+    assert append_dump(text, "new thought") == (
+        "# d\n\n```\n## Dump\n```\n\n## Dump\nold thought\n\nnew thought\n"
+    )
+
+
+def test_a_heading_in_a_fence_inside_the_dump_does_not_end_it() -> None:
+    text = "## Dump\nfirst\n```\n## x\n```\n"
+
+    assert append_dump(text, "second") == "## Dump\nfirst\n```\n## x\n```\n\nsecond\n"
+
+
+def test_a_dump_in_the_frontmatter_is_not_the_section() -> None:
+    text = "---\nid: kept\n## Dump\n---\n# today\n"
+
+    assert append_dump(text, "an idea") == (
+        "---\nid: kept\n## Dump\n---\n# today\n\n## Dump\nan idea\n"
+    )
+
+
+def test_finds_a_dump_with_trailing_spaces_and_a_tab() -> None:
+    text = "# d\n## Dump \t\nfirst\n"
+
+    assert append_dump(text, "second") == "# d\n## Dump \t\nfirst\n\nsecond\n"
+
+
+def test_makes_a_dump_at_the_end_when_the_only_one_is_fenced() -> None:
+    text = "# d\n\n```\n## Dump\n```\n"
+
+    assert append_dump(text, "new") == "# d\n\n```\n## Dump\n```\n\n## Dump\nnew\n"
+
+
+def test_two_captures_under_a_dump_in_an_unclosed_fence_leave_one_heading() -> None:
+    text = "# d\n\n```\n## Dump\nfirst\n"
+
+    assert append_dump(append_dump(text, "one"), "two") == (
+        "# d\n\n```\n## Dump\nfirst\n\none\n\ntwo\n"
+    )
+
+
+def test_a_dump_inside_a_tilde_fence_is_not_the_section() -> None:
+    text = "# d\n\n~~~\n## Dump\n~~~\n\n## Dump\nold thought\n"
+
+    assert append_dump(text, "new thought") == (
+        "# d\n\n~~~\n## Dump\n~~~\n\n## Dump\nold thought\n\nnew thought\n"
+    )
+
+
+def test_a_backtick_line_that_opens_no_fence_leaves_one_dump() -> None:
+    text = "# d\n```x```\n```\n## Dump\nold\n"
+
+    assert append_dump(text, "new") == "# d\n```x```\n```\n## Dump\nold\n\nnew\n"
+
+
+def test_a_four_backtick_inline_span_leaves_a_closed_fence_closed() -> None:
+    text = "# d\n````x```` y\n\n```\n## Dump\n```\n"
+
+    assert append_dump(text, "new") == "# d\n````x```` y\n\n```\n## Dump\n```\n\n## Dump\nnew\n"
 
 
 async def test_writes_into_the_day_the_sender_named(client: AsyncClient, vault: Path) -> None:

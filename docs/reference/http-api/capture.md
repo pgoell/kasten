@@ -227,11 +227,18 @@ Where the text goes:
 * No daily note for that day: it is made exactly as
   [`<leader>gd`](/reference/editor-keys/finding.md#periodic-notes) makes it, heading,
   line of links and `## TODOs`, and a `## Dump` section is added at its end.
-* A daily note with no `## Dump`: the section is added at the end of the note.
+* A daily note with no `## Dump`: the section is added at the end of the note,
+  unless the note ends inside a code fence nobody closed that holds `## Dump`.
+  Then the text goes under that heading, so no second one appears.
 * A `## Dump` already there: the text goes at the end of that section, which is
-  before the next `#` or `##` heading, or at the end of the note when none
-  follows. A `###` inside the dump is part of the dump. The blank line in front
-  of the next heading stays where it is.
+  before the next `#` or `##` heading outside a code fence, or at the end of the
+  note when none follows. A `###` inside the dump is part of the dump. The blank
+  line in front of the next heading stays where it is.
+
+The heading is found the way the readers find it: the line reads exactly
+`## Dump` once trailing whitespace goes, outside a fenced code block
+(backtick or tilde) and below the frontmatter. A `## Dump` in a fence or the
+frontmatter is skipped, so the text does not land where the readers never look.
 
 Each capture is a paragraph of its own, a blank line apart from the one before
 it, because the dump is prose rather than a list. The first sits straight under
