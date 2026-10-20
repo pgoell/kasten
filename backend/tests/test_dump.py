@@ -135,6 +135,18 @@ def test_a_dump_inside_a_tilde_fence_is_not_the_section() -> None:
     )
 
 
+def test_a_backtick_line_that_opens_no_fence_leaves_one_dump() -> None:
+    text = "# d\n```x```\n```\n## Dump\nold\n"
+
+    assert append_dump(text, "new") == "# d\n```x```\n```\n## Dump\nold\n\nnew\n"
+
+
+def test_a_four_backtick_inline_span_leaves_a_closed_fence_closed() -> None:
+    text = "# d\n````x```` y\n\n```\n## Dump\n```\n"
+
+    assert append_dump(text, "new") == "# d\n````x```` y\n\n```\n## Dump\n```\n\n## Dump\nnew\n"
+
+
 async def test_writes_into_the_day_the_sender_named(client: AsyncClient, vault: Path) -> None:
     await client.post("/api/dump", json={"text": "late", "date": "2027-01-01"})
 
