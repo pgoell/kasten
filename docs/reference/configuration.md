@@ -210,7 +210,7 @@ The folder a file sent in pieces is joined in, until
 | | |
 | --- | --- |
 | Default | `kasten-uploads` in the system's temp folder, `/tmp/kasten-uploads` |
-| Read by | `/api/uploads` and the two routes that finish an upload, and startup |
+| Read by | `POST /api/uploads`, and startup |
 
 Outside the vault, so a half-sent file never reaches the file tree, the
 watcher or jj. The backend empties it at every start: what has arrived is held
