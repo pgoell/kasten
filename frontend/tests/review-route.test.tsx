@@ -31,7 +31,7 @@ async function renderRoute(hits: api.SearchHit[] = HITS, note = NOTE) {
     history: createMemoryHistory({ initialEntries: ["/review"] }),
   });
 
-  // Loaded before it is rendered, the way `home-route.test.tsx` does it: a
+  // Loaded before it is rendered, the way `home-route-fixture.tsx` does it: a
   // provider handed an unresolved router renders nothing at all.
   await act(async () => {
     await router.load();

@@ -15,7 +15,7 @@ Part of [save path orderings](/reference/save-path-orderings.md). The columns ar
 
 | # | Ordering | Must hold | Loses typed text if wrong | Test |
 |---|---|---|---|---|
-| 29 | Type T1; hide the page (pagehide or a phone's visibility change). | T1 held, then sent with keepalive. | yes | `writes the waiting text with keepalive when the page is hidden`, `writes the waiting text when a phone backgrounds the page, and says how it went`, home-route: `writes the waiting text with keepalive when the page goes away` |
+| 29 | Type T1; hide the page (pagehide or a phone's visibility change). | T1 held, then sent with keepalive. | yes | `writes the waiting text with keepalive when the page is hidden`, `writes the waiting text when a phone backgrounds the page, and says how it went`, home-route-held-text: `writes the waiting text with keepalive when the page goes away` |
 | 30 | W1 out, nothing waiting; hide. | T1 held and sent again with keepalive; the held copy goes once a write lands. | yes | `holds and resends a quiet write still in flight when the page is hidden`, `holds and resends a quiet write still in flight when a phone backgrounds the page`, `drops the copy held at hide time once the quiet write lands` |
 | 31 | W1 out; type T2; hide. | K sends T2 naming T1, so it lands behind W1. | yes | `names the write in the air as the keepalive's base, so text typed behind it lands`, `holds and sends text typed after the quiet write went out, not the quiet write's`, `holds text typed behind a write in the air at hide against that write's text` |
 | 32 | W1 out; type T2; hide; W1 lands or fails. | T2's held copy stays until K answers. | yes | `keeps text held at hide time when an older write lands`, `keeps text held at hide time when an older write fails` |

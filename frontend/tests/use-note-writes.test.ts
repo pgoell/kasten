@@ -2,7 +2,7 @@
  * The gate on its own, with no route and no vault.
  *
  * Nothing on screen says two writes serialised, so the interleaving case in
- * `home-route.test.ts` and these four are the only things that can fail when
+ * `home-route-passage.test.tsx` and these four are the only things that can fail when
  * this breaks.
  */
 

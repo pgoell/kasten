@@ -7,7 +7,7 @@
  * document. All of that is here.
  *
  * Shared rather than written twice, because `book-pane.test.tsx` and
- * `home-route.test.tsx` both mount the pane and both fire events on the section
+ * the `home-route-*.test.tsx` files both mount the pane and both fire events on the section
  * document this hands out.
  */
 
