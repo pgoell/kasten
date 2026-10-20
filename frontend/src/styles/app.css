@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* The rules for the live preview's parts and the weather card live in their
+   own files. Tailwind inlines each import where it stands, so their rules still
+   compile into this stylesheet, and the frame tests that import only this file
+   still get them. */
+@import "./live-preview-inline.css";
+@import "./live-preview-lists.css";
+@import "./live-preview-media.css";
+@import "./weather-card.css";
+@import "./live-preview-blocks.css";
+
 /* The One Dark palette CodeMirror's `oneDark` theme paints the editor with.
    Repeated here so the chrome around the editor matches it exactly rather
    than approximately. Values copied from @codemirror/theme-one-dark. */
@@ -131,95 +141,6 @@ body {
   padding-bottom: 0.4em;
 }
 
-/* Live preview. The syntax marks are hidden in normal mode, so these styles are
-   the only thing left carrying the structure of the note. */
-.cm-heading-1,
-.cm-heading-2,
-.cm-heading-3,
-.cm-heading-4,
-.cm-heading-5,
-.cm-heading-6 {
-  font-weight: 600;
-  color: var(--color-one-fg);
-  line-height: 1.3;
-}
-
-.cm-heading-1 { font-size: 1.8em; }
-.cm-heading-2 { font-size: 1.5em; }
-.cm-heading-3 { font-size: 1.3em; }
-.cm-heading-4 { font-size: 1.15em; }
-.cm-heading-5 { font-size: 1.05em; }
-.cm-heading-6 { font-size: 1em; }
-
-/* The marks are hidden, so weight and slope alone carry bold and italic, and
-   on a screen of prose the two are easy to miss and easy to confuse with each
-   other. A colour each settles both. Bold lifts off the body colour rather
-   than taking a hue: it is the same words said louder, not a different kind of
-   word. Italic takes the orange, which is the palette's quietest colour that
-   is not already spoken for. */
-.cm-strong {
-  font-weight: 700;
-  color: color-mix(in srgb, var(--color-one-fg) 45%, white);
-}
-
-.cm-emphasis {
-  font-style: italic;
-  color: var(--color-one-orange);
-}
-
-/* Struck out and stood down. The line is what says it is gone; the muted
-   colour is what stops it competing with the words that are not. */
-.cm-strikethrough {
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  color: var(--color-one-muted);
-}
-
-/* A wash rather than a block of colour: the text under it still has to read
-   as body text on the dark background. */
-.cm-highlight {
-  background: color-mix(in srgb, var(--color-one-yellow) 28%, transparent);
-  border-radius: 2px;
-}
-
-/* A tag is drawn as the label it is: purple on a wash of itself, which is the
-   one construct here wearing a shape rather than a colour. The hash stays,
-   because it is what somebody typed rather than a mark standing in for
-   something. */
-.cm-tag {
-  color: var(--color-one-purple);
-  background: color-mix(in srgb, var(--color-one-purple) 15%, transparent);
-  border-radius: 3px;
-  padding: 0.05em 0.3em;
-}
-
-/* Except in a table, where padding would push the wall to its right out of
-   line with every wall above it. There the colour alone has to do. */
-.cm-line.cm-table .cm-tag {
-  background: none;
-  padding: 0;
-}
-
-/* The name in front of a relation, drawn as the label it is. Muted rather than
-   coloured: the link beside it is what the eye is looking for, and the name is
-   what says why it is there. It stays on the screen for the reason the hash
-   does, being what somebody typed. */
-.cm-relation {
-  color: var(--color-one-muted);
-  letter-spacing: 0.02em;
-}
-
-/* The marks are gone from the text, so the marker and the indent are drawn
-   rather than typed. The blockquote names .cm-line as well, because CodeMirror
-   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade
-   and clip the bar away. A bullet carries its padding inline instead, one step
-   per level of nesting, and an inline style beats both. */
-.cm-line.cm-blockquote {
-  border-left: 3px solid var(--color-one-muted);
-  padding-left: 0.75em;
-  color: var(--color-one-muted);
-}
-
 /* Obsidian's callouts, a colour per kind as Obsidian gives them, taken from the
    One Dark palette so each reads on the editor's background. An alias wears
    the colour of the type it stands for, the editor naming the line by that. */
@@ -316,89 +237,6 @@ body {
   transform: rotate(90deg);
 }
 
-/* Hangs the dot in the space the padding opens, so a wrapped line puts its
-   text under the text above rather than under the bullet. */
-.cm-bullet {
-  text-indent: -1.1em;
-}
-
-.cm-bullet::before {
-  content: "• ";
-  color: var(--color-one-accent);
-}
-
-/* A todo is a bullet whose dot says what state it is in. The box is hidden
-   along with the dash, so the symbol hangs where the dot would have, one step
-   wider because a box is wider than a dot. */
-.cm-todo {
-  text-indent: -1.4em;
-}
-
-.cm-todo-open::before {
-  content: "☐ ";
-  color: var(--color-one-muted);
-}
-
-.cm-todo-doing::before {
-  content: "◐ ";
-  color: var(--color-one-accent);
-}
-
-.cm-todo-done::before {
-  content: "☑ ";
-  color: var(--color-one-green);
-}
-
-/* Yellow, the colour this palette waits in. Blocked is not a failure and not a
-   finish: it is a todo somebody else is holding. */
-.cm-todo-blocked::before {
-  content: "⊘ ";
-  color: var(--color-one-yellow);
-}
-
-/* Yellow as blocked is, for the same reason: somebody else is holding it. The
-   clock says it is a person the todo waits on and not another todo. */
-.cm-todo-waiting::before {
-  content: "◷ ";
-  color: var(--color-one-yellow);
-}
-
-/* Purple, a colour no other state wears: the work is done and the owner's
-   check is what holds it, so it is neither waiting on others nor finished.
-   Not muted or struck either, being still open. */
-.cm-todo-review::before {
-  content: "◎ ";
-  color: var(--color-one-purple);
-}
-
-/* Red, so a dropped todo is not read as an open one: muted is what an empty box
-   wears, and the two boxes differ by one stroke. */
-.cm-todo-rejected::before {
-  content: "☒ ";
-  color: var(--color-one-warn);
-}
-
-/* Off the list either way, whether it was finished or dropped, so the words
-   step back the way a struck-through span does. */
-.cm-todo-done,
-.cm-todo-rejected {
-  color: var(--color-one-muted);
-  text-decoration: line-through;
-}
-
-/* A date that has passed. Red on the text rather than on the row: the row is
-   still a todo like any other, and one word of it is the news. */
-.cm-todo-overdue {
-  color: var(--color-one-warn);
-}
-
-/* How many of a parent's parts are closed, drawn after its words. Muted: it is
-   a reading of the lines below rather than anything somebody typed. */
-.cm-todo-progress {
-  margin-left: 0.6em;
-  color: var(--color-one-muted);
-}
-
 /* A wikilink wears what a markdown link wears. Both open something, and which
    of the two it is is already on the screen: one shows a note's name, the
    other the words someone wrote over a URL. */
@@ -424,56 +262,6 @@ body {
   color: var(--color-one-warn);
 }
 
-/* The picture an `![](path)` is drawn as. Its own line's worth of height and
-   never wider than the column: a screenshot is two thousand pixels across and
-   the note is not, and `height: auto` is what keeps it from being squashed.
-   `vertical-align` because the widget replaces inline text, whose baseline
-   would otherwise leave a gap under the image. */
-.cm-image {
-  display: inline-block;
-  max-width: 100%;
-  height: auto;
-  vertical-align: top;
-  border-radius: 3px;
-}
-
-/* The player an `![](word.mp3)` is drawn as. The browser's own width, never
-   past the column's on a phone, and `vertical-align` for the picture's reason:
-   it replaces inline text and sits on that text's baseline otherwise. */
-.cm-audio {
-  max-width: 100%;
-  vertical-align: middle;
-}
-
-/* The player a `![](youtube link)` is drawn as. 16:9 because that is the shape
-   the player wants, and the note's column is the width, so the frame is as wide
-   as the text it sits in rather than as wide as the window. `block` and not the
-   picture's `inline-block`: a video is never half a sentence. */
-.cm-video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: 3px;
-}
-
-/* `![[note]]`, another note drawn in this one. The bar and the well make it read
-   as quoted rather than as more of this note, the bar matching the blockquote's.
-   The nested editor's own background goes, or oneDark would paint a second
-   panel over the well. */
-.cm-embed {
-  display: block;
-  max-width: 100%;
-  border-left: 3px solid var(--color-one-muted);
-  background: var(--color-one-well);
-  border-radius: 3px;
-  padding: 0.25em 0.75em;
-}
-
-.cm-embed .cm-editor {
-  background: transparent;
-}
-
 /* `![[plan.pdf]]`: a box of fixed height that scrolls through the pages, the
    way Obsidian draws one, so a long pdf does not push the note off the screen.
    Each page is as wide as the box, which is what fits it to a phone. */
@@ -482,119 +270,6 @@ body {
   max-height: 80vh;
   overflow-y: auto;
   padding: 0.25em;
-}
-
-.cm-pdf-page {
-  width: 100%;
-  margin-bottom: 0.25em;
-  background: white;
-}
-
-.cm-pdf-page canvas {
-  display: block;
-}
-
-/* A note or heading the vault does not hold, and the embed past the depth cap:
-   a name in a box, muted, the box saying where the note would have been. */
-.cm-embed-missing,
-.cm-embed-stub {
-  color: var(--color-one-muted);
-  font-style: italic;
-}
-
-.cm-embed-stub {
-  display: block;
-  border-left: 3px dashed var(--color-one-muted);
-  padding: 0.25em 0.75em;
-}
-
-/* The day's weather under a daily note's title. The svg scales to the column,
-   so the strip is as wide as the text; the tooltip sits over it rather than in
-   the flow, or hovering would push the note down. */
-.cm-weather {
-  display: grid;
-  gap: 14px;
-  padding: 6px 24px 14px 0;
-  font-family: var(--font-mono);
-  cursor: default;
-}
-
-.cm-weather-town {
-  position: relative;
-  display: grid;
-  gap: 6px;
-}
-
-.cm-weather-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 14px;
-  font-size: 0.8em;
-  font-variant-numeric: tabular-nums;
-}
-
-.cm-weather-place {
-  color: var(--color-one-fg);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 1.1em;
-}
-
-.cm-weather-range {
-  color: var(--color-one-fg);
-}
-
-.cm-weather-meta {
-  color: var(--color-one-muted);
-}
-
-.cm-weather svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.cm-weather text {
-  font-size: 10px;
-  fill: var(--color-one-muted);
-  text-anchor: middle;
-}
-
-.cm-weather .wx-start { text-anchor: start; }
-.cm-weather .wx-end { text-anchor: end; }
-.cm-weather .wx-value { fill: var(--color-one-fg); }
-.cm-weather .wx-night { fill: rgb(0 0 0 / 22%); }
-.cm-weather .wx-temp { fill: none; stroke: var(--color-one-orange); stroke-width: 2; stroke-linejoin: round; }
-.cm-weather .wx-temp-area { fill: var(--color-one-orange); fill-opacity: 0.12; }
-.cm-weather .wx-rain { fill: var(--color-one-cyan); }
-.cm-weather .wx-rule { stroke: var(--color-one-selection); }
-.cm-weather .wx-now { stroke: var(--color-one-yellow); stroke-width: 1.5; }
-.cm-weather .wx-now-label { fill: var(--color-one-yellow); text-anchor: start; }
-.cm-weather .wx-cross { stroke: var(--color-one-muted); stroke-dasharray: 2 2; }
-.cm-weather .wx-hit { fill: transparent; }
-.cm-weather .wx-sun { fill: var(--color-one-yellow); }
-.cm-weather .wx-rays { fill: none; stroke: var(--color-one-yellow); stroke-width: 1.6; stroke-linecap: round; }
-.cm-weather .wx-moon { fill: var(--color-one-muted); }
-.cm-weather .wx-cloud { fill: var(--color-one-muted); }
-.cm-weather .wx-cloud-light { fill: var(--color-one-fg); }
-.cm-weather .wx-drops { fill: none; stroke: var(--color-one-cyan); stroke-width: 1.8; stroke-linecap: round; }
-.cm-weather .wx-flake { fill: var(--color-one-fg); }
-.cm-weather .wx-bolt { fill: none; stroke: var(--color-one-yellow); stroke-width: 1.8; stroke-linejoin: round; }
-
-.cm-weather-tip {
-  position: absolute;
-  z-index: 2;
-  pointer-events: none;
-  padding: 6px 8px;
-  border: 1px solid var(--color-one-selection);
-  border-radius: 4px;
-  background: var(--color-one-panel);
-  color: var(--color-one-fg);
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: nowrap;
 }
 
 /* A link to a note nobody has written yet. Muted and dotted rather than
@@ -654,109 +329,6 @@ body {
    code under it. Readable, and standing back from the code. */
 .cm-code-fence {
   color: var(--color-one-muted);
-}
-
-/* The source of a table, which is what the cursor being inside one shows. Its
-   columns are lined up by spaces, and spaces only line up in a face where every
-   character is one width, so the block wears the monospaced one, knocked back
-   the same way the code rules above are. */
-.cm-line.cm-table {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-}
-
-/* The head row is the only one the pipes do not already tell apart. */
-.cm-line.cm-table-head {
-  font-weight: 700;
-}
-
-/* The table as a table, which is what stands where the source does not. Fixed
-   to the widest content rather than to the page: a two-column table of short
-   words has no business running the full width of the note. */
-.cm-table-block {
-  padding: 0.35em 0;
-  /* A table wider than the pane scrolls rather than widening the note. The
-     overflow alone does not do it: the table's width still counts towards the
-     editor's own, so the containment keeps it from counting at all. */
-  overflow-x: auto;
-  contain: inline-size;
-}
-
-.cm-table-grid {
-  border-collapse: collapse;
-}
-
-/* Padding on the box and none of KaTeX's margin, for the table's reason. A
-   formula wider than the pane scrolls rather than widening the note. */
-.cm-math-block {
-  padding: 0.35em 0;
-  overflow-x: auto;
-}
-
-.cm-math-block .katex-display {
-  margin: 0;
-}
-
-/* A formula KaTeX could not read, its source in the warning colour. The
-   wave says it is an error without hovering for the message. */
-.katex-error {
-  text-decoration: underline wavy;
-}
-
-.cm-table-grid th,
-.cm-table-grid td {
-  border: 1px solid var(--color-one-selection);
-  padding: 0.2em 0.6em;
-  text-align: left;
-  /* An empty cell has nothing to give it a height, and a row of them would
-     draw as a line. */
-  min-width: 1em;
-}
-
-.cm-table-grid th {
-  background: var(--color-one-panel);
-  font-weight: 700;
-}
-
-/* Every other body row, so the eye can follow one across a wide table. */
-.cm-table-grid tbody tr:nth-child(even) {
-  background: var(--color-one-hover);
-}
-
-/* A ```mermaid block, drawn. Centred as a figure is, and held to the note's
-   width so a wide flowchart shrinks on a phone rather than scrolling the note
-   sideways. */
-.cm-mermaid-block {
-  padding: 0.35em 0;
-}
-
-/* Tailwind's preflight makes an svg a block, which `text-align` cannot centre. */
-.cm-mermaid-block > svg {
-  margin: 0 auto;
-  max-width: 100%;
-  height: auto;
-}
-
-/* A diagram mermaid could not read: the message, and the source under it on
-   the surface a code block wears. Both monospaced and kept to their lines,
-   because mermaid points at the column it stopped in with a row of dashes, and
-   wrapped anywhere, because its list of expected tokens is one long word. */
-.cm-mermaid-error,
-.cm-mermaid-source {
-  margin: 0;
-  padding: 0 0.75em;
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.cm-mermaid-error {
-  color: var(--color-one-warn);
-}
-
-.cm-mermaid-source {
-  background: var(--color-one-well);
 }
 
 /* The line a search hit sits on, in the finder's preview pane. Painted rather

@@ -1,4 +1,5 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { BoardPicker } from "@/components/board-picker";
 import type { SearchHit, TodoHit } from "@/lib/api";
 import { ROW } from "@/lib/overlay-styles";
 import { PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
@@ -8,14 +9,13 @@ import {
   COLUMNS,
   type Column,
   columnOf,
-  KINDS,
-  kindOf,
-  laneName,
   projectChoices,
   withProjectLink,
 } from "@/lib/todo-board";
-import { dropOf, pinnedBy, type Spot } from "@/lib/todo-drag";
+import { dropOf, pinnedBy } from "@/lib/todo-drag";
 import { type Placed, waitsFor } from "@/lib/todo-view";
+import { cardKey, useBoardLanes } from "@/lib/use-board-lanes";
+import { useCardDrag } from "@/lib/use-card-drag";
 
 /** One todo the board draws, as the pane read it: the tree's todo, not the line's. */
 export interface Card {
@@ -45,42 +45,6 @@ const CURSOR = [
   "outline-1 -outline-offset-1 outline-one-cursor/45",
   "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
 ].join(" ");
-
-function cardKey(hit: SearchHit): string {
-  return `${hit.path}:${hit.line}`;
-}
-
-/** How far, in pixels, a pressed pointer may wander and still be a click or a tap. */
-const SLOP = 5;
-
-/** How long a finger holds still on a card before it picks the card up. */
-const LONG_PRESS_MS = 400;
-
-/** A press on a card, which becomes a drag once the card is lifted. */
-interface Press {
-  card: Card;
-  from: Spot;
-  /** The pointer that pressed, so a second finger neither drops nor steers the card. */
-  pointerId: number;
-  x: number;
-  y: number;
-  touch: boolean;
-  /** Past the slop for a mouse, past the long press for a finger. */
-  lifted: boolean;
-  /** The cell under the pointer, null over anything else. */
-  over: Spot | null;
-  timer?: ReturnType<typeof setTimeout>;
-  /** Takes the window's listeners off again. */
-  off: () => void;
-}
-
-interface Lane {
-  /** The project's whole path or the kind, since two roots can hold a folder of one name. */
-  id: string;
-  name: string;
-  /** The lane's cards, one list per column, in `COLUMNS` order. */
-  cells: Card[][];
-}
 
 interface TodoBoardProps {
   ref: React.Ref<BoardKeys>;
@@ -145,86 +109,27 @@ export function TodoBoard({
   /** The card whose `⋯` is open, by key and text for the reason the list's is. */
   const [more, setMore] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
-  /**
-   * The press under way. A ref, since the window's listeners read it between
-   * renders; `lifted` and `overZone` draw the same thing.
-   */
-  const press = useRef<Press | null>(null);
-  const [lifted, setLifted] = useState<string | null>(null);
-  /** The drop zone under the pointer, by a name each zone draws itself against. */
-  const [overZone, setOverZone] = useState<string | null>(null);
-  /** A drag let go over the card it lifted still clicks it, which opens nothing. */
-  const swallow = useRef(false);
-
-  // A board taken away mid drag leaves no listener on the window.
-  useEffect(
-    () => () => {
-      clearTimeout(press.current?.timer);
-      press.current?.off();
-    },
-    [],
-  );
+  // The pointer code's state and listeners, which the cards and zones draw from.
+  // Its cleanup effect runs first, as the board's did when it was written here.
+  const { lifted, overZone, grab, hover, unhover, endDrag, carrying, swallowed } =
+    useCardDrag<Card>(
+      (card) => cardKey(card.hit),
+      (card, from, to) => {
+        // The keys' own writes, so a state drop still runs what `X` runs and a lane
+        // drop goes through `m`'s refile. Nothing here says where in a column the
+        // card goes: the board draws the vault's order and keeps none of its own.
+        const above = ancestors.get(cardKey(card.hit)) ?? [];
+        const tags = [card.todo, ...above.map((one) => one.todo)].flatMap((todo) => todo.tags);
+        const drop = dropOf(from, to, byProject, pinnedBy(tags));
+        if (drop.kind === "state") onCycle(card.hit, drop.state);
+        else if (drop.kind === "refile") onRefile(card.hit, drop.project);
+        else if (drop.kind === "refused") onNotice(drop.why);
+      },
+    );
 
   const choices = useMemo(() => projectChoices(files), [files]);
 
-  // The todos above each card, nearest first, off the whole forest rather than
-  // the cards: a parent the filter hid still gives its part a kind.
-  const ancestors = useMemo(() => {
-    const walk = (hit: SearchHit) => {
-      const found: Placed[] = [];
-      for (
-        let up = parents.get(cardKey(hit));
-        up !== undefined;
-        up = parents.get(`${hit.path}:${up.line}`)
-      ) {
-        found.push(up);
-      }
-      return found;
-    };
-    return new Map(cards.map((card) => [cardKey(card.hit), walk(card.hit)]));
-  }, [cards, parents]);
-
-  const lanes = useMemo((): Lane[] => {
-    const laneOf = (card: Card): string | null => {
-      // The backend's answer, so an agent reading `/api/todos` sees the lane
-      // drawn here and no second copy of the rule can drift from it.
-      if (byProject) return card.hit.project;
-      const above = ancestors.get(cardKey(card.hit)) ?? [];
-      return kindOf(
-        card.todo,
-        above.map((one) => one.todo),
-      );
-    };
-
-    const groups = new Map<string | null, Card[]>();
-    for (const card of cards) {
-      const lane = laneOf(card);
-      groups.set(lane, [...(groups.get(lane) ?? []), card]);
-    }
-
-    // By kind: the three in their fixed order, then the rest. By project: the
-    // pile still to sort first, as the inbox is in Things, then by name.
-    const order = byProject
-      ? [...groups.keys()].sort((a, b) =>
-          a === null ? -1 : b === null ? 1 : laneName(a).localeCompare(laneName(b)),
-        )
-      : [...KINDS, null].filter((kind) => groups.has(kind));
-
-    return order.map((lane) => {
-      const members = groups.get(lane) ?? [];
-      return {
-        id: lane ?? "",
-        name: byProject ? laneName(lane) : (lane ?? "No kind"),
-        cells: COLUMNS.map((column) => members.filter(({ todo }) => columnOf(todo) === column)),
-      };
-    });
-  }, [cards, ancestors, byProject]);
-
-  // A column's cards top to bottom across the lanes, which is what `j` and `k` walk.
-  const columns = useMemo(
-    () => COLUMNS.map((_, index) => lanes.flatMap((lane) => lane.cells[index] ?? [])),
-    [lanes],
-  );
+  const { ancestors, lanes, columns } = useBoardLanes(cards, parents, byProject);
 
   // Clamped as the list clamps its cursor: a move or a narrower filter can
   // take the card it was on out of the column.
@@ -282,133 +187,12 @@ export function TodoBoard({
     setPicker({ hit, at: 0 });
   }
 
-  /** Escape, a cancelled pointer, a finger that scrolled, or the end of a drop. */
-  function endDrag() {
-    const held = press.current;
-    if (held === null) return;
-    clearTimeout(held.timer);
-    held.off();
-    press.current = null;
-    setLifted(null);
-    setOverZone(null);
-  }
-
-  /**
-   * The pointer came over a drop zone; `lane` left out is the lane the card
-   * left. Another finger passing over one moves nothing.
-   */
-  function hover(event: React.PointerEvent, zone: string, column: Column, lane?: string) {
-    const held = press.current;
-    if (!held?.lifted || event.pointerId !== held.pointerId) return;
-    held.over = { lane: lane ?? held.from.lane, column };
-    setOverZone(zone);
-  }
-
-  function unhover(event: React.PointerEvent) {
-    const held = press.current;
-    if (!held?.lifted || event.pointerId !== held.pointerId) return;
-    held.over = null;
-    setOverZone(null);
-  }
-
-  // The keys' own writes, so a state drop still runs what `X` runs and a lane
-  // drop goes through `m`'s refile. Nothing here says where in a column the
-  // card goes: the board draws the vault's order and keeps none of its own.
-  function land({ card, from }: Press, to: Spot) {
-    const above = ancestors.get(cardKey(card.hit)) ?? [];
-    const tags = [card.todo, ...above.map((one) => one.todo)].flatMap((todo) => todo.tags);
-    const drop = dropOf(from, to, byProject, pinnedBy(tags));
-    if (drop.kind === "state") onCycle(card.hit, drop.state);
-    else if (drop.kind === "refile") onRefile(card.hit, drop.project);
-    else if (drop.kind === "refused") onNotice(drop.why);
-  }
-  // The window's listeners outlive the render that added them, so they land
-  // through this, which holds the lanes and the props of the latest one.
-  const landing = useRef(land);
-  landing.current = land;
-
-  // Pointer events rather than HTML drag and drop, which a phone does not
-  // fire for a finger. A mouse lifts the card once it moves past the slop, so
-  // a click still opens it. A finger lifts it after a long press, and one that
-  // moves first is a scroll the browser goes on with.
-  function grab(event: React.PointerEvent<HTMLElement>, card: Card, from: Spot) {
-    swallow.current = false;
-    if (event.button !== 0 || press.current !== null) return;
-    const target = event.currentTarget;
-    const { pointerId } = event;
-    const touch = event.pointerType === "touch";
-    const stop = (other: Event) => other.preventDefault();
-    // A second finger's events are not this press's.
-    const mine = (other: PointerEvent) => other.pointerId === pointerId;
-    const cancel = (other: PointerEvent) => {
-      if (mine(other)) endDrag();
-    };
-    // Before the lift a move is a scroll the browser goes on with; after it,
-    // the finger carries the card and the page stays still.
-    const carry = (other: Event) => {
-      if (held.lifted) other.preventDefault();
-    };
-
-    const lift = () => {
-      held.lifted = true;
-      swallow.current = true;
-      setLifted(cardKey(card.hit));
-      if (!touch) return;
-      // A finger's pointer is held by the card it went down on, so no other
-      // cell would hear it pass. Asked first, since letting go of a pointer
-      // nothing holds throws; jsdom has no pointer capture at all.
-      if ("hasPointerCapture" in target && target.hasPointerCapture(pointerId)) {
-        target.releasePointerCapture(pointerId);
-      }
-      // From here the finger carries the card, which no menu interrupts.
-      window.addEventListener("contextmenu", stop);
-    };
-    const move = (other: PointerEvent) => {
-      if (!mine(other) || held.lifted) return;
-      if (Math.hypot(other.clientX - held.x, other.clientY - held.y) <= SLOP) return;
-      if (touch) endDrag();
-      else lift();
-    };
-    const up = (other: PointerEvent) => {
-      if (!mine(other)) return;
-      const { lifted: carried, over } = held;
-      endDrag();
-      if (carried && over !== null) landing.current(held, over);
-    };
-
-    const held: Press = {
-      card,
-      from,
-      pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      touch,
-      lifted: false,
-      over: null,
-      timer: touch ? setTimeout(lift, LONG_PRESS_MS) : undefined,
-      off: () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", cancel);
-        window.removeEventListener("touchmove", carry);
-        window.removeEventListener("contextmenu", stop);
-      },
-    };
-    press.current = held;
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", cancel);
-    // Added at the press, not at the lift: Android Chrome may already treat a
-    // touch's moves as uncancelable 400 ms in, once one went by unasked.
-    if (touch) window.addEventListener("touchmove", carry, { passive: false });
-  }
-
   // The pane's keys never reach CodeMirror: they land on the section, whose
   // handler calls this. So vim mode on or off changes nothing here.
   useImperativeHandle(ref, () => ({
     onKey(key: string): boolean {
       // Only while a card is up, so Escape otherwise goes on to the pane.
-      if (key === "Escape" && press.current?.lifted) {
+      if (key === "Escape" && carrying()) {
         endDrag();
         return true;
       }
@@ -484,8 +268,8 @@ export function TodoBoard({
         tabIndex={focused ? 0 : -1}
         onPointerDown={(event) => grab(event, card, { lane, column: columnOf(todo) })}
         onClick={() => {
-          if (swallow.current) swallow.current = false;
-          else onOpen(hit.path, hit.line);
+          if (swallowed()) return;
+          onOpen(hit.path, hit.line);
         }}
         title={key}
         className={`${ROW} flex min-w-0 flex-col gap-0.5 text-one-fg ${focused ? CURSOR : ""} ${coarse ? "min-h-11 justify-center" : ""} ${lifted === key ? "opacity-40" : ""}`}
@@ -577,42 +361,14 @@ export function TodoBoard({
   return (
     <div ref={root} className="flex-1 overflow-auto py-1">
       {picker !== null && (
-        // Stuck to the top of the scroll, so a `p` far down a long column
-        // opens a picker that is in sight.
-        <div
-          data-testid="todo-project-pick"
-          className="sticky top-0 z-10 border-b border-one-line bg-one-bg pb-1"
-        >
-          <div className="flex items-center gap-3 px-3 text-[11px] text-one-accent">
-            <span className="min-w-0 flex-1 truncate py-1">project for: {picker.hit.text}</span>
-            {/* Escape by finger, as the list's blocker picker has it. */}
-            {coarse && (
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={closePicker}
-                className="min-h-11 shrink-0 px-3 text-one-muted"
-              >
-                cancel
-              </button>
-            )}
-          </div>
-          {choices.length === 0 && (
-            <p className="px-3 py-1 text-[13px] text-one-muted">no folder under 02 Projects</p>
-          )}
-          {choices.map((choice, index) => (
-            <button
-              key={choice.folder}
-              type="button"
-              tabIndex={-1}
-              onClick={() => pick(picker.hit, choice)}
-              aria-current={index === picker.at}
-              className={`${ROW} block ${index === picker.at ? "bg-one-cursor/15 text-one-fg" : "text-one-muted"} ${coarse ? "min-h-11" : ""}`}
-            >
-              {choice.name}
-            </button>
-          ))}
-        </div>
+        <BoardPicker
+          title={picker.hit.text}
+          choices={choices}
+          at={picker.at}
+          coarse={coarse}
+          onPick={(choice) => pick(picker.hit, choice)}
+          onCancel={closePicker}
+        />
       )}
 
       {/* A phone has room for one column, so the tabs pick which. */}

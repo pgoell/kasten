@@ -1,0 +1,88 @@
+/* Live preview. The syntax marks are hidden in normal mode, so these styles are
+   the only thing left carrying the structure of the note. */
+.cm-heading-1,
+.cm-heading-2,
+.cm-heading-3,
+.cm-heading-4,
+.cm-heading-5,
+.cm-heading-6 {
+  font-weight: 600;
+  color: var(--color-one-fg);
+  line-height: 1.3;
+}
+
+.cm-heading-1 { font-size: 1.8em; }
+.cm-heading-2 { font-size: 1.5em; }
+.cm-heading-3 { font-size: 1.3em; }
+.cm-heading-4 { font-size: 1.15em; }
+.cm-heading-5 { font-size: 1.05em; }
+.cm-heading-6 { font-size: 1em; }
+
+/* The marks are hidden, so weight and slope alone carry bold and italic, and
+   on a screen of prose the two are easy to miss and easy to confuse with each
+   other. A colour each settles both. Bold lifts off the body colour rather
+   than taking a hue: it is the same words said louder, not a different kind of
+   word. Italic takes the orange, which is the palette's quietest colour that
+   is not already spoken for. */
+.cm-strong {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--color-one-fg) 45%, white);
+}
+
+.cm-emphasis {
+  font-style: italic;
+  color: var(--color-one-orange);
+}
+
+/* Struck out and stood down. The line is what says it is gone; the muted
+   colour is what stops it competing with the words that are not. */
+.cm-strikethrough {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--color-one-muted);
+}
+
+/* A wash rather than a block of colour: the text under it still has to read
+   as body text on the dark background. */
+.cm-highlight {
+  background: color-mix(in srgb, var(--color-one-yellow) 28%, transparent);
+  border-radius: 2px;
+}
+
+/* A tag is drawn as the label it is: purple on a wash of itself, which is the
+   one construct here wearing a shape rather than a colour. The hash stays,
+   because it is what somebody typed rather than a mark standing in for
+   something. */
+.cm-tag {
+  color: var(--color-one-purple);
+  background: color-mix(in srgb, var(--color-one-purple) 15%, transparent);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+}
+
+/* Except in a table, where padding would push the wall to its right out of
+   line with every wall above it. There the colour alone has to do. */
+.cm-line.cm-table .cm-tag {
+  background: none;
+  padding: 0;
+}
+
+/* The name in front of a relation, drawn as the label it is. Muted rather than
+   coloured: the link beside it is what the eye is looking for, and the name is
+   what says why it is there. It stays on the screen for the reason the hash
+   does, being what somebody typed. */
+.cm-relation {
+  color: var(--color-one-muted);
+  letter-spacing: 0.02em;
+}
+
+/* The marks are gone from the text, so the marker and the indent are drawn
+   rather than typed. The blockquote names .cm-line as well, because CodeMirror
+   injects `.cm-line { padding-left: 6px }` and would otherwise win the cascade
+   and clip the bar away. A bullet carries its padding inline instead, one step
+   per level of nesting, and an inline style beats both. */
+.cm-line.cm-blockquote {
+  border-left: 3px solid var(--color-one-muted);
+  padding-left: 0.75em;
+  color: var(--color-one-muted);
+}

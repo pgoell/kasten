@@ -1,0 +1,297 @@
+import { acceptCompletion } from "@codemirror/autocomplete";
+import { indentWithTab } from "@codemirror/commands";
+import { markdownLanguage } from "@codemirror/lang-markdown";
+import { Compartment, EditorState, type Extension, type Text } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { vim } from "@replit/codemirror-vim";
+import { basicSetup } from "codemirror";
+import { backticks } from "@/lib/backticks";
+import { FORMAT } from "@/lib/buffer-keys";
+import { fromVault } from "@/lib/buffer-writes";
+import { editorCommands, forwardCommands } from "@/lib/editor-commands";
+import { byName, reloadHandler, save, saveHandler } from "@/lib/editor-ex";
+import { followHandler, followOnClick, followOnTap, highlightHandler } from "@/lib/editor-follow";
+import { type EmbedSource, embedSource } from "@/lib/embed";
+import { toggleMark } from "@/lib/format-commands";
+import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { keyboardUnasked } from "@/lib/last-input";
+import { livePreview } from "@/lib/live-preview";
+import { noteLanguage } from "@/lib/note-language";
+import { relationCompletions, vaultRelations } from "@/lib/ontology";
+import { slashCompletions } from "@/lib/palette";
+import { moveCell } from "@/lib/table";
+import { tagCompletions, vaultTags } from "@/lib/tag";
+import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo-commands";
+import { todoCompletions } from "@/lib/todo-suggest";
+import { vimKeys } from "@/lib/vim-mode";
+import { weatherCard } from "@/lib/weather-card";
+import { vaultPaths, wikiLinkCompletions } from "@/lib/wikilink";
+
+/**
+ * The callbacks a view calls, held where the view can read them at the moment
+ * it calls one. A re-render replaces this, and the view never has to be rebuilt
+ * to see the new one.
+ */
+export interface NoteViewLatest {
+  commands?: EditorCommands;
+  onChange?: (doc: string) => void;
+  onSave?: (doc: string) => void;
+  onFollow?: (target: string) => void;
+  onOpenHighlight?: (quote: string[]) => void;
+  onCycleTodo?: CycleHandler;
+  elsewhere?: (id: string) => boolean;
+  onNotice?: (message: string) => void;
+  onReload?: (force: boolean) => Promise<string | null>;
+  embeds?: EmbedSource;
+  allowReload?: (text: string) => boolean;
+}
+
+/** The four listings the vault carries. Any of them absent means told nothing. */
+export interface NoteListings {
+  paths?: string[];
+  images?: string[];
+  tags?: string[];
+  relations?: string[];
+}
+
+/**
+ * Holds live preview so `<leader>p` can swap it out.
+ *
+ * A compartment rather than a rebuilt view: rebuilding throws away the undo
+ * history and the cursor, and turning the rendering off is not meant to cost
+ * either. One instance for the module is right, because a compartment is only
+ * an identity, and each state configures it separately.
+ */
+const preview = new Compartment();
+
+/**
+ * Holds vim, so the setting can take it out and put it back.
+ *
+ * A compartment for the reason the one above is, and one more: a remount reads
+ * the note out of the query cache, which the autosave is a second behind, so
+ * rebuilding the view on a toggle would drop what was typed in that second.
+ */
+const modal = new Compartment();
+
+/**
+ * vim's `number relativenumber`: the line the cursor sits on names itself and
+ * the rest count the distance to it, which is the number `10j` and `d5k` are
+ * reached for with. basicSetup's own `lineNumbers()` carries no config, so
+ * this adds a formatter to the gutter already there rather than a second one
+ * beside it. It redraws when the cursor changes line because
+ * `highlightActiveLineGutter`, also basicSetup's, moves its marker then.
+ */
+const relativeNumbers = lineNumbers({
+  formatNumber: (line, state) => {
+    const cursor = state.doc.lineAt(state.selection.main.head).number;
+    return `${line === cursor ? line : Math.abs(line - cursor)}`;
+  },
+});
+
+/**
+ * The formatting chords as plain bindings, for the editor without vim.
+ *
+ * `FORMAT` spells each key for vim, `<C-S-H>`, and CodeMirror wants
+ * `Ctrl-Shift-h`. Without these ctrl+i falls through to basicSetup, which
+ * selects the enclosing syntax node on it.
+ */
+const formatKeys = keymap.of(
+  FORMAT.map(({ key, spec }) => ({
+    key: key
+      .slice(1, -1)
+      .replace("C-", "Ctrl-")
+      .replace("S-", "Shift-")
+      .replace(/.$/, (letter) => letter.toLowerCase()),
+    run: (view: EditorView) => toggleMark(view, spec),
+    preventDefault: true,
+  })),
+);
+
+/**
+ * What the compartment holds: vim and the gutter that counts for it, or the
+ * word that there is none, which live preview reads as always typing, and the
+ * chords vim would have resolved.
+ */
+function modalKeys(on: boolean): Extension {
+  return on ? [vim(), relativeNumbers] : [vimKeys.of(false), formatKeys];
+}
+
+/**
+ * Holds the vault listing, which the route refreshes as notes come and go.
+ *
+ * A compartment for the reason the one above is: the listing changes while a
+ * note is open, and rebuilding the view to tell it so would throw away the undo
+ * history and the cursor.
+ */
+const vault = new Compartment();
+
+/**
+ * The four listings the vault carries, in the shape the compartment holds them.
+ *
+ * One compartment for all of them, and therefore one place that spells this out.
+ * Any of them absent is not an empty vault: it is a view that was told nothing,
+ * which offers nothing and calls no link dead.
+ */
+function listings(
+  paths: string[] | undefined,
+  images: string[] | undefined,
+  tags: string[] | undefined,
+  relations: string[] | undefined,
+): Extension[] {
+  return [
+    ...(paths ? [vaultPaths.of(paths)] : []),
+    ...(images ? [imagePaths.of(images)] : []),
+    ...(tags ? [vaultTags.of(tags)] : []),
+    ...(relations ? [vaultRelations.of(relations)] : []),
+  ];
+}
+
+/**
+ * Builds one note's view. The extensions come in the order they always have,
+ * because whichever keymap is registered earliest wins.
+ */
+export function createNoteView(o: {
+  parent: HTMLElement;
+  doc: Text;
+  selection: { anchor: number; head?: number };
+  path?: string;
+  vim: boolean;
+  preview: boolean;
+  listings: NoteListings;
+  latest: { readonly current: NoteViewLatest };
+  position: Extension;
+}): EditorView {
+  const { latest } = o;
+  const view = new EditorView({
+    state: EditorState.create({
+      doc: o.doc,
+      selection: o.selection,
+      extensions: [
+        // Must come first: whichever keymap is registered earliest wins, and
+        // vim's bindings have to beat the ones basicSetup installs.
+        modal.of(modalKeys(o.vim)),
+        // Ahead of basicSetup for the same reason: ctrl+s must reach us
+        // rather than open the browser's save dialog.
+        keymap.of([
+          { key: "Mod-s", run: save, preventDefault: true },
+          // The terminal's chord for the palette, here as well: `<leader>:`
+          // is a vim mapping, and with vim off no other key opens it.
+          {
+            // Ctrl on every platform and not `Mod`, which is cmd on a Mac:
+            // `TERMINAL_CHORD` is ctrl there too, and one chord has to mean
+            // one thing in both panes.
+            key: "Ctrl-Shift-p",
+            run: (view) => {
+              view.state.facet(editorCommands)?.openPalette();
+              return true;
+            },
+            preventDefault: true,
+          },
+        ]),
+        // basicSetup leaves tab unbound so the key can move the focus out of
+        // the editor. A note needs it to nest a list item, and `<leader>e`
+        // is the way to the file tree now, so the trade is worth taking.
+        // Vim maps no tab of its own, in any mode, so this is the only
+        // handler the key reaches.
+        //
+        // The completion goes first and declines when no list is open, which
+        // is tab's own job in every editor that offers one. Enter takes a
+        // completion too, `basicSetup` binding it, but a list that tab cannot
+        // take is a list nobody's fingers reach for.
+        //
+        // The table walk sits between them: in a table tab means the next
+        // cell, and everywhere else it still means indent.
+        keymap.of([
+          { key: "Tab", run: acceptCompletion },
+          { key: "Tab", run: (view) => moveCell(view, 1) },
+          { key: "Shift-Tab", run: (view) => moveCell(view, -1) },
+          indentWithTab,
+        ]),
+        // Ahead of basicSetup, whose closeBrackets would otherwise answer the
+        // third backtick with a pair before the fence handler sees it.
+        backticks(),
+        saveHandler.of((doc) => latest.current.onSave?.(doc)),
+        followHandler.of((target) => latest.current.onFollow?.(target)),
+        highlightHandler.of((quote) => latest.current.onOpenHighlight?.(quote)),
+        todoCycled.of((cycle) => latest.current.onCycleTodo?.(cycle)),
+        idElsewhere.of((id) => latest.current.elsewhere?.(id) === true),
+        ...(o.path === undefined ? [] : [notePath.of(o.path)]),
+        // Outside every compartment, so a vim toggle or a new listing never
+        // takes it out. The ref and not the prop, for the reason the
+        // handlers above read theirs.
+        ...(latest.current.embeds === undefined
+          ? []
+          : [
+              embedSource.of({
+                watch: (target, listener) =>
+                  latest.current.embeds?.watch(target, listener) ?? (() => {}),
+                // The box cancels its mousedown, so the focus stays in the
+                // pane it was in and the open would land off that one: the
+                // focus moves here first, as on a ctrl+click on a link
+                // (#361). This view and not the box's, an embed inside an
+                // embed being drawn in a nested view that cannot take the
+                // focus but carries this same source. Not on a phone's tap,
+                // where it would raise a keyboard nobody asked for.
+                open: (target, line) => {
+                  if (!keyboardUnasked()) view.focus();
+                  latest.current.embeds?.open(target, line);
+                },
+              }),
+            ]),
+        // A pane with nothing to reload answers the way a refusal does, so
+        // `:e` in one is a key that does nothing rather than a key that
+        // throws.
+        reloadHandler.of((force) => latest.current.onReload?.(force) ?? Promise.resolve(null)),
+        forwardCommands(() => latest.current.commands),
+        basicSetup,
+        noteLanguage(),
+        markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
+        markdownLanguage.data.of({ autocomplete: todoCompletions }),
+        markdownLanguage.data.of({ autocomplete: imageCompletions }),
+        markdownLanguage.data.of({ autocomplete: tagCompletions }),
+        markdownLanguage.data.of({ autocomplete: relationCompletions }),
+        markdownLanguage.data.of({ autocomplete: slashCompletions }),
+        // The clipboard's image goes into the vault and the note gets the
+        // path. Ahead of nothing in particular: CodeMirror's own paste is a
+        // handler on the same event and runs when this one declines, which is
+        // every paste that carries text.
+        imagePaste(),
+        noticeHandler.of((message) => latest.current.onNotice?.(message)),
+        followOnClick(),
+        followOnTap(),
+        byName,
+        vault.of(
+          listings(o.listings.paths, o.listings.images, o.listings.tags, o.listings.relations),
+        ),
+        preview.of(o.preview ? [livePreview(), weatherCard] : []),
+        oneDark,
+        EditorView.lineWrapping,
+        EditorView.updateListener.of((update) => {
+          // `every` and not `some`: an update carrying the reload alongside
+          // something the user typed is an update whose text has to be
+          // written, and the keystroke in it would go unreported otherwise.
+          if (update.docChanged && !update.transactions.every((tr) => tr.annotation(fromVault))) {
+            latest.current.onChange?.(update.state.doc.toString());
+          }
+        }),
+        o.position,
+      ],
+    }),
+    parent: o.parent,
+  });
+  return view;
+}
+
+export function setVim(view: EditorView, on: boolean): void {
+  view.dispatch({ effects: modal.reconfigure(modalKeys(on)) });
+}
+
+export function setPreview(view: EditorView, on: boolean): void {
+  view.dispatch({ effects: preview.reconfigure(on ? [livePreview(), weatherCard] : []) });
+}
+
+export function setListings(view: EditorView, l: NoteListings): void {
+  view.dispatch({ effects: vault.reconfigure(listings(l.paths, l.images, l.tags, l.relations)) });
+}

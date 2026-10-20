@@ -1,645 +1,20 @@
-import { acceptCompletion } from "@codemirror/autocomplete";
-import { indentWithTab } from "@codemirror/commands";
-import { markdownLanguage } from "@codemirror/lang-markdown";
-import { syntaxTree } from "@codemirror/language";
-import {
-  Annotation,
-  Compartment,
-  EditorState,
-  type Extension,
-  Facet,
-  type Text,
-  Transaction,
-} from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import type { SyntaxNode } from "@lezer/common";
-import { type CM5EditorInterface, Vim, vim } from "@replit/codemirror-vim";
-import { basicSetup } from "codemirror";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { useEffect, useRef } from "react";
-import { backticks } from "@/lib/backticks";
-import { FORMAT } from "@/lib/buffer-keys";
-import { toHtml, toSlack } from "@/lib/copy-as";
-import { editorCommands } from "@/lib/editor-commands";
-import { type EmbedSource, embedSource } from "@/lib/embed";
-import { toggleMark } from "@/lib/format-commands";
-import { belowFrontmatter } from "@/lib/frontmatter-language";
-import { highlightAt, mayBeHighlightLine } from "@/lib/highlight";
-import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
+import { takeVaultText, writeWatched } from "@/lib/buffer-writes";
+import { notePosition } from "@/lib/editor-position";
+import type { EmbedSource } from "@/lib/embed";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
-import { type UrlLink, urlLinkAt } from "@/lib/link-reference";
-import { livePreview } from "@/lib/live-preview";
-import { noteLanguage } from "@/lib/note-language";
-import { noteSectionOf } from "@/lib/note-section";
-import { relationCompletions, vaultRelations } from "@/lib/ontology";
-import { type CopyFormat, slashCompletions, viewCommands } from "@/lib/palette";
-import { readPosition, writePosition } from "@/lib/positions";
-import { NOTE, repeats, watchPresses } from "@/lib/presses";
-import { moveCell } from "@/lib/table";
-import { tagCompletions, vaultTags } from "@/lib/tag";
-import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo-commands";
-import { todoCompletions } from "@/lib/todo-suggest";
-import { setWatched } from "@/lib/video";
-import { vimKeys } from "@/lib/vim-mode";
+import {
+  createNoteView,
+  type NoteViewLatest,
+  setListings,
+  setPreview,
+  setVim,
+} from "@/lib/note-view";
+import type { CycleHandler } from "@/lib/todo-commands";
 import { useVim } from "@/lib/vim-setting";
-import { weatherCard } from "@/lib/weather-card";
-import { splitTarget, vaultPaths, wikiLinkAt, wikiLinkCompletions } from "@/lib/wikilink";
-
-type SaveHandler = (doc: string) => void;
-type FollowHandler = (target: string) => void;
-type HighlightHandler = (quote: string[]) => void;
-/** Answers with the vault's text, or with null when the reload was refused. */
-type ReloadHandler = (force: boolean) => Promise<string | null>;
-
-/**
- * Carries the save callback on the editor state.
- *
- * `Vim.defineEx` registers `:w` once for the whole module and cannot close over
- * one view's props, so the handler has to be reachable from the view it was
- * typed into. A facet is how CodeMirror hangs a value off a state.
- */
-const saveHandler = Facet.define<SaveHandler, SaveHandler | undefined>({
-  combine: (handlers) => handlers[0],
-});
-
-function save(view: EditorView): boolean {
-  view.state.facet(saveHandler)?.(view.state.doc.toString());
-  return true;
-}
-
-Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => save(cm.cm6));
-
-/**
- * Carries the follow callback, for the reason `saveHandler` carries the other.
- *
- * A facet and not one of `editorCommands`: that table is the one a leader
- * sequence names a command in, and this command is reached by `gf` and carries
- * a note's name with it.
- */
-const followHandler = Facet.define<FollowHandler, FollowHandler | undefined>({
-  combine: (handlers) => handlers[0],
-});
-
-/**
- * Carries the highlight callback, for the reason `saveHandler` carries the other.
- *
- * A second facet rather than a second meaning on the first: what a highlight
- * names is a passage in a book and not a note's path, so the two callbacks
- * carry different things.
- */
-const highlightHandler = Facet.define<HighlightHandler, HighlightHandler | undefined>({
-  combine: (handlers) => handlers[0],
-});
-
-/**
- * Follow `[[target]]`: to the route, or for `[[#heading]]` within this note.
- *
- * A heading of the note on screen is found in the text on screen. The vault
- * and the query cache hold the last save, and the line typed since moves the
- * heading the link means.
- */
-function followLink(view: EditorView, target: string) {
-  const { name, heading } = splitTarget(target);
-  if (name !== "") {
-    view.state.facet(followHandler)?.(target);
-    return;
-  }
-  const { doc } = view.state;
-  const section = heading === null ? null : noteSectionOf(doc.toString(), heading);
-  if (section === null) return;
-  const { from } = doc.line(section.line);
-  view.dispatch({
-    selection: { anchor: from },
-    effects: EditorView.scrollIntoView(from, { y: "center" }),
-  });
-}
-
-/**
- * The quote of the highlight block line `at` sits in, or null outside one.
- *
- * Read from the run of lines around `at` that could belong to a block and not
- * from the whole note, which Enter off a link would otherwise copy on every
- * press (#638). A prose line reads nothing past itself.
- */
-function highlightNear(doc: Text, at: number): string[] | null {
-  if (!mayBeHighlightLine(doc.line(at).text)) return null;
-  let first = at;
-  while (first > 1 && mayBeHighlightLine(doc.line(first - 1).text)) first -= 1;
-  let last = at;
-  while (last < doc.lines && mayBeHighlightLine(doc.line(last + 1).text)) last += 1;
-  return highlightAt(doc.sliceString(doc.line(first).from, doc.line(last).to), at - first + 1);
-}
-
-/**
- * Open what the cursor's line names, vim's own go-to-file.
- *
- * Two readers, in this order. A `[[link]]` under the cursor is a link even
- * inside a quote line, and a highlight block is the second meaning `gf` gains:
- * the block names a passage in a book, and the cursor may sit on any of its
- * lines. Neither, and this answers false the way it always did, which is what
- * keeps `<CR>` moving down.
- */
-function follow(view: EditorView): boolean {
-  const target = wikiLinkAt(view.state, view.state.selection.main.head);
-  if (target !== null) {
-    followLink(view, target);
-    return true;
-  }
-
-  const { doc } = view.state;
-  const quote = highlightNear(doc, doc.lineAt(view.state.selection.main.head).number);
-  if (quote === null) return false;
-  // True whether or not a handler is installed, which is what the wikilink
-  // branch above does: the only editor with no callback is the empty pane, and
-  // that holds no note.
-  view.state.facet(highlightHandler)?.(quote);
-  return true;
-}
-
-Vim.defineAction("kastenFollowLink", (cm: { cm6: EditorView }) => follow(cm.cm6));
-Vim.mapCommand("gf", "action", "kastenFollowLink", {}, { context: "normal" });
-
-/**
- * Enter follows the link too, and moves the way vim moves off one.
- *
- * A mapping takes the key whether or not the action did anything, and vim
- * reads a bare `<CR>` as `j^`, so a line holding no link would lose the motion
- * to a key that did nothing. Handing those two keys back is what keeps it.
- */
-Vim.defineAction("kastenFollowLinkOrDown", (cm: CM5EditorInterface) => {
-  if (follow(cm.cm6)) return;
-  Vim.handleKey(cm, "j", "user");
-  Vim.handleKey(cm, "^", "user");
-});
-Vim.mapCommand("<CR>", "action", "kastenFollowLinkOrDown", {}, { context: "normal" });
-
-/**
- * Carries the reload callback, for the reason `saveHandler` carries the other.
- *
- * Whoever holds the unsaved text is who decides whether a `:e` may discard it,
- * and that is the same somebody the vault's text has to be read by, so the
- * whole answer comes back from one call.
- */
-const reloadHandler = Facet.define<ReloadHandler, ReloadHandler | undefined>({
-  combine: (handlers) => handlers[0],
-});
-
-/**
- * Read the note off the vault again, vim's `:e`, and `:e!` to discard the
- * buffer.
- *
- * The bang is not part of the command's name. The parser takes the word for
- * that and leaves everything after it as the command's argument, so `:e!`
- * arrives here as `edit` with an argString of "!" and `:e` with none. Reading
- * it is what keeps the two apart, and apart they must be: plain `:e` declines a
- * buffer holding unsaved text, and only the bang throws it away.
- */
-function edit(view: EditorView, params: { argString?: string }): boolean {
-  // Trimmed, because the argument holds everything typed after the word and
-  // `:e! ` is still `:e!`. Losing the bang to a trailing space would turn the
-  // command into the one that declines, without a word about why.
-  const argument = params.argString?.trim() ?? "";
-  // Those two spellings are the whole of the command. Vim opens the file an
-  // argument names; this editor holds the note its pane holds, so rereading
-  // that one would be the wrong note answering to the right command. Nothing
-  // happens instead, which is at least not a lie.
-  if (argument !== "" && argument !== "!") return false;
-
-  const reload = view.state.facet(reloadHandler);
-  if (reload === undefined) return false;
-
-  void reload(argument === "!").then(
-    (text) => {
-      // Null is the refusal, and there is nothing to put in. Nothing asks
-      // `allowReload` on the way in either: what that guard stands over is the
-      // text waiting to be written, and the answer above came from the holder
-      // of that text, who dropped it before handing this back. Dispatching into
-      // a view destroyed while the read was in flight is safe, CodeMirror
-      // keeping the state and doing nothing else with it.
-      if (text !== null) takeVaultText(view, text);
-    },
-    () => {
-      // The vault could not be read. Nothing was discarded, the discard waiting
-      // on the text, so the buffer and the status bar stand as they were.
-    },
-  );
-  return true;
-}
-
-Vim.defineEx("edit", "e", (cm: { cm6: EditorView }, params: { argString?: string }) =>
-  edit(cm.cm6, params),
-);
-
-/**
- * A yank lands on the system clipboard as well as in vim's register, the way
- * `clipboard=unnamedplus` has it, so `y` in a note and ctrl+v somewhere else
- * move the same text.
- *
- * Wrapped rather than registered: vim offers no hook on a yank, and every one
- * of them, from `yy` to a visual `y`, goes through this method.
- */
-const registers = Vim.getRegisterController();
-const pushText = registers.pushText.bind(registers);
-registers.pushText = (name, operator, text, linewise, blockwise) => {
-  pushText(name, operator, text, linewise, blockwise);
-  // `"+y` writes the clipboard already, and `"_y` writes nowhere.
-  if (operator !== "yank" || name === "+" || name === "_") return;
-  // Absent outside a secure context, which a test's document is.
-  void navigator.clipboard?.writeText(linewise && !text.endsWith("\n") ? `${text}\n` : text);
-};
-
-const COPY_FORMATS: Record<CopyFormat, string> = { md: "markdown", slack: "Slack", teams: "Teams" };
-
-/**
- * What `:copy` takes: the visual selection it was typed from, to the
- * character, the lines of a range typed by hand, or else the whole note.
- */
-function copySource(
-  cm: CM5EditorInterface,
-  params: { input: string; line?: number; lineEnd?: number },
-) {
-  const doc = cm.cm6.state.doc;
-  if (params.line === undefined) return doc.toString();
-
-  const vim = cm.state.vim;
-  const from = vim?.marks["<"]?.find();
-  const to = vim?.marks[">"]?.find();
-  const charwise =
-    vim?.lastSelection && !vim.lastSelection.visualLine && !vim.lastSelection.visualBlock;
-  if (params.input.startsWith("'<,'>") && charwise && from && to) {
-    // `>` sits on the last selected character rather than after it.
-    const end = Math.min(cm.indexFromPos(to) + 1, doc.line(to.line + 1).to);
-    return doc.sliceString(cm.indexFromPos(from), end);
-  }
-  return doc.sliceString(
-    doc.line(params.line + 1).from,
-    doc.line((params.lineEnd ?? params.line) + 1).to,
-  );
-}
-
-/** Put `source` on the clipboard, rewritten for where it is going. */
-function copyAs(view: EditorView, format: CopyFormat, source: string): void {
-  const notice = view.state.facet(noticeHandler);
-  // A part of the note links to definitions anywhere in it.
-  const note = view.state.doc.toString();
-  // Teams keeps the formatting of pasted HTML and reads no markup out of
-  // text, so it gets HTML, with the markdown for anywhere that takes text.
-  const written =
-    format === "teams"
-      ? navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html": new Blob([toHtml(source, note)], { type: "text/html" }),
-            "text/plain": new Blob([source], { type: "text/plain" }),
-          }),
-        ])
-      : navigator.clipboard.writeText(format === "slack" ? toSlack(source, note) : source);
-  written.then(
-    () => notice?.(`Copied for ${COPY_FORMATS[format]}`),
-    (error: DOMException) => notice?.(`Nothing copied: ${error.message}`),
-  );
-}
-
-Vim.defineEx("copy", "co", (cm, params) => {
-  const format = (params.argString.trim() || "md") as CopyFormat;
-  if (!(format in COPY_FORMATS)) {
-    cm.cm6.state.facet(noticeHandler)?.(`:copy takes ${Object.keys(COPY_FORMATS).join(", ")}`);
-    return;
-  }
-  copyAs(cm.cm6, format, copySource(cm, params));
-});
-
-/**
- * The ex prompt's commands and `gf`, for the palette to run by name.
- *
- * With vim off this is the only way to any of them but the write. The copy
- * takes the selection where vim takes a range: without visual mode a selection
- * is the one way left to say which part.
- */
-const byName = viewCommands.of({
-  write: save,
-  reload: (view, force) => edit(view, { argString: force ? "!" : "" }),
-  follow,
-  copy: (view, format) => {
-    const { from, to } = view.state.selection.main;
-    copyAs(view, format, from === to ? view.state.doc.toString() : view.state.sliceDoc(from, to));
-  },
-});
-
-/**
- * Ctrl+click, or cmd+click, follows a link the way every browser opens one.
- *
- * The element decides, not the coordinates: the rendered link is a span of its
- * own, so a click that landed on it is a click on the link, and one that landed
- * in the space after the line is not. `posAtDOM` needs no layout for that,
- * which a test in jsdom also needs. The plain click is left alone, because
- * putting the cursor in a link is how the link gets edited.
- *
- * A markdown link to an address opens it in a new tab, so the note stays open
- * behind it.
- *
- * A double-click follows once, on its first press (#569). The second is still
- * kept from CodeMirror, which would select a word in the link and put the
- * cursor there. The browser counts any press close to the one before as its
- * second, so a press is a repeat only when the press before it followed the
- * same (#572).
- */
-function followOnClick(): Extension {
-  watchPresses();
-  return EditorView.domEventHandlers({
-    mousedown(event, view) {
-      if (!event.ctrlKey && !event.metaKey) return false;
-      const target = linkUnder(event, view);
-      if (target !== null) {
-        // Returning true makes CodeMirror cancel the mousedown, and with it the
-        // focus the browser would have moved here. The pane a link opens off is
-        // the focused one, so a click in another pane takes the focus first, the
-        // way Obsidian splits off the pane you clicked (#361). The focus event
-        // runs inside this call, so the layout hears of it before the open.
-        if (!repeats(event, NOTE)) {
-          view.focus();
-          followLink(view, target);
-        }
-        return true;
-      }
-      const link = urlUnder(event, view);
-      if (link === null) return false;
-      if (!repeats(event, link.address)) window.open(link.address, "_blank", "noopener");
-      return true;
-    },
-  });
-}
-
-/** The `[[link]]` around `pos`, looking one way only. */
-function wikiLinkNode(state: EditorState, pos: number, side: -1 | 1): SyntaxNode | null {
-  let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, side);
-  for (; node; node = node.parent) if (node.name === "WikiLink") return node;
-  return null;
-}
-
-/**
- * The rendered `[text](url)` or reference link under the pointer, if it opens in a tab.
- *
- * None in a drawn table: `posAtDOM` there answers the block's start, which is
- * another cell's link (#565), and the block opens a cell's address itself.
- */
-function urlUnder(event: Event, view: EditorView): UrlLink | null {
-  const element = event.target instanceof HTMLElement ? event.target.closest(".cm-link") : null;
-  if (element === null || element.closest(".cm-table-block") !== null) return null;
-  const node = syntaxTree(view.state).resolveInner(view.posAtDOM(element), 1);
-  return urlLinkAt(node, view.state.doc);
-}
-
-/**
- * The note the rendered link under the pointer names, or null off one.
- *
- * The nearest link span, not the target itself: inside bold or another mark
- * the text sits in a span of its own nested in the link's (#432). In a drawn
- * table the span carries its target, `posAtDOM` answering the block's start.
- */
-function linkUnder(event: Event, view: EditorView): string | null {
-  const element =
-    event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(".cm-wikilink") : null;
-  if (element === null) return null;
-  if (element.closest(".cm-table-block") !== null) return element.dataset.target ?? null;
-  return wikiLinkAt(view.state, view.posAtDOM(element));
-}
-
-/**
- * Where the rendered `[[link]]` under the pointer starts and ends, off a drawn table.
- *
- * Looking forwards only: the span starts past the hidden `[[`, or past the
- * alias bar, so the position is always inside the link.
- */
-function wikiLinkRangeUnder(event: Event, view: EditorView): SyntaxNode | null {
-  const element = event.target instanceof HTMLElement ? event.target.closest(".cm-wikilink") : null;
-  if (element === null) return null;
-  return wikiLinkNode(view.state, view.posAtDOM(element), 1);
-}
-
-/**
- * A tap follows a link, a finger having no ctrl to hold.
- *
- * Read on the way down and acted on at the click, because the two halves are
- * known at different moments. A finger that lands on a link and drags is
- * scrolling, and only the click says it did not. By the click the browser has
- * put the cursor in the link, which shows its brackets and redraws it, so what
- * the finger landed on has to be read before that.
- *
- * A link the cursor is already in is one being edited, and a tap in it moves
- * the cursor as a tap anywhere else does. The way into a link is from beside
- * it. A markdown link to an address opens in a new tab, as on ctrl+click. A
- * double tap follows once, as a double-click does.
- */
-function followOnTap(): Extension {
-  let landed: string | null = null;
-  let landedUrl: string | null = null;
-  watchPresses();
-  return EditorView.domEventHandlers({
-    pointerdown(event, view) {
-      const touch = event.pointerType === "touch";
-      const head = view.state.selection.main.head;
-      const target = touch ? linkUnder(event, view) : null;
-      // The cursor is never in a link a drawn table shows, the table showing
-      // its source while it is, so one of the same name elsewhere is not it.
-      const drawn =
-        event.target instanceof Element && event.target.closest(".cm-table-block") !== null;
-      // The link the cursor is in by its place, not its name: another link to
-      // the same note is not the one being edited (#568). Both ends count, as
-      // in `wikiLinkAt`, which is where `$` lands on a line ending in a link.
-      // Between `[[a]][[b]]` the cursor touches both, and it is in the one
-      // `wikiLinkAt` would read, forwards first.
-      const range = target === null || drawn ? null : wikiLinkRangeUnder(event, view);
-      const here = wikiLinkNode(view.state, head, 1) ?? wikiLinkNode(view.state, head, -1);
-      const editing = range !== null && here !== null && here.from === range.from;
-      landed = editing ? null : target;
-      const link = touch ? urlUnder(event, view) : null;
-      landedUrl = link !== null && (head < link.from || head > link.to) ? link.address : null;
-      return false;
-    },
-    // The browser takes the finger for a scroll. No click follows one, but
-    // nothing should be left waiting for the next click either.
-    pointercancel() {
-      landed = null;
-      landedUrl = null;
-      return false;
-    },
-    click(event, view) {
-      const note = landed;
-      const key = landed !== null ? NOTE : landedUrl;
-      landed = null;
-      landedUrl = null;
-      if (key === null) return false;
-      // A double tap's second click is kept and does nothing (#569). Off a
-      // table the first tap has put the cursor in the link, which turns the
-      // second away too; in a drawn table the cursor never moves in. Chrome
-      // counts any tap close to the one before as its second, so the click is
-      // a repeat only when the tap before it followed the same (#572).
-      if (repeats(event, key)) return true;
-      if (note !== null) followLink(view, note);
-      else window.open(key, "_blank", "noopener");
-      return true;
-    },
-  });
-}
-
-/**
- * Holds live preview so `<leader>p` can swap it out.
- *
- * A compartment rather than a rebuilt view: rebuilding throws away the undo
- * history and the cursor, and turning the rendering off is not meant to cost
- * either. One instance for the module is right, because a compartment is only
- * an identity, and each state configures it separately.
- */
-const preview = new Compartment();
-
-/**
- * Holds vim, so the setting can take it out and put it back.
- *
- * A compartment for the reason the one above is, and one more: a remount reads
- * the note out of the query cache, which the autosave is a second behind, so
- * rebuilding the view on a toggle would drop what was typed in that second.
- */
-const modal = new Compartment();
-
-/**
- * vim's `number relativenumber`: the line the cursor sits on names itself and
- * the rest count the distance to it, which is the number `10j` and `d5k` are
- * reached for with. basicSetup's own `lineNumbers()` carries no config, so
- * this adds a formatter to the gutter already there rather than a second one
- * beside it. It redraws when the cursor changes line because
- * `highlightActiveLineGutter`, also basicSetup's, moves its marker then.
- */
-const relativeNumbers = lineNumbers({
-  formatNumber: (line, state) => {
-    const cursor = state.doc.lineAt(state.selection.main.head).number;
-    return `${line === cursor ? line : Math.abs(line - cursor)}`;
-  },
-});
-
-/**
- * The formatting chords as plain bindings, for the editor without vim.
- *
- * `FORMAT` spells each key for vim, `<C-S-H>`, and CodeMirror wants
- * `Ctrl-Shift-h`. Without these ctrl+i falls through to basicSetup, which
- * selects the enclosing syntax node on it.
- */
-const formatKeys = keymap.of(
-  FORMAT.map(({ key, spec }) => ({
-    key: key
-      .slice(1, -1)
-      .replace("C-", "Ctrl-")
-      .replace("S-", "Shift-")
-      .replace(/.$/, (letter) => letter.toLowerCase()),
-    run: (view: EditorView) => toggleMark(view, spec),
-    preventDefault: true,
-  })),
-);
-
-/**
- * What the compartment holds: vim and the gutter that counts for it, or the
- * word that there is none, which live preview reads as always typing, and the
- * chords vim would have resolved.
- */
-function modalKeys(on: boolean): Extension {
-  return on ? [vim(), relativeNumbers] : [vimKeys.of(false), formatKeys];
-}
-
-/**
- * Holds the vault listing, which the route refreshes as notes come and go.
- *
- * A compartment for the reason the one above is: the listing changes while a
- * note is open, and rebuilding the view to tell it so would throw away the undo
- * history and the cursor.
- */
-const vault = new Compartment();
-
-/**
- * The four listings the vault carries, in the shape the compartment holds them.
- *
- * One compartment for all of them, and therefore one place that spells this out.
- * Any of them absent is not an empty vault: it is a view that was told nothing,
- * which offers nothing and calls no link dead.
- */
-function listings(
-  paths: string[] | undefined,
-  images: string[] | undefined,
-  tags: string[] | undefined,
-  relations: string[] | undefined,
-): Extension[] {
-  return [
-    ...(paths ? [vaultPaths.of(paths)] : []),
-    ...(images ? [imagePaths.of(images)] : []),
-    ...(tags ? [vaultTags.of(tags)] : []),
-    ...(relations ? [vaultRelations.of(relations)] : []),
-  ];
-}
-
-/**
- * Marks the transaction that puts the vault's own text in.
- *
- * The listener below reports every other change, and reporting this one would
- * have the note saved back: that stamps a new date, which is another change to
- * the vault, which reloads here, which saves again. A note nobody touched would
- * rewrite itself once a second.
- */
-const fromVault = Annotation.define<boolean>();
-
-/**
- * Put the vault's text in the buffer, replacing only the span that differs.
- *
- * Never the whole document. CodeMirror maps positions through a change, so
- * everything outside the span comes through where it was: the cursor stays on
- * the words it sat on, and an undo of an edit the reader made puts the text
- * back where they made it. Replaced whole, both collapse to the one point the
- * replacement leaves, which is what a reload used to cost. Nothing is asked of
- * the selection here for the same reason: mapping keeps it, and naming it would
- * flatten it.
- *
- * The vault's own writes are what make this cheap. An agent appends, an editor
- * rewrites a paragraph, and kasten's `modified` stamp moves one line of the
- * frontmatter.
- *
- * `allowed` is asked at the last moment, even when there is no change to make,
- * and a no leaves the note as it stands and the vault as it stands. Absent means
- * nobody is holding text the change could take off the screen.
- */
-function takeVaultText(view: EditorView, text: string, allowed?: (text: string) => boolean): void {
-  const current = view.state.doc.toString();
-  let from = 0;
-  while (from < current.length && from < text.length && current[from] === text[from]) {
-    from += 1;
-  }
-
-  // Both ends stop at `from`, so the tail cannot walk back into the head it
-  // already matched: "aaa" grown to "aaaaa" shares its whole length with itself
-  // either way round, and subtracting both would delete text that is still
-  // there.
-  let to = current.length;
-  let insertTo = text.length;
-  while (to > from && insertTo > from && current[to - 1] === text[insertTo - 1]) {
-    to -= 1;
-    insertTo -= 1;
-  }
-
-  // Asked even when the text is already on screen: equal text is still an
-  // answer the autosave needs, since the vault coming to hold the buffer's
-  // text settles a conflict or a held entry over it.
-  if (allowed?.(text) === false) return;
-  // Nothing left after the trim is the text already on screen, which is what
-  // mounting looks like from here: the note opens on the same query data the
-  // reload prop carries. A change holding nothing is still a transaction.
-  if (from === to && from === insertTo) return;
-
-  view.dispatch({
-    changes: { from, to, insert: text.slice(from, insertTo) },
-    // Off the undo stack as well as off the save path. Undoing a write nobody
-    // here made would put the text from before it back, and that revert carries
-    // no annotation, so autosave would send it to the vault: one `u`
-    // overwriting whatever the other writer had just done.
-    annotations: [fromVault.of(true), Transaction.addToHistory.of(false)],
-  });
-}
 
 /**
  * Whether nobody on the page holds the focus.
@@ -838,30 +213,36 @@ export function Editor({
   const imagesRef = useRef(images);
   const tagsRef = useRef(tags);
   const relationsRef = useRef(relations);
-  const commandsRef = useRef(commands);
-  const onChangeRef = useRef(onChange);
-  const onSaveRef = useRef(onSave);
-  const onFollowRef = useRef(onFollow);
-  const onOpenHighlightRef = useRef(onOpenHighlight);
-  const onCycleTodoRef = useRef(onCycleTodo);
-  const elsewhereRef = useRef(elsewhere);
-  const onNoticeRef = useRef(onNotice);
-  const allowReloadRef = useRef(allowReload);
-  const onReloadRef = useRef(onReload);
-  const embedsRef = useRef(embeds);
+  // The callbacks the view calls, held in one ref the view reads at the moment
+  // it calls one, so a re-render never has to rebuild the view to refresh one.
+  const latest = useRef<NoteViewLatest>({
+    commands,
+    onChange,
+    onSave,
+    onFollow,
+    onOpenHighlight,
+    onCycleTodo,
+    elsewhere,
+    onNotice,
+    allowReload,
+    onReload,
+    embeds,
+  });
 
   useEffect(() => {
-    commandsRef.current = commands;
-    onChangeRef.current = onChange;
-    onSaveRef.current = onSave;
-    onFollowRef.current = onFollow;
-    onOpenHighlightRef.current = onOpenHighlight;
-    onCycleTodoRef.current = onCycleTodo;
-    elsewhereRef.current = elsewhere;
-    onNoticeRef.current = onNotice;
-    allowReloadRef.current = allowReload;
-    onReloadRef.current = onReload;
-    embedsRef.current = embeds;
+    latest.current = {
+      commands,
+      onChange,
+      onSave,
+      onFollow,
+      onOpenHighlight,
+      onCycleTodo,
+      elsewhere,
+      onNotice,
+      allowReload,
+      onReload,
+      embeds,
+    };
   }, [
     commands,
     onChange,
@@ -883,255 +264,27 @@ export function Editor({
     // Where this note was left, unless the open names a line: a search hit or
     // a URL says where to read, and the effect further down puts the cursor
     // there. Read and not restored only to be moved, which would scroll twice.
-    const saved =
-      path === undefined || startLineRef.current !== undefined ? undefined : readPosition(path);
+    const position = notePosition(path, startLineRef.current !== undefined);
     // The text as CodeMirror holds it, which is not the string handed in when
     // that has `\r\n` line ends: the editor keeps a `\n` alone, and every
     // offset below counts in its text.
     const doc = EditorState.create({ doc: initialDocRef.current }).doc;
-    // A note edited elsewhere since can end before the saved cursor, and
-    // CodeMirror throws on a selection past the end rather than clamping.
-    const length = doc.length;
-    // The scroller's offset as last seen, kept here and not read at the end:
-    // React runs the cleanup after the host has left the page, and a detached
-    // element reports 0, which would overwrite every note's scroll with the top.
-    let top = saved?.top ?? 0;
-    // Whether the saved scroll has reached the screen. A pane hidden behind a
-    // zoom mounts with no box, where an offset does not take, and gets it
-    // when it first shows. Until then its scroller reads 0, which is not
-    // where the reader left it, so nothing it reports counts.
-    let shown = saved === undefined;
-    // What the store holds for this note as far as this editor knows, so a
-    // close that moved nothing writes nothing.
-    let written = saved;
-    let pending: ReturnType<typeof setTimeout> | undefined;
-    // `view` is assigned below; none of these runs before it is.
-    function keep() {
-      clearTimeout(pending);
-      pending = undefined;
-      if (path === undefined) return;
-      const { anchor, head } = view.state.selection.main;
-      if (written?.anchor === anchor && written.head === head && written.top === top) return;
-      written = { anchor, head, top };
-      writePosition(path, written);
-    }
-    // The offset passed in and not `top` read later: setting it scrolls, and a
-    // scroll that lands short on guessed line heights would move `top` there.
-    function scrollTo(offset: number) {
-      view.scrollDOM.scrollTop = offset;
-      // Again once the lines are measured: until then their heights are
-      // guesses, and the offset can land short of where it was.
-      view.requestMeasure({
-        read: () => {},
-        write: () => {
-          view.scrollDOM.scrollTop = offset;
-        },
-      });
-    }
-    function reveal() {
-      if (shown || saved === undefined || view.scrollDOM.clientHeight === 0) return;
-      shown = true;
-      scrollTo(saved.top);
-    }
-    // Trailing and not reset while pending, so a held `j` or a long scroll
-    // writes twice a second and not once per line. The close and `pagehide`
-    // write what the timer had not got to.
-    function soon() {
-      if (path !== undefined && pending === undefined) pending = setTimeout(keep, 500);
-    }
 
-    const view = new EditorView({
-      state: EditorState.create({
-        doc,
-        // With nothing saved, the note opens below its frontmatter. The block
-        // is three fields nobody types, and a new note is nothing else, so the
-        // top of the document is between the fences and the first keystroke
-        // would land in the dates. Read off the text rather than the syntax
-        // tree: the state is being built here and has no tree yet.
-        selection: saved
-          ? { anchor: Math.min(saved.anchor, length), head: Math.min(saved.head, length) }
-          : { anchor: belowFrontmatter(doc.toString()) },
-        extensions: [
-          // Must come first: whichever keymap is registered earliest wins, and
-          // vim's bindings have to beat the ones basicSetup installs.
-          modal.of(modalKeys(vimOnRef.current)),
-          // Ahead of basicSetup for the same reason: ctrl+s must reach us
-          // rather than open the browser's save dialog.
-          keymap.of([
-            { key: "Mod-s", run: save, preventDefault: true },
-            // The terminal's chord for the palette, here as well: `<leader>:`
-            // is a vim mapping, and with vim off no other key opens it.
-            {
-              // Ctrl on every platform and not `Mod`, which is cmd on a Mac:
-              // `TERMINAL_CHORD` is ctrl there too, and one chord has to mean
-              // one thing in both panes.
-              key: "Ctrl-Shift-p",
-              run: (view) => {
-                view.state.facet(editorCommands)?.openPalette();
-                return true;
-              },
-              preventDefault: true,
-            },
-          ]),
-          // basicSetup leaves tab unbound so the key can move the focus out of
-          // the editor. A note needs it to nest a list item, and `<leader>e`
-          // is the way to the file tree now, so the trade is worth taking.
-          // Vim maps no tab of its own, in any mode, so this is the only
-          // handler the key reaches.
-          //
-          // The completion goes first and declines when no list is open, which
-          // is tab's own job in every editor that offers one. Enter takes a
-          // completion too, `basicSetup` binding it, but a list that tab cannot
-          // take is a list nobody's fingers reach for.
-          //
-          // The table walk sits between them: in a table tab means the next
-          // cell, and everywhere else it still means indent.
-          keymap.of([
-            { key: "Tab", run: acceptCompletion },
-            { key: "Tab", run: (view) => moveCell(view, 1) },
-            { key: "Shift-Tab", run: (view) => moveCell(view, -1) },
-            indentWithTab,
-          ]),
-          // Ahead of basicSetup, whose closeBrackets would otherwise answer the
-          // third backtick with a pair before the fence handler sees it.
-          backticks(),
-          saveHandler.of((doc) => onSaveRef.current?.(doc)),
-          followHandler.of((target) => onFollowRef.current?.(target)),
-          highlightHandler.of((quote) => onOpenHighlightRef.current?.(quote)),
-          todoCycled.of((cycle) => onCycleTodoRef.current?.(cycle)),
-          idElsewhere.of((id) => elsewhereRef.current?.(id) === true),
-          ...(path === undefined ? [] : [notePath.of(path)]),
-          // Outside every compartment, so a vim toggle or a new listing never
-          // takes it out. The ref and not the prop, for the reason the
-          // handlers above read theirs.
-          ...(embedsRef.current === undefined
-            ? []
-            : [
-                embedSource.of({
-                  watch: (target, listener) =>
-                    embedsRef.current?.watch(target, listener) ?? (() => {}),
-                  // The box cancels its mousedown, so the focus stays in the
-                  // pane it was in and the open would land off that one: the
-                  // focus moves here first, as on a ctrl+click on a link
-                  // (#361). This view and not the box's, an embed inside an
-                  // embed being drawn in a nested view that cannot take the
-                  // focus but carries this same source. Not on a phone's tap,
-                  // where it would raise a keyboard nobody asked for.
-                  open: (target, line) => {
-                    if (!keyboardUnasked()) view.focus();
-                    embedsRef.current?.open(target, line);
-                  },
-                }),
-              ]),
-          // A pane with nothing to reload answers the way a refusal does, so
-          // `:e` in one is a key that does nothing rather than a key that
-          // throws.
-          reloadHandler.of((force) => onReloadRef.current?.(force) ?? Promise.resolve(null)),
-          // Each one reads the ref rather than closing over the prop, so a
-          // re-render never has to rebuild the view to refresh a callback.
-          editorCommands.of({
-            toggleTree: () => commandsRef.current?.toggleTree(),
-            toggleArchive: () => commandsRef.current?.toggleArchive(),
-            togglePreview: () => commandsRef.current?.togglePreview(),
-            closeNote: () => commandsRef.current?.closeNote(),
-            showHelp: () => commandsRef.current?.showHelp(),
-            openPalette: () => commandsRef.current?.openPalette(),
-            focusTree: () => commandsRef.current?.focusTree(),
-            revealTree: () => commandsRef.current?.revealTree(),
-            createNote: (startPath) => commandsRef.current?.createNote(startPath),
-            // No path: the editor holds one note, and the route already knows
-            // which. The tree is the caller that names one.
-            renameNote: (startPath) => commandsRef.current?.renameNote(startPath),
-            deleteNote: (startPath) => commandsRef.current?.deleteNote(startPath),
-            restoreDeleted: () => commandsRef.current?.restoreDeleted(),
-            findNote: () => commandsRef.current?.findNote(),
-            searchNotes: () => commandsRef.current?.searchNotes(),
-            findTodos: () => commandsRef.current?.findTodos(),
-            findBook: () => commandsRef.current?.findBook(),
-            openTodos: () => commandsRef.current?.openTodos(),
-            showBacklinks: () => commandsRef.current?.showBacklinks(),
-            showLinksOut: () => commandsRef.current?.showLinksOut(),
-            openDaily: () => commandsRef.current?.openDaily(),
-            openWeekly: () => commandsRef.current?.openWeekly(),
-            openMonthly: () => commandsRef.current?.openMonthly(),
-            openQuarterly: () => commandsRef.current?.openQuarterly(),
-            openYearly: () => commandsRef.current?.openYearly(),
-            openBook: () => commandsRef.current?.openBook(),
-            openReadingBook: () => commandsRef.current?.openReadingBook(),
-            openPerson: () => commandsRef.current?.openPerson(),
-            openHistory: () => commandsRef.current?.openHistory(),
-            openGraph: () => commandsRef.current?.openGraph(),
-            openLocalGraph: () => commandsRef.current?.openLocalGraph(),
-            openVideo: () => commandsRef.current?.openVideo(),
-            toggleVideo: () => commandsRef.current?.toggleVideo(),
-            uploadBook: () => commandsRef.current?.uploadBook(),
-            importNotes: () => commandsRef.current?.importNotes(),
-            exportNote: () => commandsRef.current?.exportNote(),
-            openExam: () => commandsRef.current?.openExam(),
-            openReview: () => commandsRef.current?.openReview(),
-            createTab: () => commandsRef.current?.createTab(),
-            openTerminal: () => commandsRef.current?.openTerminal(),
-            openChat: () => commandsRef.current?.openChat(),
-            importPage: () => commandsRef.current?.importPage(),
-            captureDump: () => commandsRef.current?.captureDump(),
-            splitRight: () => commandsRef.current?.splitRight(),
-            splitDown: () => commandsRef.current?.splitDown(),
-            nextPane: () => commandsRef.current?.nextPane(),
-            paneLeft: () => commandsRef.current?.paneLeft(),
-            paneDown: () => commandsRef.current?.paneDown(),
-            paneUp: () => commandsRef.current?.paneUp(),
-            paneRight: () => commandsRef.current?.paneRight(),
-            movePaneLeft: () => commandsRef.current?.movePaneLeft(),
-            movePaneDown: () => commandsRef.current?.movePaneDown(),
-            movePaneUp: () => commandsRef.current?.movePaneUp(),
-            movePaneRight: () => commandsRef.current?.movePaneRight(),
-            zoomPane: () => commandsRef.current?.zoomPane(),
-            nextTab: () => commandsRef.current?.nextTab(),
-            prevTab: () => commandsRef.current?.prevTab(),
-            goToTab: (index) => commandsRef.current?.goToTab(index),
-          }),
-          basicSetup,
-          noteLanguage(),
-          markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
-          markdownLanguage.data.of({ autocomplete: todoCompletions }),
-          markdownLanguage.data.of({ autocomplete: imageCompletions }),
-          markdownLanguage.data.of({ autocomplete: tagCompletions }),
-          markdownLanguage.data.of({ autocomplete: relationCompletions }),
-          markdownLanguage.data.of({ autocomplete: slashCompletions }),
-          // The clipboard's image goes into the vault and the note gets the
-          // path. Ahead of nothing in particular: CodeMirror's own paste is a
-          // handler on the same event and runs when this one declines, which is
-          // every paste that carries text.
-          imagePaste(),
-          noticeHandler.of((message) => onNoticeRef.current?.(message)),
-          followOnClick(),
-          followOnTap(),
-          byName,
-          vault.of(
-            listings(pathsRef.current, imagesRef.current, tagsRef.current, relationsRef.current),
-          ),
-          preview.of(renderedRef.current ? [livePreview(), weatherCard] : []),
-          oneDark,
-          EditorView.lineWrapping,
-          EditorView.updateListener.of((update) => {
-            // `every` and not `some`: an update carrying the reload alongside
-            // something the user typed is an update whose text has to be
-            // written, and the keystroke in it would go unreported otherwise.
-            if (update.docChanged && !update.transactions.every((tr) => tr.annotation(fromVault))) {
-              onChangeRef.current?.(update.state.doc.toString());
-            }
-          }),
-          // Vim's normal-mode cursor is this same selection, so one listener
-          // serves vim on and off.
-          EditorView.updateListener.of((update) => {
-            if (update.selectionSet) soon();
-            // A hidden pane coming into view is a change of size, which
-            // CodeMirror measures and reports as geometry.
-            if (update.geometryChanged) reveal();
-          }),
-        ],
-      }),
+    const view = createNoteView({
       parent,
+      doc,
+      selection: position.selection(doc),
+      path,
+      vim: vimOnRef.current,
+      preview: renderedRef.current,
+      listings: {
+        paths: pathsRef.current,
+        images: imagesRef.current,
+        tags: tagsRef.current,
+        relations: relationsRef.current,
+      },
+      latest,
+      position: position.listener,
     });
     viewRef.current = view;
     // A freshly loaded page focuses nothing, and the first thing typed at it
@@ -1142,40 +295,9 @@ export function Editor({
     // which the route follows to that pane and which turns its zoom off.
     if (focusedRef.current && !keyboardUnasked() && nothingFocused()) view.focus();
 
-    reveal();
-    // A pane zoomed out of sight since it showed, or one a narrow window
-    // switched away from. A browser keeps no offset across `display: none`,
-    // and the pane comes back at the size it left, so CodeMirror sees no
-    // change of geometry and `reveal` has done its one job already. Its height
-    // going from none to some is the only sign, and `top` is where it was.
-    let away = false;
-    const resize = new ResizeObserver(() => {
-      if (view.scrollDOM.clientHeight === 0) away = shown;
-      else if (away) {
-        away = false;
-        scrollTo(top);
-      }
-    });
-    resize.observe(view.scrollDOM);
-    function onScroll() {
-      // No height is a pane zoomed out of sight since it showed, whose
-      // scroller reads 0 wherever the reader left it.
-      if (!shown || view.scrollDOM.clientHeight === 0) return;
-      // Back on screen before the observer has said so: a browser runs scroll
-      // events ahead of resize observers in a frame, and this one reads 0.
-      if (away) return;
-      top = view.scrollDOM.scrollTop;
-      soon();
-    }
-    view.scrollDOM.addEventListener("scroll", onScroll, { passive: true });
-    // A closed tab or a reload never runs the cleanup below.
-    window.addEventListener("pagehide", keep);
-
+    const detach = position.attach(view);
     return () => {
-      resize.disconnect();
-      view.scrollDOM.removeEventListener("scroll", onScroll);
-      window.removeEventListener("pagehide", keep);
-      keep();
+      detach();
       viewRef.current = null;
       view.destroy();
     };
@@ -1189,7 +311,8 @@ export function Editor({
   useEffect(() => {
     if (vimOnRef.current === vimOn) return;
     vimOnRef.current = vimOn;
-    viewRef.current?.dispatch({ effects: modal.reconfigure(modalKeys(vimOn)) });
+    const view = viewRef.current;
+    if (view) setVim(view, vimOn);
   }, [vimOn]);
 
   // Declared after the mount effect so the view exists by the time this runs,
@@ -1228,7 +351,7 @@ export function Editor({
     const view = viewRef.current;
     if (!view || reloadDoc === undefined) return;
 
-    takeVaultText(view, reloadDoc, allowReloadRef.current);
+    takeVaultText(view, reloadDoc, latest.current.allowReload);
   }, [reloadDoc]);
 
   // Runs on mount as well as on every raise, which is what a freshly split pane
@@ -1250,30 +373,7 @@ export function Editor({
     const view = viewRef.current;
     if (mark === undefined || view === null) return;
 
-    const held = view.state.doc.toString();
-    const wanted = setWatched(held, mark.id, mark.seconds);
-    if (wanted === held) return;
-
-    // The smallest change that gets there, rather than replacing the document.
-    // A whole-document replace maps the cursor to nowhere in particular and
-    // would move it out from under whoever is typing; this touches the
-    // frontmatter block alone, so a cursor below it does not move at all.
-    let from = 0;
-    while (held[from] === wanted[from]) from += 1;
-    let tail = 0;
-    while (
-      tail < Math.min(held.length, wanted.length) - from &&
-      held[held.length - 1 - tail] === wanted[wanted.length - 1 - tail]
-    ) {
-      tail += 1;
-    }
-
-    view.dispatch({
-      changes: { from, to: held.length - tail, insert: wanted.slice(from, wanted.length - tail) },
-      // Nobody typed this, so `u` must not undo it. An edit in the history
-      // would also put the position back the moment you undid a sentence.
-      annotations: Transaction.addToHistory.of(false),
-    });
+    writeWatched(view, mark);
   }, [mark]);
 
   // Coming back to the tab lands on the body when the page had nothing focused
@@ -1297,9 +397,8 @@ export function Editor({
   // Swapping the extension out is all this takes: the same `livePreview()`
   // pieces come back by identity, so nothing below them is rebuilt.
   useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: preview.reconfigure(rendered ? [livePreview(), weatherCard] : []),
-    });
+    const view = viewRef.current;
+    if (view) setPreview(view, rendered);
   }, [rendered]);
 
   // A note written elsewhere is a link in this note that has just come to life,
@@ -1307,9 +406,8 @@ export function Editor({
   // the tags and the relation names ride along in the same compartment: all four
   // are the vault saying what it holds.
   useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: vault.reconfigure(listings(paths, images, tags, relations)),
-    });
+    const view = viewRef.current;
+    if (view) setListings(view, { paths, images, tags, relations });
   }, [paths, images, tags, relations]);
 
   return <div ref={host} className="h-full overflow-auto" />;

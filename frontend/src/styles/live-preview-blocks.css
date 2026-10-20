@@ -1,0 +1,102 @@
+/* The source of a table, which is what the cursor being inside one shows. Its
+   columns are lined up by spaces, and spaces only line up in a face where every
+   character is one width, so the block wears the monospaced one, knocked back
+   the same way the code rules above are. */
+.cm-line.cm-table {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* The head row is the only one the pipes do not already tell apart. */
+.cm-line.cm-table-head {
+  font-weight: 700;
+}
+
+/* The table as a table, which is what stands where the source does not. Fixed
+   to the widest content rather than to the page: a two-column table of short
+   words has no business running the full width of the note. */
+.cm-table-block {
+  padding: 0.35em 0;
+  /* A table wider than the pane scrolls rather than widening the note. The
+     overflow alone does not do it: the table's width still counts towards the
+     editor's own, so the containment keeps it from counting at all. */
+  overflow-x: auto;
+  contain: inline-size;
+}
+
+.cm-table-grid {
+  border-collapse: collapse;
+}
+
+/* Padding on the box and none of KaTeX's margin, for the table's reason. A
+   formula wider than the pane scrolls rather than widening the note. */
+.cm-math-block {
+  padding: 0.35em 0;
+  overflow-x: auto;
+}
+
+.cm-math-block .katex-display {
+  margin: 0;
+}
+
+/* A formula KaTeX could not read, its source in the warning colour. The
+   wave says it is an error without hovering for the message. */
+.katex-error {
+  text-decoration: underline wavy;
+}
+
+.cm-table-grid th,
+.cm-table-grid td {
+  border: 1px solid var(--color-one-selection);
+  padding: 0.2em 0.6em;
+  text-align: left;
+  /* An empty cell has nothing to give it a height, and a row of them would
+     draw as a line. */
+  min-width: 1em;
+}
+
+.cm-table-grid th {
+  background: var(--color-one-panel);
+  font-weight: 700;
+}
+
+/* Every other body row, so the eye can follow one across a wide table. */
+.cm-table-grid tbody tr:nth-child(even) {
+  background: var(--color-one-hover);
+}
+
+/* A ```mermaid block, drawn. Centred as a figure is, and held to the note's
+   width so a wide flowchart shrinks on a phone rather than scrolling the note
+   sideways. */
+.cm-mermaid-block {
+  padding: 0.35em 0;
+}
+
+/* Tailwind's preflight makes an svg a block, which `text-align` cannot centre. */
+.cm-mermaid-block > svg {
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+
+/* A diagram mermaid could not read: the message, and the source under it on
+   the surface a code block wears. Both monospaced and kept to their lines,
+   because mermaid points at the column it stopped in with a row of dashes, and
+   wrapped anywhere, because its list of expected tokens is one long word. */
+.cm-mermaid-error,
+.cm-mermaid-source {
+  margin: 0;
+  padding: 0 0.75em;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cm-mermaid-error {
+  color: var(--color-one-warn);
+}
+
+.cm-mermaid-source {
+  background: var(--color-one-well);
+}

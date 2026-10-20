@@ -1,233 +1,20 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo-board";
-import { TodoHints } from "@/components/todo-hints";
-import {
-  createNote,
-  fetchFiles,
-  fetchNote,
-  fetchTodos,
-  type SearchHit,
-  type TodoHit,
-} from "@/lib/api";
-import { shiftDay } from "@/lib/clock";
-import { rankLines } from "@/lib/fuzzy";
+import { TodoFooter } from "@/components/todo-footer";
+import { TodoHeader } from "@/components/todo-header";
+import { TodoList } from "@/components/todo-list";
+import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/api";
 import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
-import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
-import { dailyDate } from "@/lib/periodic";
-import {
-  cycleLine,
-  isOpen,
-  nameAt,
-  PRIORITY_SYMBOL,
-  parseTodo,
-  STATE_SYMBOL,
-  type Todo,
-  type TodoState,
-} from "@/lib/todo";
-import { closedAmong } from "@/lib/todo-blocked";
-import { onBoard } from "@/lib/todo-board";
-import type { TodoPriority } from "@/lib/todo-fields";
-import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
-import { lineSuggestions } from "@/lib/todo-suggest";
-import { parseSession, type Session } from "@/lib/todo-time";
-import {
-  DEFAULT_VIEWS,
-  dependentsOf,
-  descendants,
-  HEADING,
-  inherited,
-  isClient,
-  type Node,
-  namedTodos,
-  nextActionOf,
-  type Placed,
-  parseViews,
-  progressOf,
-  SECTIONS,
-  sectionOf,
-  treeOf,
-  VIEWS_NOTE,
-  waiting,
-  waitOf,
-  waitsFor,
-} from "@/lib/todo-view";
+import type { TodoState } from "@/lib/todo";
+import { useArmed } from "@/lib/use-armed";
+import { useBlockerPick } from "@/lib/use-blocker-pick";
+import { useTodoFilter } from "@/lib/use-todo-filter";
+import { useTodoFocus } from "@/lib/use-todo-focus";
+import { SET, type TodoKeyActions, useTodoKeys } from "@/lib/use-todo-keys";
+import { type Mode, rowKey, useTodoRows } from "@/lib/use-todo-rows";
+import { useTodoTwins } from "@/lib/use-todo-twins";
 import { useViewport } from "@/lib/use-viewport";
-
-/** One line the vault answered with, read once. A line is one or the other. */
-interface Read {
-  hit: TodoHit;
-  todo: Todo | null;
-  session: Session | null;
-}
-
-/** One drawn row: the line the vault answered with, and that line read. */
-interface Row {
-  hit: TodoHit;
-  todo: Todo;
-  /** The todo this one is a part of, drawn in front of it where it is not above it. */
-  under?: string;
-  /** What this hangs off, which decides the indent once the group is known. */
-  parent?: Placed;
-  /** How many steps in the row is drawn, counted inside its own group. */
-  depth?: number;
-}
-
-/**
- * Where each row of one group sits: a step in under whatever it hangs off, or
- * back at the edge naming it.
- *
- * Read inside the group rather than off the todo's own indent, because a part
- * can land in a group its parent is not in: a `📅` of its own puts it there,
- * and a parent that is done is not on this list at all. Drawing such a row
- * indented would hang it off whichever row happens to sit above it, which is a
- * lie about the note. So it goes back to the edge and names its parent instead.
- *
- * One pass is enough: a part is always further down its note than what holds
- * it, and the rows of a group keep the order the vault answered in.
- */
-function nest(rows: Row[]): Row[] {
-  const depth = new Map<string, number>();
-
-  return rows.map((row) => {
-    const above =
-      row.parent === undefined ? undefined : depth.get(`${row.hit.path}:${row.parent.line}`);
-    depth.set(rowKey(row.hit), above === undefined ? 0 : above + 1);
-
-    // `n` names the todo its row is an action on, and keeps that name here.
-    return above === undefined
-      ? { ...row, depth: 0, under: row.under ?? row.parent?.todo.text }
-      : { ...row, depth: above + 1 };
-  });
-}
-
-/**
- * Where each priority sorts. No priority sits between medium and low, the way
- * obsidian-tasks reads a bare line: a normal task beats one marked down.
- */
-const RANK: Record<TodoPriority, number> = { highest: 0, high: 1, medium: 2, low: 4, lowest: 5 };
-const NORMAL = 3;
-
-/**
- * One group's rows, the important work first.
- *
- * What sorts is not the rows but the run each one heads: a part whose parent is
- * in this group joins the run above it, so it travels with what holds it
- * whatever its own priority says, and `nest` still meets a parent before its
- * children. Between two runs of one priority, client work goes first: it is a
- * tiebreak and never lifts a run over a higher priority. Stable, so the order
- * the vault answered in decides what is left.
- */
-function byPriority(rows: Row[]): Row[] {
-  const here = new Set(rows.map((row) => rowKey(row.hit)));
-  const runs: Row[][] = [];
-
-  for (const row of rows) {
-    const last = runs[runs.length - 1];
-    const held = row.parent !== undefined && here.has(`${row.hit.path}:${row.parent.line}`);
-    if (held && last !== undefined) last.push(row);
-    else runs.push([row]);
-  }
-
-  const rank = (run: Row[]) => {
-    const priority = run[0]?.todo.priority;
-    return priority === undefined ? NORMAL : RANK[priority];
-  };
-  const internal = (run: Row[]) => (run[0] !== undefined && isClient(run[0].todo) ? 0 : 1);
-  return runs.sort((a, b) => rank(a) - rank(b) || internal(a) - internal(b)).flat();
-}
-
-/** What a row of client work carries, beside its priority. */
-const CLIENT_MARK = "◆";
-
-/** How far one step of nesting shifts a row, in `rem`, past the list's own padding. */
-const STEP = 1.1;
-
-/** The padding `ROW` carries, which a nested row has to start from. */
-const GUTTER = 0.75;
-
-/** Which list the pane is showing. `d` and `n` each toggle their own back. */
-type Mode = "open" | "done" | "next";
-
-/**
- * The state each shifted key names. `p` for in progress, `d` being spent; `v`
- * for verify, `r` being spent. The order is the `⋯` strip's.
- */
-const SET: Record<string, TodoState> = {
-  O: "open",
-  P: "doing",
-  V: "review",
-  X: "done",
-  B: "blocked",
-  W: "waiting",
-  R: "rejected",
-};
-
-function rowKey(hit: SearchHit): string {
-  return `${hit.path}:${hit.line}`;
-}
-
-/**
- * The lines of every listed todo in the hit's note with its very words, the
- * hit's own among them, in order.
- *
- * From the listing the row was drawn from, not a fresh one: a write that finds
- * two identical lines picks the one at the row's rank among them, and only the
- * listing the reader saw says which rank that was.
- */
-function twinsOf(listed: SearchHit[], hit: SearchHit): number[] {
-  return listed
-    .filter((row) => row.path === hit.path && row.text === hit.text)
-    .map((row) => row.line)
-    .sort((a, b) => a - b);
-}
-
-/** The rows the filter line keeps, the list's and the board's alike. */
-function narrow(rows: Row[], line: string, today: string): Row[] {
-  const terms = parseFilter(line);
-  const kept = rows.filter(({ todo }) => matchesFilter(todo, terms, today));
-  if (terms.text === "") return kept;
-  // Whatever was not a term ranks as text, the way it does everywhere else.
-  // Here the ranking only decides membership: the sections set the order.
-  const reads = new Set(
-    rankLines(
-      // The name a todo waits on is off its words and on its row, so it is
-      // ranked with them: typing a name finds what waits on that person.
-      kept.map(({ todo }) => `${todo.text} ${todo.waitingOn ?? ""}`),
-      terms.text,
-    ),
-  );
-  return kept.filter((_, index) => reads.has(index));
-}
-
-/**
- * The mark a row with a timer going carries, and nothing where none is.
- *
- * The day comes with it where the session was opened on an earlier one, which
- * is how a timer nobody stopped is drawn as unstopped. The year is left off:
- * every other date on a row is cut the same way.
- */
-function timerMark(day: string | undefined, today: string): string | null {
-  if (day === undefined) return null;
-  return day === today ? "▶" : `▶ ${day.slice(5)}`;
-}
-
-/** What a row says about the two clocks: worked, estimated, both or neither. */
-function clocks(todo: Todo): string | null {
-  if (todo.worked !== undefined && todo.estimate !== undefined) {
-    return `⏱ ${todo.worked} / ${todo.estimate}`;
-  }
-  if (todo.worked !== undefined) return `⏱ ${todo.worked}`;
-  if (todo.estimate !== undefined) return `⏲ ${todo.estimate}`;
-  return null;
-}
-
-/** The keyboard cursor, drawn the way the file tree draws its own. */
-const CURSOR = [
-  "outline-1 -outline-offset-1 outline-one-cursor/45",
-  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
-].join(" ");
 
 /** The row the pane's `@` acts on, with its twins where it has any. */
 export interface AgentRow {
@@ -320,18 +107,6 @@ interface TodoPaneProps {
 }
 
 /**
- * How far back `d` reaches, in days.
- *
- * Seven, and read the way `due:<7d` is read, so the seventh day back is already
- * out. A list reaching to the beginning of the vault is not one anybody reads
- * to the end of.
- */
-const DONE_DAYS = 7;
-
-/** How long a tapped state button keeps asking before it takes the question back. */
-const ARMED_MS = 4000;
-
-/**
  * Every open todo the vault holds, grouped by when it is due.
  *
  * A third thing a pane can hold, beside a note and a terminal. It asks the
@@ -362,11 +137,6 @@ export function TodoPane({
   today,
   archive = false,
 }: TodoPaneProps) {
-  const [typed, setTyped] = useState("");
-  /** Whether `v` has been pressed, which is what asks the vault for the views. */
-  const [asked, setAsked] = useState(false);
-  /** How many times `v` has been pressed. Which view that is, is read below. */
-  const [picked, setPicked] = useState(0);
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
   /** Which list is drawn: the open todos, `d`'s finished ones, or `n`'s actions. */
@@ -375,8 +145,6 @@ export function TodoPane({
   const [board, setBoard] = useState(false);
   /** The board's keys, which the handler below hands it in board mode. */
   const boardKeys = useRef<BoardKeys>(null);
-  /** The keys of an unfinished leader sequence, starting with the space. */
-  const [pending, setPending] = useState("");
   /**
    * The row being edited and the line as it now stands, or null while none is.
    *
@@ -384,441 +152,58 @@ export function TodoPane({
    * press, and holding the text here is what lets the input be the row itself.
    */
   const [editing, setEditing] = useState<{ key: string; line: string } | null>(null);
-  /**
-   * The row `b` was pressed on, while the list is the picker of what blocks it.
-   *
-   * The pane is its own picker: the rows are already every todo there is to
-   * name, and the filter line already narrows them.
-   */
-  const [picking, setPicking] = useState<SearchHit | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
-  /** Whether the keys are ours, so a row that leaves can hand them back. */
-  const held = useRef(false);
-  /** Set as a create goes out, so a second press does not send another. */
-  const making = useRef(false);
-  const queryClient = useQueryClient();
   // A finger has no keys at all, so a touch screen draws each of them as a
   // button: the add, the state, the views and what `⋯` opens under a row.
   const { coarse } = useViewport();
-  /**
-   * The row whose state button has been tapped once, by its key and its text.
-   *
-   * The text as well, because the key is a path and a line: a write from
-   * elsewhere can put another todo on that line while the question stands, and
-   * the second tap would then cycle a todo nobody asked about.
-   *
-   * A finger slips where a key does not, and a cycle writes to the vault with
-   * no way back, so the first tap asks and the second is the one that writes.
-   * One row at a time: arming another takes the question off this one.
-   */
-  const [armed, setArmed] = useState<string | null>(null);
-
-  // A question nobody answers is taken back, or a tap minutes later would land
-  // as the second of a pair. The cleanup covers a pane that has closed.
-  useEffect(() => {
-    if (armed === null) return;
-    const timer = setTimeout(() => setArmed(null), ARMED_MS);
-    return () => clearTimeout(timer);
-  }, [armed]);
-
-  /**
-   * The row whose `⋯` is open, or null: one strip at a time. By its key and
-   * its text, as `armed` is and for its reason: the strip's states write on
-   * one tap, and must not write to a todo that has since taken the line.
-   */
-  const [more, setMore] = useState<string | null>(null);
+  const armed = useArmed();
 
   const { data } = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
-
-  // Every press in here that writes a state, a timer or the agent's tag, key,
-  // tap or drop on the board, goes through these, so none leaves the twins off.
-  // Only where there are twins: one line or none is the row's own, and the
-  // press goes out with the arguments it was made with.
-  const onCycle = (...args: [hit: SearchHit, state?: TodoState]) => {
-    const twins = twinsOf(data ?? [], args[0]);
-    if (twins.length > 1) cycle(args[0], args[1], twins);
-    else cycle(...args);
-  };
-  const onTimer = (hit: SearchHit) => {
-    const twins = twinsOf(data ?? [], hit);
-    if (twins.length > 1) timer(hit, twins);
-    else timer(hit);
-  };
-  const onAgent = (hit: SearchHit) => {
-    const twins = twinsOf(data ?? [], hit);
-    if (twins.length > 1) agent(hit, twins);
-    else agent(hit);
-  };
-
-  // The listing is already in the cache, put there by the route, so this asks
-  // whether the vault holds the views note without a request, and without a
-  // `try` around a `GET` that would have to tell a missing note from a backend
-  // that is down.
-  const { data: files } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
-  const missing = files !== undefined && !files.includes(VIEWS_NOTE);
-
-  const { data: note, isFetching: reading } = useQuery({
-    queryKey: ["note", VIEWS_NOTE],
-    queryFn: () => fetchNote(VIEWS_NOTE),
-    // Not on every pane open: most of them never reach a view, and the key is
-    // the one the editor reads notes with, so the answer is shared and the
-    // route's event handler keeps it fresh.
-    enabled: asked && files !== undefined && !missing,
-    // A note that is not there is an answer, not a blip.
-    retry: false,
-  });
-  const views = useMemo(() => parseViews(note ?? ""), [note]);
-
-  // Off the count rather than off a stored index: the press that starts the
-  // read happens with no views in hand, and this resolves it the moment they
-  // arrive. The slot past the last view is no view at all, which is how one
-  // more press gives the whole list back.
-  const slot = views.length === 0 ? 0 : picked % (views.length + 1);
-  const view = slot === 0 ? undefined : views[slot - 1];
-  /** What the list is filtered by: the view where one is showing, else what was typed. */
-  const line = view?.filter ?? typed;
-  // One slot for two answers, which cannot both be true. `no views` is the last
-  // resort, for a note holding no line this can read and for a create the vault
-  // refused: a key that does nothing and says nothing reads as broken.
-  const named = view?.name ?? (asked && !reading && views.length === 0 ? "no views" : undefined);
-
-  /**
-   * Write the note the vault has none of, holding the defaults.
-   *
-   * From the key rather than from a `queryFn`: a write in there runs again on
-   * every refetch, and react-query refetches on window focus. `picked` is
-   * already 1 by the time this lands, so the press that made the note is the
-   * press that shows its first view.
-   */
-  function makeViews() {
-    making.current = true;
-    void createNote(VIEWS_NOTE, DEFAULT_VIEWS).then(
-      (made) => {
-        // What the read would have answered with. It stays disabled until the
-        // listing catches up, and a disabled query still reads its cache, so
-        // seeding the key is what puts the new views on this press.
-        queryClient.setQueryData(["note", VIEWS_NOTE], made.content);
-        // The tree gains a note. `/api/events` says so too; this is the braces.
-        void queryClient.invalidateQueries({ queryKey: ["files"] });
-      },
-      () => {
-        // The vault refused it. The header says `no views`, and the next press
-        // asks again, which is what the flag going back down is for.
-        making.current = false;
-      },
-    );
-  }
-
-  // Every line the vault answered with, read once. One endpoint answers both
-  // shapes, so a line is a todo or a session and never both, and the four memos
-  // below read this rather than parsing the same list four times over.
-  const parsed = useMemo(
-    () =>
-      (data ?? []).map((hit): Read => {
-        const todo = parseTodo(hit.text);
-        return { hit, todo, session: todo === null ? parseSession(hit.text) : null };
-      }),
-    [data],
-  );
-
-  // The forest each note's todos make, and the hit each line arrived on. Both
-  // the count on a row and the `n` list are questions about this one tree, and
-  // it is read off every todo the vault answered with rather than off the rows
-  // on screen: a closed part is exactly what the list above leaves out.
-  const forest = useMemo(() => {
-    const notes = new Map<string, Placed[]>();
-    const hits = new Map<string, TodoHit>();
-    for (const { hit, todo } of parsed) {
-      if (todo === null) continue;
-      const lines = notes.get(hit.path) ?? [];
-      lines.push({ line: hit.line, todo });
-      notes.set(hit.path, lines);
-      hits.set(rowKey(hit), hit);
-    }
-
-    // By line, because the tree is read off the order the note holds them in
-    // and rg answers a note's hits in whatever order it found them.
-    const trees = new Map(
-      [...notes].map(([path, lines]): [string, Node[]] => [
-        path,
-        inherited(treeOf([...lines].sort((one, other) => one.line - other.line))),
-      ]),
-    );
-    // What each todo hangs off, so a row can be drawn under it or, where that
-    // one is not on screen, name it, and each todo with what it took off its
-    // parent, which is what every row below is drawn and grouped from.
-    const parents = new Map<string, Placed>();
-    const todos = new Map<string, Todo>();
-    for (const [path, roots] of trees) {
-      for (const root of roots) {
-        for (const node of [root, ...descendants(root)]) {
-          todos.set(`${path}:${node.line}`, node.todo);
-          for (const child of node.children) parents.set(`${path}:${child.line}`, node);
-        }
-      }
-    }
-
-    return { trees, hits, parents, todos };
-  }, [parsed]);
-
-  // A session line is not work to do, and neither is a finished todo. A todo
-  // whose `🛫` has not arrived goes with them: a list of things you cannot start
-  // yet is not a list of what to do.
-  const open = useMemo(() => {
-    const found: Row[] = [];
-    for (const { hit, todo } of parsed) {
-      // The todo as the tree left it, so a part carrying no date of its own
-      // waits, groups and sorts with whatever holds it.
-      const full = forest.todos.get(rowKey(hit)) ?? todo;
-      if (full === null || !isOpen(full)) continue;
-      // A todo that cannot be started yet can still be what another waits for,
-      // so the picker lists it.
-      if (picking === null && waiting(full, today)) continue;
-      found.push({ hit, todo: full, parent: forest.parents.get(rowKey(hit)) });
-    }
-    return found;
-  }, [parsed, today, forest, picking]);
-
-  // What each `⛔` names and what waits for each todo, read off every line the
-  // vault answered with: a blocker the filter has hidden still blocks.
-  const links = useMemo(() => {
-    const todos = parsed.flatMap(({ todo }) => todo ?? []);
-    const closed = closedAmong(todos);
-    return { named: namedTodos(todos), closed, dependents: dependentsOf(todos, closed) };
-  }, [parsed]);
-
-  /**
-   * Which todos have a session running, and the day of the oldest one, keyed by
-   * id.
-   *
-   * The pane sums nothing: the `⏱` on the task line is what a row draws, and
-   * these lines are read for one thing only, which rows are going and since
-   * when. A session outside a daily note is left out for the reason a stop
-   * leaves it alone, nothing saying which day it belongs to.
-   */
-  const running = useMemo(() => {
-    const since = new Map<string, string>();
-    for (const { hit, session } of parsed) {
-      if (session?.end !== undefined || session?.id === undefined) continue;
-      const day = dailyDate(hit.path);
-      const seen = since.get(session.id);
-      if (day !== null && (seen === undefined || day < seen)) since.set(session.id, day);
-    }
-    return since;
-  }, [parsed]);
-
-  /** How many timers are going, which is sessions rather than rows: they run in parallel. */
-  const timers = useMemo(
-    () =>
-      parsed.filter(
-        ({ hit, session }) =>
-          session !== null && session.end === undefined && dailyDate(hit.path) !== null,
-      ).length,
-    [parsed],
-  );
-
-  /** `3/5` for every row that has parts, keyed by the row it belongs to. */
-  const progress = useMemo(() => {
-    const labels = new Map<string, string>();
-    for (const [path, roots] of forest.trees) {
-      for (const root of roots) {
-        for (const node of [root, ...descendants(root)]) {
-          const count = progressOf(node);
-          if (count !== null) labels.set(`${path}:${node.line}`, `${count.closed}/${count.total}`);
-        }
-      }
-    }
-    return labels;
-  }, [forest]);
-
-  // What `n` shows: one row per open top level todo, naming the one thing that
-  // could be started on it. A todo with no parts is its own next action, so a
-  // flat list reads here exactly as it does out of this mode.
-  const next = useMemo(() => {
-    const found: Row[] = [];
-    for (const [path, roots] of forest.trees) {
-      for (const root of roots) {
-        if (!isOpen(root.todo)) continue;
-        const action = nextActionOf(root, today);
-        const hit = action === null ? undefined : forest.hits.get(`${path}:${action.line}`);
-        if (action === null || hit === undefined) continue;
-        found.push({
-          hit,
-          todo: action.todo,
-          under: action.line === root.line ? undefined : root.todo.text,
-        });
-      }
-    }
-    return found;
-  }, [forest, today]);
-
-  // What `d` shows. Grouped on the day it was finished rather than on the day
-  // it was due: a finished todo has no due date worth grouping on.
-  const finished = useMemo(() => {
-    const since = shiftDay(today, -DONE_DAYS);
-    const found: Row[] = [];
-    for (const { hit, todo } of parsed) {
-      // The tree's todo for the reason `open` reads it: one list cannot draw a
-      // part's inherited date while the other draws it blank.
-      const full = forest.todos.get(rowKey(hit)) ?? todo;
-      if (full?.done !== undefined && full.done > since) found.push({ hit, todo: full });
-    }
-    return found;
-  }, [parsed, today, forest]);
-
+  const narrowing = useTodoFilter();
+  const blocker = useBlockerPick(onBlock);
   // A blocker is picked off the open list, whichever list `b` was pressed on.
-  const listed: Mode = picking === null ? mode : "open";
+  const listed: Mode = blocker.picking === null ? mode : "open";
 
-  const shown = useMemo(() => {
-    const lists: Record<Mode, Row[]> = { open, done: finished, next };
-    return narrow(lists[listed], line, today);
-  }, [open, finished, next, listed, line, today]);
-
-  // What `c` draws: the open todos and the ones finished lately, rejected too,
-  // each as the tree left it. A todo whose `🛫` has not arrived stays off, as
-  // it does in the list.
-  const cards = useMemo(() => {
-    if (!board) return [];
-    const found: Row[] = [];
-    for (const { hit, todo } of parsed) {
-      const full = forest.todos.get(rowKey(hit)) ?? todo;
-      if (full === null || !onBoard(full, today)) continue;
-      if (isOpen(full) && waiting(full, today)) continue;
-      found.push({ hit, todo: full });
-    }
-    return narrow(found, line, today);
-  }, [board, parsed, forest, line, today]);
-
-  // The heading is the group's name here, not a lookup at the draw, because
-  // `d` groups on a date and there is no table of every day there has been.
-  const groups = useMemo(() => {
-    if (listed === "done") {
-      // Newest day first, which ISO dates sort into by themselves.
-      const days = [...new Set(shown.map(({ todo }) => todo.done ?? ""))].sort().reverse();
-      return days.map((heading) => ({
-        heading,
-        rows: shown.filter(({ todo }) => todo.done === heading),
-      }));
-    }
-    return SECTIONS.map((section) => ({
-      heading: HEADING[section],
-      rows: nest(byPriority(shown.filter((row) => sectionOf(row.todo, today) === section))),
-    })).filter((group) => group.rows.length > 0);
-  }, [shown, listed, today]);
-  // The same rows flattened, because `j` and `k` move down a list and a heading
-  // is not a row the cursor can sit on.
-  const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+  const facts = useTodoRows({
+    data,
+    today,
+    picking: blocker.picking,
+    listed,
+    line: narrowing.line,
+    board,
+  });
 
   // Narrowing the list can strand the cursor past the end of it.
-  const cursor = Math.min(active, Math.max(rows.length - 1, 0));
-  const at = rows[cursor];
+  const cursor = Math.min(active, Math.max(facts.rows.length - 1, 0));
+  const at = facts.rows[cursor];
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
-
-  // After every render, as `@` reads `at` at the press: none on the board,
-  // which drops the key, or in the picker, which takes only its own.
-  useEffect(() => {
-    if (cursorRow === undefined) return;
-    if (board || picking !== null || at === undefined) {
-      cursorRow.current = null;
-    } else {
-      const twins = twinsOf(data ?? [], at.hit);
-      cursorRow.current = { hit: at.hit, twins: twins.length > 1 ? twins : undefined };
-    }
-    // A pane that loses the focus, or closes, leaves no row behind it.
-    return () => {
-      cursorRow.current = null;
-    };
+  const { onCycle, onTimer, onAgent } = useTodoTwins({
+    data,
+    cycle,
+    timer,
+    agent,
+    cursorRow,
+    at,
+    idle: board || blocker.picking !== null,
   });
-
-  const blocked = shown.filter(({ todo }) => todo.state === "blocked").length;
-  const onSomebody = shown.filter(({ todo }) => todo.state === "waiting").length;
-  const toReview = shown.filter(({ todo }) => todo.state === "review").length;
-
-  /**
-   * Hand the focus back to the list, which is where the keys below act.
-   *
-   * Wrapped because an effect calls it too, and it reads nothing but refs, so
-   * one instance stands for the life of the pane.
-   */
-  const focusList = useCallback(() => {
-    const element = panel.current;
-    // The section when there is no row to land on, so the keys still reach it.
-    (element?.querySelector<HTMLElement>('[tabindex="0"]') ?? element)?.focus();
-  }, []);
-
-  // Arriving from another pane, which unmounted whatever held the focus, so
-  // nothing but this can take it. The section rather than a row: the rows come
-  // with the query a render later, and the effect below moves the focus onto
-  // one the moment they do. It is also the only thing left to focus when there
-  // is nothing to do, and `q` has to work on an empty list.
-  //
-  // Unlike `file-explorer.tsx`, which guards its first render, this pane mounts
-  // when it is moved to, so its first render is the arrival.
-  useEffect(() => {
-    if (focusSignal) panel.current?.focus();
-  }, [focusSignal]);
-
-  // Only when the keys are already ours, and never while the filter holds them:
-  // typing narrows the list, which moves the cursor, and following it would
-  // pull the focus out of the input mid-word.
-  //
-  // `dropped` is the case `contains` cannot see. `x` writes, the list is asked
-  // again, and the row the cursor was on leaves it. The browser hands the focus
-  // to the body rather than to whatever replaced the row, so without this the
-  // first thing you tick off leaves the pane deaf to every key after it.
-  //
-  // On the rows as well as on the cursor, because a redraw can unmount the row
-  // the focus is on without moving the cursor off it: an edit that gives a todo
-  // a date moves its row to another group, which is a different element for the
-  // same `path:line`.
-  //
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `rows` is the trigger and not a value this reads. That the list redrew is exactly what says the row holding the focus may be gone.
-  useEffect(() => {
-    const element = panel.current;
-    // The board keeps its own cursor, and its own copy of this.
-    if (!element || board) return;
-    const dropped = held.current && document.activeElement === document.body;
-    if (!dropped && !element.contains(document.activeElement)) return;
-    // An input holding the keys keeps them. Both are typed into while the list
-    // under them can move: the filter narrows it, and the vault can answer
-    // mid-edit.
-    if (document.activeElement === filter.current) return;
-    if (document.activeElement === draft.current) return;
-    (element.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`) ?? element).focus();
-  }, [cursorKey, rows, board]);
 
   // The row that has become an input, or nothing while every row is a row. Its
   // own name because the effect below turns on which row it is: typing is not a
   // reason to move the cursor inside it again.
   const editingKey = editing?.key;
 
-  // The row has just become an input, so the keys go to it rather than to the
-  // list the row was a row of, and back to the row when it is a row again.
-  //
-  // Here rather than in the key that closes it, because at the press the input
-  // is still what is drawn: the row it goes back to does not exist until this
-  // render. Off `held` rather than off what has the focus, for the reason the
-  // effect above reads `dropped`: an input that unmounts fires no blur, so the
-  // browser has already left the focus on the body by now. Only when the keys
-  // were ours, so a mount cannot take them from another pane.
-  useEffect(() => {
-    if (editingKey === undefined) {
-      if (held.current) focusList();
-      return;
-    }
-
-    draft.current?.focus();
-    // At the end rather than over the whole line: an edit starts on a line that
-    // is already right in the middle, and one keystroke onto a selected line
-    // would wipe it. A waiting line that names nobody is the exception: the
-    // name is what is missing, and it goes mid-line, after the `👤` and its
-    // date.
-    const value = draft.current?.value ?? "";
-    const at = nameAt(value) ?? value.length;
-    draft.current?.setSelectionRange(at, at);
-  }, [editingKey, focusList]);
+  const { held, focusList } = useTodoFocus({
+    panel,
+    filter,
+    draft,
+    focusSignal,
+    cursorKey,
+    rows: facts.rows,
+    board,
+    editingKey,
+  });
 
   // The three below are what a key and a button both do, so each is said once.
 
@@ -830,14 +215,9 @@ export function TodoPane({
 
   /** `v`: the next view, writing the note first where the vault has none. */
   function nextView() {
-    setAsked(true);
-    setPicked(picked + 1);
+    narrowing.nextView();
     setActive(0);
-    if (missing && !making.current) makeViews();
   }
-
-  /** The strip's buttons: a tap's height by finger, a line's by mouse. */
-  const pad = coarse ? "min-h-11 px-3" : "px-2 py-1";
 
   /**
    * A click on the strip, then the focus back on the cursor. A browser leaves
@@ -853,7 +233,7 @@ export function TodoPane({
    * board its Enter and Escape no longer mean what it says.
    */
   function strip(run: () => void) {
-    if (editing !== null || picking !== null) return;
+    if (editing !== null || blocker.picking !== null) return;
     run();
     if (!coarse) focusList();
   }
@@ -869,172 +249,78 @@ export function TodoPane({
     setEditing({ key: rowKey(hit), line: hit.text });
   }
 
-  /** `b`: the list becomes the picker of what blocks this row. Finished work waits for nothing. */
   function block(hit: SearchHit) {
-    const todo = parseTodo(hit.text);
-    if (todo === null || !isOpen(todo)) return;
-    setPicking(hit);
-    setActive(0);
+    if (blocker.block(hit)) setActive(0);
   }
 
-  /** The row picked as the blocker. One that cannot be it leaves the picker open. */
-  function pick(blocker: SearchHit) {
-    if (picking === null) return;
-    // A todo does not wait for itself, nor twice for the same one.
-    if (rowKey(blocker) === rowKey(picking)) return;
-    const id = parseTodo(blocker.text)?.id;
-    if (id !== undefined && parseTodo(picking.text)?.blockedBy.includes(id)) return;
-
-    onBlock(picking, blocker);
-    setPicking(null);
+  /** A row opens its note, or is the blocker picked while the list is the picker. */
+  function onRow(hit: SearchHit) {
+    if (blocker.picking === null) onOpen(hit.path, hit.line);
+    else blocker.pick(hit);
   }
 
-  function onKeyDown(event: React.KeyboardEvent) {
-    // Typing into an input is not the list's keys: `j` in one is a letter. The
-    // filter is one, the row being edited is the other, and the pane holds no
-    // third. Nor are the keys pressed on a hint under that row, which tab
-    // reaches and which is still an edit rather than a walk down the list.
-    if (event.target instanceof HTMLInputElement || editing !== null) return;
-    const { key } = event;
+  // A state picked out of an open strip is meant, so one tap sets it, as the
+  // shifted keys do, with no question asked.
+  const actions = (hit: TodoHit): [string, () => void][] => [
+    ...Object.values(SET).map((state): [string, () => void] => [state, () => onCycle(hit, state)]),
+    ["timer", () => onTimer(hit)],
+    ["part", () => onSubtask(hit)],
+    ["edit", () => edit(hit)],
+    ["blocked by", () => block(hit)],
+    ["refile", () => onRefile(hit)],
+    ["agent", () => onAgent(hit)],
+  ];
 
-    // A modifier holds itself down before the key it is held for arrives, and
-    // a pending sequence that read it as a key would drop the sequence there.
-    if (heldModifier(key)) return;
+  // What each key does here. Each act checks the row it needs, so a key that
+  // binds no row (`a`, `d`, `n`) reaches the pane without one.
+  const act: TodoKeyActions = {
+    toggleBoard: () => setBoard(!board),
+    down: () => setActive(Math.min(cursor + 1, facts.rows.length - 1)),
+    up: () => setActive(Math.max(cursor - 1, 0)),
+    enter: () => {
+      if (at === undefined) return;
+      if (blocker.picking !== null) blocker.pick(at.hit);
+      else onOpen(at.hit.path, at.hit.line);
+    },
+    cycle: () => {
+      if (at !== undefined) onCycle(at.hit);
+    },
+    set: (state) => {
+      if (at !== undefined) onCycle(at.hit, state);
+    },
+    timer: () => {
+      if (at !== undefined) onTimer(at.hit);
+    },
+    agent: () => {
+      if (at !== undefined) onAgent(at.hit);
+    },
+    refile: () => {
+      if (at !== undefined) onRefile(at.hit);
+    },
+    add: () => onAdd(),
+    subtask: () => {
+      if (at !== undefined) onSubtask(at.hit);
+    },
+    edit: () => {
+      if (at !== undefined) edit(at.hit);
+    },
+    block: () => {
+      if (at !== undefined) block(at.hit);
+    },
+    show,
+    nextView,
+    filter: () => filter.current?.focus(),
+    cancelPick: blocker.cancel,
+  };
 
-    if (pending) {
-      const sequence = pending + key;
-      const wanted = sequence.slice(1);
-      const run = leaderAction(wanted, commands);
-      // A leader key can be more than one letter, so a sequence that still
-      // prefixes one waits for the rest instead of being dropped.
-      setPending(!run && leaderPrefix(wanted) ? sequence : "");
-
-      if (run) {
-        event.preventDefault();
-        run();
-      }
-      return;
-    }
-
-    // The picker moves, narrows, takes and gives up. Every other key would
-    // act on a row that is here to be chosen.
-    if (picking !== null && !["j", "k", "/", "Enter", "Escape"].includes(key)) return;
-
-    // The board takes what it binds. Of the rest only the keys every mode
-    // shares go on: the others name a list row the board does not draw.
-    if (board) {
-      if (boardKeys.current?.onKey(key)) {
-        event.preventDefault();
-        return;
-      }
-      if (![" ", "/", "q", "v", "c", "Escape"].includes(key)) return;
-    }
-
-    switch (key) {
-      case "c":
-        setBoard(!board);
-        break;
-      case "j":
-        setActive(Math.min(cursor + 1, rows.length - 1));
-        break;
-      case "k":
-        setActive(Math.max(cursor - 1, 0));
-        break;
-      case " ":
-        setPending(key);
-        break;
-      case "Enter":
-        if (at === undefined) break;
-        if (picking !== null) pick(at.hit);
-        else onOpen(at.hit.path, at.hit.line);
-        break;
-      // The editor's `<leader>x` said without the leader, which a pane holding
-      // no buffer has no need of.
-      case "x":
-        if (at !== undefined) onCycle(at.hit);
-        break;
-      // One key per state, shifted so every lowercase key keeps its meaning.
-      // The walk cannot reach review, blocked, waiting or rejected from here: a
-      // row leaves this list the moment it is done, and these are how you get
-      // to them.
-      case "O":
-      case "P":
-      case "V":
-      case "X":
-      case "B":
-      case "W":
-      case "R":
-        if (at !== undefined) onCycle(at.hit, SET[key]);
-        break;
-      // One key for both ends of a session: what the press does depends on
-      // whether the vault holds an open one, which only the write can see.
-      case "t":
-        if (at !== undefined) onTimer(at.hit);
-        break;
-      // `#agent` without typing it, the tag the worker picks todos up by. The
-      // write decides add or take off, from the line as the note holds it.
-      case "@":
-        if (at !== undefined) onAgent(at.hit);
-        break;
-      // One todo per press, so no bulk move ever happens.
-      case "m":
-        if (at !== undefined) onRefile(at.hit);
-        break;
-      // The one key here that writes a note nothing on screen names: the todo
-      // goes into today's, wherever the cursor happens to be sitting.
-      case "a":
-        onAdd();
-        break;
-      // `a` said of the row rather than of the day: the same prompt, and what
-      // it takes goes in beside the cursor's own line as a part of it.
-      case "s":
-        if (at !== undefined) onSubtask(at.hit);
-        break;
-      // vim's own key for starting to type where the cursor is. The line is
-      // the whole record, so the row becomes that line and you edit it there.
-      case "i":
-        if (at !== undefined) edit(at.hit);
-        break;
-      // Lowercase beside `B`: that one sets the state, this one says what the
-      // state is waiting for.
-      case "b":
-        if (at !== undefined) block(at.hit);
-        break;
-      // One field rather than a boolean each: `d` and `n` swap the same list,
-      // and two flags could both be on.
-      case "d":
-        show("done");
-        break;
-      case "n":
-        show("next");
-        break;
-      // ponytail: walking is the whole of the picker. An overlay is what to
-      // write the day a vault holds more views than are comfortable to walk.
-      case "v":
-        nextView();
-        break;
-      // What vim spells a narrowing. `j` and `k` have to go on moving the
-      // cursor, so the input cannot hold the focus by default.
-      case "/":
-        filter.current?.focus();
-        break;
-      case "q":
-        commands.closeNote();
-        break;
-      case "Escape":
-        if (picking !== null) {
-          setPicking(null);
-          break;
-        }
-        // The editor is the only other place the focus belongs, and it owns no
-        // React handle here, so the pane finds it the way the reader sees it.
-        document.querySelector<HTMLElement>(".cm-content")?.focus();
-        break;
-      default:
-        return;
-    }
-    event.preventDefault();
-  }
+  const onKeyDown = useTodoKeys({
+    commands,
+    boardKeys,
+    editing: editing !== null,
+    picking: blocker.picking !== null,
+    board,
+    act,
+  });
 
   return (
     // The handler sits on the pane, not the rows: the keys act on the row the
@@ -1054,124 +340,41 @@ export function TodoPane({
       // and this is where the focus rests before a row exists to hold it.
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      // A tap anywhere but on the armed button itself takes the question back,
-      // before the tap does whatever it was for.
-      onPointerDown={(event) => {
-        if (armed !== null && !(event.target as Element).closest("[data-armed]")) setArmed(null);
-      }}
+      onPointerDown={armed.disarmElsewhere}
       className="flex h-full flex-col bg-one-bg font-mono"
     >
-      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
-        <span className={LABEL}>todos</span>
-        <input
-          ref={filter}
-          value={line}
-          // A keystroke here carries the view's terms into `typed` whole, so
-          // the line goes on saying what the list is filtered by and the header
-          // stops naming a view it no longer holds.
-          onChange={(event) => {
-            setTyped(event.target.value);
-            setPicked(0);
-            setActive(0);
-          }}
-          // Both ways out of the input, and both leave the filter applied.
-          onKeyDown={(event) => {
-            if (event.key !== "Escape" && event.key !== "Enter") return;
-            event.preventDefault();
-            focusList();
-          }}
-          aria-label="filter todos"
-          autoComplete="off"
-          spellCheck={false}
-          className={INPUT}
-        />
-        {named !== undefined && (
-          <span data-testid="todo-view" className={LABEL}>
-            {named}
-          </span>
-        )}
-        {coarse && (
-          <button
-            type="button"
-            onClick={onAdd}
-            aria-label="add todo"
-            className="min-h-11 min-w-11 shrink-0 text-one-muted"
-          >
-            +
-          </button>
-        )}
-      </header>
-
-      {/* What the list is for while it is a picker, and whose blocker it is
-          picking. A line of its own, so a narrow header loses no filter. */}
-      {picking !== null && (
-        <div
-          data-testid="todo-pick"
-          className="flex items-center gap-3 border-b border-one-line px-3 text-[11px] text-one-accent"
-        >
-          <span className="min-w-0 flex-1 truncate py-1">
-            ⛔ pick what blocks: {parseTodo(picking.text)?.text}
-          </span>
-          {coarse && (
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={() => setPicking(null)}
-              className="min-h-11 shrink-0 px-3 text-one-muted"
-            >
-              cancel
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* `d`, `n`, `v` and `c` by finger or by mouse. On every pointer, since
-          nothing else on a desktop says the board exists (#419). A finger gets
-          bare words at a tap's height; a mouse gets the footer's key-then-word,
-          so the strip teaches the key. Outside the list, so they stay put while
-          it scrolls, and out of the tab order like every button but the row. */}
-      <div className="flex border-b border-one-line px-1 text-[11px] text-one-muted">
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => strip(() => show("done"))}
-          aria-pressed={mode === "done"}
-          className={`${pad} ${mode === "done" ? "text-one-fg" : ""}`}
-        >
-          {coarse ? "done" : "d done"}
-        </button>
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => strip(() => show("next"))}
-          aria-pressed={mode === "next"}
-          className={`${pad} ${mode === "next" ? "text-one-fg" : ""}`}
-        >
-          {coarse ? "next" : "n next"}
-        </button>
-        <button type="button" tabIndex={-1} onClick={() => strip(nextView)} className={pad}>
-          {coarse ? "view" : "v view"}
-        </button>
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => strip(() => setBoard(!board))}
-          aria-pressed={board}
-          className={`${pad} ${board ? "text-one-fg" : ""}`}
-        >
-          {coarse ? "board" : "c board"}
-        </button>
-      </div>
+      <TodoHeader
+        filter={filter}
+        line={narrowing.line}
+        onType={(value) => {
+          narrowing.type(value);
+          setActive(0);
+        }}
+        onFiltered={focusList}
+        named={narrowing.named}
+        coarse={coarse}
+        onAdd={onAdd}
+        picking={blocker.picking}
+        onCancelPick={blocker.cancel}
+        mode={mode}
+        board={board}
+        strip={{
+          done: () => strip(() => show("done")),
+          next: () => strip(() => show("next")),
+          view: () => strip(nextView),
+          board: () => strip(() => setBoard(!board)),
+        }}
+      />
 
       {board ? (
         <TodoBoard
           ref={boardKeys}
-          cards={cards}
-          parents={forest.parents}
-          named={links.named}
-          closed={links.closed}
-          progress={progress}
-          files={files ?? []}
+          cards={facts.cards}
+          parents={facts.parents}
+          named={facts.links.named}
+          closed={facts.links.closed}
+          progress={facts.progress}
+          files={narrowing.files ?? []}
           today={today}
           coarse={coarse}
           held={held}
@@ -1182,329 +385,41 @@ export function TodoPane({
           onNotice={onNotice}
         />
       ) : (
-        /* A list that moves under the finger has moved the armed row with it. */
-        <div className="flex-1 overflow-auto py-1" onScroll={() => setArmed(null)}>
-          {rows.length === 0 ? (
-            <p className="px-3 py-1 text-[13px] text-one-muted">
-              {listed === "done" ? "nothing finished" : "nothing to do"}
-            </p>
-          ) : (
-            groups.map(({ heading, rows: group }) => (
-              <div key={heading}>
-                <h3 className="px-3 pt-2 pb-1 text-[11px] tracking-wider text-one-muted uppercase">
-                  {heading}
-                </h3>
-                {group.map(({ hit, todo, under, depth }) => {
-                  const key = rowKey(hit);
-                  const mark = timerMark(
-                    todo.id === undefined ? undefined : running.get(todo.id),
-                    today,
-                  );
-                  const time = clocks(todo);
-                  const wait = waitOf(todo, today);
-                  const blockers = waitsFor(todo, links.named, links.closed);
-                  const dependents =
-                    todo.id !== undefined && isOpen(todo)
-                      ? links.dependents.get(todo.id)
-                      : undefined;
-                  // Not review: what it waits on is the owner's own eye, so it
-                  // is drawn at full strength rather than faded out of sight.
-                  const held = todo.state === "blocked" || todo.state === "waiting";
-                  // One tab stop for the whole pane: tab reaches the cursor, and
-                  // the vim keys move it from there.
-                  const tabIndex = key === cursorKey ? 0 : -1;
-                  // A step in per level of nesting, so the list reads the way the
-                  // note does. `ROW` carries the first one as padding.
-                  const indent = { paddingLeft: `${GUTTER + (depth ?? 0) * STEP}rem` };
-
-                  // The whole row, because the whole line is what is edited: the
-                  // box and every field are on it, and the symbols this draws in
-                  // their place are a reading of the line rather than the line.
-                  if (key === editing?.key) {
-                    return (
-                      <div key={key}>
-                        <input
-                          ref={draft}
-                          value={editing.line}
-                          onChange={(event) => setEditing({ key, line: event.target.value })}
-                          onKeyDown={(event) => {
-                            if (event.key !== "Enter" && event.key !== "Escape") return;
-                            event.preventDefault();
-                            // Nothing left in it is nothing to write. Deleting a
-                            // todo is not what this key is.
-                            if (event.key === "Enter" && editing.line.trim() !== "") {
-                              onEdit(hit, editing.line);
-                            }
-                            setEditing(null);
-                          }}
-                          aria-label="edit line"
-                          autoComplete="off"
-                          spellCheck={false}
-                          style={indent}
-                          // Its own classes rather than `ROW` and `INPUT`: the
-                          // overlay input is written to disappear into a panel,
-                          // `outline-none` and `bg-transparent`, and both of those
-                          // win over the two things this row has to say. It is a
-                          // row of the list, at the list's size, wearing the
-                          // keyboard cursor's own outline, because this row is
-                          // where the keys are going.
-                          className="w-full bg-one-cursor/15 px-3 py-[3px] text-[13px] text-one-fg outline-2 -outline-offset-1 outline-one-cursor pointer-coarse:text-base"
-                        />
-                        <TodoHints
-                          found={lineSuggestions(editing.line, today, true)}
-                          line={editing.line}
-                          onTake={(edited) => {
-                            setEditing({ key, line: edited });
-                            // Back to the line, so the next thing typed carries on
-                            // where the hint left off rather than into a button.
-                            draft.current?.focus();
-                          }}
-                        />
-                      </div>
-                    );
-                  }
-
-                  const row = (
-                    <button
-                      key={key}
-                      type="button"
-                      data-row={key}
-                      tabIndex={tabIndex}
-                      // A tap is Enter by finger, and takes the row as Enter does.
-                      onClick={() => (picking === null ? onOpen(hit.path, hit.line) : pick(hit))}
-                      title={key}
-                      // The state button in front carries the indent on touch.
-                      style={coarse ? { paddingLeft: 0 } : indent}
-                      // A blocked row is drawn muted rather than gathered under a
-                      // heading of its own: its state is written on the line, and
-                      // the date group is still where the work belongs. A waiting
-                      // row is held the same way, by a person rather than a todo.
-                      className={`${ROW} flex gap-2 ${held ? "text-one-muted" : "text-one-fg"} ${tabIndex === 0 ? CURSOR : ""} ${coarse ? "min-h-11 min-w-0 items-center" : ""}`}
-                    >
-                      {!coarse && <span className="shrink-0">{STATE_SYMBOL[todo.state]}</span>}
-                      {/* Leftmost of what a row carries beyond its state, so
-                        scanning the list finds what is going. */}
-                      {mark !== null && <span className="shrink-0 text-one-green">{mark}</span>}
-                      {/* Between the state and the words, where the spec's mock
-                        puts it, and absent rather than blank on a row that
-                        carries none. */}
-                      {todo.priority !== undefined && (
-                        <span className="shrink-0">{PRIORITY_SYMBOL[todo.priority]}</span>
-                      )}
-                      {/* Drawn as well as left in the words, because a part takes
-                        the mark off its parent and has no tag to show. */}
-                      {isClient(todo) && (
-                        <span title="client work" className="shrink-0 text-one-accent">
-                          {CLIENT_MARK}
-                        </span>
-                      )}
-                      {/* What this is a part of, in front of the part itself, so
-                        a next action reads as work on something. Muted: the row
-                        is about the action, and this says where it sits. */}
-                      {under !== undefined && (
-                        <span className="max-w-[40%] shrink-0 truncate text-one-muted">
-                          {under}
-                        </span>
-                      )}
-                      <span className="min-w-0 flex-1 truncate">{todo.text}</span>
-                      {/* Between the words and the date, where the spec's mock
-                        puts it, and out of the truncation for the reason the
-                        date is: it is the shortest thing on the row. */}
-                      {progress.has(key) && (
-                        <span className="shrink-0 text-one-muted">{progress.get(key)}</span>
-                      )}
-                      {/* What the row waits for: the blocker's words where there
-                        is one, a count where there are more, and every one of
-                        them in the title. Nothing for a blocker already closed. */}
-                      {blockers.length > 0 && (
-                        <span
-                          title={`waits for:\n${blockers.join("\n")}`}
-                          className="max-w-[40%] shrink-0 truncate text-one-muted"
-                        >
-                          ⛔ {blockers.length === 1 ? blockers[0] : blockers.length}
-                        </span>
-                      )}
-                      {/* And what waits for it, as a count: the words are on the
-                        rows that wait. */}
-                      {dependents !== undefined && (
-                        <span
-                          title={`blocks:\n${dependents.map((one) => one.text).join("\n")}`}
-                          className="shrink-0 text-one-muted"
-                        >
-                          → {dependents.length}
-                        </span>
-                      )}
-                      {/* Who a waiting row is on and for how many days, taken off
-                        the line's `👤`. */}
-                      {wait !== null && (
-                        <span className="max-w-[40%] shrink-0 truncate text-one-muted">{wait}</span>
-                      )}
-                      {/* Out of the truncation for the reason the date is. What
-                        is on the line, not a sum: a running session lands here
-                        when it is stopped. */}
-                      {time !== null && <span className="shrink-0 text-one-muted">{time}</span>}
-                      {/* Out of the truncation, so a long todo loses its words
-                        rather than the date they are due on. The year is cut
-                        from a date inside this one, where every row shares it,
-                        and kept on any other: `Later` reaches years out, and
-                        two rows reading `01-01` say nothing about which is
-                        sooner. */}
-                      {todo.due !== undefined && (
-                        <span className="shrink-0 text-one-muted">
-                          {todo.due.startsWith(today.slice(0, 4)) ? todo.due.slice(5) : todo.due}
-                        </span>
-                      )}
-                    </button>
-                  );
-                  if (!coarse) return row;
-
-                  // The state drawn as a button of its own, beside the row
-                  // rather than inside it: a tap on the row opens the note, and
-                  // a button cannot hold another. Out of the tab order, so the
-                  // row is still the pane's one stop. `⋯` trails it for the
-                  // same reason, and holds every key that has no button yet.
-                  // One key for the question and for the strip: the row's own
-                  // and its text, so neither is carried onto another todo that a
-                  // write from elsewhere has put on this line.
-                  const arming = `${key}\n${hit.text}`;
-                  const asking = armed === arming;
-                  const opened = more === arming;
-                  // What the second tap would leave, drawn so the question says
-                  // what it is asking. Nothing where the cycle leaves no todo.
-                  const next = asking
-                    ? parseTodo(cycleLine(hit.text, today, ""))?.state
-                    : undefined;
-                  // A state picked out of an open strip is meant, so one tap
-                  // sets it, as the shifted keys do, with no question asked.
-                  const actions: [string, () => void][] = [
-                    ...Object.values(SET).map((state): [string, () => void] => [
-                      state,
-                      () => onCycle(hit, state),
-                    ]),
-                    ["timer", () => onTimer(hit)],
-                    ["part", () => onSubtask(hit)],
-                    ["edit", () => edit(hit)],
-                    ["blocked by", () => block(hit)],
-                    ["refile", () => onRefile(hit)],
-                    ["agent", () => onAgent(hit)],
-                  ];
-                  return (
-                    <div key={key}>
-                      <div className="flex">
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          onClick={() => {
-                            // A row in the picker is there to be chosen.
-                            if (picking !== null) return;
-                            setArmed(asking ? null : arming);
-                            // Two ways to change a state do not both stand
-                            // open: the question shuts a strip, as a strip
-                            // takes the question back.
-                            setMore(null);
-                            if (asking) onCycle(hit);
-                          }}
-                          aria-label={`cycle ${todo.text}`}
-                          aria-pressed={asking}
-                          data-armed={asking ? "" : undefined}
-                          style={indent}
-                          className={`min-h-11 min-w-11 shrink-0 pr-2 text-left text-[13px] ${
-                            asking ? "text-one-accent" : held ? "text-one-muted" : "text-one-fg"
-                          }`}
-                        >
-                          {asking
-                            ? `${next === undefined ? "" : STATE_SYMBOL[next]}?`
-                            : STATE_SYMBOL[todo.state]}
-                        </button>
-                        {row}
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          // The question on a state button, this row's or
-                          // another's, is taken back as the strip opens.
-                          onClick={() => {
-                            if (picking !== null) return;
-                            setArmed(null);
-                            setMore(opened ? null : arming);
-                          }}
-                          aria-label={`more for ${todo.text}`}
-                          aria-expanded={opened}
-                          className="min-h-11 min-w-11 shrink-0 text-one-muted"
-                        >
-                          ⋯
-                        </button>
-                      </div>
-                      {/* Wrapping, because eight words do not fit one line of a
-                        phone. Each named with its todo, so `done` here and
-                        `done` above the list are two different buttons to a
-                        screen reader. */}
-                      {opened && (
-                        <div className="flex flex-wrap px-1 text-[11px] text-one-muted">
-                          {actions.map(([label, run]) => (
-                            <button
-                              key={label}
-                              type="button"
-                              tabIndex={-1}
-                              onClick={() => {
-                                setMore(null);
-                                run();
-                              }}
-                              aria-label={`${label} ${todo.text}`}
-                              className="min-h-11 px-3"
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))
-          )}
-        </div>
+        <TodoList
+          groups={facts.groups}
+          empty={
+            facts.rows.length === 0
+              ? listed === "done"
+                ? "nothing finished"
+                : "nothing to do"
+              : null
+          }
+          cursorKey={cursorKey}
+          facts={facts}
+          today={today}
+          coarse={coarse}
+          picking={blocker.picking !== null}
+          editing={editing}
+          onEditing={setEditing}
+          draft={draft}
+          armed={armed.armed}
+          onArm={armed.arm}
+          onRow={onRow}
+          onWrite={onEdit}
+          onCycle={onCycle}
+          actions={actions}
+        />
       )}
 
-      {/* Only the keys this phase binds. A footer offering one that does
-          nothing is worse than a short one. A finger has no keys, as the
-          strip shows, so a coarse pointer gets the count alone: beside the
-          hints a phone squeezed it to a word per line (#488). */}
-      <footer
-        data-testid="todo-footer"
-        className="flex justify-between gap-3 border-t border-one-line px-3 py-1 text-[11px] text-one-muted"
-      >
-        <span>
-          {board ? (
-            `${cards.length} on the board`
-          ) : listed === "done" ? (
-            `${shown.length} finished`
-          ) : (
-            <>
-              {shown.length - blocked - onSomebody - toReview} open, {blocked} blocked
-              {onSomebody > 0 && `, ${onSomebody} waiting`}
-              {toReview > 0 && `, ${toReview} to review`}
-              {timers > 0 && `, ${timers} running`}
-            </>
-          )}
-        </span>
-        {coarse ? null : picking !== null ? (
-          <span>j k move&ensp;&ensp;/ filter&ensp;&ensp;Enter pick&ensp;&ensp;Escape cancel</span>
-        ) : board ? (
-          <span>
-            h l column&ensp;&ensp;j k card&ensp;&ensp;x cycle&ensp;&ensp;O P V X B W R
-            state&ensp;&ensp;p project&ensp;&ensp;m refile&ensp;&ensp;g lanes&ensp;&ensp;c
-            list&ensp;&ensp;v view&ensp;&ensp;/ filter&ensp;&ensp;q close
-          </span>
-        ) : (
-          <span>
-            x cycle&ensp;&ensp;O P V X B W R state&ensp;&ensp;a add&ensp;&ensp;s part&ensp;&ensp;i
-            edit&ensp;&ensp;b blocked by&ensp;&ensp;t timer&ensp;&ensp;m refile&ensp;&ensp;@
-            agent&ensp;&ensp;d done&ensp;&ensp;n next&ensp;&ensp;v view&ensp;&ensp;c
-            board&ensp;&ensp;/ filter&ensp;&ensp;q close&ensp;&ensp;Escape editor
-          </span>
-        )}
-      </footer>
+      <TodoFooter
+        board={board}
+        cards={facts.cards.length}
+        listed={listed}
+        shown={facts.shown}
+        timers={facts.timers}
+        coarse={coarse}
+        picking={blocker.picking !== null}
+      />
     </section>
   );
 }

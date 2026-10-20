@@ -1,16 +1,7 @@
-import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
-import { NotePreview } from "@/components/note-preview";
-import {
-  fetchMentions,
-  fetchNote,
-  fetchTodos,
-  type Mention,
-  type SearchHit,
-  searchNotes,
-} from "@/lib/api";
-import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
-import { noteName } from "@/lib/note-path";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { SearchPreview } from "@/components/search-preview";
+import { SearchRow } from "@/components/search-row";
+import type { Mention } from "@/lib/api";
 import {
   BACKDROP,
   BODY,
@@ -19,18 +10,11 @@ import {
   INPUT,
   LABEL,
   LIST,
-  PANE,
-  PANE_MESSAGE,
   PANEL,
   PANEL_WIDE,
-  ROW,
   STATUS,
-  TAP,
 } from "@/lib/overlay-styles";
-import { readRelation } from "@/lib/relation";
-import { isOpen, parseTodo, STATE_SYMBOL } from "@/lib/todo";
-import { useViewport } from "@/lib/use-viewport";
-import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
+import { isMention, type SearchMode, useSearchHits } from "@/lib/use-search-hits";
 
 interface NoteSearchProps {
   /** Called with the note to open and the line the match sits on. */
@@ -63,9 +47,6 @@ interface NoteSearchProps {
   onLink?: (mention: Mention) => Promise<string | null>;
 }
 
-/** Which of the three lists the panel is drawing, and where its lines come from. */
-type SearchMode = "search" | "backlinks" | "todos";
-
 /** The word over the input, and the name a screen reader reads the dialog by. */
 const LABEL_OF: Record<SearchMode, { input: string; dialog: string }> = {
   search: { input: "search notes", dialog: "Search notes" },
@@ -73,112 +54,8 @@ const LABEL_OF: Record<SearchMode, { input: string; dialog: string }> = {
   todos: { input: "todos", dialog: "Todos" },
 };
 
-/** Rows the list will mount. Beyond this, another letter narrows faster than a scroll. */
-const VISIBLE_HITS = 20;
-
-/**
- * How long typing holds still before the vault is read.
- *
- * Unlike the finder, every query here is a scan of the whole vault, so a
- * keystroke that fired its own would be ten scans for a word nobody finished
- * typing. Short enough that finishing a word and finding it read as one thing.
- */
-const SETTLE_MS = 120;
-
-/**
- * How long the highlight holds still before its note is read.
- *
- * A held ctrl+n walks a row per repeat, and every row it passes through would
- * otherwise be a request for a note nobody is looking at.
- */
-const PREVIEW_DELAY_MS = 80;
-
-/**
- * How many lines either side of the hit the pane shows.
- *
- * A window rather than the whole note, so a 10,000 line note costs what a
- * short one does. Wider than the pane is tall, so there is room to scroll
- * around the match without there being a note's worth of rows behind it.
- */
-const CONTEXT_LINES = 30;
-
-/** The lines around `line`, and the number the first of them carries. */
-function windowAround(text: string, line: number): { lines: string[]; from: number } {
-  const all = text.split("\n");
-  // Lines count from one and arrays from zero, and this is the only place the
-  // two meet.
-  const at = line - 1;
-  const from = Math.max(0, at - CONTEXT_LINES);
-  return { lines: all.slice(from, at + CONTEXT_LINES + 1), from };
-}
-
-/** The relation name to group a backlink hit under, or null for the untyped group. */
-function relationOf(text: string, viewing: string, paths: string[]): string | null {
-  const relation = readRelation(text);
-  // A line shows in the panel when any wikilink on it resolves here, so
-  // `depends-on:: [[A]] because [[B]]` is in B's panel too. Grouping that by
-  // the name alone would tell B it is a dependency when the line says A is.
-  if (relation === null || wikiLinkPath(relation.target, paths) !== viewing) return null;
-  return relation.name;
-}
-
 /** React key for the untyped group. A relation name is `[a-z][a-z-]*`, so this is not one. */
 const UNTYPED_KEY = "\u0000";
-
-/**
- * The heading over the lines naming the note without linking it, Obsidian's
- * words. It has a space in it, so no relation name can spell it.
- */
-const UNLINKED = "unlinked mentions";
-
-/** Whether a row of the list is an unlinked mention rather than a line of links. */
-function isMention(hit: SearchHit | Mention): hit is Mention {
-  return "start" in hit;
-}
-
-/** One heading and the ranked rows under it. A null name is the untyped group. */
-interface Group {
-  name: string | null;
-  rows: number[];
-}
-
-/**
- * The ranked rows in the order they are drawn: each name once, untyped next,
- * and the unlinked mentions last, being the lines that do not link here yet.
- */
-function groupHits(
-  rows: number[],
-  found: (SearchHit | Mention)[],
-  viewing: string,
-  paths: string[],
-): Group[] {
-  const named = new Map<string, number[]>();
-  const untyped: number[] = [];
-  const unlinked: number[] = [];
-
-  for (const row of rows) {
-    const hit = found[row];
-    if (hit !== undefined && isMention(hit)) {
-      unlinked.push(row);
-      continue;
-    }
-    const name = hit === undefined ? null : relationOf(hit.text, viewing, paths);
-    if (name === null) {
-      untyped.push(row);
-      continue;
-    }
-    const under = named.get(name);
-    if (under === undefined) named.set(name, [row]);
-    else under.push(row);
-  }
-
-  // A map keeps insertion order, which here is first appearance in the ranking,
-  // and the rows inside each name keep the rank order they arrived in.
-  const groups: Group[] = [...named].map(([name, under]) => ({ name, rows: under }));
-  if (untyped.length > 0) groups.push({ name: null, rows: untyped });
-  if (unlinked.length > 0) groups.push({ name: UNLINKED, rows: unlinked });
-  return groups;
-}
 
 /**
  * What the line under the list says, and nothing where it has nothing to say.
@@ -232,8 +109,6 @@ export function NoteSearch({
   onLink,
 }: NoteSearchProps) {
   const [query, setQuery] = useState("");
-  /** What a typed query settled on, which trails what has been typed. */
-  const [settled, setSettled] = useState("");
   /** Which hit Enter would open. */
   const [active, setActive] = useState(0);
   const field = useRef<HTMLInputElement>(null);
@@ -245,148 +120,19 @@ export function NoteSearch({
     todos === true ? "todos" : backlinksOf === undefined ? "search" : "backlinks";
 
   const typed = query.trim();
-  // What the vault is asked for. Backlinks ask for the note's name, and ask
-  // once: every link to a note carries its name, whether it spelled the path
-  // out or not, so the name is the one query no link to it can escape.
-  const name = backlinksOf === undefined ? undefined : noteName(backlinksOf);
-  const asked = name ?? settled;
-
-  useEffect(() => {
-    // Nothing to settle where the query is fixed, and a timer over it would
-    // only be a second answer to a question already asked.
-    if (mode !== "search") return;
-    const timer = setTimeout(() => setSettled(typed), SETTLE_MS);
-    return () => clearTimeout(timer);
-  }, [typed, mode]);
-
-  const search = useQuery({
-    // The todo list shares its key with the pane, so the two read one answer.
-    ...(mode === "todos"
-      ? { queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) }
-      : {
-          queryKey: ["search", asked, archive],
-          queryFn: asked === "" ? skipToken : () => searchNotes(asked, archive),
-        }),
-    // What keeps the last answer on screen while the next one is fetched, and
-    // so what there is to narrow in the meantime.
-    placeholderData: keepPreviousData,
-    // A scan nobody asked to repeat is not worth three attempts and a backoff.
-    retry: false,
+  const { found, groups, ordered, pending } = useSearchHits({
+    mode,
+    typed,
+    backlinksOf,
+    paths,
+    archive,
   });
 
-  // The lines naming the note in plain words, asked beside the links and only
-  // for backlinks. The backend reads these itself, titles and aliases being
-  // something rg on the name alone cannot find.
-  const mentions = useQuery({
-    queryKey: ["mentions", backlinksOf, archive],
-    queryFn: backlinksOf === undefined ? skipToken : () => fetchMentions(backlinksOf, archive),
-    placeholderData: keepPreviousData,
-    retry: false,
-  });
-
-  // Every line the vault answered with, cut to the ones that really are links
-  // where backlinks were asked for. rg finds the note's name in prose as
-  // readily as in a link, and only reading the line as the editor parses it
-  // tells the two apart. Resolving each target against the listing is what
-  // keeps `[[borges]]` and `[[reading/borges]]` both counting, and a link to
-  // another note of the same name in another folder not counting at all.
-  //
-  // The todo endpoint matches the shape of a checkbox and nothing else, so the
-  // same reading cuts its answer down: a session line is not a todo and a
-  // finished one is not work.
-  //
-  // The unlinked mentions go on the end of the same array, so the ranking, the
-  // highlight and Enter count them the way they count every other row.
-  const found: (SearchHit | Mention)[] = useMemo(() => {
-    const hits = search.data ?? [];
-    if (mode === "todos") {
-      return hits.filter((hit) => {
-        const todo = parseTodo(hit.text);
-        return todo !== null && isOpen(todo);
-      });
-    }
-    if (backlinksOf === undefined) return hits;
-    const linked = hits.filter((hit) =>
-      wikiLinkTargets(hit.text).some((target) => wikiLinkPath(target, paths ?? []) === backlinksOf),
-    );
-    return [...linked, ...(mentions.data ?? [])];
-  }, [search.data, mentions.data, mode, backlinksOf, paths]);
-  // Derived from the answer and not from the query, so every keystroke between
-  // two answers ranks a set that was prepared once.
-  const candidates = useMemo(() => lineCandidates(found.map((hit) => hit.text)), [found]);
-  // Ranked against what is typed now rather than what was asked for, which is
-  // what narrows the list while the next scan is still out. Ranked whole and
-  // cut afterwards, so the rows are the best of the answer and not its head.
-  //
-  // The mentions are cut on their own, so a note with more links than the list
-  // holds still shows the best of its mentions rather than none of them.
-  const hits = useMemo(() => {
-    const ranked = rankIndexes(candidates, typed);
-    const linked: number[] = [];
-    const unlinked: number[] = [];
-    for (const index of ranked) {
-      const hit = found[index];
-      (hit !== undefined && isMention(hit) ? unlinked : linked).push(index);
-    }
-    return [...linked.slice(0, VISIBLE_HITS), ...unlinked.slice(0, VISIBLE_HITS)];
-  }, [candidates, typed, found]);
-  // Backlinks gather under the relation name pointing here; the other two lists
-  // are one group with no name, so their rows come out in the order they were
-  // ranked in and nothing on screen moves.
-  const groups = useMemo(
-    () =>
-      mode === "backlinks" && backlinksOf !== undefined
-        ? groupHits(hits, found, backlinksOf, paths ?? [])
-        : [{ name: null, rows: hits }],
-    [mode, backlinksOf, hits, found, paths],
-  );
-  // The order the rows are drawn in, which is the order everything downstream
-  // counts in. The highlight, the preview and Enter all index this one array,
-  // so grouping at render alone would point all three at another line.
-  const ordered = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
   // Typing puts the highlight back on the first row, and a narrowing list can
   // leave it past the end.
   const cursor = Math.min(active, Math.max(ordered.length - 1, 0));
   const highlighted = ordered[cursor];
   const highlightedHit = highlighted === undefined ? undefined : found[highlighted];
-
-  // The hit the pane is reading for, which trails the highlight rather than
-  // following it. The hit itself and not its position, because a fresh answer
-  // renumbers the list and a position would then point at another line.
-  const [reading, setReading] = useState<SearchHit>();
-
-  // Nothing is read in a narrow window, which has no pane to show it in, and
-  // with nothing read the pane below is not mounted either.
-  const { narrow } = useViewport();
-
-  useEffect(() => {
-    if (narrow || highlightedHit === undefined) {
-      setReading(undefined);
-      return;
-    }
-    const timer = setTimeout(() => setReading(highlightedHit), PREVIEW_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [highlightedHit, narrow]);
-
-  // The key `NoteEditor` reads, on purpose: a note read here is one the editor
-  // will not have to fetch when Enter opens it. Keyed on the path alone, so
-  // walking between two hits of one note re-centres the pane rather than
-  // reading the note again.
-  const note = useQuery({
-    queryKey: ["note", reading?.path],
-    queryFn: reading === undefined ? skipToken : () => fetchNote(reading.path),
-    staleTime: 30_000,
-    // A preview nobody asked for is not worth three attempts and a backoff.
-    retry: false,
-  });
-
-  // Worked out here rather than in the markup, which has no room to say what
-  // `from` is for. Undefined covers both the note still being read and the
-  // note refusing to be read; the pane tells those two apart on its own.
-  const context =
-    reading !== undefined && note.status === "success"
-      ? windowAround(note.data, reading.line)
-      : undefined;
 
   // The input takes the focus so the keys reach it, and hands it back on the
   // way out, unless a note is opening: the editor behind takes the focus only
@@ -478,61 +224,17 @@ export function NoteSearch({
   function drawRow(index: number, row: number) {
     const hit = found[index];
     if (hit === undefined) return null;
-    // Null on every mode but todos, and on a todo line the filter above cannot
-    // hand back, which is why the row still draws the line it was given rather
-    // than nothing at all.
-    const todo = mode === "todos" ? parseTodo(hit.text) : null;
-    const option = (
-      <button
-        key={`${hit.path}:${hit.line}`}
-        id={`${listId}-${row}`}
-        type="button"
-        role="option"
-        aria-selected={row === cursor}
-        // Out of the tab order: the focus stays in the input, and the highlight
-        // is how the list says what Enter would open.
-        tabIndex={-1}
-        onClick={() => accept(index)}
-        // `min-w-0` lets the row shrink below its path beside a mention's
-        // `link` button, which a long path would otherwise push off a phone.
-        className={`${ROW} ${TAP} flex min-w-0 gap-3 ${row === cursor ? "bg-one-hover" : ""}`}
-      >
-        <span
-          // Capped below `md`, where a long path alone is wider than the list
-          // and would push the line it found off the side.
-          className={`shrink-0 truncate max-md:max-w-[45%] ${row === cursor ? "text-one-accent" : "text-one-muted"}`}
-        >
-          {hit.path}:{hit.line}
-        </span>
-        {/* The line itself never wraps: one row per hit is what makes the list
-            countable at a glance. */}
-        <span className="min-w-0 flex-1 truncate text-one-fg">
-          {todo === null ? hit.text : `${STATE_SYMBOL[todo.state]} ${todo.text}`}
-        </span>
-        {/* Out of the truncation, so a long todo loses its words rather than
-            the date they are due on. */}
-        {todo?.due !== undefined && <span className="shrink-0 text-one-muted">📅 {todo.due}</span>}
-      </button>
-    );
-    if (!isMention(hit)) return option;
-    // Beside the row and not inside it: a button in a button is no markup a
-    // browser keeps, and a click inside would reach the row and open the note
-    // too. Keyed on the offset as well, since one line can name the note twice.
     return (
-      <div key={`${hit.path}:${hit.line}:${hit.start}`} className="flex">
-        {option}
-        <button
-          type="button"
-          tabIndex={-1}
-          // The press would move the focus here, and the keys belong to the
-          // input: Tab and Ctrl+Enter have to go on working after a tap.
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => void link(index)}
-          className={`${TAP} flex shrink-0 cursor-pointer px-3 text-[11px] text-one-accent hover:bg-one-hover`}
-        >
-          link
-        </button>
-      </div>
+      <SearchRow
+        // Keyed on the offset as well, since one line can name the note twice.
+        key={isMention(hit) ? `${hit.path}:${hit.line}:${hit.start}` : `${hit.path}:${hit.line}`}
+        hit={hit}
+        optionId={`${listId}-${row}`}
+        selected={row === cursor}
+        todos={mode === "todos"}
+        onOpen={() => accept(index)}
+        onLink={() => void link(index)}
+      />
     );
   }
 
@@ -613,30 +315,7 @@ export function NoteSearch({
             </div>
           )}
 
-          {reading !== undefined && (
-            // A labelled <section> rather than a bare <pre>, which takes no
-            // label of its own and leaves the pane something a screen reader
-            // can reach but not name.
-            <section aria-label="Preview" data-testid="preview" className={PANE}>
-              {context !== undefined ? (
-                // Keyed on the note and the line, so walking to another hit
-                // builds a fresh view centred on it rather than leaving this
-                // one where it was.
-                <NotePreview
-                  key={`${reading.path}:${reading.line}`}
-                  text={context.lines.join("\n")}
-                  firstLine={context.from + 1}
-                  markLine={reading.line}
-                />
-              ) : (
-                <p className={PANE_MESSAGE}>
-                  {/* An empty note is empty, not still loading, and a spinner
-                      that never stops is the worse of the two lies. */}
-                  {note.status === "error" ? "could not read this note" : "reading the note"}
-                </p>
-              )}
-            </section>
-          )}
+          <SearchPreview hit={highlightedHit} />
         </div>
 
         {/* An <output> rather than a <p role="status">: same announcement, and
@@ -647,7 +326,7 @@ export function NoteSearch({
           {refused ??
             hint(
               typed,
-              search.isFetching || mentions.isFetching,
+              pending,
               ordered.filter((index) => {
                 const hit = found[index];
                 return hit !== undefined && !isMention(hit);

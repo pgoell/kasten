@@ -1,60 +1,13 @@
 import { useEffect, useState } from "react";
+import { SaveSign } from "@/components/save-sign";
+import { Clock } from "@/components/status-clock";
+import { StatusDetail } from "@/components/status-detail";
 import { BUILD } from "@/lib/build";
-import { type Clock as ClockReading, readClock } from "@/lib/clock";
-import { type DiffLine, lineDiff } from "@/lib/diff";
+import { lineDiff } from "@/lib/diff";
 import type { SaveStatus } from "@/lib/use-autosave";
-
-const MINUTE_MS = 60_000;
 
 /** How long the refusal flash lasts. The same 400ms `--animate-flash` names. */
 const FLASH_MS = 400;
-
-/**
- * The date and time at the foot of the window.
- *
- * The tick is lined up with the wall clock rather than set going a minute at a
- * time from mount, so the minute changes on screen when it changes on the
- * clock instead of up to a minute later. One re-render a minute, not sixty.
- */
-function Clock({ crowded }: { crowded: boolean }) {
-  const [now, setNow] = useState<ClockReading>(() => readClock(new Date()));
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-
-    function tick() {
-      timer = setTimeout(
-        () => {
-          setNow(readClock(new Date()));
-          tick();
-        },
-        MINUTE_MS - (Date.now() % MINUTE_MS),
-      );
-    }
-
-    tick();
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    // Spaced apart rather than punctuated: the gap separates the four readings
-    // without spending characters on a bar the eye has to step over.
-    <div
-      // Gone below `md` while there is a notice: a phone's bar holds one
-      // sentence or the time, and the sentence is the one that will not keep.
-      className={`flex items-center gap-3 text-[11px] whitespace-nowrap text-one-muted tabular-nums ${
-        crowded ? "max-md:hidden" : ""
-      }`}
-    >
-      {/* The weekday and the week go below `md`: a phone has room for the date
-          and the time, and its own lock screen says the rest. */}
-      <span className="max-md:hidden">{now.weekday}</span>
-      <time dateTime={now.date}>{now.date}</time>
-      <span className="max-md:hidden">CW {now.week}</span>
-      <time dateTime={`${now.date}T${now.time}`}>{now.time}</time>
-    </div>
-  );
-}
 
 const SAVE_LABEL: Record<SaveStatus, string> = {
   saved: "Saved",
@@ -102,34 +55,6 @@ const HELD_FIX = "Open the note to write it again, or :e! there to drop it.";
 const CONFLICT_FIX =
   "Open the note to see what differs and pick: :w keeps your text, :e! takes the vault's.";
 
-/**
- * The changed lines of a diff and one line either side, each other run of
- * unchanged lines folded into one that says how many.
- *
- * A whole note under the bar would be the note again, and the two lines that
- * differ would be as hard to find in it as they were in the editor. A run of
- * one is shown rather than folded: the fold would take as much room.
- */
-function folded(diff: readonly DiffLine[]): (DiffLine | { skip: number })[] {
-  const changed = (at: number) => (diff[at]?.op ?? " ") !== " ";
-  const near = (at: number) => changed(at - 1) || changed(at) || changed(at + 1);
-  const rows: (DiffLine | { skip: number })[] = [];
-  let skipped: DiffLine[] = [];
-  const flush = () => {
-    if (skipped.length === 1) rows.push(...skipped);
-    else if (skipped.length > 1) rows.push({ skip: skipped.length });
-    skipped = [];
-  };
-  diff.forEach((line, at) => {
-    if (near(at)) {
-      flush();
-      rows.push(line);
-    } else skipped.push(line);
-  });
-  flush();
-  return rows;
-}
-
 type Opened = "notice" | "save" | "held" | "conflicts";
 
 type HeldNote = { path: string; reason: string; conflicted?: boolean };
@@ -149,56 +74,6 @@ function heldLabel(prefix: string, notes: readonly HeldNote[]) {
 /** The note's name as the finder shows it, without the folders or `.md`. */
 function noteName(path: string) {
   return (path.split("/").pop() ?? path).replace(/\.md$/, "");
-}
-
-// Any smaller and the arrowheads close up into blobs at this stroke width.
-const ICON = "size-4 shrink-0";
-
-const STROKE = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-} as const;
-
-/**
- * Two arrows chasing each other around a circle.
- *
- * It rests, green, while the note on disk matches the one on screen, and turns
- * white and spins while an edit is still on its way there.
- */
-function Spinner({ spinning }: { spinning: boolean }) {
-  return (
-    <svg
-      {...STROKE}
-      data-testid="save-spinner"
-      aria-hidden="true"
-      className={`${ICON} ${spinning ? "animate-spin text-white" : "text-one-green"}`}
-    >
-      <path d="M4.8 10.1A7.5 7.5 0 0 1 18.8 8.8" />
-      <path d="M19.2 4.9 18.8 8.8 15.5 6.5" />
-      <path d="M19.2 13.9A7.5 7.5 0 0 1 5.2 15.2" />
-      <path d="M4.8 19.1 5.2 15.2 8.5 17.5" />
-    </svg>
-  );
-}
-
-/** The note is still only on screen, and something has to be done about it. */
-function Warning() {
-  return (
-    <svg
-      {...STROKE}
-      data-testid="save-error"
-      aria-hidden="true"
-      className={`${ICON} text-one-warn`}
-    >
-      <path d="M12 3.5 21.5 20.5H2.5Z" />
-      <path d="M12 10.5v4" />
-      <path d="M12 17.6h.01" />
-    </svg>
-  );
 }
 
 /**
@@ -410,38 +285,14 @@ export function StatusBar({
       : [];
 
   const save = status && (
-    <span
+    <SaveSign
       key={flash}
-      data-testid="save-status"
-      // Still one image to a screen reader, text beside the sign or not:
-      // the label below says the reading once, and the role keeps the
-      // visible copy of it from being read out a second time.
-      role="img"
-      aria-label={SAVE_LABEL[status]}
-      // Three lines on hover, the last of them the way out. A `title` and
-      // not a tooltip of our own: this is one string a browser already
-      // knows how to show, and it costs nothing to carry.
+      status={status}
+      label={SAVE_LABEL[status]}
+      warn={Boolean(SAVE_FIX[status])}
       title={saveLines.join("\n")}
-      // Inline by default, and a transform does nothing to an inline box.
-      className={`inline-flex items-center gap-1.5 ${flashing ? "animate-flash" : ""}`}
-    >
-      {/* The conflict wears the warning rather than the ring for the
-          reason the failure does: nothing is on its way to the vault,
-          and a ring spinning at the reader would say the opposite. */}
-      {status === "error" || status === "conflict" ? (
-        <Warning />
-      ) : (
-        <Spinner spinning={status !== "saved"} />
-      )}
-      {/* Only the ones that want the reader. A 16px sign in the corner is
-          easy to type straight past, and typing past this one loses the
-          text. `aria-hidden`, the label above already saying it. */}
-      {SAVE_FIX[status] && (
-        <span aria-hidden="true" className="text-[11px] text-one-warn">
-          {SAVE_LABEL[status]}
-        </span>
-      )}
-    </span>
+      flashing={flashing}
+    />
   );
 
   return (
@@ -464,65 +315,12 @@ export function StatusBar({
       }`}
     >
       {detail !== undefined && (
-        // Over the page and not inside the bar, whose height is fixed. Out of
-        // the tab order like the two that open it: a keyboard has the `title`.
-        <div className="absolute inset-x-0 bottom-full z-10 border-t border-one-line bg-one-panel text-[11px]">
-          {/* Only the words scroll, and the buttons sit under them: a long
-              diff on a phone would otherwise push the way out off the top. */}
-          <div className="max-h-[50dvh] overflow-y-auto">
-            <button
-              type="button"
-              tabIndex={-1}
-              data-testid="status-detail"
-              onClick={() => setOpened(null)}
-              className="block w-full px-3 py-2 text-left whitespace-pre-line text-one-warn"
-            >
-              {detail}
-            </button>
-            {diff && (
-              // Beside the sentence and not inside its button, so a tap to
-              // read a line does not shut the panel.
-              <div
-                data-testid="conflict-diff"
-                className="border-t border-one-line px-3 py-2 font-mono whitespace-pre-wrap"
-              >
-                {folded(diff).map((row, at) => (
-                  <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: lines repeat, and the list is redrawn whole.
-                    key={at}
-                    className={
-                      "skip" in row || row.op === " "
-                        ? "text-one-muted"
-                        : row.op === "-"
-                          ? "text-one-warn"
-                          : "text-one-green"
-                    }
-                  >
-                    {"skip" in row ? `⋯ ${row.skip} lines` : `${row.op} ${row.text}`}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {actions.length > 0 && (
-            <div className="flex gap-px border-t border-one-line">
-              {actions.map(({ action, label, call }) => (
-                <button
-                  key={action}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => {
-                    setOpened(null);
-                    call();
-                  }}
-                  className="min-h-6 flex-1 px-3 text-one-muted active:bg-one-hover active:text-one-accent pointer-coarse:min-h-11"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <StatusDetail
+          detail={detail}
+          diff={diff}
+          actions={actions}
+          onClose={() => setOpened(null)}
+        />
       )}
       <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
         {version !== undefined && <Version backend={version} />}

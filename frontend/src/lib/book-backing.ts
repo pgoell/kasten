@@ -263,3 +263,68 @@ export function backImages(doc: Document): ResizeObserver | undefined {
   }
   return observer;
 }
+
+/**
+ * The book's page in the app's own colours.
+ *
+ * The same CSS variables `oneTheme()` in `terminal-pane.tsx` reads, so the page
+ * matches the editor beside it and the palette stays in `app.css`. That
+ * function is private to its file, hence the second reader rather than an
+ * export. Nothing sets a font, a size or a column count: the book's own
+ * typography is the book's, and fitting is foliate's job.
+ *
+ * The colours, though, are taken from the book whole. A book's stylesheet is
+ * written for a white page, so its `p { color: #000 }` or a pale box behind a
+ * paragraph puts black on the dark page (#467). Every rule here is
+ * `!important` so the book's normal rules lose at any specificity, and
+ * `:not(#\#)`, which matches every element, adds an id's weight so a book's
+ * own `!important` on a class loses as well. Backgrounds go transparent rather
+ * than dark, so the page below stays the one colour.
+ *
+ * A `<mark>` keeps the browser's black on yellow, which reads on any page and
+ * is the point of the element. Leaving it out weighs the rule above at an id
+ * and two types, since a `:not` counts as its heaviest argument and `*` counts
+ * nothing, and the link rule's `:any-link` outweighs that by a class. Only an
+ * `a` with an `href` is a link: an `<a id>` round a heading is a place to jump
+ * to, and its text stays the theme's (#470).
+ *
+ * Inline svg and objects get a white page of their own, and so does an image
+ * `backImages` in `book-backing.ts` marks (#469). The book often puts its white
+ * on the block round the art, a figure or a div, and that block went
+ * transparent with the rest, which leaves black line art on a transparent png
+ * drawn on the dark page. An image is marked by script rather than by a rule
+ * because a stylesheet cannot see pixels: a letterboxed cover, an opaque photo
+ * and an icon in a line of text keep the dark page (#475), and a `picture`
+ * follows the img inside it. What such an element writes itself, a broken
+ * image's alt text or an object's fallback, is black on that white, and a
+ * broken image is marked. An svg holding an `<image>` is left out: that is a
+ * calibre cover page, a raster fitted into a page-sized svg, and the bars round
+ * the picture are page.
+ *
+ * A small dark glyph on transparent in a line of text, which gets no white, is
+ * marked as ink instead and inverted, so its black turns pale like the words
+ * round it (#478). So is a small svg drawing such a glyph through an `<image>`
+ * (#483).
+ *
+ * An inline svg is drawn as it was on the book's page, in black: its `<text>`
+ * fills black whatever the colour says (#471), and its `currentColor` shapes
+ * take the `color: #000` here, where the theme's pale text would vanish on the
+ * white. The last four rules add a second `:not(#\#)`, two ids and two or
+ * three types, so they outweigh the text rule and the link rule, which an image
+ * or an svg inside a link would otherwise take.
+ */
+export function pageStyles(): string {
+  const style = getComputedStyle(document.documentElement);
+  const read = (name: string) => style.getPropertyValue(name).trim();
+  const fg = read("--color-one-fg");
+
+  return [
+    `html:not(#\\#), html:not(#\\#) body { background: ${read("--color-one-bg")} !important; color: ${fg} !important; }`,
+    `body:not(#\\#) :not(mark, mark *) { color: ${fg} !important; background-color: transparent !important; }`,
+    `body:not(#\\#) :is(a:any-link, a:any-link *) { color: ${read("--color-one-accent")} !important; }`,
+    `body:not(#\\#) :is(img, picture, svg:not(:has(image)), object):not(#\\#) { color: #000 !important; }`,
+    `body:not(#\\#) :is(img[${BACKING}], picture:has(> img[${BACKING}]), svg:not(:has(image)), object):not(#\\#) { background-color: #fff !important; }`,
+    `body:not(#\\#) :is(svg, svg *):not(#\\#) { color: #000 !important; }`,
+    `body:not(#\\#) :is(img, svg)[${INK}]:not(#\\#) { filter: invert(1) !important; }`,
+  ].join("\n");
+}

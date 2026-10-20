@@ -63,7 +63,7 @@ const BOX: Record<TodoState, string> = {
  *
  * Here rather than in the panel that first wanted it, because the pane wants
  * the same seven and a second copy would be seven characters to keep in step by
- * hand. `.cm-todo-*` in `app.css` is the third copy and cannot be this one:
+ * hand. `.cm-todo-*` in `styles/live-preview-lists.css` is the third copy and cannot be this one:
  * the editor draws its symbol in a `::before`, which no module can reach.
  */
 export const STATE_SYMBOL: Record<TodoState, string> = {

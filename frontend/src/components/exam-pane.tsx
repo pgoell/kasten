@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ExamQuestion, ExamScore } from "@/components/exam-sheet";
 import { createNote, fetchNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import {
@@ -14,25 +15,10 @@ import {
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
-
-/**
- * How long a timer runs when no number was typed before `t`.
- *
- * 120 minutes, which is what all four of the vault's Claude practice exams
- * tell you to give yourself, and what the live exams allow.
- */
-const DEFAULT_MINUTES = 120;
-
-/** Seconds as `m:ss`. Minutes past 59 stay minutes, so two hours reads 120:00. */
-function countdown(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
+import { LENGTHS, useExamTimer } from "@/lib/use-exam-timer";
 
 /** One button of the touch row: a thumb high, and as wide as its share of the row. */
 const TAP = "min-h-11 min-w-0 flex-1 uppercase";
-
-/** The lengths the touch row offers, in minutes, where a keyboard types a count before `t`. */
-const LENGTHS = [30, 60, 90, DEFAULT_MINUTES, 180];
 
 interface ExamPaneProps {
   /** The note holding the exam. The pane reads it and never writes to it. */
@@ -82,10 +68,6 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
   const [failed, setFailed] = useState<string | null>(null);
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
-  /** When the timer runs out, as a clock reading, or null while none is set. */
-  const [deadline, setDeadline] = useState<number | null>(null);
-  /** How long the timer has left, in seconds. It stops where the sitting stops. */
-  const [left, setLeft] = useState(0);
   /** The digits typed before `t`, the way vim counts a motion. */
   const [count, setCount] = useState("");
   const panel = useRef<HTMLElement>(null);
@@ -136,6 +118,8 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     [answers, note, queryClient],
   );
 
+  const { running, label, out, toggle, start } = useExamTimer(exam, graded, finish);
+
   /** Add or drop one letter, keeping at most as many as the question wants. */
   const pick = useCallback(
     (letter: string) => {
@@ -178,9 +162,7 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
   };
   const timer = () => {
     setArmed(null);
-    setDeadline((previous) =>
-      previous === null ? Date.now() + (Number(count) || DEFAULT_MINUTES) * 60_000 : null,
-    );
+    toggle(count);
   };
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -282,29 +264,6 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
     event.preventDefault();
   }
 
-  // The countdown, which runs only while a timer is set and the sitting is
-  // open. Counted off an absolute deadline rather than by subtracting a second
-  // per tick, so a tab the browser throttled in the background comes back with
-  // the right time left rather than with the seconds it was denied.
-  //
-  // `finish` changes with every answer, so this resubscribes often. Harmless:
-  // the deadline is the state, the interval is only what reads it.
-  useEffect(() => {
-    if (deadline === null || exam === null || graded !== null) return;
-
-    const tick = () => {
-      const seconds = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-      setLeft(seconds);
-      // Time is up, so the sitting is graded where it stands, which is what a
-      // real exam does with the questions you never reached.
-      if (seconds === 0) void finish(exam);
-    };
-
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [deadline, exam, graded, finish]);
-
   // A freshly split pane is created focused and its first render is the only
   // chance it gets to say so. An unfocused pane is handed 0 and stays put.
   useEffect(() => {
@@ -337,12 +296,12 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
         <span className="min-w-0 flex-1 truncate text-[13px] text-one-fg">
           {exam?.title ?? note}
         </span>
-        {deadline !== null && (
+        {running && (
           <span
             data-testid="exam-timer"
-            className={`text-[13px] tabular-nums ${left === 0 ? "text-one-accent" : "text-one-muted"}`}
+            className={`text-[13px] tabular-nums ${out ? "text-one-accent" : "text-one-muted"}`}
           >
-            {countdown(left)}
+            {label}
           </span>
         )}
         {exam !== null && graded === null && (
@@ -363,78 +322,10 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
           </p>
         )}
 
-        {graded !== null && (
-          <div data-testid="exam-score">
-            <p className="text-[15px]">
-              <strong>
-                {graded.right}/{graded.asked}
-              </strong>{" "}
-              ({graded.asked === 0 ? 0 : Math.round((100 * graded.right) / graded.asked)}%)
-            </p>
-            <ul className="mt-3 space-y-[2px] text-one-muted">
-              {graded.sections.map((score) => (
-                <li key={score.section}>
-                  {score.section}: {score.right}/{score.asked}
-                </li>
-              ))}
-            </ul>
-            {wrote !== null && failed === null && (
-              <p className="mt-4 text-one-muted">
-                Written to <span className="text-one-fg">{wrote}</span>. Enter opens it.
-              </p>
-            )}
-            {failed !== null && (
-              <p role="alert" className="mt-4 text-one-muted">
-                The result note could not be written: {failed}
-              </p>
-            )}
-          </div>
-        )}
+        {graded !== null && <ExamScore graded={graded} wrote={wrote} failed={failed} />}
 
         {graded === null && question !== undefined && (
-          <div data-testid="exam-question">
-            <p className={LABEL}>
-              {question.id}
-              {question.section !== "" && ` · ${question.section}`}
-              {question.pick > 1 && ` · select ${question.pick}`}
-            </p>
-            <p className="mt-2 whitespace-pre-wrap">{question.stem}</p>
-            <ul className="mt-3 space-y-1">
-              {question.options.map((option) => {
-                const held = answered.includes(option.letter);
-                const right = question.correct.includes(option.letter);
-                return (
-                  <li
-                    key={option.letter}
-                    data-picked={held || undefined}
-                    className={held ? "text-one-fg" : "text-one-muted"}
-                  >
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      aria-pressed={held}
-                      onClick={() => pick(option.letter)}
-                      className="block w-full text-left pointer-coarse:min-h-11"
-                    >
-                      <span className={held ? "text-one-accent" : ""}>
-                        {held ? "●" : "○"} {option.letter}.
-                      </span>{" "}
-                      {option.text}
-                      {shown && right && <span className="text-one-accent"> ✓</span>}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            {shown && (
-              <div data-testid="exam-rationale" className="mt-4 border-one-line border-t pt-3">
-                <p className={LABEL}>
-                  Correct: {question.correct.join(", ") || "the note does not say"}
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-one-muted">{question.rationale}</p>
-              </div>
-            )}
-          </div>
+          <ExamQuestion question={question} answered={answered} shown={shown} onPick={pick} />
         )}
       </div>
 
@@ -454,7 +345,7 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
                 aria-label={`${minutes} minute timer`}
                 onClick={() => {
                   setLengths(false);
-                  setDeadline(Date.now() + minutes * 60_000);
+                  start(minutes);
                 }}
                 className={TAP}
               >
@@ -486,11 +377,11 @@ export function ExamPane({ note, commands, onOpen, focusSignal }: ExamPaneProps)
             <button
               type="button"
               tabIndex={-1}
-              aria-pressed={deadline !== null}
+              aria-pressed={running}
               // A running timer is taken away, as `t` takes it. Starting one
               // asks how long first: a finger has no count to type before it.
               onClick={() => {
-                if (deadline !== null) return timer();
+                if (running) return timer();
                 setArmed(null);
                 setLengths(true);
               }}

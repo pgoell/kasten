@@ -1,0 +1,143 @@
+import type { RefObject } from "react";
+import type { SearchHit } from "@/lib/api";
+import { INPUT, LABEL } from "@/lib/overlay-styles";
+import { parseTodo } from "@/lib/todo";
+import type { Mode } from "@/lib/use-todo-rows";
+
+/**
+ * The pane's top: the filter line with the view's name, the picker's question
+ * while one is open, and the strip of list switches under them.
+ */
+export function TodoHeader(p: {
+  filter: RefObject<HTMLInputElement | null>;
+  line: string;
+  onType(v: string): void;
+  onFiltered(): void;
+  named?: string;
+  coarse: boolean;
+  onAdd(): void;
+  picking: SearchHit | null;
+  onCancelPick(): void;
+  mode: Mode;
+  board: boolean;
+  strip: { done(): void; next(): void; view(): void; board(): void };
+}) {
+  const {
+    filter,
+    line,
+    onType,
+    onFiltered,
+    named,
+    coarse,
+    onAdd,
+    picking,
+    onCancelPick,
+    mode,
+    board,
+    strip,
+  } = p;
+  /** The strip's buttons: a tap's height by finger, a line's by mouse. */
+  const pad = coarse ? "min-h-11 px-3" : "px-2 py-1";
+
+  return (
+    <>
+      <header className="flex items-center gap-3 border-b border-one-line px-3 py-1">
+        <span className={LABEL}>todos</span>
+        <input
+          ref={filter}
+          value={line}
+          // A keystroke here carries the view's terms into `typed` whole, so
+          // the line goes on saying what the list is filtered by and the header
+          // stops naming a view it no longer holds.
+          onChange={(event) => onType(event.target.value)}
+          // Both ways out of the input, and both leave the filter applied.
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" && event.key !== "Enter") return;
+            event.preventDefault();
+            onFiltered();
+          }}
+          aria-label="filter todos"
+          autoComplete="off"
+          spellCheck={false}
+          className={INPUT}
+        />
+        {named !== undefined && (
+          <span data-testid="todo-view" className={LABEL}>
+            {named}
+          </span>
+        )}
+        {coarse && (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label="add todo"
+            className="min-h-11 min-w-11 shrink-0 text-one-muted"
+          >
+            +
+          </button>
+        )}
+      </header>
+
+      {/* What the list is for while it is a picker, and whose blocker it is
+          picking. A line of its own, so a narrow header loses no filter. */}
+      {picking !== null && (
+        <div
+          data-testid="todo-pick"
+          className="flex items-center gap-3 border-b border-one-line px-3 text-[11px] text-one-accent"
+        >
+          <span className="min-w-0 flex-1 truncate py-1">
+            ⛔ pick what blocks: {parseTodo(picking.text)?.text}
+          </span>
+          {coarse && (
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={onCancelPick}
+              className="min-h-11 shrink-0 px-3 text-one-muted"
+            >
+              cancel
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* `d`, `n`, `v` and `c` by finger or by mouse. On every pointer, since
+          nothing else on a desktop says the board exists (#419). A finger gets
+          bare words at a tap's height; a mouse gets the footer's key-then-word,
+          so the strip teaches the key. Outside the list, so they stay put while
+          it scrolls, and out of the tab order like every button but the row. */}
+      <div className="flex border-b border-one-line px-1 text-[11px] text-one-muted">
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip.done()}
+          aria-pressed={mode === "done"}
+          className={`${pad} ${mode === "done" ? "text-one-fg" : ""}`}
+        >
+          {coarse ? "done" : "d done"}
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip.next()}
+          aria-pressed={mode === "next"}
+          className={`${pad} ${mode === "next" ? "text-one-fg" : ""}`}
+        >
+          {coarse ? "next" : "n next"}
+        </button>
+        <button type="button" tabIndex={-1} onClick={() => strip.view()} className={pad}>
+          {coarse ? "view" : "v view"}
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip.board()}
+          aria-pressed={board}
+          className={`${pad} ${board ? "text-one-fg" : ""}`}
+        >
+          {coarse ? "board" : "c board"}
+        </button>
+      </div>
+    </>
+  );
+}

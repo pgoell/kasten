@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TreePanel } from "@/components/tree-panel";
+import { DROP, NodeList, useRowDrag } from "@/components/tree-rows";
+import {
+  ancestors,
+  type FileNode,
+  type FolderNode,
+  flattenRows,
+  rowKey,
+  type Shows,
+  startFolder,
+  type TreeNode,
+} from "@/lib/file-tree";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
-import { dropTarget, type MoveMode } from "@/lib/move";
 import { useViewport } from "@/lib/use-viewport";
 
 interface FileExplorerProps {
@@ -44,32 +55,6 @@ interface FileExplorerProps {
   /** Escape in the drawer: close it and hand the focus to the pane on screen. */
   onLeave?: () => void;
 }
-
-interface FolderNode {
-  kind: "folder";
-  name: string;
-  path: string;
-  children: TreeNode[];
-}
-
-interface FileNode {
-  kind: "file";
-  /** Display name: the file name without its `.md` suffix. */
-  name: string;
-  path: string;
-  /**
-   * Set on a row that is an image, an HTML page or a pdf rather than a note.
-   *
-   * A field and not another `kind`, so a folder's contents still sort as one
-   * alphabetical list: images, pages, pdfs and notes sit side by side the way
-   * `ls` shows them, rather than in groups nobody arranged.
-   */
-  shows?: Shows;
-}
-
-type Shows = "image" | "html" | "pdf";
-
-type TreeNode = FolderNode | FileNode;
 
 /**
  * Fold flat vault paths into a folder tree.
@@ -131,20 +116,6 @@ export function buildTree(
   return sortTree(root);
 }
 
-/** The callback a row's click and its Enter both reach. */
-function opener(
-  node: FileNode,
-  onOpenFile: (path: string) => void,
-  onOpenImage: (path: string) => void,
-  onOpenHtml: (path: string) => void,
-  onOpenPdf: (path: string) => void,
-): (path: string) => void {
-  if (node.shows === "image") return onOpenImage;
-  if (node.shows === "html") return onOpenHtml;
-  if (node.shows === "pdf") return onOpenPdf;
-  return onOpenFile;
-}
-
 /** Folders first, then notes, each group alphabetical. */
 function sortTree(nodes: TreeNode[]): TreeNode[] {
   nodes.sort((a, b) => {
@@ -159,332 +130,8 @@ function sortTree(nodes: TreeNode[]): TreeNode[] {
   return nodes;
 }
 
-/** Where a new note goes when the cursor is on this row: "" at the vault root. */
-function startFolder(node: TreeNode | undefined): string {
-  if (!node) return "";
-  if (node.kind === "folder") return `${node.path}/`;
-
-  // A note names the folder it sits in, and a note at the root names none.
-  const cut = node.path.lastIndexOf("/");
-  return cut === -1 ? "" : node.path.slice(0, cut + 1);
-}
-
-interface Row {
-  node: TreeNode;
-  /** Index of the row holding this one, or -1 at the vault root. */
-  parent: number;
-}
-
-/**
- * Every row a reader can see, in display order.
- *
- * The nesting is what the tree renders, but `j` and `k` move down a list, so
- * the keyboard needs the same rows flattened. Collapsed folders keep their
- * children out of it, because a cursor cannot sit on a row nobody can see.
- */
-function flattenRows(nodes: TreeNode[], expanded: ReadonlySet<string>): Row[] {
-  const rows: Row[] = [];
-
-  function walk(level: TreeNode[], parent: number) {
-    for (const node of level) {
-      const index = rows.length;
-      rows.push({ node, parent });
-      if (node.kind === "folder" && expanded.has(node.path)) {
-        walk(node.children, index);
-      }
-    }
-  }
-
-  walk(nodes, -1);
-  return rows;
-}
-
-/**
- * Every folder on the way to `path`, which are the ones that have to be open
- * for it to be on screen.
- *
- * `reading/2026/borges.md` names `reading` and `reading/2026`, spelled the way
- * `buildTree` spells a folder's path, which is without a trailing slash. The
- * note prompt's `startFolder` keeps one; these two are not the same string.
- */
-function ancestors(path: string | undefined): ReadonlySet<string> {
-  const folders = new Set<string>();
-  if (path === undefined) return folders;
-
-  let prefix = "";
-  for (const segment of path.split("/").slice(0, -1)) {
-    prefix = prefix ? `${prefix}/${segment}` : segment;
-    folders.add(prefix);
-  }
-  return folders;
-}
-
-/** Identifies a row across the tree and the flat list, which share no shape. */
-function rowKey(node: TreeNode) {
-  return `${node.kind}:${node.path}`;
-}
-
-/** Indent one step per level, on top of the row's own padding. */
-function indent(depth: number) {
-  return { paddingLeft: `${0.5 + depth * 0.75}rem` };
-}
-
-// 44px under a finger, which is the folder toggle as well: the row is the toggle.
-const ROW =
-  "flex w-full items-center gap-1 rounded-sm py-[3px] pr-2 text-left text-[13px] pointer-coarse:min-h-11";
-
-// 16px of icon and 14px around it is the same 44px.
-const ICON_BUTTON =
-  "cursor-pointer rounded-sm p-1 text-one-muted hover:bg-one-hover hover:text-one-accent pointer-coarse:p-3.5";
-
-/**
- * The keyboard cursor, drawn the way vim draws its own.
- *
- * A hollow outline while the tree is idle, filled in and brighter once it holds
- * the focus, in the same red as the block cursor in the editor. The vim package
- * makes exactly this distinction for the same reason: a cursor you are about to
- * type at should not look like one you left behind.
- */
-const CURSOR = [
-  "outline-1 -outline-offset-1 outline-one-cursor/45",
-  "focus:outline-2 focus:outline-one-cursor focus:bg-one-cursor/15",
-].join(" ");
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 16 16"
-      className={`size-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`}
-      fill="currentColor"
-    >
-      <path d="M6 4l4 4-4 4z" />
-    </svg>
-  );
-}
-
-interface NodeListProps {
-  nodes: TreeNode[];
-  depth: number;
-  expanded: ReadonlySet<string>;
-  openPath?: string;
-  /** The row the keyboard cursor is on, which is the panel's only tab stop. */
-  cursorKey: string;
-  onToggleFolder: (path: string) => void;
-  onOpenFile: (path: string) => void;
-  onOpenImage: (path: string) => void;
-  onOpenHtml: (path: string) => void;
-  onOpenPdf: (path: string) => void;
-  drag: DragHandlers;
-}
-
-/**
- * What a row needs to take part in a drag, handed down the tree as one prop.
- *
- * A row names the folder it would drop into: a folder its own path, a note the
- * folder it sits in, so a drop on any row lands somewhere a reader can see.
- */
-interface DragHandlers {
-  start: (event: React.DragEvent, node: TreeNode) => void;
-  over: (event: React.DragEvent, folder: string) => void;
-  drop: (event: React.DragEvent, folder: string) => void;
-  end: () => void;
-  /** The folder the pointer would drop into, `""` for the vault root, or null. */
-  target: string | null;
-}
-
-/** The folder a note sits in, `""` at the vault root. */
-function parentOf(path: string): string {
-  const cut = path.lastIndexOf("/");
-  return cut === -1 ? "" : path.slice(0, cut);
-}
-
-/** How a row draws the folder it would drop into. */
-const DROP = "bg-one-accent/20 outline-1 -outline-offset-1 outline-one-accent";
-
-function NodeList({
-  nodes,
-  depth,
-  expanded,
-  openPath,
-  cursorKey,
-  onToggleFolder,
-  onOpenFile,
-  onOpenImage,
-  onOpenHtml,
-  onOpenPdf,
-  drag,
-}: NodeListProps) {
-  return (
-    <ul>
-      {nodes.map((node) => {
-        const key = rowKey(node);
-        // One tab stop for the whole panel: tab reaches the cursor, and the
-        // vim keys move it from there.
-        const tabIndex = key === cursorKey ? 0 : -1;
-
-        if (node.kind === "file") {
-          const current = node.path === openPath;
-
-          return (
-            <li key={key}>
-              <button
-                type="button"
-                data-row={key}
-                tabIndex={tabIndex}
-                onClick={() =>
-                  opener(node, onOpenFile, onOpenImage, onOpenHtml, onOpenPdf)(node.path)
-                }
-                // Notes only. An image, a page or a pdf has no route that moves
-                // it on its own; the folder it sits in carries it.
-                draggable={node.shows === undefined}
-                onDragStart={(event) => drag.start(event, node)}
-                onDragOver={(event) => drag.over(event, parentOf(node.path))}
-                onDrop={(event) => drag.drop(event, parentOf(node.path))}
-                onDragEnd={drag.end}
-                aria-current={current ? "page" : undefined}
-                style={indent(depth)}
-                title={node.path}
-                // An image or a page is muted against the notes, the way a
-                // wikilink to a note nobody has written is: what the tree is for
-                // is the notes, and this row is the vault admitting it holds
-                // something else.
-                className={`${ROW} cursor-pointer ${
-                  current
-                    ? "bg-one-hover text-one-accent"
-                    : `${node.shows !== undefined ? "text-one-muted" : "text-one-fg"} hover:bg-one-hover`
-                } ${tabIndex === 0 ? CURSOR : ""}`}
-              >
-                {/* Holds the chevron's column so note names line up with folder names. */}
-                <span className="size-3 shrink-0" />
-                <span className="truncate">{node.name}</span>
-              </button>
-            </li>
-          );
-        }
-
-        const open = expanded.has(node.path);
-
-        return (
-          <li key={key}>
-            <button
-              type="button"
-              data-row={key}
-              tabIndex={tabIndex}
-              onClick={() => onToggleFolder(node.path)}
-              aria-expanded={open}
-              draggable
-              onDragStart={(event) => drag.start(event, node)}
-              onDragOver={(event) => drag.over(event, node.path)}
-              onDrop={(event) => drag.drop(event, node.path)}
-              onDragEnd={drag.end}
-              style={indent(depth)}
-              className={`${ROW} cursor-pointer text-one-muted hover:bg-one-hover hover:text-one-fg ${
-                tabIndex === 0 ? CURSOR : ""
-              } ${drag.target === node.path ? DROP : ""}`}
-            >
-              <Chevron open={open} />
-              <span className="truncate">{node.name}</span>
-            </button>
-            {open && (
-              <NodeList
-                nodes={node.children}
-                depth={depth + 1}
-                expanded={expanded}
-                openPath={openPath}
-                cursorKey={cursorKey}
-                onToggleFolder={onToggleFolder}
-                onOpenFile={onOpenFile}
-                onOpenImage={onOpenImage}
-                onOpenHtml={onOpenHtml}
-                onOpenPdf={onOpenPdf}
-                drag={drag}
-              />
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-/** Panel widths, in pixels. The default is the `w-64` the panel used to be. */
-const DEFAULT_WIDTH = 256;
-const MIN_WIDTH = 160;
-const MAX_WIDTH = 480;
-/** How far one arrow key press moves the grip. */
-const KEY_STEP = 16;
-
-function clampWidth(width: number) {
-  return Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH);
-}
-
-interface GripProps {
-  width: number;
-  dragging: boolean;
-  onResizeStart: (clientX: number) => void;
-  onResizeBy: (delta: number) => void;
-  onReset: () => void;
-}
-
-/**
- * The drag handle on the panel's right edge.
- *
- * It straddles the border rather than taking layout space of its own, so the
- * tree keeps the full width the panel reports.
- */
-function Grip({ width, dragging, onResizeStart, onResizeBy, onReset }: GripProps) {
-  function onKeyDown(event: React.KeyboardEvent) {
-    const delta = event.key === "ArrowRight" ? KEY_STEP : event.key === "ArrowLeft" ? -KEY_STEP : 0;
-    if (!delta) return;
-    event.preventDefault();
-    onResizeBy(delta);
-  }
-
-  return (
-    // biome-ignore lint/a11y/useSemanticElements: <hr> is a thematic break in prose, not a handle you can grab.
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize file tree"
-      aria-valuenow={width}
-      aria-valuemin={MIN_WIDTH}
-      aria-valuemax={MAX_WIDTH}
-      tabIndex={0}
-      onPointerDown={(event) => onResizeStart(event.clientX)}
-      onDoubleClick={onReset}
-      onKeyDown={onKeyDown}
-      className={`absolute inset-y-0 -right-0.5 z-10 w-1 cursor-col-resize touch-none focus-visible:outline-none ${
-        dragging ? "bg-one-accent" : "hover:bg-one-accent focus-visible:bg-one-accent"
-      }`}
-    />
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="currentColor">
-      <path d="M7.25 3h1.5v4.25H13v1.5H8.75V13h-1.5V8.75H3v-1.5h4.25V3z" />
-    </svg>
-  );
-}
-
-function PanelIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="currentColor">
-      <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3zm1 0v10h3V3H3zm4 0v10h6V3H7z" />
-    </svg>
-  );
-}
-
 /**
  * The vault's file tree, in a panel that folds away to a narrow rail.
- *
- * Below `md` the panel is a drawer over the page instead: 256px beside a note
- * leaves 134px of a phone for the note. The rail stays in the row either way,
- * so the page under the drawer does not move when it opens. A phone draws no
- * rail at all: the toolbar along its bottom edge opens the drawer, and 45px
- * of rail is an eighth of the note's width.
  *
  * Clicking a note reports its path and nothing more. Which note is open is the
  * caller's business, and it keeps that in the URL.
@@ -515,20 +162,14 @@ export function FileExplorer({
   // named in the URL has to be visible, or a reload lands on a tree that has
   // hidden what it is showing you.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => ancestors(openPath));
-  const { narrow, coarse } = useViewport();
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
-  /** Where the pointer went down, and how wide the panel was then. */
-  const [drag, setDrag] = useState<{ x: number; width: number } | null>(null);
+  const { narrow } = useViewport();
   /** Which row the vim keys act on. */
   const [active, setActive] = useState(0);
-  /** The row being dragged, held here because a drag's own data cannot be
-   * read until the drop, and every row it passes has to know whether it would
-   * take it. */
-  const [dragged, setDragged] = useState<{ path: string; mode: MoveMode } | null>(null);
-  /** The folder under the pointer that would take the drop. */
-  const [dropOn, setDropOn] = useState<string | null>(null);
-  /** Unfolds the folder a drag rests on, so a drop can reach inside it. */
-  const unfoldTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const rowDrag = useRowDrag({
+    expanded,
+    unfold: (folder) => setExpanded((previous) => new Set([...previous, folder])),
+    commands,
+  });
   /** The keys of an unfinished sequence, `g` or the leader and what follows it. */
   const [pending, setPending] = useState("");
   const nav = useRef<HTMLElement>(null);
@@ -604,76 +245,13 @@ export function FileExplorer({
     panel.querySelector<HTMLElement>(`[data-row="${cursorKey}"]`)?.focus();
   }, [cursorKey]);
 
-  // The pointer leaves the thin grip the moment the drag speeds up, so the rest
-  // of the gesture is followed on the window instead.
-  useEffect(() => {
-    if (!drag) return;
-    const origin = drag;
-
-    function onMove(event: PointerEvent) {
-      setWidth(clampWidth(origin.width + event.clientX - origin.x));
-    }
-    function onUp() {
-      setDrag(null);
-    }
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    // Without this the drag selects text and flickers the I-beam over the editor.
-    const { cursor, userSelect } = document.body.style;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      document.body.style.cursor = cursor;
-      document.body.style.userSelect = userSelect;
-    };
-  }, [drag]);
-
-  const rowDrag: DragHandlers = {
-    start(event, node) {
-      // Set so Firefox starts the drag at all; nothing reads it back.
-      event.dataTransfer.setData("text/plain", node.path);
-      event.dataTransfer.effectAllowed = "move";
-      setDragged({ path: node.path, mode: node.kind === "folder" ? "folder" : "rename" });
-    },
-    over(event, folder) {
-      // Handled here, so the panel behind the row does not take it as a drop
-      // on the vault root.
-      event.stopPropagation();
-      if (!dragged || dropTarget(dragged.path, dragged.mode, folder) === undefined) {
-        setDropOn(null);
-        return;
-      }
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      if (folder === dropOn) return;
-      setDropOn(folder);
-      clearTimeout(unfoldTimer.current);
-      // Long enough that sweeping past a folder leaves it shut.
-      if (folder && !expanded.has(folder)) {
-        unfoldTimer.current = setTimeout(
-          () => setExpanded((previous) => new Set([...previous, folder])),
-          600,
-        );
-      }
-    },
-    drop(event, folder) {
-      event.preventDefault();
-      event.stopPropagation();
-      const target = dragged && dropTarget(dragged.path, dragged.mode, folder);
-      if (dragged && target) commands.moveRow(dragged.path, dragged.mode, target);
-      rowDrag.end();
-    },
-    end() {
-      clearTimeout(unfoldTimer.current);
-      setDragged(null);
-      setDropOn(null);
-    },
-    target: dropOn,
-  };
+  /** The callback a row's click and its Enter both reach. */
+  function openRow(node: FileNode) {
+    if (node.shows === "image") onOpenImage(node.path);
+    else if (node.shows === "html") onOpenHtml(node.path);
+    else if (node.shows === "pdf") onOpenPdf(node.path);
+    else onOpenFile(node.path);
+  }
 
   /** The prompt opens on the folder the cursor is on, not the focused row: a
    * click puts the focus on the button itself. */
@@ -824,7 +402,7 @@ export function FileExplorer({
         else if (folder) setActive(Math.min(cursor + 1, rows.length - 1));
         else if (row) {
           const file = row.node.kind === "file" ? row.node : null;
-          if (file) opener(file, onOpenFile, onOpenImage, onOpenHtml, onOpenPdf)(file.path);
+          if (file) openRow(file);
         }
         break;
       default:
@@ -842,66 +420,8 @@ export function FileExplorer({
     });
   }
 
-  const toggle = (
-    <button
-      type="button"
-      onClick={() => onOpenChange(!open)}
-      aria-label={open ? "Hide file tree" : "Show file tree"}
-      title={`${open ? "Hide" : "Show"} file tree (Space B)`}
-      className={ICON_BUTTON}
-    >
-      <PanelIcon />
-    </button>
-  );
-
-  // Narrow and a finger, which is when the route draws its toolbar. A narrow
-  // window under a mouse has no toolbar and keeps the rail to click on.
-  const rail =
-    narrow && coarse ? null : (
-      // Inert under an open drawer, where its button would be a second "Hide
-      // file tree" that Tab reaches behind the backdrop.
-      <div
-        inert={open}
-        className="flex shrink-0 flex-col items-center border-r border-one-line bg-one-panel p-1 pointer-coarse:p-0"
-      >
-        {toggle}
-      </div>
-    );
-
-  if (!open) return rail;
-
-  const panel = (
-    <aside
-      // No dragged width in a drawer: it has no grip to have set one, and a
-      // width carried over from a wide window could cover the whole phone.
-      style={narrow ? undefined : { width }}
-      // z-15 puts the drawer over what a pane draws at z-10 and under the
-      // prompts at z-20, so a prompt opened from the tree is not behind it.
-      className={`flex flex-col border-r border-one-line bg-one-panel font-mono ${
-        // A drawer is `fixed` over the frame and gets none of its padding, so
-        // it keeps its rows out from under the notch and the home indicator
-        // itself (#355). It never reaches the right edge.
-        narrow
-          ? "safe-foot fixed inset-y-0 left-0 z-15 w-72 max-w-[85vw] pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)]"
-          : "relative shrink-0"
-      }`}
-    >
-      <header className="flex items-center justify-between border-b border-one-line py-1 pr-1 pl-3 pointer-coarse:py-0 pointer-coarse:pr-0">
-        <span className="text-[11px] tracking-wider text-one-muted uppercase">Vault</span>
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={newNote}
-            aria-label="New note"
-            title="New note (Space C F)"
-            className={ICON_BUTTON}
-          >
-            <PlusIcon />
-          </button>
-          {toggle}
-        </div>
-      </header>
-
+  return (
+    <TreePanel open={open} onOpenChange={onOpenChange} onNewNote={newNote}>
       {/* The handler sits on the panel, not the rows: the keys act on the row
           the cursor is on, which is not always the one holding focus. */}
       {/* The space around the rows is the vault root, as a place to drop on. */}
@@ -911,7 +431,7 @@ export function FileExplorer({
         onKeyDown={onKeyDown}
         onDragOver={(event) => rowDrag.over(event, "")}
         onDrop={(event) => rowDrag.drop(event, "")}
-        className={`flex-1 overflow-auto p-1 ${dropOn === "" ? DROP : ""}`}
+        className={`flex-1 overflow-auto p-1 ${rowDrag.target === "" ? DROP : ""}`}
       >
         {tree.length === 0 ? (
           <p className="px-2 py-1 text-[13px] text-one-muted">No notes yet</p>
@@ -923,41 +443,11 @@ export function FileExplorer({
             openPath={openPath}
             cursorKey={cursorKey}
             onToggleFolder={toggleFolder}
-            onOpenFile={onOpenFile}
-            onOpenImage={onOpenImage}
-            onOpenHtml={onOpenHtml}
-            onOpenPdf={onOpenPdf}
+            onOpen={openRow}
             drag={rowDrag}
           />
         )}
       </nav>
-
-      {!narrow && (
-        <Grip
-          width={width}
-          dragging={drag !== null}
-          onResizeStart={(x) => setDrag({ x, width })}
-          onResizeBy={(delta) => setWidth(clampWidth(width + delta))}
-          onReset={() => setWidth(DEFAULT_WIDTH)}
-        />
-      )}
-    </aside>
-  );
-
-  if (!narrow) return panel;
-
-  return (
-    <>
-      {rail}
-      {/* A button rather than a div with a click handler, so the way out has a
-          name and a key. */}
-      <button
-        type="button"
-        aria-label="Close file tree"
-        onClick={() => onOpenChange(false)}
-        className="fixed inset-0 z-15 bg-black/50"
-      />
-      {panel}
-    </>
+    </TreePanel>
   );
 }

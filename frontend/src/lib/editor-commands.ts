@@ -1,4 +1,4 @@
-import { Facet } from "@codemirror/state";
+import { type Extension, Facet } from "@codemirror/state";
 import { type CodeMirrorV, Vim } from "@replit/codemirror-vim";
 import { FORMAT, LEADER_EDITS } from "@/lib/buffer-keys";
 import { toggleMark } from "@/lib/format-commands";
@@ -15,6 +15,74 @@ import { LEADER, TAB_KEYS } from "@/lib/leader-keys";
 export const editorCommands = Facet.define<EditorCommands, EditorCommands | undefined>({
   combine: (handlers) => handlers[0],
 });
+
+/**
+ * Each one reads the ref rather than closing over the prop, so a
+ * re-render never has to rebuild the view to refresh a callback.
+ */
+export function forwardCommands(get: () => EditorCommands | undefined): Extension {
+  return editorCommands.of({
+    toggleTree: () => get()?.toggleTree(),
+    toggleArchive: () => get()?.toggleArchive(),
+    togglePreview: () => get()?.togglePreview(),
+    closeNote: () => get()?.closeNote(),
+    showHelp: () => get()?.showHelp(),
+    openPalette: () => get()?.openPalette(),
+    focusTree: () => get()?.focusTree(),
+    revealTree: () => get()?.revealTree(),
+    createNote: (startPath) => get()?.createNote(startPath),
+    // No path: the editor holds one note, and the route already knows
+    // which. The tree is the caller that names one.
+    renameNote: (startPath) => get()?.renameNote(startPath),
+    deleteNote: (startPath) => get()?.deleteNote(startPath),
+    restoreDeleted: () => get()?.restoreDeleted(),
+    findNote: () => get()?.findNote(),
+    searchNotes: () => get()?.searchNotes(),
+    findTodos: () => get()?.findTodos(),
+    findBook: () => get()?.findBook(),
+    openTodos: () => get()?.openTodos(),
+    showBacklinks: () => get()?.showBacklinks(),
+    showLinksOut: () => get()?.showLinksOut(),
+    openDaily: () => get()?.openDaily(),
+    openWeekly: () => get()?.openWeekly(),
+    openMonthly: () => get()?.openMonthly(),
+    openQuarterly: () => get()?.openQuarterly(),
+    openYearly: () => get()?.openYearly(),
+    openBook: () => get()?.openBook(),
+    openReadingBook: () => get()?.openReadingBook(),
+    openPerson: () => get()?.openPerson(),
+    openHistory: () => get()?.openHistory(),
+    openGraph: () => get()?.openGraph(),
+    openLocalGraph: () => get()?.openLocalGraph(),
+    openVideo: () => get()?.openVideo(),
+    toggleVideo: () => get()?.toggleVideo(),
+    uploadBook: () => get()?.uploadBook(),
+    importNotes: () => get()?.importNotes(),
+    exportNote: () => get()?.exportNote(),
+    openExam: () => get()?.openExam(),
+    openReview: () => get()?.openReview(),
+    createTab: () => get()?.createTab(),
+    openTerminal: () => get()?.openTerminal(),
+    openChat: () => get()?.openChat(),
+    importPage: () => get()?.importPage(),
+    captureDump: () => get()?.captureDump(),
+    splitRight: () => get()?.splitRight(),
+    splitDown: () => get()?.splitDown(),
+    nextPane: () => get()?.nextPane(),
+    paneLeft: () => get()?.paneLeft(),
+    paneDown: () => get()?.paneDown(),
+    paneUp: () => get()?.paneUp(),
+    paneRight: () => get()?.paneRight(),
+    movePaneLeft: () => get()?.movePaneLeft(),
+    movePaneDown: () => get()?.movePaneDown(),
+    movePaneUp: () => get()?.movePaneUp(),
+    movePaneRight: () => get()?.movePaneRight(),
+    zoomPane: () => get()?.zoomPane(),
+    nextTab: () => get()?.nextTab(),
+    prevTab: () => get()?.prevTab(),
+    goToTab: (index) => get()?.goToTab(index),
+  });
+}
 
 // Vim ships `<Space>` bound to `l`, and its dispatcher takes a full match over
 // a partial one, so `<Space>b` can never begin a sequence while the built-in

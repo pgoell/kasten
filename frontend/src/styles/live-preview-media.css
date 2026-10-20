@@ -1,0 +1,73 @@
+/* The picture an `![](path)` is drawn as. Its own line's worth of height and
+   never wider than the column: a screenshot is two thousand pixels across and
+   the note is not, and `height: auto` is what keeps it from being squashed.
+   `vertical-align` because the widget replaces inline text, whose baseline
+   would otherwise leave a gap under the image. */
+.cm-image {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: top;
+  border-radius: 3px;
+}
+
+/* The player an `![](word.mp3)` is drawn as. The browser's own width, never
+   past the column's on a phone, and `vertical-align` for the picture's reason:
+   it replaces inline text and sits on that text's baseline otherwise. */
+.cm-audio {
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+/* The player a `![](youtube link)` is drawn as. 16:9 because that is the shape
+   the player wants, and the note's column is the width, so the frame is as wide
+   as the text it sits in rather than as wide as the window. `block` and not the
+   picture's `inline-block`: a video is never half a sentence. */
+.cm-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 3px;
+}
+
+/* `![[note]]`, another note drawn in this one. The bar and the well make it read
+   as quoted rather than as more of this note, the bar matching the blockquote's.
+   The nested editor's own background goes, or oneDark would paint a second
+   panel over the well. */
+.cm-embed {
+  display: block;
+  max-width: 100%;
+  border-left: 3px solid var(--color-one-muted);
+  background: var(--color-one-well);
+  border-radius: 3px;
+  padding: 0.25em 0.75em;
+}
+
+.cm-embed .cm-editor {
+  background: transparent;
+}
+
+.cm-pdf-page {
+  width: 100%;
+  margin-bottom: 0.25em;
+  background: white;
+}
+
+.cm-pdf-page canvas {
+  display: block;
+}
+
+/* A note or heading the vault does not hold, and the embed past the depth cap:
+   a name in a box, muted, the box saying where the note would have been. */
+.cm-embed-missing,
+.cm-embed-stub {
+  color: var(--color-one-muted);
+  font-style: italic;
+}
+
+.cm-embed-stub {
+  display: block;
+  border-left: 3px dashed var(--color-one-muted);
+  padding: 0.25em 0.75em;
+}
