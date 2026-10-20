@@ -30,10 +30,11 @@ WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 DUMP = "## Dump"
 """The heading `/close-day` reads the day's unsorted thoughts from."""
 
-_SECTION_END = re.compile(r"^#{1,2} ")
+SECTION_END = re.compile(r"^#{1,2} ")
 """A heading at the dump's own level or above, which is where the dump stops.
 
 Not every heading: a `###` written inside the dump is part of what was dumped.
+`log.py` ends a `## Log` section by the same rule.
 """
 
 
@@ -71,7 +72,7 @@ def append_dump(text: str, capture: str) -> str:
         return f"{text.rstrip(chr(10))}\n\n{DUMP}\n{capture}\n"
 
     end = next(
-        (index for index in range(at + 1, len(lines)) if _SECTION_END.match(lines[index])),
+        (index for index in range(at + 1, len(lines)) if SECTION_END.match(lines[index])),
         len(lines),
     )
     last = end

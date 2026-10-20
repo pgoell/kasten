@@ -13,7 +13,7 @@ The day's water, coffee, alcohol and food are lines in its daily note, under
 `## Log`. The line is the record, as a todo is: nothing about an entry lives
 anywhere else, so Obsidian or `cat` shows all of it, and the note's date is the
 entry's date. `GET /api/log` reads the lines and adds them up; see
-[the HTTP API](/reference/http-api.md).
+[the HTTP API](/reference/http-api/log.md).
 
 ```markdown
 ## Log
