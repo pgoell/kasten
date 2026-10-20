@@ -2137,6 +2137,47 @@ def test_a_side_opening_a_fence_opens_none() -> None:
     )
 
 
+def test_674_a1_a_side_opening_with_tildes_opens_no_fence() -> None:
+    # The editor's parser reads `~~~` as a fence too, so the card under it
+    # would be code and no card.
+    deck = basic_deck(("~~~", "b"), ("~~~a::b", "~~~c"), ("a", "b"))
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n\\~~~::b{mark(1)}\n\n\\~~~a::b\n?\n\\~~~c{mark(2)}\n\na::b{mark(3)}\n"
+    )
+
+
+def test_674_i1_every_fence_opening_a_side_line_is_escaped() -> None:
+    # A longer run is a fence, and so is one up to three spaces in, whose
+    # spaces stay before the backslash.
+    deck = basic_deck(
+        ("~~~~ x", "b"), ("````y", "b"), ("   ~~~z", "b"), ("~~~1\n~~~2", "~~~3\n~~~4")
+    )
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n\\~~~~ x::b{mark(1)}\n\\````y::b{mark(2)}\n   \\~~~z::b{mark(3)}\n\n"
+        f"\\~~~1\n\\~~~2\n?\n\\~~~3\n\\~~~4{mark(4)}\n"
+    )
+
+
+def test_674_i2_a_re_import_escapes_a_tilde_side_and_keeps_its_schedule() -> None:
+    # The old import wrote the side bare, so the marker's hash still finds it
+    # and the card reads as one Anki changed.
+    old = (
+        f"#flashcards/x\n\n~~~ js::code{marked(1, '~~~ js::code')} {SR1}\na::b{marked(2, 'a::b')}\n"
+    )
+
+    merged = merge(old, basic_deck(("~~~ js", "code"), ("a", "b")))
+
+    assert merged is not None
+    assert (merged.text, merged.updated, merged.kept) == (
+        f"#flashcards/x\n\n\\~~~ js::code{marked(1, '\\~~~ js::code')} {SR1}\n"
+        f"a::b{marked(2, 'a::b')}\n",
+        1,
+        1,
+    )
+
+
 def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
     deck = basic_deck(("What does std::move do?", ""), ("a", "b"))
 

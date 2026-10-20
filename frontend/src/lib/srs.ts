@@ -384,26 +384,27 @@ export function parseCards(text: string, note = ""): Card[] {
   const owned: string[][] = [];
   /** Lines whose tags a card took, which are therefore not the note's. */
   const claimed = new Set<number>();
+  // obsidian-spaced-repetition reads a fence whole, so a blank line, a heading,
+  // tags or the token inside code is the fence's and ends no card (#675).
+  const ends = (at: number) => !code[at] && breaks(lines[at]);
 
   for (const [at, line] of lines.entries()) {
     if (code[at] || line.trim() !== "?") continue;
 
-    // The front runs back to the blank line or heading above it. A `?` with
-    // nothing over it is a line of prose, not a card missing its question.
+    // The front runs back to the blank line or heading above it, outside code.
+    // A `?` with nothing over it is a line of prose, not a card missing its question.
     // A line holding a mark ends it too: directly over the `?` it is the whole
     // front, the cloze this card asks, and further up it is a cloze of its own,
     // which is the one reading `review.ts` can make off the matched lines.
-    const cloze = !breaks(lines[at - 1]) && holdsCloze(lines[at - 1]);
+    const cloze = !ends(at - 1) && holdsCloze(lines[at - 1]);
     let from = cloze ? at - 1 : at;
-    if (!cloze) while (!breaks(lines[from - 1]) && !holdsCloze(lines[from - 1])) from--;
+    if (!cloze) while (!ends(from - 1) && !holdsCloze(lines[from - 1])) from--;
     if (from === at) continue;
 
+    // The back runs down the same way. A schedule ends it in code too, so a
+    // fence nobody closed keeps its one schedule.
     let to = at;
-    while (
-      !breaks(lines[to + 1]) &&
-      !SR.test(lines[to + 1] ?? "") &&
-      !CLOZE_SR.test(lines[to + 1] ?? "")
-    ) {
+    while (!ends(to + 1) && !SR.test(lines[to + 1] ?? "") && !CLOZE_SR.test(lines[to + 1] ?? "")) {
       to++;
     }
     // A `?` with nothing under it is no card, except under a cloze, whose `?`

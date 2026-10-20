@@ -91,8 +91,8 @@ casts to an rvalue
 
 A question ending in a colon, such as `Ratio 1:`, is written with a space
 before the `::`, so the colon stays on the question. A side that would open its
-line with three backticks has them escaped, `` \`\`\`js ``, so it opens no code
-block that would hide the cards below it.
+line with three backticks or three tildes has them escaped, `` \`\`\`js `` or
+`\~~~`, so it opens no code block that would hide the cards below it.
 
 A side running over several lines, a list or a field with line breaks in it,
 is written over three lines the same way, each side keeping its lines:
@@ -277,7 +277,8 @@ brackets, as Anki shows it.
 Text that markdown would read as formatting gets a backslash, so it reads as
 text: `2\*3`, `snake\_case`, `` \` ``, `\[note]` and `\=\=`. A backslash the
 field shows is written `\\`, so `a\-b` stays `a\-b` and is no escape. A line
-opening with three backticks is written `` \`\`\` ``, so it opens no code block.
+opening with three backticks or three tildes is written `` \`\`\` `` or `\~~~`,
+so it opens no code block.
 Inside code, `<code>` or a line of a `<pre>`, only a schedule comment and the
 import's own marker get a backslash, because kasten reads those in code too.
 Review shows and types them without it, as Anki shows them.

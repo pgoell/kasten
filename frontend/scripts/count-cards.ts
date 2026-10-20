@@ -6,9 +6,14 @@
  * branch over a copy of the vault and diff the two outputs. It counts cards per
  * deck as `parseCards` reads them, over every .md under the dir (archive too),
  * so not the overview's numbers: no parent-deck rollup, no #review whole notes.
+ * `--cards` prints every card on its own line instead, because a count per deck
+ * missed a card cut short and a schedule lost while the totals held.
  *
  *   bun scripts/count-cards.ts <vault dir>
+ *   bun scripts/count-cards.ts --cards <vault dir>
  *   bun scripts/count-cards.ts --time <note file>
+ *
+ * The walk skips a `.jj` or `.git` directory, which a copy of the vault may hold.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,7 +23,30 @@ import { parseCards } from "@/lib/srs";
 
 const [first, second] = process.argv.slice(2);
 
-if (first === "--time" && second !== undefined) {
+/** Every .md under `dir`, sorted, so two runs list notes in the same order. */
+function notesUnder(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((path) => path.endsWith(".md"))
+    .filter((path) => !path.split("/").some((part) => part === ".jj" || part === ".git"))
+    .sort();
+}
+
+// Backslashes first, or the `\n` written for a newline would read back as one.
+function escaped(text: string): string {
+  return text.replaceAll("\\", "\\\\").replaceAll("\n", "\\n").replaceAll("\t", "\\t");
+}
+
+if (first === "--cards" && second !== undefined) {
+  for (const path of notesUnder(second)) {
+    const cards = parseCards(readFileSync(join(second, path), "utf8"), noteName(path));
+    for (const card of cards.sort((a, b) => a.from - b.from)) {
+      const held = card.held ? `${card.held.due},${card.held.interval},${card.held.ease}` : "-";
+      const fields = [path, card.from, card.to, card.decks.join(","), escaped(card.front)];
+      fields.push(escaped(card.back), held, card.parked ?? "-", card.cloze ?? "-");
+      console.log(fields.join("\t"));
+    }
+  }
+} else if (first === "--time" && second !== undefined) {
   const notes = [{ path: second, text: readFileSync(second, "utf8") }];
   const today = new Date().toISOString().slice(0, 10);
   for (let i = 0; i < 5; i++) decksFrom(notes, today);
@@ -34,8 +62,7 @@ if (first === "--time" && second !== undefined) {
   // A card in two decks counts in each, and once in the total.
   const counts = new Map<string, number>();
   let total = 0;
-  for (const path of readdirSync(first, { recursive: true, encoding: "utf8" })) {
-    if (!path.endsWith(".md")) continue;
+  for (const path of notesUnder(first)) {
     const text = readFileSync(join(first, path), "utf8");
     for (const card of parseCards(text, noteName(path))) {
       if (card.decks.length > 0) total++;
@@ -47,6 +74,6 @@ if (first === "--time" && second !== undefined) {
   }
   console.log(`total\t${total}`);
 } else {
-  console.error("usage: bun scripts/count-cards.ts <vault dir> | --time <note file>");
+  console.error("usage: bun scripts/count-cards.ts [--cards] <vault dir> | --time <note file>");
   process.exit(1);
 }

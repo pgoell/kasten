@@ -71,6 +71,26 @@ describe("decksFrom", () => {
     expect(deck).toMatchObject({ due: 1, fresh: 1 });
   });
 
+  it("#675 I7 counts a card with a blank line in its fence once, as due by its schedule", () => {
+    const [deck] = decksFrom(
+      note("d.md", [
+        "#flashcards",
+        "",
+        "q",
+        "?",
+        "answer",
+        "```py",
+        "a = 1",
+        "",
+        "b = 2",
+        "```",
+        "<!--SR:!2026-08-01,3,250-->",
+      ]),
+      TODAY,
+    );
+    expect(deck).toMatchObject({ due: 1, fresh: 0 });
+  });
+
   it("leaves a card inside a code fence out", () => {
     // The fenced note in `backend/tests/test_cards.py`.
     const [deck] = decksFrom(
