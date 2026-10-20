@@ -79,22 +79,30 @@ def _live(text: str) -> list[bool]:
     return live
 
 
-def _open_fence(lines: list[str], first: int) -> int | None:
-    """The index of the line opening a fence that nothing closes, from `first` on, or None."""
-    opened: tuple[int, str] | None = None
-    for index in range(first, len(lines)):
-        fence = FENCE_LINE.match(lines[index])
-        if fence is None:
-            continue
-        if opened is None:
-            opened = index, fence[1]
-        elif (
-            lines[index].strip() == fence[1]
-            and fence[1][0] == opened[1][0]
-            and len(fence[1]) >= len(opened[1])
-        ):
-            opened = None
-    return None if opened is None else opened[0]
+def _open_fence(text: str, lines: list[str]) -> int | None:
+    """The index of the line opening a fence that runs to the note's end, or None.
+
+    markdown-it decides which line opens a fence, so `code_spans` is asked rather
+    than the lines read one by one: a backtick run with a backtick after it opens
+    nothing, and a four-backtick span is no closer for a three-backtick fence. The
+    span holding the note's last character is the fence; a closing line after its
+    opener means it was closed after all.
+    """
+    body = body_start(text)
+    last = len(text) - 1 - body
+    found = next((span for span in code_spans(text[body:]) if span[0] <= last < span[1]), None)
+    if found is None:
+        return None
+    opener = text.count("\n", 0, body + found[0])
+    marker = FENCE_LINE.match(lines[opener])
+    if marker is None:
+        return None
+    fence = marker[1]
+    closed = any(
+        (stripped := line.strip()) == fence[0] * len(stripped) and len(stripped) >= len(fence)
+        for line in lines[opener + 1 :]
+    )
+    return None if closed else opener
 
 
 def _heading(text: str, lines: list[str], live: list[bool]) -> int | None:
@@ -111,7 +119,7 @@ def _heading(text: str, lines: list[str], live: list[bool]) -> int | None:
     if at is not None:
         return at
 
-    opened = _open_fence(lines, text.count("\n", 0, body_start(text)))
+    opened = _open_fence(text, lines)
     if opened is None:
         return None
     return next(
