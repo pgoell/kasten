@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: system"
 description: Routes that report the process and its version, stream changes to the vault, name the terminals, and make and revoke agent tokens.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
 ---

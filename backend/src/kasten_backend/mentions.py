@@ -7,7 +7,8 @@ are not places a link would go, so a name there is not a mention.
 
 rg finds the notes that hold one of the names at all, and Python reads those
 few to find where, because rg's word boundary is not the one wanted here and
-what counts as code or a link is decided by the readers `links.py` already has.
+what counts as code or a link is decided by the readers `code_spans.py` and
+`links.py` already have.
 """
 
 import asyncio
@@ -15,8 +16,9 @@ import re
 from bisect import bisect_right
 from typing import TYPE_CHECKING, NamedTuple
 
+from kasten_backend.code_spans import WIKILINK, code_spans
 from kasten_backend.frontmatter import aliases, body_start
-from kasten_backend.links import MARKDOWN_LINK, SUFFIX, WIKILINK, code_spans
+from kasten_backend.links import MARKDOWN_LINK, SUFFIX
 from kasten_backend.search import notes_holding
 from kasten_backend.todos import tags_in
 from kasten_backend.vault import read_note

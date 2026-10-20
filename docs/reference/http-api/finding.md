@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finding"
 description: Routes that search the vault, list its tags and mentions, draw its link graph, and name the folder layout.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
 ---

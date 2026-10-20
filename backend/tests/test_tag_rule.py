@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from kasten_backend import mentions, tags, todos
-from kasten_backend.graph import query_graph, read_graph
+from kasten_backend.graph import read_graph
+from kasten_backend.graph_query import query_graph
 from kasten_backend.tags import find_tags
 from kasten_backend.vault import read_note
 

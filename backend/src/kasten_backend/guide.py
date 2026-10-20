@@ -18,8 +18,9 @@ from pathlib import Path
 
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import DEFAULTS, Settings, get_settings
+from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import stamp
-from kasten_backend.vault import create_note, resolve_path
+from kasten_backend.vault import resolve_path
 
 TODO_GUIDE = "01 Agents/How-To-TODO.md"
 """Where the todo guide lives inside `KASTEN_CONFIG_PATH`, beside the saved views."""

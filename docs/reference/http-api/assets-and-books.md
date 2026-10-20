@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: assets and books"
 description: Routes for images, sounds and books, and the chunked uploads that carry a file too big for one request.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
 ---

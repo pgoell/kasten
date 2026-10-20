@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: capture"
 description: Routes that bring text into the vault from outside, through the dump, a web page, a YouTube transcript, an HTML page and the weather.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
 ---

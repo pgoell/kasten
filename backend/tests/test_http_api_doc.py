@@ -3,13 +3,11 @@
 The index page's opening counts the `/api/` routes in words, and each route
 gets a `## METHOD /api/...` section on one of the topic pages under
 `docs/reference/http-api/`. Both drift silently when a route lands without a
-doc change (#608), so this reads them back and compares them with `app.routes`.
+doc change (#608), so this reads them back and compares them with the app's schema.
 """
 
 import re
 from pathlib import Path
-
-from fastapi.routing import APIRoute
 
 from kasten_backend.main import app
 
@@ -47,15 +45,15 @@ def number(word: str) -> int:
 
 
 def api_routes() -> set[tuple[str, str]]:
-    # FastAPI's APIRoute keeps the methods it was given and adds no HEAD to a
-    # GET. The OAuth consent step is left out of the schema, and so of the page.
+    # Read off the schema rather than `app.routes`: the routes live on routers,
+    # and FastAPI keeps an included router whole in `app.routes`, so walking it
+    # finds none of them. The schema adds no HEAD to a GET and leaves out the
+    # OAuth consent step, as the page does.
     return {
-        (method, route.path.replace(":path}", "}"))
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        and route.include_in_schema
-        and route.path.startswith("/api/")
-        for method in route.methods or ()
+        (method.upper(), path)
+        for path, operations in app.openapi()["paths"].items()
+        if path.startswith("/api/")
+        for method in operations
     }
 
 

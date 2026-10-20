@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: notes"
 description: Routes that list, read, save and create notes.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
 ---

@@ -19,8 +19,9 @@ import sys
 import unicodedata
 from typing import TYPE_CHECKING
 
+from kasten_backend.code_spans import WIKILINK, code_spans
 from kasten_backend.frontmatter import body_start
-from kasten_backend.links import WIKILINK, code_spans, link_path
+from kasten_backend.links import link_path
 from kasten_backend.search import scan_vault
 
 if TYPE_CHECKING:

@@ -26,7 +26,8 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple
 
 from kasten_backend.change import vault_change, vault_write
-from kasten_backend.vault import prune_empty_folders, resolve_folder_path
+from kasten_backend.folders import prune_empty_folders
+from kasten_backend.vault import resolve_folder_path
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

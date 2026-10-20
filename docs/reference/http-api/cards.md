@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: cards"
 description: Routes that find flashcard lines, read the review limits, and import Anki decks, from a file or a link.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
 ---

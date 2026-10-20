@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
+from kasten_backend.folders import encode_href, listing
 from kasten_backend.indexes import backfill
-from kasten_backend.vault import encode_href, listing
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -30,12 +30,12 @@ from uuid import UUID  # noqa: TC003  pydantic reads the annotation at runtime
 from pydantic import BaseModel
 
 from kasten_backend.change import vault_change, vault_write
+from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import reserved, stamp
-from kasten_backend.graph import Graph, query_graph
+from kasten_backend.graph_query import query_graph
 from kasten_backend.periodic import append_dump, daily_note, daily_path
 from kasten_backend.search import search_vault
 from kasten_backend.vault import (
-    create_note,
     landing,
     list_markdown_files,
     relative_path,
@@ -47,6 +47,7 @@ from kasten_backend.vault import (
 
 if TYPE_CHECKING:
     from kasten_backend.config import Settings
+    from kasten_backend.graph import Graph
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +63,8 @@ class NoteRead(BaseModel):
 class Hit(BaseModel):
     """One matching line: where it lives, which line it is, and what it says.
 
-    Its own model rather than `main.SearchHit`, because nothing here may import
-    from `main.py`: that would point the dependency at the surface instead of
+    Its own model rather than `routes.queries.SearchHit`, because nothing here may
+    import from `routes/`: that would point the dependency at the surface instead of
     away from it, and the MCP tools import this module too.
     """
 

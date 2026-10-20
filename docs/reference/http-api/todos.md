@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: todos"
 description: The route that finds every todo line in the vault, and works out which project each one belongs to.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/queries.py
 tags: [api, backend, openapi]
 status: stable
 ---

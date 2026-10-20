@@ -1,7 +1,7 @@
 """Filing a book or an image from outside the box: raw bytes over REST, a URL over MCP.
 
 The upload's own rules, the cap, the magic, the hard link and the cleanup, are
-`test_assets.py`'s, which drives the same `files.store` from the browser's route.
+`test_asset_uploads.py`'s, which drives the same `files.store` from the browser's route.
 These cover what is new here: the bearer in front, the download and its address
 check, and the MCP tool's refusals arriving as tool errors.
 """

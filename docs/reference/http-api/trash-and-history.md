@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: trash and history"
 description: Routes that read a note's jj history, delete notes and folders into the trash, and restore them.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
 ---

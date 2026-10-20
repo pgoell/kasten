@@ -1312,7 +1312,7 @@
     "/api/anki/link": {
       "post": {
         "summary": "Import Anki Link",
-        "description": "Fetch the deck a link names and import it as `POST /api/anki` imports a file.\n\nThe fetch is `files.fetch_deck`'s, and its refusals reach the reader\nthrough the `RefusedError` handler. Nothing is written until the bytes are\nall here, so a link that fails leaves the vault as it was.",
+        "description": "Fetch the deck a link names and import it as `POST /api/anki` imports a file.\n\nThe fetch is `ankiweb.fetch_deck`'s, and its refusals reach the reader\nthrough the `RefusedError` handler. Nothing is written until the bytes are\nall here, so a link that fails leaves the vault as it was.",
         "operationId": "import_anki_link_api_anki_link_post",
         "parameters": [
           {
@@ -2676,7 +2676,7 @@
           "text"
         ],
         "title": "Hit",
-        "description": "One matching line: where it lives, which line it is, and what it says.\n\nIts own model rather than `main.SearchHit`, because nothing here may import\nfrom `main.py`: that would point the dependency at the surface instead of\naway from it, and the MCP tools import this module too."
+        "description": "One matching line: where it lives, which line it is, and what it says.\n\nIts own model rather than `routes.queries.SearchHit`, because nothing here may\nimport from `routes/`: that would point the dependency at the surface instead of\naway from it, and the MCP tools import this module too."
       },
       "Hour": {
         "properties": {

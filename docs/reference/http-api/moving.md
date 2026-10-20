@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: moving"
 description: Routes that give a note or a folder a new path, and preview what the move rewrites.
-resource: backend/src/kasten_backend/main.py
+resource: backend/src/kasten_backend/routes/moves.py
 tags: [api, backend, openapi]
 status: stable
 ---

@@ -3,17 +3,20 @@ import subprocess
 from typing import TYPE_CHECKING
 
 import httpcore
+import httpx
 import pytest
 from asgi_lifespan import LifespanManager
 from httpcore._backends.anyio import AnyIOBackend
 from httpx import ASGITransport, AsyncClient
 
+from backend.tests.anki_link_web import PUBLIC
+from kasten_backend import files
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
 from kasten_backend.tokens import mint
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterator
+    from collections.abc import AsyncIterator, Callable, Iterator
     from pathlib import Path
 
 JJ = shutil.which("jj")
@@ -211,3 +214,28 @@ def sockets(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.setattr(AnyIOBackend, "connect_tcp", connect)
 
     return opened
+
+
+# Not autouse, so no test outside the anki link modules gets its DNS stubbed: those
+# modules apply it to every test they hold, through `pytestmark`.
+@pytest.fixture
+def resolve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, list[str]]], None]:
+    """Hand back a way to say what a name resolves to, and keep DNS off the network."""
+    table: dict[str, list[str]] = {}
+
+    async def lookup(host: str) -> list[str]:
+        return table.get(host, [PUBLIC])
+
+    monkeypatch.setattr(files, "_addresses", lookup)
+
+    return table.update
+
+
+@pytest.fixture
+def answer(monkeypatch: pytest.MonkeyPatch) -> Callable[[Callable], None]:
+    """Hand back a way to say what the internet replies with, keeping the real client."""
+
+    def use(handler: Callable) -> None:
+        monkeypatch.setattr(files, "_PublicTransport", lambda: httpx.MockTransport(handler))
+
+    return use

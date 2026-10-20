@@ -15,7 +15,8 @@ from typing import TYPE_CHECKING
 import httpx
 import pytest
 
-from kasten_backend import files, main
+from kasten_backend import files
+from kasten_backend.routes import web
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -117,7 +118,7 @@ async def test_refuses_a_page_too_big_to_read(
     client: AsyncClient, answer: Callable, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Whatever the other end says the length is, the bytes are counted here."""
-    monkeypatch.setattr(main, "PAGE_LIMIT_BYTES", 32)
+    monkeypatch.setattr(web, "PAGE_LIMIT_BYTES", 32)
     answer(lambda request: httpx.Response(200, html="<html>" + "x" * 200 + "</html>"))
 
     response = await client.get("/api/fetch", params={"url": "https://example.com/long"})

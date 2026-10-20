@@ -808,7 +808,7 @@ export interface paths {
          * Import Anki Link
          * @description Fetch the deck a link names and import it as `POST /api/anki` imports a file.
          *
-         *     The fetch is `files.fetch_deck`'s, and its refusals reach the reader
+         *     The fetch is `ankiweb.fetch_deck`'s, and its refusals reach the reader
          *     through the `RefusedError` handler. Nothing is written until the bytes are
          *     all here, so a link that fails leaves the vault as it was.
          */
@@ -1594,8 +1594,8 @@ export interface components {
          * Hit
          * @description One matching line: where it lives, which line it is, and what it says.
          *
-         *     Its own model rather than `main.SearchHit`, because nothing here may import
-         *     from `main.py`: that would point the dependency at the surface instead of
+         *     Its own model rather than `routes.queries.SearchHit`, because nothing here may
+         *     import from `routes/`: that would point the dependency at the surface instead of
          *     away from it, and the MCP tools import this module too.
          */
         Hit: {

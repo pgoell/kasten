@@ -1,6 +1,6 @@
 """The `index.md` in each folder, kept in step with what the folder holds.
 
-A folder kasten makes gets a listing the moment it is made, which `vault.py`
+A folder kasten makes gets a listing the moment it is made, which `folders.py`
 writes. What lives here is the rest: carrying a note's entry from one folder's
 index to another's when the note moves between them, and giving every folder
 already in the vault the listing it never got.
@@ -15,9 +15,10 @@ import re
 from pathlib import Path
 
 from kasten_backend.change import vault_change, vault_write
+from kasten_backend.folders import INDEX, listing
 from kasten_backend.frontmatter import reserved
 from kasten_backend.links import MARKDOWN_LINK, markdown_target, relink_markdown
-from kasten_backend.vault import INDEX, listing, write_note
+from kasten_backend.vault import write_note
 
 BACKFILL_LABEL = "index backfill"
 """What the backfill calls its jj change, in the slot a note's path usually fills."""

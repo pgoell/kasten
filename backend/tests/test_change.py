@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from backend.tests.anki_build import apkg
 from backend.tests.conftest import JJ, changed_paths, descriptions
-from backend.tests.test_anki import apkg
 from kasten_backend import vcs
 from kasten_backend.change import vault_change
 
