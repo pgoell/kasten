@@ -74,7 +74,7 @@ Set it to a name no folder has and nothing is left out of anything.
 
 ## The vault's folders
 
-Five settings name the folders kasten files into or looks in. Each is a path
+Six settings name the folders kasten files into or looks in. Each is a path
 from the vault root, and each default is the folder one vault already used.
 [`GET /api/layout`](/reference/http-api/finding.md#get-apilayout) serves them to the
 editor, and the startup notes and the agent instructions spell them as set.
@@ -86,6 +86,7 @@ editor, and the startup notes and the agent instructions spell them as set.
 | `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted or dropped into a note |
 | `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md`, `todo-views.md` and `reading-now.md`, and the ontology and three agent guides in `01 Agents` under it |
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
+| `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list. The `/share/` routes reach nothing outside it |
 
 Only the parent folders are settings. The subfolders under them keep their
 names, so one setting moves a whole group and the list stays short.
@@ -261,6 +262,18 @@ The backend logs a warning at startup while this is empty, and starts anyway.
 It also bounds the `Origin` check on the
 [consent `POST`](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize):
 `https://{value}` is accepted there as well as the request's own host.
+
+## KASTEN_SHARE_HOST
+
+The `Host` the shared lists app arrives on, `liste.pgoell.com` on the box.
+
+| | |
+| --- | --- |
+| Default | empty, which turns the check off |
+| Read by | every route, through the host check |
+
+On that host the backend answers `404` to every path outside `/share/`, before
+any route runs. That is the [second lock](/explanation/shared-lists.md#two-locks).
 
 ## KASTEN_HERDR_SESSIONS_PATH
 

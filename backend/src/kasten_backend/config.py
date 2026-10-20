@@ -160,6 +160,23 @@ class Settings(BaseSettings):
     hostname Caddy serves.
     """
 
+    share_folder: str = "05 Shared"
+    """The one folder the `/share` routes reach, the shared lists living in it.
+
+    Each list is a note directly inside it. Nothing outside it is readable or
+    writable through those routes, and nothing else in kasten reads it. A setting
+    for the same reason `archive_path` is one: the number in front is one vault's
+    filing convention.
+    """
+
+    share_host: str = ""
+    """The `Host` the shared lists app is served on, or empty for none.
+
+    Requests arriving with this host answer 404 for every path outside
+    `/share/`, so the public hostname reaches the lists and nothing else. Empty
+    leaves every host the same, which is what dev and the test client need.
+    """
+
     weather_places: list[Place] = [
         Place(name="Gelnhausen", latitude=50.2017, longitude=9.1886),
         Place(name="Frankfurt", latitude=50.1109, longitude=8.6821),

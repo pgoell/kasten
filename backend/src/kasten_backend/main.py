@@ -21,7 +21,7 @@ from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vau
 from kasten_backend.files import RefusedError
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
-from kasten_backend.routes import anki, assets, listing, moves, notes, queries, tokens, web
+from kasten_backend.routes import anki, assets, listing, moves, notes, queries, share, tokens, web
 from kasten_backend.trash import purge_trash
 from kasten_backend.vcs import is_versioned, write_ignores
 
@@ -171,6 +171,13 @@ app.include_router(web.router)
 app.include_router(queries.router)
 app.include_router(anki.router)
 app.include_router(tokens.router)
+app.include_router(share.router)
+app.middleware("http")(share.share_gate)
+"""The shared lists, and the gate that keeps the share host to them.
+
+The gate is registered here rather than in a router because it has to see every
+request, the ones the routes above do not answer included.
+"""
 
 
 @app.get("/api/events")

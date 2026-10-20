@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Security model
-description: Why kasten has no login of its own, what the gate in front of it covers, the two prefixes left open and what guards them, what the shell and the chat pane can reach, and the two checks the backend makes for a proxy that does less.
+description: Why kasten has no login of its own, what the gate in front of it covers, the two prefixes left open and what guards them, the second gate and host check for the shared lists, what the shell and the chat pane can reach, and the two checks the backend makes for a proxy that does less.
 tags: [security, deploy, self-host, agent]
 status: stable
 ---
@@ -52,6 +52,27 @@ The token exchange, `/agent/oauth/token`, sits under the open prefix because the
 machine calling it has no session. What it hands out is bounded by the code it
 spends: 256 random bits, sixty seconds, one use, bound to a PKCE verifier and to
 one of three callback hosts.
+
+## A second edge for the shared lists
+
+The shared lists have their own host, `liste.pgoell.com`, and their own gate. It
+is a second oauth2-proxy with Google sign-in, and it admits two addresses, one
+of them Alicia's, from a file on the server. Its cookie is scoped to that host,
+so a session on the main host does not pass here, and this one does not reach
+the main host. The main gate still admits one person.
+
+The second person gets this edge, not a login in kasten, for the reason in
+[Shared lists](/explanation/shared-lists.md). The edge has two locks. Caddy
+sends only `/share/*` and the app's own files on to kasten, and answers every
+other path `404`. The backend then refuses every path outside `/share/*` when
+the request's `Host` is `KASTEN_SHARE_HOST`. A fault in either lock leaves the
+other standing.
+
+The routes behind this edge are the six `/share/` routes, which read and write
+the notes in the shared folder and nothing else. The shell and the chat pane sit
+behind the main gate, on routes this host does not carry, so the second person
+has no path to them. The table is in
+[Reverse-proxy routes](/reference/reverse-proxy-routes.md#the-share-host).
 
 ## The internal trust zone
 

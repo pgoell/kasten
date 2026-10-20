@@ -28,6 +28,7 @@ const CHAT = process.env.KASTEN_DEV_CHAT ?? "http://localhost:7682";
 // look like one from another site.
 const PROXY = {
   "/api": { target: BACKEND, changeOrigin: true },
+  "/share": { target: BACKEND, changeOrigin: true },
   "/chat": { target: CHAT },
 };
 
@@ -138,9 +139,7 @@ const PDFJS_FILES = [
  * import.meta.url)`, which Vite rewrites into an `import.meta.glob` over a
  * pattern of its own making. That pattern is relative to nothing Vite accepts,
  * so development dies with `Invalid glob: "vendor/pdfjs/*"` and the build
- * quietly resolves every one of those URLs to the string `undefined`. A glob
- * could not have answered in any case: two of the five names are directories,
- * and a directory has no asset URL.
+ * quietly resolves every one of those URLs to the string `undefined`.
  *
  * So the line is replaced with one base, `/pdfjs/`, and the files are staged
  * into `public/` where Vite already serves a directory untouched and the build
@@ -151,9 +150,7 @@ const PDFJS_FILES = [
  * lands unstyled, every span in normal flow at the left edge, which is a
  * selection that highlights the wrong words rather than a visible failure.
  *
- * A middleware would have avoided the copy, and is refused for the reason
- * `devCsp` refuses one: vitest's browser plugin is `enforce: "pre"` and
- * installs ahead of it.
+ * A middleware would avoid the copy, but vitest's browser plugin installs ahead of it.
  */
 function foliatePdfjs(): Plugin {
   return {
@@ -345,6 +342,14 @@ export default defineConfig({
   },
   preview: {
     proxy: PROXY,
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(import.meta.dirname, "index.html"),
+        lists: path.resolve(import.meta.dirname, "lists.html"),
+      },
+    },
   },
   test: {
     globals: true,

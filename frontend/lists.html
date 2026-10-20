@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Same viewport as the main app: viewport-fit=cover lets the page draw under
+         the notch and the home indicator, and the composer pads itself clear by
+         env(safe-area-inset-bottom). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content, viewport-fit=cover" />
+    <script src="/viewport-fit.js"></script>
+    <title>Listen</title>
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- use-credentials, because the subdomain sits behind oauth2-proxy and a
+         manifest is fetched without cookies by default. -->
+    <link rel="manifest" href="/lists.webmanifest" crossorigin="use-credentials" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Listen" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="/icons/app-maskable-512.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/lists/main.tsx"></script>
+  </body>
+</html>
