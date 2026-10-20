@@ -190,7 +190,7 @@ def test_parks_a_card_whose_back_adds_nothing() -> None:
 def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
     # A card line splits at its first `::`, so on one line this question would
     # read back as `What does std`. `frontend/tests/srs-imported.test.ts` and
-    # `review.test.ts` read this exact text back.
+    # `review-decks-import.test.ts` read this exact text back.
     decks = read_apkg(apkg(((1, BASIC, "What does std::move do?\x1fcasts to an rvalue"),)))
 
     assert unhashed(as_note(decks[0])) == (
@@ -222,7 +222,7 @@ def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None
 def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str, back: str) -> None:
     # `srs.ts` would drop the `?` card and read the front at its first `::`, or,
     # for a `?` answer, `review.ts` would count the answer as a second card.
-    # `frontend/tests/review.test.ts` reads the first case's text back.
+    # `frontend/tests/review-decks-import.test.ts` reads the first case's text back.
     deck = basic_deck((front, back), ("a", "b"))
 
     assert unhashed(as_note(deck)) == f"#flashcards/x\n\na::b{mark(2)}\n"

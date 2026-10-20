@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MoveConfirm } from "@/components/move-confirm";
 
-// Standing in for the module, for the reason `note-prompt.test.tsx` gives.
+// Standing in for the module, for the reason `note-prompt-fixture.tsx` gives.
 const { previewMove, renameNote, moveFolder } = vi.hoisted(() => ({
   previewMove: vi.fn(),
   renameNote: vi.fn(),
