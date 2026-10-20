@@ -32,13 +32,18 @@ export function renderServiceWorker(assets: string[]): string {
  * viewport-fit.js is a blocking script in the head (#364), and the manifest
  * and icons are what the installed app shows. `pdfjs/` is left out, being
  * megabytes a PDF fetches on first use, and so are dotfiles such as its stamp.
+ * The lists app's files are left out too: they belong to the share host's own
+ * app, and nginx answers 404 for them on the main host (#736), which would fail
+ * the whole install.
  */
 function publicFiles(publicDir: string): string[] {
   const listed = (folder: string) => {
     const full = path.join(publicDir, folder);
     if (!existsSync(full)) return [];
     return readdirSync(full, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && !entry.name.startsWith("."))
+      .filter(
+        (entry) => entry.isFile() && !entry.name.startsWith(".") && !entry.name.startsWith("lists"),
+      )
       .map((entry) => `/${path.posix.join(folder, entry.name)}`);
   };
   return [...listed(""), ...listed("icons")];

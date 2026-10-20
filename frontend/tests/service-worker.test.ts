@@ -303,6 +303,22 @@ describe("the service worker plugin", () => {
     );
   });
 
+  it("leaves the lists app's files out of the precache", () => {
+    const publicDir = mkdtempSync(path.join(tmpdir(), "kasten-public-"));
+    for (const name of ["viewport-fit.js", "lists-sw.js", "lists.webmanifest"]) {
+      writeFileSync(path.join(publicDir, name), "");
+    }
+    const plugin = serviceWorker();
+    const emitFile = vi.fn();
+    // biome-ignore lint/complexity/noBannedTypes: rollup's hooks, called the way vite calls them
+    (plugin.configResolved as Function)({ publicDir });
+    // biome-ignore lint/complexity/noBannedTypes: as above
+    (plugin.generateBundle as Function).call({ emitFile }, {}, { "assets/index-abc.js": {} });
+    const source: string = emitFile.mock.lastCall?.[0]?.source ?? "";
+    const list: string[] = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
+    expect(list.filter((url) => url.startsWith("/lists"))).toEqual([]);
+  });
+
   it("changes the version when the asset list changes", () => {
     const one = /const VERSION = "([^"]+)"/.exec(renderServiceWorker(ASSETS))?.[1];
     const two = /const VERSION = "([^"]+)"/.exec(renderServiceWorker(["/assets/other.js"]))?.[1];
