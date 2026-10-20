@@ -190,10 +190,37 @@ def test_a_dump_inside_a_tilde_fence_is_not_the_section() -> None:
     )
 
 
-def test_a_backtick_line_that_opens_no_fence_leaves_one_dump() -> None:
+def test_a_backtick_line_that_opens_no_fence_gets_the_real_fence_closed() -> None:
     text = "# d\n```x```\n```\n## Dump\nold\n"
 
     assert append_dump(text, "new") == "# d\n```x```\n```\n## Dump\nold\n```\n\n## Dump\nnew\n"
+
+
+def test_a_capture_of_inline_triple_backtick_code_gets_no_closer() -> None:
+    result = append_dump("## Dump\na\n\n## Log\nwater 250ml\n", "```npm i```")
+
+    assert result == "## Dump\na\n\n```npm i```\n\n## Log\nwater 250ml\n"
+    assert _log_lines(result) == [(7, "water 250ml"), (8, "")]
+
+
+def test_a_note_ending_in_inline_triple_backtick_code_gets_no_closer() -> None:
+    text = "## Dump\nfirst\n```x```"
+
+    assert append_dump(text, "new") == "## Dump\nfirst\n```x```\n\nnew\n"
+
+
+def test_a_fence_in_a_list_item_gets_no_column_zero_closer() -> None:
+    text = "## Dump\n- item\n\n  ```\n  code\n"
+
+    assert append_dump(text, "new") == "## Dump\n- item\n\n  ```\n  code\n\nnew\n"
+
+
+def test_a_capture_with_a_fence_in_a_list_item_gets_no_column_zero_closer() -> None:
+    result = append_dump("## Dump\na\n\n## Log\nwater 250ml\n", "- x\n\n  ```\n  code")
+
+    assert result == "## Dump\na\n\n- x\n\n  ```\n  code\n\n## Log\nwater 250ml\n"
+    log = _log_lines(result)
+    assert log is not None and (10, "water 250ml") in log
 
 
 def test_a_four_backtick_inline_span_leaves_a_closed_fence_closed() -> None:

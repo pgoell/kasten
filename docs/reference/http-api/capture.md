@@ -246,11 +246,11 @@ frontmatter is skipped, so the text does not land where the readers never look.
 Each capture is a paragraph of its own, a blank line apart from the one before
 it, because the dump is prose rather than a list. The first sits straight under
 the heading. The text is trimmed and otherwise kept as written, line breaks
-included.
+included. A closing line may follow it, as the paragraph on fences below says.
 
 A capture never lands inside a fence and never leaves one open. When the text
 opens a fence it does not close, a closing line with the opener's marker goes
-after the text. Nothing already in the note is removed or moved, and blank lines
+after the text. A line of inline triple-backtick code, or a fence inside a list item, gets none, since a bare line at column 0 would open a new fence. Nothing already in the note is removed or moved, and blank lines
 inside a fence stay in it.
 
 The note is stamped on the way through the way a save is, so a note that was

@@ -106,13 +106,18 @@ def _open_fence(text: str, lines: list[str], *, frontmatter: bool = True) -> str
     return None if closed else fence
 
 
-def _close(text: str, fence: str) -> str:
-    """`text` with a closing line for `fence` after its last character.
+def _close(text: str, fence: str, *, frontmatter: bool = True) -> str:
+    """`text` with a closing line for `fence` after its last character, if that line closes it.
 
     The closer repeats the opener's run, so a four-backtick fence needs four. It
-    goes on a line after the text, which is kept whole.
+    goes on a line after the text, which is kept whole. It is kept only when the
+    fence really closes: a bare line at column 0 does not close an inline span or
+    a fence inside a list item, and would open a new fence instead.
     """
-    return f"{text}{fence}\n" if text.endswith("\n") else f"{text}\n{fence}"
+    closed = f"{text}{fence}\n" if text.endswith("\n") else f"{text}\n{fence}"
+    if _open_fence(closed, closed.split("\n"), frontmatter=frontmatter) is not None:
+        return text
+    return closed
 
 
 def _section(text: str) -> tuple[int | None, int]:
@@ -161,7 +166,7 @@ def append_dump(text: str, capture: str) -> str:
     """
     capture_fence = _open_fence(capture, capture.split("\n"), frontmatter=False)
     if capture_fence is not None:
-        capture = _close(capture, capture_fence)
+        capture = _close(capture, capture_fence, frontmatter=False)
 
     at, end = _section(text)
     lines = text.split("\n")
