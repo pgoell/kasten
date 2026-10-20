@@ -48,10 +48,12 @@ is there too, zero where nothing was logged. The lines are read as
 ## Errors
 
 * `400` when `from` is after `to`.
-* `422` when a date is malformed.
+* `422` when a date is not `YYYY-MM-DD` or names no day, `0` and `2026-02-30` among them.
 
 ## Reading
 
-The route reads each day's note in the range, one file per day. It runs no
-search over the vault, and it keeps nothing in Postgres or in an index. The
-archive is not read.
+The route lists the daily folder once and reads the notes there whose names
+fall in the range, so a wide range costs no more than the notes it holds. A
+note it cannot read, gone or not UTF-8, is left out. It runs no search over
+the vault, and it keeps nothing in Postgres or in an index. The archive is not
+read.

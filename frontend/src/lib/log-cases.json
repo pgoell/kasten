@@ -16,6 +16,14 @@
   },
   { "id": "coffee-fraction", "line": "- ☕ 1.5", "entry": null },
   { "id": "coffee-zero", "line": "- ☕ 0", "entry": null },
+  {
+    "id": "coffee-nine-digits",
+    "line": "- ☕ 999999999",
+    "entry": { "kind": "coffee", "count": 999999999 }
+  },
+  { "id": "coffee-ten-digits", "line": "- ☕ 1234567890", "entry": null },
+  { "id": "water-ten-digits", "line": "- 💧 9999999999 l", "entry": null },
+  { "id": "water-ten-decimals", "line": "- 💧 0.1234567890 l", "entry": null },
   { "id": "alcohol-count", "line": "- 🍺 1", "entry": { "kind": "alcohol", "count": 1 } },
   {
     "id": "alcohol-volume",

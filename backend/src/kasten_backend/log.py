@@ -38,8 +38,18 @@ ETHANOL_DENSITY = 0.789
 _VS = "\N{VARIATION SELECTOR-16}?"
 """The optional variation selector each marker may carry, as `☕️` does."""
 
-_NUMBER = r"[0-9]+(?:[.,][0-9]+)?"
-"""A number, digits with an optional decimal part. `[0-9]`, since `\\d` takes other digits."""
+_NUMBER = r"[0-9]{1,9}(?:[.,][0-9]{1,9})?"
+"""A number: up to nine digits, then an optional point or comma and up to nine more.
+
+`[0-9]`, not `\\d`, which takes other digits. The cap keeps a line's arithmetic on
+values a float holds exactly; a longer run is no entry, as the table says.
+"""
+
+DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+"""The shape of `from` and `to`.
+
+Pydantic's date mode reads `0` as a day, so the route takes the text and reads it.
+"""
 
 MAX_STRENGTH = 100
 """Per cent alcohol by volume, the most an alcohol line may give: pure ethanol."""
@@ -119,9 +129,9 @@ class Day(BaseModel):
 
 
 WATER = re.compile(rf"- 💧{_VS}[ \t]+({_NUMBER})[ \t]*(ml|l)[ \t]*", re.IGNORECASE)
-COFFEE = re.compile(rf"- ☕{_VS}[ \t]+([0-9]+)[ \t]*", re.IGNORECASE)
+COFFEE = re.compile(rf"- ☕{_VS}[ \t]+([0-9]{{1,9}})[ \t]*", re.IGNORECASE)
 ALCOHOL = re.compile(
-    rf"- 🍺{_VS}[ \t]+([0-9]+)"
+    rf"- 🍺{_VS}[ \t]+([0-9]{{1,9}})"
     rf"(?:[ \t]+({_NUMBER})[ \t]*(ml|l))?"
     rf"(?:[ \t]+({_NUMBER})[ \t]*%)?[ \t]*",
     re.IGNORECASE,
@@ -213,8 +223,10 @@ def _log_lines(text: str) -> list[tuple[int, str]] | None:
     Each line is judged by its start offset. A fence `code_spans` finds, and the
     frontmatter `body_start` skips, hold no heading and no entry.
     """
-    spans = code_spans(text)
     body = body_start(text)
+    # Fences are found in the body alone, so a fence the frontmatter seems to open
+    # hides nothing below it.
+    spans = [(start + body, end + body) for start, end in code_spans(text[body:])]
     lines: list[tuple[int, str]] = []
     seen = False
     in_log = False
@@ -264,9 +276,9 @@ def _totals(entries: list[Entry]) -> Totals:
 
 
 @router.get("/api/log")
-async def read_log(
-    start: Annotated[date, Query(alias="from")],
-    end: Annotated[date, Query(alias="to")],
+def read_log(
+    start: Annotated[str, Query(alias="from", pattern=DATE_PATTERN)],
+    end: Annotated[str, Query(alias="to", pattern=DATE_PATTERN)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> list[Day]:
     """The days from `from` to `to`, both included, that have a `## Log` in their note.
@@ -275,7 +287,13 @@ async def read_log(
     which is not the same as a day with a `## Log` and nothing under it: that one
     is present with zero totals. Only the daily notes are read, and nothing is written.
     """
-    if start > end:
+    # A plain `def`, not `async`: FastAPI runs it in its thread pool, so the file
+    # reads and the markdown parse do not hold up the event loop.
+    try:
+        first, last = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
+    if first > last:
         raise HTTPException(status_code=400, detail="`from` is after `to`")
 
     # One listing of the folder, not a read per date: a range of years would
@@ -294,7 +312,7 @@ async def read_log(
         except ValueError:
             # Shaped like a date and no real one, such as 2026-02-30.
             continue
-        if start <= day <= end:
+        if first <= day <= last:
             found.append(day)
 
     days: list[Day] = []
@@ -302,8 +320,9 @@ async def read_log(
         path = daily_path(day, settings.periodic_path)
         try:
             text = vault.read_note(settings.vault_path, path)
-        except FileNotFoundError:
-            # Deleted after the note was found, which reads as no note.
+        except UnicodeDecodeError, OSError:
+            # Gone, unreadable or not UTF-8: a note the reader cannot take is
+            # skipped as a missing one, so one bad file does not fail the range.
             continue
         lines = None if text is None else _log_lines(text)
         if lines is None:

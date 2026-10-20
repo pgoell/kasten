@@ -22,11 +22,11 @@ DAILY = "01 Periodic/00 Daily"
 START = date(2026, 1, 1)
 
 
-def write(vault: Path, name: str, text: str) -> None:
+def write(vault: Path, name: str, text: str | bytes) -> None:
     """Write a daily note with `text` as given, so a CRLF in it stays a CRLF."""
     note = vault / DAILY / name
     note.parent.mkdir(parents=True, exist_ok=True)
-    note.write_bytes(text.encode("utf-8"))
+    note.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
 
 
 def snapshot(root: Path) -> dict[str, tuple[bytes, int]]:
@@ -186,6 +186,18 @@ async def test_619_i2_log_without_entries_is_zero_day(client: AsyncClient, vault
     }
 
 
+async def test_619_i4_a_number_is_no_date(client: AsyncClient, vault: Path) -> None:
+    r = await client.get("/api/log", params={"from": "0", "to": "2026-12-31"})
+
+    assert {"status": r.status_code} == {"status": 422}
+
+
+async def test_619_i4_a_day_that_does_not_exist_is_422(client: AsyncClient, vault: Path) -> None:
+    r = await client.get("/api/log", params={"from": "2026-02-30", "to": "2026-03-01"})
+
+    assert {"status": r.status_code} == {"status": 422}
+
+
 async def test_619_i4_from_after_to_is_400(client: AsyncClient, vault: Path) -> None:
     r = await client.get("/api/log", params={"from": "2026-01-05", "to": "2026-01-04"})
 
@@ -222,6 +234,34 @@ async def test_619_i5_a_wide_range_reads_only_the_notes_there(
     assert {"status": r.status_code, "dates": dates} == {
         "status": 200,
         "dates": ["2026-10-20"],
+    }
+
+
+async def test_619_b_a_note_not_utf8_is_skipped(client: AsyncClient, vault: Path) -> None:
+    write(vault, "2026-01-01.md", "## Log\n- ☕ 1\n")
+    write(vault, "2026-01-02.md", b"\xff## Log\n- \xe2\x98\x95 2\n")
+
+    r = await client.get("/api/log", params={"from": "2026-01-01", "to": "2026-01-02"})
+    dates = [day["date"] for day in r.json()] if r.status_code == 200 else None
+
+    assert {"status": r.status_code, "dates": dates} == {"status": 200, "dates": ["2026-01-01"]}
+
+
+async def test_619_i6_a_fence_in_the_frontmatter_hides_nothing(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "2026-01-14.md", "---\nnote: |\n  ```\n---\n## Log\n- ☕ 1\n")
+
+    r = await client.get("/api/log", params={"from": "2026-01-14", "to": "2026-01-14"})
+    entries = (
+        [present(entry) for entry in r.json()[0]["entries"]]
+        if r.status_code == 200 and r.json()
+        else None
+    )
+
+    assert {"status": r.status_code, "entries": entries} == {
+        "status": 200,
+        "entries": [{"line": 6, "text": "- ☕ 1", "kind": "coffee", "count": 1}],
     }
 
 

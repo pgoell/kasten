@@ -27,21 +27,22 @@ entry's date. `GET /api/log` reads the lines and adds them up; see
 
 1. The daily note is `<periodic>/00 Daily/YYYY-MM-DD.md`, the note `<leader>gd`
    makes. A note in that folder named otherwise holds no entries.
-2. An entry is a line under a heading that reads `## Log`, trailing spaces
-   allowed, up to the next heading of level one or two. A `###` inside the
-   section is part of it. A note may hold more than one `## Log`; each counts.
+2. An entry is a line under a heading that reads exactly `## Log`, at the
+   start of the line, one space after the hashes, trailing spaces allowed, up
+   to the next line that opens with `# ` or `## `. A `###` inside the section
+   is part of it. A note may hold more than one `## Log`; each counts.
 3. A line inside a fenced code block, in the section or around it, is no entry,
    and a `## Log` inside one opens no section. The frontmatter is no section
-   either.
+   either, and a fence it seems to open opens nothing in the note.
 4. The line opens with `- ` at the start, with no indent, then the marker. A
    todo box, `- [ ] 💧 500 ml`, makes it a todo and no entry.
 
 ## The kinds
 
 Every marker may carry the variation selector U+FE0F, so `☕️` reads as `☕`.
-Spaces or tabs, one or more, part the pieces. A number is digits with an
-optional decimal part, and the decimal mark is a point or a comma: `0.5` and
-`0,5` are the same. Units ignore case.
+Spaces or tabs, one or more, part the pieces. A number is one to nine digits
+with an optional decimal part of one to nine digits, and the decimal mark is a
+point or a comma: `0.5` and `0,5` are the same. Units ignore case.
 
 | Kind | Line | Fields |
 | --- | --- | --- |
@@ -79,7 +80,7 @@ count x volume in ml x strength / 100 x 0.789, the density of ethanol. So
 
 A line that breaks a rule above stays a plain bullet and counts for nothing:
 an unknown marker, a missing or zero amount, a count that is no whole number,
-a strength over 100, a unit other than the kind's, trailing words on water,
+a number of ten digits or more, a strength over 100, a unit other than the kind's, trailing words on water,
 coffee or alcohol, a marker inside a code span or a link (`` - `☕ 1` ``,
 `- [[☕ 1]]`).
 
@@ -94,7 +95,8 @@ coffee or alcohol, a marker inside a code span or a link (`` - `☕ 1` ``,
 
 A day whose note holds a `## Log` answers every kind, zero where nothing was
 logged. A day without one is absent, not zero. Totals are rounded to one
-decimal once, after the sum.
+decimal once, after the sum, half to even as Python's `round` does: 0.25 g is
+0.2 g. An alcohol entry's own `grams` is rounded the same way.
 
 ## One parser
 
