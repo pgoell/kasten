@@ -16,10 +16,9 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable
+    from collections.abc import AsyncIterator
 
-    from fastapi import Request
-    from starlette.responses import Response
+    from starlette.types import ASGIApp, Receive, Scope, Send
 
     from kasten_backend.events import VaultEvent
 
@@ -161,18 +160,39 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
     return StreamingResponse(report(), media_type="text/event-stream")
 
 
-async def share_gate(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
+class ShareGate:
     """Answer the share host with 404 for every path outside `/share/`, before any route runs.
 
     The lists app is served on a public hostname, and that hostname must not reach
-    the notebook's API, the agent or the docs. Settings are read here rather than
-    injected, because middleware sits outside dependency injection.
-    """
-    settings = get_settings()
-    on_share_host = bool(settings.share_host) and request.url.hostname == settings.share_host
-    if on_share_host and not request.url.path.startswith("/share/"):
-        return JSONResponse(status_code=404, content={"detail": "Not here"})
+    the notebook's API, the agent or the docs. Settings are read per request rather
+    than injected, because middleware sits outside dependency injection.
 
-    return await call_next(request)
+    Pure ASGI rather than `app.middleware("http")`. That one wraps the receive
+    channel, so a client that drops its connection mid-upload reaches the upload
+    route as an error the route does not catch, and it buffers a streamed response
+    such as `/api/events` on its way out.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap `app`, the whole application the gate stands in front of."""
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Answer a connection to the share host outside `/share/`, and pass every other on."""
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        share_host = get_settings().share_host
+        headers = dict(scope["headers"])
+        host = headers.get(b"host", b"").decode("latin-1").split(":")[0].lower()
+        if share_host and host == share_host and not scope["path"].startswith("/share/"):
+            if scope["type"] == "websocket":
+                await send({"type": "websocket.close", "code": 1008})
+                return
+
+            response = JSONResponse(status_code=404, content={"detail": "Not here"})
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)

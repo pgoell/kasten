@@ -172,7 +172,7 @@ app.include_router(queries.router)
 app.include_router(anki.router)
 app.include_router(tokens.router)
 app.include_router(share.router)
-app.middleware("http")(share.share_gate)
+app.add_middleware(share.ShareGate)
 """The shared lists, and the gate that keeps the share host to them.
 
 The gate is registered here rather than in a router because it has to see every
