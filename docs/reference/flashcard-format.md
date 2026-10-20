@@ -150,10 +150,12 @@ Standard, Infrequent Access, Glacier
 
 A `?` on a line of its own divides them. The question runs back to the blank
 line or heading above, the answer forward to the blank line or heading below, so
-both sides can be as long as you like. A blank line or a heading inside a code
-block ends neither side: the fence goes into the card whole, as
-obsidian-spaced-repetition reads it, and the schedule under the fence stays the
-card's.
+both sides can be as long as you like. A blank line, a heading or a line of
+tags inside a code block ends neither side: the fence goes into the card whole,
+as obsidian-spaced-repetition reads it, and the schedule under the fence stays
+the card's. A schedule comment or `!suspended` ends the answer in code too, so
+a fence nobody closed runs the answer to the next schedule or the end of the
+note. The question never runs up past a schedule comment.
 
 A `::` inside a code block is not a card, and neither is a `?` in one. That
 holds for a fence opened with backticks or tildes, one nobody closed (it runs to

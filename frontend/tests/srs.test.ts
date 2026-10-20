@@ -1421,4 +1421,36 @@ describe("#675 a blank line inside a fence ends no question card", () => {
       { from: 11, to: 13, front: "r" },
     ]);
   });
+
+  it("#675 R1 parking a card whose fence nobody closed parks it, and a second park adds no second token", () => {
+    const text = "#flashcards/a\n\nq\n?\nanswer\n~~~\na = 1\n\nb = 2\n";
+    const on = setSuspended(text, only(text), true);
+
+    // Parked, the session never asks the card again, so nothing parks it twice.
+    expect(only(on).parked).toBe("suspended");
+    expect(on).toBe(`${text}!suspended\n`);
+  });
+
+  it("#675 R2 the front walk stops at the schedule of the card above a fence", () => {
+    const fence = "```py\na = 1\n\nb = 2\n```";
+    const held = { due: "2026-08-20", interval: 3, ease: 250 };
+    const cards = (text: string) =>
+      parseCards(text).map(({ from, to, front, held }) => ({ from, to, front, held }));
+
+    expect({
+      inline: cards(`#flashcards/a\n\na::b <!--SR:!2026-08-20,3,250-->\n${fence}\nq\n?\nans\n`),
+      question: cards(
+        `#flashcards/a\n\nq1\n?\na1\n<!--SR:!2026-08-20,3,250-->\n${fence}\nq2\n?\na2\n`,
+      ),
+    }).toEqual({
+      inline: [
+        { from: 2, to: 2, front: "a", held },
+        { from: 3, to: 10, front: `${fence}\nq`, held: null },
+      ],
+      question: [
+        { from: 2, to: 5, front: "q1", held },
+        { from: 6, to: 13, front: `${fence}\nq2`, held: null },
+      ],
+    });
+  });
 });

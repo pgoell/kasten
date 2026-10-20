@@ -384,9 +384,12 @@ export function parseCards(text: string, note = ""): Card[] {
   const owned: string[][] = [];
   /** Lines whose tags a card took, which are therefore not the note's. */
   const claimed = new Set<number>();
-  // obsidian-spaced-repetition reads a fence whole, so a blank line, a heading,
-  // tags or the token inside code is the fence's and ends no card (#675).
+  // obsidian-spaced-repetition reads a fence whole, so a blank line, a heading
+  // or tags inside code is the fence's and ends no card (#675).
   const ends = (at: number) => !code[at] && breaks(lines[at]);
+  // A schedule ends a card in code too: it is the card's last line, so neither
+  // walk crosses one into the card above or a second line under it.
+  const schedules = (at: number) => SR.test(lines[at] ?? "") || CLOZE_SR.test(lines[at] ?? "");
 
   for (const [at, line] of lines.entries()) {
     if (code[at] || line.trim() !== "?") continue;
@@ -398,15 +401,16 @@ export function parseCards(text: string, note = ""): Card[] {
     // which is the one reading `review.ts` can make off the matched lines.
     const cloze = !ends(at - 1) && holdsCloze(lines[at - 1]);
     let from = cloze ? at - 1 : at;
-    if (!cloze) while (!ends(from - 1) && !holdsCloze(lines[from - 1])) from--;
+    if (!cloze) {
+      while (!ends(from - 1) && !holdsCloze(lines[from - 1]) && !schedules(from - 1)) from--;
+    }
     if (from === at) continue;
 
-    // The back runs down the same way. A schedule ends it in code too, so a
-    // fence nobody closed keeps its one schedule.
+    // The back runs down the same way. The token ends it in code too, as the
+    // schedule does, so a fence nobody closed keeps its one schedule and the
+    // token `setSuspended` writes there still parks the card.
     let to = at;
-    while (!ends(to + 1) && !SR.test(lines[to + 1] ?? "") && !CLOZE_SR.test(lines[to + 1] ?? "")) {
-      to++;
-    }
+    while (!ends(to + 1) && !schedules(to + 1) && !parks(lines[to + 1])) to++;
     // A `?` with nothing under it is no card, except under a cloze, whose `?`
     // it stays with an empty back. `review.ts` sees the matched lines alone and
     // cannot tell a blank line under the `?` from a back of plain text, so both
