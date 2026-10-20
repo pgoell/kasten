@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from typing import TYPE_CHECKING
@@ -21,6 +22,19 @@ if TYPE_CHECKING:
 
 JJ = shutil.which("jj")
 """Where jj is, or None on a box without it, which every jj test skips on."""
+
+
+@pytest.fixture(autouse=True)
+def no_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Drop the GIT_* variables a git hook sets, such as GIT_DIR.
+
+    Under `git push` the pre-push hook runs the suite with them set, and a test
+    that runs git in its own tmp repo would act on the real repo instead: in a
+    worktree, `git init` set core.bare in its shared config.
+    """
+    for key in os.environ:
+        if key.startswith("GIT_"):
+            monkeypatch.delenv(key)
 
 
 @pytest.fixture(autouse=True)
