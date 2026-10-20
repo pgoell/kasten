@@ -35,6 +35,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Cards](/reference/http-api/cards.md): flashcard lines, review limits and Anki imports
 * [Capture](/reference/http-api/capture.md): the dump, web pages, YouTube transcripts, HTML pages and weather
 * [System](/reference/http-api/system.md): health, version, the change stream, terminals and agent tokens
+* [Shared lists](/reference/http-api/shared-lists.md): the six `/share/` routes the shared lists app reaches, outside the `/api/` count
 
 ## Related
 
@@ -42,5 +43,6 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Moving a note](/explanation/moving-notes.md): why a move rewrites links and carries index entries
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md): push a change here through to the frontend
 * [Configuration](/reference/configuration.md): which directory `/api/files` reads
+* [Shared lists](/explanation/shared-lists.md): why the `/share/` routes exist, and what they can reach
 * [Agent API](/reference/agent-api.md): the routes a token reaches, and the ones it never does
 * [Capture from your phone](/how-to/capture-from-your-phone.md): the page and the share sheet that post to `/api/dump`

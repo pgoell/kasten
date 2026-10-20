@@ -28,6 +28,25 @@ Any other proxy has to do the same. Why the gate sits where it does is in
 Behind the oauth2-proxy gate, `/oauth2/*` goes to oauth2-proxy on port `4180`
 with no gate, so the sign-in page and its callback can load.
 
+## The share host
+
+The shared lists have a host of their own, `liste.pgoell.com` on the maintainer's
+box. Its gate is a second oauth2-proxy, with its own cookie, so a session on the
+main host does not pass here. Its routes are these, and nothing else on the host
+is served:
+
+| Path | Goes to | Login gate | Why |
+| --- | --- | --- | --- |
+| `/oauth2/*` | oauth2-proxy, port `4180` | **no** | the sign-in page and its callback |
+| `/share/*` | backend, port `8000` | yes, the share gate | the six list routes, and `/share/events` |
+| `/`, `/lists.html`, `/assets/*`, `/icons/*`, `/lists.webmanifest`, `/lists-sw.js`, `/viewport-fit.js`, `/favicon.svg` | frontend, port `3000` | yes, the share gate | the lists app; `/` is rewritten to `/lists.html` |
+| everything else | Caddy answers `404` | no | nothing else is served here |
+
+The backend holds a second lock on this host. With `Host` set to
+`KASTEN_SHARE_HOST`, it answers `404` to every path outside `/share/`, before any
+route runs. [Shared lists](/explanation/shared-lists.md#two-locks) says why there
+are two.
+
 ## Rules
 
 * **Keep the path.** Each route passes the path through unchanged. ttyd runs
@@ -42,13 +61,13 @@ with no gate, so the sign-in page and its callback can load.
   `404`, not the gate.
 * **`/api/oauth/authorize` stays gated.** It sits under `/api/`, and the gate in
   front of it is what proves who presses the consent button.
-* **Do not compress `/api/events` or `/chat/events`.** Each is a server-sent
-  event stream. A compressor buffers it whole, and the browser then holds a
-  connection that never delivers and never errors. In Caddy, put a request
-  matcher on `encode`:
+* **Do not compress `/api/events`, `/chat/events` or `/share/events`.** Each is a
+  server-sent event stream. A compressor buffers it whole, and the browser then
+  holds a connection that never delivers and never errors. In Caddy, put a
+  request matcher on `encode`:
 
   ```caddyfile
-  @compressible not path /api/events /chat/events
+  @compressible not path /api/events /chat/events /share/events
   encode @compressible zstd gzip
   ```
 
@@ -83,6 +102,14 @@ From a machine with no session:
 | `GET /.well-known/openid-configuration` | `404` from the backend |
 | WebSocket upgrade on `/term/ws` | refused by the gate. **A `101` means the shell is open** |
 | `GET /chat/events` | refused by the gate. **A `200` means the agent is open** |
+
+On the share host, from a machine with no session:
+
+| Request | Answer |
+| --- | --- |
+| `GET /api/health` | `404` from Caddy. The backend is never asked |
+| `GET /share/lists` | `302` to the sign-in page. **A `200` means the lists are open** |
+| `GET /` | `302` to the sign-in page, not the app |
 
 [Self-host kasten](/how-to/self-host-kasten.md#6-check-the-gate) has the curls.
 
