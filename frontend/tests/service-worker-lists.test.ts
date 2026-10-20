@@ -58,6 +58,7 @@ describe("dropping the lists app's worker", () => {
     }
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    Reflect.deleteProperty(navigator, "onLine");
     Reflect.deleteProperty(navigator, "serviceWorker");
     Reflect.deleteProperty(globalThis, "caches");
   });
@@ -116,5 +117,21 @@ describe("dropping the lists app's worker", () => {
     startWorker();
     await flush();
     expect(order).toEqual(["unregister", "register"]);
+  });
+
+  it("keeps the lists worker and its cache while offline", async () => {
+    Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+    const lists = registration("/lists-sw.js");
+    const names = stubCaches(["lists-shell-2", "kasten-abc"]);
+    stubWorkers(async () => [lists]);
+    startWorker();
+    await flush();
+    const unregistered = [lists]
+      .filter((reg) => reg.unregister.mock.calls.length > 0)
+      .map((reg) => new URL(reg.active.scriptURL).pathname);
+    expect({ unregistered, caches: [...names] }).toEqual({
+      unregistered: [],
+      caches: ["lists-shell-2", "kasten-abc"],
+    });
   });
 });

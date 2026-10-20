@@ -5,6 +5,10 @@
  * host's worker is never reached from here.
  */
 async function dropListsWorker(): Promise<void> {
+  // Offline, the lists worker is what serves the page, and /sw.js cannot install
+  // to take over. Dropping it now would leave no worker for the next offline start,
+  // so the cleanup waits for an online load.
+  if (!navigator.onLine) return;
   for (const registration of await navigator.serviceWorker.getRegistrations()) {
     const worker = registration.active ?? registration.waiting ?? registration.installing;
     if (worker && new URL(worker.scriptURL).pathname === "/lists-sw.js") {
