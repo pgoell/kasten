@@ -13,7 +13,9 @@ fails when one copy is edited and not the other.
 import re
 from datetime import date, timedelta
 
+from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import DEFAULTS
+from kasten_backend.frontmatter import body_start
 
 DAILY = "00 Daily"
 """Where the day's notes live, inside `KASTEN_PERIODIC_PATH`.
@@ -56,6 +58,68 @@ def daily_note(day: date, periodic: str = DEFAULTS.periodic_path) -> str:
     )
 
 
+FENCE_LINE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+"""A line that opens or closes a fenced block, read the way `note-section.ts` reads one."""
+
+
+def _live(text: str) -> list[bool]:
+    """Per line of `text`, whether the line is the note's own text and not frontmatter or code.
+
+    Each line is judged by its start offset, as `log.py` judges its lines. The
+    fences are found in the body alone, so a fence the frontmatter seems to open
+    hides nothing below it.
+    """
+    body = body_start(text)
+    spans = [(start + body, end + body) for start, end in code_spans(text[body:])]
+    live = []
+    offset = 0
+    for line in text.split("\n"):
+        start, offset = offset, offset + len(line) + 1
+        live.append(start >= body and not inside(start, spans))
+    return live
+
+
+def _open_fence(lines: list[str], first: int) -> int | None:
+    """The index of the line opening a fence that nothing closes, from `first` on, or None."""
+    opened: tuple[int, str] | None = None
+    for index in range(first, len(lines)):
+        fence = FENCE_LINE.match(lines[index])
+        if fence is None:
+            continue
+        if opened is None:
+            opened = index, fence[1]
+        elif (
+            lines[index].strip() == fence[1]
+            and fence[1][0] == opened[1][0]
+            and len(fence[1]) >= len(opened[1])
+        ):
+            opened = None
+    return None if opened is None else opened[0]
+
+
+def _heading(text: str, lines: list[str], live: list[bool]) -> int | None:
+    """The line `## Dump` is read from, or None when the note has none.
+
+    The first live line that is the heading. A note ending inside a fence nobody
+    closed has the readers take that fence as its text, so a heading made at its
+    end would be one they never see: the `## Dump` inside the fence is used instead.
+    """
+    at = next(
+        (index for index, line in enumerate(lines) if live[index] and line.rstrip() == DUMP),
+        None,
+    )
+    if at is not None:
+        return at
+
+    opened = _open_fence(lines, text.count("\n", 0, body_start(text)))
+    if opened is None:
+        return None
+    return next(
+        (index for index in range(opened + 1, len(lines)) if lines[index].rstrip() == DUMP),
+        None,
+    )
+
+
 def append_dump(text: str, capture: str) -> str:
     """`text` with `capture` as a paragraph of its own at the end of `## Dump`.
 
@@ -64,15 +128,24 @@ def append_dump(text: str, capture: str) -> str:
     end, which is where the ritual writes it by hand at 17:00. A section that
     follows the dump keeps the blank line in front of its heading: `/close-day`
     writes one there, and a capture pushed under the gap would read as its.
+
+    The heading and its end are found the way `log.py` finds `## Log`: a line in
+    the frontmatter or in a fence is neither, so a dump written in code is not the
+    section.
     """
     lines = text.split("\n")
-    at = next((index for index, line in enumerate(lines) if line.rstrip() == DUMP), None)
+    live = _live(text)
+    at = _heading(text, lines, live)
 
     if at is None:
         return f"{text.rstrip(chr(10))}\n\n{DUMP}\n{capture}\n"
 
     end = next(
-        (index for index in range(at + 1, len(lines)) if SECTION_END.match(lines[index])),
+        (
+            index
+            for index in range(at + 1, len(lines))
+            if live[index] and SECTION_END.match(lines[index])
+        ),
         len(lines),
     )
     last = end
