@@ -1323,3 +1323,47 @@ describe("#664 a code block holds no card and no deck tag", () => {
     expect(fronts(text)).toEqual(["r"]);
   });
 });
+
+describe("#670 a code block ends a ? card's front and back", () => {
+  /** Each card's two sides and the lines it spans, in the order written. */
+  const sides = (text: string) =>
+    parseCards(text).map(({ from, to, front, back }) => ({ from, to, front, back }));
+
+  it.each([
+    ["a tilde fence", "~~~"],
+    ["a backtick fence", "```"],
+  ])("#670 A1 a ? right under %s has no front and is no card", (_, fence) => {
+    expect(sides(`#flashcards/a\n\n${fence}\nx::y\n${fence}\n?\nans\n`)).toEqual([]);
+  });
+
+  it("#670 A2 a ? card's back stops at a fence below it", () => {
+    expect(sides("#flashcards/a\n\nq\n?\nans\n~~~\nx::y\n~~~\n")).toEqual([
+      { from: 2, to: 4, front: "q", back: "ans" },
+    ]);
+  });
+
+  it("#670 I4 a card right under a fence has the line under the fence as its whole front", () => {
+    expect(sides("#flashcards/a\n\n~~~\ncode\n~~~\nq\n?\na\n")).toEqual([
+      { from: 5, to: 7, front: "q", back: "a" },
+    ]);
+  });
+
+  it("#670 I5 a card right over a fence keeps its back up to the fence and no line of it", () => {
+    expect(sides("#flashcards/a\n\nq\n?\na\nb\n```\ncode\n```\n")).toEqual([
+      { from: 2, to: 5, front: "q", back: "a\nb" },
+    ]);
+  });
+
+  it("#670 I6 a comment block beside a ? card is no code and stays on its sides", () => {
+    expect(sides("#flashcards/a\n\nq\n<!--\nhint\n-->\n?\na\n<!-- x -->\nb\n")).toEqual([
+      { from: 2, to: 9, front: "q\n<!--\nhint\n-->", back: "a\n<!-- x -->\nb" },
+    ]);
+  });
+
+  it.each([
+    ["a tilde fence", "~~~\n{{c1::x}}\n~~~"],
+    ["an indented code block", "prose\n\n    {{c1::x}}"],
+  ])("#670 I7 a ? right under %s holding a cloze reads no card out of it", (_, code) => {
+    expect(sides(`#flashcards/a\n\n${code}\n?\nans\n`)).toEqual([]);
+  });
+});

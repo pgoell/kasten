@@ -47,6 +47,8 @@
  * sitting alike.
  */
 
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import type { MarkdownConfig } from "@lezer/markdown";
 import {
   CLOZE_SR,
   clozeAnswer,
@@ -68,8 +70,12 @@ import {
 } from "@/lib/card-line";
 import { shiftDay } from "@/lib/clock";
 import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
+import { frontmatter } from "@/lib/frontmatter-language";
+import { Highlight } from "@/lib/markdown-highlight";
+import { MathSyntax } from "@/lib/math";
 import { readField, setField } from "@/lib/note-frontmatter";
-import { noteLanguage } from "@/lib/note-language";
+import { Tag } from "@/lib/tag";
+import { WikiLink } from "@/lib/wikilink";
 
 /** How well a card went, in the four steps Anki asks for. */
 export type Rating = "again" | "hard" | "good" | "easy";
@@ -266,14 +272,46 @@ function clozeCards(
 }
 
 /**
- * kasten's markdown under its frontmatter, as the editor parses a note. One
- * for the module, the parser holding no state between two notes.
+ * No inline parse of a paragraph that holds no deck tag or no `<!--`, which is
+ * most of a deck note and was most of the time the editor's parse took (#669).
+ * A deck tag opens with `#flashcards`, `deck-tag.ts`'s `DECK_TAG`.
+ *
+ * What `read` takes from inside a paragraph is its comments, and those only to
+ * hide the deck tags in them, so a paragraph without both has nothing to give.
+ * Code is a block and the block parse stays whole. A paragraph holding both is
+ * parsed as the editor parses it, code spans and all.
  */
-const notes = noteLanguage().language.parser;
+const Untagged: MarkdownConfig = {
+  parseInline: [
+    {
+      name: "Untagged",
+      before: "Escape",
+      parse: (cx, _next, pos) =>
+        pos === cx.offset && !(cx.text.includes("#flashcards") && cx.text.includes("<!--"))
+          ? cx.end
+          : -1,
+    },
+  ],
+};
+
+/**
+ * kasten's markdown under its frontmatter, as `noteLanguage` has it, with
+ * `Untagged` in front. One for the module, the parser holding no state between
+ * two notes. No code languages: nothing inside code is read.
+ */
+const notes = frontmatter(
+  markdown({
+    base: markdownLanguage,
+    extensions: [Untagged, Highlight, MathSyntax, Tag, WikiLink],
+  }),
+).language.parser;
 
 /** What the editor's parser makes of a note, as far as cards and deck tags care. */
 interface Read {
-  /** The note with every HTML comment blanked, each line where it was. */
+  /**
+   * The note with every HTML comment that could hide a deck tag blanked, each
+   * line where it was. A comment in a paragraph with no deck tag stays as text.
+   */
   uncommented: string;
   /** Per line of the note, whether it is code, fence lines included. */
   code: boolean[];
@@ -355,14 +393,19 @@ export function parseCards(text: string, note = ""): Card[] {
     // A line holding a mark ends it too: directly over the `?` it is the whole
     // front, the cloze this card asks, and further up it is a cloze of its own,
     // which is the one reading `review.ts` can make off the matched lines.
-    const cloze = !breaks(lines[at - 1]) && holdsCloze(lines[at - 1]);
+    // A line of code ends it as a blank line would, and the back below too, a
+    // fence line being code (#670).
+    const cloze = !breaks(lines[at - 1]) && !code[at - 1] && holdsCloze(lines[at - 1]);
     let from = cloze ? at - 1 : at;
-    if (!cloze) while (!breaks(lines[from - 1]) && !holdsCloze(lines[from - 1])) from--;
+    if (!cloze) {
+      while (!breaks(lines[from - 1]) && !code[from - 1] && !holdsCloze(lines[from - 1])) from--;
+    }
     if (from === at) continue;
 
     let to = at;
     while (
       !breaks(lines[to + 1]) &&
+      !code[to + 1] &&
       !SR.test(lines[to + 1] ?? "") &&
       !CLOZE_SR.test(lines[to + 1] ?? "")
     ) {

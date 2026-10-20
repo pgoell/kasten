@@ -83,7 +83,10 @@ fenced::answer
 """
 
 
-async def test_finds_a_fence(client: AsyncClient, vault: Path) -> None:
+async def test_sends_no_fence_line(client: AsyncClient, vault: Path) -> None:
+    # The client finds the block with the editor's parser in the note it reads
+    # whole, so the markers would be lines nobody reads. The `::` inside still
+    # comes back, the pattern being loose on purpose.
     write(vault, "decks/cpp.md", FENCED)
 
     response = await client.get("/api/cards")
@@ -92,9 +95,7 @@ async def test_finds_a_fence(client: AsyncClient, vault: Path) -> None:
     assert response.json() == [
         {"path": "decks/cpp.md", "line": 3, "text": "#flashcards/cpp"},
         {"path": "decks/cpp.md", "line": 5, "text": "live::answer"},
-        {"path": "decks/cpp.md", "line": 7, "text": "```cpp"},
         {"path": "decks/cpp.md", "line": 8, "text": "fenced::answer"},
-        {"path": "decks/cpp.md", "line": 9, "text": "```"},
     ]
 
 

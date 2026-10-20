@@ -2123,8 +2123,9 @@ def test_a_front_ending_in_a_colon_reads_back_whole() -> None:
 
 
 def test_a_side_opening_a_fence_opens_none() -> None:
-    # `fences()` in `card-line.ts` reads a line opening with three backticks as
-    # a fence, and both readers would skip every card under it.
+    # The client finds code with the editor's markdown parser, which reads a
+    # line opening with three backticks as a fence, and both readers would
+    # skip every card under it.
     deck = basic_deck(("```js x", "code"), ("```a::b", "```c"), ("a", "b"))
 
     note = as_note(deck)

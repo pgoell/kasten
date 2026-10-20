@@ -1246,8 +1246,9 @@ def _divides(card: Card) -> bool:
 def _unfenced(side: str) -> str:
     """`side` with a leading fence escaped, so it opens no code block in the note.
 
-    `fences()` in `card-line.ts` reads any line opening with three backticks as a
-    fence, and both readers skip every card inside one. The backslash is
+    The client finds code with the editor's markdown parser, which reads any line
+    opening with three backticks as a fence, and both readers skip every card
+    inside one. The backslash is
     markdown's own escape, so the side still shows its backticks.
     """
     return f"\\{side}" if side.startswith("```") else side

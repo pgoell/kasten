@@ -8,7 +8,12 @@ The backend does not parse a card. It finds the candidate lines and hands them
 over whole, because the browser has to parse the format anyway to draw a card
 and two parsers in two languages drift. That division is what lets one endpoint
 answer both halves of the feature: a deck of cards and a whole note marked for
-review are different things to `srs.ts` and the same six patterns here.
+review are different things to `srs.ts` and the same five patterns here.
+
+Nothing here skips code either. The client reads each deck note whole and asks
+the editor's markdown parser where its code blocks and comments are, which no
+line pattern could tell it: a fence of tildes, an indented block, a fence in a
+list item or a quote.
 """
 
 from typing import TYPE_CHECKING
@@ -49,15 +54,6 @@ what makes the count work out: every card matches exactly once through
 keeps one comment per number, `<!--SR:c1!`, all of them on one line.
 """
 
-FENCE_LINE = r"^[ \t]*```"
-"""A fenced code block's marker, handed over so the client can find the block.
-
-A fence line is a card in no reading of the format: it holds no `::`, no `?` and
-no tag, so nothing counted it before and nothing counts it now. It comes back
-because the reader on the other side has no other way to tell a card from a
-`std::vector`, the lines inside a block matching nothing that would reach it.
-"""
-
 PARKED_LINE = r"^[ \t]*!suspended"
 """The token parking a card written over several lines.
 
@@ -77,7 +73,7 @@ are anchored because they are frontmatter fields, and unanchored ones would
 match the words in prose.
 """
 
-CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{FENCE_LINE}|{PARKED_LINE}|{NOTE_LINE}"
+CARD_PATTERN = f"{CARD_LINE}|{SCHEDULE_LINE}|{PARKED_LINE}|{NOTE_LINE}"
 
 
 async def find_cards(root: Path, skip: str | None = None) -> list[Hit]:

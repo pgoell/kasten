@@ -149,8 +149,10 @@ Standard, Infrequent Access, Glacier
 ```
 
 A `?` on a line of its own divides them. The question runs back to the blank
-line or heading above, the answer forward to the blank line or heading below, so
-both sides can be as long as you like.
+line, heading or code block above, the answer forward to the blank line, heading
+or code block below, so both sides can be as long as you like. A code block is
+no part of either side, its fence lines included, so a `?` right under a fence
+has no question and is no card.
 
 A `::` inside a code block is not a card, and neither is a `?` in one. That
 holds for a fence opened with backticks or tildes, one nobody closed (it runs to
