@@ -146,3 +146,31 @@ it("the palette logs nothing while today's note is being saved", () => {
     drinkTarget({ today: daily, focusedPath: "other.md", held: false, writing: true }),
   ).toEqual({ why: `${daily} is still being saved` });
 });
+
+it("a queued drink writes nothing when today's note became unsaved while it waited", async () => {
+  vault.notes[daily] = "## TODOs\n";
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Only the first save waits, so the second tap sits in the queue behind it.
+  vault.beforePut = async () => {
+    vault.beforePut = undefined;
+    await gate;
+  };
+  let unsaved = false;
+  const stillOk = () => (unsaved ? { why: `${daily} holds text not yet saved` } : null);
+
+  const first = logDrinkInVault("water", [daily]);
+  const second = logDrinkInVault("coffee", [daily], stillOk);
+  const refused = expect(second).rejects.toThrow(
+    `Nothing logged: ${daily} holds text not yet saved`,
+  );
+  // The note becomes unsaved after the second tap was queued, before its turn.
+  unsaved = true;
+  release();
+  await first;
+  await refused;
+
+  expect(vault.notes[daily]).toBe("## TODOs\n\n## Log\n- 💧 250 ml\n");
+});

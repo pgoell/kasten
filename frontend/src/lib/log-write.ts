@@ -1,10 +1,10 @@
 /**
- * Where a drink from the palette lands: in the buffer when the note is today's,
- * in the vault when it is any other.
+ * Where a drink from the palette lands. Today's note in the focused pane goes to
+ * its buffer, which owns the text and which autosave writes. Any other note goes
+ * to the vault, unless today's note is held or being saved: a write then would
+ * land over text somebody typed, so the drink is refused.
  *
- * `log-lines.ts` holds what a tap writes. The buffer owns the note it is typed
- * into, so today's own note is changed there and autosave writes it. Any other
- * note is written through the vault, the way the `## Done` log is.
+ * `log-lines.ts` holds what a tap writes.
  */
 
 import { isolateHistory } from "@codemirror/commands";
@@ -33,6 +33,8 @@ export function logDrinkInView(view: EditorView, kind: DrinkKind): boolean {
   return true;
 }
 
+export type DrinkTarget = "buffer" | "vault" | { why: string };
+
 /**
  * Where a drink goes: into the buffer when today's note is the focused pane's,
  * else into the vault.
@@ -42,8 +44,6 @@ export function logDrinkInView(view: EditorView, kind: DrinkKind): boolean {
  * land over text somebody typed. A note in the focused pane is never written
  * through the vault, since its buffer owns the text.
  */
-export type DrinkTarget = "buffer" | "vault" | { why: string };
-
 export function drinkTarget({
   today,
   focusedPath,
@@ -79,34 +79,58 @@ const TAP_WAIT_MS = 10_000;
  * Taps run one at a time. A read that came before an earlier tap's save would
  * not see that tap's line, and the later save would drop it. A failed tap does
  * not hold up the next.
+ *
+ * `stillOk` is asked again where the write is made, since a tap can wait in the
+ * queue for a while. A refusal rejects with `Nothing logged: <why>` and writes
+ * nothing.
  */
-export function logDrinkInVault(kind: DrinkKind, paths: string[]): Promise<void> {
+export function logDrinkInVault(
+  kind: DrinkKind,
+  paths: string[],
+  stillOk?: () => { why: string } | null,
+): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const bound = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, TAP_WAIT_MS);
   });
   const turn = Promise.race([drinkTurns, bound])
     .finally(() => clearTimeout(timer))
-    .then(() => writeDrink(kind, paths));
+    .then(() => writeDrink(kind, paths, stillOk));
   // Settled either way, so the next tap waits on this one and never on why it
   // failed.
   drinkTurns = Promise.allSettled([turn]);
   return turn;
 }
 
-async function writeDrink(kind: DrinkKind, paths: string[]): Promise<void> {
+async function writeDrink(
+  kind: DrinkKind,
+  paths: string[],
+  stillOk?: () => { why: string } | null,
+): Promise<void> {
   const daily = periodicNote("daily", new Date());
-  const change = (text: string) => appendUnder(text, LOG_HEADING, DEFAULT_LINE[kind]);
+  // The refusal the last ask gave. A holder rather than a variable, since the
+  // change below sets it from inside the callback `updateNote` runs.
+  const refusal: { why?: string } = {};
+  // Asked at every write, not once at the press: the tap may have waited behind
+  // a save, and the note may have been opened or edited meanwhile.
+  const change = (text: string) => {
+    refusal.why = stillOk?.()?.why;
+    return refusal.why === undefined ? appendUnder(text, LOG_HEADING, DEFAULT_LINE[kind]) : null;
+  };
 
   // A note the listing leaves out may have been made by a tap just before this
   // one, so a create that finds it there writes into it instead.
   if (!paths.includes(daily.path)) {
+    const created = change(daily.body);
+    if (created === null) throw new Error(`Nothing logged: ${refusal.why}`);
     try {
-      await createNote(daily.path, change(daily.body));
+      await createNote(daily.path, created);
       return;
     } catch (error) {
       if (!(error instanceof NoteExists)) throw error;
     }
   }
+  // A refused change makes `updateNote` answer null and write nothing.
   await updateNote(daily.path, change);
+  if (refusal.why !== undefined) throw new Error(`Nothing logged: ${refusal.why}`);
 }

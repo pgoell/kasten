@@ -85,7 +85,7 @@ export function usePaneCommands({
   /** The vault's note paths, as the listing holds them; undefined until it loads. */
   paths: string[] | undefined;
   /** The note the focused pane holds, and whether a save of one is in the air. */
-  focusedNote: RefObject<{ isWriting: (note: string) => boolean }>;
+  focusedNote: RefObject<{ path: string | undefined; isWriting: (note: string) => boolean }>;
 }) {
   const { moveTo, focusToward, swapToward } = moves;
   const queryClient = useQueryClient();
@@ -291,7 +291,20 @@ export function usePaneCommands({
           setNotice(`Nothing logged: ${target.why}`);
           return;
         }
-        void logDrinkInVault(kind, paths ?? []).then(
+        // Asked again when the queue reaches the write: a tap can wait behind a save,
+        // and the note can be opened or held meanwhile. The focus is read from the
+        // ref, since this closure was made at the press.
+        const stillOk = () => {
+          const now = drinkTarget({
+            today,
+            focusedPath: focusedNote.current.path,
+            held: heldText(today) !== undefined,
+            writing: focusedNote.current.isWriting(today),
+          });
+          if (now === "vault") return null;
+          return { why: typeof now === "object" ? now.why : `${today} is open to type in` };
+        };
+        void logDrinkInVault(kind, paths ?? [], stillOk).then(
           () => setNotice(`Logged ${DEFAULT_LINE[kind].slice(2)} into today's note`),
           (error: unknown) =>
             setNotice(error instanceof Error ? error.message : "The drink was not logged"),
