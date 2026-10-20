@@ -2,7 +2,8 @@
 // and it never answers `/share/*` from a cache: a list read from one would be
 // stale, and a tick could look undone when it is not.
 
-const CACHE = "lists-shell-1";
+// Bumped with every change to what the worker caches, so an old cache is dropped.
+const CACHE = "lists-shell-2";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
@@ -28,6 +29,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/share/")) return;
+  // The login round trip: nothing from it is ever kept.
+  if (url.pathname.startsWith("/oauth2/")) return;
   event.respondWith(networkFirst(request));
 });
 
@@ -39,7 +42,8 @@ async function networkFirst(request) {
   const key = navigation ? SHELL : request;
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(key, response.clone());
+    // A redirect is the sign-in page answering for a page the session no longer holds.
+    if (response.ok && !response.redirected) cache.put(key, response.clone());
     return response;
   } catch (error) {
     const hit = await cache.match(key);

@@ -10,11 +10,16 @@ export type Item = { line: number; text: string; done: boolean };
 
 export type ListData = { name: string; sha: string | null; items: Item[] };
 
-/** A write the phone has made and the server has not yet taken. */
-export type Op =
-  | { kind: "add"; list: string; text: string }
+/**
+ * A write the phone has made and the server has not yet taken. `before` counts
+ * the open items with the text before the first send, so an answer lost after
+ * the server wrote shows as one more afterwards.
+ */
+type OpBody =
+  | { kind: "add"; list: string; text: string; before?: number }
   | { kind: "tick"; list: string; text: string; done: boolean }
   | { kind: "clear"; list: string };
+export type Op = OpBody & { id: string };
 
 export type Snapshot = {
   /** Each list as the server last gave it. */
@@ -28,6 +33,8 @@ export type Snapshot = {
   live: boolean;
   /** Refusals, kept on screen until dismissed. */
   errors: string[];
+  /** The session has expired: writes wait for a sign-in. */
+  signIn: boolean;
 };
 
 export type ListsStore = {
@@ -58,12 +65,17 @@ class HttpError extends Error {
   }
 }
 
+/** The session expired: the server answered with the sign-in page, not the list. */
+class SignInError extends Error {}
+
 /**
- * A failure that says nothing about the write itself: the network is down or
- * the server broke. The write stays queued for the next try.
+ * A failure that says nothing about the write itself: the network is down, the
+ * server broke, a conflict outlasted its tries, or the session expired. The write
+ * stays queued until the next trigger.
  */
 function transient(error: unknown): boolean {
-  return error instanceof TypeError || (error instanceof HttpError && error.status >= 500);
+  if (error instanceof TypeError || error instanceof SignInError) return true;
+  return error instanceof HttpError && (error.status >= 500 || error.status === 409);
 }
 
 async function send<T>(method: string, path: string, body?: object): Promise<T> {
@@ -74,8 +86,15 @@ async function send<T>(method: string, path: string, body?: object): Promise<T> 
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
+  // An expired session answers with the sign-in page: a redirect, or HTML where JSON was asked for.
+  if (res.redirected || res.status === 401 || res.status === 403) throw new SignInError();
   if (!res.ok) throw new HttpError(res.status);
-  return (await res.json()) as T;
+  try {
+    return (await res.json()) as T;
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new SignInError();
+    throw error;
+  }
 }
 
 const listPath = (name: string) => `/lists/${encodeURIComponent(name)}`;
@@ -107,6 +126,10 @@ export function viewOf(snap: Snapshot, list: string): Item[] {
   let items = snap.lists[list]?.items ?? [];
   for (const op of snap.queue) if (op.list === list) items = applyOp(items, op);
   return items;
+}
+
+function openCount(list: ListData, text: string): number {
+  return list.items.filter((item) => !item.done && item.text === text).length;
 }
 
 const fold = (text: string) => text.toLocaleLowerCase("de-DE");
@@ -148,6 +171,22 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
+const DRAIN_LOCK = "kasten.lists.drain";
+let realmTail: Promise<void> = Promise.resolve();
+
+const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+
+/**
+ * One drain at a time. Across tabs the browser's lock does it, so two tabs never
+ * replay the same op. Where there is no lock, a chain does it within this realm.
+ */
+function exclusive(run: () => Promise<void>): Promise<void> {
+  if (navigator.locks) return navigator.locks.request(DRAIN_LOCK, run);
+  const next = realmTail.then(run);
+  realmTail = next.catch(() => undefined);
+  return next;
+}
+
 export function createListsStore(): ListsStore {
   let snap: Snapshot = {
     lists: {},
@@ -156,6 +195,7 @@ export function createListsStore(): ListsStore {
     online: navigator.onLine,
     live: false,
     errors: [],
+    signIn: false,
   };
   const listeners = new Set<() => void>();
   // Every sync waits for the one before it, so a list read never overtakes a
@@ -167,9 +207,23 @@ export function createListsStore(): ListsStore {
     for (const listener of listeners) listener();
   }
 
+  // Every change reads the queue fresh. Another tab may have changed it since this
+  // one last looked, and a whole-queue write from a stale copy would undo that.
+  function readQueue(): Op[] {
+    return load<Op[]>(QUEUE_KEY, []);
+  }
+
   function setQueue(queue: Op[]): void {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
     update({ queue });
+  }
+
+  function dequeue(id: string): void {
+    setQueue(readQueue().filter((op) => op.id !== id));
+  }
+
+  function patchQueued(op: Op): void {
+    setQueue(readQueue().map((queued) => (queued.id === op.id ? op : queued)));
   }
 
   function remember(name: string, texts: string[]): void {
@@ -198,13 +252,20 @@ export function createListsStore(): ListsStore {
   }
 
   /** One write: read the list, send, and on a stale sha read again and send again. */
-  async function write(op: Op): Promise<void> {
+  async function write(first: Op): Promise<void> {
+    let op = first;
     for (let attempt = 1; ; attempt += 1) {
       const list = await getList(op.list);
+      if (op.kind === "add" && op.before === undefined) {
+        // Counted, and kept, before the first send, so a lost answer can be told from a lost write.
+        op = { ...op, before: openCount(list, op.text) };
+        patchQueued(op);
+      }
       const request = requestFor(op, list);
       if (!request) return;
       try {
         put(await send<ListData>("POST", request.path, request.body));
+        update({ signIn: false });
         return;
       } catch (error) {
         const stale = error instanceof HttpError && error.status === 409;
@@ -213,19 +274,37 @@ export function createListsStore(): ListsStore {
     }
   }
 
-  /** Sends the queue oldest first, and stops at the first write the network or server has not taken. */
-  async function drain(): Promise<void> {
-    while (snap.queue.length > 0 && snap.online) {
-      const op = snap.queue[0];
-      if (!op) return;
+  /** Did an add land although its answer was lost? The list then holds one more open item with its text. */
+  function landed(id: string): Promise<boolean> {
+    const op = readQueue().find((queued) => queued.id === id);
+    if (op?.kind !== "add" || op.before === undefined) return Promise.resolve(false);
+    const { list, text, before } = op;
+    return getList(list).then(
+      (now) => openCount(now, text) > before,
+      () => false,
+    );
+  }
+
+  /** Sends the queue oldest first, from storage, and stops at the first write the network, server or session has not taken. */
+  async function drainQueue(): Promise<void> {
+    let op: Op | undefined = readQueue()[0];
+    while (op && snap.online) {
       try {
         await write(op);
+        dequeue(op.id);
       } catch (error) {
-        if (transient(error)) return;
-        // The server refused it for good. Say so, and let the rest go up.
-        fail(`Nicht gespeichert: ${op.list}`);
+        if (error instanceof SignInError) update({ signIn: true });
+        if (!transient(error)) {
+          // The server refused it for good. Say so, and let the rest go up.
+          fail(`Nicht gespeichert: ${op.list}`);
+          dequeue(op.id);
+        } else if (await landed(op.id)) {
+          dequeue(op.id);
+        } else {
+          return;
+        }
       }
-      setQueue(snap.queue.slice(1));
+      op = readQueue()[0];
     }
   }
 
@@ -234,18 +313,19 @@ export function createListsStore(): ListsStore {
       try {
         put(await getList(name));
       } catch (error) {
+        if (error instanceof SignInError) update({ signIn: true });
         if (!transient(error)) fail(`Liste ${name} nicht geladen`);
       }
     }
   }
 
   function sync(): void {
-    chain = chain.then(drain).then(refresh);
+    chain = chain.then(() => exclusive(drainQueue)).then(refresh);
   }
 
-  function enqueue(op: Op): void {
+  function enqueue(op: OpBody): void {
     if (op.kind === "add") remember(op.list, [op.text]);
-    setQueue([...snap.queue, op]);
+    setQueue([...readQueue(), { ...op, id: newId() }]);
     sync();
   }
 
@@ -256,6 +336,11 @@ export function createListsStore(): ListsStore {
   const goOffline = () => update({ online: false });
   window.addEventListener("online", goOnline);
   window.addEventListener("offline", goOffline);
+  // Another tab changed the queue: show what it holds now.
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === QUEUE_KEY) update({ queue: readQueue() });
+  };
+  window.addEventListener("storage", onStorage);
 
   // jsdom and older browsers have no EventSource, and the poll below covers them.
   let source: EventSource | undefined;
@@ -290,6 +375,7 @@ export function createListsStore(): ListsStore {
       clearInterval(poll);
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
+      window.removeEventListener("storage", onStorage);
     },
   };
 }

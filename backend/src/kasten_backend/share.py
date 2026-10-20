@@ -34,6 +34,30 @@ FINISHED = re.compile(r"[ \t]*✅\N{VARIATION SELECTOR-16}?(?:[ \t]+[0-9]{4}-[0-
 ID_MARK = "🆔"
 """The Tasks id a ticked item gets, so the done line keeps one name across edits."""
 
+FIELD_MARKS = re.compile(todos._STOP + "|🔁|👤")
+"""Where an item's words end: the Tasks fields kasten reads, and the two it adds.
+
+`🔁` (recurrence) and `👤` (waiting) are kasten's own fields, not Tasks plugin
+ones, so `todos._STOP` leaves them out and they are listed here.
+"""
+
+BLOCK_ID = re.compile(r"\s*\^[A-Za-z0-9_-]+$")
+"""A trailing `^block-id`, which kasten uses to link into a line and is no word."""
+
+PARTS = re.compile(r"^[ \t]+- \[.\] ")
+"""An indented task: a part of the task above it, which kasten ticks along with it."""
+
+TICK_IN_KASTEN = "Tick this one in kasten"
+"""What a tick the share path leaves to kasten is answered with."""
+
+
+class TickInKastenError(Exception):
+    """A tick the share path refuses, because kasten has more to write than a tick does.
+
+    The route answers it with 422, so the lists app shows the item is still open
+    and tells the person to tick it in kasten, which writes the rest.
+    """
+
 
 class Item(BaseModel):
     """One task line: where it sits in the note, its words and whether it is ticked."""
@@ -112,8 +136,8 @@ def items(text: str) -> list[Item]:
 
 
 def _words(rest: str) -> str:
-    """The words of an item: what is left before the first field marker, trimmed."""
-    return re.split(todos._STOP, rest, maxsplit=1)[0].strip()
+    """The words of an item: what is left before the first field marker, without its id."""
+    return BLOCK_ID.sub("", FIELD_MARKS.split(rest, maxsplit=1)[0]).strip()
 
 
 def _shape(name: str, raw: bytes | None) -> Checklist:
@@ -139,6 +163,18 @@ def _agree(raw: bytes | None, sha: str | None) -> None:
     current = None if raw is None else agent.digest(raw)
     if sha != current:
         raise agent.ConflictError(current)
+
+
+def _kasten_owns(lines: list[str], line: int, rest: str) -> bool:
+    """Whether ticking this item here would skip what kasten does with it.
+
+    A recurring item gets its next occurrence written, and an item with parts has
+    them ticked with it. Kasten does both on its own tick, so this path must not
+    do the first half alone and leave the series stopped.
+    """
+    following = lines[line + 1] if line + 1 < len(lines) else ""
+
+    return "🔁" in rest or PARTS.match(following) is not None
 
 
 def _done(line: str) -> bool:
@@ -235,6 +271,9 @@ async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -
         return _shape(name, raw)
 
     rest, eol = match.group(2), match.group(3)
+    if done and _kasten_owns(lines, line, rest):
+        raise TickInKastenError(TICK_IN_KASTEN)
+
     if done:
         lines[line] = f"- [x] {_ticked(rest)}{eol}"
     else:

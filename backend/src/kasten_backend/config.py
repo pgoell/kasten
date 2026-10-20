@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Self
 from urllib.parse import quote
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from kasten_backend.uploads import UPLOAD_SWEEP_SECONDS
@@ -194,6 +194,16 @@ class Settings(BaseSettings):
     started from the repo root. The backend image sets `/vault`, its mount
     point, so a container never falls back to a directory inside itself.
     """
+
+    @field_validator("share_host")
+    @classmethod
+    def _host_as_a_request_spells_it(cls, value: str) -> str:
+        """Lowercase and without a port, the way the gate reads the `Host` a request carries.
+
+        Compared as written, `Liste.Example:8443` would never equal the header and
+        the gate would stay open without any error to say so.
+        """
+        return value.strip().lower().partition(":")[0]
 
     @model_validator(mode="after")
     def _uploads_outside_the_vault(self) -> Self:

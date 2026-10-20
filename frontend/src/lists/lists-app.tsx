@@ -71,6 +71,7 @@ function Lists({ store }: { store: ListsStore }) {
           ))}
         </div>
         {!snap.online && <p className="status pill">Offline, wird gesendet</p>}
+        {snap.signIn && <p className="status pill">Anmelden nötig</p>}
         {snap.online && snap.queue.length > 0 && <p className="status">Wird gesendet</p>}
       </header>
 

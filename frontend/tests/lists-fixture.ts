@@ -25,7 +25,10 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     ]),
   );
   const posts: { path: string; body: Record<string, unknown> }[] = [];
-  let beforeWrite: (() => void) | undefined;
+  let hook: (() => void) | undefined;
+  let hooks = 0;
+  let lose = false;
+  let signIn = false;
 
   function view(name: string): ListData {
     const note = notes.get(name);
@@ -45,10 +48,19 @@ export function fakeShare(seed: Record<string, Seed[]>) {
 
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     posts.push({ path: url, body });
-    // Another writer gets in between this write's read and its check, once.
-    const hook = beforeWrite;
-    beforeWrite = undefined;
-    hook?.();
+    if (signIn) {
+      // An expired session: the sign-in page answers in place of the JSON.
+      signIn = false;
+      return new Response("<!doctype html><title>Anmelden</title>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+    // Another writer gets in between this write's read and its check.
+    if (hooks > 0) {
+      hooks -= 1;
+      hook?.();
+    }
 
     const note = notes.get(name);
     const current = note ? String(note.rev) : null;
@@ -62,16 +74,31 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     }
     const kept = action === "clear" ? items.filter((item) => !item.done) : items;
     notes.set(name, { rev: (note?.rev ?? 0) + 1, items: kept });
-    return reply(view(name));
+    const answer = reply(view(name));
+    if (lose) {
+      // The write landed and the answer never came back.
+      lose = false;
+      throw new TypeError("Failed to fetch");
+    }
+    return answer;
   });
 
   return {
     fetch,
     /** Every write the app sent, in order. */
     posts,
-    /** Run once, just before the next write is checked. */
-    beforeWrite: (run: () => void) => {
-      beforeWrite = run;
+    /** Run before each of the next `times` writes is checked: another writer gets in. */
+    beforeWrite: (run: () => void, times = 1) => {
+      hook = run;
+      hooks = times;
+    },
+    /** The next write lands, and its answer is lost on the way back. */
+    loseNextAnswer: () => {
+      lose = true;
+    },
+    /** The next write is answered by the sign-in page. */
+    signInNext: () => {
+      signIn = true;
     },
     /** Another writer adds an item at the top of a list, the way kasten would. */
     external: (name: string, text: string) => {

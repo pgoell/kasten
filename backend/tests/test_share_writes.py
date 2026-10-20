@@ -232,3 +232,54 @@ async def test_a_second_writer_on_a_stale_sha_rereads_and_keeps_both(
     assert stale.json()["current"] == first.json()["sha"]
     assert retry.status_code == 200
     assert [item["text"] for item in retry.json()["items"]] == ["Milch", "Brot"]
+
+
+async def test_tick_refuses_a_recurring_item(client: AsyncClient, folder: Path) -> None:
+    # Kasten writes the next occurrence of a recurring todo. A tick here would
+    # stop the series without that, so the share path leaves it to kasten.
+    text = BLOCK + "- [ ] Milch 🔁 every week\n"
+    sha = put(folder, text)
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Tick this one in kasten"}
+    assert (folder / "Einkauf.md").read_bytes() == text.encode("utf-8")
+
+
+async def test_tick_refuses_an_item_with_parts(client: AsyncClient, folder: Path) -> None:
+    # An indented task under the line is its parts, which kasten ticks with it.
+    text = BLOCK + "- [ ] Einkauf\n  - [ ] Milch\n"
+    sha = put(folder, text)
+
+    response = await client.post(
+        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Tick this one in kasten"}
+    assert (folder / "Einkauf.md").read_bytes() == text.encode("utf-8")
+
+
+async def test_read_cuts_recurrence_waiting_and_block_ids(
+    client: AsyncClient, folder: Path
+) -> None:
+    put(
+        folder,
+        BLOCK
+        + "- [ ] Milch 🔁 every week\n"
+        + "- [ ] Brot ^abc\n"
+        + "- [ ] Butter #bio ⏳ 2026-10-21\n"
+        + "- [ ] Eier 👤 Anna\n",
+    )
+
+    response = await client.get("/share/lists/Einkauf")
+
+    assert [item["text"] for item in response.json()["items"]] == [
+        "Milch",
+        "Brot",
+        "Butter #bio",
+        "Eier",
+    ]

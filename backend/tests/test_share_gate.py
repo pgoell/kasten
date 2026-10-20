@@ -68,3 +68,17 @@ async def test_another_host_answers_the_api_as_before(client: AsyncClient, share
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+async def test_share_host_setting_with_capitals_and_a_port_still_gates(
+    client: AsyncClient, shared: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The setting is written the way an operator might type it. Read as written,
+    # it would never equal the Host a request carries, and the gate would be off.
+    monkeypatch.setenv("KASTEN_SHARE_HOST", "Liste.Example:8443")
+    get_settings.cache_clear()
+
+    response = await client.get("/api/health", headers={"Host": "liste.example"})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Not here"}

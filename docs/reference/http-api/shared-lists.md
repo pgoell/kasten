@@ -74,7 +74,10 @@ unless the line has an id already. The `✅` goes before an existing `🆔`.
 Unticking writes `- [ ] <text>` and strips the `✅` date.
 
 A tick whose line is already in the asked state, or is not an item, answers
-`200` and changes nothing. A stale sha answers `409`.
+`200` and changes nothing. A stale sha answers `409`. A tick to done on a line
+carrying `🔁`, or on a line with indented parts under it, answers `422`
+`{"detail": "Tick this one in kasten"}` and writes nothing: kasten's own cycle
+writes the next occurrence and ticks the parts.
 
 ## POST /share/lists/{name}/clear
 

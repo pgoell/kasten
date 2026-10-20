@@ -24,6 +24,19 @@ done date, so the board and Obsidian still count it done.
 A note keeps its history in the vault's jj repository. Every change to a list
 is one more step back, and nothing the app does is final.
 
+## Ticks kasten keeps
+
+A tick here marks one line done and nothing more, with two exceptions. A
+recurring item, one with `🔁` on its line, would stop its series: kasten writes
+the next occurrence when it is ticked. An item with parts, an indented task
+under it, has those parts ticked with it. The backend answers `422` with "Tick
+this one in kasten" for either, and the app tells the person to tick it in
+kasten. Unticking either kind still works here.
+
+The app shows an item's words only. The fields kasten adds, such as the
+recurrence `🔁`, the waiting `👤` and the dates, and a block id at the end of
+the line are left out.
+
 ## Why a second gate, not a second user
 
 kasten has no users. The gate in front of it admits pgoell, and every `/api/`
@@ -73,7 +86,11 @@ made against. If the note has changed since, the backend answers `409` with the
 current sha and writes nothing.
 
 The app then reads the list again and sends the change against the new sha. An
-add repeats safely, because it only appends a line. A tick names its line by
+add is not sent twice when an answer is lost. Before a second send, the app
+reads the list: if one more open item with that text is there, the first send
+landed and the app drops the write. After three `409`s in a row the write waits
+in the queue until the next trigger, such as the phone coming back online. A
+tick names its line by
 number, and the number comes from the fresh read, so a tick lands on the line
 the person meant. A tick on a line that is already in the asked state answers
 `200` and changes nothing.

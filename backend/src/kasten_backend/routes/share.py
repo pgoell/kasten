@@ -104,8 +104,17 @@ async def add_item(
 async def tick_item(
     name: str, body: Tick, settings: Annotated[Settings, Depends(get_settings)]
 ) -> share.Checklist:
-    """Tick or untick the item on one line of a list."""
-    return _found(await share.tick(settings, name, body.line, body.done, body.sha))
+    """Tick or untick the item on one line of a list.
+
+    A tick on a recurring item or one with parts is refused with 422, since kasten
+    does more on its own tick than this path does. Unticking has no such limit.
+    """
+    try:
+        found = await share.tick(settings, name, body.line, body.done, body.sha)
+    except share.TickInKastenError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    return _found(found)
 
 
 @router.post("/lists/{name:path}/clear")
