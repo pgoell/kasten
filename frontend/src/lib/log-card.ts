@@ -120,22 +120,34 @@ function untap(view: EditorView, tap: LastTap): void {
   view.dispatch({ changes, effects: tapped.of(null), userEvent: "delete.log" });
 }
 
+/** Takes back the last tap as the field holds it now, which an edit above it has moved. */
+function undoLastTap(view: EditorView): void {
+  const last = view.state.field(cardField).lastTap;
+  if (last !== null) untap(view, last);
+}
+
 /**
  * The card as a widget. Its DOM is kept while its totals and undo stay the same,
  * so a typed amount survives an edit elsewhere in the note.
  */
 class LogCard extends WidgetType {
   private readonly totals: DrinkTotals;
-  private readonly undo: LastTap | null;
+  /** The text of the tap Undo takes back, or null where there is none to offer. */
+  private readonly undoText: string | null;
 
-  constructor(totals: DrinkTotals, undo: LastTap | null) {
+  constructor(totals: DrinkTotals, undoText: string | null) {
     super();
     this.totals = totals;
-    this.undo = undo;
+    this.undoText = undoText;
   }
 
+  // Only what is drawn is compared. An Undo's position moves with every edit above
+  // it, and a rebuild for that would empty the amount field.
   override eq(other: LogCard): boolean {
-    return JSON.stringify([this.totals, this.undo]) === JSON.stringify([other.totals, other.undo]);
+    return (
+      JSON.stringify([this.totals, this.undoText]) ===
+      JSON.stringify([other.totals, other.undoText])
+    );
   }
 
   override ignoreEvent(): boolean {
@@ -171,24 +183,26 @@ class LogCard extends WidgetType {
       row.appendChild(button(words, `Log ${kind}`, "cm-log-button", press));
     }
     row.appendChild(amount);
-    const undo = this.undo;
-    if (undo !== null) {
-      const words = `Undo ${undo.text.slice(2)}`;
-      row.appendChild(button(words, words, "cm-log-undo", () => untap(view, undo)));
+    if (this.undoText !== null) {
+      const words = `Undo ${this.undoText.slice(2)}`;
+      row.appendChild(button(words, words, "cm-log-undo", () => undoLastTap(view)));
     }
     card.append(totals, row, why);
     return card;
   }
 }
 
-/** The card for a note: its totals always, and its widget only on a daily note. */
+/** What a note with no card is told: nothing logged. Read by no one, so it need not be the note's. */
+const NO_TOTALS = drinkTotals("");
+
+/** The card for a note: its totals and widget only on a daily note. */
 function build(state: EditorState, lastTap: LastTap | null): Card {
   const path = state.facet(notePath);
   const line = path !== undefined && dailyDate(path) !== null ? cardLine(state.doc) : null;
+  if (line === null) return { totals: NO_TOTALS, lastTap, decorations: Decoration.none };
   const totals = drinkTotals(state.doc.toString());
-  if (line === null) return { totals, lastTap, decorations: Decoration.none };
   // Only a tap still on the page can be undone, so an edited one is offered nothing.
-  const undo = lastTap !== null && stillThere(state.doc, lastTap) ? lastTap : null;
+  const undo = lastTap !== null && stillThere(state.doc, lastTap) ? lastTap.text : null;
   const widget = new LogCard(totals, undo);
   return {
     totals,
@@ -204,7 +218,7 @@ function build(state: EditorState, lastTap: LastTap | null): Card {
  * is one: a block widget changes the height of the document, which CodeMirror
  * takes only from state.
  */
-export const logCard: Extension = StateField.define<Card>({
+const cardField = StateField.define<Card>({
   create: (state) => build(state, null),
   update(value, tr) {
     let lastTap = value.lastTap;
@@ -222,3 +236,5 @@ export const logCard: Extension = StateField.define<Card>({
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
+
+export const logCard: Extension = cardField;

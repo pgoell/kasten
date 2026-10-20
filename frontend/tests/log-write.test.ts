@@ -1,4 +1,4 @@
-import { logDrinkInVault } from "@/lib/log-write";
+import { drinkTarget, logDrinkInVault } from "@/lib/log-write";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
 
@@ -139,4 +139,10 @@ describe("a drink logged into the vault", () => {
 
     expect(vault.notes[daily]).toBe("## TODOs\n\n## Log\n- ☕ 1\n");
   });
+});
+
+it("the palette logs nothing while today's note is being saved", () => {
+  expect(
+    drinkTarget({ today: daily, focusedPath: "other.md", held: false, writing: true }),
+  ).toEqual({ why: `${daily} is still being saved` });
 });

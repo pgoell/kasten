@@ -33,6 +33,34 @@ export function logDrinkInView(view: EditorView, kind: DrinkKind): boolean {
   return true;
 }
 
+/**
+ * Where a drink goes: into the buffer when today's note is the focused pane's,
+ * else into the vault.
+ *
+ * A vault write over today's note is refused while the buffer still holds text
+ * the vault refused, or while a save of the note is in the air: either would
+ * land over text somebody typed. A note in the focused pane is never written
+ * through the vault, since its buffer owns the text.
+ */
+export type DrinkTarget = "buffer" | "vault" | { why: string };
+
+export function drinkTarget({
+  today,
+  focusedPath,
+  held,
+  writing,
+}: {
+  today: string;
+  focusedPath: string | undefined;
+  held: boolean;
+  writing: boolean;
+}): DrinkTarget {
+  if (focusedPath === today) return "buffer";
+  if (held) return { why: `${today} holds text not yet saved` };
+  if (writing) return { why: `${today} is still being saved` };
+  return "vault";
+}
+
 /** The taps before this one, which the next waits on. */
 let drinkTurns: Promise<unknown> = Promise.resolve();
 

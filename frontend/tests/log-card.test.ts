@@ -179,4 +179,17 @@ describe("the log card", () => {
     expect(text(view)).toBe(NOTE);
     expect(amount(view).value).toBe("330");
   });
+
+  it("an edit above the log keeps the typed amount while Undo shows", () => {
+    const view = mount(NOTE);
+    press(view, "Log water");
+    expect(view.dom.querySelector(".cm-log-undo")).not.toBeNull();
+    amount(view).value = "500";
+    // The end of the title, not the start: a letter before the `#` would stop the title reading as one.
+    const at = NOTE.indexOf("\n");
+    view.dispatch({ changes: { from: at, insert: "x" } });
+    expect(amount(view).value).toBe("500");
+    view.dom.querySelector<HTMLButtonElement>(".cm-log-undo")?.click();
+    expect(text(view)).toBe(`${NOTE.slice(0, at)}x${NOTE.slice(at)}`);
+  });
 });
