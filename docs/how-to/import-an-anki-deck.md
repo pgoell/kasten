@@ -278,7 +278,8 @@ Text that markdown would read as formatting gets a backslash, so it reads as
 text: `2\*3`, `snake\_case`, `` \` ``, `\[note]` and `\=\=`. A backslash the
 field shows is written `\\`, so `a\-b` stays `a\-b` and is no escape. A line
 opening with three backticks or three tildes is written `` \`\`\` `` or `\~~~`,
-so it opens no code block.
+so it opens no code block. So is one where the fence opens a list item or a
+quote, `` - \`\`\` `` or `> \~~~`, since markdown reads a fence there too.
 Inside code, `<code>` or a line of a `<pre>`, only a schedule comment and the
 import's own marker get a backslash, because kasten reads those in code too.
 Review shows and types them without it, as Anki shows them.
