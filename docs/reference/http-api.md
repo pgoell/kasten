@@ -646,9 +646,10 @@ whose question is empty once flattened is left out. A question holding `::` is
 written over three lines, question, `?` and answer, so the first `::` does not
 cut it short. Each `::` of the question outside a code span is written
 `:&#58;`, which the review shows as `::`, so the question line does not read as
-a card of its own; the answer keeps its `::`. Such a card is left out when its answer is empty or `?`, or when either
-side is a heading, a line of only tags or a line opening with `!suspended`, or
-its answer holds a whole schedule comment, any of which would end the card.
+a card of its own; the answer keeps its `::`. Such a card is left out when its
+answer is empty or `?`, or when either side is a heading, a line of only tags
+or a line opening with `!suspended`, or its answer holds a whole schedule
+comment, any of which would end the card.
 A question ending in `:` is written `question ::answer`, so the colon stays on
 the question, and a side that would open its line with three backticks gets a
 backslash in front, so it opens no code block.

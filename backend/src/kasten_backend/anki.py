@@ -1184,6 +1184,7 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
     it, which `_Span.inside` holds.
     """
     spans: dict[tuple[int, int], _Span] = {}
+    code = _fenced(lines)
     for at, line in enumerate(lines):
         found = _ANKI_ID.search(line)
         if found is None:
@@ -1208,12 +1209,13 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
             # Up over the lines `srs.ts` runs a back over, inline and cloze
             # lines among them; any `?` there counts, since a card left stale
             # is a smaller loss than a schedule taken from the user's card.
+            # A `?` in code is code.
             row = start - 1
-            while row >= 0 and not _ends_back(lines[row]) and not inside:
-                inside = lines[row].strip() == "?"
+            while row >= 0 and not _ends_back(lines[row], code[row]) and not inside:
+                inside = not code[row] and lines[row].strip() == "?"
                 row -= 1
         if block and end == at:
-            inside = inside or not _ends_back(below)
+            inside = inside or not _ends_back(below, at + 1 < len(lines) and code[at + 1])
         spans.setdefault(
             (int(found[1]), int(found[2])),
             _Span(
@@ -1315,13 +1317,45 @@ def _ends_card(line: str) -> bool:
     )
 
 
-def _ends_back(line: str) -> bool:
+def _ends_back(line: str, code: bool) -> bool:
     """Whether `srs.ts` ends a `?` card's back before `line`, a note's line as it stands.
 
     `_ends_card` and a schedule comment of either kind anywhere on the line, as
-    `schedules` in `parseCards` reads one.
+    `schedules` in `parseCards` reads one. In a closed fence, `code`, only the
+    schedule and the token do: a blank line, a heading or tags there end no
+    card (#675).
     """
-    return _ends_card(line.strip()) or _STATE.search(line) is not None
+    stripped = line.strip()
+    held = stripped.startswith("!suspended") or _STATE.search(line) is not None
+    return held or (not code and _ends_card(stripped))
+
+
+def _fenced(lines: list[str]) -> list[bool]:
+    """Which of `lines` sit in a fenced code block a later fence closes, the fences among them.
+
+    An opener is a `_FENCE` line, and a fence of its character at least as long,
+    with nothing after it, closes it. One never closed runs to the end, where
+    `srs.ts` reads breaks as outside code (#680), so nothing after it is code.
+    """
+    code = [False] * len(lines)
+    at = 0
+    while at < len(lines):
+        found = _FENCE.match(lines[at])
+        if found is None:
+            at += 1
+            continue
+        opener = lines[at][found.end() :]
+        mark, size = opener[0], len(opener) - len(opener.lstrip(opener[0]))
+        for row in range(at + 1, len(lines)):
+            shut = _FENCE.match(lines[row])
+            rest = lines[row][shut.end() :].rstrip() if shut else ""
+            if len(rest) >= size and rest == mark * len(rest):
+                code[at : row + 1] = [True] * (row + 1 - at)
+                at = row + 1
+                break
+        else:
+            break
+    return code
 
 
 def _parse(template: str) -> list[_Node]:

@@ -868,6 +868,30 @@ def test_684_i3_a_card_added_after_a_joined_question_card_starts_apart() -> None
     assert merged.text == f"{old}\nq3::a3{marked(2, 'q3::a3')}\n"
 
 
+FENCED = "q1\n?\n```c\n#include\n```"
+"""A user's `?` card whose answer holds a closed fence with a line of tags in it."""
+
+
+def test_684_a_card_under_a_fence_in_a_users_question_card_is_never_updated() -> None:
+    # `srs.ts` reads a tag line inside a closed fence as ending no card (#675),
+    # so `a::b` and the schedule under it are `q1`'s answer.
+    old = f"#flashcards/x\n\n{FENCED}\na::b{marked(1, 'a::b')}\n{SR1}\n"
+
+    merged = merge(old, basic_deck(("a", "b\nc")))
+
+    assert merged is not None
+    assert (merged.text, merged.kept, merged.updated) == (old, 1, 0)
+
+
+def test_684_a_question_card_under_a_fence_in_a_users_question_card_is_never_updated() -> None:
+    old = f"#flashcards/x\n\n{FENCED}\n{JOINED}{marked(1, JOINED)}\n{SR1}\n"
+
+    merged = merge(old, basic_deck(("q2", "a2\nB2")))
+
+    assert merged is not None
+    assert (merged.text, merged.kept, merged.updated) == (old, 1, 0)
+
+
 def test_683_i8_a_question_cards_front_writes_each_divider_as_an_entity() -> None:
     # `srs.ts` ends a front at a line it reads as a card of one line, and
     # `colons` shows `:&#58;` as `::`; a back and a code span keep theirs.
