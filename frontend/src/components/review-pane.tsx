@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import type { Deck } from "@/lib/review";
 import type { Rating } from "@/lib/srs";
 

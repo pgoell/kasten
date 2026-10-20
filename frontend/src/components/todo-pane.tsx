@@ -12,7 +12,8 @@ import {
 } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
 import { rankLines } from "@/lib/fuzzy";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { INPUT, LABEL, ROW } from "@/lib/overlay-styles";
 import { dailyDate } from "@/lib/periodic";
 import {
@@ -23,10 +24,11 @@ import {
   parseTodo,
   STATE_SYMBOL,
   type Todo,
-  type TodoPriority,
   type TodoState,
 } from "@/lib/todo";
+import { closedAmong } from "@/lib/todo-blocked";
 import { onBoard } from "@/lib/todo-board";
+import type { TodoPriority } from "@/lib/todo-fields";
 import { matchesFilter, parseFilter } from "@/lib/todo-shorthand";
 import { lineSuggestions } from "@/lib/todo-suggest";
 import { parseSession, type Session } from "@/lib/todo-time";
@@ -51,7 +53,6 @@ import {
   waitOf,
   waitsFor,
 } from "@/lib/todo-view";
-import { closedAmong } from "@/lib/todo-write";
 import { useViewport } from "@/lib/use-viewport";
 
 /** One line the vault answered with, read once. A line is one or the other. */

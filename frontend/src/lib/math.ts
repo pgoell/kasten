@@ -85,7 +85,7 @@ function mathBlock(cx: BlockContext, from: number, to: number) {
  * after it, so `$5 and $6` stays a sentence about money. A formula stays on
  * its line, `\$` inside one is a dollar, and `$$` mid-line opens nothing.
  *
- * The nodes carry the source and no style: `live-preview.ts` draws them.
+ * The nodes carry the source and no style: `live-preview-math.ts` draws them.
  */
 export const MathSyntax: MarkdownConfig = {
   // A block, so an edit near one reparses from the block rather than the note.

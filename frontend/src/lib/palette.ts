@@ -3,17 +3,11 @@ import { type CompletionContext, type CompletionResult, snippet } from "@codemir
 import { Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
+import { FORMAT, LEADER_EDITS, readable } from "@/lib/buffer-keys";
 import { editorCommands } from "@/lib/editor-commands";
 import { toggleMark } from "@/lib/format-commands";
-import {
-  type EditorCommands,
-  FORMAT,
-  LEADER,
-  LEADER_EDITS,
-  readable,
-  spelled,
-  TAB_KEYS,
-} from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
 import { toggleVim } from "@/lib/vim-setting";
 
 /**

@@ -1,17 +1,13 @@
+import { sameAnswer } from "@/lib/card-text";
+import { appendStub, setSuspended, writeSchedule } from "@/lib/card-write";
+import { type Card, parseCards, readSchedule } from "@/lib/srs";
 import {
-  appendStub,
-  type Card,
   nextSchedule,
-  parseCards,
   readNoteSchedule,
   readNoteSuspended,
-  readSchedule,
-  sameAnswer,
-  setSuspended,
   writeNoteSchedule,
   writeNoteSuspended,
-  writeSchedule,
-} from "@/lib/srs";
+} from "@/lib/srs-schedule";
 
 /** The one card the text holds. A test naming a card and getting none is the failure. */
 function only(text: string, at = 0): Card {

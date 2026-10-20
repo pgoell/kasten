@@ -2,7 +2,7 @@
  * `name:: [[target]]`, a typed link written as one line of a note.
  *
  * Dataview's inline field, which is what an Obsidian reader already knows. The
- * rendering is not here: `live-preview.ts` classes the name like every other
+ * rendering is not here: `live-preview-inline.ts` classes the name like every other
  * inline construct, and `note-search.tsx` groups backlinks by it.
  */
 

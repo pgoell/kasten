@@ -1,8 +1,10 @@
 import type { SearchHit } from "@/lib/api";
+import { setSuspended } from "@/lib/card-write";
 import { inDeck } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 import { type Deck, type DeckNote, deckNotes, decksFrom, parkedNotes } from "@/lib/review";
-import { parseCards, readNoteSchedule, readNoteSuspended, setSuspended } from "@/lib/srs";
+import { parseCards } from "@/lib/srs";
+import { readNoteSchedule, readNoteSuspended } from "@/lib/srs-schedule";
 
 const TODAY = "2026-08-13";
 

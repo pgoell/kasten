@@ -2,7 +2,7 @@
 type: Reference
 title: Editor keys, the leader
 description: Every leader key grouped as the leader panel groups them, the command palette and the pages you type into.
-resource: frontend/src/lib/key-bindings.ts
+resource: frontend/src/lib/leader-keys.ts
 tags: [editor, keyboard, vim, leader, frontend]
 status: stable
 ---
@@ -234,7 +234,7 @@ note. Both lists end with `Go to tab 1` to `Go to tab 10` and `Toggle vim keys`,
 which has no key.
 
 `frontend/src/lib/palette.ts` builds both lists from the tables in
-`key-bindings.ts`, so a new leader binding appears in the palette and in the
+`leader-keys.ts` and `buffer-keys.ts`, so a new leader binding appears in the palette and in the
 `/` menu with no further edit.
 
 ### The `/` menu

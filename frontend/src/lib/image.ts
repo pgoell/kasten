@@ -3,7 +3,7 @@
  *
  * Four pieces: where a pasted image lands, the listing an open `![](` completes
  * against, the key that writes the pair of brackets, and the paste that puts an
- * image in the vault. The rendering is not here, `live-preview.ts` drawing every
+ * image in the vault. The rendering is not here, `live-preview-images.ts` drawing every
  * decoration the editor has, and neither is the request, `api.ts` owning those.
  */
 

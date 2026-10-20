@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import * as api from "@/lib/api";
+import * as api from "@/lib/token-api";
 import { routeTree } from "@/routeTree.gen";
 
 /**

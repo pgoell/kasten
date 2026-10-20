@@ -12,7 +12,8 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { type Todo, type TodoPriority, type TodoState, wordTags } from "@/lib/todo";
+import { type Todo, type TodoState, wordTags } from "@/lib/todo";
+import type { TodoPriority } from "@/lib/todo-fields";
 import { formatRecurrence, parseRecurrence } from "@/lib/todo-recur";
 import { parseDuration } from "@/lib/todo-time";
 

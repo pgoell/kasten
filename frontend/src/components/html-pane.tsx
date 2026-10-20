@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
 
 interface HtmlPaneProps {

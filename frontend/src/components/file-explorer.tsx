@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { heldModifier, leaderAction, leaderPrefix, type TreeCommands } from "@/lib/key-bindings";
+import type { TreeCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { dropTarget, type MoveMode } from "@/lib/move";
 import { useViewport } from "@/lib/use-viewport";
 

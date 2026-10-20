@@ -1,7 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { LEADER, LEADER_EDITS, TODO_PANE } from "@/lib/key-bindings";
+import { LEADER_EDITS } from "@/lib/buffer-keys";
+import { TODO_PANE } from "@/lib/key-bindings";
+import { LEADER } from "@/lib/leader-keys";
 
 /**
  * The reference page and the topic pages in its folder, read off the files

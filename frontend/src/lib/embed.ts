@@ -1,7 +1,7 @@
 /**
  * `![[note]]`, one note drawn inside another.
  *
- * What the widget in `live-preview.ts` needs from outside the editor: a way to
+ * What the widget in `live-preview-embeds.ts` needs from outside the editor: a way to
  * read the note it shows and to open it, and how deep in a chain of embeds it
  * sits. The parsing of the target is in `wikilink.ts`, beside the rule that
  * resolves it, and the slicing of a section in `note-section.ts`.

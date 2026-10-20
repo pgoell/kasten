@@ -5,16 +5,9 @@ import { noticeHandler } from "@/lib/image";
 import { appendUnderEdit, type Edit } from "@/lib/note-section";
 import { periodicNote } from "@/lib/periodic";
 import { nameAt, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo";
-import {
-  agentPress,
-  type Closed,
-  closedAmong,
-  cycleLines,
-  doneLine,
-  doneLineEdits,
-  pressedLine,
-  twinnedIn,
-} from "@/lib/todo-write";
+import { agentPress } from "@/lib/todo-agent";
+import { type Closed, closedAmong } from "@/lib/todo-blocked";
+import { cycleLines, doneLine, doneLineEdits, pressedLine, twinnedIn } from "@/lib/todo-write";
 
 /** Where the box ends on a line that has one, which is where the words start. */
 const BOX = /^[ \t]*- \[.\] /;

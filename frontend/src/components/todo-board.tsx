@@ -2,6 +2,7 @@ import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react
 import type { SearchHit, TodoHit } from "@/lib/api";
 import { ROW } from "@/lib/overlay-styles";
 import { PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo";
+import type { Closed } from "@/lib/todo-blocked";
 import {
   COLUMN_HEADING,
   COLUMNS,
@@ -15,7 +16,6 @@ import {
 } from "@/lib/todo-board";
 import { dropOf, pinnedBy, type Spot } from "@/lib/todo-drag";
 import { type Placed, waitsFor } from "@/lib/todo-view";
-import type { Closed } from "@/lib/todo-write";
 
 /** One todo the board draws, as the pane read it: the tree's todo, not the line's. */
 export interface Card {

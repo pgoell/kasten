@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { moveFolder, renameNote } from "@/lib/api";
+import { moveFolder, renameNote } from "@/lib/move-api";
 
 /** What a move carries: one note, or a folder and every note under it. */
 export type MoveMode = "rename" | "folder";

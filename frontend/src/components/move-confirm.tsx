@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { previewMove } from "@/lib/api";
 import { type MoveMode, moveAndCache } from "@/lib/move";
+import { previewMove } from "@/lib/move-api";
 import {
   BACKDROP,
   closeOnBackdrop,

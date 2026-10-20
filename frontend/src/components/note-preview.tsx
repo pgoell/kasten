@@ -2,7 +2,8 @@ import { EditorState, Text } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Decoration, EditorView, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef } from "react";
-import { opensFor, renderedMarkdown } from "@/lib/live-preview";
+import { renderedMarkdown } from "@/lib/live-preview";
+import { opensFor } from "@/lib/live-preview-callouts";
 import { noteLanguage } from "@/lib/note-language";
 
 interface NotePreviewProps {

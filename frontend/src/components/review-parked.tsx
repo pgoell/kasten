@@ -2,16 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { fetchCards, fetchNote } from "@/lib/api";
 import { clozePlain, unescaped } from "@/lib/card-line";
+import { setSuspended } from "@/lib/card-write";
 import { withoutTags } from "@/lib/deck-tag";
 import { noteName } from "@/lib/note-path";
 import { parkedNotes } from "@/lib/review";
-import {
-  type Parked,
-  parseCards,
-  readNoteSuspended,
-  setSuspended,
-  writeNoteSuspended,
-} from "@/lib/srs";
+import { type Parked, parseCards } from "@/lib/srs";
+import { readNoteSuspended, writeNoteSuspended } from "@/lib/srs-schedule";
 import { useSittingWrites } from "@/lib/use-sitting-writes";
 
 /** One row: a card the sitting will not ask, and where to find it again. */

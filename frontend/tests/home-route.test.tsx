@@ -153,11 +153,6 @@ vi.mock("@/lib/api", () => ({
   searchNotes,
   fetchMentions,
   createNote,
-  renameNote,
-  moveFolder,
-  deleteNote,
-  fetchTrash,
-  restoreEntry,
   fetchTerminals,
   fetchTodos,
   fetchBook,
@@ -165,11 +160,8 @@ vi.mock("@/lib/api", () => ({
   fetchImages,
   fetchHtml,
   fetchAssets,
-  deleteImage,
   fetchVersion,
   fetchTags,
-  fetchHistory,
-  fetchHistoryText,
   // A daily note draws the weather card, which asks for the day's forecast.
   fetchWeather: async () => [],
   // Left off the factory this constant arrives in the route as undefined,
@@ -184,6 +176,9 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
+vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
+vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
+vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
 
 // The route imports `BookPane`, which imports foliate for its side effect. With
 // the real library these tests build a real `View` over a few bytes of Blob,

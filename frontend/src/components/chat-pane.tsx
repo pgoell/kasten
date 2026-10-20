@@ -9,7 +9,8 @@ import {
   reduce,
   toolLine,
 } from "@/lib/chat";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { LABEL } from "@/lib/overlay-styles";
 import { useViewport } from "@/lib/use-viewport";
 

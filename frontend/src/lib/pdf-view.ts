@@ -3,7 +3,7 @@
  *
  * Drawn with pdf.js onto canvases rather than handed to an `<iframe>`, because
  * a phone browser draws no pdf in a frame: Android Chrome shows a button that
- * downloads it. The widget that holds the box is in `live-preview.ts`; this is
+ * downloads it. The widget that holds the box is in `live-preview-embeds.ts`; this is
  * what fills it.
  */
 

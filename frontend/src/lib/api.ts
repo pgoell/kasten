@@ -1,13 +1,10 @@
-import createClient from "openapi-fetch";
-import type { components, paths } from "@/lib/api-types";
+import { client, postFile, reason, refused } from "@/lib/api-client";
+import type { components } from "@/lib/api-types";
 import { applyLayout, type Layout } from "@/lib/layout";
 import { noteBase } from "@/lib/note-base";
 
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
-
-/** One folder as the vault spells it. A folder is a path and nothing else. */
-export type Folder = components["schemas"]["Folder"];
 
 /** One line of one note that matched a search, and where to find it. */
 export type SearchHit = components["schemas"]["SearchHit"];
@@ -21,39 +18,8 @@ export type Page = components["schemas"]["Page"];
 /** One video's captions, the track they came from, and when each one appears. */
 export type Transcript = components["schemas"]["Transcript"];
 
-/** One deleted note or folder waiting in the trash, and the way back to it. */
-export type TrashEntry = components["schemas"]["TrashEntry"];
-
-/** The notes as a graph, and for a pattern the rows it matched. */
-export type Graph = components["schemas"]["Graph"];
-
 /** One town's day of weather, hour by hour, as Open-Meteo forecast it. */
 export type Forecast = components["schemas"]["Forecast"];
-
-/** One agent token as the store may be read: a name and when it was made. */
-export type Token = components["schemas"]["Token"];
-
-/** One agent token as it is handed over, secret and all, exactly once. */
-export type Minted = components["schemas"]["Minted"];
-
-/**
- * Calls into the backend, typed from its OpenAPI schema.
- *
- * Run `mise run fe:types` after changing a route to regenerate `api-types.ts`.
- */
-const client = createClient<paths>();
-
-/**
- * What the backend said went wrong, or nothing where it said nothing.
- *
- * Every other call here reports its own status code, which is all a reader of
- * the console needs. A clip and a transcript are the two whose failure is put
- * in front of the person who pressed the key, and `detail` is the sentence
- * written for them.
- */
-function reason(error: { detail?: unknown } | undefined): string | null {
-  return typeof error?.detail === "string" ? error.detail : null;
-}
 
 /**
  * What the backend is running: the release, or its commit in development.
@@ -135,104 +101,6 @@ export async function fetchTodos(archive = false): Promise<TodoHit[]> {
   }
 
   return data;
-}
-
-/**
- * The error a refused upload throws, worded for the line that shows it.
- *
- * The content type asked rather than the parse wrapped in a `try`: an upload's
- * refusal can come from something other than kasten. Cloudflare sits in front
- * of production with a body limit of its own and answers an oversize request
- * with an HTML page, which `.json()` throws on and which names no limit.
- */
-async function refused(response: Response, label: string): Promise<Error> {
-  const detail =
-    response.headers.get("content-type")?.includes("json") === true
-      ? reason(await response.json())
-      : null;
-  if (detail !== null) return new Error(detail);
-  if (response.status === 413) {
-    return new Error(
-      "That file is over the upload limit of a proxy in front of kasten (100MB per request)",
-    );
-  }
-  return new Error(`${label} failed with ${response.status}`);
-}
-
-/**
- * The most one request carries; a bigger file goes up in pieces this size.
- *
- * Cloudflare refuses a body over 100MB, and it drops a request it has not
- * answered within 100 seconds. 10 MiB clears both on a 1 Mbit/s phone link,
- * which sends it in about 84 seconds.
- */
-const PIECE_BYTES = 10 * 1024 * 1024;
-
-/** How often one piece is sent before the upload gives up, the first send included. */
-const PIECE_TRIES = 3;
-
-/** Send one piece, again on a dropped connection or a 5xx, and never the pieces before it. */
-async function sendPiece(url: string, piece: Blob): Promise<void> {
-  for (let tries = 1; ; tries++) {
-    let response: Response;
-    try {
-      response = await fetch(url, { method: "PUT", body: piece });
-    } catch (error: unknown) {
-      // A `TypeError` is what `fetch` rejects with when the connection drops.
-      if (!(error instanceof TypeError) || tries === PIECE_TRIES) throw error;
-      continue;
-    }
-    if (response.ok) return;
-    // A 4xx is the backend saying no, and asking again would get the same no.
-    // The backend cuts a resent piece back, so a retry after a 5xx is safe.
-    if (response.status < 500 || tries === PIECE_TRIES) {
-      throw await refused(response, `PUT ${url}`);
-    }
-  }
-}
-
-/**
- * Send `file` to the backend in pieces, in order, and answer the upload's id.
- *
- * The id is what the route that uses the file is handed in place of a body.
- * `onProgress` hears how many bytes are in after each piece.
- */
-export async function uploadInParts(
-  file: Blob,
-  onProgress?: (sent: number, total: number) => void,
-): Promise<string> {
-  const opened = await fetch("/api/uploads", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ size: file.size }),
-  });
-  if (!opened.ok) throw await refused(opened, "POST /api/uploads");
-  const { id } = (await opened.json()) as { id: string };
-
-  onProgress?.(0, file.size);
-  for (let n = 0; n * PIECE_BYTES < file.size; n++) {
-    const end = Math.min((n + 1) * PIECE_BYTES, file.size);
-    await sendPiece(`/api/uploads/${id}/${n}`, file.slice(n * PIECE_BYTES, end));
-    onProgress?.(end, file.size);
-  }
-  return id;
-}
-
-/**
- * POST `file` to `url`: as the body when it fits one piece, else in pieces.
- *
- * Plain `fetch`, because the endpoints take raw bytes and the generated client
- * documents a body it will not let us send. The raw file rather than a
- * multipart part: one file and no fields, so nothing has to parse a boundary.
- */
-async function postFile(
-  url: string,
-  file: Blob,
-  onProgress?: (sent: number, total: number) => void,
-): Promise<Response> {
-  if (file.size <= PIECE_BYTES) return fetch(url, { method: "POST", body: file });
-  const id = await uploadInParts(file, onProgress);
-  return fetch(`${url}${url.includes("?") ? "&" : "?"}upload=${id}`, { method: "POST" });
 }
 
 /** What one imported `.apkg` turned into, and what the merge did to the deck notes. */
@@ -349,40 +217,6 @@ export async function fetchMentions(path: string, archive = false): Promise<Ment
   return data;
 }
 
-/** What the graph pane asks: a query, and for a local graph the note it is around. */
-export interface GraphAsk {
-  query: string;
-  /** The note a local graph is drawn around, absent for the whole vault. */
-  around?: string;
-  /** How many links out from `around` the drawing reaches. */
-  depth?: number;
-  archive?: boolean;
-}
-
-/**
- * The notes as a graph, narrowed by a filter or asked a pattern.
- *
- * The query goes over as it was typed and the backend reads it, so there is
- * one parser for the pane, the route and the agent. A query it cannot read
- * throws the backend's sentence, which the pane shows under the filter.
- */
-export async function fetchGraph({
-  query,
-  around,
-  depth,
-  archive = false,
-}: GraphAsk): Promise<Graph> {
-  const { data, error, response } = await client.GET("/api/graph", {
-    params: { query: { q: query, around, depth, archive } },
-  });
-
-  if (!data) {
-    throw new Error(reason(error) ?? `GET /api/graph failed with ${response.status}`);
-  }
-
-  return data;
-}
-
 /**
  * A read refused because no note is at that path.
  *
@@ -448,89 +282,6 @@ export async function createNote(path: string, content = ""): Promise<Note> {
   // vault's spelling, not the one that was typed: `daily/./note.md` comes back
   // as `daily/note.md`, and that is what belongs in `?note=`.
   return data;
-}
-
-/** Move one note to another path, and answer with the note the vault now holds. */
-export async function renameNote(from: string, to: string): Promise<Note> {
-  const { data, response } = await client.PATCH("/api/files/{path}", {
-    params: { path: { path: from } },
-    body: { path: to },
-  });
-
-  if (!data) {
-    throw new Error(`PATCH /api/files/${from} failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/** Move one folder, and every note under it, and answer with where it landed. */
-export async function moveFolder(from: string, to: string): Promise<Folder> {
-  const { data, response } = await client.PATCH("/api/folders/{path}", {
-    params: { path: { path: from } },
-    body: { path: to },
-  });
-
-  if (!data) {
-    throw new Error(`PATCH /api/folders/${from} failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/**
- * Every file moving `source` to `target` would rewrite, asked before the move.
- *
- * `source` is a note or a folder, whichever the vault holds. Nothing is
- * written: this is what the tree's confirm counts before a drop lands.
- */
-export async function previewMove(source: string, target: string): Promise<string[]> {
-  const { data, response } = await client.GET("/api/move-preview", {
-    params: { query: { source, target } },
-  });
-
-  if (!data) {
-    throw new Error(`GET /api/move-preview failed with ${response.status}`);
-  }
-
-  return data.rewrites;
-}
-
-/** One jj change that touched a note, as the history pane lists it. */
-export type HistoryChange = components["schemas"]["HistoryChange"];
-
-/** A note's changes, newest first, and whether the vault keeps any at all. */
-export type History = components["schemas"]["History"];
-
-/** Every jj change that touched `path`, newest first. */
-export async function fetchHistory(path: string): Promise<History> {
-  const { data, response } = await client.GET("/api/history", {
-    params: { query: { path } },
-  });
-
-  if (!data) {
-    throw new Error(`GET /api/history failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/**
- * The whole text of the note as change `commit` left it.
- *
- * `path` is the one the change lists, which is not the note's path now when a
- * move came after it.
- */
-export async function fetchHistoryText(path: string, commit: string): Promise<string> {
-  const { data, response } = await client.GET("/api/history/version", {
-    params: { query: { path, commit } },
-  });
-
-  if (!data) {
-    throw new Error(`GET /api/history/version failed with ${response.status}`);
-  }
-
-  return data.content;
 }
 
 /**
@@ -675,86 +426,6 @@ export async function fetchWeather(date: string): Promise<Forecast[]> {
   return data;
 }
 
-/**
- * Take one note out of the vault, and answer with where it went.
- *
- * The note is not gone: it waits in the vault's trash for as long as the
- * backend's retention allows, and `restoreEntry` puts it back. Nothing lists,
- * searches or opens it in the meantime, so the vault reads as though it had
- * been deleted.
- */
-export async function deleteNote(path: string): Promise<TrashEntry> {
-  const { data, response } = await client.DELETE("/api/files/{path}", {
-    params: { path: { path } },
-  });
-
-  if (!data) {
-    throw new Error(`DELETE /api/files/${path} failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/**
- * The same for one image, which goes into the trash the way a note does.
- *
- * Images alone: the route refuses a book, a book travelling with the note beside
- * it and this deciding nothing about the pair.
- */
-export async function deleteImage(path: string): Promise<TrashEntry> {
-  const { data, response } = await client.DELETE("/api/assets/{path}", {
-    params: { path: { path } },
-  });
-
-  if (!data) {
-    throw new Error(`DELETE /api/assets/${path} failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/** The same for one folder, and every note under it, which go as one entry. */
-export async function deleteFolder(path: string): Promise<TrashEntry> {
-  const { data, response } = await client.DELETE("/api/folders/{path}", {
-    params: { path: { path } },
-  });
-
-  if (!data) {
-    throw new Error(`DELETE /api/folders/${path} failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/** Everything the trash is holding, newest first, as the backend sorted it. */
-export async function fetchTrash(): Promise<TrashEntry[]> {
-  const { data, response } = await client.GET("/api/trash");
-
-  if (!data) {
-    throw new Error(`GET /api/trash failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/**
- * Put one entry back where it was deleted from, and say where that was.
- *
- * The path is the backend's, read off the entry's own name, so the caller does
- * not work out where a restore lands: it opens what comes back.
- */
-export async function restoreEntry(entry: string): Promise<string> {
-  const { data, response } = await client.PATCH("/api/trash/{entry}", {
-    params: { path: { entry } },
-  });
-
-  if (!data) {
-    throw new Error(`PATCH /api/trash/${entry} failed with ${response.status}`);
-  }
-
-  return data.path;
-}
-
 /** Every tag written anywhere in the vault, once each, sorted by the backend. */
 export async function fetchTags(): Promise<string[]> {
   const { data, response } = await client.GET("/api/tags");
@@ -874,42 +545,4 @@ export async function uploadAsset(
 ): Promise<void> {
   const response = await postFile(`/api/assets/${encodeURIComponent(path)}`, file, onProgress);
   if (!response.ok) throw await refused(response, `POST /api/assets/${path}`);
-}
-
-/** Every agent token the vault holds. Never a digest and never a secret. */
-export async function fetchTokens(): Promise<Token[]> {
-  const { data, response } = await client.GET("/api/tokens");
-
-  if (!data) {
-    throw new Error(`GET /api/tokens failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/**
- * Mint one agent token and hand back the only copy of its secret.
- *
- * The refusal is put in front of the person who typed the name, the way a clip's
- * is: a taken name is the one failure here they can do something about.
- */
-export async function createToken(name: string): Promise<Minted> {
-  const { data, error, response } = await client.POST("/api/tokens", { body: { name } });
-
-  if (!data) {
-    throw new Error(reason(error) ?? `POST /api/tokens failed with ${response.status}`);
-  }
-
-  return data;
-}
-
-/** Revoke one agent token. The next request carrying it is refused. */
-export async function revokeToken(name: string): Promise<void> {
-  const { response } = await client.DELETE("/api/tokens/{name}", {
-    params: { path: { name } },
-  });
-
-  if (!response.ok) {
-    throw new Error(`DELETE /api/tokens/${name} failed with ${response.status}`);
-  }
 }

@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { fetchHistory, fetchHistoryText, fetchNote, type HistoryChange } from "@/lib/api";
+import { fetchNote } from "@/lib/api";
 import { lineDiff } from "@/lib/diff";
 import { unstamped } from "@/lib/held-text";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import { fetchHistory, fetchHistoryText, type HistoryChange } from "@/lib/history-api";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
 
 interface HistoryPaneProps {

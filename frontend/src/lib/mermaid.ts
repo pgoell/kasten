@@ -1,7 +1,7 @@
 /**
  * ```` ```mermaid ```` blocks, drawn as diagrams.
  *
- * The widget that holds a diagram is in `live-preview.ts`; this is what draws
+ * The widget that holds a diagram is in `live-preview-fences.ts`; this is what draws
  * it. Agents write these into notes, so a diagram is text kasten did not write:
  * mermaid runs at its strict level, which drops `click` handlers and passes
  * every label through DOMPurify.

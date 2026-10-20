@@ -37,9 +37,6 @@ import {
   type BookBeside,
   ChangedOnDisk,
   createNote,
-  deleteFolder,
-  deleteImage,
-  deleteNote,
   fetchAssets,
   fetchFiles,
   fetchHtml,
@@ -47,11 +44,9 @@ import {
   fetchNote,
   fetchTags,
   fetchTerminals,
-  fetchTrash,
   fetchVersion,
   type Mention,
   NoteMissing,
-  restoreEntry,
   type SearchHit,
   saveNote,
   type TodoHit,
@@ -78,18 +73,9 @@ import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
 // Renamed because the route already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { paletteEntries, viewCommands } from "@/lib/palette";
-import { type Direction, paneToward } from "@/lib/pane-direction";
 import {
-  activeTab,
-  addTab,
   clearFocused,
-  emptyLayout,
-  focusedPane,
-  focusPane,
-  goToTab,
-  type Layout,
   mapPanes,
-  nextPane,
   openBookBeside,
   openBookInFocused,
   openChatInFocused,
@@ -108,6 +94,17 @@ import {
   openTerminalInFocused,
   openTodosInFocused,
   openVideoBeside,
+} from "@/lib/pane-contents";
+import { type Direction, paneToward } from "@/lib/pane-direction";
+import {
+  activeTab,
+  addTab,
+  emptyLayout,
+  focusedPane,
+  focusPane,
+  goToTab,
+  type Layout,
+  nextPane,
   panesOf,
   removeFocused,
   splitFocused,
@@ -120,17 +117,16 @@ import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { newId, parseTodo, type TodoState } from "@/lib/todo";
 import {
-  addSubtaskInVault,
   addTodoInVault,
   agentTodoIn,
-  blockTodoInVault,
   cycleTodoAside,
   cycleTodoInVault,
-  editTodoInVault,
   toggleTimerInVault,
 } from "@/lib/todo-api";
 import type { TodoCycle } from "@/lib/todo-commands";
+import { addSubtaskInVault, blockTodoInVault, editTodoInVault } from "@/lib/todo-line-edits";
 import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo-refile";
+import { deleteFolder, deleteImage, deleteNote, fetchTrash, restoreEntry } from "@/lib/trash-api";
 import { useAutosave } from "@/lib/use-autosave";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";

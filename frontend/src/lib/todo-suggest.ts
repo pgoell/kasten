@@ -21,7 +21,8 @@
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { readClock } from "@/lib/clock";
-import { PRIORITY_SYMBOL, parseTodo, type Todo, type TodoPriority } from "@/lib/todo";
+import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo";
+import type { TodoPriority } from "@/lib/todo-fields";
 import { offeredRules, parseRecurrence } from "@/lib/todo-recur";
 import { expandShorthand, readDate, readEvery } from "@/lib/todo-shorthand";
 import { parseDuration } from "@/lib/todo-time";

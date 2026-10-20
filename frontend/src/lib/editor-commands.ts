@@ -1,7 +1,9 @@
 import { Facet } from "@codemirror/state";
 import { type CodeMirrorV, Vim } from "@replit/codemirror-vim";
+import { FORMAT, LEADER_EDITS } from "@/lib/buffer-keys";
 import { toggleMark } from "@/lib/format-commands";
-import { type EditorCommands, FORMAT, LEADER, LEADER_EDITS, TAB_KEYS } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { LEADER, TAB_KEYS } from "@/lib/leader-keys";
 
 /**
  * Carries the app's commands on the editor state.

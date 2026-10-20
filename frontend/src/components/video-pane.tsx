@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fetchNote } from "@/lib/api";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
 import { LABEL } from "@/lib/overlay-styles";
 import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video";

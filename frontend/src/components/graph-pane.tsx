@@ -1,9 +1,10 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { fetchGraph } from "@/lib/api";
 import { isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph";
+import { fetchGraph } from "@/lib/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph-canvas";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
 import { INPUT, LABEL } from "@/lib/overlay-styles";
 import { useViewport } from "@/lib/use-viewport";

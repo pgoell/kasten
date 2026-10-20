@@ -11,7 +11,8 @@ import {
   resultNote,
   resultPath,
 } from "@/lib/exam";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { LABEL, STATUS } from "@/lib/overlay-styles";
 
 /**

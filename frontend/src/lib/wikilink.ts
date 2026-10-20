@@ -4,7 +4,7 @@
  * Three pieces: the parser that finds one, the reader that takes the name off
  * the one under the cursor, and the rule that turns that name into a path. The
  * rendering is not here: the nodes carry no style of their own, and
- * `live-preview.ts` classes them like every other inline construct.
+ * `live-preview-inline.ts` classes them like every other inline construct.
  */
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";

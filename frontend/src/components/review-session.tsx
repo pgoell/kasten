@@ -3,25 +3,21 @@ import { NotePreview } from "@/components/note-preview";
 import { ChangedOnDisk, fetchNote } from "@/lib/api";
 import { soundsIn } from "@/lib/audio";
 import { unescaped } from "@/lib/card-line";
+import { sameAnswer } from "@/lib/card-text";
+import { appendStub, setSuspended, writeSchedule } from "@/lib/card-write";
 import { readClock } from "@/lib/clock";
 import { inDeck } from "@/lib/deck-tag";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import { type Deck, decksFrom, type Limits } from "@/lib/review";
+import { type Card, parseCards, type Rating } from "@/lib/srs";
 import {
-  appendStub,
-  type Card,
   nextSchedule,
-  parseCards,
-  type Rating,
   readNoteSchedule,
   readNoteSuspended,
-  sameAnswer,
-  setSuspended,
   writeNoteSchedule,
   writeNoteSuspended,
-  writeSchedule,
-} from "@/lib/srs";
+} from "@/lib/srs-schedule";
 import { useReviewLimits } from "@/lib/use-review-limits";
 import { useSittingWrites } from "@/lib/use-sitting-writes";
 

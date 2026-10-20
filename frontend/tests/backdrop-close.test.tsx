@@ -16,6 +16,8 @@ vi.mock("@/lib/api", () => ({
   searchNotes: vi.fn().mockResolvedValue([]),
   fetchTodos: vi.fn().mockResolvedValue([]),
   createNote: vi.fn(),
+}));
+vi.mock("@/lib/move-api", () => ({
   renameNote: vi.fn(),
   moveFolder: vi.fn(),
 }));

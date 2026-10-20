@@ -10,7 +10,7 @@ const HighlightDelim = { resolve: "Highlight", mark: "HighlightMark" };
  *
  * Obsidian's notes use it and the toggle command needs a node to recognise, so
  * it has to be a real parser extension rather than a decoration rule. The nodes
- * carry no style of their own: `live-preview.ts` classes them like every other
+ * carry no style of their own: `live-preview-inline.ts` classes them like every other
  * inline construct.
  *
  * A delimiter opens only when a non-space follows it and closes only when a

@@ -1,19 +1,7 @@
 import { useEffect, useRef } from "react";
-import {
-  FOLLOW,
-  FORMAT,
-  INDENT,
-  LEADER,
-  LEADER_EDITS,
-  readable,
-  SCREENS,
-  spelled,
-  TAB_KEYS,
-  TERMINAL,
-  TERMINAL_CHORD,
-  TODO_PANE,
-  TREE,
-} from "@/lib/key-bindings";
+import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/buffer-keys";
+import { SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/key-bindings";
+import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
 import { closeOnBackdrop, HEADER_ROW, LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 import { useVim } from "@/lib/vim-setting";
 

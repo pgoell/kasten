@@ -11,7 +11,6 @@
  */
 
 import { appendUnder, type Edit } from "@/lib/note-section";
-import { dailyDate } from "@/lib/periodic";
 import {
   cycleLine,
   formatTodo,
@@ -21,18 +20,11 @@ import {
   setStateOn,
   type Todo,
   type TodoState,
-  todoTagsOn,
-  wordsEnd,
 } from "@/lib/todo";
+import { blockedLines, type Closed } from "@/lib/todo-blocked";
+import { withoutBlockId } from "@/lib/todo-fields";
 import { nextOccurrence } from "@/lib/todo-recur";
-import {
-  formatDuration,
-  formatSession,
-  minutesBetween,
-  parseSession,
-  type Session,
-} from "@/lib/todo-time";
-import { descendants, inherited, isClient, type Node, type Placed, treeOf } from "@/lib/todo-view";
+import { descendants, type Node, type Placed, treeOf } from "@/lib/todo-view";
 
 /** One note as a write: where it goes and the whole of its new text. */
 export interface Write {
@@ -72,22 +64,8 @@ const DONE = "## Done";
 /** Where the add prompt writes. `periodic.ts` puts it in a fresh daily note. */
 const TODOS = "## TODOs";
 
-/** The heading the time log lives under, made on first write as `## Done` is. */
-const TIME = "## Time";
-
-/** The latest a session could have run on the day its note is named for. */
-const LAST_MINUTE = "23:59";
-
 /** A log line, which is deliberately not a checkbox. See `doneLine`. */
 const LOGGED = "- ✅";
-
-/**
- * A todo's words without the `^block` id ending them. An id names one line, so
- * a copy that kept it would make a second block or leave stray text.
- */
-function withoutBlockId(text: string): string {
-  return text.replace(/(?:^|[ \t]+)\^[\w-]+$/, "");
-}
 
 /**
  * The line the done log carries: what was finished, where it lives, and its id.
@@ -224,109 +202,6 @@ export function doneLogWrites(input: LogInput): Write[] {
   }
 
   return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
-}
-
-/**
- * Whether a blocker is closed, or nothing where the caller cannot see it.
- *
- * Nothing reads as still open, so a dependent is never opened on a guess. The
- * buffer builds this from the document it holds; the vault writer builds it
- * from every todo the vault holds.
- *
- * `"twinned"` is an id two todos carry. Neither can be told from the other, so
- * whether it is closed has no answer, and reading it as open would block a
- * dependent nobody asked to move.
- */
-export type Closed = (id: string) => boolean | "twinned" | undefined;
-
-/**
- * A resolver over the todos in hand. An id none of them carries answers
- * nothing, and an id two of them carry answers `"twinned"` rather than going by
- * whichever was listed last.
- */
-export function closedAmong(todos: Todo[]): Closed {
-  const states = new Map<string, boolean | "twinned">();
-  for (const todo of todos) {
-    if (todo.id === undefined) continue;
-    states.set(todo.id, states.has(todo.id) ? "twinned" : !isOpen(todo));
-  }
-  return (id) => states.get(id);
-}
-
-/**
- * Every `⛔` line in `lines` whose state kasten owns and whose blockers
- * disagree with it, keyed by line number.
- *
- * `⛔` on a line means kasten owns the choice between `[ ]` and `[b]` there.
- * `[/]`, `[x]` and `[-]` are never touched, so a state set by hand cannot be
- * destroyed by a blocker moving.
- *
- * A line whose other blockers are all closed is not touched where one more is
- * twinned: one twin may be open and the other closed, and either state written
- * here would be a guess at which one the `⛔` meant. An open blocker beside it
- * holds the line whichever twin was meant.
- */
-export function blockedLines(lines: string[], closed: Closed): Map<number, string> {
-  const moved = new Map<number, string>();
-
-  for (const [index, text] of lines.entries()) {
-    const todo = parseTodo(text);
-    if (todo === null || todo.blockedBy.length === 0) continue;
-    if (todo.state !== "open" && todo.state !== "blocked") continue;
-
-    const answers = todo.blockedBy.map(closed);
-    // Every blocker has to be closed, and one this cannot see reads as open.
-    const held = answers.some((answer) => answer === false || answer === undefined);
-    if (!held && answers.includes("twinned")) continue;
-    const state = held ? "blocked" : "open";
-    if (todo.state !== state) moved.set(index + 1, patchLine(text, { ...todo, state }));
-  }
-
-  return moved;
-}
-
-/** `blockedLines` applied to a note. Null where nothing moved, as `dropDone` is. */
-export function applyBlocked(text: string, closed: Closed): string | null {
-  const lines = text.split("\n");
-  const moved = blockedLines(lines, closed);
-  if (moved.size === 0) return null;
-
-  for (const [at, insert] of moved) lines[at - 1] = insert;
-  return lines.join("\n");
-}
-
-/**
- * `line` naming one more blocker, in the state its blockers now call for.
- *
- * Null where the line is no todo or names `id` already. The state is
- * `blockedLines`' own choice, so a line this writes and a line a blocker's
- * press rewrites cannot disagree: open becomes blocked under a blocker still
- * open, and doing, waiting, done and rejected keep the state they have.
- */
-export function blockLine(line: string, id: string, closed: Closed): string | null {
-  const todo = parseTodo(line);
-  if (todo === null || todo.blockedBy.includes(id)) return null;
-
-  const named = patchLine(line, { ...todo, blockedBy: [...todo.blockedBy, id] });
-  return blockedLines([named], closed).get(1) ?? named;
-}
-
-/**
- * An edited line, opened where the edit took the last `⛔` off a blocked todo.
- *
- * Deleting the `⛔` is how a dependency is taken back, and nothing would move
- * the line afterwards: the cascade runs off a blocker's press and finds the
- * dependents by their `⛔`. A `[b]` that never carried one waits on something
- * outside the vault, and stays as it was typed.
- */
-export function unblockedEdit(before: string, after: string): string {
-  const was = parseTodo(before);
-  const now = parseTodo(after);
-  if (was === null || now === null) return after;
-  if (was.state !== "blocked" || now.state !== "blocked") return after;
-  if (was.blockedBy.length === 0 || now.blockedBy.length > 0) return after;
-
-  return patchLine(after, { ...now, state: "open" });
 }
 
 export interface CycleLinesInput {
@@ -477,95 +352,6 @@ export function cycleLines({
   return moved;
 }
 
-/** The tag the agent worker picks a todo up by. */
-export const AGENT = "#agent";
-
-/**
- * Whether the todo on `line` is client work, by its own tag or a todo above it.
- * The pane's reading, `inherited`, so the two places `@` is pressed agree: only
- * a todo passes client down, and prose between is read through.
- */
-function clientAt(lines: string[], line: number): boolean {
-  const placed: Placed[] = [];
-  for (const [index, text] of lines.entries()) {
-    const todo = parseTodo(text);
-    if (todo !== null) placed.push({ line: index + 1, todo });
-  }
-  const node = inherited(treeOf(placed))
-    .flatMap((root) => [root, ...descendants(root)])
-    .find((found) => found.line === line);
-  return node !== undefined && isClient(node.todo);
-}
-
-/**
- * Where `line` carries `#agent` as a tag of its own, as offsets. The parser's
- * own reading, so `#agents` and `#agent/x` are other tags, and one in a code
- * span, a link, `https://a.io/p#agent` or a field's value is text.
- */
-function agentTags(line: string): number[] {
-  return todoTagsOn(line)
-    .filter((found) => found.tag === AGENT)
-    .map((found) => found.at);
-}
-
-/**
- * What `@` makes of line `at` (counting from one) of `lines`: the line to write,
- * or the sentence for the foot when it writes nothing.
- *
- * Only the tag moves. Written in at the end of the words rather than through
- * `patchLine`, whose rebuild would put the tag after any words typed past the
- * fields; taken out with the one space before it. A plain line becomes an open
- * todo first, the way the state keys make one.
- */
-export function agentPress(
-  lines: string[],
-  at: number,
-  today: string,
-  id: string,
-): { line: string } | { why: string } {
-  const before = lines[at - 1] ?? "";
-  if (before.trim() === "") return { why: "there is no todo on that line" };
-
-  const plain = parseTodo(before) === null;
-  const line = plain ? (pressedLine(before, today, id, "open") ?? before) : before;
-  const todo = parseTodo(line);
-  if (todo === null) return { why: "there is no todo on that line" };
-
-  // The worker leaves client work alone, so handing it over would only park it.
-  const read = [...lines];
-  read[at - 1] = line;
-  if (clientAt(read, at)) return { why: "the agent skips client work" };
-
-  const tags = agentTags(line);
-  if (tags.length === 0) {
-    // A space before and none after, so taking it back out with the space
-    // before gives the line back byte for byte.
-    const end = wordsEnd(line);
-    return { line: `${line.slice(0, end)} ${AGENT}${line.slice(end)}` };
-  }
-  // A plain line already naming the agent only needed its box.
-  if (plain) return { line };
-  // Taken back only while nobody has started on it: past open, the worker may
-  // already hold it, and pulling the tag would not stop it.
-  if (todo.state !== "open") return { why: "that todo is already with the agent" };
-
-  // Each with the space before it where there is one, which is the space the
-  // press above wrote; `fix,#agent` has none to give. Last first, so the
-  // earlier offsets still hold.
-  let out = line;
-  for (const at of tags.reverse()) {
-    const from = /[ \t]/.test(out[at - 1] ?? "") ? at - 1 : at;
-    out = out.slice(0, from) + out.slice(at + AGENT.length);
-  }
-  // `fix,#agent#kasten` would leave `#kasten` after the comma, a tag it was
-  // not, so a take-back that changes any other tag writes nothing.
-  const others = todo.tags.filter((tag) => tag !== AGENT).join(" ");
-  if (parseTodo(out)?.tags.join(" ") !== others) {
-    return { why: "taking #agent out would make a tag of what follows it" };
-  }
-  return { line: out };
-}
-
 /** Every note one press of the cycle changes, in the order they should be sent. */
 export function cycleTodoWrites(input: CycleInput): Write[] {
   const { path, text, line, dailyPath, dailyText, logged, today, id, closed, state } = input;
@@ -642,142 +428,4 @@ export function otherTodoWithId(
   if (first === undefined) return null;
   const more = others.length > 1 ? `, and ${others.length - 1} more` : "";
   return `🆔 ${id} is on another todo too: ${first.path} line ${first.line}${more}`;
-}
-
-/** One line `searchNotes` answered with, and the note it was found in. */
-export interface SessionHit {
-  path: string;
-  text: string;
-}
-
-export interface TimerInput {
-  /** Where the todo lives, and which line it is on, counting from one. */
-  path: string;
-  line: number;
-  /** Today's daily note, which a start writes into. */
-  dailyPath: string;
-  /**
-   * Every note this may rewrite, keyed by path and read once: the todo's own
-   * note, today's daily note, and every note holding an open session for it.
-   */
-  notes: Record<string, string>;
-  /**
-   * Every session line naming this todo, as `searchNotes(id)` answered with
-   * them, running and closed alike. Empty for a todo carrying no id, which
-   * nothing can name and so has no sessions.
-   */
-  sessions: SessionHit[];
-  today: string;
-  /** The wall clock as `HH:MM`. */
-  now: string;
-  /** A fresh id, used only when the todo carries none. */
-  id: string;
-}
-
-/** The session a start writes: the todo's words, where it lives, and its id. */
-export function sessionOf(todo: Todo, notePath: string, dailyPath: string, start: string): Session {
-  return {
-    start,
-    text: withoutBlockId(todo.text),
-    // A note pointing at itself records nothing, the way `doneLine` has it.
-    link: notePath === dailyPath ? undefined : notePath.replace(/\.md$/, ""),
-    id: todo.id,
-  };
-}
-
-/**
- * Close every open session naming `id`, at `end`. Null where none moved.
- *
- * The end clock goes into the line in place, over the running pad, rather than
- * the line being rebuilt from its reading: a rebuild loses the indent, a block
- * id and anything typed after the id, and moves a link out of the words. The
- * pad is the clock's width plus the space after it, so the words stay put.
- */
-export function closeSessions(text: string, id: string, end: string): string | null {
-  const lines = text.split("\n");
-  let moved = false;
-
-  for (const [index, line] of lines.entries()) {
-    const session = parseSession(line);
-    if (session === null || session.end !== undefined || session.id !== id) continue;
-    lines[index] = line.replace(/^([ \t]*- \d{2}:\d{2}-)[ \t]*/, `$1${end} `);
-    moved = true;
-  }
-
-  return moved ? lines.join("\n") : null;
-}
-
-/** Every note one press of `t` changes, in the order they should be sent. */
-export function timerWrites(input: TimerInput): Write[] {
-  const { path, line, dailyPath, notes, sessions, today, now } = input;
-
-  const own = notes[path] ?? "";
-  const lines = own.split("\n");
-  const todo = parseTodo(lines[line - 1] ?? "");
-  // The line moved, or somebody edited it into prose, as `cycleTodoInVault`
-  // bails on the same reading.
-  if (todo === null) return [];
-
-  const id = todo.id ?? input.id;
-
-  // `searchNotes` answers with every line holding the id, the task line and the
-  // done log line among them, so the id is checked here rather than trusted.
-  // A session in a note that is not a daily one is somebody's own log: nothing
-  // says which day it belongs to, so kasten leaves it alone.
-  const mine = sessions.flatMap((hit) => {
-    const session = parseSession(hit.text);
-    const day = dailyDate(hit.path);
-    if (session === null || session.id !== id || day === null) return [];
-    return [{ path: hit.path, day, session }];
-  });
-
-  // Keyed by path, so a todo living in today's own note produces one write
-  // rather than three that overwrite each other.
-  const writes = new Map<string, string>();
-
-  const running = mine.filter(({ session }) => session.end === undefined);
-  if (running.length === 0) {
-    // The session line has to name something, so a start stamps an id the way
-    // entering done does.
-    if (todo.id === undefined) {
-      lines[line - 1] = patchLine(lines[line - 1] ?? "", { ...todo, id });
-      writes.set(path, lines.join("\n"));
-    }
-
-    const daily = writes.get(dailyPath) ?? notes[dailyPath] ?? "";
-    const session = sessionOf({ ...todo, id }, path, dailyPath, now);
-    writes.set(dailyPath, appendUnder(daily, TIME, formatSession(session)));
-
-    return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
-  }
-
-  // One rule for the timer somebody forgot and for the one that crossed
-  // midnight: a session is closed in the note it lives in, at the last minute of
-  // the day that note stands for. Every session in one note shares its day.
-  const end = (day: string) => (day === today ? now : LAST_MINUTE);
-
-  for (const [notePath, day] of new Map(running.map((found) => [found.path, found.day]))) {
-    const closed = closeSessions(writes.get(notePath) ?? notes[notePath] ?? "", id, end(day));
-    if (closed !== null) writes.set(notePath, closed);
-  }
-
-  // The log is the record, and `⏱` is kasten's summary of it: every stop sums
-  // the whole log rather than adding this session to whatever the line carried,
-  // so correcting a session line by hand puts the total back in step.
-  const total = mine.reduce(
-    (sum, { session, day }) => sum + minutesBetween(session.start, session.end ?? end(day)),
-    0,
-  );
-
-  // The text as the closes left it, because a todo living in today's own note
-  // is both the note being closed in and the note carrying the task line.
-  const after = (writes.get(path) ?? own).split("\n");
-  after[line - 1] = patchLine(after[line - 1] ?? "", {
-    ...todo,
-    id,
-    worked: formatDuration(total),
-  });
-  writes.set(path, after.join("\n"));
-
-  return [...writes].map(([writePath, writeText]) => ({ path: writePath, text: writeText }));
 }

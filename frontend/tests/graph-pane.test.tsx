@@ -9,7 +9,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GraphPane } from "@/components/graph-pane";
-import * as api from "@/lib/api";
+import * as api from "@/lib/graph-api";
 import type { GraphCanvasHandlers } from "@/lib/graph-canvas";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";

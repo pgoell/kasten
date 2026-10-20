@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PersonCard } from "@/components/person-card";
-import { type EditorCommands, heldModifier, leaderAction, leaderPrefix } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
 
 interface PersonPaneProps {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { createToken, fetchTokens, type Minted, revokeToken } from "@/lib/api";
+import { createToken, fetchTokens, type Minted, revokeToken } from "@/lib/token-api";
 
 export const Route = createFileRoute("/tokens")({
   component: Tokens,

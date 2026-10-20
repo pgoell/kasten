@@ -1,14 +1,5 @@
-import {
-  addTab,
-  emptyLayout,
-  type Layout,
-  openChatInFocused,
-  openPdfBeside,
-  openTerminalInFocused,
-  panesOf,
-  splitFocused,
-  toggleZoom,
-} from "@/lib/panes";
+import { openChatInFocused, openPdfBeside, openTerminalInFocused } from "@/lib/pane-contents";
+import { addTab, emptyLayout, type Layout, panesOf, splitFocused, toggleZoom } from "@/lib/panes";
 import { loadWorkspace, saveWorkspace } from "@/lib/workspace";
 
 const FINE = "kasten.workspace.1";

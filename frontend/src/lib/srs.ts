@@ -1,5 +1,5 @@
 /**
- * Reading a flashcard out of a note, and moving the date it comes back on.
+ * Reading a flashcard out of a note. The date it comes back on lives in `srs-schedule.ts`.
  *
  * A card is text in a note and the note is the whole record, the way a todo is
  * a line and an exam is a note. Nothing about a card is held anywhere else, so
@@ -47,8 +47,6 @@
  * sitting alike.
  */
 
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import type { MarkdownConfig } from "@lezer/markdown";
 import {
   CLOZE_SR,
   clozeAnswer,
@@ -56,27 +54,17 @@ import {
   clozeNumbers,
   clozeQuestion,
   clozeTarget,
-  colons,
   type Divided,
   divide,
   holdsCloze,
   parks,
   SR,
-  SUSPEND_TOKEN,
   suspended,
-  unescaped,
   withoutAnkiId,
-  withoutHeadToken,
-  withoutToken,
 } from "@/lib/card-line";
-import { shiftDay } from "@/lib/clock";
+import { side, typedTarget } from "@/lib/card-text";
+import { commentsAndCode } from "@/lib/deck-parse";
 import { cardTags, deckName, deckTags, onlyTags, withoutTags } from "@/lib/deck-tag";
-import { frontmatter } from "@/lib/frontmatter-language";
-import { Highlight } from "@/lib/markdown-highlight";
-import { MathSyntax } from "@/lib/math";
-import { readField, setField } from "@/lib/note-frontmatter";
-import { Tag } from "@/lib/tag";
-import { WikiLink } from "@/lib/wikilink";
 
 /** How well a card went, in the four steps Anki asks for. */
 export type Rating = "again" | "hard" | "good" | "easy";
@@ -151,18 +139,6 @@ export interface Card {
   target: string | null;
 }
 
-/** What a card starts life at, which is SM-2's 2.5 and Anki's default. */
-const NEW_EASE = 250;
-
-/**
- * How low the ease can sink.
- *
- * A card answered `again` twenty times would otherwise reach an ease of zero
- * and an interval that can never grow, which is a card the algorithm has given
- * up on rather than one it is still learning. 130 is Anki's floor.
- */
-const LEAST_EASE = 130;
-
 /** A heading, which is a hash and a space and not any hash at all. */
 const HEADING = /^#{1,6}[ \t]/;
 
@@ -190,57 +166,6 @@ export function readSchedule(text: string, comment = SR): Schedule | null {
   // The defaults are unreachable: a match means all three groups are there.
   const [, due = "", interval = "1", ease = "250"] = found;
   return { due, interval: Number(interval), ease: Number(ease) };
-}
-
-/** A ruby's reading and the parentheses around it, which are no part of the word. */
-const READING = /<(rt|rp)\b[^>]*>.*?<\/\1>/g;
-
-/** Ruby's own tags, left once the reading has gone. */
-const RUBY_TAG = /<\/?ruby\b[^>]*>/g;
-
-/**
- * An escape pair, a code span or a backtick run that closes none, leftmost
- * first, as `colons` reads them: `` \` `` opens no span.
- */
-const TYPED = /\\[\s\S]|(`+)(?!`)([\s\S]*?)(?<!`)\1(?!`)|`+/g;
-
-/**
- * A schedule comment or the import's marker with the backslash the import
- * gives it, in code too: either is read anywhere on a line (#351).
- */
-const ESCAPED_COMMENT = /<!--(SR|anki)\\:/g;
-
-/**
- * `code` with the backslash off each `ESCAPED_COMMENT`, the one escape a code
- * span holds: it is no part of what Anki shows (#356). Outside code markdown
- * takes it off itself, and doing it there would leave a comment drawn as none.
- */
-function bareComments(code: string): string {
-  return code.replace(ESCAPED_COMMENT, "<!--$1:");
-}
-
-/** A card side as `colons` reads it, each code span's comments bare. */
-function side(text: string): string {
-  return colons(text).replace(TYPED, (found, ticks: string | undefined) =>
-    ticks === undefined ? found : bareComments(found),
-  );
-}
-
-/**
- * `target` as somebody types it: an imported `<ruby>漢字<rt>かんじ</rt></ruby>`
- * is the word `漢字`, the reading drawn over it being a hint and not the answer.
- *
- * An imported `a&#58;&#58;b` is `a::b` too, and `a\\-b` is `a\-b`, as `colons` and `unescaped` give them.
- * A code span is its text as written, since nobody types the backticks (#346),
- * and keeps its backslashes, as markdown reads no escape there, all but
- * `bareComments`'s.
- */
-function typedTarget(target: string): string {
-  return colons(target.replace(READING, "").replace(RUBY_TAG, "")).replace(
-    TYPED,
-    (found, ticks: string | undefined, code: string | undefined) =>
-      ticks === undefined ? unescaped(found) : bareComments(code ?? ""),
-  );
 }
 
 /**
@@ -273,111 +198,6 @@ function clozeCards(
 }
 
 /**
- * No inline parse of a paragraph that holds no deck tag or no `<!--`, which is
- * most of a deck note and was most of the time the editor's parse took (#669).
- * A deck tag opens with `#flashcards`, `deck-tag.ts`'s `DECK_TAG`.
- *
- * What `read` takes from inside a paragraph is its comments, and those only to
- * hide the deck tags in them, so a paragraph without both has nothing to give.
- * Code is a block and the block parse stays whole. A paragraph holding both is
- * parsed as the editor parses it, code spans and all.
- */
-const Untagged: MarkdownConfig = {
-  parseInline: [
-    {
-      name: "Untagged",
-      before: "Escape",
-      parse: (cx, _next, pos) =>
-        pos === cx.offset && !(cx.text.includes("#flashcards") && cx.text.includes("<!--"))
-          ? cx.end
-          : -1,
-    },
-  ],
-};
-
-/**
- * kasten's markdown under its frontmatter, as `noteLanguage` has it, with
- * `Untagged` in front. One for the module, the parser holding no state between
- * two notes. No code languages: nothing inside code is read.
- */
-const notes = frontmatter(
-  markdown({
-    base: markdownLanguage,
-    extensions: [Untagged, Highlight, MathSyntax, Tag, WikiLink],
-  }),
-).language.parser;
-
-/** What the editor's parser makes of a note, as far as cards and deck tags care. */
-interface Read {
-  /**
-   * The note with every HTML comment that could hide a deck tag blanked, each
-   * line where it was. A comment in a paragraph with no deck tag stays as text.
-   */
-  uncommented: string;
-  /** Per line of the note, whether it is code, fence lines included. */
-  code: boolean[];
-  /** Per line of the note, whether it lies in a fence nobody closed. */
-  unclosed: boolean[];
-}
-
-/**
- * The note's comments and code blocks, as the editor finds them.
- *
- * The editor's parser and not a line at a time, because a comment may run over
- * several lines and a reader of one line cannot tell a tag inside one from a
- * tag outside it. It is the parser that knows a `~~~` fence, a fence nobody
- * closed, one inside a list item or quote, and an indented block from a line
- * that goes on with a paragraph or item (#664). One parse for both, a deck note
- * being long enough for a second to show.
- *
- * Comments and code only: the parser also hides tags in an HTML block such as
- * `<img>`, which runs on to the blank line, and a deck tag under one is a deck
- * the note always had. The newlines stay, so a line's index is the one card
- * detection gave it.
- */
-function read(text: string): Read {
-  let uncommented = "";
-  let at = 0;
-  const spans: [number, number, boolean][] = [];
-  notes.parse(text).iterate({
-    enter(node) {
-      if (node.name === "FencedCode" || node.name === "CodeBlock") {
-        // A closed fence has a CodeMark at each end, one nobody closed only the
-        // opening one, and an indented block none.
-        const unclosed = node.name === "FencedCode" && node.node.getChildren("CodeMark").length < 2;
-        spans.push([node.from, node.to, unclosed]);
-        // Nothing inside code is a comment, whatever language the fence names.
-        return false;
-      }
-      if (node.name !== "CommentBlock" && node.name !== "Comment") return;
-      uncommented +=
-        text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
-      at = node.to;
-      // Nothing inside a comment is a second comment.
-      return false;
-    },
-  });
-  uncommented += text.slice(at);
-
-  // A line is code where a span overlaps it. Overlap and not the line of
-  // `to`, as a block may end before its last newline or after it.
-  const code: boolean[] = [];
-  const unclosed: boolean[] = [];
-  let start = 0;
-  let next = 0;
-  for (const line of text.split("\n")) {
-    const end = start + line.length;
-    while ((spans[next]?.[1] ?? Infinity) <= start) next++;
-    const [from, to, open] = spans[next] ?? [Infinity, Infinity, false];
-    const inside = from <= end && start < to;
-    code.push(inside);
-    unclosed.push(inside && open);
-    start = end + 1;
-  }
-  return { uncommented, code, unclosed };
-}
-
-/**
  * The halves of `line` where it reads as a one-line card, or null.
  *
  * A line opening with the divider is prose, not a card missing its question.
@@ -401,7 +221,7 @@ function oneLine(line: string): Divided | null {
  */
 export function parseCards(text: string, note = ""): Card[] {
   const lines = text.split("\n");
-  const { uncommented, code, unclosed } = read(text);
+  const { uncommented, code, unclosed } = commentsAndCode(text);
   const taken = lines.map(() => false);
   const cards: Card[] = [];
   /** The decks each card names at its own head, in the order they are pushed. */
@@ -563,255 +383,4 @@ export function parseCards(text: string, note = ""): Card[] {
   }
 
   return cards.sort((one, two) => one.from - two.from);
-}
-
-/**
- * Where the card goes next, by SM-2.
- *
- * ponytail: SM-2 rather than FSRS. FSRS predicts recall better and is a weight
- * table and a few hundred lines; SM-2 is these twenty and holds exactly the
- * three numbers the comment already carries. Swap it when the reviews start
- * feeling mistimed rather than because the newer one exists.
- *
- * No fuzz, so a deck imported on one day comes back on one day. Add it when
- * that bunching is actually felt.
- */
-export function nextSchedule(held: Schedule | null, rating: Rating, today: string): Schedule {
-  // A card nobody has answered has no interval to grow, so the four ratings
-  // pick a first gap rather than scale one. Easy skips the first day the way
-  // Anki's does; the other three all come back tomorrow.
-  if (held === null) {
-    const interval = rating === "easy" ? 4 : 1;
-    return { due: shiftDay(today, interval), interval, ease: NEW_EASE };
-  }
-
-  let ease = held.ease;
-  let interval = held.interval;
-
-  switch (rating) {
-    case "again":
-      ease -= 20;
-      interval *= 0.5;
-      break;
-    case "hard":
-      ease -= 15;
-      interval *= 1.2;
-      break;
-    case "good":
-      interval *= ease / 100;
-      break;
-    case "easy":
-      ease += 15;
-      // The ease has already moved, so easy compounds its own bonus on top of
-      // the raised multiplier rather than beside it.
-      interval *= (ease / 100) * 1.3;
-      break;
-  }
-
-  ease = Math.max(LEAST_EASE, ease);
-  interval = Math.max(1, Math.round(interval));
-  return { due: shiftDay(today, interval), interval, ease };
-}
-
-/**
- * What answering the card today was, read off its schedule, or null where nothing did.
- *
- * The comment holds three numbers and no history, and obsidian-spaced-repetition
- * reads those three, so a fourth was not an option. What is there is enough:
- * every rating above writes a due date of today plus the interval, so a card
- * whose two agree was answered today. A first answer always lands on the
- * starting ease with a gap of 1 or 4, which is what tells a card introduced
- * today from a review done today.
- *
- * Read off the vault, so a reload or a second device counts the same. The cost
- * is two mistakes, both rare: a new card asked a second time in its first
- * sitting, after an again, reads as a review, and a review that lands back on
- * the starting ease with a gap of 1 or 4 reads as new.
- */
-export function answeredToday(held: Schedule | null, today: string): "new" | "review" | null {
-  if (held === null || held.due !== shiftDay(today, held.interval)) return null;
-  return held.ease === NEW_EASE && (held.interval === 1 || held.interval === 4) ? "new" : "review";
-}
-
-/** `next` written as the comment that goes in the note, named by its number on a cloze. */
-function comment(next: Schedule, cloze: number | null = null): string {
-  return `<!--SR:${cloze === null ? "" : `c${cloze}`}!${next.due},${next.interval},${next.ease}-->`;
-}
-
-/**
- * `text` with this card's schedule set, every other line byte-identical.
- *
- * A line splice rather than a rebuild of the note, because the note is the
- * user's and a rating is not licence to reflow it.
- */
-export function writeSchedule(text: string, card: Card, next: Schedule): string {
-  const lines = text.split("\n");
-  const last = lines[card.to] ?? "";
-
-  // A cloze rewrites its own number's comment and no other. Where it has none
-  // yet it joins the line the others sit on, which is the cloze's own line, or
-  // the line under a `?` back once any comment or the token has made one.
-  if (card.cloze !== null) {
-    const own = clozeComment(card.cloze);
-    const written = comment(next, card.cloze);
-    if (own.test(last)) lines[card.to] = last.replace(own, written);
-    else if (card.inline || CLOZE_SR.test(last) || SR.test(last) || parks(last)) {
-      lines[card.to] = `${last.trimEnd()} ${written}`;
-    } else lines.splice(card.to + 1, 0, written);
-    return lines.join("\n");
-  }
-
-  if (card.inline) {
-    lines[card.to] = SR.test(last)
-      ? last.replace(SR, comment(next))
-      : `${last.trimEnd()} ${comment(next)}`;
-  } else if (SR.test(last)) {
-    lines[card.to] = last.replace(SR, comment(next));
-  } else {
-    lines.splice(card.to + 1, 0, comment(next));
-  }
-
-  return lines.join("\n");
-}
-
-/** A schedule comment of either kind, plain or a cloze number's, whichever comes first. */
-const ANY_SR = new RegExp(`${SR.source}|${CLOZE_SR.source}`);
-
-/**
- * `text` with this card parked or put back, every other line byte-identical.
- *
- * A line splice, the way `writeSchedule` is one and for the same reason, and it
- * follows the same two shapes. On a one-line card the token goes before the
- * comment where there is one and on the end of the line where there is not. On
- * a card written over several lines it goes at the head of the schedule's line,
- * or on a line spliced in under the back where the card has no schedule yet.
- *
- * The token and the schedule are orthogonal. Parking a card never touches the
- * three numbers, so putting it back returns it on the date it already held, and
- * the round trip leaves the note as it was byte for byte.
- */
-export function setSuspended(text: string, card: Card, on: boolean): string {
-  const lines = text.split("\n");
-  const last = lines[card.to] ?? "";
-  // A cloze parks every number off the one token, before the first of its
-  // comments, so parking any number writes the same line as parking another.
-  // Either kind of comment: a `?` card written before cloze existed whose front
-  // happens to hold a mark is a cloze now, its schedule line holding a plain one.
-  const schedule = card.cloze === null ? SR : ANY_SR;
-
-  if (card.inline) {
-    lines[card.to] = on
-      ? schedule.test(last)
-        ? last.replace(schedule, `${SUSPEND_TOKEN} $&`)
-        : `${last.trimEnd()} ${SUSPEND_TOKEN}`
-      : withoutToken(last);
-    return lines.join("\n");
-  }
-
-  if (!on) {
-    const bare = withoutHeadToken(last);
-    // A line the token was the whole of goes with it, so the note is left as
-    // it was rather than gaining a blank line per parking.
-    if (bare.trim() === "") lines.splice(card.to, 1);
-    else lines[card.to] = bare;
-    return lines.join("\n");
-  }
-
-  // `card.to` is the schedule's line where the card has one, and the last line
-  // of its back where it has none.
-  if (schedule.test(last)) lines[card.to] = `${SUSPEND_TOKEN} ${last}`;
-  else lines.splice(card.to + 1, 0, SUSPEND_TOKEN);
-  return lines.join("\n");
-}
-
-/**
- * Whether what was typed counts as the card's answer.
- *
- * Forgiving on everything that is not the answer: case, the space around and
- * inside it, and a full stop the card's author typed and you did not. Not
- * forgiving on a word, because a card whose answer is nearly right is a card
- * you are about to rate yourself, and this only says which way to lean.
- *
- * ponytail: no edit distance. A typo you can see is a typo you can rate `hard`,
- * and a threshold that called `Store` close enough to `Storage` would be worse
- * than the strict answer, not better.
- */
-export function sameAnswer(typed: string, back: string): boolean {
-  const plain = (text: string) =>
-    text
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim()
-      .replace(/[.!?]+$/, "");
-  return plain(typed) !== "" && plain(typed) === plain(back);
-}
-
-/**
- * The schedule of a note that is itself the card, off its frontmatter.
- *
- * A whole note marked `#review` has no `::` to hang a comment on, so its three
- * numbers go in the block at the top, under the names
- * obsidian-spaced-repetition gives them. That is the only difference between a
- * note and a card here; everything downstream of this treats the two the same.
- *
- * A note carrying `sr-due` and nothing else reads as a card scheduled by hand,
- * which is a real thing to type into a note and worth taking at its word rather
- * than ignoring for want of two fields nobody would write out.
- */
-export function readNoteSchedule(text: string): Schedule | null {
-  const due = readField(text, "sr-due");
-  if (due === undefined) return null;
-  return {
-    due,
-    interval: Number(readField(text, "sr-interval") ?? 1),
-    ease: Number(readField(text, "sr-ease") ?? NEW_EASE),
-  };
-}
-
-/** `text` with the note's own schedule set, minting the block where it has none. */
-export function writeNoteSchedule(text: string, next: Schedule): string {
-  let written = setField(text, "sr-due", next.due);
-  written = setField(written, "sr-interval", String(next.interval));
-  return setField(written, "sr-ease", String(next.ease));
-}
-
-/**
- * Whether a note that is itself the card is parked.
- *
- * The whole-note twin of the token on a card's line. A note reviewed as one
- * thing has no line to hang a marker on, so the marker goes in the block where
- * its schedule already lives, beside `sr-due`.
- *
- * True for the literal word and nothing else, which is what keeps a note that
- * carries the key for some other reason out of the parked list.
- */
-export function readNoteSuspended(text: string): boolean {
-  return readField(text, "sr-suspended") === "true";
-}
-
-/**
- * `text` with the note parked or put back.
- *
- * Put back writes `false` rather than taking the key out, because
- * `note-frontmatter.ts` exports no delete and inventing one for this field
- * alone is a larger change than a line reading `sr-suspended: false` costs.
- */
-export function writeNoteSuspended(text: string, on: boolean): string {
-  return setField(text, "sr-suspended", on ? "true" : "false");
-}
-
-/**
- * `text` with `question` written at the end as a card waiting for its answer.
- *
- * Appends and never inserts. A card added at the end is last in line order, so
- * every ordinal a running sitting already holds still addresses the card it
- * did; an insert in the middle would renumber the cards under it, which is the
- * rule `review-session.tsx:82` states.
- *
- * A deck tag typed at the head of the question needs nothing here. `cardTags`
- * reads a tag at the head of a card line, so
- * `#flashcards/terraform What is a moved block?` files itself.
- */
-export function appendStub(text: string, question: string): string {
-  return `${text.replace(/\n*$/, "")}\n\n${question}::\n`;
 }

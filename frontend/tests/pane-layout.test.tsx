@@ -1,12 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { PaneLayout, TabStrip } from "@/components/pane-layout";
 import {
-  activeTab,
-  addTab,
-  emptyLayout,
-  focusPane,
-  goToTab,
-  type Layout,
   openBookBeside,
   openExamInFocused,
   openGraphBeside,
@@ -17,6 +11,14 @@ import {
   openPdfBeside,
   openPersonBeside,
   openReviewInFocused,
+} from "@/lib/pane-contents";
+import {
+  activeTab,
+  addTab,
+  emptyLayout,
+  focusPane,
+  goToTab,
+  type Layout,
   splitFocused,
   tabPanes,
   toggleZoom,

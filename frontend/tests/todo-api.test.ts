@@ -2,14 +2,12 @@ import { ChangedOnDisk, NoteExists, NoteMissing } from "@/lib/api";
 import { noteBase } from "@/lib/note-base";
 import { dailyDate, periodicNote } from "@/lib/periodic";
 import {
-  addSubtaskInVault,
   addTodoInVault,
-  blockTodoInVault,
   cycleTodoAside,
   cycleTodoInVault,
-  editTodoInVault,
   toggleTimerInVault,
 } from "@/lib/todo-api";
+import { addSubtaskInVault, blockTodoInVault, editTodoInVault } from "@/lib/todo-line-edits";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
 // do: what this half owns is which notes it reads and what it sends back.

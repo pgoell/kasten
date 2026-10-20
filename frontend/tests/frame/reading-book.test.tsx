@@ -38,11 +38,15 @@ vi.mock("@/lib/api", async (importOriginal) => {
     fetchTags: async () => [],
     fetchTodos: async () => [],
     fetchTerminals: async () => [],
-    fetchTrash: async () => [],
     fetchVersion: async () => "0.8.0",
     fetchWeather: async () => [],
   };
 });
+
+vi.mock("@/lib/trash-api", async (original) => ({
+  ...(await original<typeof import("@/lib/trash-api")>()),
+  fetchTrash: async () => [],
+}));
 
 /** A stream that never says anything, so the route opens no connection. */
 class SilentEventSource {
