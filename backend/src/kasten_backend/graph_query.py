@@ -18,8 +18,8 @@ from kasten_backend.graph import (
     GraphEdge,
     GraphError,
     GraphNode,
-    _target,
-    _Vault,
+    Vault,
+    link_target,
     read_graph,
     resolver,
 )
@@ -129,7 +129,7 @@ def _term(token: _Token) -> _Term:
     return _Term(key, value, negated)
 
 
-def _matches(term: _Term, node: GraphNode, graph: _Vault) -> bool:
+def _matches(term: _Term, node: GraphNode, graph: Vault) -> bool:
     """Whether one note passes one node term, before the term's `-` is applied."""
     value = term.value.lower()
     match term.key:
@@ -146,7 +146,7 @@ def _matches(term: _Term, node: GraphNode, graph: _Vault) -> bool:
             return value in node.name.lower()
 
 
-def _passes(terms: Iterable[_Term], node: GraphNode, graph: _Vault) -> bool:
+def _passes(terms: Iterable[_Term], node: GraphNode, graph: Vault) -> bool:
     return all(_matches(term, node, graph) != term.negated for term in terms)
 
 
@@ -158,7 +158,7 @@ def _relation_matches(predicate: str, edge: GraphEdge) -> bool:
     return edge.relation == predicate
 
 
-def _around(graph: _Vault, center: str, depth: int) -> set[str]:
+def _around(graph: Vault, center: str, depth: int) -> set[str]:
     """Every note within `depth` links of `center`, whichever way the links point."""
     reached = {center}
     frontier = {center}
@@ -172,14 +172,14 @@ def _around(graph: _Vault, center: str, depth: int) -> set[str]:
     return reached
 
 
-def _narrowed(graph: _Vault, keep: set[str]) -> _Vault:
-    return _Vault(
+def _narrowed(graph: Vault, keep: set[str]) -> Vault:
+    return Vault(
         nodes={path: node for path, node in graph.nodes.items() if path in keep},
         edges=[e for e in graph.edges if e.source in keep and e.target in keep],
     )
 
 
-def _filter(graph: _Vault, tokens: list[_Token], center: str | None) -> Graph:
+def _filter(graph: Vault, tokens: list[_Token], center: str | None) -> Graph:
     terms = [_term(token) for token in tokens if token.kind != "sep"]
     if any(token.kind == "link" for token in tokens):
         raise GraphError("A [[link]] belongs in a pattern, beside a ?variable")
@@ -242,7 +242,7 @@ def _clauses(tokens: list[_Token], resolve: Callable[[str], str]) -> list[_Claus
         if token.kind == "var":
             return token.text
         if token.kind == "link":
-            name = _target(token.text[2:-2])
+            name = link_target(token.text[2:-2])
             if name is None:
                 raise GraphError(f"{token.text} names no note, in {clause!r}")
             return resolve(name)
@@ -313,7 +313,7 @@ def _value(name: str, binding: dict[str, str]) -> str | None:
     return binding.get(name) if _is_var(name) else name
 
 
-def _tested(clause: _Test, graph: _Vault, binding: _Binding) -> list[_Binding]:
+def _tested(clause: _Test, graph: Vault, binding: _Binding) -> list[_Binding]:
     """The binding once for each note the test lets through, naming it when it was open."""
     values, used = binding
     subject = _value(clause.subject, values)
@@ -328,7 +328,7 @@ def _tested(clause: _Test, graph: _Vault, binding: _Binding) -> list[_Binding]:
     ]
 
 
-def _joined(clause: _Triple, graph: _Vault, binding: _Binding) -> list[_Binding]:
+def _joined(clause: _Triple, graph: Vault, binding: _Binding) -> list[_Binding]:
     """The binding once for each edge the triple matches, its open places filled in."""
     values, used = binding
     subject = _value(clause.subject, values)
@@ -360,7 +360,7 @@ def _joined(clause: _Triple, graph: _Vault, binding: _Binding) -> list[_Binding]
     return grown
 
 
-def _step(clause: _Clause, graph: _Vault, bindings: list[_Binding]) -> list[_Binding]:
+def _step(clause: _Clause, graph: Vault, bindings: list[_Binding]) -> list[_Binding]:
     """Every extension of every partial answer that the clause allows."""
     grown: list[_Binding] = []
     for binding in bindings:
@@ -373,7 +373,7 @@ def _step(clause: _Clause, graph: _Vault, bindings: list[_Binding]) -> list[_Bin
     return grown
 
 
-def _pattern(graph: _Vault, tokens: list[_Token], resolve: Callable[[str], str]) -> Graph:
+def _pattern(graph: Vault, tokens: list[_Token], resolve: Callable[[str], str]) -> Graph:
     clauses = _clauses(tokens, resolve)
     columns = _columns(clauses)
 

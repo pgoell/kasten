@@ -99,7 +99,7 @@ class Graph(BaseModel):
 
 
 @dataclass
-class _Vault:
+class Vault:
     """The whole graph, before any query has narrowed it."""
 
     nodes: dict[str, GraphNode]
@@ -151,7 +151,7 @@ def resolver(paths: list[str]) -> Callable[[str], str]:
     return resolve
 
 
-def _target(written: str) -> str | None:
+def link_target(written: str) -> str | None:
     """The note a link's text names, or None when it names no note.
 
     Obsidian's alias and heading are cut off by `links.split_target`, so
@@ -191,7 +191,7 @@ def _types(hits: Iterable[tuple[str, int, str]]) -> dict[str, str]:
     return found
 
 
-async def read_graph(root: Path, skip: str | None = None) -> _Vault:
+async def read_graph(root: Path, skip: str | None = None) -> Vault:
     """Every note under `root` outside the `skip` folder, and every link between them.
 
     A link to a note that is there but skipped is dropped rather than drawn as a
@@ -232,7 +232,7 @@ async def read_graph(root: Path, skip: str | None = None) -> _Vault:
     for hit in links:
         relation = RELATION.match(hit.text)
         for index, match in enumerate(WIKILINK.finditer(hit.text)):
-            name = _target(match.group(1))
+            name = link_target(match.group(1))
             if name is None:
                 continue
             target = resolve(name)
@@ -257,4 +257,4 @@ async def read_graph(root: Path, skip: str | None = None) -> _Vault:
         for edge in seen.values()
         if edge.relation is not None or (edge.source, edge.target) not in typed_pairs
     ]
-    return _Vault(nodes=nodes, edges=edges)
+    return Vault(nodes=nodes, edges=edges)

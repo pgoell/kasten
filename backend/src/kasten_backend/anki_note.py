@@ -1,15 +1,15 @@
 """The markdown note a deck is written as, a line or `?` card at a time, each with its marker.
 
-`as_note` is the entry, and `note_cards` says which cards it writes. `_lines` is
+`as_note` is the entry, and `note_cards` says which cards it writes. `card_lines` is
 the one place a card's shape is decided, since `merge` compares the lines a
-note holds with what `_lines` would write now.
+note holds with what `card_lines` would write now.
 """
 
 import hashlib
 import re
 from typing import TYPE_CHECKING
 
-from kasten_backend.anki_html import _HEADING, _ONLY_TAGS, _code, _in_code, _marks, _read
+from kasten_backend.anki_html import ends_card, marks, reads_mark, undivided
 
 if TYPE_CHECKING:
     from kasten_backend.anki_deck import Card, Deck
@@ -77,7 +77,7 @@ def as_note(deck: Deck) -> str:
     head = [f"#flashcards/{re.sub(r'[^\w/-]+', '-', deck.name)}", ""]
     body: list[str] = []
     for card in note_cards(deck):
-        _place(body, _with_state(_marked(card, _lines(card)), False, _carried(card)))
+        place(body, written(card))
     # The blank a `?` card leaves under itself is a separator, not part of the
     # note, so the last one comes off rather than ending the note on two breaks.
     if body and not body[-1]:
@@ -102,7 +102,7 @@ def card_count(deck: Deck) -> int:
     return sum(_numbers(card.front) if _clozed(card) else 1 for card in note_cards(deck))
 
 
-def _lines(card: Card) -> list[str]:
+def card_lines(card: Card) -> list[str]:
     """The lines `as_note` writes for `card`, unmarked: one, or the three parts of a `?` card.
 
     The one place a card is rendered, since a re-import tells a card Anki
@@ -122,28 +122,29 @@ def _lines(card: Card) -> list[str]:
         # `srs.ts` ends a front at a line it reads as a card of one line
         # (#683), so a front's `::` would cut the question there. A cloze
         # front keeps its marks' `::`: it is one line, taken as the cloze.
-        fronts = [_undivided(line) for line in fronts]
+        fronts = [undivided(line) for line in fronts]
     return [*map(_unfenced, fronts), "?", *map(_unfenced, backs)]
 
 
-def _undivided(line: str) -> str:
-    """`line` with each `::` outside a code span written `:&#58;`, so `divide` finds no divider.
+def written(card: Card, suspended: bool = False, comments: list[str] | None = None) -> list[str]:
+    """The lines `as_note` writes for `card`, its marker and state included.
 
-    The `::` `divide` in `card-line.ts` would split at, leftmost first and past
-    code spans alone, and `colons` shows the `&#58;` as the colon it was.
+    `comments` replaces the schedules `card`'s reviews would make, and an empty
+    list writes none, so `merge` can carry a card's own schedules over as they are.
     """
-    spans = _code(line)
-    return re.sub(
-        "::", lambda found: found[0] if _in_code(found.start(), spans) else ":&#58;", line
+    return _with_state(
+        _marked(card, card_lines(card)),
+        suspended,
+        _carried(card) if comments is None else comments,
     )
 
 
 def _marked(card: Card, lines: list[str]) -> list[str]:
     """`lines` with the card's marker after the last, where no rating writes."""
-    return [*lines[:-1], f"{lines[-1]} <!--anki:{card.nid}:{card.ord}:{_digest(lines)}-->"]
+    return [*lines[:-1], f"{lines[-1]} <!--anki:{card.nid}:{card.ord}:{digest(lines)}-->"]
 
 
-def _digest(lines: list[str]) -> str:
+def digest(lines: list[str]) -> str:
     """The hash a marker holds of the unmarked `lines` it ends.
 
     It is what tells `merge` where the card starts, and whether its lines are
@@ -152,7 +153,7 @@ def _digest(lines: list[str]) -> str:
     return hashlib.sha256("\n".join(lines).encode()).hexdigest()[:8]
 
 
-def _place(body: list[str], lines: list[str]) -> None:
+def place(body: list[str], lines: list[str]) -> None:
     """`lines` added to `body`, a `?` card with a blank line either side of it.
 
     So the `?` card's front and back do not run into the lines next to it.
@@ -183,13 +184,13 @@ def _numbers(text: str) -> int:
         numbers.add(int(match[1]))
         return "_"
 
-    _marks(text, take)
+    marks(text, take)
     return len(numbers)
 
 
 def _clozed(card: Card) -> bool:
     """Whether `card` is written as a cloze: a cloze note's text holding a mark kasten reads."""
-    return card.cloze and _read(card.front)
+    return card.cloze and reads_mark(card.front)
 
 
 def _divides(card: Card) -> bool:
@@ -199,10 +200,16 @@ def _divides(card: Card) -> bool:
     """
     lines = [*card.front.splitlines(), *card.back.splitlines()]
     return bool(card.back) and not (
-        any(_ends_card(line) or line == "?" for line in lines)
+        any(ends_card(line) or line == "?" for line in lines)
         or _SCHEDULE.search(card.back)
         or "<!--anki:" in card.back
     )
+
+
+def fence(line: str) -> int | None:
+    """Where the fence `line` opens starts, past any quote and list markers, or None if none."""
+    found = _FENCE.match(line)
+    return None if found is None else found.end()
 
 
 def _unfenced(side: str) -> str:
@@ -216,22 +223,8 @@ def _unfenced(side: str) -> str:
     before the first of them, the markers and spaces staying where they were.
     `-~~~` is no list item, a marker wanting a space after it, so it stays.
     """
-    found = _FENCE.match(side)
-    return side if found is None else f"{side[: found.end()]}\\{side[found.end() :]}"
-
-
-def _ends_card(line: str) -> bool:
-    """Whether `srs.ts` `breaks()` would end a `?` card on `line`, so it cannot be a side of one.
-
-    A line of a side here is stripped, so blank means empty. The schedule `srs.ts`
-    also stops a back at is checked apart, since it stops no front.
-    """
-    return (
-        not line
-        or line.startswith("!suspended")
-        or _HEADING.match(line) is not None
-        or _ONLY_TAGS.fullmatch(line) is not None
-    )
+    found = fence(side)
+    return side if found is None else f"{side[:found]}\\{side[found:]}"
 
 
 def _carried(card: Card) -> list[str]:

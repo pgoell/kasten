@@ -3,7 +3,7 @@
 It hides the schema: an export older than schema 18 keeps its decks and note
 types as JSON on the `col` row, a newer one in tables whose config is protobuf,
 and both come out as the same decks, note types and rendered cards. The
-protobuf reader is here too, which `anki.py` borrows to read the media map.
+protobuf reader is here too, and `media_map` reads the export's media map with it.
 """
 
 import json
@@ -55,7 +55,7 @@ class _NoteType:
     templates: dict[int, Template]
 
 
-def _rendered(blob: bytes, *, carry: bool) -> list[_Rendered]:
+def rendered(blob: bytes, *, carry: bool) -> list[_Rendered]:
     """Every card the collection `blob` makes, its sides rendered and not yet plain.
 
     The schedule columns are read only with `carry`, so an import that does
@@ -224,6 +224,25 @@ def _text(value: object) -> str:
     if not isinstance(value, str):
         raise ValueError(f"unreadable Anki note types: {value!r} is not text")
     return value
+
+
+def media_map(raw: bytes) -> dict[str, str]:
+    """The latest export's media map: each file's zip member, by the name a field gives it.
+
+    `raw` is the map once decompressed: Anki's `MediaEntries`, whose entries are
+    numbered by position unless one carries the `legacy_zip_filename` of field 255.
+
+    Raises:
+        ValueError, AttributeError, TypeError: `raw` is not that protobuf, an entry
+            being one way, a field the wrong kind another.
+    """
+    index: dict[str, str] = {}
+    for number, entry in enumerate(_protobuf(raw).get(1, [])):
+        if not isinstance(entry, bytes):
+            raise ValueError(f"entry {number} is not a message")
+        legacy = _protobuf(entry).get(255)
+        index[_string(entry, 1)] = str(legacy[0] if legacy else number)
+    return index
 
 
 def _string(message: bytes, number: int) -> str:

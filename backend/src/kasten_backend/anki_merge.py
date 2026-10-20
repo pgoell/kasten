@@ -9,17 +9,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from kasten_backend.anki_note import (
-    _FENCE,
-    _carried,
-    _digest,
-    _ends_card,
-    _lines,
-    _marked,
-    _place,
-    _with_state,
-    note_cards,
-)
+from kasten_backend.anki_html import ends_card
+from kasten_backend.anki_note import card_lines, digest, fence, note_cards, place, written
 
 if TYPE_CHECKING:
     from kasten_backend.anki_deck import Card, Deck
@@ -73,7 +64,7 @@ class _Span:
 def merge(old: str, deck: Deck) -> Merged | None:
     """The note `old` with `deck` imported into it again, or None when `old` holds no marker.
 
-    A card is found by its marker. One whose lines `_lines` would write the
+    A card is found by its marker. One whose lines `card_lines` would write the
     same now is kept as it stands, and one Anki changed is written anew, the
     parking token and the schedules a rating left on it carried into its new
     shape. One edited in kasten since is kept too, whatever Anki did: the edit
@@ -103,15 +94,14 @@ def merge(old: str, deck: Deck) -> Merged | None:
     for card in note_cards(deck):
         span = spans.get((card.nid, card.ord))
         if span is None:
-            added.append(_with_state(_marked(card, _lines(card)), False, _carried(card)))
+            added.append(written(card))
             continue
         rated = [] if span.found else _rated(lines[span.start], span, card)
-        if span.digest == _digest(_lines(card)) or rated is None or span.inside:
+        if span.digest == digest(card_lines(card)) or rated is None or span.inside:
             kept += 1
         else:
             comments = span.comments + rated
-            card_lines = _with_state(_marked(card, _lines(card)), span.suspended, comments)
-            replaced[span.start] = (span, card_lines)
+            replaced[span.start] = (span, written(card, span.suspended, comments))
 
     out, updated = _replaced(lines, replaced)
     kept += len(replaced) - updated
@@ -125,8 +115,8 @@ def merge(old: str, deck: Deck) -> Merged | None:
             s.found and not s.inside and s.start == s.end == last for s in _spans(out).values()
         ):
             out.append("")
-        for card_lines in added:
-            _place(out, card_lines)
+        for new in added:
+            place(out, new)
         if not out[-1]:
             out.pop()
         out.append("")
@@ -176,14 +166,14 @@ def _rated(line: str, span: _Span, card: Card) -> list[str] | None:
     to the marker and differs from it in its schedule comments alone. A card
     of more lines is never such a line: a rating writes under its back.
     """
-    written = _lines(card)
+    expected = card_lines(card)
     found = _ANKI_ID.search(line)
-    if len(written) != 1 or found is None:
+    if len(expected) != 1 or found is None:
         return None
-    then = written[0].replace("<!--SR\\:", "<!--SR:")
+    then = expected[0].replace("<!--SR\\:", "<!--SR:")
     now = line[: found.start()].removesuffix(" ")
     # Each comment held by a stand-in, so the two hold as many in the same places.
-    if _digest([then]) != span.digest or _STATE.sub("\0", now) != _STATE.sub("\0", then):
+    if digest([then]) != span.digest or _STATE.sub("\0", now) != _STATE.sub("\0", then):
         return None
     return [
         comment
@@ -217,7 +207,7 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
                 if not lines[top].strip():
                     break
                 card.insert(0, lines[top])
-            if _digest(card) == found[3]:
+            if digest(card) == found[3]:
                 start = top
                 break
         end, state = at, line[found.end() :]
@@ -255,35 +245,35 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
 def _ends_back(line: str, code: bool) -> bool:
     """Whether `srs.ts` ends a `?` card's back before `line`, a note's line as it stands.
 
-    `_ends_card` and a schedule comment of either kind anywhere on the line, as
+    `ends_card` and a schedule comment of either kind anywhere on the line, as
     `schedules` in `parseCards` reads one. In a closed fence, `code`, only the
     schedule and the token do: a blank line, a heading or tags there end no
     card (#675).
     """
     stripped = line.strip()
     held = stripped.startswith("!suspended") or _STATE.search(line) is not None
-    return held or (not code and _ends_card(stripped))
+    return held or (not code and ends_card(stripped))
 
 
 def _fenced(lines: list[str]) -> list[bool]:
     """Which of `lines` sit in a fenced code block a later fence closes, the fences among them.
 
-    An opener is a `_FENCE` line, and a fence of its character at least as long,
+    An opener is a `fence` line, and a fence of its character at least as long,
     with nothing after it, closes it. One never closed runs to the end, where
     `srs.ts` reads breaks as outside code (#680), so nothing after it is code.
     """
     code = [False] * len(lines)
     at = 0
     while at < len(lines):
-        found = _FENCE.match(lines[at])
+        found = fence(lines[at])
         if found is None:
             at += 1
             continue
-        opener = lines[at][found.end() :]
+        opener = lines[at][found:]
         mark, size = opener[0], len(opener) - len(opener.lstrip(opener[0]))
         for row in range(at + 1, len(lines)):
-            shut = _FENCE.match(lines[row])
-            rest = lines[row][shut.end() :].rstrip() if shut else ""
+            shut = fence(lines[row])
+            rest = lines[row][shut:].rstrip() if shut is not None else ""
             if len(rest) >= size and rest == mark * len(rest):
                 code[at : row + 1] = [True] * (row + 1 - at)
                 at = row + 1

@@ -10,7 +10,7 @@ import html
 import re
 from typing import TYPE_CHECKING
 
-from kasten_backend.anki_markdown import _KEPT, _SPACE, _Markdown, _ticked
+from kasten_backend.anki_markdown import KEPT, markdown, ticked
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -41,8 +41,8 @@ than `_CLOZE`, taking no brace and no empty text, so a MathJax
 whole, so a `::` inside it is no hint (#346); a lone backtick is text. `[0-9]`
 because Python's `\\d` takes digits JavaScript's does not. A nested mark,
 `{{c1::a {{c2::b}}}}`, is read innermost first, each inner mark held by a
-placeholder the outer one's text takes, as `_marks` does. A match opening
-inside a code span is no mark, which `_read` sees to.
+placeholder the outer one's text takes, as `marks` does. A match opening
+inside a code span is no mark, which `reads_mark` sees to.
 """
 _SPANS = re.compile(r"\\.|(`+)(?!`).*?(?<!`)\1(?!`)|`+", re.DOTALL)
 """An escape pair, a code span, or a backtick run that closes none, leftmost first.
@@ -74,7 +74,7 @@ _ONLY_TAGS = re.compile(r"(?:#[^\W\d][\w/-]*[ \t]*)+")
 def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = False) -> str:
     """One Anki field as markdown, a line for each line the field shows (#234).
 
-    `_Markdown` gives the formatting a card can hold. No line is blank, since
+    `markdown` gives the formatting a card can hold. No line is blank, since
     `srs.ts` ends a `?` card at a blank line, and a line any reader would take
     for part of the format, a heading, a lone `?`, a line of tags, the parking
     token, a schedule comment, carries a backslash so it reads as the text it
@@ -122,8 +122,8 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         # The import's marker and a schedule comment keep their backslash in
         # code too, as `_escaped` gives it: `srs.ts` reads a schedule in a code
         # span as anywhere else on the line (#351).
-        shown = _shown(_KEPT.sub(inside, text))
-        return _ticked(shown.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:"))
+        shown = _shown(KEPT.sub(inside, text))
+        return ticked(shown.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:"))
 
     def keep(match: re.Match[str]) -> str:
         # Out of the parse and flat, so `{{c2::<b>France</b>}}` asks `France`,
@@ -131,8 +131,8 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         # `srs.ts` takes the reading off before comparing. Flat before the
         # test, so `&#123;` is the brace it shows and breaks the mark as one
         # typed does (#333); held inner marks are put back after.
-        flat = _flat(_KEPT.sub(inside, match[0]))
-        answer = _flat(_KEPT.sub(inside, match[1]))
+        flat = _flat(KEPT.sub(inside, match[0]))
+        answer = _flat(KEPT.sub(inside, match[1]))
         hint = match[0][match.end(1) - match.start() : -2]
         if cloze and ("::" in answer or (hint and answer.endswith(":"))):
             # Anki divides answer from hint only at a `::` typed in the field,
@@ -148,7 +148,7 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
                 .replace(":", "&#58;")
             )
             opener = match[0][: match.start(1) - match.start()]
-            flat = f"{opener}{answer}{_flat(_KEPT.sub(inside, hint))}}}}}"
+            flat = f"{opener}{answer}{_flat(KEPT.sub(inside, hint))}}}}}"
         # The form the mark takes where it sat in code: its text in code of
         # its own and verbatim, so no `&#58;` either, since `_MARK` reads a
         # code span whole and a `::` in it is no hint (#346).
@@ -156,14 +156,14 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         shown = verbatim(match[1])
         code = f"{opener}{shown}{hint and '::' + verbatim(hint[2:])}}}}}"
         if cloze and _MARK.fullmatch(code) is not None:
-            coded.append(_KEPT.sub(lambda mark: coded[int(mark[1])], code))
+            coded.append(KEPT.sub(lambda mark: coded[int(mark[1])], code))
         else:
-            coded.append(f"=={_KEPT.sub(lambda mark: coded[int(mark[1])], shown)}==")
+            coded.append(f"=={KEPT.sub(lambda mark: coded[int(mark[1])], shown)}==")
         if cloze and _MARK.fullmatch(flat) is not None:
-            kept.append(_KEPT.sub(lambda mark: kept[int(mark[1])], flat))
+            kept.append(KEPT.sub(lambda mark: kept[int(mark[1])], flat))
         else:
-            bare[len(kept)] = _KEPT.sub(inside, match[1])
-            kept.append(f"=={_KEPT.sub(lambda mark: kept[int(mark[1])], answer)}==")
+            bare[len(kept)] = KEPT.sub(inside, match[1])
+            kept.append(f"=={KEPT.sub(lambda mark: kept[int(mark[1])], answer)}==")
         return f"{len(kept) - 1}\ue003"
 
     # Innermost first, so an outer mark holding a whole inner one is read as
@@ -176,18 +176,12 @@ def plain(field: str, links: Mapping[str, str] | None = None, *, cloze: bool = F
         if not count and _OPEN.search(text) and not (cloze and any(map(_MARK.search, kept))):
             text, count = text + "}}", 1
 
-    parser = _Markdown()
-    parser.feed(text)
-    parser.close()
-    # `split()` counts the non-breaking space `&nbsp;` as whitespace, which is
-    # what turns it into an ordinary space.
-    lines = [" ".join(line.split()).replace(_SPACE, " ") for line in parser.text().split("\n")]
-    lines = [line for line in lines if line]
+    lines, in_code = markdown(text)
     if cloze:
         lines = [" ".join(lines)]
     text = "\n".join(_escaped(_COLON.sub(_colon, line)) for line in lines)
-    forms = [coded[at] if at in parser.coded else mark for at, mark in enumerate(kept)]
-    text = _KEPT.sub(lambda mark: forms[int(mark[1])], text)
+    forms = [coded[at] if at in in_code else mark for at, mark in enumerate(kept)]
+    text = KEPT.sub(lambda mark: forms[int(mark[1])], text)
     return _HELD.sub(lambda mark: held[int(mark[1])], text)
 
 
@@ -203,7 +197,7 @@ def _colon(found: re.Match[str]) -> str:
     return "\\&#58;" if found[0] == "&#58;" else found[0]
 
 
-def _marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
+def marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
     """`text` with every `_MARK` replaced by what `keep` makes of it, innermost first.
 
     A replacement holds no brace, so an outer mark whose text held a whole
@@ -227,7 +221,7 @@ def _marks(text: str, keep: Callable[[re.Match[str]], str]) -> str:
     return text
 
 
-def _read(text: str) -> bool:
+def reads_mark(text: str) -> bool:
     """Whether `text` holds a mark kasten reads: a `_MARK` opening outside every code span."""
     spans = _code(text)
     return any(not _in_code(match.start(), spans) for match in _MARK.finditer(text))
@@ -274,7 +268,7 @@ def _escaped(line: str) -> str:
     """`line` with a backslash where a reader would take it for the format rather than text.
 
     Each is a line `srs.ts` ends a `?` card on or reads as a divider, as
-    `_ends_card` lists them. The schedule comment takes its backslash inside,
+    `ends_card` lists them. The schedule comment takes its backslash inside,
     since `SR` in `card-line.ts` matches anywhere on a line and a backslash
     before the `<` would leave one whole. The import's marker does the same,
     or a re-import would take the text for a card it wrote.
@@ -289,7 +283,33 @@ def _escaped(line: str) -> str:
     return line.replace("<!--SR:", "<!--SR\\:").replace("<!--anki:", "<!--anki\\:")
 
 
-def _names(*texts: str) -> list[str]:
+def ends_card(line: str) -> bool:
+    """Whether `srs.ts` `breaks()` would end a `?` card on `line`, so it cannot be a side of one.
+
+    A line of a side here is stripped, so blank means empty. The schedule `srs.ts`
+    also stops a back at is checked apart, since it stops no front.
+    """
+    return (
+        not line
+        or line.startswith("!suspended")
+        or _HEADING.match(line) is not None
+        or _ONLY_TAGS.fullmatch(line) is not None
+    )
+
+
+def undivided(line: str) -> str:
+    """`line` with each `::` outside a code span written `:&#58;`, so `divide` finds no divider.
+
+    The `::` `divide` in `card-line.ts` would split at, leftmost first and past
+    code spans alone, and `colons` shows the `&#58;` as the colon it was.
+    """
+    spans = _code(line)
+    return re.sub(
+        "::", lambda found: found[0] if _in_code(found.start(), spans) else ":&#58;", line
+    )
+
+
+def media_names(*texts: str) -> list[str]:
     """Every media name the `<img>` and `[sound:]` in `texts` give, the way `plain` reads them."""
     return [
         _name(match)

@@ -129,6 +129,10 @@ build it drags in is what makes the gate two seconds rather than a third of
 one, which is the price of the frontend being gated the way the backend
 already was.
 
+The pre-commit hook also runs `scripts/file_size.py` on the staged files. It is
+not a mise task, and it fails a commit that stages a file over 5,000 tokens. See
+[The file size limit](/explanation/file-size-limit.md).
+
 ## Repo automation
 
 | Task | What it does |

@@ -35,9 +35,9 @@ from compression import zstd
 from pathlib import Path
 from urllib.parse import quote, unquote
 
-from kasten_backend.anki_collection import _protobuf, _rendered, _string
+from kasten_backend.anki_collection import media_map, rendered
 from kasten_backend.anki_deck import Card, Deck
-from kasten_backend.anki_html import _names, plain
+from kasten_backend.anki_html import media_names, plain
 from kasten_backend.files import ASSET_LIMIT_BYTES, temporary_name
 from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits, legal_name
 
@@ -128,9 +128,11 @@ def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Dec
         _count_members(data)
         with _opened(data) as bundle:
             budget = _Budget()
-            rendered = _rendered(_collection(bundle, budget), carry=carry)
+            rendered_cards = rendered(_collection(bundle, budget), carry=carry)
             index = _media_index(bundle, budget)
-            wanted = {name for card in rendered for name in _names(card.question, card.answer)}
+            wanted = {
+                name for card in rendered_cards for name in media_names(card.question, card.answer)
+            }
             files = {
                 name: found
                 for name in wanted
@@ -144,9 +146,9 @@ def read_apkg(data: bytes, folder: str = "", *, carry: bool = False) -> list[Dec
 
     cards: defaultdict[str, list[Card]] = defaultdict(list)
     carried: defaultdict[str, dict[str, bytes]] = defaultdict(dict)
-    for card in rendered:
+    for card in rendered_cards:
         links: dict[str, str] = {}
-        for name in _names(card.question, card.answer):
+        for name in media_names(card.question, card.answer):
             if name in files:
                 file, blob = files[name]
                 carried[card.deck][file] = blob
@@ -342,15 +344,9 @@ def _media_index(bundle: zipfile.ZipFile, budget: _Budget) -> dict[str, str]:
     try:
         if not latest:
             return {name: member for member, name in json.loads(raw).items()}
-        index: dict[str, str] = {}
-        for number, entry in enumerate(_protobuf(raw).get(1, [])):
-            if not isinstance(entry, bytes):
-                raise ValueError(f"entry {number} is not a message")
-            legacy = _protobuf(entry).get(255)
-            index[_string(entry, 1)] = str(legacy[0] if legacy else number)
+        return media_map(raw)
     except (ValueError, AttributeError, TypeError) as error:
         raise ValueError(f"unreadable Anki export: bad media map ({error})") from error
-    return index
 
 
 def _media_file(

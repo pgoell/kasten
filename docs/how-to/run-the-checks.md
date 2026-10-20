@@ -23,7 +23,8 @@ request can merge into main.
 
 Lefthook runs some of this for you, from `.config/lefthook.yaml`:
 
-* `pre-commit` runs `mise run lint`, which stays fast on purpose.
+* `pre-commit` runs `mise run lint`, which stays fast on purpose, and the file
+  size check on the staged files.
 * `pre-push` runs `mise run test` and `mise run fe:typecheck`.
 
 Anything slow enough to make you reach for `--no-verify` belongs in pre-push,
@@ -44,8 +45,10 @@ To check particular files, pass their paths:
 python3 scripts/file_size.py docs/log.md frontend/src/routes/index.tsx
 ```
 
-The check is not part of `mise run lint` or the pre-commit hook yet. It joins
-both once the list is empty (#611).
+The pre-commit hook runs the check on the staged files, so a commit fails only
+when it stages a file over the limit. The check is not in `mise run lint` or CI
+until the list is empty (#611). The [file size limit](/explanation/file-size-limit.md)
+page says why the limit exists and how to split a file that is over it.
 
 ## When the hook hangs with no output
 

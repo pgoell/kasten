@@ -2,16 +2,16 @@
 
 The parser keeps the formatting a card holds and drops every other tag. Its
 output is not tidied: `anki_html` does that, and holds the placeholders this
-module's `_KEPT` finds.
+module's `KEPT` finds.
 """
 
 import re
 from html.parser import HTMLParser
 
-_KEPT = re.compile("([0-9]+)")
+KEPT = re.compile("([0-9]+)")
 """The mark `plain` holds a cloze mark's place with, as `_HELD` does a link's."""
 _SPACE = ""
-"""A space the whitespace pass in `plain` leaves alone: a list's indent and `<pre>`'s own."""
+"""A space the whitespace pass in `markdown` leaves alone: a list's indent and `<pre>`'s own."""
 _BLOCK = frozenset(
     {"br", "div", "p", "li", "ul", "ol", "pre", "blockquote", "tr", "hr"}
     | {f"h{level}" for level in range(1, 7)}
@@ -29,14 +29,14 @@ def _ticks(code: str) -> str:
     return f"{'`' * (longest + 1)}{pad}{code}{pad}{'`' * (longest + 1)}"
 
 
-def _ticked(line: str) -> str:
+def ticked(line: str) -> str:
     """`line` as inline code, a span either side of each cloze mark `plain` holds.
 
     The mark stays out of the code, since kasten reads no mark inside a code
     span, and goes in as its code form, its text in code of its own (#346).
     The spaces at either end of a piece stay outside its span.
     """
-    parts = _KEPT.split(line)
+    parts = KEPT.split(line)
     if len(parts) == 1:
         return _ticks(line) if line.strip() else line
     for at in range(0, len(parts), 2):
@@ -48,6 +48,21 @@ def _ticked(line: str) -> str:
     for at in range(1, len(parts), 2):
         parts[at] = f"{parts[at]}"
     return "".join(parts)
+
+
+def markdown(text: str) -> tuple[list[str], set[int]]:
+    """`text` as the lines a card line holds, with the cloze marks that sat in code.
+
+    The lines come back tidied and without blanks. The set is the marks `plain`
+    holds that sat in code, which it writes in their code form.
+    """
+    parser = _Markdown()
+    parser.feed(text)
+    parser.close()
+    # `split()` counts the non-breaking space `&nbsp;` as whitespace, which is
+    # what turns it into an ordinary space.
+    lines = [" ".join(line.split()).replace(_SPACE, " ") for line in parser.text().split("\n")]
+    return [line for line in lines if line], parser.coded
 
 
 class _Markdown(HTMLParser):
@@ -131,14 +146,14 @@ class _Markdown(HTMLParser):
         elif tag == "code" and self.code:
             at = self.code.pop()
             inner = "".join(self.out[at:])
-            self.coded.update(map(int, _KEPT.findall(inner)))
+            self.coded.update(map(int, KEPT.findall(inner)))
             lines = inner.split("\n")
-            self.out[at:] = ["\n".join(_ticked(line) if line.strip() else line for line in lines)]
+            self.out[at:] = ["\n".join(ticked(line) if line.strip() else line for line in lines)]
         elif tag == "pre" and self.pre is not None:
             inner = "".join(self.out[self.pre :]).replace(" ", _SPACE).replace("\t", _SPACE)
-            self.coded.update(map(int, _KEPT.findall(inner)))
+            self.coded.update(map(int, KEPT.findall(inner)))
             lines = [line for line in inner.split("\n") if line.replace(_SPACE, "").strip()]
-            self.out[self.pre :] = ["\n", *(f"{_ticked(line)}\n" for line in lines)]
+            self.out[self.pre :] = ["\n", *(f"{ticked(line)}\n" for line in lines)]
             self.pre = None
         elif tag == "rp" and self.skip:
             self.skip -= 1
