@@ -18,19 +18,22 @@ const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
- * The indices of the lines that are fenced code, fences included.
+ * The indices of the lines that are fenced code, fences included, and the index
+ * of the fence's opening line where a fence nobody closes runs to the end.
  *
  * A `# comment` in a shell block is code, not a heading: it neither opens a
  * section nor ends one. A fence closes on a run of its own character at least as
  * long as the one that opened it, which is CommonMark's rule.
  */
-function fencedLines(lines: string[]): Set<number> {
+function fencedLines(lines: string[]): { coded: Set<number>; openFrom: number | null } {
   const coded = new Set<number>();
   let open: string | null = null;
+  let openFrom: number | null = null;
   lines.forEach((line, index) => {
     const fence = FENCE.exec(line)?.[1];
     if (open === null && fence !== undefined) {
       open = fence;
+      openFrom = index;
       coded.add(index);
     } else if (open !== null) {
       const closes =
@@ -40,11 +43,12 @@ function fencedLines(lines: string[]): Set<number> {
         line.trim() === fence;
       if (closes) {
         open = null;
+        openFrom = null;
       }
       coded.add(index);
     }
   });
-  return coded;
+  return { coded, openFrom };
 }
 
 /**
@@ -59,7 +63,7 @@ export function sectionOf(text: string, heading: string): { text: string; line: 
   const lines = text.split("\n");
   const wanted = heading.trim().toLowerCase();
 
-  const coded = fencedLines(lines);
+  const { coded } = fencedLines(lines);
 
   const titleAt = (index: number) => (coded.has(index) ? null : TITLED.exec(lines[index] ?? ""));
   const levelAt = (index: number) => titleAt(index)?.[1]?.length ?? 0;
@@ -111,11 +115,17 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
   // The readers take a heading with trailing spaces or tabs, and never one in a
   // fence or the frontmatter, so the writer finds the same one they do.
   const above = lines.length - noteBody(text).split("\n").length;
-  const fenced = fencedLines(lines.slice(above));
+  const { coded: fenced, openFrom } = fencedLines(lines.slice(above));
   const isFenced = (index: number) => fenced.has(index - above);
-  const at = lines.findIndex(
+  let at = lines.findIndex(
     (held, index) => index >= above && !isFenced(index) && held.trimEnd() === heading,
   );
+  // The readers count nothing past a fence nobody closes, so a heading made there
+  // is one they never see, and every tap would add another. Use the one already
+  // there, inside the fence.
+  if (at === -1 && openFrom !== null) {
+    at = lines.findIndex((held, index) => index > above + openFrom && held.trimEnd() === heading);
+  }
 
   if (at === -1) {
     // No section, so it is made at the end, off a blank line from whatever the

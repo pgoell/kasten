@@ -44,6 +44,12 @@ it("puts the line under ## Log with a trailing tab", () => {
   expect(appendUnder(note, "## Log", LINE)).toBe("## Log\t\n- a\n- new line\n\n## Next\n");
 });
 
+it("puts the line under a ## Log in a fence nobody closed rather than a new one", () => {
+  const note = "# d\n\n```\n## Log\n- a\n";
+
+  expect(appendUnder(note, "## Log", LINE)).toBe("# d\n\n```\n## Log\n- a\n- new line\n");
+});
+
 it("skips a ## Log in the frontmatter", () => {
   const note = "---\n## Log\n---\n# d\n\n## Log\n- a\n";
 
