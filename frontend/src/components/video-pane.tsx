@@ -109,7 +109,7 @@ export function VideoPane({ note, commands, focusSignal, playSignal, onWatched }
   }
   const source = id === undefined ? null : (opened.current?.url ?? null);
 
-  // Read through a ref, the way `book-pane.tsx` reads its callbacks. The route
+  // Read through a ref, the way `use-book-view.ts` reads its callbacks. The route
   // builds `onWatched` fresh on every render, and a `report` keyed on it would
   // hand the effect below a new cleanup each time, which reports, which writes
   // the note, which renders the route again.

@@ -17,8 +17,8 @@ export const editorCommands = Facet.define<EditorCommands, EditorCommands | unde
 });
 
 /**
- * Each one reads the ref rather than closing over the prop, so a
- * re-render never has to rebuild the view to refresh a callback.
+ * Each one calls `get` when the key runs rather than closing over the prop, so
+ * a re-render never has to rebuild the view to refresh a callback.
  */
 export function forwardCommands(get: () => EditorCommands | undefined): Extension {
   return editorCommands.of({

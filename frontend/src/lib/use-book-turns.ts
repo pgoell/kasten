@@ -41,7 +41,7 @@ export function useBookTurns(o: {
    * (`paginator.js:1060-1071`), and a turn asked for under that lock returns
    * having done nothing and said nothing (#370, #372). One and not a queue: the
    * same lock is what keeps a held key from turning a page per repeat. A tap
-   * parks its side and not a direction, for the reason `onTap` turns by side.
+   * parks its side and not a direction, for the reason `tap` turns by side.
    */
   const parkedTurn = useRef<"next" | "prev" | "goLeft" | "goRight" | null>(null);
   // Read through a ref so `tap` keeps one identity for the life of the pane.

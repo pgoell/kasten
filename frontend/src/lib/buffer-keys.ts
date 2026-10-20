@@ -17,7 +17,8 @@ import { writeTranscript } from "@/lib/transcript";
  * Each carries its own work, a function or a mark spec, because the route has
  * no view to write into; `editor-commands.ts` registers them with vim and hands
  * each one the view the key was typed into. `INDENT` and `FOLLOW` are display
- * only, bound by CodeMirror and `editor.tsx`. The leader edits share the key
+ * only: CodeMirror binds `INDENT` in `lib/note-view.ts` and the gf mapping for
+ * `FOLLOW` sits in `lib/editor-follow.ts`. The leader edits share the key
  * space of `LEADER` in `leader-keys.ts`, so read both when adding a key: vim
  * fires a complete match without waiting for the next press.
  */
@@ -147,7 +148,7 @@ export const INDENT: readonly { key: string; label: string }[] = [
 /**
  * Following a wikilink, which is vim's own go-to-file rather than a leader key.
  *
- * Display only, the way INDENT is: `editor.tsx` carries the mapping, because
+ * Display only, the way INDENT is: `lib/editor-follow.ts` carries the mapping, because
  * what it reaches is a handler on the view and not one of the commands above.
  */
 export const FOLLOW: readonly { key: string; label: string }[] = [

@@ -62,8 +62,9 @@ export type CopyFormat = "md" | "slack" | "teams";
 /**
  * What vim's own keys reach on a view: the ex prompt's commands and `gf`.
  *
- * `editor.tsx` holds the handlers these run and provides this, because it
- * reads this module for the `/` menu and an import back would be a circle.
+ * `lib/editor-ex.ts` holds the handlers these run and provides this (as
+ * `byName`), because the view reads this module for the `/` menu and an
+ * import back would be a circle.
  * Absent on a view that is not a note's editor, which lists none of them.
  */
 export interface ViewCommands {

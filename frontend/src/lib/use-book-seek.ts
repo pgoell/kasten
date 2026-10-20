@@ -116,7 +116,7 @@ export function useBookSeek(o: {
   /** The passage being walked for, which a later press overwrites. */
   const wanted = useRef<string[] | null>(null);
   // Off a ref for the reason the callbacks are: `goToQuote` is a `useCallback`
-  // with no dependencies, so that the effect naming it rebuilds no book, and a
+  // with only stable refs as dependencies, so that the effect naming it rebuilds no book, and a
   // seek into a pdf needs the bytes.
   //
   // Read through refs, written in a layout effect, which runs in the commit's
@@ -158,7 +158,7 @@ export function useBookSeek(o: {
       // costs a section at a time, and it is spent on a keypress rather than on
       // anything the reader is watching.
       //
-      // The page on screen decides it, which is the same question `chapterNow`
+      // The page on screen decides it, which is the same question `chapterOf` in `book-pages.ts`
       // and `onSelectionChange` ask and the same answer. The spine's head looks
       // like the cheaper test and is a trap: a section foliate could not build
       // carries no `createDocument` either (`view.js:533`), so an epub beginning

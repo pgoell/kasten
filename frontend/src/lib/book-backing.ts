@@ -6,7 +6,7 @@
  * every image, though, shows wherever an image's box is larger than its
  * picture: a cover sized to the page with `object-fit: contain` letterboxes
  * itself, and the bars are the img's own box. So the white is decided per
- * image, by its pixels, and the stylesheet in `book-pane.tsx` draws it only
+ * image, by its pixels, and the stylesheet in `pageStyles` below draws it only
  * under an img carrying `BACKING`.
  *
  * A small image in a line of text gets no white, which would box it out of the

@@ -119,7 +119,7 @@ export interface Card {
    *
    * A parked card stays in this array rather than leaving it. The queue
    * addresses a card by its ordinal among its note's cards
-   * (`review-session.tsx:82`), so dropping one here would renumber every card
+   * (`review-queue.ts`), so dropping one here would renumber every card
    * behind it in a sitting already running.
    */
   parked: Parked | null;

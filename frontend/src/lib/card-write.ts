@@ -106,7 +106,7 @@ export function setSuspended(text: string, card: Card, on: boolean): string {
  * Appends and never inserts. A card added at the end is last in line order, so
  * every ordinal a running sitting already holds still addresses the card it
  * did; an insert in the middle would renumber the cards under it, which is the
- * rule `review-session.tsx:82` states.
+ * rule `review-queue.ts` states.
  *
  * A deck tag typed at the head of the question needs nothing here. `cardTags`
  * reads a tag at the head of a card line, so
