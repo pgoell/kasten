@@ -241,6 +241,8 @@ function Home() {
     moves: { moveTo, focusToward, swapToward },
     openPeriodic,
     setNotice,
+    paths: data,
+    focusedNote,
   });
   const { playSignal } = paneCommands;
   const files = useFileTransfer({ data, pane, saveFirst, openInPane, setNotice });

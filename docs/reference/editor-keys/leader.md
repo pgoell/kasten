@@ -230,8 +230,16 @@ Opened over a note, the palette lists every leader command, every leader edit,
 the four formatting marks, the inserts below, and the commands vim spells at
 its prompt: the write, the two rereads, the three copies and `gf`. Opened over
 a pane with no note, it lists the leader commands only, as the rest act on a
-note. Both lists end with `Go to tab 1` to `Go to tab 10` and `Toggle vim keys`,
-which has no key.
+note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Toggle vim keys`,
+and `Log water`, `Log coffee` and `Log alcohol`, none of which has a key.
+
+`Log water`, `Log coffee` and `Log alcohol` write `- 💧 250 ml`, `- ☕ 1` or
+`- 🍺 1` at the end of `## Log` in today's daily note, making the section, and
+the note as `<leader>gd` would, where there is none. With today's note in the
+focused pane the line goes into its buffer, so `u` takes it back; otherwise it
+is written to the vault and the status bar says so, or says `Nothing logged:`
+while today's note holds unsaved text or is being saved. See
+[Log format](/reference/log-format.md#the-card).
 
 `frontend/src/lib/palette.ts` builds both lists from the tables in
 `leader-keys.ts` and `buffer-keys.ts`, so a new leader binding appears in the palette and in the

@@ -1,3 +1,4 @@
+import type { DrinkKind } from "@/lib/log-lines";
 import type { MoveMode } from "@/lib/move";
 
 /**
@@ -63,6 +64,12 @@ export interface EditorCommands {
    * need. `periodic.ts` holds everything the five have in common.
    */
   openDaily(): void;
+  /**
+   * Log one drink into today's note: the default line under `## Log`, made there
+   * if the note has none. Reached by name from the palette only, which takes it
+   * in the buffer when the note is open, so no key is bound to it.
+   */
+  logDrink(kind: DrinkKind): void;
   openWeekly(): void;
   openMonthly(): void;
   openQuarterly(): void;
@@ -195,7 +202,7 @@ export interface TreeCommands extends EditorCommands {
  * so here is what lets the file tree run any binding it resolves by calling it
  * with nothing.
  */
-export type LeaderCommand = Exclude<keyof EditorCommands, "goToTab">;
+export type LeaderCommand = Exclude<keyof EditorCommands, "goToTab" | "logDrink">;
 
 /**
  * The modifiers a terminal chord is held with, in one place so retuning the

@@ -1,6 +1,8 @@
 import { CompletionContext } from "@codemirror/autocomplete";
-import { EditorState } from "@codemirror/state";
+import { history, undo } from "@codemirror/commands";
+import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { vim } from "@replit/codemirror-vim";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { CommandPalette } from "@/components/command-palette";
 import { readClock } from "@/lib/clock";
@@ -182,5 +184,74 @@ describe("the palette", () => {
   it("prints the key beside the command", () => {
     render(<CommandPalette entries={paletteEntries(stubCommands(), null)} onClose={vi.fn()} />);
     expect(screen.getByRole("option", { name: /Find a note/ }).textContent).toContain("Space f f");
+  });
+});
+
+describe("the drink entries", () => {
+  /** A view holding `path` as its note, the way the editor does. */
+  function noteView(path: string, doc: string, extensions: Extension[] = []) {
+    return new EditorView({
+      state: EditorState.create({ doc, extensions: [notePath.of(path), ...extensions] }),
+    });
+  }
+
+  /** Run the palette row called `label` over `view`, or over no editor. */
+  function runDrink(
+    label: string,
+    commands: ReturnType<typeof stubCommands>,
+    view: EditorView | null,
+  ) {
+    const entry = paletteEntries(commands, view).find((row) => row.label === label);
+    if (!entry) throw new Error(`no ${label} row`);
+    entry.run();
+  }
+
+  const today = periodicNote("daily", new Date()).path;
+
+  it("lists the three drinks with no editor open", () => {
+    const labels = paletteEntries(stubCommands(), null).map((entry) => entry.label);
+    expect(labels).toEqual(expect.arrayContaining(["Log water", "Log coffee", "Log alcohol"]));
+  });
+
+  it("writes today's own note in its buffer as one change, and calls no route", () => {
+    const view = noteView(today, "## TODOs\n");
+    const dispatch = vi.spyOn(view, "dispatch");
+    const commands = stubCommands();
+
+    runDrink("Log water", commands, view);
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(view.state.doc.toString()).toBe("## TODOs\n\n## Log\n- 💧 250 ml\n");
+    expect(commands.logDrink).not.toHaveBeenCalled();
+  });
+
+  it("takes a drink back with undo over today's own note", () => {
+    const view = noteView(today, "## TODOs\n", [history()]);
+
+    runDrink("Log water", stubCommands(), view);
+    undo(view);
+
+    expect(view.state.doc.toString()).toBe("## TODOs\n");
+  });
+
+  it("takes a drink back with u in vim over today's own note", () => {
+    const view = noteView(today, "## TODOs\n", [history(), vim()]);
+    document.body.appendChild(view.dom);
+
+    runDrink("Log water", stubCommands(), view);
+    fireEvent.keyDown(view.contentDOM, { key: "u" });
+
+    expect(view.state.doc.toString()).toBe("## TODOs\n");
+    view.destroy();
+  });
+
+  it("hands a drink to the route over any other note", () => {
+    const view = noteView("kasten.md", "x");
+    const commands = stubCommands();
+
+    runDrink("Log coffee", commands, view);
+
+    expect(commands.logDrink).toHaveBeenCalledWith("coffee");
+    expect(view.state.doc.toString()).toBe("x");
   });
 });

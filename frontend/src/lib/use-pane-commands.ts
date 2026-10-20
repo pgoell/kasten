@@ -1,9 +1,20 @@
+import { EditorView } from "@codemirror/view";
 import { useQueryClient } from "@tanstack/react-query";
-import { type Dispatch, type SetStateAction, useCallback, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
+import { heldText } from "@/lib/held-text";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { READING_NOTE } from "@/lib/layout";
+import { DEFAULT_LINE } from "@/lib/log-lines";
+import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log-write";
 import { noteName } from "@/lib/note-path";
 import {
   clearFocused,
@@ -30,7 +41,7 @@ import {
   stepTab,
   toggleZoom,
 } from "@/lib/panes";
-import type { Period } from "@/lib/periodic";
+import { type Period, periodicNote } from "@/lib/periodic";
 import { isPerson } from "@/lib/person";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
@@ -48,9 +59,12 @@ export function usePaneCommands({
   moves,
   openPeriodic,
   setNotice,
+  paths,
+  focusedNote,
 }: {
   pane: Pick<
     PaneOf,
+    | "id"
     | "path"
     | "term"
     | "chat"
@@ -68,6 +82,10 @@ export function usePaneCommands({
   moves: Pick<PaneMoves, "moveTo" | "focusToward" | "swapToward">;
   openPeriodic: (period: Period) => void;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
+  /** The vault's note paths, as the listing holds them; undefined until it loads. */
+  paths: string[] | undefined;
+  /** The note the focused pane holds, and whether a save of one is in the air. */
+  focusedNote: RefObject<{ path: string | undefined; isWriting: (note: string) => boolean }>;
 }) {
   const { moveTo, focusToward, swapToward } = moves;
   const queryClient = useQueryClient();
@@ -151,6 +169,7 @@ export function usePaneCommands({
       | "openGraph"
       | "openLocalGraph"
       | "openDaily"
+      | "logDrink"
       | "openWeekly"
       | "openMonthly"
       | "openQuarterly"
@@ -245,6 +264,52 @@ export function usePaneCommands({
       // Five rows for one helper, because a leader binding names a command that
       // takes nothing. What they have in common is in `periodic.ts`.
       openDaily: () => openPeriodic("daily"),
+      // The notice says what landed, or why the vault refused. The line in the
+      // notice is the default line without its list dash.
+      logDrink: (kind) => {
+        setNotice(undefined);
+        const today = periodicNote("daily", new Date()).path;
+        const target = drinkTarget({
+          today,
+          focusedPath: pane.path,
+          held: heldText(today) !== undefined,
+          writing: focusedNote.current.isWriting(today),
+        });
+        // Today's note in the focused pane is written in its buffer. Found by the
+        // pane and not the focus: the palette's lookup finds no view when the
+        // focus sits on the body, the toolbar or a card's field, and the vault
+        // write would then land under a note open on screen.
+        if (target === "buffer") {
+          const editor = document.querySelector<HTMLElement>(`[data-pane="${pane.id}"] .cm-editor`);
+          const view = editor ? EditorView.findFromDOM(editor) : null;
+          if (view === null || !logDrinkInView(view, kind)) {
+            setNotice(`Nothing logged: ${today} is not open to type in`);
+          }
+          return;
+        }
+        if (typeof target === "object") {
+          setNotice(`Nothing logged: ${target.why}`);
+          return;
+        }
+        // Asked again when the queue reaches the write: a tap can wait behind a save,
+        // and the note can be opened or held meanwhile. The focus is read from the
+        // ref, since this closure was made at the press.
+        const stillOk = () => {
+          const now = drinkTarget({
+            today,
+            focusedPath: focusedNote.current.path,
+            held: heldText(today) !== undefined,
+            writing: focusedNote.current.isWriting(today),
+          });
+          if (now === "vault") return null;
+          return { why: typeof now === "object" ? now.why : `${today} is open to type in` };
+        };
+        void logDrinkInVault(kind, paths ?? [], stillOk).then(
+          () => setNotice(`Logged ${DEFAULT_LINE[kind].slice(2)} into today's note`),
+          (error: unknown) =>
+            setNotice(error instanceof Error ? error.message : "The drink was not logged"),
+        );
+      },
       openWeekly: () => openPeriodic("weekly"),
       openMonthly: () => openPeriodic("monthly"),
       openQuarterly: () => openPeriodic("quarterly"),
@@ -350,7 +415,10 @@ export function usePaneCommands({
       saveFirst,
       openPeriodic,
       openReadingBook,
+      paths,
+      focusedNote,
       setLayout,
+      pane.id,
       pane.path,
       pane.term,
       pane.chat,
@@ -363,6 +431,7 @@ export function usePaneCommands({
       pane.html,
       pane.video,
       queryClient,
+      setNotice,
     ],
   );
 
