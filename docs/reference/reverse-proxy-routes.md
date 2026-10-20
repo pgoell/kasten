@@ -54,6 +54,16 @@ installs from it: the manifest's `start_url` is `/`, which there opens kasten.
 nginx cannot read `KASTEN_SHARE_HOST`, so `frontend/nginx.conf` names the host
 itself, and the proxy must pass `Host` through.
 
+A `404` does not unregister a worker a browser already holds. A browser that
+opened `/lists.html` on the main host before #739 kept `/lists-sw.js` at scope
+`/` and its `lists-*` caches there, so the main app, on each load while the
+browser is online and before it
+registers `/sw.js`, unregisters any registration whose script is
+`/lists-sw.js` and deletes every cache whose name starts with `lists-`. The
+main app never loads on the share host, so the worker there stays. Offline it
+waits: the lists worker may be what serves the page, and `/sw.js` cannot
+install to take over (#740).
+
 ## Rules
 
 * **Keep the path.** Each route passes the path through unchanged. ttyd runs
