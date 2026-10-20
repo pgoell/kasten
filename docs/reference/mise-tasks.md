@@ -137,8 +137,8 @@ not a mise task, and it fails a commit that stages a file over 5,000 tokens. See
 
 | Task | What it does |
 |---|---|
-| `repo:apply-settings` | Apply GitHub repo and branch-protection settings from `.github/*.json` |
-| `repo:check-settings` | Diff live branch protection against the checked-in file |
+| `repo:apply-settings` | Apply GitHub repo and branch-protection settings and the Actions allowlist from `.github/*.json`, turn on vulnerability alerts and Dependabot security updates |
+| `repo:check-settings` | Diff live branch protection against the checked-in file, check both security settings are on |
 
 ## Related
 

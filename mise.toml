@@ -165,11 +165,11 @@ run = "uv run python -m kasten_backend.indexes ../vault"
 # ─── GitHub repo config ─────────────────────────────────────────────────────
 
 [tasks."repo:apply-settings"]
-description = "Apply GitHub repo + branch-protection settings from .github/*.json"
+description = "Apply GitHub repo + branch-protection settings from .github/*.json, turn on Dependabot security updates"
 run = "bash scripts/apply-github-settings.sh"
 
 [tasks."repo:check-settings"]
-description = "Diff live branch protection against .github/branch-protection.json"
+description = "Diff live branch protection against .github/branch-protection.json, check security settings"
 run = "bash scripts/apply-github-settings.sh --check"
 
 # ─── Lint & format ──────────────────────────────────────────────────────────
