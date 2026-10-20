@@ -123,4 +123,63 @@ describe("the lists app", () => {
 
     expect(await screen.findByText("Offline, wird gesendet")).toBeInTheDocument();
   });
+
+  it("open rows come first and Erledigt counts the done ones", async () => {
+    open({
+      Einkauf: [
+        { text: "Eier", done: true },
+        { text: "Milch", done: false },
+        { text: "Zitronen", done: true },
+        { text: "Brot", done: false },
+      ],
+      Todo: [],
+    });
+    await screen.findByRole("checkbox", { name: "Milch" });
+
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes.map((box) => box.textContent)).toEqual(["Milch", "Brot", "Eier", "Zitronen"]);
+    expect(boxes.map((box) => box.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "false",
+      "true",
+      "true",
+    ]);
+    const done = screen.getByRole("region", { name: "Erledigt" });
+    expect(within(done).getByRole("heading", { name: "Erledigt 2" })).toBeInTheDocument();
+  });
+
+  it("ticking a row raises the Erledigt count", async () => {
+    open({
+      Einkauf: [
+        { text: "Brot", done: false },
+        { text: "Eier", done: true },
+      ],
+      Todo: [],
+    });
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Brot" }));
+
+    expect(await screen.findByRole("heading", { name: "Erledigt 2" })).toBeInTheDocument();
+  });
+
+  it("unticking a done row moves it back to the open rows and lowers the count", async () => {
+    open({
+      Einkauf: [
+        { text: "Brot", done: true },
+        { text: "Eier", done: true },
+        { text: "Milch", done: false },
+      ],
+      Todo: [],
+    });
+
+    const done = await screen.findByRole("region", { name: "Erledigt" });
+    fireEvent.click(within(done).getByRole("checkbox", { name: "Brot" }));
+
+    const offen = await screen.findByRole("region", { name: "Offen" });
+    expect(await within(offen).findByRole("checkbox", { name: "Brot" })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    expect(screen.getByRole("heading", { name: "Erledigt 1" })).toBeInTheDocument();
+  });
 });
