@@ -140,8 +140,8 @@ files, which names a staged file over the limit on its own. See
 
 | Task | What it does |
 |---|---|
-| `repo:apply-settings` | Apply GitHub repo and branch-protection settings from `.github/*.json` |
-| `repo:check-settings` | Diff live branch protection against the checked-in file |
+| `repo:apply-settings` | Apply GitHub repo and branch-protection settings and the Actions allowlist from `.github/*.json`, turn on vulnerability alerts and Dependabot security updates |
+| `repo:check-settings` | Diff live branch protection against the checked-in file, check both security settings are on |
 
 ## Related
 
