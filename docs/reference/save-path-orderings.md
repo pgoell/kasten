@@ -35,10 +35,19 @@ rename and delete, see also [Moving notes](/explanation/moving-notes.md) and
   would end up on no disk, no screen and in no held entry, or would be written
   over by older text. It is no for a false `Changed on disk`, or a stale screen
   that the next event or `:e!` heals.
-* The test column names a test in `frontend/tests/use-autosave.test.ts` unless
-  it names another file. `orderings:` means
+* The test column names a test in one of the `frontend/tests/use-autosave-*.test.ts`
+  files unless it names another file. The tests sit one file per behaviour:
+  `-writes` (the quiet write, status, reloads), `-leaving` (writes in the air,
+  the flush on leaving a note, moves), `-held-panes`, `-held-reopen` and
+  `-held-taken` (held text, reopening, panes), `-hide` (the page hidden),
+  `-base` and `-base-vault` (the base a save names), `-failed-writes` (#290,
+  #291), `-older-answers` (#296 to #298), `-queue` (#301 to #307),
+  `-keepalive-queue` and `-reopened-under` (#310, #311), `-live-conflict`
+  (#269), `-leaving-route` and `-leaving-route-back` (#382). Their shared
+  fixtures are in `frontend/tests/autosave-fixture.ts`. `orderings:` means
   `frontend/tests/use-autosave-orderings.test.ts`. Rows marked #310 or #311
-  are held by tests in `use-autosave.test.ts` added with those fixes.
+  are held by tests in the files of the `(#310, #311)` describe, added with
+  those fixes.
 
 ## Orderings
 
