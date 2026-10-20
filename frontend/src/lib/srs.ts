@@ -393,19 +393,14 @@ export function parseCards(text: string, note = ""): Card[] {
     // A line holding a mark ends it too: directly over the `?` it is the whole
     // front, the cloze this card asks, and further up it is a cloze of its own,
     // which is the one reading `review.ts` can make off the matched lines.
-    // A line of code ends it as a blank line would, and the back below too, a
-    // fence line being code (#670).
-    const cloze = !breaks(lines[at - 1]) && !code[at - 1] && holdsCloze(lines[at - 1]);
+    const cloze = !breaks(lines[at - 1]) && holdsCloze(lines[at - 1]);
     let from = cloze ? at - 1 : at;
-    if (!cloze) {
-      while (!breaks(lines[from - 1]) && !code[from - 1] && !holdsCloze(lines[from - 1])) from--;
-    }
+    if (!cloze) while (!breaks(lines[from - 1]) && !holdsCloze(lines[from - 1])) from--;
     if (from === at) continue;
 
     let to = at;
     while (
       !breaks(lines[to + 1]) &&
-      !code[to + 1] &&
       !SR.test(lines[to + 1] ?? "") &&
       !CLOZE_SR.test(lines[to + 1] ?? "")
     ) {
