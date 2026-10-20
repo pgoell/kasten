@@ -217,7 +217,7 @@ describe("opening a highlight's book with gf", () => {
    * Press `gf` where the cursor opens, which is the block's quote line.
    *
    * No motion first. That the other three places in a block answer the same is
-   * pinned in `editor.test.tsx`, where the same editor runs on a real clock:
+   * pinned in `editor-follow-links.test.tsx`, where the same editor runs on a real clock:
    * `j` under this file's fake timers leaves the view taking no further keys.
    */
   async function follows(app: Awaited<ReturnType<typeof opened>>) {

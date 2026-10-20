@@ -12,7 +12,7 @@ function press(container: HTMLElement, key: string): void {
   fireEvent.keyDown(content, key === "Enter" ? { key, keyCode: 13 } : { key });
 }
 
-/** Delete the cursor's line with `dd` and read back what is left, as `editor.test.tsx` does. */
+/** Delete the cursor's line with `dd` and read back what is left, as `editor-fixture.tsx` does. */
 function deleteCurrentLine(container: HTMLElement): string | null {
   press(container, "d");
   press(container, "d");

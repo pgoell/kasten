@@ -75,7 +75,7 @@ It surfaces differently depending on which copy is stale, and there are two
 copies.
 
 **Your own tree, `frontend/node_modules`.** The symptom is the vim test in
-`frontend/tests/editor.test.tsx` failing locally while CI is green. Two copies
+`frontend/tests/editor-save-and-undo.test.tsx` failing locally while CI is green. Two copies
 of `@codemirror/state` survive the mix, so vim mode binds to a different editor
 instance than the one under test and the keystrokes go nowhere.
 

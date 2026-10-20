@@ -22,7 +22,8 @@ into the vault's answer for it. Anything written over the note since leaves
 that base stale, so the vault refuses the undo rather than the undo writing
 over newer text, and the card comes back only once the undo has landed. S is
 the step's write and U the undo's. The tests are in
-`frontend/tests/review-session.test.tsx`.
+`frontend/tests/review-session-undo.test.tsx` (U2 to U5) and
+`frontend/tests/review-session-undo-writes.test.tsx` (U1 and U6).
 
 | # | Ordering | Must hold | Loses typed text if wrong | Test |
 |---|---|---|---|---|

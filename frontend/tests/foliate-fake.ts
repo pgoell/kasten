@@ -6,7 +6,7 @@
  * is small: open a file, navigate once, turn a page, report each section's
  * document. All of that is here.
  *
- * Shared rather than written twice, because `book-pane.test.tsx` and
+ * Shared rather than written twice, because the `book-pane-*.test.tsx` files and
  * the `home-route-*.test.tsx` files both mount the pane and both fire events on the section
  * document this hands out.
  */
