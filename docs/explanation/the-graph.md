@@ -42,7 +42,7 @@ The graph breaks that pattern on purpose. An agent asks the graph questions
 too, and an agent has no browser. If the pane parsed the query, the agent's
 tool would need a second parser in Python, and the two would drift apart the
 first time one of them learned a new term. So the query goes over the wire as
-typed, `graph.py` reads it, and the pane only draws what comes back. One
+typed, `graph_query.py` reads it, and the pane only draws what comes back. One
 parser, three callers: the pane, `GET /api/graph` and `query_graph`.
 
 The price is paid in the link rules instead. The editor resolves a link and

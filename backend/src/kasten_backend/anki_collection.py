@@ -3,7 +3,7 @@
 It hides the schema: an export older than schema 18 keeps its decks and note
 types as JSON on the `col` row, a newer one in tables whose config is protobuf,
 and both come out as the same decks, note types and rendered cards. The
-protobuf reader is here too, since nothing else reads one.
+protobuf reader is here too, which `anki.py` borrows to read the media map.
 """
 
 import json

@@ -3,8 +3,8 @@
 Thin wrappers over `agent.py` and nothing else. The rules about what an agent
 may do live there, so the two surfaces cannot drift into disagreeing about them.
 
-The tools live here and never in `main.py`. That module already imports a
-`write_note` from `vault.py` and resolves it as a global inside `PUT
+The tools live here and never in `routes/notes.py`. That module already imports
+a `write_note` from `vault.py` and resolves it as a global inside `PUT
 /api/files`; a tool of a colliding name defined there would silently redirect
 the browser's own save.
 

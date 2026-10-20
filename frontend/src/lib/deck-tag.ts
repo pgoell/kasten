@@ -96,7 +96,7 @@ export function deckName(tag: string, note: string): string {
  * The slashes in a tag are a path everywhere else in the vault, so they are one
  * here too: naming a deck `databases/postgres` files its cards under
  * `databases` as well, and the overview draws both rows. Anki spells its
- * subdecks the same way once `anki.py` has read them, so an imported tree
+ * subdecks the same way once `anki_collection.py` has read them, so an imported tree
  * arrives nested rather than flat.
  */
 export function deckPath(name: string): string[] {

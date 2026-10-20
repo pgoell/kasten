@@ -2,7 +2,7 @@
 type: Reference
 title: Graph query
 description: The language the graph pane, GET /api/graph and the agent's query_graph read, what a filter keeps, what a pattern answers, and what the graph holds in the first place.
-resource: backend/src/kasten_backend/graph.py
+resource: backend/src/kasten_backend/graph_query.py
 tags: [graph, query, links, relations, backend]
 status: stable
 ---
@@ -11,7 +11,7 @@ status: stable
 
 One language, read in one place. The graph pane sends what you type to
 [`GET /api/graph`](/reference/http-api/finding.md#get-apigraph) as it stands, the
-agent's `query_graph` does the same, and `graph.py` is the only parser of it.
+agent's `query_graph` does the same, and `graph_query.py` is the only parser of it.
 
 A query is one of two kinds. A **filter** narrows what is drawn. A **pattern**
 asks the graph a question and answers in rows. A `?variable` anywhere in the
