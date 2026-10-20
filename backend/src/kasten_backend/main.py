@@ -135,11 +135,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await prepare(settings.vault_path)
     await purge_trash(settings.vault_path, settings.trash_days)
     uploads.wipe(settings.upload_path)
-    # A mounted sub-application does not run its own lifespan, and the MCP
-    # session manager is single-use, so the endpoint is built here and rebuilt
-    # on every entry rather than once at import.
-    async with agent_mcp.serving():
-        yield
+    sweeping = asyncio.create_task(uploads.sweeping(settings.upload_sweep_seconds))
+    try:
+        # A mounted sub-application does not run its own lifespan, and the MCP
+        # session manager is single-use, so the endpoint is built here and
+        # rebuilt on every entry rather than once at import.
+        async with agent_mcp.serving():
+            yield
+    finally:
+        sweeping.cancel()
 
 
 app = FastAPI(title="kasten", version=version("kasten-backend"), lifespan=lifespan)
@@ -1009,7 +1013,8 @@ async def import_anki(
         body = await request.body()
     else:
         async with uploads.finished(upload) as joined:
-            body = joined.read_bytes()
+            # In a thread, as `read_apkg` is below: up to 1 GiB off the disk.
+            body = await asyncio.to_thread(joined.read_bytes)
     return await _import_bytes(body, settings, carry=carry, limit=files.UPLOAD_LIMIT_BYTES)
 
 

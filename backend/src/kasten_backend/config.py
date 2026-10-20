@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from kasten_backend.uploads import UPLOAD_SWEEP_SECONDS
 from kasten_backend.weather import Place
 
 
@@ -140,6 +141,12 @@ class Settings(BaseSettings):
     Outside the vault, so a half-sent file never reaches the listing, the
     watcher or jj. Emptied at every start, since the pieces received are kept
     in memory and a restart forgets them.
+    """
+
+    upload_sweep_seconds: float = UPLOAD_SWEEP_SECONDS
+    """How often the backend deletes uploads idle over an hour.
+
+    A setting so a test can sweep on every turn of the loop rather than wait.
     """
 
     agent_host: str = ""

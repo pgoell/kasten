@@ -23,12 +23,16 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
 from kasten_backend import files
+from kasten_backend.config import get_settings
 from kasten_backend.main import app
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 GIB = 1024 * 1024 * 1024
+
+UPLOAD_ID = "0123456789abcdef" * 2
+"""A name in the shape the backend gives an upload's temp."""
 
 PDF = b"%PDF-1.7\n" + bytes(range(256)) * 40
 """A pdf by its magic, ten kilobytes, with no two neighbouring pieces alike."""
@@ -101,6 +105,11 @@ async def chunked(*chunks: bytes) -> AsyncIterator[bytes]:
         yield chunk
         for _ in range(20):
             await asyncio.sleep(0)
+
+
+def held(folder: Path) -> int:
+    """How many bytes sit in `folder`, the temp `store` streams into included."""
+    return sum(entry.stat().st_size for entry in folder.iterdir())
 
 
 async def broken(chunk: bytes) -> AsyncIterator[bytes]:
@@ -341,7 +350,7 @@ async def test_the_upload_folder_is_outside_the_vault_and_wiped_at_start(
 ) -> None:
     folder = tmp_path / "uploads"
     folder.mkdir()
-    (folder / "left-by-a-crash").write_bytes(b"x")
+    (folder / UPLOAD_ID).write_bytes(b"left by a crash")
 
     async with (
         LifespanManager(app),
@@ -353,3 +362,96 @@ async def test_the_upload_folder_is_outside_the_vault_and_wiped_at_start(
     assert wiped == []
     assert list(folder.iterdir()) == [folder / key]
     assert not folder.is_relative_to(startup_vault)
+
+
+async def test_startup_wipes_only_what_an_upload_left(tmp_path: Path, startup_vault: Path) -> None:
+    folder = tmp_path / "uploads"
+    (folder / "kept").mkdir(parents=True)
+    (folder / "notes.txt").write_bytes(b"mine")
+    (folder / UPLOAD_ID).write_bytes(b"left by a crash")
+
+    async with LifespanManager(app):
+        pass
+
+    assert not (folder / UPLOAD_ID).exists()
+    assert (folder / "notes.txt").read_bytes() == b"mine"
+    assert (folder / "kept").is_dir()
+
+
+async def test_finishing_a_big_upload_lets_other_work_run(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Several reads' worth, so a finish that hands the loop over between
+    # reads is caught with most of the file still to copy.
+    big = b"%PDF-" + bytes(3 * 1024 * 1024)
+    key = await send(client, big, 1024 * 1024)
+    copying = asyncio.Event()
+    seen: list[int] = []
+    resolve = files.resolve_asset_path
+
+    def resolving(root: Path, path: str) -> Path | None:
+        copying.set()
+        return resolve(root, path)
+
+    # The first thing `store` does, so the watcher below wakes at the first
+    # moment the finish lets anything else run after starting its copy.
+    monkeypatch.setattr(files, "resolve_asset_path", resolving)
+
+    async def watch() -> None:
+        await copying.wait()
+        seen.append(held(vault / "books"))
+
+    finished, _ = await asyncio.gather(
+        client.post("/api/assets/books/Big.pdf", params={"upload": key}), watch()
+    )
+
+    assert finished.status_code == 201
+    assert seen[0] < len(big)
+    assert (vault / "books" / "Big.pdf").read_bytes() == big
+
+
+async def test_an_idle_upload_is_swept_with_no_new_upload(
+    tmp_path: Path, startup_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A sweep every turn of the loop, so the test waits on no clock.
+    monkeypatch.setenv("KASTEN_UPLOAD_SWEEP_SECONDS", "0")
+    get_settings.cache_clear()
+
+    async with (
+        LifespanManager(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        key = await start(client, 10)
+        over_an_hour = time.time() - 3601
+        os.utime(tmp_path / "uploads" / key, (over_an_hour, over_an_hour))
+        # A trip to a thread suspends this task for at least one turn of the
+        # loop, which is a turn the sweep gets.
+        await asyncio.to_thread(time.time)
+        gone = await client.put(f"/api/uploads/{key}/0", content=b"x" * 5)
+
+    assert gone.status_code == 404
+    assert gone.json()["detail"] == "No such upload"
+    assert not (tmp_path / "uploads" / key).exists()
+
+
+async def test_a_temp_gone_from_disk_counts_as_gone(
+    client: AsyncClient, vault: Path, tmp_path: Path
+) -> None:
+    folder = tmp_path / "uploads"
+    written = await start(client, 10)
+    swept = await start(client, 10)
+    (folder / written).unlink()
+    (folder / swept).unlink()
+
+    put = await client.put(f"/api/uploads/{written}/0", content=b"x" * 5)
+    opened = await client.post("/api/uploads", json={"size": 10})
+    after = await client.put(f"/api/uploads/{swept}/0", content=b"x" * 5)
+    finished = opened.json()["id"]
+    (folder / finished).unlink()
+    finish = await client.post("/api/assets/books/Gone.pdf", params={"upload": finished})
+
+    assert [put.status_code, opened.status_code, after.status_code] == [404, 201, 404]
+    assert put.json()["detail"] == "No such upload"
+    assert after.json()["detail"] == "No such upload"
+    assert finish.status_code == 404
+    assert finish.json()["detail"] == "No such upload"

@@ -1074,9 +1074,11 @@ the vault. The file is finished by the route that uses it, naming the id in
 place of a body: `POST /api/anki?upload=<id>` or
 `POST /api/assets/{path}?upload=<id>`.
 
-Each call also deletes every upload whose last piece arrived over an hour ago,
-so a file nobody finished lasts until the next upload starts. What has arrived
-is held in the backend's memory, and a restart forgets it and empties the folder.
+An upload whose last piece arrived over an hour ago is deleted, by a sweep the
+backend runs every ten minutes and by each call here, so a file nobody
+finished is gone within about seventy minutes. One whose temp file something
+else deleted counts as gone too, and its id answers 404. What has arrived is
+held in the backend's memory, and a restart forgets it and empties the folder.
 
 | Status | Means |
 | --- | --- |
