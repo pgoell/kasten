@@ -93,7 +93,7 @@ What does std:&#58;size count?
 \\# of elements
 \\!suspended no <!--anki:4:0:11057b16-->
 """
-"""The note `frontend/tests/srs.test.ts` reads back, holding five cards."""
+"""The note `frontend/tests/srs-imported.test.ts` reads back, holding five cards."""
 
 
 def test_each_card_carries_its_anki_note_and_template_on_its_last_line() -> None:
@@ -189,7 +189,7 @@ def test_parks_a_card_whose_back_adds_nothing() -> None:
 
 def test_writes_a_question_holding_the_divider_over_three_lines() -> None:
     # A card line splits at its first `::`, so on one line this question would
-    # read back as `What does std`. `frontend/tests/srs.test.ts` and
+    # read back as `What does std`. `frontend/tests/srs-imported.test.ts` and
     # `review.test.ts` read this exact text back.
     decks = read_apkg(apkg(((1, BASIC, "What does std::move do?\x1fcasts to an rvalue"),)))
 

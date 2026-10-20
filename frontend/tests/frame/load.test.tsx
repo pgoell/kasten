@@ -9,7 +9,7 @@
  * 443 to 462ms to the first one and 834 to 859ms to the paint, over 10,842
  * buttons. The tree opens folded now, which is 8 rows, 10 to 34ms and 15 to
  * 65ms. What holds it there is a test in the jsdom suite rather than a
- * threshold here: `tests/file-explorer.test.tsx` asserts the folders start
+ * threshold here: `tests/file-explorer-panel.test.tsx` asserts the folders start
  * folded, which is the thing that would have to break for these to climb back.
  *
  * The console lines below do not reach the terminal through vitest's browser

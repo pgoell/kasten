@@ -18,8 +18,8 @@ import "@/styles/app.css";
 
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
 // The Perf job runs no backend, so the pane must not fetch. See
-// `tests/frame/book-pane.test.tsx` for why seeding the query is a trap.
-// The three extra names are the ones `book-pane.test.tsx` explains.
+// `tests/frame/book-pane-fixture.tsx` for why seeding the query is a trap.
+// The three extra names are the ones the `book-pane-*.test.tsx` files explain.
 vi.mock("@/lib/api", () => ({
   fetchBook,
   fetchNote,

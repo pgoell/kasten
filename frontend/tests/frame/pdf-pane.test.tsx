@@ -33,7 +33,7 @@ const ON_PAGE_TWO = "A passage worth taking out of the book.";
 const ON_PAGE_ONE = "The first page of the fixture.";
 
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
-// The reason `tests/frame/book-pane.test.tsx` mocks rather than seeds: the Perf
+// The reason `tests/frame/book-pane-fixture.tsx` mocks rather than seeds: the Perf
 // job runs no backend and vite proxies `/api` to a dead port, and seeded query
 // data is stale at once, so mounting would refetch against that dead port and
 // swap the failure panel in over a page that had already drawn.
