@@ -227,13 +227,16 @@ Where the text goes:
 * No daily note for that day: it is made exactly as
   [`<leader>gd`](/reference/editor-keys/finding.md#periodic-notes) makes it, heading,
   line of links and `## TODOs`, and a `## Dump` section is added at its end.
-* A daily note with no `## Dump`: the section is added at the end of the note,
-  unless the note ends inside a code fence nobody closed that holds `## Dump`.
-  Then the text goes under that heading, so no second one appears.
+* A daily note with no `## Dump`, or whose only one sits in a code fence nobody
+  closed: the section is added at the end of the note. If the note ends inside
+  an unclosed fence, a closing line goes after its last line first. A `## Dump`
+  that sits only in an unclosed fence is not used, since readers never see it:
+  the fence is closed and a new one goes at the end.
 * A `## Dump` already there: the text goes at the end of that section, which is
   before the next `#` or `##` heading outside a code fence, or at the end of the
   note when none follows. A `###` inside the dump is part of the dump. The blank
-  line in front of the next heading stays where it is.
+  line in front of the next heading stays where it is. If the dump runs to the
+  note's end inside an unclosed fence, a closing line goes first, as above.
 
 The heading is found the way the readers find it: the line reads exactly
 `## Dump` once trailing whitespace goes, outside a fenced code block
@@ -244,6 +247,11 @@ Each capture is a paragraph of its own, a blank line apart from the one before
 it, because the dump is prose rather than a list. The first sits straight under
 the heading. The text is trimmed and otherwise kept as written, line breaks
 included.
+
+A capture never lands inside a fence and never leaves one open. When the text
+opens a fence it does not close, a closing line with the opener's marker goes
+after the text. Nothing already in the note is removed or moved, and blank lines
+inside a fence stay in it.
 
 The note is stamped on the way through the way a save is, so a note that was
 made gains its [frontmatter block](/reference/note-frontmatter.md) and one that

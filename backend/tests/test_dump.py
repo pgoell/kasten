@@ -7,7 +7,9 @@ import pytest
 
 from backend.tests.conftest import JJ, descriptions
 from kasten_backend import agent
+from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.log import _log_lines
 from kasten_backend.main import app
 from kasten_backend.periodic import append_dump, daily_note
 
@@ -119,12 +121,65 @@ def test_makes_a_dump_at_the_end_when_the_only_one_is_fenced() -> None:
     assert append_dump(text, "new") == "# d\n\n```\n## Dump\n```\n\n## Dump\nnew\n"
 
 
-def test_two_captures_under_a_dump_in_an_unclosed_fence_leave_one_heading() -> None:
+def test_a_capture_that_opens_a_fence_is_closed_and_the_log_still_reads() -> None:
+    text = "## Dump\na\n\n## Log\nwater 250ml\n"
+
+    result = append_dump(text, "```")
+
+    assert result == "## Dump\na\n\n```\n```\n\n## Log\nwater 250ml\n"
+    assert _log_lines(result) == [(8, "water 250ml"), (9, "")]
+
+
+def test_a_capture_into_a_dump_ending_in_an_unclosed_fence_lands_after_it() -> None:
+    text = "## Dump\nfirst\n```\ncode\n"
+
+    result = append_dump(text, "new")
+
+    assert result == "## Dump\nfirst\n```\ncode\n```\n\nnew\n"
+    assert not inside(result.index("new"), code_spans(result))
+
+
+def test_a_dump_only_in_an_unclosed_fence_gets_the_fence_closed_and_one_live_dump() -> None:
     text = "# d\n\n```\n## Dump\nfirst\n"
 
     assert append_dump(append_dump(text, "one"), "two") == (
-        "# d\n\n```\n## Dump\nfirst\n\none\n\ntwo\n"
+        "# d\n\n```\n## Dump\nfirst\n```\n\n## Dump\none\n\ntwo\n"
     )
+
+
+def test_a_capture_keeps_its_text_and_gets_a_closer_as_long_as_its_opener() -> None:
+    assert append_dump("## Dump\na\n", "```python\nprint(1)") == (
+        "## Dump\na\n\n```python\nprint(1)\n```\n"
+    )
+    assert append_dump("## Dump\na\n", "````\nx") == "## Dump\na\n\n````\nx\n````\n"
+
+
+def test_a_tilde_capture_is_closed_by_tildes() -> None:
+    assert append_dump("## Dump\na\n", "~~~") == "## Dump\na\n\n~~~\n~~~\n"
+
+
+def test_a_capture_with_a_closed_fence_is_written_as_it_came() -> None:
+    assert append_dump("## Dump\na\n", "```\nx\n```") == "## Dump\na\n\n```\nx\n```\n"
+
+
+def test_two_captures_into_a_dump_ending_in_an_unclosed_fence_leave_one_closer() -> None:
+    text = "## Dump\nfirst\n```\ncode\n"
+
+    assert append_dump(append_dump(text, "new"), "two") == (
+        "## Dump\nfirst\n```\ncode\n```\n\nnew\n\ntwo\n"
+    )
+
+
+def test_an_open_fence_after_the_dump_is_left_alone() -> None:
+    text = "## Dump\nfirst\n\n## Log\nwater\n```\ncode\n"
+
+    assert append_dump(text, "new") == ("## Dump\nfirst\n\nnew\n\n## Log\nwater\n```\ncode\n")
+
+
+def test_blank_lines_at_the_end_of_an_unclosed_fence_stay_inside_it() -> None:
+    text = "## Dump\nfirst\n```\ncode\n\n\n"
+
+    assert append_dump(text, "new") == "## Dump\nfirst\n```\ncode\n\n\n```\n\nnew\n"
 
 
 def test_a_dump_inside_a_tilde_fence_is_not_the_section() -> None:
@@ -138,7 +193,7 @@ def test_a_dump_inside_a_tilde_fence_is_not_the_section() -> None:
 def test_a_backtick_line_that_opens_no_fence_leaves_one_dump() -> None:
     text = "# d\n```x```\n```\n## Dump\nold\n"
 
-    assert append_dump(text, "new") == "# d\n```x```\n```\n## Dump\nold\n\nnew\n"
+    assert append_dump(text, "new") == "# d\n```x```\n```\n## Dump\nold\n```\n\n## Dump\nnew\n"
 
 
 def test_a_four_backtick_inline_span_leaves_a_closed_fence_closed() -> None:

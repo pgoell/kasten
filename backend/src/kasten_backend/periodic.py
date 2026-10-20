@@ -79,16 +79,17 @@ def _live(text: str) -> list[bool]:
     return live
 
 
-def _open_fence(text: str, lines: list[str]) -> int | None:
-    """The index of the line opening a fence that runs to the note's end, or None.
+def _open_fence(text: str, lines: list[str], *, frontmatter: bool = True) -> str | None:
+    """The run of the fence that runs to the note's end, such as "```", or None.
 
     markdown-it decides which line opens a fence, so `code_spans` is asked rather
     than the lines read one by one: a backtick run with a backtick after it opens
     nothing, and a four-backtick span is no closer for a three-backtick fence. The
     span holding the note's last character is the fence; a closing line after its
-    opener means it was closed after all.
+    opener means it was closed after all. A capture has no frontmatter to skip, so
+    it is read with `frontmatter=False`.
     """
-    body = body_start(text)
+    body = body_start(text) if frontmatter else 0
     last = len(text) - 1 - body
     found = next((span for span in code_spans(text[body:]) if span[0] <= last < span[1]), None)
     if found is None:
@@ -102,30 +103,43 @@ def _open_fence(text: str, lines: list[str]) -> int | None:
         (stripped := line.strip()) == fence[0] * len(stripped) and len(stripped) >= len(fence)
         for line in lines[opener + 1 :]
     )
-    return None if closed else opener
+    return None if closed else fence
 
 
-def _heading(text: str, lines: list[str], live: list[bool]) -> int | None:
-    """The line `## Dump` is read from, or None when the note has none.
+def _close(text: str, fence: str) -> str:
+    """`text` with a closing line for `fence` after its last character.
 
-    The first live line that is the heading. A note ending inside a fence nobody
-    closed has the readers take that fence as its text, so a heading made at its
-    end would be one they never see: the `## Dump` inside the fence is used instead.
+    The closer repeats the opener's run, so a four-backtick fence needs four. It
+    goes on a line after the text, which is kept whole.
     """
+    return f"{text}{fence}\n" if text.endswith("\n") else f"{text}\n{fence}"
+
+
+def _section(text: str) -> tuple[int | None, int]:
+    """The line `## Dump` is read from, or None, and the line its section ends at.
+
+    The first live line that is the heading. The section ends at the next live
+    heading at its level or above, or at the note's end. A `## Dump` after a fence
+    nobody closed would sit where the readers see code, so `append_dump` closes
+    that fence first.
+    """
+    lines = text.split("\n")
+    live = _live(text)
     at = next(
         (index for index, line in enumerate(lines) if live[index] and line.rstrip() == DUMP),
         None,
     )
-    if at is not None:
-        return at
-
-    opened = _open_fence(text, lines)
-    if opened is None:
-        return None
-    return next(
-        (index for index in range(opened + 1, len(lines)) if lines[index].rstrip() == DUMP),
-        None,
+    if at is None:
+        return None, len(lines)
+    end = next(
+        (
+            index
+            for index in range(at + 1, len(lines))
+            if live[index] and SECTION_END.match(lines[index])
+        ),
+        len(lines),
     )
+    return at, end
 
 
 def append_dump(text: str, capture: str) -> str:
@@ -140,22 +154,26 @@ def append_dump(text: str, capture: str) -> str:
     The heading and its end are found the way `log.py` finds `## Log`: a line in
     the frontmatter or in a fence is neither, so a dump written in code is not the
     section.
+
+    A capture never lands inside a fence and never leaves one open. A note ending
+    in a fence nobody closed gets its closer first, unless the fence starts after
+    the dump, and a capture that opens a fence gets its own closer.
     """
+    capture_fence = _open_fence(capture, capture.split("\n"), frontmatter=False)
+    if capture_fence is not None:
+        capture = _close(capture, capture_fence)
+
+    at, end = _section(text)
     lines = text.split("\n")
-    live = _live(text)
-    at = _heading(text, lines, live)
+    fence = _open_fence(text, lines)
+    if fence is not None and (at is None or end == len(lines)):
+        text = _close(text, fence)
+        lines = text.split("\n")
+        at, end = _section(text)
 
     if at is None:
         return f"{text.rstrip(chr(10))}\n\n{DUMP}\n{capture}\n"
 
-    end = next(
-        (
-            index
-            for index in range(at + 1, len(lines))
-            if live[index] and SECTION_END.match(lines[index])
-        ),
-        len(lines),
-    )
     last = end
     while last > at + 1 and lines[last - 1].strip() == "":
         last -= 1
