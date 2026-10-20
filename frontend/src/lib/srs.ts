@@ -57,6 +57,7 @@ import {
   clozeQuestion,
   clozeTarget,
   colons,
+  type Divided,
   divide,
   holdsCloze,
   parks,
@@ -377,10 +378,25 @@ function read(text: string): Read {
 }
 
 /**
+ * The halves of `line` where it reads as a one-line card, or null.
+ *
+ * A line opening with the divider is prose, not a card missing its question.
+ * A card missing its answer is the other way round and is kept. The `::` check
+ * first, as the front walk asks this of every line above a `?` and the big
+ * notes have to stay quick.
+ */
+function oneLine(line: string): Divided | null {
+  if (!line.includes("::")) return null;
+  const halves = divide(line);
+  if (halves === null || withoutTags(halves.front).trim() === "") return null;
+  return halves;
+}
+
+/**
  * Every card the note holds, in the order they are written.
  *
  * Two passes rather than one. The `?` cards are found first and their lines
- * marked taken, because a front reading `a::b` would otherwise be read a second
+ * marked taken, because a back reading `a::b` would otherwise be read a second
  * time as a card of its own and asked twice from the same block.
  */
 export function parseCards(text: string, note = ""): Card[] {
@@ -400,6 +416,8 @@ export function parseCards(text: string, note = ""): Card[] {
   // A schedule ends a card in code too: it is the card's last line, so neither
   // walk crosses one into the card above or a second line under it.
   const schedules = (at: number) => SR.test(lines[at] ?? "") || CLOZE_SR.test(lines[at] ?? "");
+  // A line the second pass reads as a one-line card, so outside code as there.
+  const inline = (at: number) => !code[at] && oneLine(lines[at] ?? "") !== null;
 
   for (const [at, line] of lines.entries()) {
     // A `?` a card above already took is part of that card's back, not a card
@@ -413,10 +431,19 @@ export function parseCards(text: string, note = ""): Card[] {
     // A line holding a mark ends it too: directly over the `?` it is the whole
     // front, the cloze this card asks, and further up it is a cloze of its own,
     // which is the one reading `review.ts` can make off the matched lines.
+    // A one-line card ends it as well, schedule or none: obsidian-spaced-repetition
+    // asks such a line as a card of its own and starts the front under it, so
+    // directly over the `?` it leaves the `?` with nothing above it (#683).
     const cloze = !ends(at - 1) && holdsCloze(lines[at - 1]);
     let from = cloze ? at - 1 : at;
     if (!cloze) {
-      while (!ends(from - 1) && !holdsCloze(lines[from - 1]) && !schedules(from - 1)) from--;
+      while (
+        !ends(from - 1) &&
+        !holdsCloze(lines[from - 1]) &&
+        !schedules(from - 1) &&
+        !inline(from - 1)
+      )
+        from--;
     }
     if (from === at) continue;
 
@@ -500,10 +527,8 @@ export function parseCards(text: string, note = ""): Card[] {
       continue;
     }
 
-    const halves = divide(line);
-    // A line opening with the divider is prose, not a card missing its
-    // question. A card missing its answer is the other way round and is kept.
-    if (halves === null || withoutTags(halves.front).trim() === "") continue;
+    const halves = oneLine(line);
+    if (halves === null) continue;
 
     const own = cardTags(line) ?? [];
     if (own.length > 0) claimed.add(at);

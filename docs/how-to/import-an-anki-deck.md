@@ -81,10 +81,12 @@ shows it, and a rating writes its schedule after it. Leave it in place.
 A question that holds `::` itself, such as `What does std::move do?`, would be
 cut at its first `::` on one line, so it is written
 [over three lines](/reference/flashcard-format.md#over-several-lines) instead,
-with a blank line above and below:
+with a blank line above and below. The question's second colon is written
+`&#58;`, which the review shows as a colon, so the line does not read as a card
+of its own:
 
 ```markdown
-What does std::move do?
+What does std:&#58;move do?
 ?
 casts to an rvalue
 ```
@@ -160,6 +162,11 @@ into the deck's note, card by card, using the comment at the end of each card:
   rated schedule after the comment.
 * A card whose text Anki changed gets the new text and keeps the schedule and
   the parking you gave it in kasten.
+* A card the review reads as part of another card stays as it is, even when
+  Anki changed it. That happens when you delete the blank line between it and
+  a `?` card above it, or write your own lines right under it: the review then
+  reads the two as one card, with one schedule, and rewriting the imported
+  card would move that schedule.
 * A card new in Anki goes on the end of the note.
 * A card you deleted in Anki stays in the note, schedule and all, and the
   import counts it as removed. Delete the line yourself if you want it gone.

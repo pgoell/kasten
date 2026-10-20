@@ -380,10 +380,12 @@ describe("parseCards on a tag that opens no card", () => {
 
 describe("parseCards on an imported question holding `::`", () => {
   // The text `as_note` writes in `backend/tests/test_anki.py`: on one line the
-  // first `::` would cut the question at `What does std`.
+  // first `::` would cut the question at `What does std`. The front's `::` is
+  // written `:&#58;`, since a front line holding `::` reads as a card of one
+  // line (#683), and `colons` shows it as `::`. The back keeps its `::`.
   it("reads back the whole question and the answer", () => {
     const cards = parseCards(
-      "#flashcards/French\n\nWhat does std::move do?\n?\ncasts to an rvalue\n",
+      "#flashcards/French\n\nWhat does std:&#58;move do?\n?\ncasts to an rvalue\n",
       "French",
     );
 
@@ -394,7 +396,7 @@ describe("parseCards on an imported question holding `::`", () => {
 
   it("keeps its one-line neighbours apart from it when the answer holds `::` too", () => {
     const cards = parseCards(
-      "#flashcards/x\n\na::b\n\nWhat does std::move do?\n?\ncasts std::move\n\nc::d\n",
+      "#flashcards/x\n\na::b\n\nWhat does std:&#58;move do?\n?\ncasts std::move\n\nc::d\n",
     );
 
     expect(cards.map(({ front, back }) => [front, back])).toEqual([
@@ -424,7 +426,7 @@ describe("parseCards on an imported deck keeping its formatting", () => {
     "On the",
     "Seine",
     "",
-    "What does std::size count?",
+    "What does std:&#58;size count?",
     "?",
     "\\# of elements",
     "\\!suspended no",
@@ -1564,6 +1566,63 @@ describe("#678 two ? cards with no blank line between them are one card", () => 
     expect({ cards: cards(text), written }).toEqual({
       cards: [{ from: 2, to: 8, front: "q1", back: "a1\nq2\n?\na2", held }],
       written: `${PAIR}<!--SR:!2026-08-24,4,250-->\n`,
+    });
+  });
+});
+
+describe("#683 an unscheduled one-line card over a ? card's question is a card of its own", () => {
+  const cards = (text: string) =>
+    parseCards(text).map(({ from, to, front, back, inline }) => ({
+      from,
+      to,
+      front,
+      back,
+      inline,
+    }));
+
+  it("#683 A2 a one-line card with no schedule over a ? card reads as two cards", () => {
+    expect(cards("#flashcards/a\n\na::b\nq\n?\nans\n")).toEqual([
+      { from: 2, to: 2, front: "a", back: "b", inline: true },
+      { from: 3, to: 5, front: "q", back: "ans", inline: false },
+    ]);
+  });
+
+  it("#683 I4 a front over two lines stops at the one-line card over it", () => {
+    expect(cards("#flashcards/a\n\na::b\nq1\nq2\n?\nans\n")).toEqual([
+      { from: 2, to: 2, front: "a", back: "b", inline: true },
+      { from: 3, to: 6, front: "q1\nq2", back: "ans", inline: false },
+    ]);
+  });
+
+  it("#683 I5 a one-line card directly over a ? is its own card and the ? under it is none", () => {
+    expect(cards("#flashcards/a\n\na::b\n?\nans\n")).toEqual([
+      { from: 2, to: 2, front: "a", back: "b", inline: true },
+    ]);
+  });
+
+  it("#683 I6 a rating of either card writes its own schedule and leaves the other's lines", () => {
+    const text = "#flashcards/a\n\na::b\nq\n?\nans\n";
+    const next = { due: "2026-08-21", interval: 1, ease: 250 };
+    const [first, second] = parseCards(text);
+
+    expect({
+      inline: [first?.inline, second?.inline],
+      first: first && writeSchedule(text, first, next),
+      second: second && writeSchedule(text, second, next),
+    }).toEqual({
+      inline: [true, false],
+      first: "#flashcards/a\n\na::b <!--SR:!2026-08-21,1,250-->\nq\n?\nans\n",
+      second: "#flashcards/a\n\na::b\nq\n?\nans\n<!--SR:!2026-08-21,1,250-->\n",
+    });
+  });
+
+  it("#683 I7 a divider in a code span or at the head of a line is no card and stays in the front", () => {
+    expect({
+      span: cards("#flashcards/a\n\n`a::b`\nq\n?\nans\n"),
+      head: cards("#flashcards/a\n\n::b\nq\n?\nans\n"),
+    }).toEqual({
+      span: [{ from: 2, to: 5, front: "`a::b`\nq", back: "ans", inline: false }],
+      head: [{ from: 2, to: 5, front: "::b\nq", back: "ans", inline: false }],
     });
   });
 });

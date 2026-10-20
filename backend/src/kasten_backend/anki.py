@@ -875,13 +875,16 @@ def as_note(deck: Deck) -> str:
     running over lines (#234). A card line splits at its first `::`, so
     `std::move` would cut the question short; such a card is written as front,
     `?` and back, each side keeping its lines, with a blank line either side so
-    the `?` card's front and back do not run into the lines next to it. It is
+    the `?` card's front and back do not run into the lines next to it. Each
+    `::` of the front outside code is written `:&#58;`, which `colons` in
+    `card-line.ts` shows as `::`, since `srs.ts` ends a front at a line that
+    reads as a card of one line (#683); the back keeps its `::`. It is
     left out where a side cannot stand in that form: an empty back, since
     `srs.ts` asks no `?` with nothing under it and `review.ts` would count one;
     a line of `?`, which `review.ts` counts as a second card; and a line
     `srs.ts` ends a card on, a heading, a line of tags, the parking token or,
     on the back only, a schedule comment, which drops the `?` card there and
-    reads the front at its first `::` after all. `note_cards` holds these
+    leaves its lines as prose. `note_cards` holds these
     rules. `plain` escapes every such line, so only a card built by hand meets
     them. A front over lines with no back and no `::` is the one-line form
     that parks a question, its breaks spaces.
@@ -935,7 +938,24 @@ def _lines(card: Card) -> list[str]:
         gap = " " if front.endswith(":") else ""
         return [f"{front}{gap}::{card.back}"]
     fronts, backs = card.front.splitlines(), card.back.splitlines()
+    if not _clozed(card):
+        # `srs.ts` ends a front at a line it reads as a card of one line
+        # (#683), so a front's `::` would cut the question there. A cloze
+        # front keeps its marks' `::`: it is one line, taken as the cloze.
+        fronts = [_undivided(line) for line in fronts]
     return [*map(_unfenced, fronts), "?", *map(_unfenced, backs)]
+
+
+def _undivided(line: str) -> str:
+    """`line` with each `::` outside a code span written `:&#58;`, so `divide` finds no divider.
+
+    The `::` `divide` in `card-line.ts` would split at, leftmost first and past
+    code spans alone, and `colons` shows the `&#58;` as the colon it was.
+    """
+    spans = _code(line)
+    return re.sub(
+        "::", lambda found: found[0] if _in_code(found.start(), spans) else ":&#58;", line
+    )
 
 
 def _marked(card: Card, lines: list[str]) -> list[str]:
@@ -989,10 +1009,15 @@ class _Span:
     suspended: bool
     comments: list[str]
     inside: bool = False
-    """Whether it is a card of one line with a `?` line above it and no blank between.
+    """Whether `srs.ts` reads it as part of another card, so it is never rewritten.
 
-    `srs.ts` reads such a line as part of that `?` card's answer, someone's own
-    card, whose schedule may sit under it; so it is never rewritten.
+    Either a `?` line sits above it with nothing between that ends a back,
+    which makes it part of that `?` card's answer (#684); or it is a `?` card
+    with no state under its marker and a line under that which no back ends
+    at, so `srs.ts` runs its back on and the schedule further down, written
+    for the two as one, is read as its own. Either way the schedule belongs
+    to a card that is not only this one's, and rewriting it would move that
+    schedule or set blank lines through the card.
     """
 
 
@@ -1153,8 +1178,10 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
     marker holds: one for a card of one line, more for a `?` card, whose state
     may sit on the line under its marker, where `srs.ts` splices it. A blank
     line or `_SPAN_LIMIT` ends the search, since a card holds no blank line,
-    and a card not found by then was edited since and is marked so. Nothing
-    is guessed from the lines around a card, which may be anyone's.
+    and a card not found by then was edited since and is marked so. The
+    lines around a card, which may be anyone's, never move where it starts
+    or ends; they only say whether `srs.ts` reads it as part of a card around
+    it, which `_Span.inside` holds.
     """
     spans: dict[tuple[int, int], _Span] = {}
     for at, line in enumerate(lines):
@@ -1173,14 +1200,20 @@ def _spans(lines: list[str]) -> dict[tuple[int, int], _Span]:
                 break
         end, state = at, line[found.end() :]
         below = lines[at + 1] if at + 1 < len(lines) else ""
-        if start is not None and start < at and below.startswith(("<!--SR:", "!suspended")):
+        block = start is not None and start < at
+        if block and below.startswith(("<!--SR:", "!suspended")):
             end, state = at + 1, f"{state} {below}"
         inside = False
-        if start == at:
-            row = at - 1
-            while row >= 0 and lines[row].strip() and not inside:
+        if start is not None:
+            # Up over the lines `srs.ts` runs a back over, inline and cloze
+            # lines among them; any `?` there counts, since a card left stale
+            # is a smaller loss than a schedule taken from the user's card.
+            row = start - 1
+            while row >= 0 and not _ends_back(lines[row]) and not inside:
                 inside = lines[row].strip() == "?"
                 row -= 1
+        if block and end == at:
+            inside = inside or not _ends_back(below)
         spans.setdefault(
             (int(found[1]), int(found[2])),
             _Span(
@@ -1280,6 +1313,15 @@ def _ends_card(line: str) -> bool:
         or _HEADING.match(line) is not None
         or _ONLY_TAGS.fullmatch(line) is not None
     )
+
+
+def _ends_back(line: str) -> bool:
+    """Whether `srs.ts` ends a `?` card's back before `line`, a note's line as it stands.
+
+    `_ends_card` and a schedule comment of either kind anywhere on the line, as
+    `schedules` in `parseCards` reads one.
+    """
+    return _ends_card(line.strip()) or _STATE.search(line) is not None
 
 
 def _parse(template: str) -> list[_Node]:

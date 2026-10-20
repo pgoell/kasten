@@ -612,6 +612,11 @@ ending at the marker whose hash matches:
   kept untouched, counted as `kept`, whatever Anki now holds.
 * A card whose text Anki changed is written anew, its schedule comments and
   `!suspended` token carried into its new shape.
+* A card `srs.ts` reads as part of another card is kept untouched, counted as
+  `kept`, whatever Anki now holds: one under a `?` line with nothing between
+  that ends a back (no blank line, heading, tag line, token or schedule), and a
+  `?` card with no schedule under its marker and a line there that ends no
+  back.
 * A card the note lacks goes on the end.
 * A card the export lacks stays in the note and is counted as `removed`.
 * A line without a marker, the tag line, a card of your own, prose, comes
@@ -639,7 +644,9 @@ make it. A card whose back adds nothing is written as `question::`, a
 [parked question](/reference/flashcard-format.md#parking-a-card), and a card
 whose question is empty once flattened is left out. A question holding `::` is
 written over three lines, question, `?` and answer, so the first `::` does not
-cut it short, and is left out when its answer is empty or `?`, or when either
+cut it short. Each `::` of the question outside a code span is written
+`:&#58;`, which the review shows as `::`, so the question line does not read as
+a card of its own; the answer keeps its `::`. Such a card is left out when its answer is empty or `?`, or when either
 side is a heading, a line of only tags or a line opening with `!suspended`, or
 its answer holds a whole schedule comment, any of which would end the card.
 A question ending in `:` is written `question ::answer`, so the colon stays on

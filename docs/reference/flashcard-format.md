@@ -158,6 +158,13 @@ the side as it does outside code, so a card above it never reaches a card the
 fence hides. A schedule comment or `!suspended` ends the answer in code too,
 and the question never runs up past a schedule comment.
 
+Nor does the question run up past a one-line card, with a schedule or without.
+obsidian-spaced-repetition asks a `::` line over the question as a card of its
+own and starts the question under it. Directly over the `?`, it leaves the `?`
+with no question, and a `?` with nothing above it is no card. A line whose every
+`::` sits in a code span, or that opens with `::`, is no card and stays part of
+the question.
+
 Two `?` cards need a blank line between them. With none, and no schedule
 under the upper one yet, obsidian-spaced-repetition reads the lines as one
 card: the first `?` divides it, and the second `?` and everything under it are
