@@ -1395,7 +1395,7 @@ describe("#675 a blank line inside a fence ends no question card", () => {
   });
 
   it("#675 I4 two ratings of a card whose fence nobody closed keep one schedule", () => {
-    const text = "#flashcards/a\n\nq\n?\nanswer\n~~~\na = 1\n\nb = 2\n";
+    const text = "#flashcards/a\n\nq\n?\nanswer\n~~~\na = 1\n";
     const second = { due: "2026-08-17", interval: 3, ease: 250 };
     const once = writeSchedule(text, only(text), { due: "2026-08-14", interval: 1, ease: 250 });
     const twice = writeSchedule(once, only(once), second);
@@ -1422,13 +1422,12 @@ describe("#675 a blank line inside a fence ends no question card", () => {
     ]);
   });
 
-  it("#675 R1 parking a card whose fence nobody closed parks it, and a second park adds no second token", () => {
-    const text = "#flashcards/a\n\nq\n?\nanswer\n~~~\na = 1\n\nb = 2\n";
+  it("#675 R1 parking a card whose fence nobody closed parks it", () => {
+    const text = "#flashcards/a\n\nq\n?\nanswer\n~~~\na = 1\n";
     const on = setSuspended(text, only(text), true);
 
-    // Parked, the session never asks the card again, so nothing parks it twice.
-    expect(only(on).parked).toBe("suspended");
     expect(on).toBe(`${text}!suspended\n`);
+    expect(only(on).parked).toBe("suspended");
   });
 
   it("#675 R2 the front walk stops at the schedule of the card above a fence", () => {
@@ -1452,5 +1451,22 @@ describe("#675 a blank line inside a fence ends no question card", () => {
         { from: 6, to: 13, front: `${fence}\nq2`, held: null },
       ],
     });
+  });
+});
+
+describe("#680 a fence nobody closed crosses no blank line", () => {
+  it("#680 a card above a fence nobody closed keeps its hands off the schedule of the card hidden under it", () => {
+    const text = "#flashcards/a\n\nq1\n?\na1\n~~~\nx\n\nq2\n?\na2\n<!--SR:!2026-08-20,3,250-->\n";
+    const card = only(text);
+    const next = { due: "2026-08-21", interval: 1, ease: 250 };
+
+    expect({ to: card.to, back: card.back, held: card.held }).toEqual({
+      to: 6,
+      back: "a1\n~~~\nx",
+      held: null,
+    });
+    expect(writeSchedule(text, card, next)).toBe(
+      "#flashcards/a\n\nq1\n?\na1\n~~~\nx\n<!--SR:!2026-08-21,1,250-->\n\nq2\n?\na2\n<!--SR:!2026-08-20,3,250-->\n",
+    );
   });
 });
