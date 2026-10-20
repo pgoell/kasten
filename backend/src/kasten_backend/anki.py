@@ -206,9 +206,14 @@ _HEADING = re.compile(r"#{1,6}[ \t]")
 """`HEADING` in `srs.ts`."""
 _ONLY_TAGS = re.compile(r"(?:#[^\W\d][\w/-]*[ \t]*)+")
 """`ONLY_TAGS` in `deck-tag.ts`, `[^\\W\\d]` and `\\w` standing in for the `\\p{L}` `re` lacks."""
-_FENCE = re.compile(r"(?: {0,3}(?:>[ \t]?|(?:[-*+]|\d{1,9}[.)])[ \t]))* {0,3}(?=```|~~~)")
+_FENCE = re.compile(r"(?: {0,3}(?:>[ \t]?|(?:[-*+]|[0-9]{1,9}[.)])[ \t]))*+ {0,3}(?=```|~~~)")
 """Where a CommonMark fence opens a line: past any quote and list markers, each up to three
-spaces in, then up to three spaces, then three backticks or tildes."""
+spaces in, then up to three spaces, then three backticks or tildes.
+
+The markers' run is possessive: a space after `>` could also be the next
+marker's indent, and trying every split of a long run that ends in no fence
+takes exponential time.
+"""
 
 
 @dataclass(frozen=True)

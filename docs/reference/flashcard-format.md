@@ -163,7 +163,8 @@ under the upper one yet, obsidian-spaced-repetition reads the lines as one
 card: the first `?` divides it, and the second `?` and everything under it are
 part of the answer. kasten reads them the same way, so the two never share a
 line and a rating writes one schedule, under the last line. Once the upper card
-has a schedule, that line ends it and the card under it is a card of its own.
+has a schedule or `!suspended` under it, that line ends it and the card under it
+is a card of its own.
 
 A `::` inside a code block is not a card, and neither is a `?` in one. That
 holds for a fence opened with backticks or tildes, one nobody closed (it runs to

@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import zipfile
 from compression import zstd
 from pathlib import Path
@@ -2207,6 +2208,19 @@ def test_679_a6_a_tab_after_a_list_or_quote_marker_still_escapes_the_fence() -> 
     assert unhashed(as_note(deck)) == (
         f"#flashcards/x\n\n-\t\\~~~::b{mark(1)}\n>\t\\```::c{mark(2)}\n"
     )
+
+
+def test_679_b1_a_line_of_many_quote_markers_and_no_fence_returns_at_once() -> None:
+    # Each `> ` could match two ways, the space after `>` or the next marker's
+    # indent, so a line ending in no fence must not try every split.
+    side = "> " * 40 + "x"
+    deck = basic_deck((side, "b"))
+
+    start = time.perf_counter()
+    text = unhashed(as_note(deck))
+    elapsed = time.perf_counter() - start
+
+    assert (text == f"#flashcards/x\n\n{side}::b{mark(1)}\n", elapsed < 1) == (True, True)
 
 
 def test_679_i3_a_re_import_escapes_a_list_fence_side_and_keeps_its_schedule() -> None:
