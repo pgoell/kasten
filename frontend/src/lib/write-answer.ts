@@ -10,11 +10,9 @@ import {
   sameText,
 } from "@/lib/held-text";
 import {
+  answered,
   dropped,
   heldAt,
-  inAir,
-  lower,
-  missed,
   type Queueing,
   reloads,
   reloadsOf,
@@ -77,17 +75,6 @@ export function answer(
   const { request, mine, prior, since, reread } = queueing;
   // Whether this note's buffer took the vault's text in since this went out.
   const reloaded = () => reloadsOf(reloads.current, to) !== loaded;
-  const answered = () => {
-    lower(writing.current, to);
-    if (writing.current.has(to)) return;
-    inAir.current.delete(to);
-    // An outside write declined while this was in the air is read now,
-    // once nothing of ours can land over it. The refetch answers later, so
-    // the arm below settles this write before the editor asks.
-    if (missed.current.delete(to)) {
-      void queryClient.invalidateQueries({ queryKey: ["note", to] }, { cancelRefetch: false });
-    }
-  };
   // The flush on the way out of a note answers here with that note's
   // closure, after the hook already follows the next one: its slots, its
   // status and its pending text are that one's.
@@ -97,7 +84,7 @@ export function answer(
   const followedHere = () => mine.visit === visit.current;
   return request.then(
     (note) => {
-      answered();
+      answered(to, queryClient);
       // A held entry goes when this write carried it: its own text, or
       // text typed on top of the entry the buffer had taken when this was
       // sent. An entry the buffer never showed, held by a flush that failed
@@ -157,7 +144,7 @@ export function answer(
       // returns early on a write that failed after a `:e!`, and a count
       // lowered under it would leak for the life of the page, leaving that
       // note reading as busy and never written to again.
-      answered();
+      answered(to, queryClient);
       // Never sent: the buffer holds the vault's text, and this was thrown away.
       if (failure instanceof Skipped) return false;
       // The vault's own text, which nobody typed: nothing to hold or to

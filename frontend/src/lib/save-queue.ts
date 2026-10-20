@@ -4,7 +4,7 @@ import { dropText, type Held, holdText, landedAs, movesMade } from "@/lib/held-t
 import { noteBase } from "@/lib/note-base";
 
 /** One fewer write in the air for `note`, taking the entry when it reaches none. */
-export function lower(counts: Map<string, number>, note: string): void {
+function lower(counts: Map<string, number>, note: string): void {
   const left = (counts.get(note) ?? 0) - 1;
   if (left > 0) counts.set(note, left);
   else counts.delete(note);
@@ -126,6 +126,19 @@ export const visit = { current: 0 };
 // text, the hide's) from one typed on other text. In memory: the store keeps
 // an unchanged entry's object.
 export const heldAt = { current: new WeakMap<Held, { seq: number; visit: number }>() };
+
+/** A write of `to` answered: its count goes down, and the note's entry leaves the air when none is left. */
+export function answered(to: string, queryClient: QueryClient): void {
+  lower(writing.current, to);
+  if (writing.current.has(to)) return;
+  inAir.current.delete(to);
+  // An outside write declined while this was in the air is read now,
+  // once nothing of ours can land over it. The refetch answers later, so
+  // the arm below settles this write before the editor asks.
+  if (missed.current.delete(to)) {
+    void queryClient.invalidateQueries({ queryKey: ["note", to] }, { cancelRefetch: false });
+  }
+}
 
 /** Forget the writes of the page, as a new page starts with none. */
 export function forgetWrites(): void {

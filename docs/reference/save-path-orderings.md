@@ -10,7 +10,11 @@ status: stable
 # Save path orderings
 
 The editor writes a note back to the vault through one hook,
-`frontend/src/lib/use-autosave.ts`. Every write to a note goes through one
+`frontend/src/lib/use-autosave.ts`, whose parts sit beside it: the page's
+write queue in `save-queue.ts`, a write's answer in `write-answer.ts`, the
+writes themselves in `use-buffer-write.ts`, held text against the buffer in
+`held-buffer.ts`, and what the buffer takes from the vault in
+`vault-reads.ts`. Every write to a note goes through one
 ordered queue for that note: the quiet write after the typing stops, `:w`, the
 flush on leaving the note or the pane, the keepalive as the page is hidden, and
 the save that rename and delete make first. A write goes out once the one ahead

@@ -101,6 +101,9 @@ export function useAutosave(
     }),
     [take, queryClient, lastBase],
   );
+  // Effect order follows hook call order, and React runs cleanups in declaration
+  // order. The unmount hold in `useHeldBuffer` goes first, before the leave
+  // flush, which empties `pending`; the leave flush then goes before the hide.
   const { takeFailed, follow, holdOwn } = useHeldBuffer(buffer);
   const { write, save, saveFirst, revert } = useBufferWrite(buffer, path, takeFailed);
 
@@ -220,6 +223,8 @@ export function useAutosave(
     };
   }, [path, write, take, holdOwn]);
 
+  // Declared last, so its opening effect runs after the leave flush and the hide,
+  // which both still count as the visit they leave.
   const { allowReload, reconcile } = useVaultReads(buffer, path, pane, follow);
 
   return {

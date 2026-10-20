@@ -304,7 +304,10 @@ export function server(start: string) {
   };
 }
 
-/** The hook with an editor on `index.md`, as in the blocks above. */
+/**
+ * The hook with an editor on `index.md`, as the local `withEditor`s of
+ * use-autosave-older-answers.test.ts and use-autosave-queue.test.ts have it.
+ */
 export function withEditor(seed: string) {
   let doc = seed;
   const note = renderAutosave("index.md", () => doc);

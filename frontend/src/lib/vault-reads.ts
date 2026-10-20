@@ -224,8 +224,9 @@ export function useVaultReads(
     return pending.current === null || conflicted.current;
   }, [path, pending, conflicted]);
 
-  // The flush above still counts as the visit it leaves: React runs the old
-  // render's cleanups before any of the new render's setups.
+  // The leave flush in `useAutosave`, declared before this effect, still counts
+  // as the visit it leaves: React runs the old render's cleanups before any of
+  // the new render's setups.
   // Runs on each opening, a new pane on the same note included: `queryClient`
   // and `restore` never change.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `pane` is the trigger, and is not read.

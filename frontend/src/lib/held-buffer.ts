@@ -17,9 +17,9 @@ import type { SaveStatus } from "@/lib/use-autosave";
 
 /** The per-visit refs and stable functions of one `useAutosave` hook, shared by its sub-hooks. */
 export interface Buffer {
-  // Read in an effect and never a dependency: the route builds a new one per
-  // render, and the effect it is read in must run on an opening and nothing
-  // else.
+  // Read in effects, and its identity never changes, so listing it in a
+  // dependency list changes nothing. The route builds a new `shown` per render,
+  // and the effect it is read in must run on an opening and nothing else.
   shownRef: RefObject<(() => string | undefined) | undefined>;
   // The note followed now, for a flush answering with the closure of the
   // visit it left: that note may be open again by then.
@@ -235,13 +235,14 @@ export function useHeldBuffer(buffer: Buffer) {
     [lastBase, pending, conflicted, taken],
   );
 
-  // Leaving the route takes the `pagehide` listener below with it, so a page
-  // closed before the flush answers cancels it unheard, and the quiet write
-  // in the air too (#382). Their text is held first, as a hide holds it, and
-  // each one landing drops its copy. Only on unmount: a note left within the
-  // route is still the hide's to hold, and holding it here would list it on
-  // the bar until its flush lands. Ahead of the flush, which empties `pending`,
-  // because React runs an unmount's cleanups in order.
+  // Leaving the route takes the `pagehide` listener in `useAutosave`'s hide
+  // effect with it, so a page closed before the leave flush there answers
+  // cancels it unheard, and the quiet write in the air too (#382). Their text
+  // is held first, as a hide holds it, and each one landing drops its copy.
+  // Only on unmount: a note left within the route is still the hide's to hold,
+  // and holding it here would list it on the bar until its flush lands. Declared
+  // before the leave flush in `useAutosave`, which empties `pending`, because
+  // React runs an unmount's cleanups in order.
   useEffect(
     () => () => {
       if (openRef.current === undefined) return;
