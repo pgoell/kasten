@@ -1,0 +1,106 @@
+[
+  { "id": "water-ml", "line": "- 💧 500 ml", "entry": { "kind": "water", "ml": 500 } },
+  { "id": "water-litre", "line": "- 💧 0.5 l", "entry": { "kind": "water", "ml": 500 } },
+  { "id": "water-comma", "line": "- 💧 0,25 l", "entry": { "kind": "water", "ml": 250 } },
+  { "id": "water-glued-unit", "line": "- 💧 330ml", "entry": { "kind": "water", "ml": 330 } },
+  { "id": "water-unit-case", "line": "- 💧 1 L", "entry": { "kind": "water", "ml": 1000 } },
+  { "id": "water-no-unit", "line": "- 💧 500", "entry": null },
+  { "id": "water-zero", "line": "- 💧 0 ml", "entry": null },
+  { "id": "water-trailing-words", "line": "- 💧 500 ml with lemon", "entry": null },
+  { "id": "water-wrong-unit", "line": "- 💧 500 g", "entry": null },
+  { "id": "coffee", "line": "- ☕ 1", "entry": { "kind": "coffee", "count": 1 } },
+  {
+    "id": "coffee-variation-selector",
+    "line": "- ☕️ 2",
+    "entry": { "kind": "coffee", "count": 2 }
+  },
+  { "id": "coffee-fraction", "line": "- ☕ 1.5", "entry": null },
+  { "id": "coffee-zero", "line": "- ☕ 0", "entry": null },
+  { "id": "alcohol-count", "line": "- 🍺 1", "entry": { "kind": "alcohol", "count": 1 } },
+  {
+    "id": "alcohol-volume",
+    "line": "- 🍺 2 0.33 l",
+    "entry": { "kind": "alcohol", "count": 2, "ml": 660 }
+  },
+  {
+    "id": "alcohol-full",
+    "line": "- 🍺 1 0.5 l 5%",
+    "entry": { "kind": "alcohol", "count": 1, "ml": 500, "abv": 5, "grams": 19.7 }
+  },
+  {
+    "id": "alcohol-per-drink",
+    "line": "- 🍺 2 0,33 l 5 %",
+    "entry": { "kind": "alcohol", "count": 2, "ml": 660, "abv": 5, "grams": 26 }
+  },
+  {
+    "id": "alcohol-strength-no-volume",
+    "line": "- 🍺 1 5%",
+    "entry": { "kind": "alcohol", "count": 1, "abv": 5 }
+  },
+  {
+    "id": "alcohol-free",
+    "line": "- 🍺 1 330 ml 0%",
+    "entry": { "kind": "alcohol", "count": 1, "ml": 330, "abv": 0, "grams": 0 }
+  },
+  { "id": "alcohol-over-100", "line": "- 🍺 1 0.5 l 120%", "entry": null },
+  { "id": "alcohol-out-of-order", "line": "- 🍺 1 5% 0.5 l", "entry": null },
+  {
+    "id": "food-full",
+    "line": "- 🍽 lunch: Skyr 250 g 🔥 160 kcal 🥩 27 g 🍞 10 g 🧈 0 g",
+    "entry": {
+      "kind": "food",
+      "meal": "lunch",
+      "words": "Skyr 250 g",
+      "kcal": 160,
+      "protein": 27,
+      "carbs": 10,
+      "fat": 0
+    }
+  },
+  { "id": "food-words-only", "line": "- 🍽 Apple", "entry": { "kind": "food", "words": "Apple" } },
+  {
+    "id": "food-meal-needs-colon",
+    "line": "- 🍽 lunch Skyr 🔥 160",
+    "entry": { "kind": "food", "words": "lunch Skyr", "kcal": 160 }
+  },
+  {
+    "id": "food-meal-case-variation-selector",
+    "line": "- 🍽️ Breakfast: oats 🔥 300 kcal",
+    "entry": { "kind": "food", "meal": "breakfast", "words": "oats", "kcal": 300 }
+  },
+  {
+    "id": "food-any-order-no-units",
+    "line": "- 🍽 toast 🧈 5 🔥 120",
+    "entry": { "kind": "food", "words": "toast", "kcal": 120, "fat": 5 }
+  },
+  {
+    "id": "food-fields-only",
+    "line": "- 🍽 snack: 🔥 200 kcal",
+    "entry": { "kind": "food", "meal": "snack", "words": "", "kcal": 200 }
+  },
+  {
+    "id": "food-comma",
+    "line": "- 🍽 nuts 🥩 2,5 g",
+    "entry": { "kind": "food", "words": "nuts", "protein": 2.5 }
+  },
+  { "id": "food-bare", "line": "- 🍽", "entry": null },
+  { "id": "food-field-twice", "line": "- 🍽 toast 🔥 120 🔥 130", "entry": null },
+  { "id": "food-words-after-field", "line": "- 🍽 toast 🔥 120 kcal with jam", "entry": null },
+  {
+    "id": "food-marker-in-code-span",
+    "line": "- 🍽 `🔥 9` toast 🔥 120",
+    "entry": { "kind": "food", "words": "`🔥 9` toast", "kcal": 120 }
+  },
+  {
+    "id": "food-marker-in-link",
+    "line": "- 🍽 [[🔥 recipe]] 🔥 400",
+    "entry": { "kind": "food", "words": "[[🔥 recipe]]", "kcal": 400 }
+  },
+  { "id": "marker-in-code-span", "line": "- `☕ 1`", "entry": null },
+  { "id": "marker-in-link", "line": "- [[☕ 1]]", "entry": null },
+  { "id": "todo-box", "line": "- [ ] 💧 500 ml", "entry": null },
+  { "id": "indented", "line": "  - 💧 500 ml", "entry": null },
+  { "id": "unknown-marker", "line": "- 🍵 1", "entry": null },
+  { "id": "no-bullet", "line": "💧 500 ml", "entry": null },
+  { "id": "star-bullet", "line": "* 💧 500 ml", "entry": null }
+]
