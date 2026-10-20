@@ -7,9 +7,9 @@ pre-commit:
   commands:
     lint:
       run: mise run lint
-    # Staged files only: 37 files are still over the limit, so a commit fails
-    # only when it stages one of them, and the task that touches it splits it
-    # (#611). With nothing staged lefthook skips the command, which keeps the
+    # Staged files only: some files are still over the limit, so a commit fails
+    # only when it stages a file over it, new or old, and the task that touches
+    # an old one splits it (#611). With nothing staged lefthook skips the command, which keeps the
     # script's no-argument mode, every tracked file, out of the hook.
     file-size:
       run: python3 scripts/file_size.py {staged_files}

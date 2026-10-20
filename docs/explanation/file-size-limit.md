@@ -31,10 +31,11 @@ and cheap enough to run on every commit.
 
 ## What is excluded
 
-The script skips only what nobody writes by hand: lock files, the generated API
-types and route tree, the OpenAPI file, images, fonts, PDFs and `LICENSE`. The
-list is one plain list in the script, with no per-file exceptions. A file that
-needs an exception should be split instead.
+The script skips only what nobody writes by hand: lock files (`uv.lock`,
+`bun.lock`, `mise.lock`), the generated API types, OpenAPI file and route tree,
+images (PNG, JPEG, GIF, WebP, SVG, ICO), fonts (WOFF, WOFF2, TTF, OTF), PDFs,
+EPUBs and `LICENSE`. The list is one plain list in the script, with no per-file
+exceptions. A file that needs an exception should be split instead.
 
 ## Why split along a deep module
 
@@ -48,12 +49,13 @@ reader needs only one module to follow the task.
 
 ## Why the hook checks only staged files for now
 
-Thirty-seven files are still over the limit. If pre-commit checked every tracked
-file, every commit would fail until all thirty-seven were split, and main would
-not stay green. So the hook checks only the files a commit stages. A commit
-fails only when it stages one of the thirty-seven, and the task that touches
-that file splits it. The last part of #611 adds the check to `mise run lint` and
-CI once the list is empty.
+Some files are still over the limit. If pre-commit checked every tracked file,
+every commit would fail until all of them were split, and main would not stay
+green. So the hook checks only the files a commit stages. A commit fails when it
+stages any file over the limit, whether that file was already over or is new or
+has grown past it. The list of files still over the limit is in
+`python3 scripts/file_size.py`. The last part of #611 adds the check to
+`mise run lint` and CI once the list is empty.
 
 ## What a commit that stages a big file does
 
