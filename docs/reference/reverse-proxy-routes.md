@@ -47,6 +47,13 @@ The backend holds a second lock on this host. With `Host` set to
 route runs. [Shared lists](/explanation/shared-lists.md#two-locks) says why there
 are two.
 
+The frontend keeps the lists app to that host. Its nginx answers `404` for
+`/lists.html`, `/lists.webmanifest` and `/lists-sw.js` when `Host` is anything
+but `liste.pgoell.com`, so the main host serves no lists page and no icon
+installs from it: the manifest's `start_url` is `/`, which there opens kasten.
+nginx cannot read `KASTEN_SHARE_HOST`, so `frontend/nginx.conf` names the host
+itself, and the proxy must pass `Host` through.
+
 ## Rules
 
 * **Keep the path.** Each route passes the path through unchanged. ttyd runs

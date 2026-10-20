@@ -63,14 +63,21 @@ describe("the shared lists app on screen", () => {
 
   it("open and done rows differ in light", async () => {
     const { open, done } = await drawRows(false);
-    expect(open.text.color).toBe("rgb(0, 0, 0)");
-    expect(done.text.textDecorationLine).toContain("line-through");
-    expect(done.text.color).toBe("rgb(142, 142, 147)");
-    expect(open.check.backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    expect([open.check.borderTopWidth, done.check.backgroundColor]).toEqual([
-      "2px",
-      "rgb(142, 142, 147)",
-    ]);
+    expect({
+      openText: open.text.color,
+      doneStrike: done.text.textDecorationLine,
+      doneText: done.text.color,
+      openDisc: open.check.backgroundColor,
+      openRing: open.check.borderTopWidth,
+      doneDisc: done.check.backgroundColor,
+    }).toEqual({
+      openText: "rgb(0, 0, 0)",
+      doneStrike: "line-through",
+      doneText: "rgb(108, 108, 112)",
+      openDisc: "rgba(0, 0, 0, 0)",
+      openRing: "2px",
+      doneDisc: "rgb(142, 142, 147)",
+    });
   }, 30_000);
 
   it("open and done rows differ in dark", async () => {
