@@ -64,7 +64,7 @@ out. There is no way back out from the app: nothing here deletes a book.
 Opening a book again puts you back on the page you stopped at. The place is one
 line in the note's own block, `reading:`, written a minute after the last page
 turn and whenever you close the reader.
-[How it keeps your place](/explanation/books-in-the-vault.md#how-it-keeps-your-place)
+[How it keeps your place](/explanation/books-in-the-vault/highlights-and-place.md#how-it-keeps-your-place)
 says what that line costs.
 
 The keys below are the only ones the pane answers. They are not leader keys:

@@ -537,7 +537,7 @@ export function heldModifier(key: string): boolean {
  * this or the table below carries `terminal-pane.tsx`, `key-help.tsx` and
  * `key-help.test.tsx` with it, all three deriving from these two exports. One
  * place does not follow and has to be edited by hand: the chord table in
- * `docs/reference/editor-keys.md`, which is prose that no code reads.
+ * `docs/reference/editor-keys/terminal.md`, which is prose that no code reads.
  */
 export const TERMINAL_CHORD = {
   ctrlKey: true,
