@@ -1010,7 +1010,18 @@ async def import_anki(
     of the body, which is then empty.
     """
     if upload is None:
-        body = await request.body()
+        # Counted as it arrives, so an over-cap body is refused before the rest
+        # is read rather than held whole in RAM. The cap is read here, not bound
+        # at import, so a test lowering it reaches this.
+        limit = files.UPLOAD_LIMIT_BYTES
+        pieces: list[bytes] = []
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > limit:
+                raise HTTPException(status_code=413, detail=files.too_big(limit))
+            pieces.append(chunk)
+        body = b"".join(pieces)
     else:
         async with uploads.finished(upload) as joined:
             # In a thread, as `read_apkg` is below: up to 1 GiB off the disk.

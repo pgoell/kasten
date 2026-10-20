@@ -19,10 +19,21 @@ import { NARROW } from "@/lib/use-viewport";
  */
 let touched = window.matchMedia("(pointer: coarse)").matches;
 
+// Whether a key is down now, and the work waiting for it to come up. See
+// `whenKeysUp`.
+let keyHeld = false;
+const waiting: (() => void)[] = [];
+
+function keysUp(): void {
+  keyHeld = false;
+  for (const run of waiting.splice(0)) run();
+}
+
 window.addEventListener(
   "pointerdown",
   (event) => {
     touched = event.pointerType === "touch";
+    keysUp();
   },
   true,
 );
@@ -30,9 +41,13 @@ window.addEventListener(
   "keydown",
   () => {
     touched = false;
+    keyHeld = true;
   },
   true,
 );
+window.addEventListener("keyup", keysUp, true);
+// A key let go while the window was away sends no keyup to this page.
+window.addEventListener("blur", keysUp);
 
 /**
  * Whether handing an editor the focus now would raise a keyboard nobody asked for.
@@ -46,4 +61,17 @@ window.addEventListener(
  */
 export function keyboardUnasked(): boolean {
   return touched && window.matchMedia(NARROW).matches;
+}
+
+/**
+ * Runs `run` once no key is down: now when none is, else when the held key comes up.
+ *
+ * A file picker opened inside a keydown starts while that key is still down.
+ * The browser hides the pointer while someone types, so the picker opens with
+ * no pointer to pick with. The keyup still sits inside the browser's transient
+ * activation window, so the picker still opens from there (#692).
+ */
+export function whenKeysUp(run: () => void): void {
+  if (keyHeld) waiting.push(run);
+  else run();
 }

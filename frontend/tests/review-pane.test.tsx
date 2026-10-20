@@ -851,6 +851,26 @@ describe("ReviewDecks reading the deck notes", () => {
     expect(opened).toEqual([screen.getByLabelText("Import an Anki deck")]);
   });
 
+  it("opens the deck picker once the key that pressed the button is up", () => {
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    renderDecks(HITS);
+    screen.getByRole("button", { name: /alpha/ });
+    fireEvent.click(screen.getByText("Import"));
+    const button = screen.getByRole("button", { name: "Import an Anki deck" });
+    const click = vi
+      .spyOn(screen.getByLabelText("Import an Anki deck"), "click")
+      .mockImplementation(() => {});
+
+    // Enter fires the button's click inside the keydown, with the key still down.
+    fireEvent.keyDown(button, { key: "Enter" });
+    fireEvent.click(button);
+    expect(click).not.toHaveBeenCalled();
+
+    fireEvent.keyUp(button, { key: "Enter" });
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
   it("#517 I8 closing and opening Import keeps the last import's line and the tick", async () => {
     vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
     serveNotes(HITS);

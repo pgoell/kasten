@@ -265,6 +265,8 @@ column.
 | `<leader>cc` | Open the chat with Claude Code in the focused pane |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 
+The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go of the last key, so the picker opens once the key is up.
+
 **This note**
 
 | Key | Does |

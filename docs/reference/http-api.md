@@ -587,6 +587,9 @@ Turns an Anki export into one markdown note per deck. Takes the `.apkg` bytes as
 the raw request body, the way `POST /api/assets/{path}` takes a book, and
 answers 201 with what was written.
 
+The body is counted as it arrives. Past the upload cap it is refused with 413
+at the chunk that crosses it, and nothing after that chunk is read.
+
 With `?upload=<id>` and no body, it imports the file sent in pieces through
 [`POST /api/uploads`](#post-apiuploads) instead, and deletes that upload
 whether the import lands or is refused.

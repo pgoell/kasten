@@ -66,6 +66,7 @@ import { queryEmbedSource } from "@/lib/embed";
 import { heldText, moveHeld, sameText, useHeld } from "@/lib/held-text";
 import { addHighlight, type Passage } from "@/lib/highlight";
 import type { TreeCommands } from "@/lib/key-bindings";
+import { whenKeysUp } from "@/lib/last-input";
 import { READING_NOTE } from "@/lib/layout";
 import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import type { MoveMode } from "@/lib/move";
@@ -2411,11 +2412,13 @@ function Home() {
         // choosing the same one again may fire no `change` at all, which is
         // the retry after a failed upload silently doing nothing.
         input.value = "";
-        // Synchronously, with nothing awaited in front of it. A file picker
-        // needs transient user activation and an `await` gives the browser a
-        // turn in which it expires. jsdom models none of that, so an `await`
-        // here passes every test in this repo and opens nothing on the box.
-        input.click();
+        // Nothing awaited in front of the click. A file picker needs transient
+        // user activation and an `await` gives the browser a turn in which it
+        // expires. The click waits only for the key to come up, which stays
+        // inside the activation window, so the picker opens and the pointer
+        // is back (#692). jsdom models none of that, so an `await` here
+        // passes every test in this repo and opens nothing on the box.
+        whenKeysUp(() => input.click());
       },
       // The same picker, one input over, and the same reason for needing no
       // note in the pane: the files bring their own names.
@@ -2425,7 +2428,7 @@ function Home() {
 
         setNotice(undefined);
         input.value = "";
-        input.click();
+        whenKeysUp(() => input.click());
       },
       // Whatever the pane is holding, not the note alone: a picture and a book
       // are files the vault has and the reader is looking at, and a key called

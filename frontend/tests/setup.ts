@@ -1,5 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 
+// A test that ends with a key down and no keyup would leave the next test's
+// picker waiting for a key that never comes up. Losing focus lets it go.
+afterEach(() => window.dispatchEvent(new Event("blur")));
+
 // pdf.js throws at load in jsdom, which has no canvas to sniff. `pdf-view.ts`
 // loads it only when a pdf embed opens its file, but a test that draws one
 // with the default renderer would load it, so it goes for all of them; a test

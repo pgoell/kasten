@@ -2,6 +2,7 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { type AnkiImport, fetchCards, fetchNote, importAnki, importAnkiLink } from "@/lib/api";
 import { readClock } from "@/lib/clock";
+import { whenKeysUp } from "@/lib/last-input";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review";
 import { useReviewLimits } from "@/lib/use-review-limits";
 
@@ -237,7 +238,7 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
           />
           <button
             type="button"
-            onClick={() => picker.current?.click()}
+            onClick={() => whenKeysUp(() => picker.current?.click())}
             className="my-1 min-h-11 rounded border border-one-line px-3 text-one-fg hover:border-one-accent hover:text-one-accent"
           >
             Import an Anki deck
