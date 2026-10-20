@@ -19,13 +19,19 @@ import { NARROW } from "@/lib/use-viewport";
  */
 let touched = window.matchMedia("(pointer: coarse)").matches;
 
-// Whether a key is down now, and the work waiting for it to come up. See
-// `whenKeysUp`.
-let keyHeld = false;
+// The keys down now, and the work waiting for them to come up. See
+// `whenKeysUp`. A set rather than a flag, because a second key can go down
+// while the first is still held, and the first to come up must not free the
+// work while the second is still down.
+const held = new Set<string>();
 const waiting: (() => void)[] = [];
 
-function keysUp(): void {
-  keyHeld = false;
+function keyOf(event: KeyboardEvent): string {
+  return event.code || event.key;
+}
+
+function runWaiting(): void {
+  if (held.size > 0) return;
   for (const run of waiting.splice(0)) run();
 }
 
@@ -33,21 +39,35 @@ window.addEventListener(
   "pointerdown",
   (event) => {
     touched = event.pointerType === "touch";
-    keysUp();
+    held.clear();
+    runWaiting();
   },
   true,
 );
 window.addEventListener(
   "keydown",
-  () => {
+  (event) => {
     touched = false;
-    keyHeld = true;
+    held.add(keyOf(event));
   },
   true,
 );
-window.addEventListener("keyup", keysUp, true);
+window.addEventListener(
+  "keyup",
+  (event) => {
+    // macOS sends no keyup for a key pressed with Cmd down, so letting Cmd go
+    // is the only sign that those keys are up.
+    if (event.key === "Meta") held.clear();
+    held.delete(keyOf(event));
+    runWaiting();
+  },
+  true,
+);
 // A key let go while the window was away sends no keyup to this page.
-window.addEventListener("blur", keysUp);
+window.addEventListener("blur", () => {
+  held.clear();
+  runWaiting();
+});
 
 /**
  * Whether handing an editor the focus now would raise a keyboard nobody asked for.
@@ -64,7 +84,7 @@ export function keyboardUnasked(): boolean {
 }
 
 /**
- * Runs `run` once no key is down: now when none is, else when the held key comes up.
+ * Runs `run` once no key is down: now when none is, else when the last held key comes up.
  *
  * A file picker opened inside a keydown starts while that key is still down.
  * The browser hides the pointer while someone types, so the picker opens with
@@ -72,6 +92,6 @@ export function keyboardUnasked(): boolean {
  * activation window, so the picker still opens from there (#692).
  */
 export function whenKeysUp(run: () => void): void {
-  if (keyHeld) waiting.push(run);
+  if (held.size > 0) waiting.push(run);
   else run();
 }
