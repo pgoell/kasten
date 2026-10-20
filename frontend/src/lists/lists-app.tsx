@@ -108,7 +108,9 @@ function Lists({ store }: { store: ListsStore }) {
         {done.length > 0 && (
           <section className="done" aria-label="Erledigt">
             <div className="group-head">
-              <h2>Erledigt</h2>
+              <h2>
+                Erledigt <span className="count">{done.length}</span>
+              </h2>
               <button type="button" onClick={() => store.clear(current)}>
                 Leeren
               </button>
