@@ -2,7 +2,8 @@
 
 A token here is four bytes. That is close enough for a guard and needs no
 tokenizer. With no arguments the script checks every tracked file; with path
-arguments it checks just those. It is not in lefthook or mise lint yet (#611).
+arguments it checks just those, which is how lefthook's pre-commit runs it on
+the staged files. It is not in mise lint yet (#611).
 """
 
 import subprocess
