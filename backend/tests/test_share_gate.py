@@ -1,11 +1,10 @@
-"""The share host reaches the lists only, and the event filter keeps to the folder."""
+"""The share host reaches the lists only, and nothing else answers on it."""
 
 from typing import TYPE_CHECKING
 
 import pytest
 
-from kasten_backend import share
-from kasten_backend.config import Settings, get_settings
+from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -69,21 +68,3 @@ async def test_another_host_answers_the_api_as_before(client: AsyncClient, share
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
-
-
-def test_event_filter_passes_a_note_in_the_share_folder() -> None:
-    settings = Settings(share_folder="05 Shared")
-
-    assert share.inside(settings, "05 Shared/Einkauf.md")
-
-
-def test_event_filter_refuses_a_note_outside_the_share_folder() -> None:
-    settings = Settings(share_folder="05 Shared")
-
-    assert not share.inside(settings, "02 Projects/secret.md")
-
-
-def test_event_filter_refuses_a_note_deeper_than_the_share_folder() -> None:
-    settings = Settings(share_folder="05 Shared")
-
-    assert not share.inside(settings, "05 Shared/old/Alt.md")

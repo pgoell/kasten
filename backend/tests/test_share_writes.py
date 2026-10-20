@@ -211,14 +211,16 @@ async def test_a_second_writer_on_a_stale_sha_rereads_and_keeps_both(
     client: AsyncClient, folder: Path
 ) -> None:
     put(folder, BLOCK + "# Einkauf\n\n")
-    read_a = (await client.get("/share/lists/Einkauf")).json()
-    read_b = (await client.get("/share/lists/Einkauf")).json()
+    read_a = await client.get("/share/lists/Einkauf")
+    read_b = await client.get("/share/lists/Einkauf")
+    assert read_a.status_code == 200
+    assert read_b.status_code == 200
 
     first = await client.post(
-        "/share/lists/Einkauf/items", json={"text": "Milch", "sha": read_a["sha"]}
+        "/share/lists/Einkauf/items", json={"text": "Milch", "sha": read_a.json()["sha"]}
     )
     stale = await client.post(
-        "/share/lists/Einkauf/items", json={"text": "Brot", "sha": read_b["sha"]}
+        "/share/lists/Einkauf/items", json={"text": "Brot", "sha": read_b.json()["sha"]}
     )
     reread = (await client.get("/share/lists/Einkauf")).json()
     retry = await client.post(

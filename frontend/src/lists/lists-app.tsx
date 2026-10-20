@@ -94,9 +94,9 @@ function Lists({ store }: { store: ListsStore }) {
 
         {open.length > 0 && (
           <section className="group" aria-label="Offen">
-            {open.map((item) => (
+            {keyed(open).map((item) => (
               <Row
-                key={`${item.line}:${item.text}`}
+                key={item.key}
                 item={item}
                 onToggle={() => store.tick(current, item.text, true)}
               />
@@ -113,9 +113,9 @@ function Lists({ store }: { store: ListsStore }) {
               </button>
             </div>
             <div className="group">
-              {done.map((item) => (
+              {keyed(done).map((item) => (
                 <Row
-                  key={`${item.line}:${item.text}`}
+                  key={item.key}
                   item={item}
                   onToggle={() => store.tick(current, item.text, false)}
                 />
@@ -151,6 +151,20 @@ function Lists({ store }: { store: ListsStore }) {
       </footer>
     </div>
   );
+}
+
+/**
+ * Keys by text, with a count for repeats. Not by line: an optimistic row has
+ * line -1, and the server's answer gives it a real one, which would remount
+ * the row and leave a node a caller is holding detached.
+ */
+function keyed(items: Item[]): (Item & { key: string })[] {
+  const count = new Map<string, number>();
+  return items.map((item) => {
+    const n = count.get(item.text) ?? 0;
+    count.set(item.text, n + 1);
+    return { ...item, key: `${item.text}#${n}` };
+  });
 }
 
 function Row({ item, onToggle }: { item: Item; onToggle: () => void }) {
