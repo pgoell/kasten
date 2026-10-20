@@ -17,6 +17,25 @@ function reply(body: unknown, status = 200): Response {
   });
 }
 
+/** What an expired session gets back for a share request: the sign-in page, in HTML. */
+function signInPage(): Response {
+  return new Response("<!doctype html><title>Anmelden</title>", {
+    status: 200,
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
+/** A redirect the browser will not follow: status 0 and type opaqueredirect, as `redirect: "manual"` gives. */
+function opaqueRedirect(): Response {
+  const res = new Response(null, { status: 302 });
+  Object.defineProperties(res, { status: { value: 0 }, type: { value: "opaqueredirect" } });
+  return res;
+}
+
+/** The text the server keeps for an added line: its words before the first field marker. */
+const serverText = (text: string) =>
+  (text.split("✅")[0] ?? "").split(/\s+/).filter(Boolean).join(" ");
+
 export function fakeShare(seed: Record<string, Seed[]>) {
   const notes = new Map<string, Note>(
     Object.entries(seed).map(([name, items]) => [
@@ -28,7 +47,11 @@ export function fakeShare(seed: Record<string, Seed[]>) {
   let hook: (() => void) | undefined;
   let hooks = 0;
   let lose = false;
-  let signIn = false;
+  let loseThenDown = false;
+  let expired: "html" | "opaque" | null = null;
+  let hang = false;
+  let down = false;
+  let refused = 0;
 
   function view(name: string): ListData {
     const note = notes.get(name);
@@ -40,6 +63,11 @@ export function fakeShare(seed: Record<string, Seed[]>) {
   }
 
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    if (down) {
+      refused += 1;
+      throw new TypeError("Failed to fetch");
+    }
+    if (expired) return expired === "opaque" ? opaqueRedirect() : signInPage();
     const match = /^\/share\/lists\/([^/]+)(?:\/(items|tick|clear))?$/.exec(url);
     if (!match) return reply({ detail: "No such list" }, 404);
     const name = decodeURIComponent(match[1] ?? "");
@@ -48,12 +76,12 @@ export function fakeShare(seed: Record<string, Seed[]>) {
 
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     posts.push({ path: url, body });
-    if (signIn) {
-      // An expired session: the sign-in page answers in place of the JSON.
-      signIn = false;
-      return new Response("<!doctype html><title>Anmelden</title>", {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
+    if (hang) {
+      // A request that never answers, until the caller's signal gives up on it.
+      hang = false;
+      const signal = init?.signal;
+      return new Promise<Response>((_, reject) => {
+        signal?.addEventListener("abort", () => reject(signal.reason));
       });
     }
     // Another writer gets in between this write's read and its check.
@@ -67,7 +95,7 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     if (body.sha !== current) return reply({ detail: "Stale", current }, 409);
 
     const items = [...(note?.items ?? [])];
-    if (action === "items") items.push({ text: String(body.text), done: false });
+    if (action === "items") items.push({ text: serverText(String(body.text)), done: false });
     if (action === "tick") {
       const at = Number(body.line);
       if (items[at]) items[at] = { ...items[at], done: Boolean(body.done) };
@@ -78,6 +106,7 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     if (lose) {
       // The write landed and the answer never came back.
       lose = false;
+      down = loseThenDown;
       throw new TypeError("Failed to fetch");
     }
     return answer;
@@ -92,14 +121,27 @@ export function fakeShare(seed: Record<string, Seed[]>) {
       hook = run;
       hooks = times;
     },
-    /** The next write lands, and its answer is lost on the way back. */
-    loseNextAnswer: () => {
+    /** The next write lands, and its answer is lost on the way back. `thenDown` keeps the network down after it. */
+    loseNextAnswer: (thenDown = false) => {
       lose = true;
+      loseThenDown = thenDown;
     },
-    /** The next write is answered by the sign-in page. */
-    signInNext: () => {
-      signIn = true;
+    /** Every share request answers as an expired session does: the sign-in page, or a redirect to another origin. */
+    expireSession: (how: "html" | "opaque" = "html") => {
+      expired = how;
     },
+    sessionBack: () => {
+      expired = null;
+    },
+    /** The next write never answers. */
+    hangNext: () => {
+      hang = true;
+    },
+    networkUp: () => {
+      down = false;
+    },
+    /** How many requests the network refused while it was down. */
+    refusals: () => refused,
     /** Another writer adds an item at the top of a list, the way kasten would. */
     external: (name: string, text: string) => {
       const note = notes.get(name) ?? { rev: 0, items: [] };

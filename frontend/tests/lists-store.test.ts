@@ -23,6 +23,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   Reflect.deleteProperty(navigator, "onLine");
 });
 
@@ -154,7 +155,7 @@ describe("the lists store", () => {
     const store = createListsStore();
     await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
 
-    share.signInNext();
+    share.expireSession();
     store.add("Einkauf", "Milch");
 
     await vi.waitFor(() => expect(store.snapshot().signIn).toBe(true));
@@ -189,5 +190,89 @@ describe("the lists store", () => {
     expect(share.posts).toHaveLength(2);
     tabA.close();
     tabB.close();
+  });
+
+  it("an add whose answer was lost while the network stayed down is not added a second time", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+
+    share.loseNextAnswer(true);
+    store.add("Einkauf", "Milch");
+    // The check after the lost answer is refused too: the network is down.
+    await vi.waitFor(() => expect(share.refusals()).toBeGreaterThan(0));
+
+    share.networkUp();
+    window.dispatchEvent(new Event("online"));
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect(share.items("Einkauf").map((item) => item.text)).toEqual(["Milch"]);
+    expect(share.posts).toHaveLength(1);
+    store.close();
+  });
+
+  it("an add of text with two spaces or a field whose answer was lost is not added a second time", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+
+    share.loseNextAnswer();
+    // Two spaces between the words, and a Tasks field after them.
+    store.add("Einkauf", "Milch  Bio ✅ 2026-10-20");
+
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect(share.items("Einkauf").map((item) => item.text)).toEqual(["Milch Bio"]);
+    expect(share.posts).toHaveLength(1);
+    store.close();
+  });
+
+  it("a write answered by a redirect to another origin stays queued and asks to sign in", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+
+    share.expireSession("opaque");
+    store.add("Einkauf", "Milch");
+
+    await vi.waitFor(() => expect(store.snapshot().signIn).toBe(true));
+    expect(store.snapshot().queue).toHaveLength(1);
+    expect(store.snapshot().errors).toEqual([]);
+    store.close();
+  });
+
+  it("a successful read clears the sign-in state", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    share.expireSession();
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().signIn).toBe(true));
+
+    share.sessionBack();
+    window.dispatchEvent(new Event("online"));
+    await vi.waitFor(() => expect(store.snapshot().signIn).toBe(false));
+    expect(store.snapshot().lists.Einkauf).toBeDefined();
+    store.close();
+  });
+
+  it("a write that never answers is given up as transient after the timeout", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+
+    // The timeout is the browser's; the test holds its signal and gives it the abort.
+    const timeout = new AbortController();
+    const timeoutSignal = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeout.signal);
+    share.hangNext();
+    store.add("Einkauf", "Milch");
+    await vi.waitFor(() => expect(share.posts).toHaveLength(1));
+
+    timeout.abort(new DOMException("The operation timed out.", "TimeoutError"));
+    await vi.waitFor(() => expect(store.snapshot().queue).toHaveLength(1));
+    expect(timeoutSignal).toHaveBeenCalledWith(15000);
+    expect(store.snapshot().errors).toEqual([]);
+    store.close();
   });
 });

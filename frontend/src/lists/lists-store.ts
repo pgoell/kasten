@@ -53,15 +53,20 @@ const BASE = "/share";
 const TRIES = 3;
 const POLL_MS = 2000;
 const MAX_SUGGESTIONS = 5;
+// Long enough for a slow phone network, short enough that a hung write does not hold the drain lock for other tabs long.
+const TIMEOUT_MS = 15_000;
 const QUEUE_KEY = "kasten.lists.queue";
 const SEEN_KEY = "kasten.lists.seen";
 
 class HttpError extends Error {
   readonly status: number;
+  /** The server's reason when it gives one: a tick kasten must do is answered with one. */
+  readonly detail: string | undefined;
 
-  constructor(status: number) {
+  constructor(status: number, detail?: string) {
     super(`HTTP ${status}`);
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -75,7 +80,20 @@ class SignInError extends Error {}
  */
 function transient(error: unknown): boolean {
   if (error instanceof TypeError || error instanceof SignInError) return true;
+  // A request the timeout gave up on.
+  if (error instanceof DOMException && error.name === "TimeoutError") return true;
   return error instanceof HttpError && (error.status >= 500 || error.status === 409);
+}
+
+/** A 422 says why in `detail`. Read it, or leave it out when the body is not JSON. */
+async function detailOf(res: Response): Promise<string | undefined> {
+  try {
+    const body = (await res.json()) as { detail?: unknown };
+    return typeof body.detail === "string" ? body.detail : undefined;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
 }
 
 async function send<T>(method: string, path: string, body?: object): Promise<T> {
@@ -83,12 +101,20 @@ async function send<T>(method: string, path: string, body?: object): Promise<T> 
     method,
     // A list read from a cache could show a tick that was already undone.
     cache: "no-store",
+    // An expired session is redirected to the sign-in origin. Followed, that fails as a
+    // network error; left alone, it is an opaque redirect this code can name.
+    redirect: "manual",
+    // A request that never answers would hold the drain lock for every tab.
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
   // An expired session answers with the sign-in page: a redirect, or HTML where JSON was asked for.
-  if (res.redirected || res.status === 401 || res.status === 403) throw new SignInError();
-  if (!res.ok) throw new HttpError(res.status);
+  if (res.type === "opaqueredirect" || res.status === 401 || res.status === 403) {
+    throw new SignInError();
+  }
+  if (!res.ok)
+    throw new HttpError(res.status, res.status === 422 ? await detailOf(res) : undefined);
   try {
     return (await res.json()) as T;
   } catch (error) {
@@ -128,8 +154,23 @@ export function viewOf(snap: Snapshot, list: string): Item[] {
   return items;
 }
 
+/**
+ * The text the server keeps for an item, which is what a list shows and what the
+ * count compares against. Mirrors `share.add`, which writes `" ".join(text.split())`,
+ * and `_words` in backend/src/kasten_backend/share.py, which cuts the words before the
+ * first field marker and drops a trailing `^block-id`. Both run here, in that order.
+ */
+const FIELD_MARK = /📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|🔁|👤/u;
+const BLOCK_ID = /\s*\^[A-Za-z0-9_-]+$/;
+
+function shownText(text: string): string {
+  const words = text.split(/\s+/).filter(Boolean).join(" ");
+  return (words.split(FIELD_MARK)[0] ?? "").replace(BLOCK_ID, "").trim();
+}
+
 function openCount(list: ListData, text: string): number {
-  return list.items.filter((item) => !item.done && item.text === text).length;
+  const shown = shownText(text);
+  return list.items.filter((item) => !item.done && item.text === shown).length;
 }
 
 const fold = (text: string) => text.toLocaleLowerCase("de-DE");
@@ -236,7 +277,8 @@ export function createListsStore(): ListsStore {
   }
 
   function put(list: ListData): void {
-    update({ lists: { ...snap.lists, [list.name]: list } });
+    // Any answer that reads a list says the session is back.
+    update({ lists: { ...snap.lists, [list.name]: list }, signIn: false });
     remember(
       list.name,
       list.items.map((item) => item.text),
@@ -261,11 +303,15 @@ export function createListsStore(): ListsStore {
         op = { ...op, before: openCount(list, op.text) };
         patchQueued(op);
       }
+      // Sent before, and the list has one more of it: the answer was lost and the add is in.
+      // Checked on every try, so a read that failed once does not leave the add to be posted again.
+      if (op.kind === "add" && op.before !== undefined && openCount(list, op.text) > op.before) {
+        return;
+      }
       const request = requestFor(op, list);
       if (!request) return;
       try {
         put(await send<ListData>("POST", request.path, request.body));
-        update({ signIn: false });
         return;
       } catch (error) {
         const stale = error instanceof HttpError && error.status === 409;
@@ -296,7 +342,11 @@ export function createListsStore(): ListsStore {
         if (error instanceof SignInError) update({ signIn: true });
         if (!transient(error)) {
           // The server refused it for good. Say so, and let the rest go up.
-          fail(`Nicht gespeichert: ${op.list}`);
+          fail(
+            error instanceof HttpError && error.detail
+              ? error.detail
+              : `Nicht gespeichert: ${op.list}`,
+          );
           dequeue(op.id);
         } else if (await landed(op.id)) {
           dequeue(op.id);
@@ -313,7 +363,11 @@ export function createListsStore(): ListsStore {
       try {
         put(await getList(name));
       } catch (error) {
-        if (error instanceof SignInError) update({ signIn: true });
+        if (error instanceof SignInError) {
+          // The session is gone for every list, so the other reads would say the same.
+          update({ signIn: true });
+          return;
+        }
         if (!transient(error)) fail(`Liste ${name} nicht geladen`);
       }
     }
