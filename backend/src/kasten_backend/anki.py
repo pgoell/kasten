@@ -206,8 +206,9 @@ _HEADING = re.compile(r"#{1,6}[ \t]")
 """`HEADING` in `srs.ts`."""
 _ONLY_TAGS = re.compile(r"(?:#[^\W\d][\w/-]*[ \t]*)+")
 """`ONLY_TAGS` in `deck-tag.ts`, `[^\\W\\d]` and `\\w` standing in for the `\\p{L}` `re` lacks."""
-_FENCE = re.compile(r" {0,3}(?=```|~~~)")
-"""Where a CommonMark fence opens a line: up to three spaces, then three backticks or tildes."""
+_FENCE = re.compile(r"(?: {0,3}(?:>[ \t]?|(?:[-*+]|\d{1,9}[.)])[ \t]))* {0,3}(?=```|~~~)")
+"""Where a CommonMark fence opens a line: past any quote and list markers, each up to three
+spaces in, then up to three spaces, then three backticks or tildes."""
 
 
 @dataclass(frozen=True)
@@ -883,7 +884,8 @@ def as_note(deck: Deck) -> str:
     Two sides are written other than as they read, so that they read back as
     Anki showed them (#243): a front ending in `:` gets a space before the
     divider, and a side opening a line with a fence, three backticks or three
-    tildes, gets a backslash (#674).
+    tildes, gets a backslash (#674), also where a list or quote marker comes
+    first (#679).
 
     A cloze note holding a mark is a cloze, its marks being what tell kasten
     so, and is never left out. With a Back Extra that can stand as a `?` back,
@@ -1251,9 +1253,11 @@ def _unfenced(side: str) -> str:
 
     The client finds code with the editor's markdown parser, which reads any line
     opening with three backticks or three tildes, up to three spaces in, as a
-    fence, and both readers skip every card inside one (#674). The backslash is
+    fence, and both readers skip every card inside one (#674). A fence opening a
+    list item or a quote, `- ~~~` or `> ~~~`, is one too (#679). The backslash is
     markdown's own escape, so the side still shows its characters; it goes
-    before the first of them, the spaces staying where they were.
+    before the first of them, the markers and spaces staying where they were.
+    `-~~~` is no list item, a marker wanting a space after it, so it stays.
     """
     found = _FENCE.match(side)
     return side if found is None else f"{side[: found.end()]}\\{side[found.end() :]}"

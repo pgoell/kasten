@@ -402,7 +402,11 @@ export function parseCards(text: string, note = ""): Card[] {
   const schedules = (at: number) => SR.test(lines[at] ?? "") || CLOZE_SR.test(lines[at] ?? "");
 
   for (const [at, line] of lines.entries()) {
-    if (code[at] || line.trim() !== "?") continue;
+    // A `?` a card above already took is part of that card's back, not a card
+    // of its own: obsidian-spaced-repetition splits at blank lines only and the
+    // first `?` divides, and a second card here would share the first's lines
+    // and read and write its schedule (#678).
+    if (code[at] || taken[at] || line.trim() !== "?") continue;
 
     // The front runs back to the blank line or heading above it, outside code.
     // A `?` with nothing over it is a line of prose, not a card missing its question.

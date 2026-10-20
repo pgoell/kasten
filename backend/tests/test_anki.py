@@ -2178,6 +2178,67 @@ def test_674_i2_a_re_import_escapes_a_tilde_side_and_keeps_its_schedule() -> Non
     )
 
 
+def test_679_a4_a_side_line_opening_a_list_item_with_a_fence_is_escaped() -> None:
+    # CommonMark reads a fence inside a list item, so the card under it would
+    # be code; the backslash goes after the marker, right before the fence.
+    deck = basic_deck(("- ~~~", "b"), ("* ```x\n1. ~~~", "- ~~~ y"), ("a", "b"))
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n- \\~~~::b{mark(1)}\n\n* \\```x\n1. \\~~~\n?\n- \\~~~ y{mark(2)}\n\n"
+        f"a::b{mark(3)}\n"
+    )
+
+
+def test_679_a5_a_side_line_opening_a_quote_with_a_fence_is_escaped() -> None:
+    # A quote holds a fence too, with or without the space after `>`, and so
+    # does a list item inside a quote.
+    deck = basic_deck(("> ```", "b"), (">~~~\n> - ~~~", "c"), ("a", "b"))
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n> \\```::b{mark(1)}\n\n>\\~~~\n> - \\~~~\n?\nc{mark(2)}\n\n"
+        f"a::b{mark(3)}\n"
+    )
+
+
+def test_679_a6_a_tab_after_a_list_or_quote_marker_still_escapes_the_fence() -> None:
+    # CommonMark takes a tab where it takes the space after a marker.
+    deck = basic_deck(("-\t~~~", "b"), (">\t```", "c"))
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n-\t\\~~~::b{mark(1)}\n>\t\\```::c{mark(2)}\n"
+    )
+
+
+def test_679_i3_a_re_import_escapes_a_list_fence_side_and_keeps_its_schedule() -> None:
+    # The old import wrote the side bare, so the marker's hash still finds it
+    # and the card reads as one Anki changed.
+    old = (
+        f"#flashcards/x\n\n- ~~~ js::code{marked(1, '- ~~~ js::code')} {SR1}\n"
+        f"a::b{marked(2, 'a::b')}\n"
+    )
+
+    merged = merge(old, basic_deck(("- ~~~ js", "code"), ("a", "b")))
+
+    assert merged is not None
+    assert (merged.text, merged.updated, merged.kept) == (
+        f"#flashcards/x\n\n- \\~~~ js::code{marked(1, '- \\~~~ js::code')} {SR1}\n"
+        f"a::b{marked(2, 'a::b')}\n",
+        1,
+        1,
+    )
+
+
+def test_679_i4_a_list_item_or_quote_with_no_fence_stays_unescaped() -> None:
+    # A marker with no fence after it, a fence after other text and `-~~~`,
+    # which is no list item, open no code block; `- ~~~` beside them does.
+    deck = basic_deck(("- a", "b"), ("> b", "c"), ("a ~~~", "d"), ("-~~~", "e"), ("- ~~~", "f"))
+
+    assert unhashed(as_note(deck)) == (
+        f"#flashcards/x\n\n- a::b{mark(1)}\n> b::c{mark(2)}\na ~~~::d{mark(3)}\n"
+        f"-~~~::e{mark(4)}\n- \\~~~::f{mark(5)}\n"
+    )
+
+
 def test_leaves_out_a_question_holding_the_divider_with_no_answer() -> None:
     deck = basic_deck(("What does std::move do?", ""), ("a", "b"))
 
