@@ -8,7 +8,7 @@
 
 import { noteBody } from "@/lib/note-frontmatter";
 
-/** Any heading, which is what ends the section above it. */
+/** Any heading outside a fence, which is what ends the section above it. */
 const HEADING = /^#{1,6} /;
 
 /** An ATX heading's level and its title. */
@@ -16,6 +16,36 @@ const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 
 /** The run of backticks or tildes that opens or closes a fenced code block. */
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
+/**
+ * The indices of the lines that are fenced code, fences included.
+ *
+ * A `# comment` in a shell block is code, not a heading: it neither opens a
+ * section nor ends one. A fence closes on a run of its own character at least as
+ * long as the one that opened it, which is CommonMark's rule.
+ */
+function fencedLines(lines: string[]): Set<number> {
+  const coded = new Set<number>();
+  let open: string | null = null;
+  lines.forEach((line, index) => {
+    const fence = FENCE.exec(line)?.[1];
+    if (open === null && fence !== undefined) {
+      open = fence;
+      coded.add(index);
+    } else if (open !== null) {
+      const closes =
+        fence !== undefined &&
+        fence[0] === open[0] &&
+        fence.length >= open.length &&
+        line.trim() === fence;
+      if (closes) {
+        open = null;
+      }
+      coded.add(index);
+    }
+  });
+  return coded;
+}
 
 /**
  * The section `heading` opens in `text`, and the 1-based line it opens on.
@@ -29,26 +59,7 @@ export function sectionOf(text: string, heading: string): { text: string; line: 
   const lines = text.split("\n");
   const wanted = heading.trim().toLowerCase();
 
-  // A `# comment` in a shell block is code, not a heading: it neither opens a
-  // section nor ends one. A fence closes on a run of its own character at
-  // least as long as the one that opened it, which is CommonMark's rule.
-  const coded = new Set<number>();
-  let open: string | null = null;
-  lines.forEach((line, index) => {
-    const fence = FENCE.exec(line)?.[1];
-    if (open === null && fence !== undefined) open = fence;
-    else if (open !== null) {
-      const closes =
-        fence !== undefined &&
-        fence[0] === open[0] &&
-        fence.length >= open.length &&
-        line.trim() === fence;
-      if (closes) {
-        open = null;
-      }
-      coded.add(index);
-    }
-  });
+  const coded = fencedLines(lines);
 
   const titleAt = (index: number) => (coded.has(index) ? null : TITLED.exec(lines[index] ?? ""));
   const levelAt = (index: number) => titleAt(index)?.[1]?.length ?? 0;
@@ -97,7 +108,14 @@ export interface Edit {
  */
 export function appendUnderEdit(text: string, heading: string, line: string): Edit {
   const lines = text.split("\n");
-  const at = lines.indexOf(heading);
+  // The readers take a heading with trailing spaces or tabs, and never one in a
+  // fence or the frontmatter, so the writer finds the same one they do.
+  const above = lines.length - noteBody(text).split("\n").length;
+  const fenced = fencedLines(lines.slice(above));
+  const isFenced = (index: number) => fenced.has(index - above);
+  const at = lines.findIndex(
+    (held, index) => index >= above && !isFenced(index) && held.trimEnd() === heading,
+  );
 
   if (at === -1) {
     // No section, so it is made at the end, off a blank line from whatever the
@@ -107,7 +125,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
   }
 
   let end = at + 1;
-  while (end < lines.length && !HEADING.test(lines[end] ?? "")) end += 1;
+  while (end < lines.length && !(HEADING.test(lines[end] ?? "") && !isFenced(end))) end += 1;
   while (end > at + 1 && (lines[end - 1] ?? "").trim() === "") end -= 1;
 
   // Nothing follows the section, so the line goes on the end with a newline in
