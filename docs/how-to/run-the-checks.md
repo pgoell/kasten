@@ -45,9 +45,11 @@ To check particular files, pass their paths:
 python3 scripts/file_size.py docs/log.md frontend/src/routes/index.tsx
 ```
 
-The pre-commit hook runs the check on the staged files, so a commit fails fast
-when it stages a file over the limit. `mise run lint` checks every tracked file,
-and both pre-commit and CI's Lint job run it. The [file size limit](/explanation/file-size-limit.md)
+The pre-commit hook runs `mise run lint`, and its `lint:size` checks every
+tracked file as it stands in the working tree. A commit fails while any tracked
+file is over the limit, staged or not. The hook also runs the check on the staged
+files, which names a staged file over the limit on its own. CI's Lint job runs
+`mise run lint` too. The [file size limit](/explanation/file-size-limit.md)
 page says why the limit exists and how to split a file that is over it.
 
 ## When the hook hangs with no output

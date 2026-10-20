@@ -8,10 +8,12 @@ status: stable
 
 # The file size limit
 
-An authored file stays under 5,000 tokens. `scripts/file_size.py` checks it, and
-the pre-commit hook runs the check on the files a commit stages. This page says
-why the limit exists and what to do when a commit trips it. For the commands,
-see [Run the checks](/how-to/run-the-checks.md).
+An authored file stays under 5,000 tokens. `scripts/file_size.py` checks it.
+Pre-commit runs `mise run lint`, whose `lint:size` checks every tracked file as
+it stands in the working tree, so a commit fails while any tracked file is over
+the limit, staged or not. This page says why the limit exists and what to do
+when a commit trips it. For the commands, see
+[Run the checks](/how-to/run-the-checks.md).
 
 ## Why a cap
 
@@ -47,21 +49,20 @@ reader then opens all of them to follow one task. John Ousterhout, in
 hides a lot of work. A deep module keeps that work behind a few functions, so a
 reader needs only one module to follow the task.
 
-## Why the hook checks staged files first
+## Why the check runs twice
 
-The hook runs the check on the files a commit stages, so a commit fails fast
-when it stages any file over the limit, whether that file was already over or is
-new or has grown past it. `mise run lint` checks every tracked file. Pre-commit
-runs it too, and so does CI's Lint job, so a file over the limit anywhere in the
-tree fails the gate. The list of files over the limit is in
-`python3 scripts/file_size.py`.
+The whole-repo check in `mise run lint` comes first in pre-commit. A second,
+narrower command runs on the staged files. It predates the whole-repo check and
+stays, so a staged file over the limit is named on its own. CI's Lint job runs
+`mise run lint` too, so the same whole-repo check gates a pull request. The list
+of files over the limit is in `python3 scripts/file_size.py`.
 
-## What a commit that stages a big file does
+## What a commit does with a file over the limit
 
-The commit fails. The output names each file over the limit with its token
-count, and it prints the advice above. To get past it, split the file along a
-deep module, stage the split, and commit again. Do not use `--no-verify`. A trim
-that leaves the file over the limit fails too.
+The commit fails, staged or not. The output names each file over the limit with
+its token count, and it prints the advice above. To get past it, split the file
+along a deep module, stage the split, and commit again. Do not use `--no-verify`.
+A trim that leaves the file over the limit fails too.
 
 ## Related
 

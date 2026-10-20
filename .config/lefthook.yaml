@@ -7,9 +7,9 @@ pre-commit:
   commands:
     lint:
       run: mise run lint
-    # Staged files only, so a commit fails fast when it stages a file over the
-    # limit, new or old. `mise run lint` above checks every tracked file. With
-    # nothing staged lefthook skips this command.
+    # The narrower staged-files check. It predates the whole-repo one in
+    # `mise run lint` above, and stays so a staged file over the limit is named
+    # on its own. With nothing staged lefthook skips this command.
     file-size:
       run: python3 scripts/file_size.py {staged_files}
 

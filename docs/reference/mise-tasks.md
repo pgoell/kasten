@@ -131,8 +131,9 @@ one, which is the price of the frontend being gated the way the backend
 already was.
 
 `lint:size` runs `scripts/file_size.py` with no arguments, so it checks every
-tracked file. The pre-commit hook also runs the script on the staged files, and
-fails a commit that stages a file over 5,000 tokens. See
+tracked file. Pre-commit runs `lint`, so a commit fails while any tracked file is
+over 5,000 tokens, staged or not. Pre-commit also runs the script on the staged
+files, which names a staged file over the limit on its own. See
 [The file size limit](/explanation/file-size-limit.md).
 
 ## Repo automation
