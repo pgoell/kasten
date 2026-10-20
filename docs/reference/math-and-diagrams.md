@@ -75,7 +75,7 @@ diagram mermaid knows can go in the block.
 A math block and a diagram follow the table's rule: the cursor in the block,
 in any mode, shows the whole block as source, and the cursor anywhere else
 draws it. `j` and `k` step over a drawn block; a click, `w`, a search or a line
-jump puts the cursor in it. [The three blocks](/explanation/live-preview.md#the-three-blocks)
+jump puts the cursor in it. [The three blocks](/explanation/live-preview/the-three-blocks.md#the-three-blocks)
 says why.
 
 Inline math follows the inline rule: in insert or visual mode, the formula the

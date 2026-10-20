@@ -91,7 +91,7 @@ again.
 
 That is also what makes a card's own tag worth having. A note about stored
 procedures holds one card about dbt, and
-[a tag at the head of that card's line](/reference/flashcard-format.md#a-card-in-a-second-deck)
+[a tag at the head of that card's line](/reference/flashcard-format/writing-cards-and-decks.md#a-card-in-a-second-deck)
 puts that card in the `dbt` deck without moving it, copying it or dragging the
 other eight cards along with it.
 
@@ -117,7 +117,7 @@ something away, and the second one would apply to decks only.
 What the folder cannot do is take out one card. Archiving moves a note, and a
 deck of two hundred cards holding one you are tired of is not a note you are
 finished with. So there is a per-card state beside the folder,
-[a parked card](/reference/flashcard-format.md#parking-a-card), and it is a
+[a parked card](/reference/flashcard-format/reviewing-cards.md#parking-a-card), and it is a
 token on the card's own line rather than a key: the card is the thing being
 parked, the note is not, and the state belongs where the card is written. The
 two do not overlap. The folder files a note away, the token takes one card out
@@ -163,7 +163,7 @@ would count wrong after a reload on another device.
 The three numbers are enough. Every rating writes a due date of today plus the
 interval, so a card whose two agree was answered today, and a first answer
 always lands on the starting ease with a gap of 1 or 4. Two rare cases read
-wrong, both named in [the format](/reference/flashcard-format.md#daily-limits),
+wrong, both named in [the format](/reference/flashcard-format/reviewing-cards.md#daily-limits),
 and the cost of either is one card more or less in a day's sitting.
 
 The limits themselves live in a note, `decks.md`, rather than in settings, for

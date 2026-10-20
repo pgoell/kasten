@@ -43,7 +43,7 @@ it, and says why in the line under the diff, when:
 
 A change whose text is the note as it is now cannot be restored, and the line
 says so. `Escape` or `q` closes the pane. Every key is in
-[Editor keys](/reference/editor-keys.md#the-history-pane).
+[Editor keys](/reference/editor-keys/panes-and-tabs.md#the-history-pane).
 
 The rest of this page does the same with jj on the server.
 

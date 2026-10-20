@@ -1,7 +1,8 @@
-"""The HTTP API page against the routes the app declares.
+"""The HTTP API pages against the routes the app declares.
 
-The page's opening counts the `/api/` routes in words and gives each one a
-`## METHOD /api/...` section. Both drift silently when a route lands without a
+The index page's opening counts the `/api/` routes in words, and each route
+gets a `## METHOD /api/...` section on one of the topic pages under
+`docs/reference/http-api/`. Both drift silently when a route lands without a
 doc change (#608), so this reads them back and compares them with `app.routes`.
 """
 
@@ -12,7 +13,9 @@ from fastapi.routing import APIRoute
 
 from kasten_backend.main import app
 
-DOC = Path(__file__).parents[2] / "docs" / "reference" / "http-api.md"
+DOCS = Path(__file__).parents[2] / "docs" / "reference"
+INDEX = DOCS / "http-api.md"
+TOPICS = sorted((DOCS / "http-api").glob("*.md"))
 
 # The one GET that streams rather than reads.
 STREAM = ("GET", "/api/events")
@@ -57,12 +60,13 @@ def api_routes() -> set[tuple[str, str]]:
 
 
 def test_the_http_api_page_counts_and_heads_every_api_route() -> None:
-    text = DOC.read_text(encoding="utf-8")
+    index = INDEX.read_text(encoding="utf-8")
+    pages = "\n".join(page.read_text(encoding="utf-8") for page in TOPICS)
     routes = api_routes()
 
     headings = {
         (match["method"], match["path"])
-        for match in re.finditer(r"^## (?P<method>[A-Z]+) (?P<path>/api/\S+)$", text, re.M)
+        for match in re.finditer(r"^## (?P<method>[A-Z]+) (?P<path>/api/\S+)$", pages, re.M)
     }
     assert headings == routes, (
         f"sections without a route: {sorted(headings - routes)}, "
@@ -73,7 +77,7 @@ def test_the_http_api_page_counts_and_heads_every_api_route() -> None:
         r"serves\s+(?P<total>[a-z-]+)\s+endpoints\s+under\s+`/api/`\.\s+"
         r"(?P<read>[A-Za-z-]+)\s+read,\s+(?P<write>[a-z-]+)\s+write,\s+"
         r"and\s+(?P<stream>[a-z-]+)\s+streams?\.",
-        text,
+        index,
     )
     assert opening is not None
     stated = {part: number(opening[part]) for part in ("total", "read", "write", "stream")}

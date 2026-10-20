@@ -83,7 +83,7 @@ written, nested lists and mappings included. kasten neither adds nor removes it.
 Deleting one of your own fields is an edit like any other and it stays deleted.
 
 Three things kasten writes land in this half of the block.
-[An imported web page](/reference/editor-keys.md#importing-a-web-page) arrives
+[An imported web page](/reference/editor-keys/capture.md#importing-a-web-page) arrives
 carrying `resource`, the address the page was read from, and `author` and
 `published` where the page named them. They are written once, by the client, in
 the text it hands to `POST`, and they are yours from that moment: a save copies
@@ -92,28 +92,28 @@ the address as `source`. Nothing rewrites them, and nothing reads either field,
 so an old clipping keeps `source` until you change it by hand.
 
 The second is `reading:`, which
-[the book pane](/reference/editor-keys.md#the-book-pane) writes into a
+[the book pane](/reference/editor-keys/book-pane.md#the-book-pane) writes into a
 literature note as you turn pages. It holds an epubcfi naming the page you
 stopped on, and the reader passes it back to foliate when the book opens again.
 The client writes this one too, into the text it hands to `PUT`, so the same
 rule holds: deleting the line loses a bookmark and nothing else, and
-[The file beside a note](/explanation/books-in-the-vault.md#how-it-keeps-your-place)
+[The file beside a note](/explanation/books-in-the-vault/highlights-and-place.md#how-it-keeps-your-place)
 says what that costs.
 
 The third is `sr-due`, `sr-interval` and `sr-ease`, which
-[a note marked for review](/reference/flashcard-format.md#a-whole-note-for-review)
+[a note marked for review](/reference/flashcard-format/writing-cards-and-decks.md#a-whole-note-for-review)
 carries. They hold when the note comes back, the days between this reading and
 that, and how fast the gap grows. The client writes these too, and the same rule
 holds: `sr-due` typed by hand is enough to schedule a note, and deleting all
 three takes the note out of the review and nothing else.
 
 Beside them is `sr-suspended`, which
-[parks the note](/reference/flashcard-format.md#a-whole-note-for-review) without
+[parks the note](/reference/flashcard-format/writing-cards-and-decks.md#a-whole-note-for-review) without
 touching its schedule. `true` parks it and anything else does not, so a note put
 back carries `sr-suspended: false` rather than losing the key.
 
 kasten reads one field it never writes: `aliases`, the other names a note goes
-by. [Unlinked mentions](/reference/http-api.md#get-apimentions) look for each
+by. [Unlinked mentions](/reference/http-api/finding.md#get-apimentions) look for each
 of them beside the note's title, and nothing else reads them, so `[[alias]]`
 does not reach the note. Three spellings work:
 
@@ -141,7 +141,7 @@ the table say why.
 | What wrote the note | `type` |
 | --- | --- |
 | A periodic note, at any of the five grains | `Periodic Note` |
-| [A clipped web page](/reference/editor-keys.md#importing-a-web-page) | `Source` |
+| [A clipped web page](/reference/editor-keys/capture.md#importing-a-web-page) | `Source` |
 | The saved todo views note | `Reference` |
 | `How-To-TODO.md` and `How-To-Exam.md`, the two format guides | `Reference` |
 | A note with an epub beside it | `Book` |
@@ -176,10 +176,10 @@ It goes in over `Note` or over nothing, and over nothing else. A note you typed
 
 ## When the block is written
 
-* [`POST /api/files/{path}`](/reference/http-api.md#post-apifilespath) starts a
+* [`POST /api/files/{path}`](/reference/http-api/notes.md#post-apifilespath) starts a
   note holding its block and nothing else, so a note has an id from the moment
   it exists rather than from its first save.
-* [`PUT /api/files/{path}`](/reference/http-api.md#put-apifilespath) stamps the
+* [`PUT /api/files/{path}`](/reference/http-api/notes.md#put-apifilespath) stamps the
   text on the way through. A note written before kasten, or by hand, gains a
   block on its first save.
 * A move writes no block, with one exception. `PATCH` changes where a note

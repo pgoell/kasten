@@ -14,7 +14,7 @@ to do by touch what the keys do at a desk. A row of buttons runs along the
 bottom edge: `files`, `find`, `search`, `run`, `today`, `todos` and `chat`. Every
 recipe below starts there.
 
-[Editor keys](/reference/editor-keys.md#what-counts-as-a-phone) says which
+[Editor keys](/reference/editor-keys/touch.md#what-counts-as-a-phone) says which
 devices draw the row. Where there is none, use `Ctrl+Shift+P` on a keyboard, or
 type `/` at the start of a line, where a recipe says `run`.
 
@@ -144,7 +144,7 @@ keyboard's Enter, or clear the input and then tap outside.
 
 ## Related
 
-* [Editor keys](/reference/editor-keys.md#touch): every button, the command it calls, and what is still keys only
+* [Editor keys](/reference/editor-keys/touch.md#touch): every button, the command it calls, and what is still keys only
 * [kasten on a phone](/explanation/kasten-on-a-phone.md): why it works this way
 * [Capture from your phone](/how-to/capture-from-your-phone.md): the capture page, for a thought on the go
 * [Write a practice exam](/how-to/write-a-practice-exam.md#sit-it-by-touch): sit an exam by touch

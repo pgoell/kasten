@@ -71,7 +71,7 @@ curl -X POST -H 'content-type: application/json' \
 
 A mint answers `201` with the secret, a name already taken `409`, and a revoke
 of a name the store does not hold `404`. The shapes are in
-[HTTP API](/reference/http-api.md#get-apitokens).
+[HTTP API](/reference/http-api/system.md#get-apitokens).
 
 ## Claude Code
 
@@ -140,7 +140,7 @@ header is `Authorization: Bearer <secret>`, and every request is a `POST`.
 
 Do not expect such a client to sign in through OAuth. kasten sends a code only
 to the claude.ai, claude.com and chatgpt.com callbacks
-[listed in the Agent API](/reference/agent-api.md#get-and-post-apioauthauthorize),
+[listed in the Agent API](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize),
 and it has no endpoint for a client to register itself. A client that offers
 a sign-in button fails there; give it a token instead.
 
@@ -186,7 +186,7 @@ describes the browser's API and is behind the login gate.
 
 An append needs no digest. A whole-note save does: read the note first and
 present the `sha` that read returned, not a digest of the text you are sending.
-[What a digest is of](/reference/agent-api.md#what-a-digest-is-of-and-why-it-is-never-the-digest-of-what-you-sent)
+[What a digest is of](/reference/agent-api/routes.md#what-a-digest-is-of-and-why-it-is-never-the-digest-of-what-you-sent)
 says why those two differ.
 
 ## Claude Code where MCP is off

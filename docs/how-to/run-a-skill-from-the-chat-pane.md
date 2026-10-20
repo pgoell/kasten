@@ -104,4 +104,4 @@ session, and a question can be answered from either.
 
 * [The chat pane](/explanation/the-chat-pane.md): why it is built this way
 * [Chat runner](/reference/chat-runner.md): the routes and events behind it
-* [Editor keys](/reference/editor-keys.md#the-chat-pane): every key
+* [Editor keys](/reference/editor-keys/terminal.md#the-chat-pane): every key

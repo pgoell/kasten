@@ -130,7 +130,7 @@ basic auth does not, because the browser resends the password with any post to
 the host, from any site. So the backend refuses a post that does not come from
 its own page.
 [The agent boundary](/explanation/the-agent-boundary.md#what-the-authorization-server-exposes)
-says why, and [Agent API](/reference/agent-api.md#get-and-post-apioauthauthorize)
+says why, and [Agent API](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize)
 states the headers it reads.
 
 **Page fetching.** `GET /api/fetch` reads a web page from the server, because a

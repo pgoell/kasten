@@ -11,7 +11,7 @@ status: stable
 kasten was built for a keyboard: every command is a key, and the frame assumes
 a wide screen. A phone has neither. What follows are the choices made to close
 that gap, each with the option it was picked over.
-[Editor keys](/reference/editor-keys.md#touch) states what is there, and
+[Editor keys](/reference/editor-keys/touch.md#touch) states what is there, and
 [Use kasten on a phone](/how-to/use-kasten-on-a-phone.md) is the recipe.
 
 ## Two questions, not one
@@ -49,7 +49,7 @@ sequence is a vim mapping, and one that turned vim off could not turn it back
 on.
 
 What the editor shows without a mode to go by is in
-[Live preview and the vim mode](/explanation/live-preview.md#the-mode-decides-not-the-cursor).
+[Live preview and the vim mode](/explanation/live-preview/cursor-and-marks.md#the-mode-decides-not-the-cursor).
 
 ## A split draws one pane
 
@@ -115,7 +115,7 @@ keyboard would fold away under the finger.
 
 Keeping the toolbar in sight takes work on iOS, where the keyboard covers the
 page and does not shrink it.
-[The on-screen keyboard](/reference/editor-keys.md#the-on-screen-keyboard)
+[The on-screen keyboard](/reference/editor-keys/touch.md#the-on-screen-keyboard)
 states how the frame makes room. One reader does that for the whole frame, and
 not one per pane: a second reader inside a pane would measure after the first
 had made room, and find nothing covered.

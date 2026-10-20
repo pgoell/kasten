@@ -73,12 +73,12 @@ says why. To send something from another app, copy it, open `/capture` and paste
 ## At the desk
 
 `<leader>cd` opens the same capture as a one-line prompt over whatever you are
-doing, described in [Editor keys](/reference/editor-keys.md#capturing-into-todays-dump).
+doing, described in [Editor keys](/reference/editor-keys/capture.md#capturing-into-todays-dump).
 It keeps the thought the same way, and says "Captured, waiting to send" when it
 could not go yet.
 
 ## Related
 
 * [Install kasten on your phone](/how-to/install-on-your-phone.md): the install itself, and the one-time step after an earlier capture app
-* [HTTP API](/reference/http-api.md#post-apidump): where in the note each capture lands
-* [Agent API](/reference/agent-api.md#post-agentdump): the same capture for an agent, as a tool or a route
+* [HTTP API](/reference/http-api/capture.md#post-apidump): where in the note each capture lands
+* [Agent API](/reference/agent-api/routes.md#post-agentdump): the same capture for an agent, as a tool or a route

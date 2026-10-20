@@ -1,13 +1,19 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { LEADER, LEADER_EDITS, TODO_PANE } from "@/lib/key-bindings";
 
 /**
- * The reference page, read off the file rather than copied, so the panel's
- * table and the page's table are held to each other and not to a third list.
+ * The reference page and the topic pages in its folder, read off the files
+ * rather than copied, so the panel's table and the page's table are held to
+ * each other and not to a third list.
  */
-const PAGE = readFileSync("../docs/reference/editor-keys.md", "utf-8");
+const PAGE = [
+  readFileSync("../docs/reference/editor-keys.md", "utf-8"),
+  ...readdirSync("../docs/reference/editor-keys")
+    .sort()
+    .map((name) => readFileSync(`../docs/reference/editor-keys/${name}`, "utf-8")),
+].join("\n");
 
 /** The text from a heading line to the next heading of its level or above. */
 function section(heading: string): string {
@@ -47,10 +53,10 @@ function presses(key: string): string[] {
 
 describe("the todo pane on the reference page", () => {
   it("#419 lists every todo pane key the panel lists, and the panel every board key", () => {
-    const pane = section("## The todo pane");
-    const board = section("### The board");
-    const list = rows(pane.slice(0, pane.indexOf("\n### The board\n")));
-    const boardRows = rows(board);
+    // The board has its own page, so each table is read from its own heading;
+    // section() asserts the heading is there.
+    const list = rows(section("## The todo pane"));
+    const boardRows = rows(section("### The board"));
 
     // Each panel row in the table it belongs to: a key only the board takes in
     // the board's table, every other one in the list's.
@@ -95,7 +101,7 @@ const LEADER_GROUPS: Record<string, string[]> = {
 
 describe("the deck folds on the reference pages (#517)", () => {
   it("#517 A6 both key tables name za and the import guide names the Import entry", () => {
-    const format = readFileSync("../docs/reference/flashcard-format.md", "utf-8");
+    const format = readFileSync("../docs/reference/flashcard-format/reviewing-cards.md", "utf-8");
     const sitting = format.slice(format.indexOf("\n## Sitting one\n"));
     const formatKeys = rows(sitting.slice(0, sitting.indexOf("\n### ")));
     const guide = readFileSync("../docs/how-to/import-an-anki-deck.md", "utf-8");

@@ -48,17 +48,19 @@ v0.2. Read [docs/index.md](../docs/index.md) first; it explains the arrangement.
 
 When you add or change a page:
 
-- Every page except `index.md` and `log.md` carries YAML frontmatter, and
-  `type` is required. Use the quadrant as the type: `Tutorial`,
-  `How-to Guide`, `Reference` or `Explanation`. Add `title`, `description`,
-  `tags` and `status` too.
+- Every page except `index.md` and `log.md`, and the day pages under
+  `docs/log/`, carries YAML frontmatter, and `type` is required. Use the
+  quadrant as the type: `Tutorial`, `How-to Guide`, `Reference` or
+  `Explanation`. Add `title`, `description`, `tags` and `status` too.
 - Put the page in the quadrant that matches its job. A tutorial teaches a
   beginner, a how-to serves someone who knows what they want, a reference
   states what is there, an explanation gives the why. Mixing two of those into
   one page is the failure this structure exists to prevent.
 - Link between pages with bundle-relative markdown links, `/reference/http-api.md`.
-- Update the `index.md` of the directory you touched, and add a dated entry to
-  `docs/log.md`.
+- Update the `index.md` of the directory you touched, and add an entry to the
+  day's page `docs/log/<year>/<MM-DD>.md`, making the page and its link in
+  `docs/log.md` if it is not there yet; a day page over 5,000 tokens splits by
+  subject.
 - Never add AI attribution, so no `generated:` or `verified:` frontmatter.
 
 Deployment is documentation like everything else: the runbook is

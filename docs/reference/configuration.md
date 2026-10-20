@@ -59,7 +59,7 @@ host port, and the dev backend runs on the host rather than in a container.
 
 The folder holding what is finished, which `GET /api/search` and
 `GET /api/todos` walk past unless the request asks for it. The editor reads it
-from [`GET /api/layout`](/reference/http-api.md#get-apilayout) and hides it from
+from [`GET /api/layout`](/reference/http-api/finding.md#get-apilayout) and hides it from
 the tree and the todo list the same way.
 
 An ordinary folder in the vault, and this name is the only thing kasten knows
@@ -76,7 +76,7 @@ Set it to a name no folder has and nothing is left out of anything.
 
 Five settings name the folders kasten files into or looks in. Each is a path
 from the vault root, and each default is the folder one vault already used.
-[`GET /api/layout`](/reference/http-api.md#get-apilayout) serves them to the
+[`GET /api/layout`](/reference/http-api/finding.md#get-apilayout) serves them to the
 editor, and the startup notes and the agent instructions spell them as set.
 
 | Setting | Default | What goes there |
@@ -99,7 +99,7 @@ nothing creates it or changes it, except a move of the book's note, which
 rewrites the link as it rewrites any other. Its body holds one `[[wikilink]]` to
 the note of the book you are reading, such as `[[The Expectant Father]]`, and
 the link resolves by the vault's usual rule. With several links the first one
-counts. [`<leader>gc`](/reference/editor-keys.md#the-book-pane) reads it afresh
+counts. [`<leader>gc`](/reference/editor-keys/book-pane.md#the-book-pane) reads it afresh
 on each press and opens that book.
 
 Changing a folder setting moves nothing. Notes already in the old folder stay
@@ -146,7 +146,7 @@ How many new cards a sitting of a deck introduces a day.
 | Read by | `GET /api/review/limits` |
 
 The fallback for a deck that neither
-[`decks.md`](/reference/flashcard-format.md#daily-limits) nor a deck above it
+[`decks.md`](/reference/flashcard-format/reviewing-cards.md#daily-limits) nor a deck above it
 gives a limit. Set it so a 2,000 card import does not make the first sitting
 absurd in a vault where nobody wrote `decks.md`.
 
@@ -205,7 +205,7 @@ refuses every bearer rather than failing to start.
 
 The folder a file sent in pieces is joined in, until
 `POST /api/anki?upload=` or `POST /api/assets/{path}?upload=` reads it. See
-[`POST /api/uploads`](/reference/http-api.md#post-apiuploads).
+[`POST /api/uploads`](/reference/http-api/assets-and-books.md#post-apiuploads).
 
 | | |
 | --- | --- |
@@ -259,7 +259,7 @@ the world sees `https`, and every comparison fails.
 
 The backend logs a warning at startup while this is empty, and starts anyway.
 It also bounds the `Origin` check on the
-[consent `POST`](/reference/agent-api.md#get-and-post-apioauthauthorize):
+[consent `POST`](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize):
 `https://{value}` is accepted there as well as the request's own host.
 
 ## KASTEN_HERDR_SESSIONS_PATH

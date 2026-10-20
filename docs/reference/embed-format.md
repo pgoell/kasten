@@ -9,7 +9,7 @@ status: stable
 
 # Embed format
 
-An embed draws one note inside another. It is a [wikilink](/reference/editor-keys.md#wikilinks)
+An embed draws one note inside another. It is a [wikilink](/reference/editor-keys/links.md#wikilinks)
 with a `!` in front, the syntax Obsidian uses, so a vault read there draws the
 same embeds.
 

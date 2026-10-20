@@ -29,6 +29,24 @@ Lefthook runs some of this for you, from `.config/lefthook.yaml`:
 Anything slow enough to make you reach for `--no-verify` belongs in pre-push,
 not pre-commit.
 
+## Find files over the size limit
+
+An authored file should stay under 5,000 tokens, counted as bytes divided by
+four (20 KB). To list every tracked file over it:
+
+```sh
+python3 scripts/file_size.py
+```
+
+To check particular files, pass their paths:
+
+```sh
+python3 scripts/file_size.py docs/log.md frontend/src/routes/index.tsx
+```
+
+The check is not part of `mise run lint` or the pre-commit hook yet. It joins
+both once the list is empty (#611).
+
 ## When the hook hangs with no output
 
 A commit that sits there printing nothing but the lefthook banner is mise

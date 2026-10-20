@@ -156,8 +156,8 @@ so.
 
 ## Related
 
-* [HTTP API](/reference/http-api.md#patch-apifilespath): the move routes, the preview, and the rules for links and entries
-* [Editor keys](/reference/editor-keys.md#dragging-a-row): dragging a row, and the keys in the confirm
+* [HTTP API](/reference/http-api/moving.md#patch-apifilespath): the move routes, the preview, and the rules for links and entries
+* [Editor keys](/reference/editor-keys/file-tree.md#dragging-a-row): dragging a row, and the keys in the confirm
 * [Mise tasks](/reference/mise-tasks.md#vault-maintenance): `index:backfill`
 * [OKF in the vault](/explanation/okf-in-the-vault.md): why the vault is a bundle with indexes in it at all
 * [Deleting a note](/explanation/deleting-a-note.md): the other write that takes a folder away

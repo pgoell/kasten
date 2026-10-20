@@ -87,7 +87,7 @@ shows it, and a rating writes its schedule after it. Leave it in place.
 
 A question that holds `::` itself, such as `What does std::move do?`, would be
 cut at its first `::` on one line, so it is written
-[over three lines](/reference/flashcard-format.md#over-several-lines) instead,
+[over three lines](/reference/flashcard-format/writing-cards-and-decks.md#over-several-lines) instead,
 with a blank line above and below. The question's second colon is written
 `&#58;`, which the review shows as a colon, so the line does not read as a card
 of its own:
@@ -124,7 +124,7 @@ The tag cannot hold a space, so a deck called `AWS Certification` is tagged
 
 A subdeck stays a subdeck. `Trivia::Geography` is tagged
 `#flashcards/Trivia/Geography`, and the review draws it
-[under `Trivia`](/reference/flashcard-format.md#a-deck-inside-a-deck), which
+[under `Trivia`](/reference/flashcard-format/writing-cards-and-decks.md#a-deck-inside-a-deck), which
 asks it along with everything else filed there. `Trivia` starts folded, so
 press the arrow beside it, or `za` in the pane, to see `Geography`.
 
@@ -206,7 +206,7 @@ to another deck lands in that deck's note, not beside its forward card.
 `{{FrontSide}}` on the back adds nothing, because the question is already on the
 line. The answer holds only what the back adds to it. A card whose back adds
 nothing is written as `question::`, which kasten reads as
-[a parked question](/reference/flashcard-format.md#parking-a-card), so it waits
+[a parked question](/reference/flashcard-format/reviewing-cards.md#parking-a-card), so it waits
 for an answer rather than vanishing. The exception is a question holding `::`
 whose back adds nothing: it is left out, because a `?` with nothing under it is
 no card. The count the import reports is of the cards the notes hold, so it
@@ -218,7 +218,7 @@ so it reads as the text it was and the card keeps it: a heading such as
 alone, a line opening with `\!suspended`, and a schedule comment, written
 `<!--SR\:!2026-08-20,4,270-->`.
 
-A cloze note arrives as [a cloze](/reference/flashcard-format.md#as-a-cloze),
+A cloze note arrives as [a cloze](/reference/flashcard-format/writing-cards-and-decks.md#as-a-cloze),
 its marks and hints as Anki had them, one line however many cards Anki made
 from it:
 
@@ -228,7 +228,7 @@ The capital of {{c1::France}} is {{c2::Paris::a city}}.
 
 kasten asks that line once per number, `c1` apart from `c2`, with the hint
 shown in the blank, as Anki does. A note whose Back Extra holds text is written
-[over three lines](/reference/flashcard-format.md#as-a-cloze), the cloze, `?`
+[over three lines](/reference/flashcard-format/writing-cards-and-decks.md#as-a-cloze), the cloze, `?`
 and the Back Extra, with a blank line above and below, so the extra shows under
 the answer, over as many lines as it holds. The cloze itself stays one line,
 its line breaks spaces, because a second line holding a mark would be another
@@ -337,7 +337,7 @@ its reading: `漢字` for `{{c1::<ruby>漢字<rt>かんじ</rt></ruby>}}`.
 
 Without **Carry Anki's schedule**, every imported card is new, so the deck shows
 its whole size under **new** in the overview and the first sitting starts at
-the top. [The schedule](/reference/flashcard-format.md#the-schedule-kasten-writes)
+the top. [The schedule](/reference/flashcard-format/reviewing-cards.md#the-schedule-kasten-writes)
 starts from there.
 
 With it, a card Anki has in review arrives with Anki's due date, interval and

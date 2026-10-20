@@ -10,7 +10,7 @@ status: stable
 # Graph query
 
 One language, read in one place. The graph pane sends what you type to
-[`GET /api/graph`](/reference/http-api.md#get-apigraph) as it stands, the
+[`GET /api/graph`](/reference/http-api/finding.md#get-apigraph) as it stands, the
 agent's `query_graph` does the same, and `graph.py` is the only parser of it.
 
 A query is one of two kinds. A **filter** narrows what is drawn. A **pattern**

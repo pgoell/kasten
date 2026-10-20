@@ -6,7 +6,8 @@ import { resetHeld } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { forgetQueues, useAutosave } from "@/lib/use-autosave";
 
-// The orderings of docs/reference/save-path-orderings.md that no test in
+// The orderings of docs/reference/save-path-orderings/ (the pages of the table,
+// each row numbered as in save-path-orderings.md) that no test in
 // use-autosave.test.ts held. Its fixtures are module-local there, so the ones
 // these tests need are copied here.
 

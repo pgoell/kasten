@@ -23,7 +23,7 @@ A name, `:: `, and the note it points at. It is Dataview's inline field, which
 is what a reader coming from Obsidian already knows, with one rule of our own
 noted under [the separator](#3-the-separator-carries-a-space).
 
-A plain [wikilink](/reference/editor-keys.md#wikilinks) says two notes are
+A plain [wikilink](/reference/editor-keys/links.md#wikilinks) says two notes are
 connected. A relation says how.
 
 ## The nine rules
@@ -97,7 +97,7 @@ inside them, exactly as on a line that is not a relation.
 
 ## How the backlinks panel groups
 
-[`<leader>gb`](/reference/editor-keys.md#the-link-panels) over a note draws one
+[`<leader>gb`](/reference/editor-keys/links.md#the-link-panels) over a note draws one
 heading per relation name pointing at it, with the untyped links last under no
 heading of their own. The rows under a heading keep the order they ranked in,
 and the headings come in the order their first row does.
@@ -110,7 +110,7 @@ target is another note, the hit goes in the untyped group.
 
 ## How the graph reads it
 
-[`GET /api/graph`](/reference/http-api.md#get-apigraph) reads relations on the
+[`GET /api/graph`](/reference/http-api/finding.md#get-apigraph) reads relations on the
 backend, with a copy of this grammar in `graph.py`, so a relation is an edge
 carrying its name. The two copies answer to this page, and the tests on each
 side describe the same lines.

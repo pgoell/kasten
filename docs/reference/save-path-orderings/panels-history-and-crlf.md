@@ -1,0 +1,27 @@
+---
+type: Reference
+title: Save path orderings: panels, history restores and CRLF notes
+description: The orders in which the backlinks panel, the history pane and the line endings of a CRLF note can meet the write queue, what must hold in each, and whether getting it wrong loses typed text.
+resource: frontend/src/lib/use-autosave.ts
+tags: [editor, saving, autosave, frontend, tests]
+status: stable
+---
+
+# Save path orderings: panels, history restores and CRLF notes
+
+Part of [save path orderings](/reference/save-path-orderings.md). The columns are explained in [How to read the table](/reference/save-path-orderings.md#how-to-read-the-table). Rows keep their numbers on every page, so "As 82" points to the same row wherever it sits.
+
+## Orderings
+
+| # | Ordering | Must hold | Loses typed text if wrong | Test |
+|---|---|---|---|---|
+| 107 | The backlinks panel links an unlinked mention in a note whose clean buffer is open in another pane. | The write names the text it read as its base and lands; the vault's answer goes in the cache, which the clean buffer reloads off, and the row moves to the links. | no | home-route: `#424 links the mention on ctrl enter with vim on, and a clean pane on the note reloads`, `#424 links on a tap of the link button with vim off in a narrow window` (#424) |
+| 108 | The panel links a mention in the focused pane's note, or in a note whose own write is still in the air. | Nothing is read or written; the panel's line says why and the row stays. | yes | home-route: `#424 writes nothing into the focused note and says why`, `#424 writes nothing while a write of the note's own text is still out, and says why` (#424) |
+| 109 | A write lands between the link's read and its write. | The link's write is refused over its base and read again; it links only if the line still says what the panel listed, else writes nothing and says why. | yes | home-route: `#424 links on the read after a refusal when the line still says the same`, `#424 writes nothing on the read after a refusal when the line changed`, `#424 lands nothing over a write that came between its read and its write` (refused three times), `#424 writes nothing when the line changed since the list was read, and says why`; `mention-link.test.ts`: `#424 writes nothing when the line changed since the list was read` (#424) |
+| 110 | The panel links a mention in a note holding text a failed save left. | Nothing is written: the vault's text is not what the reader last typed. The line says why. | yes | home-route: `#424 writes nothing into a note holding text not yet saved, and says why` (#424) |
+| 111 | The history pane restores a change of a note whose clean buffer is open in another pane. | One write, in the note's write queue, naming as its base the text the diff was drawn against and the change it restores from, so the backend records it as a jj change of its own. The vault's answer goes in the cache, which the clean buffer reloads off, and the list is read again so the restore shows at the top. | no | home-route: `#425 A4 A5 I3 restores on ctrl enter with vim on, and a clean pane on the note reloads`, `#425 A1 A4 restores on a tap with vim off in a narrow window with one pane`, `#425 A4 restores on ctrl enter with vim off`, `#425 A a restore names the change it restores from, so it lands as a change of its own` (#425) |
+| 112 | The pane restores while the note holds text a failed save left, while a write of the note is in the air (the flush its editor sent as the focus moved to the pane among them: type, `gh`, `Ctrl+Enter` at once), or while the note's pane has the focus. | Nothing is written; the pane's line says why. | yes | home-route: `#425 I2 writes nothing into a note holding text not yet saved`, `#425 I2 writes nothing while the flush of text typed into the note is in the air`, `#425 I2 writes nothing into the note while its pane has the focus` (#425) |
+| 113 | A write lands on the note after the pane drew its diff, then the pane restores. | The restore is refused over its base and not retried, so nothing lands over the other write. The line says the note changed, and the pane reads the note again so the diff is current. | yes | home-route: `#425 A5 lands nothing over a write the diff did not see, and reads the note again` (#425) |
+| 114 | W1 of a note whose file holds CRLF lands; the editor was served it as LF and sends LF. | Every line lands CRLF, the restamped `modified:` line and the body included, so no line of the file changes but the ones typed. The base, taken over the LF text, matches, and the answer is LF. An LF note stays LF. An agent save or append of a CRLF note keeps CRLF too, whatever line endings it sends. | no | `backend/tests/test_save.py`: `test_keeps_a_crlf_notes_line_endings` (red on main, which wrote it LF), `test_keeps_an_lf_notes_line_endings`; `backend/tests/test_agent_api.py`: `test_save_of_lf_text_over_a_crlf_note_keeps_crlf` (red on main), `test_append_to_a_crlf_note_keeps_crlf` (#452) |
+| 115 | W1 over a CRLF note is refused over its base. | `409`, and the file's bytes are as they were. | no | `backend/tests/test_save.py`: `test_leaves_a_crlf_note_untouched_when_it_refuses_a_base` (#452) |
+| 116 | K repeats the text W1 landed over a CRLF note, naming a base W1 moved past. | `200` with the note as it stands, as LF, and nothing is written: the file's bytes are as they were. | no | `backend/tests/test_save.py`: `test_leaves_a_crlf_note_untouched_when_a_stale_base_repeats_its_text` (#452) |

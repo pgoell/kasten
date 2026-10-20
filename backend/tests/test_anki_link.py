@@ -537,7 +537,7 @@ DOCS = Path(__file__).parents[2] / "docs"
 
 def test_the_docs_tell_the_link_way() -> None:
     how_to = (DOCS / "how-to" / "import-an-anki-deck.md").read_text(encoding="utf-8")
-    api = (DOCS / "reference" / "http-api.md").read_text(encoding="utf-8")
+    api = (DOCS / "reference" / "http-api" / "cards.md").read_text(encoding="utf-8")
 
     section = how_to.split("## From a link", 1)[1].split("\n## ", 1)[0]
     assert ".apkg" in section
