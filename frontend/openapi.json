@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kasten",
-    "version": "0.72.0"
+    "version": "0.73.0"
   },
   "paths": {
     "/agent/notes/{path}": {
@@ -1252,6 +1252,61 @@
         }
       }
     },
+    "/api/log": {
+      "get": {
+        "summary": "Read Log",
+        "description": "The days from `from` to `to`, both included, that have a `## Log` in their note.\n\nA day with no note, or a note with no `## Log`, is absent from the answer,\nwhich is not the same as a day with a `## Log` and nothing under it: that one\nis present with zero totals. Only the daily notes are read, and nothing is written.",
+        "operationId": "read_log_api_log_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Day"
+                  },
+                  "title": "Response Read Log Api Log Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
@@ -1447,6 +1502,254 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "List Names",
+        "description": "The names of the lists in the share folder, without their `.md`.",
+        "operationId": "list_names_share_lists_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Names Share Lists Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists/{name}": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Read List",
+        "description": "One list with its task lines, or an empty one when the note is not there yet.",
+        "operationId": "read_list_share_lists__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checklist"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists/{name}/items": {
+      "post": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Add Item",
+        "description": "Append an item to a list, creating the list when `sha` is absent and it is missing.",
+        "operationId": "add_item_share_lists__name__items_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Add"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checklist"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists/{name}/tick": {
+      "post": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Tick Item",
+        "description": "Tick or untick the item on one line of a list.\n\nA tick on a recurring item or one with parts is refused with 422, since kasten\ndoes more on its own tick than this path does. Unticking has no such limit.",
+        "operationId": "tick_item_share_lists__name__tick_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Tick"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checklist"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists/{name}/clear": {
+      "post": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Clear Done",
+        "description": "Remove every ticked item from a list, and nothing else.",
+        "operationId": "clear_done_share_lists__name__clear_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Clear"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checklist"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/events": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Stream Events",
+        "description": "Report every change to a note in the share folder, in the wire format `/api/events` uses.\n\nThe filter runs one event at a time, after the watcher, so a change anywhere\nelse is never written to the stream at all. The shape otherwise follows\n`main.py`'s stream: the watcher runs in a task of its own, so a keepalive can\nbe written without cancelling it.",
+        "operationId": "stream_events_share_events_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -2183,6 +2486,55 @@
   },
   "components": {
     "schemas": {
+      "Add": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "Add",
+        "description": "One item to append, and the digest of the list the caller read, if it read one."
+      },
+      "Alcohol": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "ml": {
+            "type": "number",
+            "title": "Ml"
+          },
+          "grams": {
+            "type": "number",
+            "title": "Grams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "ml",
+          "grams"
+        ],
+        "title": "Alcohol",
+        "description": "What the alcohol lines add up to: drinks, millilitres and grams of ethanol."
+      },
       "AnkiImport": {
         "properties": {
           "notes": {
@@ -2320,6 +2672,99 @@
         "title": "Capture",
         "description": "A dump from the app, which may carry the id its sender minted at typing.\n\n`POST /api/dump` only. The agent's route and its MCP tool keep `Dump`, so\nan agent's schema never grows a field it has no use for: an agent that\nlost an answer reads the note again rather than resending blind."
       },
+      "Checklist": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "sha",
+          "items"
+        ],
+        "title": "Checklist",
+        "description": "One list, and the digest of the note it was read from."
+      },
+      "Clear": {
+        "properties": {
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sha"
+        ],
+        "title": "Clear",
+        "description": "The digest of the list the caller read, before the ticked items go."
+      },
+      "Coffee": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "Coffee",
+        "description": "How many coffees the day logs."
+      },
+      "Day": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/Totals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "path",
+          "entries",
+          "totals"
+        ],
+        "title": "Day",
+        "description": "A day whose note holds a `## Log`: its entries in line order, and their totals."
+      },
       "DeckLink": {
         "properties": {
           "url": {
@@ -2353,6 +2798,146 @@
         ],
         "title": "Dump",
         "description": "One thought for a day's dump, and the day the sender is having."
+      },
+      "Entry": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "water",
+              "coffee",
+              "alcohol",
+              "food"
+            ],
+            "title": "Kind"
+          },
+          "ml": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ml"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "abv": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abv"
+          },
+          "grams": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grams"
+          },
+          "meal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meal"
+          },
+          "words": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Words"
+          },
+          "kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kcal"
+          },
+          "protein": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein"
+          },
+          "carbs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs"
+          },
+          "fat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "text",
+          "kind"
+        ],
+        "title": "Entry",
+        "description": "One log line that parsed: its kind, and the fields the line gives and no others."
       },
       "Fetch": {
         "properties": {
@@ -2409,6 +2994,35 @@
         ],
         "title": "FolderMove",
         "description": "Where a folder should live from now on, and every note under it with it."
+      },
+      "Food": {
+        "properties": {
+          "kcal": {
+            "type": "number",
+            "title": "Kcal"
+          },
+          "protein": {
+            "type": "number",
+            "title": "Protein"
+          },
+          "carbs": {
+            "type": "number",
+            "title": "Carbs"
+          },
+          "fat": {
+            "type": "number",
+            "title": "Fat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kcal",
+          "protein",
+          "carbs",
+          "fat"
+        ],
+        "title": "Food",
+        "description": "What the food lines add up to: kcal, and grams of protein, carbs and fat."
       },
       "Forecast": {
         "properties": {
@@ -2711,6 +3325,30 @@
         ],
         "title": "Hour",
         "description": "One hour of one place's day, local time."
+      },
+      "Item": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "text",
+          "done"
+        ],
+        "title": "Item",
+        "description": "One task line: where it sits in the note, its words and whether it is ticked."
       },
       "Layout": {
         "properties": {
@@ -3061,6 +3699,30 @@
         "title": "SearchHit",
         "description": "One line in the vault that matched, and enough to open the note on it."
       },
+      "Tick": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          },
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "done",
+          "sha"
+        ],
+        "title": "Tick",
+        "description": "Which line to tick or untick, and the digest of the list the caller read."
+      },
       "TodoHit": {
         "properties": {
           "path": {
@@ -3130,6 +3792,31 @@
         ],
         "title": "TokenName",
         "description": "What a mint is asked for: a name to tell one token from another."
+      },
+      "Totals": {
+        "properties": {
+          "water": {
+            "$ref": "#/components/schemas/Water"
+          },
+          "coffee": {
+            "$ref": "#/components/schemas/Coffee"
+          },
+          "alcohol": {
+            "$ref": "#/components/schemas/Alcohol"
+          },
+          "food": {
+            "$ref": "#/components/schemas/Food"
+          }
+        },
+        "type": "object",
+        "required": [
+          "water",
+          "coffee",
+          "alcohol",
+          "food"
+        ],
+        "title": "Totals",
+        "description": "What a day adds up to. Every kind is always present, zero where nothing was logged."
       },
       "Transcript": {
         "properties": {
@@ -3264,6 +3951,20 @@
         ],
         "title": "Version",
         "description": "A note's full text at one change."
+      },
+      "Water": {
+        "properties": {
+          "ml": {
+            "type": "number",
+            "title": "Ml"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ml"
+        ],
+        "title": "Water",
+        "description": "What the water lines add up to, in millilitres."
       }
     }
   }

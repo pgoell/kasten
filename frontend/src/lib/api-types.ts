@@ -759,6 +759,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Log
+         * @description The days from `from` to `to`, both included, that have a `## Log` in their note.
+         *
+         *     A day with no note, or a note with no `## Log`, is absent from the answer,
+         *     which is not the same as a day with a `## Log` and nothing under it: that one
+         *     is present with zero totals. Only the daily notes are read, and nothing is written.
+         */
+        get: operations["read_log_api_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/anki": {
         parameters: {
             query?: never;
@@ -874,6 +898,134 @@ export interface paths {
          *     `openapi-typescript` turns that into a body for a response that has none.
          */
         delete: operations["delete_token_api_tokens__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Names
+         * @description The names of the lists in the share folder, without their `.md`.
+         */
+        get: operations["list_names_share_lists_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read List
+         * @description One list with its task lines, or an empty one when the note is not there yet.
+         */
+        get: operations["read_list_share_lists__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists/{name}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Item
+         * @description Append an item to a list, creating the list when `sha` is absent and it is missing.
+         */
+        post: operations["add_item_share_lists__name__items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists/{name}/tick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tick Item
+         * @description Tick or untick the item on one line of a list.
+         *
+         *     A tick on a recurring item or one with parts is refused with 422, since kasten
+         *     does more on its own tick than this path does. Unticking has no such limit.
+         */
+        post: operations["tick_item_share_lists__name__tick_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists/{name}/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear Done
+         * @description Remove every ticked item from a list, and nothing else.
+         */
+        post: operations["clear_done_share_lists__name__clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Events
+         * @description Report every change to a note in the share folder, in the wire format `/api/events` uses.
+         *
+         *     The filter runs one event at a time, after the watcher, so a change anywhere
+         *     else is never written to the stream at all. The shape otherwise follows
+         *     `main.py`'s stream: the watcher runs in a task of its own, so a keepalive can
+         *     be written without cancelling it.
+         */
+        get: operations["stream_events_share_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1367,6 +1519,28 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * Add
+         * @description One item to append, and the digest of the list the caller read, if it read one.
+         */
+        Add: {
+            /** Text */
+            text: string;
+            /** Sha */
+            sha?: string | null;
+        };
+        /**
+         * Alcohol
+         * @description What the alcohol lines add up to: drinks, millilitres and grams of ethanol.
+         */
+        Alcohol: {
+            /** Count */
+            count: number;
+            /** Ml */
+            ml: number;
+            /** Grams */
+            grams: number;
+        };
+        /**
          * AnkiImport
          * @description What one `.apkg` turned into.
          */
@@ -1434,6 +1608,47 @@ export interface components {
             id?: string | null;
         };
         /**
+         * Checklist
+         * @description One list, and the digest of the note it was read from.
+         */
+        Checklist: {
+            /** Name */
+            name: string;
+            /** Sha */
+            sha: string | null;
+            /** Items */
+            items: components["schemas"]["Item"][];
+        };
+        /**
+         * Clear
+         * @description The digest of the list the caller read, before the ticked items go.
+         */
+        Clear: {
+            /** Sha */
+            sha: string;
+        };
+        /**
+         * Coffee
+         * @description How many coffees the day logs.
+         */
+        Coffee: {
+            /** Count */
+            count: number;
+        };
+        /**
+         * Day
+         * @description A day whose note holds a `## Log`: its entries in line order, and their totals.
+         */
+        Day: {
+            /** Date */
+            date: string;
+            /** Path */
+            path: string;
+            /** Entries */
+            entries: components["schemas"]["Entry"][];
+            totals: components["schemas"]["Totals"];
+        };
+        /**
          * DeckLink
          * @description Where a deck to import lives.
          */
@@ -1453,6 +1668,41 @@ export interface components {
              * Format: date
              */
             date: string;
+        };
+        /**
+         * Entry
+         * @description One log line that parsed: its kind, and the fields the line gives and no others.
+         */
+        Entry: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "water" | "coffee" | "alcohol" | "food";
+            /** Ml */
+            ml?: number | null;
+            /** Count */
+            count?: number | null;
+            /** Abv */
+            abv?: number | null;
+            /** Grams */
+            grams?: number | null;
+            /** Meal */
+            meal?: string | null;
+            /** Words */
+            words?: string | null;
+            /** Kcal */
+            kcal?: number | null;
+            /** Protein */
+            protein?: number | null;
+            /** Carbs */
+            carbs?: number | null;
+            /** Fat */
+            fat?: number | null;
         };
         /**
          * Fetch
@@ -1488,6 +1738,20 @@ export interface components {
         FolderMove: {
             /** Path */
             path: string;
+        };
+        /**
+         * Food
+         * @description What the food lines add up to: kcal, and grams of protein, carbs and fat.
+         */
+        Food: {
+            /** Kcal */
+            kcal: number;
+            /** Protein */
+            protein: number;
+            /** Carbs */
+            carbs: number;
+            /** Fat */
+            fat: number;
         };
         /**
          * Forecast
@@ -1621,6 +1885,18 @@ export interface components {
             rain: number;
             /** Code */
             code: number;
+        };
+        /**
+         * Item
+         * @description One task line: where it sits in the note, its words and whether it is ticked.
+         */
+        Item: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+            /** Done */
+            done: boolean;
         };
         /**
          * Layout
@@ -1785,6 +2061,18 @@ export interface components {
             text: string;
         };
         /**
+         * Tick
+         * @description Which line to tick or untick, and the digest of the list the caller read.
+         */
+        Tick: {
+            /** Line */
+            line: number;
+            /** Done */
+            done: boolean;
+            /** Sha */
+            sha: string;
+        };
+        /**
          * TodoHit
          * @description One todo line, or one running session line, and the project it belongs to.
          */
@@ -1818,6 +2106,16 @@ export interface components {
         TokenName: {
             /** Name */
             name: string;
+        };
+        /**
+         * Totals
+         * @description What a day adds up to. Every kind is always present, zero where nothing was logged.
+         */
+        Totals: {
+            water: components["schemas"]["Water"];
+            coffee: components["schemas"]["Coffee"];
+            alcohol: components["schemas"]["Alcohol"];
+            food: components["schemas"]["Food"];
         };
         /**
          * Transcript
@@ -1882,6 +2180,14 @@ export interface components {
         Version: {
             /** Content */
             content: string;
+        };
+        /**
+         * Water
+         * @description What the water lines add up to, in millilitres.
+         */
+        Water: {
+            /** Ml */
+            ml: number;
         };
     };
     responses: never;
@@ -2760,6 +3066,38 @@ export interface operations {
             };
         };
     };
+    read_log_api_log_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Day"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     import_anki_api_anki_post: {
         parameters: {
             query?: {
@@ -2905,6 +3243,182 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_names_share_lists_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    read_list_share_lists__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_item_share_lists__name__items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tick_item_share_lists__name__tick_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Tick"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_done_share_lists__name__clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Clear"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_events_share_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
