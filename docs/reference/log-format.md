@@ -98,13 +98,31 @@ logged. A day without one is absent, not zero. Totals are rounded to one
 decimal once, after the sum, half to even as Python's `round` does: 0.25 g is
 0.2 g. An alcohol entry's own `grams` is rounded the same way.
 
-## One parser
+## The card
 
-The backend reads the lines and parses them, in `backend/src/kasten_backend/log.py`.
-Todos go the other way, the backend handing raw lines to the editor's parser,
-but `GET /api/log` answers with totals, so the parser lives where the sum is
-made, and nothing else reads the format. Nothing is stored in Postgres: every
-answer is read from the notes.
+A daily note in live preview shows a card under the weather card: the note's
+own water, coffee and alcohol totals, and a button per kind. A tap writes
+`- 💧 250 ml`, `- ☕ 1` or `- 🍺 1` at the end of `## Log`, making the section
+at the end of the note where there is none. The field beside the buttons takes
+another amount for the next tap: `500` on water writes `- 💧 500 ml`, and
+`2 0.5 l 5%` on alcohol writes `- 🍺 2 0.5 l 5%`. An amount that does not
+parse as that kind writes nothing, and the card says why.
+
+The tap is an edit of the note's buffer, which autosave writes as it writes
+typing, so `u` or Ctrl+Z takes it back as well as the card's `Undo`. `Undo`
+takes out the last tap's line while that line is still as the tap wrote it.
+The totals are the open note's lines, so yesterday's note shows yesterday.
+The palette's `Log water`, `Log coffee` and `Log alcohol` write into today's
+note from anywhere; see [the command palette](/reference/editor-keys/leader.md#the-command-palette).
+
+## Two parsers
+
+The backend reads the lines and parses them, in `backend/src/kasten_backend/log.py`,
+and `GET /api/log` answers with totals from it. The card reads the drink lines
+of the open buffer with `frontend/src/lib/log-lines.ts`, so a tap counts at
+once rather than after the save. Both run the rows of the table below, the
+frontend the water, coffee and alcohol rows. Nothing is stored in Postgres:
+every answer is read from the notes.
 
 ## The cases
 

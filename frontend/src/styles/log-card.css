@@ -1,0 +1,83 @@
+/* The drink card under a daily note's title, drawn under the weather. Buttons
+   are 44px, the least a thumb hits reliably. The amount field is 16px, since a
+   phone's Safari zooms into any smaller field and does not zoom back out. Rows
+   wrap rather than run wide, so a 414px screen never scrolls sideways. */
+.cm-log {
+  display: grid;
+  /* A track that may take the row's max-content would run the row past the card. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 6px 24px 14px 0;
+  font-family: var(--font-sans);
+  cursor: default;
+}
+
+.cm-log-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  color: var(--color-one-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-log-row {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.cm-log-button,
+.cm-log-undo {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-one-selection);
+  border-radius: 6px;
+  background: var(--color-one-panel);
+  color: var(--color-one-fg);
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.cm-log-button:hover,
+.cm-log-undo:hover {
+  background: var(--color-one-hover);
+}
+
+.cm-log-undo {
+  color: var(--color-one-muted);
+}
+
+.cm-log-amount {
+  flex: 1 1 6rem;
+  min-width: 0;
+  max-width: 12rem;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-one-selection);
+  border-radius: 6px;
+  background: var(--color-one-well);
+  color: var(--color-one-fg);
+  font-family: var(--font-sans);
+  font-size: 16px;
+}
+
+.cm-log-button:focus-visible,
+.cm-log-undo:focus-visible,
+.cm-log-amount:focus-visible {
+  outline: 2px solid var(--color-one-accent);
+  outline-offset: 1px;
+}
+
+/* A refusal of the amount, in the warn colour. Nothing while there is none. */
+.cm-log-why {
+  color: var(--color-one-warn);
+  font-size: 0.8em;
+}
+
+.cm-log-why:empty {
+  display: none;
+}

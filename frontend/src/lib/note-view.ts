@@ -18,6 +18,7 @@ import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/i
 import type { EditorCommands } from "@/lib/key-bindings";
 import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live-preview";
+import { logCard } from "@/lib/log-card";
 import { noteLanguage } from "@/lib/note-language";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
 import { slashCompletions } from "@/lib/palette";
@@ -265,7 +266,7 @@ export function createNoteView(o: {
         vault.of(
           listings(o.listings.paths, o.listings.images, o.listings.tags, o.listings.relations),
         ),
-        preview.of(o.preview ? [livePreview(), weatherCard] : []),
+        preview.of(o.preview ? [livePreview(), weatherCard, logCard] : []),
         oneDark,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
@@ -289,7 +290,7 @@ export function setVim(view: EditorView, on: boolean): void {
 }
 
 export function setPreview(view: EditorView, on: boolean): void {
-  view.dispatch({ effects: preview.reconfigure(on ? [livePreview(), weatherCard] : []) });
+  view.dispatch({ effects: preview.reconfigure(on ? [livePreview(), weatherCard, logCard] : []) });
 }
 
 export function setListings(view: EditorView, l: NoteListings): void {

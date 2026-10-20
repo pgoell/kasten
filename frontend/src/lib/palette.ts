@@ -8,6 +8,8 @@ import { editorCommands } from "@/lib/editor-commands";
 import { toggleMark } from "@/lib/format-commands";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
+import { DRINKS } from "@/lib/log-lines";
+import { logDrinkInView } from "@/lib/log-write";
 import { toggleVim } from "@/lib/vim-setting";
 
 /**
@@ -151,7 +153,15 @@ export function paletteEntries(commands: EditorCommands, view: EditorView | null
       run: () => commands.goToTab(index),
     })),
     // No key: a leader sequence is a vim mapping, and one that turned vim off
-    // could not turn it back on.
+    // could not turn it back on. The drinks run with or without an editor: over
+    // today's own note they land in its buffer, anywhere else in the vault.
+    ...DRINKS.map((kind) => ({
+      label: `Log ${kind}`,
+      run: () => {
+        if (view !== null && logDrinkInView(view, kind)) return;
+        commands.logDrink(kind);
+      },
+    })),
     { label: "Toggle vim keys", run: toggleVim },
   ];
   if (view === null) return routed;

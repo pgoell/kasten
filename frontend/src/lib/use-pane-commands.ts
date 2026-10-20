@@ -4,6 +4,8 @@ import type { PaneMoves } from "@/components/use-pane-moves";
 import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import type { TreeCommands } from "@/lib/key-bindings";
 import { READING_NOTE } from "@/lib/layout";
+import { DEFAULT_LINE } from "@/lib/log-lines";
+import { logDrinkInVault } from "@/lib/log-write";
 import { noteName } from "@/lib/note-path";
 import {
   clearFocused,
@@ -48,6 +50,7 @@ export function usePaneCommands({
   moves,
   openPeriodic,
   setNotice,
+  paths,
 }: {
   pane: Pick<
     PaneOf,
@@ -68,6 +71,8 @@ export function usePaneCommands({
   moves: Pick<PaneMoves, "moveTo" | "focusToward" | "swapToward">;
   openPeriodic: (period: Period) => void;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
+  /** The vault's note paths, as the listing holds them; undefined until it loads. */
+  paths: string[] | undefined;
 }) {
   const { moveTo, focusToward, swapToward } = moves;
   const queryClient = useQueryClient();
@@ -151,6 +156,7 @@ export function usePaneCommands({
       | "openGraph"
       | "openLocalGraph"
       | "openDaily"
+      | "logDrink"
       | "openWeekly"
       | "openMonthly"
       | "openQuarterly"
@@ -245,6 +251,16 @@ export function usePaneCommands({
       // Five rows for one helper, because a leader binding names a command that
       // takes nothing. What they have in common is in `periodic.ts`.
       openDaily: () => openPeriodic("daily"),
+      // The notice says what landed, or why the vault refused. The line in the
+      // notice is the default line without its list dash.
+      logDrink: (kind) => {
+        setNotice(undefined);
+        void logDrinkInVault(kind, paths ?? []).then(
+          () => setNotice(`Logged ${DEFAULT_LINE[kind].slice(2)} into today's note`),
+          (error: unknown) =>
+            setNotice(error instanceof Error ? error.message : "The drink was not logged"),
+        );
+      },
       openWeekly: () => openPeriodic("weekly"),
       openMonthly: () => openPeriodic("monthly"),
       openQuarterly: () => openPeriodic("quarterly"),
@@ -350,6 +366,7 @@ export function usePaneCommands({
       saveFirst,
       openPeriodic,
       openReadingBook,
+      paths,
       setLayout,
       pane.path,
       pane.term,
@@ -363,6 +380,7 @@ export function usePaneCommands({
       pane.html,
       pane.video,
       queryClient,
+      setNotice,
     ],
   );
 
