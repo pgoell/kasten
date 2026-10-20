@@ -280,9 +280,24 @@ async def test_stops_reading_at_the_cap_whatever_the_length_says(
     response = await link(client, "https://example.com/French.apkg")
 
     assert response.status_code == 413
-    assert response.json()["detail"] == "That deck is too big"
+    assert response.json()["detail"] == "That file is over the 10 KiB limit"
     assert stream.chunks == 11
     assert not (vault / "03 Flashcards").exists()
+
+
+async def test_a_link_keeps_the_100_mib_cap_an_upload_does_not_have(
+    client: AsyncClient, vault: Path, answer: Callable
+) -> None:
+    # The cap as it ships, not lowered: an upload may weigh 1 GiB, and this
+    # is what says a link did not rise with it.
+    stream = Endless()
+    answer(lambda request: httpx.Response(200, stream=stream))
+
+    response = await link(client, "https://example.com/French.apkg")
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "That file is over the 100 MiB limit"
+    assert stream.chunks == 100 * 1024 + 1
 
 
 async def test_does_not_read_a_redirect_body(

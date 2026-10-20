@@ -1255,7 +1255,7 @@
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
-        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is merged into its note by `merge`, which keeps\nevery schedule in it, since that is a note you may have answered fifty\ncards in. One imported before the cards carried their Anki ids is refused\ninstead, there being no telling its cards apart.\n\n`carry` writes Anki's schedule onto every card Anki has in review, as the\ncomment a rating would leave, so the review picks up where Anki left off.\nOnly on a card the import adds: one already in the note keeps kasten's.",
+        "description": "Turn an Anki export into one markdown note per deck.\n\nThe bytes come as the raw body rather than as a multipart form, the way\n`POST /api/assets/{path}` takes a book: one file, no fields beside it, and\nno dependency on a form parser for a request that carries nothing to parse.\n\nA deck already imported is merged into its note by `merge`, which keeps\nevery schedule in it, since that is a note you may have answered fifty\ncards in. One imported before the cards carried their Anki ids is refused\ninstead, there being no telling its cards apart.\n\n`carry` writes Anki's schedule onto every card Anki has in review, as the\ncomment a rating would leave, so the review picks up where Anki left off.\nOnly on a card the import adds: one already in the note keeps kasten's.\n\n`upload` names a file sent in pieces through `/api/uploads`, read in place\nof the body, which is then empty.",
         "operationId": "import_anki_api_anki_post",
         "parameters": [
           {
@@ -1266,6 +1266,22 @@
               "type": "boolean",
               "default": false,
               "title": "Carry"
+            }
+          },
+          {
+            "name": "upload",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Upload"
             }
           }
         ],
@@ -1488,7 +1504,7 @@
       },
       "post": {
         "summary": "Write Asset",
-        "description": "Put one book or image into the vault, and never over one already there.\n\nBoth decorator arguments earn their place. Without `status_code` the runtime\nanswers 201 while OpenAPI documents a 200; without `response_class` FastAPI\ndocuments the 201 as JSON carrying an empty schema, and\n`openapi-typescript` turns that into a body for a response that has none.",
+        "description": "Put one book or image into the vault, and never over one already there.\n\nBoth decorator arguments earn their place. Without `status_code` the runtime\nanswers 201 while OpenAPI documents a 200; without `response_class` FastAPI\ndocuments the 201 as JSON carrying an empty schema, and\n`openapi-typescript` turns that into a body for a response that has none.\n\n`upload` names a file sent in pieces through `/api/uploads`, streamed\nthrough `store` in place of the body.",
         "operationId": "write_asset_api_assets__path__post",
         "parameters": [
           {
@@ -1498,6 +1514,22 @@
             "schema": {
               "type": "string",
               "title": "Path"
+            }
+          },
+          {
+            "name": "upload",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Upload"
             }
           }
         ],
@@ -1542,6 +1574,88 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads": {
+      "post": {
+        "summary": "Start Upload",
+        "description": "Open an upload for a file too big for one request through Cloudflare.\n\nSweeps every upload idle for over an hour on the way, so a file nobody\nfinished costs its disk until the next one starts and no longer.",
+        "operationId": "start_upload_api_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadSize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/{upload}/{n}": {
+      "put": {
+        "summary": "Write Piece",
+        "description": "Write piece `n` of an upload from the raw body: the next one, or the last one again.\n\n`response_class` for the reason `POST /api/assets/{path}` carries one.",
+        "operationId": "write_piece_api_uploads__upload___n__put",
+        "parameters": [
+          {
+            "name": "upload",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Upload"
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "title": "N"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -3068,6 +3182,34 @@
         ],
         "title": "TrashEntry",
         "description": "One deleted note or folder, waiting in the trash."
+      },
+      "UploadSize": {
+        "properties": {
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "size"
+        ],
+        "title": "UploadSize",
+        "description": "What a file sent in pieces will weigh once joined."
+      },
+      "UploadStarted": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "UploadStarted",
+        "description": "The upload a client sends its pieces to, and names when it finishes."
       },
       "ValidationError": {
         "properties": {

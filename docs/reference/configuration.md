@@ -201,6 +201,23 @@ refused until you mint again.
 A store that does not exist reads as an empty list, so a box with no tokens
 refuses every bearer rather than failing to start.
 
+## KASTEN_UPLOAD_PATH
+
+The folder a file sent in pieces is joined in, until
+`POST /api/anki?upload=` or `POST /api/assets/{path}?upload=` reads it. See
+[`POST /api/uploads`](/reference/http-api.md#post-apiuploads).
+
+| | |
+| --- | --- |
+| Default | `kasten-uploads` in the system's temp folder, `/tmp/kasten-uploads` |
+| Read by | `/api/uploads` and the two routes that finish an upload, and startup |
+
+Outside the vault, so a half-sent file never reaches the file tree, the
+watcher or jj. The backend empties it at every start: what has arrived is held
+in memory, and a restart forgets it. It needs room for the largest upload,
+1GiB, and the asset finish copies the joined file into the vault rather than
+moving it, because the two sit on different filesystems in the container.
+
 ## KASTEN_AGENT_HOST
 
 The `Host` header the MCP endpoint answers to, and the OAuth issuer.

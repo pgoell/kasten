@@ -309,7 +309,7 @@ explains.
 | `201` | The file is at `path` |
 | `400` | `The vault will not take that path`, or `That file is not what its name says` |
 | `409` | `Something is already there` |
-| `413` | `That book is too big`, over 100MiB |
+| `413` | `That file is over the 100 MiB limit` |
 
 There is no overwrite and no delete. A file sent to the wrong path stays there
 until someone removes it from the browser (an image) or the shell (a book).

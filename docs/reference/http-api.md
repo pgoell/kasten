@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves forty-two endpoints under `/api/`. Twenty-seven read,
-fourteen write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves forty-four endpoints under `/api/`. Twenty-seven read,
+sixteen write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
@@ -587,6 +587,10 @@ Turns an Anki export into one markdown note per deck. Takes the `.apkg` bytes as
 the raw request body, the way `POST /api/assets/{path}` takes a book, and
 answers 201 with what was written.
 
+With `?upload=<id>` and no body, it imports the file sent in pieces through
+[`POST /api/uploads`](#post-apiuploads) instead, and deletes that upload
+whether the import lands or is refused.
+
 ```json
 {
   "notes": ["03 Flashcards/AWS.md"],
@@ -673,7 +677,7 @@ written once into each. `media` counts the files written.
 
 A file goes through the checks `POST /api/assets/{path}` makes: a suffix the
 vault takes as an image or a sound, bytes that start the way the suffix says,
-and the 100MB cap. A name that is not one plain file name (empty, hidden, holding
+and the 100MiB cap. A name that is not one plain file name (empty, hidden, holding
 a slash, or over 241 bytes, which leaves room for the temp file it is streamed
 into) is refused too. If a write fails partway, the files the import already
 wrote are taken back out. A refused file, and one the export
@@ -700,7 +704,10 @@ such a file has nothing left to ask and is left out.
   imported the first time. A deck merged into its note keeps the file it finds
   and does not count it.
 * With `carry`, a collection whose `col` row holds no creation time answers 400.
-* A body over 100MB answers 413.
+* A body over 1GiB answers 413 `That file is over the 1 GiB limit`.
+* With `upload`, an id no upload holds answers 404 `No such upload`, and one
+  whose pieces do not yet add up to its size answers 409
+  `That upload is not finished`.
 * An export that holds more than 50,000 files, whose collection or media map
   unpacks past 1GiB, or whose files unpack past 2GiB together, answers 400
   with a `detail` starting `Anki export too large`. The bytes are counted as
@@ -747,8 +754,10 @@ on the address, and one more on the scheme:
   `That address is not on the internet`, on any hop. The socket opens to the
   address checked, so a name that answers otherwise a second time changes
   nothing.
-* A deck over 100MB answers 413 `That deck is too big`. The bytes are counted
-  as they arrive and reading stops at the cap, whatever `content-length` says.
+* A deck over 100MiB answers 413 `That file is over the 100 MiB limit`. The
+  bytes are counted as they arrive and reading stops at the cap, whatever
+  `content-length` says. A file sent from the browser may weigh 1GiB; a link
+  keeps the lower cap because the backend, not the reader, pays for the fetch.
 * A fetch that takes over two minutes in all answers 504
   `That link took too long to answer`.
 * A web page or other bytes that are not a zip answer 400
@@ -987,6 +996,10 @@ The body is the file itself, raw. Not multipart: one file and no fields, so
 nothing has to parse a boundary at either end. No response body comes back,
 only the status, because the client already knows the path it sent to.
 
+With `?upload=<id>` and no body, the file is the one sent in pieces through
+[`POST /api/uploads`](#post-apiuploads). It goes through the same checks a body
+does, and the upload is deleted whether it lands or is refused.
+
 The endpoint takes any legal path and decides nothing about where a book or an
 image belongs. On the default layout, `<leader>cb` sends
 `00 Inbox/02 Books/<the file's own name>.epub` and writes the note beside it
@@ -998,8 +1011,9 @@ made in the client and not rules of this endpoint.
 | --- | --- |
 | `201` | The file is at that path |
 | `400` | `The vault will not take that path`, or `That file is not what its name says` |
-| `409` | `Something is already there` |
-| `413` | `That book is too big` |
+| `404` | `No such upload`, with `upload` |
+| `409` | `Something is already there`, or with `upload`, `That upload is not finished` |
+| `413` | `That file is over the 1 GiB limit` |
 
 There is no overwrite. A path already holding a file is a `409`, and what is on
 disk is untouched; the way to replace it is the shell pane, or for an image the
@@ -1009,13 +1023,11 @@ the transfer: the bytes land in a hidden temp file beside the target and are
 hard linked into place, so a path is taken by whichever request gets the link,
 not by whichever asked first.
 
-The cap is 100MiB for either kind, counted off the bytes as they arrive rather
+The cap is 1GiB for every kind, counted off the bytes as they arrive rather
 than read off `content-length`. One cap because the cap is about what a request
 may cost and not about what a format usually weighs. In production Cloudflare
-sits in front of everything with a body limit of its own near that number, so a
-real oversize upload is usually refused by Cloudflare's own page before kasten
-sees it. The `413` is a backstop for dev, for the LAN and for a client that did
-not check its file first.
+sits in front of everything and refuses a body over 100MB, so the client sends
+a file bigger than one piece through `POST /api/uploads` and finishes it here.
 
 The bytes must start the way the suffix says they will: `PK\x03\x04` for a
 `.epub`, which is what a zip starts with, `%PDF-` for a `.pdf`, and the matching
@@ -1040,6 +1052,57 @@ this would be empty, and [The file beside a note](/explanation/books-in-the-vaul
 covers why. Images are not ignored: they are part of what a note says, and the
 next save's snapshot sweeps in any untracked file under a megabyte, which most
 screenshots are.
+
+## POST /api/uploads
+
+Opens an upload, for a file too big for one request: Cloudflare refuses a body
+over 100MB and drops a request it has not answered within 100 seconds. The body
+names what the file will weigh once joined, and the answer is the id to send
+its pieces to.
+
+```json
+{"size": 108685245}
+```
+
+```json
+{"id": "9f2c4e..."}
+```
+
+The backend opens an empty temp file named after the id in
+[`KASTEN_UPLOAD_PATH`](/reference/configuration.md#kasten_upload_path), outside
+the vault. The file is finished by the route that uses it, naming the id in
+place of a body: `POST /api/anki?upload=<id>` or
+`POST /api/assets/{path}?upload=<id>`.
+
+Each call also deletes every upload whose last piece arrived over an hour ago,
+so a file nobody finished lasts until the next upload starts. What has arrived
+is held in the backend's memory, and a restart forgets it and empties the folder.
+
+| Status | Means |
+| --- | --- |
+| `201` | The upload is open |
+| `400` | `An upload needs a size of at least one byte` |
+| `413` | `That file is over the 1 GiB limit` |
+
+## PUT /api/uploads/{upload}/{n}
+
+Writes piece `n` of an upload, counted from 0, from the raw body. The client
+picks the size of a piece.
+
+A piece must come in turn: `n` is the number of pieces received so far. The
+piece before it may come again, which replaces it, so a client whose answer got
+lost sends the same piece again. A piece that runs past the declared size, or
+whose body breaks off, is cut back out of the file, so the same `n` sent again
+lands whole. Two pieces sent to one upload at once are written one after the
+other, never into each other.
+
+| Status | Means |
+| --- | --- |
+| `204` | The piece is written |
+| `404` | `No such upload`: never opened, finished, or swept after an hour idle |
+| `409` | `Piece 3 is out of turn: the next is piece 2` |
+| `413` | `That piece runs past the size the upload declared` |
+| `422` | `n` is not a number from 0 up |
 
 ## DELETE /api/assets/{path}
 

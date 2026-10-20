@@ -1,5 +1,6 @@
 """Application settings, read from the environment and backend/.env."""
 
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
@@ -131,6 +132,14 @@ class Settings(BaseSettings):
     directory; the directory is what is mounted and never this file, because
     `os.replace` over a bind-mounted file fails with `EBUSY` and every mint would
     break.
+    """
+
+    upload_path: Path = Path(tempfile.gettempdir()) / "kasten-uploads"
+    """Where a file sent in pieces is joined before the route that finishes it reads it.
+
+    Outside the vault, so a half-sent file never reaches the listing, the
+    watcher or jj. Emptied at every start, since the pieces received are kept
+    in memory and a restart forgets them.
     """
 
     agent_host: str = ""

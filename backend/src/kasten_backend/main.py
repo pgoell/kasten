@@ -24,7 +24,7 @@ from youtube_transcript_api import (
     YouTubeRequestFailed,
 )
 
-from kasten_backend import agent, agent_mcp, files
+from kasten_backend import agent, agent_mcp, files, uploads
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
@@ -36,7 +36,6 @@ from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.files import (
-    ASSET_LIMIT_BYTES,
     PAGE_FAILED,
     RefusedError,
     open_public,
@@ -135,6 +134,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # vault, and it should read one that is finished being written to.
     await prepare(settings.vault_path)
     await purge_trash(settings.vault_path, settings.trash_days)
+    uploads.wipe(settings.upload_path)
     # A mounted sub-application does not run its own lifespan, and the MCP
     # session manager is single-use, so the endpoint is built here and rebuilt
     # on every entry rather than once at import.
@@ -982,7 +982,10 @@ async def show_graph(
 
 @app.post("/api/anki", status_code=201)
 async def import_anki(
-    request: Request, settings: Annotated[Settings, Depends(get_settings)], carry: bool = False
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    carry: bool = False,
+    upload: str | None = None,
 ) -> AnkiImport:
     """Turn an Anki export into one markdown note per deck.
 
@@ -998,8 +1001,16 @@ async def import_anki(
     `carry` writes Anki's schedule onto every card Anki has in review, as the
     comment a rating would leave, so the review picks up where Anki left off.
     Only on a card the import adds: one already in the note keeps kasten's.
+
+    `upload` names a file sent in pieces through `/api/uploads`, read in place
+    of the body, which is then empty.
     """
-    return await _import_bytes(await request.body(), settings, carry=carry)
+    if upload is None:
+        body = await request.body()
+    else:
+        async with uploads.finished(upload) as joined:
+            body = joined.read_bytes()
+    return await _import_bytes(body, settings, carry=carry, limit=files.UPLOAD_LIMIT_BYTES)
 
 
 class DeckLink(BaseModel):
@@ -1019,17 +1030,19 @@ async def import_anki_link(
     through the `RefusedError` handler. Nothing is written until the bytes are
     all here, so a link that fails leaves the vault as it was.
     """
-    return await _import_bytes(await files.fetch_deck(link.url), settings, carry=carry)
+    return await _import_bytes(
+        await files.fetch_deck(link.url), settings, carry=carry, limit=files.ASSET_LIMIT_BYTES
+    )
 
 
-async def _import_bytes(body: bytes, settings: Settings, *, carry: bool) -> AnkiImport:
+async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: int) -> AnkiImport:
     """Import the export `body`, the one implementation behind a file and a link.
 
     One, so the merge, its refusals and the summary are the same words
-    whichever way the deck arrived.
+    whichever way the deck arrived. `limit` is the cap for that way.
     """
-    if len(body) > ASSET_LIMIT_BYTES:
-        raise HTTPException(status_code=413, detail="That export is too large")
+    if len(body) > limit:
+        raise HTTPException(status_code=413, detail=files.too_big(limit))
 
     try:
         # In a worker thread: unzipping, zstd and sqlite take seconds on a big
@@ -1293,7 +1306,10 @@ async def read_asset(
 
 @app.post("/api/assets/{path:path}", status_code=201, response_class=Response)
 async def write_asset(
-    path: str, request: Request, settings: Annotated[Settings, Depends(get_settings)]
+    path: str,
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    upload: str | None = None,
 ) -> Response:
     """Put one book or image into the vault, and never over one already there.
 
@@ -1301,9 +1317,18 @@ async def write_asset(
     answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
     documents the 201 as JSON carrying an empty schema, and
     `openapi-typescript` turns that into a body for a response that has none.
+
+    `upload` names a file sent in pieces through `/api/uploads`, streamed
+    through `store` in place of the body.
     """
+    limit = files.UPLOAD_LIMIT_BYTES
+    if upload is not None:
+        async with uploads.finished(upload) as joined:
+            await store(settings.vault_path, path, uploads.read(joined), limit=limit)
+        return Response(status_code=201)
+
     try:
-        await store(settings.vault_path, path, request.stream())
+        await store(settings.vault_path, path, request.stream(), limit=limit)
     except ClientDisconnect:
         # This answer reaches nothing: uvicorn's `send` returns at its
         # disconnected guard before it writes bytes and before it writes the
@@ -1314,6 +1339,47 @@ async def write_asset(
         return Response(status_code=499)
 
     return Response(status_code=201)
+
+
+class UploadSize(BaseModel):
+    """What a file sent in pieces will weigh once joined."""
+
+    size: int
+    """In bytes, at least one and at most `UPLOAD_LIMIT_BYTES`."""
+
+
+class UploadStarted(BaseModel):
+    """The upload a client sends its pieces to, and names when it finishes."""
+
+    id: str
+
+
+@app.post("/api/uploads", status_code=201)
+async def start_upload(
+    declared: UploadSize, settings: Annotated[Settings, Depends(get_settings)]
+) -> UploadStarted:
+    """Open an upload for a file too big for one request through Cloudflare.
+
+    Sweeps every upload idle for over an hour on the way, so a file nobody
+    finished costs its disk until the next one starts and no longer.
+    """
+    return UploadStarted(id=uploads.start(settings.upload_path, declared.size))
+
+
+@app.put("/api/uploads/{upload}/{n}", status_code=204, response_class=Response)
+async def write_piece(upload: str, n: Annotated[int, Segment(ge=0)], request: Request) -> Response:
+    """Write piece `n` of an upload from the raw body: the next one, or the last one again.
+
+    `response_class` for the reason `POST /api/assets/{path}` carries one.
+    """
+    try:
+        await uploads.write(upload, n, request.stream())
+    except ClientDisconnect:
+        # Nobody reads this answer, for the reason `write_asset` gives, and
+        # `write` has already cut the temp back so the piece can be sent again.
+        return Response(status_code=499)
+
+    return Response(status_code=204)
 
 
 @app.delete("/api/assets/{path:path}")

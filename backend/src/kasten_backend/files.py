@@ -37,19 +37,23 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 ASSET_LIMIT_BYTES = 100 * 1024 * 1024
-"""The most of one book or image this will take before giving up.
+"""The most of one file fetched by link, or sent by a token holder, before giving up.
 
-One cap for both, because the cap is about what a request may cost and not about
-what a format usually weighs. Twenty times a fat epub, so it is not a number
-anybody meets by reading. It is counted off the bytes as they arrive rather than
-read off `content-length`, for the reason `PAGE_LIMIT_BYTES` is: a header is a
-claim. `api.ts` holds the client's copy, which is checked before a byte is sent
-and must never exceed this one.
+One cap for every kind, because the cap is about what a request may cost and
+not about what a format usually weighs. It is counted off the bytes as they
+arrive rather than read off `content-length`, for the reason `PAGE_LIMIT_BYTES`
+is: a header is a claim. A download is what it guards most, since no proxy in
+front of kasten sees one at all.
+"""
 
-Cloudflare sits in front of production with a body limit of its own near this
-number, so a real oversize upload is usually refused before it arrives. This is
-the backstop for dev, for the LAN, for a client that did not check, and for a
-download, which no proxy in front of kasten sees at all.
+UPLOAD_LIMIT_BYTES = 1024 * 1024 * 1024
+"""The most of one file the browser may put into the vault or import as a deck.
+
+Higher than `ASSET_LIMIT_BYTES` because a 106MB Anki deck is one file that
+cannot be split, and the browser sends a big file in pieces through
+`uploads.py`, so Cloudflare's own 100MB body limit no longer stands in the way.
+Anki's reader allows 1 GiB a member already. `api.ts` holds the client's copy,
+which is checked before a byte is sent and must never exceed this one.
 """
 
 PAGE_FAILED = 400
@@ -81,8 +85,18 @@ is one the reader is sitting in front of and could have opened in a tab. It is
 a request for one page, made by hand, not a crawl.
 """
 
-TOO_BIG = "That book is too big"
-"""What a body over the cap is refused with, whichever kind of file it was."""
+
+def too_big(limit: int) -> str:
+    """What a body over `limit` is refused with: the limit, so the reader knows what fits.
+
+    The unit is the largest the limit is a whole number of, so a cap a test
+    lowers to a few bytes still reads as a sentence.
+    """
+    for unit, name in ((1024**3, "GiB"), (1024**2, "MiB"), (1024, "KiB")):
+        if limit % unit == 0:
+            return f"That file is over the {limit // unit} {name} limit"
+    return f"That file is over the {limit} byte limit"
+
 
 DECK_TIMEOUT_SECONDS = 120.0
 """How long fetching a deck from a link may take, start to finish, every hop included.
@@ -354,7 +368,7 @@ async def _capped(response: httpx.Response) -> bytes:
     async for chunk in response.aiter_bytes():
         body += chunk
         if len(body) > ASSET_LIMIT_BYTES:
-            raise RefusedError(413, "That deck is too big")
+            raise RefusedError(413, too_big(ASSET_LIMIT_BYTES))
     return bytes(body)
 
 
@@ -385,8 +399,19 @@ def temporary_name(name: str) -> str:
     return f".{name}.{secrets.token_hex(4)}.tmp"
 
 
-async def store(root: Path, path: str, chunks: AsyncIterator[bytes], *, held: bool = False) -> str:
+async def store(
+    root: Path,
+    path: str,
+    chunks: AsyncIterator[bytes],
+    *,
+    limit: int | None = None,
+    held: bool = False,
+) -> str:
     """Put the bytes `chunks` yields at `path`, never over a file already there.
+
+    `limit` is the cap, `ASSET_LIMIT_BYTES` when None. None rather than that
+    constant as the default, which would bind it once at import where a test
+    lowering the cap could not reach it.
 
     Answers with the vault-relative path that landed. Every refusal leaves the
     path as it found it, a free one with no temp beside it. An exception the
@@ -424,6 +449,7 @@ async def store(root: Path, path: str, chunks: AsyncIterator[bytes], *, held: bo
     temporary = asset.with_name(temporary_name(asset.name))
     # Opened above the `try`, so the `finally` can only ever unlink a file this
     # call made.
+    cap = ASSET_LIMIT_BYTES if limit is None else limit
     output = temporary.open("xb")
     try:
         with output:
@@ -433,8 +459,8 @@ async def store(root: Path, path: str, chunks: AsyncIterator[bytes], *, held: bo
                 size += len(chunk)
                 # Before the write, so an over-cap body is refused rather than
                 # landing on the disk first.
-                if size > ASSET_LIMIT_BYTES:
-                    raise RefusedError(413, TOO_BIG)
+                if size > cap:
+                    raise RefusedError(413, too_big(cap))
                 if len(head) < HEAD_BYTES:
                     head = (head + chunk)[:HEAD_BYTES]
                 output.write(chunk)

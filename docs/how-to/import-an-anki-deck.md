@@ -25,6 +25,11 @@ Open `/review`, either on a phone or through `<leader>gs` in the app, and open
 schedule, tick **Carry Anki's schedule** first; it is off by default. Press
 **Import an Anki deck** and pick the `.apkg`.
 
+A file may weigh up to 1GiB. One bigger than a single request carries goes up
+in pieces, so Cloudflare's 100MB limit on a request does not stand in the way;
+the import line shows how far it has got. A file over 1GiB is refused with
+`That file is over the 1 GiB limit`, and nothing is written.
+
 The line under the buttons says what arrived: how many decks and cards, how many
 the import added, updated and kept, how many Anki no longer has, and how many
 image and sound files came with them.
@@ -50,9 +55,11 @@ the link asked for, and the way round is the same.
 
 kasten refuses a link that is not https, a redirect to http, and any address
 that is not on the internet, such as `localhost` or the box's own network,
-whichever hop it shows up on. It refuses a deck over 100MB, a fetch that takes
+whichever hop it shows up on. It refuses a deck over 100MiB, a fetch that takes
 over two minutes, a link that answers with a web page or anything else that is
-not a deck, and a deck that is gone. A refused link writes nothing.
+not a deck, and a deck that is gone. A refused link writes nothing. The limit
+on a link stays at 100MiB, lower than a file's 1GiB, because the backend does
+the fetching; a bigger deck goes in as a file.
 
 ## Where it lands
 

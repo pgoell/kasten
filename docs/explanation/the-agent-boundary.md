@@ -36,7 +36,7 @@ It did not survive review, and the reasons are worth keeping written down:
 * `POST /api/anki` reads a ZIP member and decompresses it with no bound on the
   output, so a small upload becomes an unbounded allocation in the process that
   serves the browser.
-* `POST /api/assets/{path}` accepts a 100MiB epub. The vault's history is told
+* `POST /api/assets/{path}` accepts a 1GiB epub. The vault's history is told
   to ignore epubs and the delete route refuses them, so an agent could fill the
   disk with files no route and no history can remove.
 * Telling a bearer caller apart from a browser caller meant trusting a header
@@ -121,8 +121,8 @@ could not file the paper beside it, and the reader had nothing to open.
 
 The hazard the upload carried was disk. Books are ignored by jj and no route
 deletes one, so a looping or leaked token can fill the disk with files only
-the shell can remove. That is still true, and the cap is the browser's 100MiB
-per file rather than the notes' 1MiB, by choice: a scanned book is bigger than
+the shell can remove. That is still true, and the cap is 100MiB per file, the
+cap on a fetch by link, rather than the notes' 1MiB, by choice: a scanned book is bigger than
 any smaller number worth picking. What bounds it is the same as for notes,
 which is that a token is revoked in one click and every file it wrote sits at a
 path it named. Nothing is overwritten: a taken path is refused, decided by the

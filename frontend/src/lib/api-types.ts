@@ -784,6 +784,9 @@ export interface paths {
          *     `carry` writes Anki's schedule onto every card Anki has in review, as the
          *     comment a rating would leave, so the review picks up where Anki left off.
          *     Only on a card the import adds: one already in the note keeps kasten's.
+         *
+         *     `upload` names a file sent in pieces through `/api/uploads`, read in place
+         *     of the body, which is then empty.
          */
         post: operations["import_anki_api_anki_post"];
         delete?: never;
@@ -945,6 +948,9 @@ export interface paths {
          *     answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
          *     documents the 201 as JSON carrying an empty schema, and
          *     `openapi-typescript` turns that into a body for a response that has none.
+         *
+         *     `upload` names a file sent in pieces through `/api/uploads`, streamed
+         *     through `store` in place of the body.
          */
         post: operations["write_asset_api_assets__path__post"];
         /**
@@ -971,6 +977,51 @@ export interface paths {
          *     reference to a file that is not there as a picture that will not load.
          */
         delete: operations["delete_asset_api_assets__path__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Upload
+         * @description Open an upload for a file too big for one request through Cloudflare.
+         *
+         *     Sweeps every upload idle for over an hour on the way, so a file nobody
+         *     finished costs its disk until the next one starts and no longer.
+         */
+        post: operations["start_upload_api_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload}/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write Piece
+         * @description Write piece `n` of an upload from the raw body: the next one, or the last one again.
+         *
+         *     `response_class` for the reason `POST /api/assets/{path}` carries one.
+         */
+        put: operations["write_piece_api_uploads__upload___n__put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1794,6 +1845,22 @@ export interface components {
              * Format: date-time
              */
             deleted: string;
+        };
+        /**
+         * UploadSize
+         * @description What a file sent in pieces will weigh once joined.
+         */
+        UploadSize: {
+            /** Size */
+            size: number;
+        };
+        /**
+         * UploadStarted
+         * @description The upload a client sends its pieces to, and names when it finishes.
+         */
+        UploadStarted: {
+            /** Id */
+            id: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2697,6 +2764,7 @@ export interface operations {
         parameters: {
             query?: {
                 carry?: boolean;
+                upload?: string | null;
             };
             header?: never;
             path?: never;
@@ -2892,7 +2960,9 @@ export interface operations {
     };
     write_asset_api_assets__path__post: {
         parameters: {
-            query?: never;
+            query?: {
+                upload?: string | null;
+            };
             header?: never;
             path: {
                 path: string;
@@ -2938,6 +3008,69 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TrashEntry"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_upload_api_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadSize"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_piece_api_uploads__upload___n__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

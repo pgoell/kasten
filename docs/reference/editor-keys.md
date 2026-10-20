@@ -2254,7 +2254,7 @@ Rename it in a terminal pane afterwards if the name matters, and fix the
 reference while you are there.
 
 A refused upload writes nothing into the note and puts the reason in the status
-bar. The vault refuses a path that is taken, a body over 100MiB, and bytes that
+bar. The vault refuses a path that is taken, a body over 1GiB, and bytes that
 disagree with the suffix they arrived under, all three on the rules
 [POST /api/assets/{path}](/reference/http-api.md#post-apiassetspath) sets out.
 An `image/svg+xml` on the clipboard is refused too: an SVG is markup a browser

@@ -30,6 +30,9 @@ def startup_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[P
     """
     root = tmp_path / "startup"
     monkeypatch.setenv("KASTEN_VAULT_PATH", str(root))
+    # Every `Settings`, the `vault` fixture's included, reads this, so no test
+    # joins its pieces in the box's shared temp folder or wipes another's.
+    monkeypatch.setenv("KASTEN_UPLOAD_PATH", str(tmp_path / "uploads"))
     get_settings.cache_clear()
 
     yield root
