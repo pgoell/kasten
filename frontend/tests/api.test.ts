@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ASSET_LIMIT_BYTES, fetchBook, importAnki, importAnkiLink, uploadAsset } from "@/lib/api";
+import { fetchBook, importAnki, importAnkiLink, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/lib/api";
 
 const FILES = readFileSync(
   path.join(import.meta.dirname, "../../backend/src/kasten_backend/files.py"),
@@ -9,9 +9,48 @@ const FILES = readFileSync(
 
 /** The backend's own cap, read off the module that enforces it. */
 function backendCap(): number {
-  const found = FILES.match(/^ASSET_LIMIT_BYTES = ([\d *]+)$/m)?.[1];
-  if (found === undefined) throw new Error("files.py carries no ASSET_LIMIT_BYTES");
+  const found = FILES.match(/^UPLOAD_LIMIT_BYTES = ([\d *]+)$/m)?.[1];
+  if (found === undefined) throw new Error("files.py carries no UPLOAD_LIMIT_BYTES");
   return found.split("*").reduce((total, factor) => total * Number(factor), 1);
+}
+
+/** One piece, the most a single request carries. */
+const PIECE = 10 * 1024 * 1024;
+
+/**
+ * The backend behind the upload routes, and every request sent to it in order.
+ *
+ * Each entry of `pieces` answers one PUT in turn: "drop" as a lost connection,
+ * a number as that status. Past the last entry a PUT lands. A request reads as
+ * its method, its URL and what it carried.
+ */
+function uploads(pieces: ("drop" | number)[] = []) {
+  const sent: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const body = init?.body;
+      const carried =
+        body instanceof Blob ? ` ${body.size} bytes` : typeof body === "string" ? ` ${body}` : "";
+      sent.push(`${init?.method} ${url}${carried}`);
+      if (url === "/api/uploads") {
+        return { ok: true, status: 201, json: async () => ({ id: "u1" }) };
+      }
+      const answer = init?.method === "PUT" ? pieces.shift() : undefined;
+      // What `fetch` itself throws when the connection drops.
+      if (answer === "drop") throw new TypeError("Failed to fetch");
+      if (answer !== undefined && answer >= 300) {
+        return {
+          ok: false,
+          status: answer,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ detail: `The backend answered ${answer}` }),
+        };
+      }
+      return { ok: true, status: 201, json: async () => ({}) };
+    }),
+  );
+  return sent;
 }
 
 describe("fetchBook", () => {
@@ -117,7 +156,7 @@ describe("uploadAsset", () => {
     );
   });
 
-  it("names the status when the answer is not JSON, which is Cloudflare's", async () => {
+  it("#521 A6 names the limit when a 413 comes back without JSON, which is Cloudflare's", async () => {
     const json = vi.fn();
     vi.stubGlobal(
       "fetch",
@@ -129,12 +168,71 @@ describe("uploadAsset", () => {
       }),
     );
 
-    await expect(uploadAsset("books/DDIA.epub", new Blob(["a"]))).rejects.toThrow(
-      "POST /api/assets/books/DDIA.epub failed with 413",
+    const failed = await uploadAsset("books/DDIA.epub", new Blob(["a"])).catch(
+      (error: unknown) => error,
     );
+
     // An oversize body never reaches kasten in production: Cloudflare refuses
     // it first, with an HTML page a parse would throw on.
     expect(json).not.toHaveBeenCalled();
+    expect(failed).toEqual(
+      new Error(
+        "That file is over the upload limit of a proxy in front of kasten (100MB per request)",
+      ),
+    );
+  });
+
+  it("#521 A3 sends a file over one piece in parts and finishes it by its id", async () => {
+    const sent = uploads();
+
+    await uploadAsset("books/DDIA.pdf", new Blob([new Uint8Array(PIECE)]));
+    await uploadAsset("books/DDIA.pdf", new Blob([new Uint8Array(PIECE + 1)]));
+
+    expect(sent).toEqual([
+      `POST /api/assets/books%2FDDIA.pdf ${PIECE} bytes`,
+      `POST /api/uploads {"size":${PIECE + 1}}`,
+      `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      "PUT /api/uploads/u1/1 1 bytes",
+      "POST /api/assets/books%2FDDIA.pdf?upload=u1",
+    ]);
+  });
+
+  it("#521 A8 sends a piece again after a lost connection or a 502, and only that piece", async () => {
+    const sent = uploads(["drop", 204, 502]);
+
+    await uploadAsset("books/DDIA.pdf", new Blob([new Uint8Array(PIECE + 1)]));
+
+    expect(sent).toEqual([
+      `POST /api/uploads {"size":${PIECE + 1}}`,
+      `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      "PUT /api/uploads/u1/1 1 bytes",
+      "PUT /api/uploads/u1/1 1 bytes",
+      "POST /api/assets/books%2FDDIA.pdf?upload=u1",
+    ]);
+  });
+
+  it("#521 A8 gives up on a piece after three tries, and at once on a 4xx", async () => {
+    const dropped = uploads(["drop", "drop", "drop"]);
+    const lost = await uploadAsset("books/DDIA.pdf", new Blob([new Uint8Array(PIECE + 1)])).catch(
+      (error: unknown) => error,
+    );
+    const refused = uploads([409]);
+    const turned = await uploadAsset("books/DDIA.pdf", new Blob([new Uint8Array(PIECE + 1)])).catch(
+      (error: unknown) => error,
+    );
+
+    expect({ lost, dropped, turned, refused }).toEqual({
+      lost: new TypeError("Failed to fetch"),
+      dropped: [
+        `POST /api/uploads {"size":${PIECE + 1}}`,
+        `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+        `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+        `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      ],
+      turned: new Error("The backend answered 409"),
+      refused: [`POST /api/uploads {"size":${PIECE + 1}}`, `PUT /api/uploads/u1/0 ${PIECE} bytes`],
+    });
   });
 });
 
@@ -156,6 +254,21 @@ describe("importAnki", () => {
       method: "POST",
       body: deck,
     });
+  });
+
+  it("#521 A3 sends a deck over one piece in parts and imports it by its id", async () => {
+    const sent = uploads();
+
+    await importAnki(new Blob([new Uint8Array(PIECE)]), false);
+    await importAnki(new Blob([new Uint8Array(PIECE + 1)]), true);
+
+    expect(sent).toEqual([
+      `POST /api/anki ${PIECE} bytes`,
+      `POST /api/uploads {"size":${PIECE + 1}}`,
+      `PUT /api/uploads/u1/0 ${PIECE} bytes`,
+      "PUT /api/uploads/u1/1 1 bytes",
+      "POST /api/anki?carry=true&upload=u1",
+    ]);
   });
 });
 
@@ -205,6 +318,6 @@ describe("the size cap", () => {
   // merely cautious, and a client that lets through what the server refuses
   // turns a 413 into a network error nobody can read.
   it("never lets through a file the backend would refuse", () => {
-    expect(ASSET_LIMIT_BYTES).toBeLessThanOrEqual(backendCap());
+    expect(UPLOAD_LIMIT_BYTES).toBeLessThanOrEqual(backendCap());
   });
 });

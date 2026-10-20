@@ -222,7 +222,17 @@ export function ReviewDecks({ onPick, onParked, archive = false }: ReviewDecksPr
               // which is what a failed import wants to let you retry.
               event.target.value = "";
               if (file === undefined) return;
-              void runImport(importAnki(file, carry));
+              // Floored, so the line never reads 100% while a piece is still
+              // on its way; once all are in, the backend is what is busy.
+              void runImport(
+                importAnki(file, carry, (sent, total) =>
+                  setImported(
+                    sent === total
+                      ? "Importing…"
+                      : `Uploading ${Math.floor((100 * sent) / total)}%…`,
+                  ),
+                ),
+              );
             }}
           />
           <button

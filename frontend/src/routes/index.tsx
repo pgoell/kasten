@@ -34,7 +34,6 @@ import { TodoPrompt } from "@/components/todo-prompt";
 import { Toolbar } from "@/components/toolbar";
 import { VideoPane } from "@/components/video-pane";
 import {
-  ASSET_LIMIT_BYTES,
   type BookBeside,
   ChangedOnDisk,
   createNote,
@@ -56,6 +55,7 @@ import {
   type SearchHit,
   saveNote,
   type TodoHit,
+  UPLOAD_LIMIT_BYTES,
   updateNote,
   uploadAsset,
 } from "@/lib/api";
@@ -2046,12 +2046,11 @@ function Home() {
         return;
       }
 
-      // Checked here rather than left to the backend. Sending 400MB through
-      // the proxy to be told no is rude to the connection, and in production
-      // Cloudflare refuses an oversize body before kasten sees it, with a page
-      // of its own: the backend's 413 is a backstop and this is the message.
-      if (file.size > ASSET_LIMIT_BYTES) {
-        setNotice("That file is too big");
+      // Checked here rather than left to the backend, which would refuse the
+      // upload when it opens, before a piece goes: this names the limit
+      // without the round trip, and the backend's 413 is the backstop.
+      if (file.size > UPLOAD_LIMIT_BYTES) {
+        setNotice("That file is over the 1 GiB upload limit");
         return;
       }
 

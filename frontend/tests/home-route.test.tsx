@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { cleanup, fireEvent, render, act as rtlAct, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import { buildTree } from "@/components/file-explorer";
-import { ASSET_LIMIT_BYTES, ChangedOnDisk, NoteMissing, type TodoHit } from "@/lib/api";
+import { ChangedOnDisk, NoteMissing, type TodoHit, UPLOAD_LIMIT_BYTES } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { folderCandidates, lineCandidates, noteCandidates } from "@/lib/fuzzy";
 import { heldText, holdText, resetHeld, unstamped } from "@/lib/held-text";
@@ -175,7 +175,7 @@ vi.mock("@/lib/api", () => ({
   // Left off the factory this constant arrives in the route as undefined,
   // `file.size > undefined` is false for every file, and the size check never
   // fires while its boundary guard passes vacuously over the break.
-  ASSET_LIMIT_BYTES: 100 * 1024 * 1024,
+  UPLOAD_LIMIT_BYTES: 1024 * 1024 * 1024,
   // The autosave tells a save refused over its base from any other failure
   // by this class, which a factory leaving it out would hand it as undefined.
   ChangedOnDisk: class ChangedOnDisk extends Error {},
@@ -6424,25 +6424,24 @@ describe("putting a book in the vault", () => {
     expect(app.notice()).toBe("The vault will not take that name");
   });
 
-  it("refuses a book over the cap without sending a byte", async () => {
+  it("#521 A5 refuses a book over the cap without sending a byte, naming the limit", async () => {
     const app = await renderApp();
     await settle();
 
-    pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES + 1);
+    pick(app, "Talk Like TED.epub", UPLOAD_LIMIT_BYTES + 1);
     await settle();
 
+    expect(app.notice()).toBe("That file is over the 1 GiB upload limit");
     expect(uploadAsset).not.toHaveBeenCalled();
-    expect(app.notice()).toBe("That file is too big");
   });
 
   it("sends a book exactly at the cap", async () => {
     // A guard, not a red step: the check is strictly greater, so the boundary
-    // passes either way. It pins the client's own boundary and says nothing
-    // about production, where Cloudflare answers first.
+    // passes either way. It pins the client's own boundary.
     const app = await renderApp();
     await settle();
 
-    const file = pick(app, "Talk Like TED.epub", ASSET_LIMIT_BYTES);
+    const file = pick(app, "Talk Like TED.epub", UPLOAD_LIMIT_BYTES);
     await settle();
 
     expect(uploadAsset).toHaveBeenCalledWith(BOOK, file);

@@ -816,7 +816,7 @@ describe("ReviewDecks reading the deck notes", () => {
 
     expect(carry).not.toBeChecked();
     fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
-    expect(imported).toHaveBeenLastCalledWith(deck, false);
+    expect(imported).toHaveBeenLastCalledWith(deck, false, expect.any(Function));
     expect(
       await screen.findByText(
         "1 deck, 120 cards: 5 added, 3 updated, 110 kept, 2 removed in Anki, 2 media files",
@@ -825,7 +825,7 @@ describe("ReviewDecks reading the deck notes", () => {
 
     fireEvent.click(carry);
     fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
-    expect(imported).toHaveBeenLastCalledWith(deck, true);
+    expect(imported).toHaveBeenLastCalledWith(deck, true, expect.any(Function));
   });
 
   it("#517 A5 the Anki import is a bordered button behind one Import entry", () => {
@@ -1049,6 +1049,88 @@ describe("ReviewDecks importing from a link", () => {
 
     fireEvent.change(field, { target: { value: LINK } });
     fireEvent.click(button);
+
+    expect((await screen.findByText(detail)).textContent).toBe(detail);
+  });
+});
+
+describe("ReviewDecks importing a large deck (#521)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function pickDeck(deck: File) {
+    render(
+      <QueryClientProvider client={seededClient(HITS)}>
+        <ReviewDecks onPick={vi.fn()} onParked={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    screen.getByRole("button", { name: /alpha/ });
+    fireEvent.change(screen.getByLabelText("Import an Anki deck"), { target: { files: [deck] } });
+  }
+
+  it("#521 A4 the import line says how much is up, then that the deck is importing", () => {
+    let progress: ((sent: number, total: number) => void) | undefined;
+    vi.spyOn(api, "importAnki").mockImplementation((_file, _carry, onProgress) => {
+      progress = onProgress;
+      return new Promise(() => {});
+    });
+    pickDeck(new File(["apkg"], "big.apkg"));
+
+    const lines: (string | null | undefined)[] = [];
+    // Floored: one byte short of the whole file is not yet 100%.
+    for (const [sent, total] of [
+      [4, 10],
+      [10485760, 10485761],
+      [10, 10],
+    ] as const) {
+      act(() => progress?.(sent, total));
+      lines.push(screen.queryByText(/^(Uploading|Importing)/)?.textContent);
+    }
+
+    expect(lines).toEqual(["Uploading 40%…", "Uploading 99%…", "Importing…"]);
+  });
+
+  it("#521 I8 a piece refused for good shows the backend's sentence on the import line", async () => {
+    const detail = "That piece would pass the size the upload declared";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === "/api/uploads") {
+          return { ok: true, status: 201, json: async () => ({ id: "u1" }) };
+        }
+        if (init?.method === "PUT") {
+          return {
+            ok: false,
+            status: 413,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: async () => ({ detail }),
+          };
+        }
+        // A whole-file POST, which a large deck must not be sent as, lands.
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            notes: [],
+            cards: 0,
+            media: 0,
+            added: 0,
+            updated: 0,
+            kept: 0,
+            removed: 0,
+          }),
+        };
+      }),
+    );
+
+    pickDeck(new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.apkg"));
 
     expect((await screen.findByText(detail)).textContent).toBe(detail);
   });

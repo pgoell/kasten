@@ -137,32 +137,119 @@ export async function fetchTodos(archive = false): Promise<TodoHit[]> {
   return data;
 }
 
+/**
+ * The error a refused upload throws, worded for the line that shows it.
+ *
+ * The content type asked rather than the parse wrapped in a `try`: an upload's
+ * refusal can come from something other than kasten. Cloudflare sits in front
+ * of production with a body limit of its own and answers an oversize request
+ * with an HTML page, which `.json()` throws on and which names no limit.
+ */
+async function refused(response: Response, label: string): Promise<Error> {
+  const detail =
+    response.headers.get("content-type")?.includes("json") === true
+      ? reason(await response.json())
+      : null;
+  if (detail !== null) return new Error(detail);
+  if (response.status === 413) {
+    return new Error(
+      "That file is over the upload limit of a proxy in front of kasten (100MB per request)",
+    );
+  }
+  return new Error(`${label} failed with ${response.status}`);
+}
+
+/**
+ * The most one request carries; a bigger file goes up in pieces this size.
+ *
+ * Cloudflare refuses a body over 100MB, and it drops a request it has not
+ * answered within 100 seconds. 10 MiB clears both on a 1 Mbit/s phone link,
+ * which sends it in about 84 seconds.
+ */
+const PIECE_BYTES = 10 * 1024 * 1024;
+
+/** How often one piece is sent before the upload gives up, the first send included. */
+const PIECE_TRIES = 3;
+
+/** Send one piece, again on a dropped connection or a 5xx, and never the pieces before it. */
+async function sendPiece(url: string, piece: Blob): Promise<void> {
+  for (let tries = 1; ; tries++) {
+    let response: Response;
+    try {
+      response = await fetch(url, { method: "PUT", body: piece });
+    } catch (error: unknown) {
+      // A `TypeError` is what `fetch` rejects with when the connection drops.
+      if (!(error instanceof TypeError) || tries === PIECE_TRIES) throw error;
+      continue;
+    }
+    if (response.ok) return;
+    // A 4xx is the backend saying no, and asking again would get the same no.
+    // The backend cuts a resent piece back, so a retry after a 5xx is safe.
+    if (response.status < 500 || tries === PIECE_TRIES) {
+      throw await refused(response, `PUT ${url}`);
+    }
+  }
+}
+
+/**
+ * Send `file` to the backend in pieces, in order, and answer the upload's id.
+ *
+ * The id is what the route that uses the file is handed in place of a body.
+ * `onProgress` hears how many bytes are in after each piece.
+ */
+export async function uploadInParts(
+  file: Blob,
+  onProgress?: (sent: number, total: number) => void,
+): Promise<string> {
+  const opened = await fetch("/api/uploads", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ size: file.size }),
+  });
+  if (!opened.ok) throw await refused(opened, "POST /api/uploads");
+  const { id } = (await opened.json()) as { id: string };
+
+  onProgress?.(0, file.size);
+  for (let n = 0; n * PIECE_BYTES < file.size; n++) {
+    const end = Math.min((n + 1) * PIECE_BYTES, file.size);
+    await sendPiece(`/api/uploads/${id}/${n}`, file.slice(n * PIECE_BYTES, end));
+    onProgress?.(end, file.size);
+  }
+  return id;
+}
+
+/**
+ * POST `file` to `url`: as the body when it fits one piece, else in pieces.
+ *
+ * Plain `fetch`, because the endpoints take raw bytes and the generated client
+ * documents a body it will not let us send. The raw file rather than a
+ * multipart part: one file and no fields, so nothing has to parse a boundary.
+ */
+async function postFile(
+  url: string,
+  file: Blob,
+  onProgress?: (sent: number, total: number) => void,
+): Promise<Response> {
+  if (file.size <= PIECE_BYTES) return fetch(url, { method: "POST", body: file });
+  const id = await uploadInParts(file, onProgress);
+  return fetch(`${url}${url.includes("?") ? "&" : "?"}upload=${id}`, { method: "POST" });
+}
+
 /** What one imported `.apkg` turned into, and what the merge did to the deck notes. */
 export type AnkiImport = components["schemas"]["AnkiImport"];
 
 /**
  * Turn an Anki export into notes in the vault, merged into the ones it made before.
  *
- * The file's own bytes as the body, not a form: the request carries one file
- * and nothing beside it, the way an asset upload does. `carry` asks for Anki's
- * schedule to come along with the cards.
+ * `carry` asks for Anki's schedule to come along with the cards.
  */
-export async function importAnki(file: Blob, carry: boolean): Promise<AnkiImport> {
-  // Plain `fetch` for the reason `uploadAsset` uses one: the endpoint takes raw
-  // bytes, so the generated client documents a body it will not let us send.
-  const response = await fetch(carry ? "/api/anki?carry=true" : "/api/anki", {
-    method: "POST",
-    body: file,
-  });
-
-  if (!response.ok) {
-    const detail =
-      response.headers.get("content-type")?.includes("json") === true
-        ? reason(await response.json())
-        : null;
-    throw new Error(detail ?? `POST /api/anki failed with ${response.status}`);
-  }
-
+export async function importAnki(
+  file: Blob,
+  carry: boolean,
+  onProgress?: (sent: number, total: number) => void,
+): Promise<AnkiImport> {
+  const response = await postFile(carry ? "/api/anki?carry=true" : "/api/anki", file, onProgress);
+  if (!response.ok) throw await refused(response, "POST /api/anki");
   return (await response.json()) as AnkiImport;
 }
 
@@ -173,22 +260,14 @@ export async function importAnki(file: Blob, carry: boolean): Promise<AnkiImport
  * upload it again, and the answer is the one `importAnki` gets.
  */
 export async function importAnkiLink(url: string, carry: boolean): Promise<AnkiImport> {
-  // Plain `fetch` to match `importAnki`, whose refusal handling this repeats:
+  // Plain `fetch` to match `importAnki`, whose refusal handling this shares:
   // the detail is the sentence the import line shows.
   const response = await fetch(carry ? "/api/anki/link?carry=true" : "/api/anki/link", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
   });
-
-  if (!response.ok) {
-    const detail =
-      response.headers.get("content-type")?.includes("json") === true
-        ? reason(await response.json())
-        : null;
-    throw new Error(detail ?? `POST /api/anki/link failed with ${response.status}`);
-  }
-
+  if (!response.ok) throw await refused(response, "POST /api/anki/link");
   return (await response.json()) as AnkiImport;
 }
 
@@ -773,42 +852,28 @@ export async function fetchBook(note: string): Promise<BookBeside> {
 /**
  * The most this will send, checked before a byte goes out.
  *
- * The other copy is `ASSET_LIMIT_BYTES` in
+ * The other copy is `UPLOAD_LIMIT_BYTES` in
  * `backend/src/kasten_backend/files.py`, and the direction is what matters:
  * this one must never exceed that one, because a client that lets through what
- * the server refuses turns a readable 413 into a network error. `api.test.ts`
- * reads the backend's copy off disk and holds the two together.
+ * the server refuses sends a gigabyte to be told no. `api.test.ts` reads the
+ * backend's copy off disk and holds the two together.
  */
-export const ASSET_LIMIT_BYTES = 100 * 1024 * 1024;
+export const UPLOAD_LIMIT_BYTES = 1024 * 1024 * 1024;
 
 /**
  * Put one book or image at `path`, which is the file's path and not the note's.
- *
- * Plain `fetch` for the reason `fetchBook` uses one, and the raw file as the
- * body rather than a multipart part: one file and no fields, so nothing has to
- * parse a boundary at either end.
  *
  * One function for both, the endpoint being one endpoint: what the vault will
  * take is a table of suffixes on the backend, and a second copy of it here
  * would be a second place to edit when a format arrives.
  */
-export async function uploadAsset(path: string, file: Blob): Promise<void> {
-  const response = await fetch(`/api/assets/${encodeURIComponent(path)}`, {
-    method: "POST",
-    body: file,
-  });
-
-  if (!response.ok) {
-    // The content type asked rather than the parse wrapped in a `try`: this is
-    // the one call whose refusal can come from something other than kasten.
-    // Cloudflare sits in front of production with a body limit of its own and
-    // answers an oversize upload with an HTML page, which `.json()` throws on.
-    const detail =
-      response.headers.get("content-type")?.includes("json") === true
-        ? reason(await response.json())
-        : null;
-    throw new Error(detail ?? `POST /api/assets/${path} failed with ${response.status}`);
-  }
+export async function uploadAsset(
+  path: string,
+  file: Blob,
+  onProgress?: (sent: number, total: number) => void,
+): Promise<void> {
+  const response = await postFile(`/api/assets/${encodeURIComponent(path)}`, file, onProgress);
+  if (!response.ok) throw await refused(response, `POST /api/assets/${path}`);
 }
 
 /** Every agent token the vault holds. Never a digest and never a secret. */
