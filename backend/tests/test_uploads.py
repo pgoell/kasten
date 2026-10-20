@@ -23,7 +23,7 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
-from kasten_backend import files
+from kasten_backend import files, main
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
 
@@ -414,9 +414,8 @@ async def test_finishing_a_big_upload_lets_other_work_run(
 async def test_an_idle_upload_is_swept_with_no_new_upload(
     tmp_path: Path, startup_vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A nanosecond, which has passed by the next turn of the loop, so the sweep
-    # runs on every turn and the test waits on no clock. Not 0, which the
-    # setting refuses.
+    # A nanosecond, so the task started at startup sweeps on every turn of the
+    # loop. Not 0, which the setting refuses.
     monkeypatch.setenv("KASTEN_UPLOAD_SWEEP_SECONDS", "0.000000001")
     get_settings.cache_clear()
 
@@ -427,9 +426,21 @@ async def test_an_idle_upload_is_swept_with_no_new_upload(
         key = await start(client, 10)
         over_an_hour = time.time() - 3601
         os.utime(tmp_path / "uploads" / key, (over_an_hour, over_an_hour))
-        # A trip to a thread suspends this task for at least one turn of the
-        # loop, which is a turn the sweep gets.
-        await asyncio.to_thread(time.time)
+        # Off `main` and not imported, so a backend without the module fails on
+        # the 404 above and not on an import. The task looks `sweep` up on
+        # every pass, so the wrapper is what its next pass runs, and that pass
+        # sees the mtime set above. The test waits on that sweep finishing,
+        # never on a clock; the bound only stops a broken backend hanging it.
+        uploads = main.uploads
+        swept = asyncio.Event()
+        sweep = uploads.sweep
+
+        def sweeping() -> None:
+            sweep()
+            swept.set()
+
+        monkeypatch.setattr(uploads, "sweep", sweeping)
+        await asyncio.wait_for(swept.wait(), 5)
         gone = await client.put(f"/api/uploads/{key}/0", content=b"x" * 5)
 
     assert gone.status_code == 404
