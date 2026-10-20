@@ -12,6 +12,7 @@ reaches the process that holds its upload. A restart forgets them all, and
 """
 
 import asyncio
+import contextlib
 import re
 import secrets
 import time
@@ -20,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from kasten_backend import files
-from kasten_backend.files import RefusedError, too_big
+from kasten_backend.files import RefusedError, amount, too_big
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -77,11 +78,14 @@ def wipe(folder: Path) -> None:
 def _drop(key: str) -> None:
     upload = _uploads.pop(key, None)
     if upload is not None:
-        upload.path.unlink(missing_ok=True)
+        # Forgotten whether or not the unlink works: a temp this cannot delete
+        # must not take the sweep task or `POST /api/uploads` down with it.
+        with contextlib.suppress(OSError):
+            upload.path.unlink(missing_ok=True)
 
 
 def sweep() -> None:
-    """Delete every upload idle over `UPLOAD_IDLE_SECONDS`, or whose temp is gone."""
+    """Delete every upload idle over `UPLOAD_IDLE_SECONDS`, or whose temp cannot be read."""
     idle = time.time() - UPLOAD_IDLE_SECONDS
     for key, upload in list(_uploads.items()):
         # One mid-piece is live whatever its mtime says.
@@ -89,8 +93,9 @@ def sweep() -> None:
             continue
         try:
             stale = upload.path.stat().st_mtime < idle
-        except FileNotFoundError:
-            # Something else deleted the temp, a tidy of /tmp most likely.
+        except OSError:
+            # Something else deleted the temp, a tidy of /tmp most likely, or
+            # took it out of reach. Either way the upload cannot be finished.
             stale = True
         if stale:
             _drop(key)
@@ -114,6 +119,11 @@ def start(folder: Path, size: int) -> str:
         raise RefusedError(413, too_big(limit))
 
     sweep()
+    # After the sweep, so an upload abandoned an hour ago holds no room.
+    room = files.OPEN_LIMIT_BYTES
+    if sum(upload.size for upload in _uploads.values()) + size > room:
+        raise RefusedError(507, f"Too much is already uploading: {amount(room)} at once")
+
     key = secrets.token_hex(16)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / key

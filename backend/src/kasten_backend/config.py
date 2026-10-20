@@ -3,8 +3,10 @@
 import tempfile
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated, Self
 from urllib.parse import quote
 
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from kasten_backend.uploads import UPLOAD_SWEEP_SECONDS
@@ -143,7 +145,7 @@ class Settings(BaseSettings):
     in memory and a restart forgets them.
     """
 
-    upload_sweep_seconds: float = UPLOAD_SWEEP_SECONDS
+    upload_sweep_seconds: Annotated[float, Field(gt=0)] = UPLOAD_SWEEP_SECONDS
     """How often the backend deletes uploads idle over an hour.
 
     A setting so a test can sweep on every turn of the loop rather than wait.
@@ -175,6 +177,20 @@ class Settings(BaseSettings):
     started from the repo root. The backend image sets `/vault`, its mount
     point, so a container never falls back to a directory inside itself.
     """
+
+    @model_validator(mode="after")
+    def _uploads_outside_the_vault(self) -> Self:
+        """Refuse to start with the upload folder in the vault.
+
+        Half-sent files there would reach the file tree, the watcher and jj,
+        and the wipe at startup would delete vault files that happen to be
+        named like an upload.
+        """
+        vault = self.vault_path.resolve()
+        if self.upload_path.resolve().is_relative_to(vault):
+            msg = f"KASTEN_UPLOAD_PATH must be outside the vault, {vault}"
+            raise ValueError(msg)
+        return self
 
     def fill(self, text: str) -> str:
         """`text` with each `{{folder}}` in it spelled the way this vault spells it.

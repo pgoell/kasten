@@ -1077,14 +1077,19 @@ place of a body: `POST /api/anki?upload=<id>` or
 An upload whose last piece arrived over an hour ago is deleted, by a sweep the
 backend runs every ten minutes and by each call here, so a file nobody
 finished is gone within about seventy minutes. One whose temp file something
-else deleted counts as gone too, and its id answers 404. What has arrived is
-held in the backend's memory, and a restart forgets it and empties the folder.
+else deleted, or the backend cannot read, counts as gone too, and its id
+answers 404. What has arrived is held in the backend's memory, and a restart
+forgets it and empties the folder.
+
+The uploads open at once may declare 4GiB between them, counted after the
+sweep, which bounds the disk the temps can take.
 
 | Status | Means |
 | --- | --- |
 | `201` | The upload is open |
 | `400` | `An upload needs a size of at least one byte` |
 | `413` | `That file is over the 1 GiB limit` |
+| `507` | `Too much is already uploading: 4 GiB at once` |
 
 ## PUT /api/uploads/{upload}/{n}
 

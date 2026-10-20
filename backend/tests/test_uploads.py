@@ -21,9 +21,10 @@ from typing import TYPE_CHECKING
 import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
+from pydantic import ValidationError
 
 from kasten_backend import files
-from kasten_backend.config import get_settings
+from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
 
 if TYPE_CHECKING:
@@ -413,8 +414,10 @@ async def test_finishing_a_big_upload_lets_other_work_run(
 async def test_an_idle_upload_is_swept_with_no_new_upload(
     tmp_path: Path, startup_vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A sweep every turn of the loop, so the test waits on no clock.
-    monkeypatch.setenv("KASTEN_UPLOAD_SWEEP_SECONDS", "0")
+    # A nanosecond, which has passed by the next turn of the loop, so the sweep
+    # runs on every turn and the test waits on no clock. Not 0, which the
+    # setting refuses.
+    monkeypatch.setenv("KASTEN_UPLOAD_SWEEP_SECONDS", "0.000000001")
     get_settings.cache_clear()
 
     async with (
@@ -455,3 +458,44 @@ async def test_a_temp_gone_from_disk_counts_as_gone(
     assert after.json()["detail"] == "No such upload"
     assert finish.status_code == 404
     assert finish.json()["detail"] == "No such upload"
+
+
+async def test_uploads_open_at_once_may_declare_four_gib_and_no_more(
+    client: AsyncClient, vault: Path
+) -> None:
+    opened = [await client.post("/api/uploads", json={"size": GIB}) for _ in range(4)]
+    refused = await client.post("/api/uploads", json={"size": 1})
+
+    assert [response.status_code for response in opened] == [201, 201, 201, 201]
+    assert refused.status_code == 507
+    assert refused.json()["detail"] == "Too much is already uploading: 4 GiB at once"
+
+
+async def test_a_temp_that_cannot_be_read_counts_as_gone(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    key = await start(client, 10)
+    stat = Path.stat
+
+    def refusing(path: Path, **kwargs: bool) -> os.stat_result:
+        if path.name == key:
+            raise PermissionError(13, "Permission denied", str(path))
+        return stat(path, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", refusing)
+    opened = await client.post("/api/uploads", json={"size": 10})
+    gone = await client.put(f"/api/uploads/{key}/0", content=b"x" * 5)
+
+    assert opened.status_code == 201
+    assert gone.status_code == 404
+    assert gone.json()["detail"] == "No such upload"
+
+
+def test_the_upload_folder_may_not_be_in_the_vault(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="outside the vault"):
+        Settings(vault_path=tmp_path / "vault", upload_path=tmp_path / "vault" / "uploads")
+
+
+def test_the_sweep_needs_an_interval_over_zero() -> None:
+    with pytest.raises(ValidationError, match="greater than 0"):
+        Settings(upload_sweep_seconds=0)

@@ -86,16 +86,29 @@ a request for one page, made by hand, not a crawl.
 """
 
 
-def too_big(limit: int) -> str:
-    """What a body over `limit` is refused with: the limit, so the reader knows what fits.
+OPEN_LIMIT_BYTES = 4 * UPLOAD_LIMIT_BYTES
+"""The most the uploads open at once may declare between them.
 
-    The unit is the largest the limit is a whole number of, so a cap a test
-    lowers to a few bytes still reads as a sentence.
+What bounds the disk the temps take: a client that opens upload after upload
+and never finishes one fills the temp folder up to this and no further, for
+the hour until the sweep takes them.
+"""
+
+
+def amount(limit: int) -> str:
+    """`limit` in the largest unit it is a whole number of.
+
+    So a cap a test lowers to a few bytes still reads as a sentence.
     """
     for unit, name in ((1024**3, "GiB"), (1024**2, "MiB"), (1024, "KiB")):
         if limit % unit == 0:
-            return f"That file is over the {limit // unit} {name} limit"
-    return f"That file is over the {limit} byte limit"
+            return f"{limit // unit} {name}"
+    return f"{limit} byte"
+
+
+def too_big(limit: int) -> str:
+    """What a body over `limit` is refused with: the limit, so the reader knows what fits."""
+    return f"That file is over the {amount(limit)} limit"
 
 
 DECK_TIMEOUT_SECONDS = 120.0

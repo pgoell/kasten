@@ -18,7 +18,9 @@ if TYPE_CHECKING:
 def test_warns_about_an_empty_agent_host_and_an_unversioned_vault(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    warn_unsafe(Settings(agent_host="", vault_path=tmp_path))
+    # A folder of its own: the upload folder conftest sets is `tmp_path /
+    # "uploads"`, and settings refuse one inside the vault.
+    warn_unsafe(Settings(agent_host="", vault_path=tmp_path / "vault"))
 
     assert "KASTEN_AGENT_HOST is empty" in caplog.text
     assert "no .jj directory" in caplog.text
@@ -27,8 +29,9 @@ def test_warns_about_an_empty_agent_host_and_an_unversioned_vault(
 def test_says_nothing_about_a_setup_like_production(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    (tmp_path / ".jj").mkdir()
+    vault = tmp_path / "vault"
+    (vault / ".jj").mkdir(parents=True)
 
-    warn_unsafe(Settings(agent_host="kasten.example.com", vault_path=tmp_path))
+    warn_unsafe(Settings(agent_host="kasten.example.com", vault_path=vault))
 
     assert caplog.text == ""
