@@ -46,3 +46,4 @@ This log keeps one page for each day, under `log/<year>/`. Each month below list
 * [2026-10-19: links and the leader table](/log/2026/10-19-links.md)
 * [2026-10-19: review, todos and tags](/log/2026/10-19-review-and-tags.md)
 * [2026-10-20](/log/2026/10-20.md)
+* [2026-10-21](/log/2026/10-21.md)
