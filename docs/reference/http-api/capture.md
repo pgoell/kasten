@@ -236,7 +236,7 @@ Where the text goes:
   line in front of the next heading stays where it is.
 
 The heading is found the way the readers find it: the line reads exactly
-`## Dump` once trailing spaces and tabs go, outside a fenced code block
+`## Dump` once trailing whitespace goes, outside a fenced code block
 (backtick or tilde) and below the frontmatter. A `## Dump` in a fence or the
 frontmatter is skipped, so the text does not land where the readers never look.
 
