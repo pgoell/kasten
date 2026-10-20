@@ -11,7 +11,7 @@ status: stable
 Everything CI runs, you can run:
 
 ```sh
-mise run lint         # ruff, ty, biome
+mise run lint         # ruff, ty, biome, file size
 mise run test         # backend pytest and frontend vitest
 mise run fe:typecheck # builds the frontend, then tsc --noEmit
 ```
@@ -45,9 +45,9 @@ To check particular files, pass their paths:
 python3 scripts/file_size.py docs/log.md frontend/src/routes/index.tsx
 ```
 
-The pre-commit hook runs the check on the staged files, so a commit fails only
-when it stages a file over the limit. The check is not in `mise run lint` or CI
-until the list is empty (#611). The [file size limit](/explanation/file-size-limit.md)
+The pre-commit hook runs the check on the staged files, so a commit fails fast
+when it stages a file over the limit. `mise run lint` checks every tracked file,
+and both pre-commit and CI's Lint job run it. The [file size limit](/explanation/file-size-limit.md)
 page says why the limit exists and how to split a file that is over it.
 
 ## When the hook hangs with no output

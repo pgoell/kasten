@@ -47,15 +47,14 @@ reader then opens all of them to follow one task. John Ousterhout, in
 hides a lot of work. A deep module keeps that work behind a few functions, so a
 reader needs only one module to follow the task.
 
-## Why the hook checks only staged files for now
+## Why the hook checks staged files first
 
-Some files are still over the limit. If pre-commit checked every tracked file,
-every commit would fail until all of them were split, and main would not stay
-green. So the hook checks only the files a commit stages. A commit fails when it
-stages any file over the limit, whether that file was already over or is new or
-has grown past it. The list of files still over the limit is in
-`python3 scripts/file_size.py`. The last part of #611 adds the check to
-`mise run lint` and CI once the list is empty.
+The hook runs the check on the files a commit stages, so a commit fails fast
+when it stages any file over the limit, whether that file was already over or is
+new or has grown past it. `mise run lint` checks every tracked file. Pre-commit
+runs it too, and so does CI's Lint job, so a file over the limit anywhere in the
+tree fails the gate. The list of files over the limit is in
+`python3 scripts/file_size.py`.
 
 ## What a commit that stages a big file does
 

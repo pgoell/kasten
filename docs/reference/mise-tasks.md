@@ -110,8 +110,9 @@ container has no mise, so run that line there instead, as
 
 | Task | What it does |
 |---|---|
-| `lint` | ruff, ty, Biome on both JavaScript trees and `tsc`. The pre-commit gate |
+| `lint` | ruff, ty, Biome on both JavaScript trees, `tsc` and the file-size check. The pre-commit gate and CI's Lint job |
 | `lint:py` | Backend lint, format check and type check |
+| `lint:size` | Check every tracked file against the 5,000-token limit |
 | `fe:lint` | Biome on the frontend |
 | `shell:lint` | Biome on `shell/chat`, with the frontend's binary and rules |
 | `fmt` | Format everything |
@@ -129,8 +130,9 @@ build it drags in is what makes the gate two seconds rather than a third of
 one, which is the price of the frontend being gated the way the backend
 already was.
 
-The pre-commit hook also runs `scripts/file_size.py` on the staged files. It is
-not a mise task, and it fails a commit that stages a file over 5,000 tokens. See
+`lint:size` runs `scripts/file_size.py` with no arguments, so it checks every
+tracked file. The pre-commit hook also runs the script on the staged files, and
+fails a commit that stages a file over 5,000 tokens. See
 [The file size limit](/explanation/file-size-limit.md).
 
 ## Repo automation

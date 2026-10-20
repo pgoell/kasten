@@ -175,13 +175,13 @@ run = "bash scripts/apply-github-settings.sh --check"
 # ─── Lint & format ──────────────────────────────────────────────────────────
 
 [tasks.lint]
-description = "Run the fast linters and both type checkers (pre-commit gate)"
+description = "Run the fast linters, both type checkers and the file-size check (pre-commit gate)"
 # `fe:typecheck` is in here rather than left to CI because the two halves of the
 # repo have to be gated alike: `lint:py` type-checks the backend, and without
 # this the frontend was the half where a type error reached the branch. It
 # brings `fe:build` with it, which is what emits the gitignored route tree, and
 # the pair costs about two seconds.
-depends = ["lint:py", "fe:lint", "fe:typecheck", "shell:lint"]
+depends = ["lint:py", "lint:size", "fe:lint", "fe:typecheck", "shell:lint"]
 
 [tasks."lint:py"]
 description = "Lint, format-check and type-check the backend"
@@ -190,6 +190,12 @@ run = [
   "uv run ruff format --check",
   "uv run ty check",
 ]
+
+[tasks."lint:size"]
+description = "Check every tracked file against the 5,000-token limit"
+# No arguments, so every tracked file is checked, not only the staged ones. The
+# cap and its reason are in docs/explanation/file-size-limit.md.
+run = "python3 scripts/file_size.py"
 
 [tasks.fmt]
 description = "Auto-format everything"

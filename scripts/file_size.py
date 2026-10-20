@@ -3,7 +3,8 @@
 A token here is four bytes. That is close enough for a guard and needs no
 tokenizer. With no arguments the script checks every tracked file; with path
 arguments it checks just those, which is how lefthook's pre-commit runs it on
-the staged files. It is not in mise lint yet (#611).
+the staged files. `mise run lint` runs it with no arguments, so CI checks every
+tracked file.
 """
 
 import subprocess
