@@ -41,8 +41,13 @@ const ALCOHOL = new RegExp(
 /** Grams of ethanol per millilitre, the density the format names. */
 const ETHANOL = 0.789;
 
-/** A fence opens or closes a code block, and a heading ends the `## Log` above it. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+/**
+ * A fence opens or closes a code block, and a heading ends the `## Log` above it.
+ * The rest of the line is read so a backtick run opens only when no backtick
+ * follows it: `"```x```"` is inline code, and the note-section reader treats it so
+ * too, or a log line after it would be hidden here and written there.
+ */
+const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
 const HEADING = /^#{1,2} /;
 
 /** A written number as a float, a comma read as the point. */
@@ -131,7 +136,8 @@ function logLines(text: string): string[] {
   let fence: string | null = null;
   let inLog = false;
   for (const line of lines.slice(close === -1 ? 0 : close + 1)) {
-    const run = FENCE.exec(line)?.[1];
+    const match = FENCE.exec(line);
+    const run = match?.[1];
     if (fence !== null) {
       // A fence closes on its own character, at least as long as the one that opened it.
       if (
@@ -144,7 +150,7 @@ function logLines(text: string): string[] {
       }
       continue;
     }
-    if (run !== undefined) {
+    if (run !== undefined && (run[0] === "~" || !match?.[2]?.includes("`"))) {
       fence = run;
       continue;
     }

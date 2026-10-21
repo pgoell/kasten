@@ -33,7 +33,7 @@ entry's date. `GET /api/log` reads the lines and adds them up; see
    is part of it. A note may hold more than one `## Log`; each counts.
 3. A line inside a fenced code block, in the section or around it, is no entry,
    and a `## Log` inside one opens no section. The frontmatter is no section
-   either, and a fence it seems to open opens nothing in the note.
+   either, and a fence it seems to open opens nothing in the note. A line of inline triple-backtick code, `` ```x``` ``, opens no fence either, so the log lines after it still count.
 4. The line opens with `- ` at the start, with no indent, then the marker. A
    todo box, `- [ ] 💧 500 ml`, makes it a todo and no entry.
 

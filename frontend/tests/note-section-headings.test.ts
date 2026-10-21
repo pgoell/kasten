@@ -144,6 +144,25 @@ it("a fence-shaped line in the frontmatter gets no closer", () => {
   );
 });
 
+it("a fence under a lazy list line gets no column-zero closer", () => {
+  expect(appendUnder("## Log\n- a\nb\n\n  ```\n  code\n", "## Log", LINE)).toBe(
+    "## Log\n- a\nb\n\n  ```\n  code\n- new line\n",
+  );
+});
+
+it("a fence under a wide list marker gets no column-zero closer", () => {
+  expect(appendUnder("## Log\n-     item\n\n  ```\n  code\n", "## Log", LINE)).toBe(
+    "## Log\n-     item\n\n  ```\n  code\n- new line\n",
+  );
+});
+
+it("drinkTotals counts a line written after a backtick line that opens no fence", () => {
+  expect(
+    drinkTotals(appendUnder("## Log\n- 💧 250 ml\n```x```\nfoo\n", "## Log", "- 💧 500 ml")).water
+      .ml,
+  ).toBe(750);
+});
+
 it("skips a ## Log in the frontmatter", () => {
   const note = "---\n## Log\n---\n# d\n\n## Log\n- a\n";
 

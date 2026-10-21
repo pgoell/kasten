@@ -18,7 +18,21 @@ const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
 
 /** A list marker and the space after it, where the item's content starts. */
-const LIST_MARKER = /^( {0,3})([-*+]|\d{1,9}[.)])( +)/;
+const LIST_MARKER = /^( {0,3})([-*+]|\d{1,9}[.)])( +|$)/;
+
+/** An ATX heading line, which ends a list item's paragraph whatever is above it. */
+const HEADING_LINE = /^#{1,6}( |$)/;
+
+/**
+ * The column a list item's content starts at. Five or more spaces after the
+ * marker is indented code instead, so the content starts one space after the
+ * marker; a marker with nothing after it starts its content one space on.
+ */
+function contentColumn(marker: RegExpExecArray): number {
+  const [, lead = "", bullet = "", gap = ""] = marker;
+  const extra = gap.length === 0 || gap.length >= 5 ? 1 : gap.length;
+  return lead.length + bullet.length + extra;
+}
 
 /**
  * The indices of the lines that are fenced code, fences included, the index of
@@ -123,18 +137,27 @@ function sectionEnd(lines: string[], at: number, isFenced: (index: number) => bo
 /**
  * Whether the fence opened on line `opener` sits in a list item: the first text
  * line above it indented less than the fence is a list marker whose content the
- * fence lines up under. A closer at column 0 would fall out of that item, so such
- * a fence is left as it is. Lines above `floor`, the frontmatter, are not read.
+ * fence lines up under, or a paragraph line whose marker is above it. A closer at
+ * column 0 would fall out of that item, so such a fence is left as it is. Lines
+ * above `floor`, the frontmatter, are not read.
  */
 function inListItem(lines: string[], floor: number, opener: number): boolean {
   const indent = (line: string) => line.length - line.trimStart().length;
   const n = indent(lines[opener] ?? "");
   if (n === 0) return false;
-  for (let index = opener - 1; index >= floor; index -= 1) {
-    const held = lines[index] ?? "";
-    if (held.trim() === "" || indent(held) >= n) continue;
+  const at = (index: number) => lines[index] ?? "";
+  let index = opener - 1;
+  while (index >= floor && (at(index).trim() === "" || indent(at(index)) >= n)) index -= 1;
+  if (index < floor || HEADING_LINE.test(at(index))) return false;
+  const first = LIST_MARKER.exec(at(index));
+  if (first !== null) return contentColumn(first) <= n;
+  // A line that is no marker is a lazy continuation of the paragraph above it, so
+  // the item's marker can be further up, as long as no blank line comes between.
+  for (index -= 1; index >= floor; index -= 1) {
+    const held = at(index);
+    if (held.trim() === "" || HEADING_LINE.test(held)) return false;
     const marker = LIST_MARKER.exec(held);
-    return marker !== null && (marker[0] ?? "").length <= n;
+    if (marker !== null && contentColumn(marker) <= n) return true;
   }
   return false;
 }

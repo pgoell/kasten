@@ -64,6 +64,10 @@ describe("drinkTotals", () => {
     expect(drinkTotals(text).coffee.count).toBe(1);
   });
 
+  it("a line of inline triple-backtick code hides no log line", () => {
+    expect(drinkTotals("## Log\n- 💧 250 ml\n```x```\n- 💧 500 ml\n").water.ml).toBe(750);
+  });
+
   it("opens no section at a ## Log inside a fence", () => {
     const text = "# 2026-10-20\n\n```\n## Log\n```\n- 💧 500 ml";
     expect(drinkTotals(text).water.ml).toBe(0);
