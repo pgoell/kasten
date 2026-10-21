@@ -11,6 +11,7 @@ import { vimKeys, vimModeField, vimModeState } from "@/lib/vim-mode";
 const DAILY = "01 Periodic/00 Daily/2026-10-20.md";
 const OTHER = "02 Projects/Plan.md";
 const NOTE = "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml\n\n## Done\n- [ ] write";
+const FENCED = "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml\n```\ncode\n";
 
 const mounted: EditorView[] = [];
 
@@ -191,5 +192,27 @@ describe("the log card", () => {
     expect(amount(view).value).toBe("500");
     view.dom.querySelector<HTMLButtonElement>(".cm-log-undo")?.click();
     expect(text(view)).toBe(`${NOTE.slice(0, at)}x${NOTE.slice(at)}`);
+  });
+
+  it("with vim on, a tap into a ## Log ending in an unclosed fence closes it and u takes both back", () => {
+    const view = mount(FENCED, DAILY, [vim(), vimModeState()]);
+    press(view, "Log water");
+    const after = text(view);
+    fireEvent.keyDown(view.contentDOM, { key: "u" });
+    expect([after, text(view)]).toEqual([
+      "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml\n```\ncode\n```\n- 💧 250 ml\n",
+      FENCED,
+    ]);
+  });
+
+  it("with vim off, a tap into a ## Log ending in an unclosed fence closes it and undo takes both back", () => {
+    const view = mount(FENCED, DAILY, [vimKeys.of(false)]);
+    press(view, "Log water");
+    const after = text(view);
+    undo(view);
+    expect([after, text(view)]).toEqual([
+      "# 2026-10-20 Tuesday\n\n## Log\n- 💧 500 ml\n```\ncode\n```\n- 💧 250 ml\n",
+      FENCED,
+    ]);
   });
 });

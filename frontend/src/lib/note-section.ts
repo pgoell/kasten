@@ -14,24 +14,35 @@ const HEADING = /^#{1,6} /;
 /** An ATX heading's level and its title. */
 const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 
-/** The run of backticks or tildes that opens or closes a fenced code block. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+/** The run of backticks or tildes that opens or closes a fenced code block, and what follows it. */
+const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
+
+/** A list marker and the space after it, where the item's content starts. */
+const LIST_MARKER = /^( {0,3})([-*+]|\d{1,9}[.)])( +)/;
 
 /**
- * The indices of the lines that are fenced code, fences included, and the index
- * of the fence's opening line where a fence nobody closes runs to the end.
+ * The indices of the lines that are fenced code, fences included, the index of
+ * the fence's opening line where a fence nobody closes runs to the end, and the
+ * run that opened that fence.
  *
  * A `# comment` in a shell block is code, not a heading: it neither opens a
  * section nor ends one. A fence closes on a run of its own character at least as
- * long as the one that opened it, which is CommonMark's rule.
+ * long as the one that opened it, which is CommonMark's rule. A backtick fence's
+ * info string holds no backtick, so a line of inline ```x``` opens nothing.
  */
-function fencedLines(lines: string[]): { coded: Set<number>; openFrom: number | null } {
+function fencedLines(lines: string[]): {
+  coded: Set<number>;
+  openFrom: number | null;
+  openRun: string | null;
+} {
   const coded = new Set<number>();
   let open: string | null = null;
   let openFrom: number | null = null;
   lines.forEach((line, index) => {
-    const fence = FENCE.exec(line)?.[1];
-    if (open === null && fence !== undefined) {
+    const match = FENCE.exec(line);
+    const fence = match?.[1];
+    const opens = fence !== undefined && (fence[0] === "~" || !match?.[2]?.includes("`"));
+    if (open === null && fence !== undefined && opens) {
       open = fence;
       openFrom = index;
       coded.add(index);
@@ -48,7 +59,7 @@ function fencedLines(lines: string[]): { coded: Set<number>; openFrom: number | 
       coded.add(index);
     }
   });
-  return { coded, openFrom };
+  return { coded, openFrom, openRun: open };
 }
 
 /**
@@ -102,6 +113,32 @@ export interface Edit {
   insert: string;
 }
 
+/** The line a section ends on: the next heading outside a fence, or the end of the note. */
+function sectionEnd(lines: string[], at: number, isFenced: (index: number) => boolean): number {
+  let end = at + 1;
+  while (end < lines.length && !(HEADING.test(lines[end] ?? "") && !isFenced(end))) end += 1;
+  return end;
+}
+
+/**
+ * Whether the fence opened on line `opener` sits in a list item: the first text
+ * line above it indented less than the fence is a list marker whose content the
+ * fence lines up under. A closer at column 0 would fall out of that item, so such
+ * a fence is left as it is. Lines above `floor`, the frontmatter, are not read.
+ */
+function inListItem(lines: string[], floor: number, opener: number): boolean {
+  const indent = (line: string) => line.length - line.trimStart().length;
+  const n = indent(lines[opener] ?? "");
+  if (n === 0) return false;
+  for (let index = opener - 1; index >= floor; index -= 1) {
+    const held = lines[index] ?? "";
+    if (held.trim() === "" || indent(held) >= n) continue;
+    const marker = LIST_MARKER.exec(held);
+    return marker !== null && (marker[0] ?? "").length <= n;
+  }
+  return false;
+}
+
 /**
  * The edit that puts `line` under `heading`, rather than the text it produces.
  *
@@ -115,16 +152,30 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
   // The readers take a heading with trailing spaces or tabs, and never one in a
   // fence or the frontmatter, so the writer finds the same one they do.
   const above = lines.length - noteBody(text).split("\n").length;
-  const { coded: fenced, openFrom } = fencedLines(lines.slice(above));
+  const { coded: fenced, openFrom, openRun } = fencedLines(lines.slice(above));
   const isFenced = (index: number) => fenced.has(index - above);
-  let at = lines.findIndex(
+  const at = lines.findIndex(
     (held, index) => index >= above && !isFenced(index) && held.trimEnd() === heading,
   );
-  // The readers count nothing past a fence nobody closes, so a heading made there
-  // is one they never see, and every tap would add another. Use the one already
-  // there, inside the fence.
-  if (at === -1 && openFrom !== null) {
-    at = lines.findIndex((held, index) => index > above + openFrom && held.trimEnd() === heading);
+
+  // The readers count nothing past a fence nobody closes, so a line written there
+  // lands where they never look. Close the fence first when the line would land
+  // inside it: the body ends in it, and the section the line goes in runs to the
+  // end of the note too (or there is no section, so one is made at the end).
+  if (
+    openFrom !== null &&
+    openRun !== null &&
+    (at === -1 || sectionEnd(lines, at, isFenced) === lines.length) &&
+    !inListItem(lines, above, above + openFrom)
+  ) {
+    const closed = text.endsWith("\n") ? `${text}${openRun}\n` : `${text}\n${openRun}`;
+    const edit = appendUnderEdit(closed, heading, line);
+    // One change against `text`, so one undo takes the closer and the line back together.
+    return {
+      from: text.length,
+      to: text.length,
+      insert: closed.slice(text.length, edit.from) + edit.insert + closed.slice(edit.to),
+    };
   }
 
   if (at === -1) {
@@ -134,8 +185,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
     return { from: trimmed.length, to: text.length, insert: `\n\n${heading}\n${line}\n` };
   }
 
-  let end = at + 1;
-  while (end < lines.length && !(HEADING.test(lines[end] ?? "") && !isFenced(end))) end += 1;
+  let end = sectionEnd(lines, at, isFenced);
   while (end > at + 1 && (lines[end - 1] ?? "").trim() === "") end -= 1;
 
   // Nothing follows the section, so the line goes on the end with a newline in

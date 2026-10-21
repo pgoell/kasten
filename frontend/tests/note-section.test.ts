@@ -106,6 +106,10 @@ describe("sectionOf", () => {
     expect(sectionOf("Setext\n======\nbody", "Setext")).toBeNull();
     expect(sectionOf("#hashtag\nbody", "hashtag")).toBeNull();
   });
+
+  it("an embed section ends at the next heading after a line of inline triple-backtick code", () => {
+    expect(sectionOf("## A\n```x```\n## B\nb", "A")).toEqual({ text: "## A\n```x```", line: 1 });
+  });
 });
 
 describe("noteSectionOf", () => {
