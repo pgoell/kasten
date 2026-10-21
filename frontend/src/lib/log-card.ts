@@ -44,6 +44,9 @@ const tapped = StateEffect.define<LastTap | null>();
 /** Opens or closes the food search panel. */
 const foodOpen = StateEffect.define<boolean>();
 
+/** The food search panel of each view while it is open, reused by every card drawn meanwhile. */
+const openPanels = new WeakMap<EditorView, HTMLElement>();
+
 interface Card {
   totals: DrinkTotals;
   lastTap: LastTap | null;
@@ -213,13 +216,20 @@ class LogCard extends WidgetType {
       row.appendChild(button(words, words, "cm-log-undo", () => undoLastTap(view)));
     }
     card.append(totals, row, why);
+    // The open panel is kept per view: a rebuild of the card for a tap or a reload
+    // would otherwise empty its query, its chosen serving and its focus.
     if (this.food) {
-      card.append(
-        foodPanel(view, {
+      let panel = openPanels.get(view);
+      if (panel === undefined) {
+        panel = foodPanel(view, {
           log: (line) => writeLogLine(view, line, [foodOpen.of(false)]),
           close: () => view.dispatch({ effects: foodOpen.of(false) }),
-        }),
-      );
+        });
+        openPanels.set(view, panel);
+      }
+      card.append(panel);
+    } else {
+      openPanels.delete(view);
     }
     return card;
   }
@@ -293,6 +303,10 @@ export function cardShown(view: EditorView): boolean {
 export function openFoodSearch(view: EditorView): boolean {
   if (!cardShown(view)) return false;
   view.dispatch({ effects: foodOpen.of(true) });
-  view.dom.querySelector<HTMLInputElement>(".cm-log-food-query")?.focus();
+  const focusQuery = () => view.dom.querySelector<HTMLInputElement>(".cm-log-food-query")?.focus();
+  focusQuery();
+  // The palette hands its focus back to the editor when it closes, and it closes
+  // after this call returns. A microtask runs after that close, so the query keeps it.
+  queueMicrotask(focusQuery);
   return true;
 }

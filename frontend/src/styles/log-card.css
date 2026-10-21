@@ -51,6 +51,15 @@
   color: var(--color-one-muted);
 }
 
+/* Undo names its whole line, which a food line can make long. The words are cut to
+   the card's width, and the aria-label keeps the full text. */
+.cm-log-undo {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .cm-log-amount {
   flex: 1 1 6rem;
   min-width: 0;

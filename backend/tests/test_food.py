@@ -443,3 +443,77 @@ async def test_621_a13_nothing_is_stored(
         "statuses": [search.status_code, read.status_code],
         "unchanged": snapshot(vault) == before,
     } == {"statuses": [200, 200], "unchanged": True}
+
+
+async def test_621_b_cache_drops_old_answers_and_stays_bounded(
+    client: AsyncClient, answer: Callable, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answer(lambda _: httpx.Response(200, text=fixture("search-skyr.json")))
+    food = food_module()
+    if food is not None:
+        # Each new query is a call to OFF, so the minute's limit is lifted for this test.
+        monkeypatch.setattr(food, "SEARCHES_PER_MINUTE", 10_000)
+
+    first = await client.get("/api/food/search", params={"q": "skyr"})
+    assert first.status_code == 200
+
+    later(monkeypatch, DAY + 1)
+    second = await client.get("/api/food/search", params={"q": "yoghurt"})
+    assert second.status_code == 200
+    skyr_dropped = ("search", "skyr") not in food._cache
+
+    statuses = set()
+    for n in range(1001):
+        r = await client.get("/api/food/search", params={"q": f"query {n}"})
+        statuses.add(r.status_code)
+
+    assert {
+        "skyr_dropped": skyr_dropped,
+        "statuses": statuses,
+        "size": len(food._cache),
+        "oldest_dropped": ("search", "yoghurt") not in food._cache,
+        "newest_kept": ("search", "query 1000") in food._cache,
+    } == {
+        "skyr_dropped": True,
+        "statuses": {200},
+        "size": 1000,
+        "oldest_dropped": True,
+        "newest_kept": True,
+    }
+
+
+async def test_621_b_negative_nutrient_is_absent(client: AsyncClient, answer: Callable) -> None:
+    answer(
+        lambda _: httpx.Response(
+            200,
+            json={
+                "hits": [
+                    {
+                        "code": "1234567890",
+                        "product_name": "Bar",
+                        "serving_quantity": "52.700000001",
+                        "nutriments": {"energy-kcal_100g": 400, "fat_100g": -1},
+                    }
+                ]
+            },
+        )
+    )
+
+    r = await client.get("/api/food/search", params={"q": "bar"})
+
+    food = r.json()[0] if r.status_code == 200 and r.json() else {}
+    assert {
+        "status": r.status_code,
+        "serving_g": food.get("serving_g"),
+        "serving_from": food.get("serving_from"),
+        "fat_100g": food.get("per_100g", {}).get("fat"),
+        "fat_serving": food.get("per_serving", {}).get("fat"),
+        "kcal_serving": food.get("per_serving", {}).get("kcal"),
+    } == {
+        "status": 200,
+        "serving_g": 52.7,
+        "serving_from": "serving_quantity",
+        "fat_100g": None,
+        "fat_serving": None,
+        "kcal_serving": 210.8,
+    }

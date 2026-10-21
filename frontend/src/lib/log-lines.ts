@@ -296,19 +296,32 @@ function cleanWords(words: string): string {
     .replace(/^(breakfast|lunch|dinner|snack):/i, "$1");
 }
 
-/** Whether a food field's value is a number the line can write. */
-const finite = (value: number | undefined): value is number =>
-  value !== undefined && Number.isFinite(value);
+/**
+ * A field's value rounded as the line writes it, or undefined where no parser reads
+ * it back: the format takes from 0 up to nine digits, so a minus sign, 1e9 or more,
+ * and NaN or an infinity (which fail both tests) are left out.
+ */
+const writable = (
+  value: number | undefined,
+  round: (value: number) => number,
+): number | undefined => {
+  if (value === undefined) return undefined;
+  const rounded = round(value);
+  return rounded >= 0 && rounded < 1e9 ? rounded : undefined;
+};
 
 /**
  * The food line the card's search logs, which `parseFood` reads back to the same
- * fields. Kcal is written whole and the grams to a tenth, and a field the values
- * leave out is left out of the line.
+ * fields. Kcal is written whole and the grams to a tenth. A field the values leave
+ * out, or that no parser reads, is left out of the line.
  */
 export function foodLine(food: FoodFields): string {
-  const kcal = finite(food.kcal) ? `🔥 ${Math.round(food.kcal)} kcal` : "";
-  const grams = (value: number | undefined, mark: string) =>
-    finite(value) ? `${mark} ${tenth(value)} g` : "";
+  const whole = writable(food.kcal, Math.round);
+  const kcal = whole === undefined ? "" : `🔥 ${whole} kcal`;
+  const grams = (value: number | undefined, mark: string) => {
+    const tenths = writable(value, tenth);
+    return tenths === undefined ? "" : `${mark} ${tenths} g`;
+  };
   const parts = [
     food.meal ? `${food.meal}:` : "",
     cleanWords(food.words),

@@ -53,6 +53,8 @@ SEARCH_CACHE_SECONDS = 24 * 60 * 60
 """A search is kept a day. The same search comes back often, and a catalogue changes slowly."""
 BARCODE_CACHE_SECONDS = 3 * 24 * 60 * 60
 """A found barcode is kept three days. A label changes rarely; a read is the tighter limit."""
+CACHE_MAX_ENTRIES = 1000
+"""The most answers held at once. Past it the oldest is dropped, so memory stays bounded."""
 SEARCH_MIN, SEARCH_MAX = 2, 100
 """How many characters `q` may hold once its spaces at the ends are gone."""
 
@@ -132,13 +134,19 @@ def _brand(value: object) -> str | None:
     return None
 
 
+def _nutrient(value: object) -> float | None:
+    """A nutrient OFF sent. A negative one is no nutrient, so it counts as absent."""
+    number = _number(value)
+    return number if number is not None and number >= 0 else None
+
+
 def _serving_size_grams(value: object) -> float | None:
     if not isinstance(value, str):
         return None
     found = GRAMS.search(value)
     if found is None:
         return None
-    grams = float(found[1].replace(",", "."))
+    grams = round(float(found[1].replace(",", ".")), 3)
     return grams if grams > 0 else None
 
 
@@ -149,8 +157,8 @@ def _serving(item: dict[str, Any]) -> tuple[float, ServingFrom]:
     is the only sensible reading when OFF names no serving at all.
     """
     quantity = _number(item.get("serving_quantity"))
-    if quantity is not None and quantity > 0:
-        return quantity, "serving_quantity"
+    if quantity is not None and round(quantity, 3) > 0:
+        return round(quantity, 3), "serving_quantity"
     grams = _serving_size_grams(item.get("serving_size"))
     if grams is not None:
         return grams, "serving_size"
@@ -175,11 +183,11 @@ def _food(code: str, item: dict[str, Any]) -> Food:
     serving_g, serving_from = _serving(item)
 
     per_100g: dict[str, float | None] = {
-        field: _number(nutriments.get(f"{off}_100g")) for field, off in NUTRIENTS.items()
+        field: _nutrient(nutriments.get(f"{off}_100g")) for field, off in NUTRIENTS.items()
     }
     per_serving: dict[str, float | None] = {}
     for field, off in NUTRIENTS.items():
-        given = _number(nutriments.get(f"{off}_serving"))
+        given = _nutrient(nutriments.get(f"{off}_serving"))
         base = per_100g[field]
         # Worked out from 100 g only where OFF gives no figure for the serving itself.
         if given is None and base is not None:
@@ -198,12 +206,33 @@ def _food(code: str, item: dict[str, Any]) -> Food:
     )
 
 
-def _held(key: tuple[str, str], seconds: float) -> list[Food] | None:
-    """The answer kept under `key`, or None when none is kept or it is older than `seconds`."""
+def _lifetime(key: tuple[str, str]) -> float:
+    """How long an answer under `key` is kept: a search a day, a barcode three days."""
+    return SEARCH_CACHE_SECONDS if key[0] == "search" else BARCODE_CACHE_SECONDS
+
+
+def _held(key: tuple[str, str]) -> list[Food] | None:
+    """The answer kept under `key`, or None when none is kept or its time is up."""
     held = _cache.get(key)
-    if held is None or time.monotonic() - held[0] >= seconds:
+    if held is None or time.monotonic() - held[0] >= _lifetime(key):
         return None
     return held[1]
+
+
+def _store(key: tuple[str, str], foods: list[Food]) -> None:
+    """Keep `foods` under `key`, after dropping every answer whose time is up.
+
+    Past CACHE_MAX_ENTRIES the oldest answer goes. The key is removed before it is
+    set again, because a dict keeps a reassigned key where it first was.
+    """
+    now = time.monotonic()
+    expired = [old for old, (stored, _) in _cache.items() if now - stored >= _lifetime(old)]
+    for old in expired:
+        del _cache[old]
+    _cache.pop(key, None)
+    _cache[key] = (now, foods)
+    while len(_cache) > CACHE_MAX_ENTRIES:
+        del _cache[next(iter(_cache))]
 
 
 def _admit(window: deque[float], limit: int, phrase: str) -> None:
@@ -265,7 +294,7 @@ async def _search(text: str, contact: str) -> list[Food]:
 
 async def _product(code: str, contact: str) -> Food | None:
     """The food with barcode `code`: from the cache or OFF, or None when OFF has no such product."""
-    held = _held(("barcode", code), BARCODE_CACHE_SECONDS)
+    held = _held(("barcode", code))
     if held is not None:
         return held[0]
 
@@ -287,7 +316,7 @@ async def _product(code: str, contact: str) -> Food | None:
         raise HTTPException(status_code=502, detail=UNANSWERED)
 
     food = _food(_text(product.get("code")) or code, product)
-    _cache[("barcode", code)] = (time.monotonic(), [food])
+    _store(("barcode", code), [food])
     return food
 
 
@@ -307,12 +336,12 @@ async def search_food(q: str, settings: Annotated[Settings, Depends(get_settings
         return [] if food is None else [food]
 
     key = ("search", text.lower())
-    held = _held(key, SEARCH_CACHE_SECONDS)
+    held = _held(key)
     if held is not None:
         return held
     _admit(_searches, SEARCHES_PER_MINUTE, f"{SEARCHES_PER_MINUTE} searches")
     foods = await _search(text, settings.food_contact)
-    _cache[key] = (time.monotonic(), foods)
+    _store(key, foods)
     return foods
 
 

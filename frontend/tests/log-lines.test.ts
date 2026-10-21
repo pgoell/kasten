@@ -224,4 +224,17 @@ describe("foodLine", () => {
       protein: 12,
     });
   });
+
+  it("#621 foodLine leaves out a field no parser can read", () => {
+    const line = "- 🍽 x 🍞 3.2 g";
+    expect(drinkTotals(`## Log\n${line}`).food).toEqual({
+      kcal: 0,
+      protein: 0,
+      carbs: 3.2,
+      fat: 0,
+    });
+    const written = foodLine({ words: "x", kcal: -5, protein: 1e9, carbs: 3.25, fat: 1e21 });
+    expect(written).toBe(line);
+    expect(parseFood(written)).toEqual({ kind: "food", words: "x", carbs: 3.2 });
+  });
 });

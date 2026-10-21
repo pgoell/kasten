@@ -34,6 +34,9 @@ const PAUSE_MS = 400;
 /** The shortest query sent, so one letter is not a call to Open Food Facts. */
 const QUERY_MIN = 2;
 const RECENT_MAX = 10;
+/** The most a line may hold: beyond these its kcal has more digits than the parser reads. */
+const MAX_GRAMS = 5000;
+const MAX_SERVINGS = 100;
 const RECENT_DAYS = 30;
 /** A number as typed: digits, then an optional point or comma and more digits. */
 const NUMBER = /^[0-9]+(?:[.,][0-9]+)?$/;
@@ -62,7 +65,8 @@ function positive(text: string): number | null {
  */
 export function servingValues(food: Choice, grams: number): Nutrients {
   const scale = food.serving_g === null ? grams : grams / food.serving_g;
-  const times = (value: number | null) => (value === null ? null : value * scale);
+  // A negative figure from Open Food Facts is no amount of food, so it reads as none.
+  const times = (value: number | null) => (value === null || value < 0 ? null : value * scale);
   const { kcal, protein, carbs, fat } = food.per_serving;
   return { kcal: times(kcal), protein: times(protein), carbs: times(carbs), fat: times(fat) };
 }
@@ -224,13 +228,15 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
   let offHits: Food[] = [];
   let current: Choice | null = null;
   let latest = 0;
+  /** Counts the picks, so a barcode read answered after a later pick is dropped. */
+  let pickTurn = 0;
   let pause: ReturnType<typeof setTimeout> | undefined;
 
   function render(): void {
     const typed = query.value.trim().toLowerCase();
     const matches = recents.filter((choice) => choice.name.toLowerCase().includes(typed));
     results.replaceChildren(
-      ...matches.map((choice) => pickButton(choice, true, () => show(choice))),
+      ...matches.map((choice) => pickButton(choice, true, () => pickRecent(choice))),
       ...offHits.map((food) => pickButton(food, false, () => readPick(food))),
     );
   }
@@ -278,15 +284,24 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
     );
   }
 
+  /** A pick from the recent foods needs no read, but it still ends a read that is in the air. */
+  function pickRecent(choice: Choice): void {
+    pickTurn += 1;
+    show(choice);
+  }
+
   /** A pick from the search is read for its serving first, since a hit carries none. */
   function readPick(food: Food): void {
+    pickTurn += 1;
+    const turn = pickTurn;
     readBarcode(food.code).then(
       (full) => {
-        if (!root.isConnected) return;
+        // A read answered after a later pick would put this food back over that one.
+        if (turn !== pickTurn || !root.isConnected) return;
         show(full);
       },
       (error: unknown) => {
-        if (!root.isConnected) return;
+        if (turn !== pickTurn || !root.isConnected) return;
         why.textContent = messageOf(error);
         show(food);
       },
@@ -336,6 +351,15 @@ export function foodPanel(view: EditorView, hooks: PanelHooks): HTMLElement {
     const count = positive(servings.value);
     if (count === null) {
       why.textContent = "servings must be a number above zero";
+      return;
+    }
+    // Past these, a line's kcal runs to more digits than the log's parser reads.
+    if (typedGrams !== null && typedGrams > MAX_GRAMS) {
+      why.textContent = `grams must be at most ${MAX_GRAMS}`;
+      return;
+    }
+    if (count > MAX_SERVINGS) {
+      why.textContent = `servings must be at most ${MAX_SERVINGS}`;
       return;
     }
     const values = servingValues(choice, typedGrams ?? count);

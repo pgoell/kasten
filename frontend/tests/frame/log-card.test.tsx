@@ -152,6 +152,24 @@ function pickSnickers(view: EditorView): void {
 }
 
 /**
+ * Every control of the card, Undo included, sits inside the card's right edge,
+ * and the page does not scroll sideways.
+ */
+function expectInsideCard(view: EditorView): void {
+  const edge = view.dom.getBoundingClientRect().right;
+  const controls = [
+    ...view.dom.querySelectorAll<HTMLElement>(".cm-log button, .cm-log input"),
+  ].filter((control) => control.getClientRects().length > 0);
+  const past = controls
+    .filter((control) => control.getBoundingClientRect().right > edge)
+    .map((control) => control.className || control.textContent || "");
+  expect(past, "controls past the card's right edge").toEqual([]);
+  expect(document.documentElement.scrollWidth, "page scrolls sideways").toBeLessThanOrEqual(
+    document.documentElement.clientWidth,
+  );
+}
+
+/**
  * Every control the panel shows is 44px tall, and the text fields and the meal
  * list are 16px, so a phone's browser does not zoom into them. The card's edge is
  * not passed, and the page does not scroll sideways.
@@ -196,6 +214,13 @@ it("#621 the food search and the serving choice are finger-sized and do not scro
       .toContain("kcal");
     expectFingerSized(view);
     expect(await shot(host, "food-serving-414")).toBe(414);
+
+    const log = view.dom.querySelector<HTMLButtonElement>("button[aria-label='Log this food']");
+    expect(log).not.toBeNull();
+    log?.click();
+    await expect.poll(() => view.dom.querySelector(".cm-log-undo")).not.toBeNull();
+    expectInsideCard(view);
+    expect(await shot(host, "food-logged-414")).toBe(414);
     view.destroy();
     host.remove();
   } finally {
